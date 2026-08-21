@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "coffeestory",
-    "runtimeVersion": "exposdk:57.0.0",
+    "runtimeVersion": "exposdk:54.0.0",
     "userInterfaceStyle": "light",
     "ios": {
       "icon": "./assets/expo.icon",
@@ -54,18 +54,24 @@
       [
         "expo-calendar",
         {
-          "calendarPermission": "Allow Coffee Story to add pickup reminders to your calendar."
+          "calendarPermission": "Allow Coffee Story to add coffee cart bookings to your calendar."
         }
       ],
-      "expo-video",
-      "expo-image"
+      "expo-video"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
     },
     "extra": {
-      "router": {}
+      "router": {},
+      "eas": {
+        "projectId": "3dcaf174-4065-4c3b-8c57-35ce0a4bad19"
+      }
+    },
+    "owner": "tylerdevries222",
+    "updates": {
+      "url": "https://u.expo.dev/3dcaf174-4065-4c3b-8c57-35ce0a4bad19"
     }
   }
 }

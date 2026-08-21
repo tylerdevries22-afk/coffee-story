@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/immutability -- Reanimated shared values are designed for worklet mutation; the React Compiler rule is a false positive on these files. */
 import {
   BlurMask,
   Canvas,

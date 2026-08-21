@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/immutability -- Reanimated shared values are designed for worklet mutation; the React Compiler rule is a false positive on these files. */
 import { useMemo } from 'react';
 import { Gesture } from 'react-native-gesture-handler';
 import { Easing, useSharedValue, withSpring, withTiming, type SharedValue } from 'react-native-reanimated';
