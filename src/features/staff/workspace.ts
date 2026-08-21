@@ -1,5 +1,10 @@
 import type { AppRole, BookingSource, PortalAppointment, StaffClient } from '@/types/domain';
 
+// Moved to `features/money.ts` so the client menu and the register share one
+// formatter. Re-exported here because every staff call site already imports it
+// from this module.
+export { formatMoney } from '@/features/money';
+
 /**
  * Surface a workspace renders on. The owner workspace sits on the darker plum
  * and the staff workspace a step lighter, so the two read apart immediately;
@@ -38,15 +43,6 @@ export function formatClockTime(iso: string): string {
 export function appointmentMinutes(appointment: PortalAppointment): number {
   const span = new Date(appointment.endsAt).getTime() - new Date(appointment.startsAt).getTime();
   return Math.max(0, Math.round(span / 60_000));
-}
-
-export function formatMoney(cents: number): string {
-  const dollars = cents / 100;
-  const whole = Number.isInteger(dollars);
-  return `$${dollars.toLocaleString('en-US', {
-    minimumFractionDigits: whole ? 0 : 2,
-    maximumFractionDigits: whole ? 0 : 2,
-  })}`;
 }
 
 export function initials(name: string): string {
