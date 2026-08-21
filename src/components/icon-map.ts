@@ -34,6 +34,7 @@ export const IONICON: Record<string, keyof typeof Ionicons.glyphMap> = {
   'chevron.down': 'chevron-down',
   'chevron.left': 'chevron-back',
   'chevron.right': 'chevron-forward',
+  'chevron.up': 'chevron-up',
   clock: 'time-outline',
   creditcard: 'card-outline',
   'creditcard.fill': 'card',

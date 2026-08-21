@@ -20,10 +20,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppIcon } from '@/components/icon';
 import { useTabBarClearance } from '@/components/navigation/tab-screen';
 import { Screen } from '@/components/ui';
-import { DEMO_ADD_ONS, SERVICES, type Service } from '@/data/catalog';
+import { DEMO_ADD_ONS, MENU_CATEGORY_META, SERVICES, type MenuCategoryId, type Service } from '@/data/catalog';
 import { useAppState } from '@/state/app-context';
 import { useAuth } from '@/state/auth-context';
-import { mobileApi } from '@/lib/mobile-api';
 import { openWebPath } from '@/lib/web-navigation';
 import { colors, fonts, radius, spacing } from '@/theme/tokens';
 import { useReducedMotion } from '@/hooks/use-reduced-motion';
@@ -41,10 +40,17 @@ const HOME_PACKAGES = [
 
 const HERO_SLIDES = ['opening', 'packages', 'gifting'] as const;
 
+/** Tiramisu Latte leads, per the house. */
+const HOUSE_FAVORITE_IDS = ['tiramisu-latte', 'spanish-latte'] as const;
+
+/** Rows shown per category before its Show All button. */
+const CATEGORY_PREVIEW_COUNT = 7;
+
 /**
  * Client home, laid out like the Crumbl app home: a full-bleed hero with the
  * CTA sitting on the media, then dated section headers introducing alternating
- * feature rows whose imagery bleeds off the screen edge.
+ * feature rows whose imagery bleeds off the screen edge — followed by the full
+ * menu, sectioned by category with a capped preview and a Show All reveal.
  */
 export function HomeScreen() {
   const { setClientTab, startBooking } = useAppState();
@@ -59,14 +65,7 @@ export function HomeScreen() {
   const stickyVisible = useRef(false);
   const [showStickyCta, setShowStickyCta] = useState(false);
   const [overHero, setOverHero] = useState(true);
-  const firstService = SERVICES[0];
-  const nextOpeningService =
-    firstService?.id && firstService.durations?.[0]?.minutes
-      ? `${firstService.id}-${firstService.durations[0].minutes}`
-      : null;
-  const nextOpeningBookingService = SERVICES[0]?.id ?? null;
-  const [nextOpening, setNextOpening] = useState(nextOpeningService ? 'Loading next availability' : 'Current availability');
-  const [loadingNextOpening, setLoadingNextOpening] = useState(Boolean(nextOpeningService));
+  const [expanded, setExpanded] = useState<ReadonlySet<MenuCategoryId>>(new Set());
   const firstName = portal.profile.fullName.split(/\s+/)[0] || 'there';
   const heroHeight = Math.round(width * 1.05) + insets.top * 2;
 
@@ -76,8 +75,9 @@ export function HomeScreen() {
     instance.play();
   });
 
-  const featured = SERVICES.slice(0, 2);
-  const classics = SERVICES.slice(2);
+  const favorites = HOUSE_FAVORITE_IDS.map((id) => SERVICES.find((service) => service.id === id)).filter(
+    (service): service is Service => Boolean(service),
+  );
 
   const onScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offset = event.nativeEvent.contentOffset.y;
@@ -97,8 +97,8 @@ export function HomeScreen() {
   });
 
   const onBookNow = useCallback(() => {
-    startBooking(nextOpeningBookingService ?? undefined);
-  }, [startBooking, nextOpeningBookingService]);
+    startBooking('tiramisu-latte');
+  }, [startBooking]);
 
   const onOpenPackages = useCallback(() => {
     void openWebPath('/menu').catch((error: unknown) => {
@@ -106,55 +106,17 @@ export function HomeScreen() {
     });
   }, []);
 
-  const formatNextOpening = useCallback((isoDate: string | null, tz?: string) => {
-    const nextDate = new Date(isoDate ?? "");
-    if (Number.isNaN(nextDate.getTime())) {
-      return "Current availability";
-    }
-
-    const formatter = new Intl.DateTimeFormat("en-US", {
-      timeZone: tz ?? "America/Denver",
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    });
-    return formatter.format(nextDate).replace(", ", " ");
-  }, []);
-
-  useEffect(() => {
-    let active = true;
-    void (async () => {
-      if (!nextOpeningService) return;
-
-      setLoadingNextOpening(true);
-      try {
-        const payload = await mobileApi.nextSlot(nextOpeningService, [], 14);
-        if (!active) return;
-
-        if (!payload.nextSlot) {
-          setNextOpening("Next window soon");
-          return;
-        }
-
-        setNextOpening(formatNextOpening(payload.nextSlot, payload.tz));
-      } catch {
-        if (active) {
-          setNextOpening("Current availability");
-        }
-      } finally {
-        if (active) {
-          setLoadingNextOpening(false);
-        }
+  const toggleCategory = useCallback((category: MenuCategoryId) => {
+    setExpanded((current) => {
+      const next = new Set(current);
+      if (next.has(category)) {
+        next.delete(category);
+      } else {
+        next.add(category);
       }
-    })();
-
-    return () => {
-      active = false;
-    };
-  }, [formatNextOpening, nextOpeningService]);
+      return next;
+    });
+  }, []);
 
   return (
     <View style={styles.shell}>
@@ -215,17 +177,13 @@ export function HomeScreen() {
                 </Animated.View>
                 <LinearGradient
                   pointerEvents="none"
-                  colors={['rgba(36,24,41,0.38)', 'rgba(36,24,41,0.02)', 'rgba(36,24,41,0.56)']}
+                  colors={['rgba(36,23,16,0.38)', 'rgba(36,23,16,0.02)', 'rgba(36,23,16,0.56)']}
                   locations={[0, 0.42, 1]}
                   style={StyleSheet.absoluteFill}
                 />
                 {slide === 'opening' ? (
                   <View style={styles.openingContent}>
-                    <NextOpeningPill
-                      nextOpening={nextOpening}
-                      isLoading={loadingNextOpening}
-                      onPress={onBookNow}
-                    />
+                    <BookNowPill onPress={onBookNow} reducedMotion={reducedMotion} />
                   </View>
                 ) : null}
                 {slide === 'packages' ? (
@@ -288,7 +246,7 @@ export function HomeScreen() {
         title="House Favorites"
         body="The drinks Aurora keeps coming back for — handcrafted on Corvus Coffee."
       />
-      {featured.map((service, index) => (
+      {favorites.map((service, index) => (
         <FeatureRow
           key={service.id}
           service={service}
@@ -299,19 +257,44 @@ export function HomeScreen() {
       ))}
 
       <SectionHeader
-        pill="Always Available"
-        title="The Classics"
-        body="From Turkish coffee to cold brew — these are here to stay, all day until 11 PM."
+        pill="The Full Menu"
+        title="Explore by Category"
+        body="Every drink and bite we serve — tap anything to start an order."
       />
-      {classics.map((service, index) => (
-        <FeatureRow
-          key={service.id}
-          service={service}
-          tag="Always Available"
-          flip={index % 2 === 1}
-          onPress={() => startBooking(service.id)}
-        />
-      ))}
+      {MENU_CATEGORY_META.map((category) => {
+        const items = SERVICES.filter((service) => service.category === category.id);
+        const isExpanded = expanded.has(category.id);
+        const visible = isExpanded ? items : items.slice(0, CATEGORY_PREVIEW_COUNT);
+        return (
+          <View key={category.id} style={styles.categorySection}>
+            <View style={styles.categoryHeader}>
+              <View style={styles.categoryHeaderCopy}>
+                <Text accessibilityRole="header" style={styles.categoryTitle}>{category.title}</Text>
+                <Text style={styles.categoryTagline}>{category.tagline}</Text>
+              </View>
+              <Text style={styles.categoryCount}>{items.length}</Text>
+            </View>
+            <View style={styles.menuList}>
+              {visible.map((item) => (
+                <MenuRow key={item.id} item={item} onPress={() => startBooking(item.id)} />
+              ))}
+            </View>
+            {items.length > CATEGORY_PREVIEW_COUNT ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={isExpanded ? `Show fewer ${category.title}` : `Show all ${category.title}`}
+                onPress={() => toggleCategory(category.id)}
+                style={({ pressed }) => [styles.showAllButton, pressed && styles.pressed]}
+              >
+                <Text style={styles.showAllText}>
+                  {isExpanded ? 'Show less' : `Show all ${items.length}`}
+                </Text>
+                <AppIcon name={isExpanded ? 'chevron.up' : 'chevron.down'} size={13} tintColor={colors.brand700} />
+              </Pressable>
+            ) : null}
+          </View>
+        );
+      })}
 
       <SectionHeader
         pill="Make It Yours"
@@ -325,7 +308,7 @@ export function HomeScreen() {
               <Text style={styles.addOnName}>{addOn.name}</Text>
               <Text style={styles.addOnBody}>{addOn.description}</Text>
             </View>
-            <Text style={styles.addOnPrice}>${(addOn.priceCents / 100).toFixed(0)}</Text>
+            <Text style={styles.addOnPrice}>${(addOn.priceCents / 100).toFixed(2).replace(/\.00$/, '')}</Text>
           </View>
         ))}
       </View>
@@ -346,11 +329,13 @@ export function HomeScreen() {
       >
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Start your order"
+          accessibilityLabel="Book now"
           onPress={onBookNow}
           style={({ pressed }) => [styles.stickyBookNowButton, pressed && styles.pressed]}
         >
-          <Text style={styles.stickyBookNowText}>Order Now</Text>
+          <PulseDot reducedMotion={reducedMotion} />
+          <Text style={styles.stickyBookNowText}>Book Now</Text>
+          <Text style={styles.stickyBookNowWait}>~ 3 min</Text>
           <AppIcon name="chevron.right" size={14} tintColor={colors.white} />
         </Pressable>
       </Animated.View>
@@ -358,37 +343,47 @@ export function HomeScreen() {
   );
 }
 
-function NextOpeningPill({
-  nextOpening,
-  onPress,
-  isLoading,
-}: {
-  nextOpening: string;
-  onPress: () => void;
-  isLoading: boolean;
-}) {
+/** The live "we're open and fast" dot: a soft pulse on a success-green core. */
+function PulseDot({ reducedMotion }: { reducedMotion: boolean }) {
+  const pulse = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (reducedMotion) return undefined;
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1, duration: 900, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0, duration: 900, useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pulse, reducedMotion]);
+
+  const ringScale = pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 2.1] });
+  const ringOpacity = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.55, 0] });
+
   return (
-    <View style={styles.nextOpeningPill}>
-      <View style={styles.nextOpeningInfoWrap}>
-        <View style={styles.nextOpeningDot} />
-        <View style={styles.nextOpeningCopy}>
-          <Text style={styles.nextOpeningLabel}>Next pickup window</Text>
-          <Text style={styles.nextOpeningValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.82}>
-            {isLoading ? 'Loading…' : nextOpening}
-          </Text>
-        </View>
-      </View>
-      <View style={styles.nextOpeningDivider} />
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Start your order"
-        onPress={onPress}
-        style={({ pressed }) => [styles.nextOpeningCta, pressed && styles.pressed]}
-      >
-        <Text style={styles.nextOpeningCtaText}>Order Now</Text>
-        <AppIcon name="chevron.right" size={14} tintColor={colors.white} />
-      </Pressable>
+    <View style={styles.pulseWrap} accessible={false}>
+      <Animated.View style={[styles.pulseRing, { transform: [{ scale: ringScale }], opacity: ringOpacity }]} />
+      <View style={styles.pulseCore} />
     </View>
+  );
+}
+
+function BookNowPill({ onPress, reducedMotion }: { onPress: () => void; reducedMotion: boolean }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Book now — about a 3 minute wait"
+      onPress={onPress}
+      style={({ pressed }) => [styles.bookNowPill, pressed && styles.pressed]}
+    >
+      <PulseDot reducedMotion={reducedMotion} />
+      <Text style={styles.bookNowText}>Book Now</Text>
+      <View style={styles.bookNowDivider} />
+      <Text style={styles.bookNowWait}>~ 3 min</Text>
+      <AppIcon name="chevron.right" size={14} tintColor={colors.white} />
+    </Pressable>
   );
 }
 
@@ -428,13 +423,33 @@ function FeatureRow({
         {from ? <Text style={styles.featureFrom}>From ${from}</Text> : null}
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Learn more about ${service.name}`}
+          accessibilityLabel={`Order ${service.name}`}
           onPress={onPress}
         >
-          <Text style={styles.learnMore}>Learn More  ›</Text>
+          <Text style={styles.learnMore}>Order Now  ›</Text>
         </Pressable>
       </View>
     </View>
+  );
+}
+
+function MenuRow({ item, onPress }: { item: Service; onPress: () => void }) {
+  const from = item.durations[0]?.price;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Order ${item.name}`}
+      onPress={onPress}
+      style={({ pressed }) => [styles.menuRow, pressed && styles.pressed]}
+    >
+      <Image source={item.image} style={styles.menuRowImage} contentFit="cover" alt={item.name} />
+      <View style={styles.menuRowCopy}>
+        <Text style={styles.menuRowName}>{item.name}</Text>
+        <Text numberOfLines={1} style={styles.menuRowBody}>{item.description}</Text>
+      </View>
+      {from ? <Text style={styles.menuRowPrice}>${from}</Text> : null}
+      <AppIcon name="chevron.right" size={13} tintColor={colors.ink400} />
+    </Pressable>
   );
 }
 
@@ -448,64 +463,25 @@ const styles = StyleSheet.create({
   heroSlide: { height: '100%', overflow: 'hidden' },
   heroMedia: { position: 'absolute', top: 0, bottom: 0, left: '-14%', right: '-14%' },
   openingContent: { position: 'absolute', left: spacing.lg, right: spacing.lg, bottom: 42 },
-  nextOpeningPill: {
-    flexDirection: 'row',
-    overflow: 'hidden',
-    minHeight: 52,
+
+  bookNowPill: {
+    minHeight: 56,
     borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.white,
-    backgroundColor: 'rgba(255, 255, 255, 0.93)',
-  },
-  nextOpeningInfoWrap: {
-    flex: 1,
-    minWidth: 0,
-    paddingLeft: spacing.md,
-    paddingRight: spacing.sm,
-    paddingVertical: spacing.xs,
+    backgroundColor: colors.brand600,
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  nextOpeningCopy: { flex: 1, minWidth: 0 },
-  nextOpeningDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 8,
-    backgroundColor: colors.success,
-  },
-  nextOpeningLabel: {
-    color: colors.ink600,
-    fontFamily: fonts.sansBold,
-    fontSize: 10,
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-  },
-  nextOpeningValue: {
-    color: colors.ink900,
-    fontFamily: fonts.sansBold,
-    fontSize: 14,
-    lineHeight: 18,
-  },
-  nextOpeningDivider: {
-    width: 1,
-    backgroundColor: colors.ink200,
-  },
-  nextOpeningCta: {
-    width: 112,
     alignItems: 'center',
     justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 7,
-    backgroundColor: colors.brand600,
-    paddingHorizontal: spacing.md,
-    minHeight: 52,
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
   },
-  nextOpeningCtaText: {
-    color: colors.white,
-    fontFamily: fonts.sansBold,
-    fontSize: 15,
-  },
+  bookNowText: { color: colors.white, fontFamily: fonts.sansBold, fontSize: 17 },
+  bookNowDivider: { width: 1, height: 18, backgroundColor: 'rgba(255,255,255,0.35)' },
+  bookNowWait: { color: 'rgba(255,255,255,0.82)', fontFamily: fonts.sansMedium, fontSize: 14 },
+
+  pulseWrap: { width: 12, height: 12, alignItems: 'center', justifyContent: 'center' },
+  pulseRing: { position: 'absolute', width: 12, height: 12, borderRadius: 8, backgroundColor: '#7ED492' },
+  pulseCore: { width: 7, height: 7, borderRadius: 5, backgroundColor: '#7ED492' },
+
   pressed: { opacity: 0.85 },
   dots: { position: 'absolute', left: spacing.lg, bottom: 19, flexDirection: 'row', gap: 6 },
   dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.55)' },
@@ -519,7 +495,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.78)',
-    backgroundColor: 'rgba(255,252,254,0.94)',
+    backgroundColor: 'rgba(255,253,248,0.94)',
     padding: spacing.md,
   },
   packageHeadingRow: { minHeight: 54, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -581,6 +557,57 @@ const styles = StyleSheet.create({
   featureFrom: { color: colors.ink500, fontFamily: fonts.sans, fontSize: 14 },
   learnMore: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 15, marginTop: 2 },
 
+  categorySection: { paddingTop: spacing.lg },
+  categoryHeader: {
+    paddingHorizontal: spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  categoryHeaderCopy: { flex: 1, minWidth: 0, gap: 2 },
+  categoryTitle: { color: colors.ink900, fontFamily: fonts.display, fontSize: 26, lineHeight: 30, letterSpacing: -0.5 },
+  categoryTagline: { color: colors.ink500, fontFamily: fonts.sans, fontSize: 13 },
+  categoryCount: {
+    color: colors.brand700,
+    fontFamily: fonts.sansBold,
+    fontSize: 13,
+    backgroundColor: colors.brand100,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    overflow: 'hidden',
+  },
+  menuList: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm },
+  menuRow: {
+    minHeight: 76,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.ink200,
+    paddingVertical: spacing.sm,
+  },
+  menuRowImage: { width: 56, height: 56, borderRadius: radius.sm, backgroundColor: colors.brand100 },
+  menuRowCopy: { flex: 1, minWidth: 0, gap: 2 },
+  menuRowName: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 15 },
+  menuRowBody: { color: colors.ink500, fontFamily: fonts.sans, fontSize: 12.5 },
+  menuRowPrice: { color: colors.ink900, fontFamily: fonts.display, fontSize: 17 },
+  showAllButton: {
+    alignSelf: 'center',
+    marginTop: spacing.sm,
+    minHeight: 44,
+    borderRadius: radius.pill,
+    backgroundColor: colors.brand50,
+    borderWidth: 1,
+    borderColor: colors.brand200,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.lg,
+  },
+  showAllText: { color: colors.brand700, fontFamily: fonts.sansBold, fontSize: 14 },
+
   addOns: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, gap: spacing.sm },
   addOnRow: {
     minHeight: 66,
@@ -618,5 +645,10 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontFamily: fonts.sansBold,
     fontSize: 17,
+  },
+  stickyBookNowWait: {
+    color: 'rgba(255,255,255,0.82)',
+    fontFamily: fonts.sansMedium,
+    fontSize: 14,
   },
 });

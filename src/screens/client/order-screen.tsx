@@ -35,11 +35,11 @@ import { AppIcon } from '@/components/icon';
 import { choiceState } from '@/lib/a11y-state';
 
 const DEMO_ADDRESS: DispatchAddress = {
-  street: '1240 Maple Avenue',
+  street: '1240 Dayton Street',
   unit: '',
-  city: 'Greenwood Village',
+  city: 'Aurora',
   state: 'CO',
-  postalCode: '80111',
+  postalCode: '80010',
   instructions: '',
 };
 
@@ -106,10 +106,10 @@ function selectedFulfillment(
   officeId: string | null,
   address: DispatchAddress,
 ): BookingFulfillment | string {
-  if (!mode) return 'Choose In Studio or Mobile care.';
+  if (!mode) return 'Choose Pickup or Delivery.';
   if (mode === 'office') {
     const office = OFFICE_LOCATIONS.find((location) => location.id === officeId);
-    return office ? { mode, office } : 'Choose the office you want to visit.';
+    return office ? { mode, office } : 'Choose the shop you want to pick up from.';
   }
   const addressError = validateDispatchAddress(address);
   return addressError ?? { mode, address: { ...address, state: address.state.toUpperCase() } };
@@ -135,8 +135,8 @@ function OrderStart(props: OrderStartProps) {
   const { startBooking, openMore, setClientTab } = useAppState();
   const compact = width < 360;
   const siriCommands: readonly SiriCommand[] = [
-    { key: 'book', phrase: 'Book a massage', onRun: () => startBooking() },
-    { key: 'next-visit', phrase: 'When is my next visit?', onRun: () => openMore('visits') },
+    { key: 'book', phrase: 'Order my usual', onRun: () => startBooking() },
+    { key: 'next-visit', phrase: 'When is my next pickup?', onRun: () => openMore('visits') },
     { key: 'rewards', phrase: 'Check my rewards balance', onRun: () => setClientTab('rewards') },
     { key: 'gift', phrase: 'Send a gift card', onRun: () => setClientTab('gift') },
   ];
@@ -144,7 +144,6 @@ function OrderStart(props: OrderStartProps) {
     <>
     <CollapsingScreen
       title="Start an Order"
-      eyebrow="Book your care"
       keyboardShouldPersistTaps="handled"
       style={styles.page}
       headerBackgroundColor={colors.brand200}
@@ -155,14 +154,14 @@ function OrderStart(props: OrderStartProps) {
       <View accessibilityRole="radiogroup" style={[styles.modeRow, compact && styles.modeRowCompact]}>
         <ModeCard
           mode="dispatch"
-          label="Mobile"
+          label="Delivery"
           compact={compact}
           selected={props.mode === 'dispatch'}
           onPress={() => props.onModeChange('dispatch')}
         />
         <ModeCard
           mode="office"
-          label="In Studio"
+          label="Pickup"
           compact={compact}
           selected={props.mode === 'office'}
           onPress={() => props.onModeChange('office')}
@@ -182,16 +181,16 @@ function OrderStart(props: OrderStartProps) {
         </View>
         <View style={styles.giftCardCopy}>
           <Text style={styles.giftCardTitle}>Digital Gift Cards</Text>
-          <Text style={styles.giftCardDetail}>Send a thoughtful gift in a few taps.</Text>
+          <Text style={styles.giftCardDetail}>Send a blessing in a few taps.</Text>
         </View>
         <AppIcon name="chevron.right" size={18} tintColor={colors.ink500} />
       </Pressable>
-      <Body muted>Choose where your session should take place.</Body>
+      <Body muted>Pickup at the shop on Havana St, or delivery to your door.</Body>
     </CollapsingScreen>
     {props.detailOpen && props.mode ? (
       <PushFromRight visible onDismiss={props.onCloseDetail}>
         <CollapsingScreen
-          title={props.mode === 'office' ? 'In Studio' : 'Mobile'}
+          title={props.mode === 'office' ? 'Pickup at the Shop' : 'Delivery'}
           eyebrow="Start an order"
           onBack={props.onCloseDetail}
           backLabel="Order"
@@ -212,7 +211,7 @@ function OrderStart(props: OrderStartProps) {
           )}
           {props.error ? <Text accessibilityRole="alert" style={styles.error}>{props.error}</Text> : null}
           <Button
-            label={props.mode === 'office' ? 'Continue with this office' : 'Continue with this address'}
+            label={props.mode === 'office' ? 'Continue with pickup' : 'Continue with this address'}
             onPress={props.onContinue}
           />
         </CollapsingScreen>
@@ -234,7 +233,7 @@ function ModeCard({ mode, label, compact, selected, onPress }: ModeCardProps) {
   return (
     <Pressable
       accessibilityRole="radio"
-      accessibilityLabel={`${label} appointment`}
+      accessibilityLabel={`${label} order`}
       {...choiceState(selected)}
       onPress={onPress}
       style={({ pressed }) => [

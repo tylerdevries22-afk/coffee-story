@@ -42,6 +42,6 @@ test('formats optional units and normalizes the state', () => {
 test('describes office fulfillment from the selected office', () => {
   assert.equal(
     fulfillmentDetail({ mode: 'office', office: OFFICE_LOCATIONS[0] }),
-    '5650 Greenwood Plaza Blvd, Suite 225-C, Greenwood Village, CO 80111',
+    '2222 S Havana St Unit A1, Aurora, CO 80014',
   );
 });

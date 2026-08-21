@@ -11,7 +11,7 @@ export type BookingServiceGroup = {
 export function projectService(
   service: Service,
   duration = service.durations[0],
-  depositCents = 2500,
+  depositCents = 0,
 ): BookingService {
   return {
     // The duration carries its own slug. Deriving one from the id produced
@@ -19,7 +19,7 @@ export function projectService(
     // could not be priced.
     slug: duration?.slug ?? service.id,
     name: service.name,
-    category: service.id === 'signature' ? 'signature' : 'therapeutic',
+    category: service.category === 'signature' ? 'signature' : 'specialty',
     durationMin: duration?.minutes ?? 60,
     priceCents: (duration?.price ?? 0) * 100,
     depositCents,
@@ -29,7 +29,7 @@ export function projectService(
 
 export function projectServices(
   services: readonly Service[],
-  depositCents = 2500,
+  depositCents = 0,
 ): BookingService[] {
   return services.flatMap((service) => (
     service.durations.length
@@ -40,7 +40,7 @@ export function projectServices(
 
 export function projectFirstServices(
   services: readonly Service[],
-  depositCents = 2500,
+  depositCents = 0,
 ): BookingService[] {
   return services.map((service) => ({
     ...projectService(service, service.durations[0], depositCents),
@@ -61,7 +61,7 @@ export function groupBookingServices(
     }
     grouped.set(service.name, {
       name: service.name,
-      description: service.description ?? 'Personalized care shaped around how your body feels today.',
+      description: service.description ?? 'Made fresh, just for you.',
       image: imageForService(service.slug),
       sessions: [service],
     });

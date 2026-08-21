@@ -25,8 +25,9 @@ test('hero media bleeds into the status bar and parallax respects reduced motion
   assert.match(home, /contentInsetAdjustmentBehavior="never"/);
 });
 
-test('next opening reserves compact copy and action columns', () => {
-  assert.match(home, /nextOpeningCopy: \{ flex: 1, minWidth: 0 \}/);
-  assert.match(home, /adjustsFontSizeToFit/);
-  assert.match(home, /nextOpeningCta: \{[\s\S]*width: 112/);
+test('book now pill keeps a compact wait-time and live pulse', () => {
+  assert.match(home, /BookNowPill/);
+  assert.match(home, /~ 3 min/);
+  assert.match(home, /PulseDot/);
+  assert.match(home, /Animated\.loop/);
 });

@@ -25,11 +25,11 @@ import { colors, fonts, radius, spacing } from '@/theme/tokens';
 import type { BookingAddOn, BookingService } from '@/types/domain';
 import { choiceState } from '@/lib/a11y-state';
 import { SELECTABLE_DAYS, upcomingDates } from '@/features/dates';
-import matcha from '../../../assets/menu/rooh-afza-matcha.webp';
+import matcha from '../../../assets/menu/matcha-latte.webp';
 import latte from '../../../assets/menu/spanish-latte.webp';
 import sweets from '../../../assets/menu/mochi-donut.webp';
 import refresher from '../../../assets/menu/midnight-lychee.webp';
-import pastry from '../../../assets/menu/nutella-croissant.webp';
+import pastry from '../../../assets/menu/strawberry-nutella-croissant.webp';
 
 type SessionGroup = BookingServiceGroup;
 

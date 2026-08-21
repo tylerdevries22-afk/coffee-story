@@ -23,18 +23,11 @@ export type BookingFulfillment =
 
 export const OFFICE_LOCATIONS: readonly OfficeLocation[] = [
   {
-    id: 'greenwood-village',
-    name: 'Greenwood Village',
-    address: '5650 Greenwood Plaza Blvd, Suite 225-C',
-    cityLine: 'Greenwood Village, CO 80111',
-    note: 'Primary studio · easy parking',
-  },
-  {
-    id: 'boulder',
-    name: 'Boulder',
-    address: '1750 Pearl Street, Suite 200',
-    cityLine: 'Boulder, CO 80302',
-    note: 'Select appointment days',
+    id: 'coffee-story-havana',
+    name: 'Coffee Story — Havana St',
+    address: '2222 S Havana St Unit A1',
+    cityLine: 'Aurora, CO 80014',
+    note: 'Open daily 8am–11pm · free parking',
   },
 ] as const;
 
