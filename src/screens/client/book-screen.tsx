@@ -225,7 +225,7 @@ export function BookScreen({
   }
 
   return (
-    <CollapsingScreen title="What are you craving today?" eyebrow="Start an order">
+    <CollapsingScreen title="What are you craving today?">
       <Body muted>
         {depositCents > 0
           ? `Your $${(depositCents / 100).toFixed(0)} prepayment is securely applied to the order.`
