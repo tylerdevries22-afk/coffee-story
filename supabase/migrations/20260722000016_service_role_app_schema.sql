@@ -1,0 +1,11 @@
+-- 0016: service_role needs USAGE on schema app.
+--
+-- 0009 granted usage to authenticated and anon (their RLS policies call the
+-- app.jwt_* helpers), but not to service_role — nothing exercised it until
+-- the platform API's in-process tests ran the engine through PostgREST as
+-- service_role: inserting an orders row evaluates the status column's
+-- default ('created'::app.order_status), the cast looks the type up in
+-- schema app, and the insert died with 42501 "permission denied for schema
+-- app". The Square webhook route (also service_role) would have hit the
+-- same wall on its first order_events insert in production.
+grant usage on schema app to service_role;
