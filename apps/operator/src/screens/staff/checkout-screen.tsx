@@ -1,4 +1,3 @@
-import { useStripe } from '@/lib/stripe';
 import { useMemo, useState } from 'react';
 import { Alert } from 'react-native';
 
@@ -16,7 +15,6 @@ import {
   type TipOption,
 } from '@/features/staff/pos-totals';
 import { isStaffTenderAvailable } from '@/features/staff/payment-availability';
-import { mobileApi } from '@/lib/mobile-api';
 import { useAuth } from '@/state/auth-context';
 import type { PortalAppointment } from '@/types/domain';
 
@@ -33,7 +31,6 @@ export function CheckoutScreen({ appointments, onComplete, promptForTip, onBack 
   onBack?: () => void;
 }) {
   const { isDemo } = useAuth();
-  const stripe = useStripe();
   const eligible = useMemo(
     () => appointments.filter((appointment) => appointment.status === 'confirmed' || appointment.status === 'pending'),
     [appointments],
@@ -155,35 +152,12 @@ export function CheckoutScreen({ appointments, onComplete, promptForTip, onBack 
       return;
     }
 
-    setPaying(true);
-    setNotice(null);
-    try {
-      const payment = await mobileApi.createStaffCheckout({
-        appointmentId: selected.id,
-        tipCents,
-        idempotencyKey: `checkout-${selected.id}-${tipCents}`,
-      });
-      const initialized = await stripe.initPaymentSheet({
-        merchantDisplayName: 'Coffee Story',
-        paymentIntentClientSecret: payment.paymentIntent,
-        customerEphemeralKeySecret: payment.ephemeralKey,
-        customerId: payment.customer,
-        returnURL: 'coffeestory://stripe-redirect',
-      });
-      if (initialized.error) throw new Error(initialized.error.message);
-      const presented = await stripe.presentPaymentSheet();
-      if (presented.error) throw new Error(presented.error.message);
-      setNotice('Payment received. Rewards will post after secure confirmation.');
-      await onComplete(selected.id);
-      finish(cardChargeCents, chosenMethod.label, true);
-    } catch (checkoutError) {
-      Alert.alert(
-        'Checkout could not be completed',
-        checkoutError instanceof Error ? checkoutError.message : 'No card was charged.',
-      );
-    } finally {
-      setPaying(false);
-    }
+    // Card-present checkout goes live with the Square connection; the
+    // register keeps working with the counter tenders above until then.
+    Alert.alert(
+      'Card checkout coming soon',
+      'Card payments arrive with the Square connection. Take this sale with a counter tender, or preview the full flow in Demo.',
+    );
   }
 
   return (

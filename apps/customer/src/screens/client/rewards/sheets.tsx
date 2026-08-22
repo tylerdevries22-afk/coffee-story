@@ -6,7 +6,7 @@ import { SheetModal } from '@/components/sheet-modal';
 import { Button } from '@/components/ui';
 import { HEART_POINTS_LABEL, demoReferralCode, referralShareUrl } from '@/features/rewards/presentation';
 import { mobileApi } from '@/lib/mobile-api';
-import { PRODUCTION_PORTAL_URL } from '@/lib/portal-url';
+import { TENANT } from '@/tenant';
 import { colors } from '@/theme/tokens';
 import type { RewardCatalogItem, RewardReferral } from '@/types/domain';
 
@@ -126,7 +126,7 @@ export function ReferralSheet({
 }) {
   const demoCode = demoReferralCode(profileId);
   const [code, setCode] = useState(demoCode);
-  const [shareUrl, setShareUrl] = useState(referralShareUrl(PRODUCTION_PORTAL_URL, demoCode));
+  const [shareUrl, setShareUrl] = useState(referralShareUrl(TENANT.business.website, demoCode));
   const [referrals, setReferrals] = useState<RewardReferral[]>([]);
   const [loading, setLoading] = useState(false);
 

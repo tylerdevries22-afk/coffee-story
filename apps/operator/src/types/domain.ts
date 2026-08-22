@@ -1,3 +1,5 @@
+import type { OrderStatus } from '@platform/schema';
+
 export type AppRole = 'client' | 'staff' | 'admin';
 
 export type SetupStatus = 'not_started' | 'in_progress' | 'completed';
@@ -77,6 +79,36 @@ export type PortalAppointment = {
 };
 
 export type BookingSource = 'website' | 'directory' | 'campaign' | 'staff';
+
+export type PortalOrderLine = {
+  name: string;
+  quantity: number;
+  unitPriceCents: number;
+  options: readonly string[];
+};
+
+/**
+ * A real order from the live plane (orders + order_events under RLS),
+ * carrying rule 2's status. The live bundle populates `PortalBundle.orders`
+ * with these; the demo plane still speaks PortalAppointment until its
+ * screens migrate.
+ */
+export type PortalOrder = {
+  id: string;
+  status: OrderStatus;
+  /** "2× Latte, Cookie" — what a list row shows. */
+  summary: string;
+  lines: PortalOrderLine[];
+  fulfillmentType: 'pickup' | 'curbside' | 'catering' | 'delivery';
+  /** ISO pickup window start; null = as soon as possible. */
+  scheduledFor: string | null;
+  placedAt: string;
+  subtotalCents: number;
+  taxCents: number;
+  tipCents: number;
+  totalCents: number;
+  note: string;
+};
 
 export type RewardAccount = {
   availablePoints: number;
@@ -167,6 +199,8 @@ export type PortalBundle = {
   profile: PortalProfile;
   role: AppRole;
   appointments: PortalAppointment[];
+  /** Live-plane orders. Absent in the demo bundle (appointments carry demo state). */
+  orders?: PortalOrder[];
   rewardAccount: RewardAccount;
   rewardLedger: RewardEntry[];
   rewardActivities: string[];

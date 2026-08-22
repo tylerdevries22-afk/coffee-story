@@ -64,6 +64,56 @@
     "feeBpsTier2": 150,
     "tierThresholdCents": 2000000
   },
+  "tax": {
+    "$note": "The authorities on the shop's Colorado sales-tax licence; confirm before charging live money (docs/PRODUCTION.md #3). The order API charges exactly these.",
+    "jurisdictions": [
+      {
+        "id": "state",
+        "label": "State Sales Tax",
+        "rate": 0.029
+      },
+      {
+        "id": "city",
+        "label": "City of Aurora Sales Tax",
+        "rate": 0.0375
+      },
+      {
+        "id": "rtd",
+        "label": "Regional Transportation District Tax",
+        "rate": 0.01
+      },
+      {
+        "id": "county",
+        "label": "Arapahoe County Tax",
+        "rate": 0.0025
+      }
+    ]
+  },
+  "loyalty": {
+    "$note": "What Beans buy, served by /api/loyalty/redeem. points_cost is integer points.",
+    "rewards": [
+      {
+        "slug": "drink-credit-5",
+        "name": "$5 drink credit",
+        "points_cost": 500
+      },
+      {
+        "slug": "mochi-donut",
+        "name": "Free mochi donut",
+        "points_cost": 800
+      },
+      {
+        "slug": "drink-credit-15",
+        "name": "$15 drink credit",
+        "points_cost": 1500
+      },
+      {
+        "slug": "signature-latte",
+        "name": "Free signature latte",
+        "points_cost": 2000
+      }
+    ]
+  },
   "location": {
     "name": "Coffee Story",
     "address": {

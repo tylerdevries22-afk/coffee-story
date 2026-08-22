@@ -193,3 +193,15 @@ label.field input, label.field select, label.field textarea {
   font-size: 14px;
   margin-bottom: 24px;
 }
+
+/* ---- sign-in ---- */
+.login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.login-card { width: 100%; max-width: 420px; }
+.login-form { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+.login-form-alt { border-top: 1px solid var(--border, #26303c); padding-top: 16px; margin-top: 20px; }
+.login-form label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted, #8b98a5); }
+.login-form input { padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border, #26303c); background: transparent; color: inherit; font-size: 15px; }
+.login-form button { padding: 10px 14px; border-radius: 8px; border: none; background: #e7edf3; color: #10161c; font-weight: 600; cursor: pointer; }
+.login-form button.secondary { background: transparent; color: inherit; border: 1px solid var(--border, #26303c); }
+.login-alt { font-size: 13px; color: var(--muted, #8b98a5); }
+.session .linklike { background: none; border: none; padding: 0; margin-top: 6px; color: inherit; text-decoration: underline; cursor: pointer; font: inherit; font-size: 12px; }

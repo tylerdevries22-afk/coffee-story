@@ -1,13 +1,16 @@
 import 'react-native-url-polyfill/auto';
 
 import * as SecureStore from 'expo-secure-store';
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { createSupabaseClient } from '@platform/data';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { AppState, Platform } from 'react-native';
 
-import { isValidSupabasePublishableKey, isValidSupabaseUrl } from '@/lib/runtime-config';
-
-const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
-const publishableKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+/**
+ * The app's one Supabase client, built by @platform/data's shared factory
+ * (which validates the URL and refuses any key with database authority).
+ * This file only supplies what is runtime-specific: the env values and the
+ * session storage — SecureStore on native, localStorage on web.
+ */
 
 const secureStorage = {
   getItem: (key: string) => SecureStore.getItemAsync(key),
@@ -25,29 +28,19 @@ const webStorage = {
   },
 };
 
-const authStorage = Platform.OS === 'web' ? webStorage : secureStorage;
+export const supabase: SupabaseClient | null = createSupabaseClient({
+  url: process.env.EXPO_PUBLIC_SUPABASE_URL,
+  publishableKey: process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+  storage: Platform.OS === 'web' ? webStorage : secureStorage,
+  detectSessionInUrl: false,
+});
 
-const config = isValidSupabaseUrl(url) && isValidSupabasePublishableKey(publishableKey)
-  ? { url, publishableKey }
-  : null;
-
-export const hasSupabaseConfig = config !== null;
-
-export const supabase: SupabaseClient | null = config
-  ? createClient(config.url, config.publishableKey, {
-      auth: {
-        storage: authStorage,
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: false,
-        flowType: 'pkce',
-      },
-    })
-  : null;
+export const hasSupabaseConfig = supabase !== null;
 
 if (supabase) {
+  const client = supabase;
   AppState.addEventListener('change', (state) => {
-    if (state === 'active') supabase.auth.startAutoRefresh();
-    else supabase.auth.stopAutoRefresh();
+    if (state === 'active') client.auth.startAutoRefresh();
+    else client.auth.stopAutoRefresh();
   });
 }

@@ -1,7 +1,8 @@
-import { DEMO_MENU } from '@/lib/demo-data';
+import { loadMenu } from '@/lib/data';
 import { formatMoney } from '@/lib/kpi';
 
-export default function MenuPage() {
+export default async function MenuPage() {
+  const menu = await loadMenu();
   return (
     <>
       <h1>Menu</h1>
@@ -12,7 +13,7 @@ export default function MenuPage() {
             <tr><th>Item</th><th>Category</th><th className="num">Price</th><th className="num">Modifier groups</th><th>Status</th></tr>
           </thead>
           <tbody>
-            {DEMO_MENU.map((item) => (
+            {menu.map((item) => (
               <tr key={item.id}>
                 <td><strong>{item.name}</strong></td>
                 <td>{item.category}</td>

@@ -1,12 +1,9 @@
-import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { CollapsingScreen } from '@/components/collapsing-screen';
 import { Body, Card } from '@/components/ui';
-import { REWARD_TIERS, pointsForPurchase, type RewardTier } from '@/features/rewards/rules';
+import { REWARD_TIERS, pointsForPurchase } from '@/features/rewards/rules';
 import { workspaceTone } from '@/features/staff/workspace';
-import { fetchWithRetry } from '@/lib/network';
-import { resolvePortalUrl } from '@/lib/portal-url';
 import { useAuth } from '@/state/auth-context';
 import { colors, fonts, spacing } from '@/theme/tokens';
 
@@ -52,29 +49,10 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 export function AdminRewardsScreen({ onBack }: { onBack: () => void }) {
-  const { role, isDemo } = useAuth();
-  // The ladder is owner-editable on the web admin, so read what is published
-  // rather than the bundled defaults. The bundle stays the fallback: the demo
-  // has no backend, and a failed request should not blank the page.
-  const [tiers, setTiers] = useState<readonly RewardTier[]>(REWARD_TIERS);
-
-  useEffect(() => {
-    if (isDemo) return undefined;
-    let active = true;
-    (async () => {
-      try {
-        const response = await fetchWithRetry(resolvePortalUrl('/api/portal/reward-tiers'), { method: 'GET' });
-        if (!response.ok) return;
-        const body: { tiers?: RewardTier[] } = await response.json();
-        if (active && Array.isArray(body.tiers) && body.tiers.length > 0) setTiers(body.tiers);
-      } catch {
-        // Keep the bundled ladder.
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, [isDemo]);
+  const { role } = useAuth();
+  // The bundled ladder is the truth until brand_config carries tiers (the
+  // white-label sweep); the legacy portal endpoint this used to poll is gone.
+  const tiers = REWARD_TIERS;
 
   const examplePoints = pointsForPurchase(EXAMPLE, 0, tiers);
 

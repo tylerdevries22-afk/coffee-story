@@ -29,6 +29,10 @@ type BrandFile = {
   features: Record<string, boolean>;
   fees: { feeBps: number; feeBpsTier2: number; tierThresholdCents: number };
   business: Record<string, string>;
+  /** Sales-tax authorities the order API charges. Absent = no tax. */
+  tax?: { jurisdictions: { id: string; label: string; rate: number }[] };
+  /** What points buy, served by /api/loyalty/redeem. */
+  loyalty?: { rewards: { slug: string; name: string; points_cost: number }[] };
   location: {
     name: string;
     address: Record<string, string>;
@@ -64,9 +68,35 @@ async function run() {
   if (!brand.identity?.bundleId?.includes('.')) problems.push('identity.bundleId must be reverse-DNS.');
   if (!brand.identity?.name) problems.push('identity.name is required.');
   if (!brand.location?.timezone?.includes('/')) problems.push('location.timezone must be an IANA zone.');
+  for (const jurisdiction of brand.tax?.jurisdictions ?? []) {
+    if (!jurisdiction.id || !jurisdiction.label
+      || typeof jurisdiction.rate !== 'number' || jurisdiction.rate < 0 || jurisdiction.rate >= 1) {
+      problems.push('tax.jurisdictions entries need id, label and a fractional rate (0.029 = 2.9%).');
+      break;
+    }
+  }
+  for (const reward of brand.loyalty?.rewards ?? []) {
+    if (!reward.slug || !reward.name || !Number.isInteger(reward.points_cost) || reward.points_cost <= 0) {
+      problems.push('loyalty.rewards entries need slug, name and an integer points_cost.');
+      break;
+    }
+  }
   const menuPath = join(tenantDir, 'menu.csv');
   const menu = existsSync(menuPath) ? parseMenuCsv(readFileSync(menuPath, 'utf8')) : { rows: [], errors: [] };
   problems.push(...menu.errors.map((error) => `menu.csv: ${error}`));
+  // Option groups per item slug, in the JSONB shape the engine's
+  // menu-pricing module reads. Optional; items absent from it sell plain.
+  const modifiersPath = join(tenantDir, 'modifiers.json');
+  const modifiersBySlug: Record<string, unknown[]> = existsSync(modifiersPath)
+    ? JSON.parse(readFileSync(modifiersPath, 'utf8')) as Record<string, unknown[]>
+    : {};
+  for (const [itemSlug, groups] of Object.entries(modifiersBySlug)) {
+    if (!Array.isArray(groups)) {
+      problems.push(`modifiers.json: "${itemSlug}" must map to an array of option groups.`);
+    } else if (menu.rows.length > 0 && !menu.rows.some((row) => row.slug === itemSlug)) {
+      problems.push(`modifiers.json: "${itemSlug}" is not in menu.csv.`);
+    }
+  }
   if (problems.length > 0) {
     console.error(`tenants/${slug} does not validate:`);
     for (const problem of problems) console.error(`  - ${problem}`);
@@ -90,7 +120,13 @@ async function run() {
           fee_bps_tier2: brand.fees.feeBpsTier2,
           tier_threshold_cents: brand.fees.tierThresholdCents,
           ...brand.features,
-          brand_config: { tokens: brand.tokens, copy: brand.copy, business: brand.business },
+          brand_config: {
+            tokens: brand.tokens,
+            copy: brand.copy,
+            business: brand.business,
+            ...(brand.tax ? { tax: brand.tax } : {}),
+            ...(brand.loyalty ? { loyalty: brand.loyalty } : {}),
+          },
         },
         { onConflict: 'slug' },
       )
@@ -150,6 +186,7 @@ async function run() {
             description: row.description,
             base_price_cents: row.basePriceCents,
             sizes: row.sizes,
+            modifiers: modifiersBySlug[row.slug] ?? [],
             sort_order: index,
           },
           { onConflict: 'menu_id,slug' },

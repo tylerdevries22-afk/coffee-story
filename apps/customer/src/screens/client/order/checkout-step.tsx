@@ -28,7 +28,9 @@ import type { PaymentMethod } from '@/types/domain';
 
 export type CheckoutPaymentMethod =
   | { kind: 'apple-pay' }
-  | { kind: 'card'; method: PaymentMethod };
+  | { kind: 'card'; method: PaymentMethod }
+  /** Live tender until the brand connects card payments: settle at the counter. */
+  | { kind: 'pay-at-pickup' };
 
 export function CheckoutStep({
   totals,
@@ -184,6 +186,13 @@ export function CheckoutStep({
             <View style={styles.paymentSkeleton}>
               <Skeleton height={56} radius={radius.md} />
             </View>
+          ) : payment?.kind === 'pay-at-pickup' ? (
+            // Nothing to manage: the tender is the counter. A pressable row
+            // would open a payments screen live mode does not have.
+            <View accessibilityLabel="Payment method: pay at the counter when you pick up" style={styles.paymentRow}>
+              <AppIcon name="cup.and.saucer.fill" size={20} tintColor={colors.ink900} />
+              <Text style={styles.paymentLabel}>{describePayment(payment)}</Text>
+            </View>
           ) : (
             <Pressable
               accessibilityRole="button"
@@ -252,26 +261,31 @@ export function CheckoutStep({
             </Pressable>
           ) : null}
 
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Add a gift card, voucher, or promo code"
-            onPress={onManagePayment}
-            style={({ pressed }) => [styles.promoRow, pressed && styles.pressed]}
-          >
-            <AppIcon name="tag" size={16} tintColor={colors.ink700} />
-            <Text style={styles.promoLabel}>Gift Card, Voucher, Promo Code</Text>
-          </Pressable>
+          {payment?.kind !== 'pay-at-pickup' ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Add a gift card, voucher, or promo code"
+              onPress={onManagePayment}
+              style={({ pressed }) => [styles.promoRow, pressed && styles.pressed]}
+            >
+              <AppIcon name="tag" size={16} tintColor={colors.ink700} />
+              <Text style={styles.promoLabel}>Gift Card, Voucher, Promo Code</Text>
+            </Pressable>
+          ) : null}
 
           <Text style={styles.legal}>
             By placing this order you agree to our Terms &amp; Conditions and confirm you have read our
             Privacy Policy.
           </Text>
-          <Text style={styles.legalQuiet}>Powered by Stripe</Text>
         </View>
 
         <RewardsBanner label={`Earn ${pointsEarned} ${HEART_POINTS_LABEL} on this order`} />
 
-        {simulated ? (
+        {payment?.kind === 'pay-at-pickup' ? (
+          <Text style={styles.simulated}>
+            Nothing is charged now — pay at the counter when you pick up.
+          </Text>
+        ) : simulated ? (
           <Text style={styles.simulated}>
             Demo mode simulates the charge. No card is contacted and no money moves.
           </Text>
@@ -294,6 +308,7 @@ export function CheckoutStep({
 }
 
 function describePayment(payment: CheckoutPaymentMethod): string {
+  if (payment.kind === 'pay-at-pickup') return 'Pay at the counter';
   return payment.kind === 'apple-pay'
     ? 'Apple Pay'
     : `${payment.method.brand} ending ${payment.method.last4}`;
