@@ -41,6 +41,9 @@ describe('@platform/data reads', { skip: skipUnlessConfigured }, () => {
     const summary = await fetchBrandBySlug(anon, 'data-reads');
     assert.ok(summary, 'brand visible to the anonymous storefront');
     assert.equal(summary!.locations.length, 1);
+    assert.ok(!('fee_bps' in (summary!.brand as object)), 'the platform fee terms never reach the storefront');
+    const direct = await anon.from('brands').select('id').eq('id', brandId);
+    assert.equal((direct.data ?? []).length, 0, 'the brands table itself stays claim-gated for anon');
 
     const tree = await fetchMenuTree(anon, brandId);
     assert.equal(tree.categories.length, 1);

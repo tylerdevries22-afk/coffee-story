@@ -1,22 +1,27 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import type { BrandRow, LocationRow } from '@platform/schema';
+import type { BrandStorefrontRow, LocationRow } from '@platform/schema';
 
 export type BrandSummary = {
-  brand: BrandRow;
+  brand: BrandStorefrontRow;
   locations: LocationRow[];
 };
 
 /**
- * The storefront bootstrap: the brand row (feature flags + brand_config
- * tokens/copy) and its locations. Both are world-readable by policy — a guest
- * browses the shop before signing in.
+ * The storefront bootstrap: the brand's public face (identity, feature
+ * flags, brand_config tokens/copy) and its locations — both world-readable.
+ * This reads the brand_storefront VIEW, not brands: the table also carries
+ * the platform's fee terms, which stay claim-gated (0015).
  */
 export async function fetchBrandBySlug(
   client: SupabaseClient,
   slug: string,
 ): Promise<BrandSummary | null> {
-  const brand = await client.from('brands').select('*').eq('slug', slug).maybeSingle<BrandRow>();
+  const brand = await client
+    .from('brand_storefront')
+    .select('*')
+    .eq('slug', slug)
+    .maybeSingle<BrandStorefrontRow>();
   if (brand.error) throw new Error(`fetchBrandBySlug: ${brand.error.message}`);
   if (!brand.data) return null;
   const locations = await client
