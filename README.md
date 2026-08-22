@@ -13,6 +13,9 @@ apps/hq            brand-owner + platform console (Next.js)
 packages/engine    ordering, loyalty, drops, square, notifications, analytics
 packages/ui        design tokens + ThemeProvider + component kit
 packages/schema    Supabase migrations, RLS, generated types, seed
+packages/data      Supabase reads under RLS + realtime subscriptions
+packages/api-client typed client for the platform API (trusted writes)
+packages/links     deep-link parsing shared by both Expo apps
 tenants/<slug>     brand config, menu, assets, app-store listing material
 ```
 

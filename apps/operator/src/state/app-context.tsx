@@ -3,13 +3,14 @@ import * as Linking from 'expo-linking';
 import { router, usePathname, type Href } from 'expo-router';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type PropsWithChildren } from 'react';
 
+import { destinationForIntentUrl, giftTokenFromUrl } from '@platform/links';
+
 import { useAuth } from '@/state/auth-context';
 import { useDemo } from '@/state/demo-context';
 import {
   SETUP_AUTO_PROMPT_DELAY_MS,
   shouldScheduleSetupAutoPrompt,
 } from '@/features/setup/setup';
-import { destinationForIntentUrl, giftTokenFromUrl } from '@/state/intent-links';
 import {
   clientMoreHref,
   clientMoreViewFromPathname,
@@ -193,7 +194,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     else go(clientMoreHref(view), 'push');
   }, []);
 
-  // Siri / App Intents deep links (coffeestory://book|visits|rewards|gift).
+  // Siri / App Intents deep links (<our scheme>://book|visits|rewards|gift).
   useEffect(() => {
     const dispatch = (url: string | null) => {
       const giftToken = giftTokenFromUrl(url);

@@ -11,10 +11,20 @@ describe('destinationForIntentUrl', () => {
     assert.equal(destinationForIntentUrl('coffeestory://gift'), 'gift');
   });
 
+  it('maps them under whatever scheme the app registered', () => {
+    // Pinning `coffeestory://` left every intent link dead in the staff app
+    // (scheme `coffee-operator`) and in every tenant binary after the first.
+    assert.equal(destinationForIntentUrl('coffee-operator://book'), 'book');
+    assert.equal(destinationForIntentUrl('yourbrand://rewards'), 'rewards');
+  });
+
   it('ignores URLs from other schemes and hosts', () => {
     assert.equal(destinationForIntentUrl('https://coffeestory.example/book'), null);
+    assert.equal(destinationForIntentUrl('exp://127.0.0.1:8081/--/book'), null);
+    assert.equal(destinationForIntentUrl('javascript://book'), null);
     assert.equal(destinationForIntentUrl('coffeestory://unknown'), null);
     assert.equal(destinationForIntentUrl('coffeestory://'), null);
+    assert.equal(destinationForIntentUrl('/client/book'), null);
     assert.equal(destinationForIntentUrl(null), null);
     assert.equal(destinationForIntentUrl(undefined), null);
     assert.equal(destinationForIntentUrl(''), null);

@@ -42,6 +42,9 @@ apps/hq/            Next.js console for brand owners + platform admin
 packages/engine/    ordering, loyalty, drops, square, notifications, analytics
 packages/ui/        token-driven components + tokens.ts + ThemeProvider
 packages/schema/    Supabase migrations, RLS, generated types, seed
+packages/data/      Supabase reads under RLS + realtime, shared by all three
+packages/api-client/ typed client for the platform API (trusted writes)
+packages/links/     deep-link parsing shared by both Expo apps
 tenants/_template/  documented brand.json, menu.csv, assets/, app-store/
 tenants/<slug>/     one folder per tenant (first: coffee-story)
 scripts/            onboarding, migration, sandbox exercises

@@ -2,9 +2,9 @@ import type { Session, User } from '@supabase/supabase-js';
 import * as Linking from 'expo-linking';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type PropsWithChildren } from 'react';
 
+import { recoveryCodeFromUrl, recoveryRedirectUrl } from '@platform/links';
 import type { TenantClaims } from '@platform/schema';
 
-import { recoveryCodeFromUrl, recoveryRedirectUrl } from '@/lib/auth-links';
 import { loadStaffContext } from '@/lib/live-portal';
 import { hasSupabaseConfig, supabase } from '@/lib/supabase';
 import { useDemo } from '@/state/demo-context';
