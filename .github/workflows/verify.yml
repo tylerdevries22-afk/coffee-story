@@ -127,12 +127,16 @@ jobs:
       # Checked in the shell, not in `if:` -- the `secrets` context is not
       # available to a step-level condition, so `if: ${{ !secrets.EXPO_TOKEN }}`
       # would evaluate to false and the guard would never fire.
+      #
+      # Two secret names are accepted because the repo owner created theirs as
+      # EXPO_GO_COFFEE; either satisfies the guard and both feed the same
+      # EXPO_TOKEN env var eas-cli reads.
       - name: Require an EAS token
         env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN || secrets.EXPO_GO_COFFEE }}
         run: |
           if [ -z "${EXPO_TOKEN:-}" ]; then
-            echo "::error::EXPO_TOKEN is not set. Create one at https://expo.dev/settings/access-tokens and add it as a repository secret named EXPO_TOKEN (Settings -> Secrets and variables -> Actions)."
+            echo "::error::No EAS token is set. Create one at https://expo.dev/settings/access-tokens and add it as a repository secret named EXPO_TOKEN or EXPO_GO_COFFEE (Settings -> Secrets and variables -> Actions)."
             exit 1
           fi
           echo "EAS token present."
@@ -147,7 +151,7 @@ jobs:
       - name: Publish to the preview channel
         working-directory: apps/customer
         env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN || secrets.EXPO_GO_COFFEE }}
           COMMIT_SUBJECT: ${{ github.event.head_commit.message }}
         run: |
           set -euo pipefail
