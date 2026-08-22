@@ -37,6 +37,8 @@ export type AppPage = {
   page: Page;
   context: BrowserContext;
   shot: (name: string) => Promise<void>;
+  /** What this app was showing, into the log: CI artifacts are not always reachable. */
+  dump: (name: string) => Promise<void>;
   close: () => Promise<void>;
 };
 
@@ -57,10 +59,24 @@ export async function openApp(
     mkdirSync(stack.shotDir, { recursive: true });
     await page.screenshot({ path: `${stack.shotDir}/${name}.png` }).catch(() => undefined);
   };
+  const dump = async (name: string) => {
+    const text = await page
+      .evaluate(() => document.body?.innerText ?? '')
+      .catch(() => '(could not read the page)');
+    const lines = [
+      `----- ${name} -----`,
+      `url: ${page.url()}`,
+      `visible text: ${text.replace(/\s+/g, ' ').trim().slice(0, 900)}`,
+      errors.length ? `page errors: ${errors.slice(0, 3).join(' | ')}` : 'page errors: none',
+      '-'.repeat(20 + name.length),
+    ];
+    console.error(lines.join('\n'));
+  };
   return {
     page,
     context,
     shot,
+    dump,
     close: async () => {
       await context.close();
     },

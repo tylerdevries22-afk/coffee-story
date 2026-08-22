@@ -75,6 +75,12 @@ describe('three apps, one stack', { skip: skipUnlessConfigured }, () => {
       await customer.shot('full-loop-customer-FAIL');
       await operator.shot('full-loop-operator-FAIL');
       await hq.shot('full-loop-hq-FAIL');
+      // Into the log as well as the artifact: what each app was showing is
+      // the whole diagnosis, and the screenshots are not always reachable
+      // from where this gets read.
+      await customer.dump('customer at failure');
+      await operator.dump('operator at failure');
+      await hq.dump('hq at failure');
     };
 
     try {
