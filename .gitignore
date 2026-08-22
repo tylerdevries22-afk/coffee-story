@@ -48,3 +48,7 @@ apps/*/android/
 _assets-web/
 _sdk54-backup/
 mobile-expo-go-demo/
+
+# Next.js
+.next/
+next-env.d.ts
