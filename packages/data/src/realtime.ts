@@ -3,13 +3,20 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { OrderRow, OrderStatus } from '@platform/schema';
 
 /**
- * Live order tracking: one channel per order, listening for order_events
- * inserts and reporting the newest status. RLS applies to replicated rows,
- * so a guest only receives events for orders their JWT can read. Falls back
- * silently — tracking screens also refetch on focus.
+ * Live order tracking: one channel per order, reporting the order's status
+ * as the database holds it. RLS applies to replicated rows, so a guest only
+ * receives changes for orders their JWT can read. Falls back silently —
+ * tracking screens also refetch on focus.
  *
- * Promoted from the customer app's lib/realtime-orders.ts; the client is a
- * parameter now so the operator app and tests share the identical channel.
+ * It follows the `orders` row rather than `order_events` inserts, which is
+ * the difference between "what the order is" and "what was just recorded
+ * about it". The state-machine trigger records an idempotent re-assertion —
+ * a second Square delivery for the same payment, a barista asserting paid at
+ * handoff — by inserting the event and moving nothing. Reading the event
+ * type walked the guest's screen backwards from "Ready for pickup" to
+ * "Paid" for something that changed nothing at all.
+ *
+ * Seeds with a read, so the screen opens on the truth instead of a guess.
  */
 export function subscribeToOrderStatus(
   client: SupabaseClient | null,
@@ -17,18 +24,28 @@ export function subscribeToOrderStatus(
   onStatus: (status: OrderStatus) => void,
 ): () => void {
   if (!client) return () => {};
+  let live = true;
+  void client
+    .from('orders')
+    .select('status')
+    .eq('id', orderId)
+    .maybeSingle<{ status: OrderStatus }>()
+    .then(({ data }) => {
+      if (live && data?.status) onStatus(data.status);
+    });
   const channel = client
     .channel(`order-${orderId}`)
     .on(
       'postgres_changes',
-      { event: 'INSERT', schema: 'public', table: 'order_events', filter: `order_id=eq.${orderId}` },
+      { event: 'UPDATE', schema: 'public', table: 'orders', filter: `id=eq.${orderId}` },
       (payload) => {
-        const type = (payload.new as { type?: string } | null)?.type;
-        if (typeof type === 'string') onStatus(type as OrderStatus);
+        const status = (payload.new as { status?: string } | null)?.status;
+        if (typeof status === 'string') onStatus(status as OrderStatus);
       },
     )
     .subscribe();
   return () => {
+    live = false;
     void client.removeChannel(channel);
   };
 }

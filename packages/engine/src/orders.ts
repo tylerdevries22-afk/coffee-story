@@ -558,10 +558,18 @@ export async function captureSquarePayment(
   const paymentId = payment.payment?.id;
   if (!paymentId) throw new Error('Square returned no payment id.');
 
-  await deps.db
+  // Checked, because this is the field a refund later depends on: an
+  // unchecked failure here left a charged card on an order the app could
+  // never return money for, while the rest of the function reported success.
+  const linked = await deps.db
     .from('orders')
     .update({ square_order_id: squareOrderId, square_payment_id: paymentId })
     .eq('id', order.id);
+  if (linked.error) {
+    throw new Error(
+      `Square payment ${paymentId} was taken but could not be recorded on order ${order.id}: ${linked.error.message}`,
+    );
+  }
 
   // The paid event: state moves through order_events only (rule 2). The
   // webhook will assert paid again with its own event id; the trigger treats
