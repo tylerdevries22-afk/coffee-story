@@ -49,7 +49,7 @@ export function useCoveringBottomInset(): number {
  */
 export const STICKY_BAR_HEIGHT = 76;
 
-export function useStickyBarClearance(extra = spacing.lg): number {
+export function useStickyBarClearance(extra: number = spacing.lg): number {
   return useCoveringBottomInset() + STICKY_BAR_HEIGHT + extra;
 }
 
