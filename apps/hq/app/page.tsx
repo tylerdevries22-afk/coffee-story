@@ -1,10 +1,11 @@
-import { DEMO_KPIS, DEMO_DROPS } from '@/lib/demo-data';
+import { loadDrops, loadKpis } from '@/lib/data';
 import { formatMoney, formatShare, rollupByLocation, rollupKpis } from '@/lib/kpi';
 
-export default function DashboardPage() {
-  const totals = rollupKpis(DEMO_KPIS);
-  const byLocation = rollupByLocation(DEMO_KPIS);
-  const liveDrop = DEMO_DROPS.find((drop) => drop.status === 'live');
+export default async function DashboardPage() {
+  const [kpis, drops] = await Promise.all([loadKpis(), loadDrops()]);
+  const totals = rollupKpis(kpis);
+  const byLocation = rollupByLocation(kpis);
+  const liveDrop = drops.find((drop) => drop.status === 'live');
   return (
     <>
       <h1>This week</h1>

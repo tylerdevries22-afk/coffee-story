@@ -1,7 +1,8 @@
-import { DEMO_CUSTOMERS } from '@/lib/demo-data';
+import { loadCustomers } from '@/lib/data';
 import { formatMoney } from '@/lib/kpi';
 
-export default function CustomersPage() {
+export default async function CustomersPage() {
+  const customers = await loadCustomers();
   return (
     <>
       <h1>Customers</h1>
@@ -13,7 +14,7 @@ export default function CustomersPage() {
             <tr><th>Customer</th><th>Phone</th><th className="num">Points</th><th className="num">Lifetime</th><th>Last order</th><th /></tr>
           </thead>
           <tbody>
-            {DEMO_CUSTOMERS.map((customer) => (
+            {customers.map((customer) => (
               <tr key={customer.id}>
                 <td><strong>{customer.name}</strong></td>
                 <td>{customer.phone}</td>

@@ -1,4 +1,4 @@
-import { DEMO_DROPS } from '@/lib/demo-data';
+import { loadDrops } from '@/lib/data';
 import { formatMoney } from '@/lib/kpi';
 
 const STATUS_PILL: Record<string, string> = {
@@ -9,7 +9,8 @@ const STATUS_PILL: Record<string, string> = {
   cancelled: 'pill danger',
 };
 
-export default function DropsPage() {
+export default async function DropsPage() {
+  const drops = await loadDrops();
   return (
     <>
       <h1>Drops</h1>
@@ -20,7 +21,7 @@ export default function DropsPage() {
             <tr><th>Drop</th><th>Window</th><th>Status</th><th className="num">Orders</th><th className="num">Revenue</th></tr>
           </thead>
           <tbody>
-            {DEMO_DROPS.map((drop) => (
+            {drops.map((drop) => (
               <tr key={drop.id}>
                 <td>
                   <strong>{drop.title}</strong>
