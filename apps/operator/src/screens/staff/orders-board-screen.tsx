@@ -36,7 +36,7 @@ import {
 } from '@/features/operator/pin-lock';
 import { formatMoney } from '@/features/money';
 import { SERVICES } from '@/data/catalog';
-import { DEMO_LOCATIONS, useOperator } from '@/state/operator-store';
+import { useOperator } from '@/state/operator-store';
 import { disabledState, toggleState } from '@/lib/a11y-state';
 import { colors, fonts, radius, shadow, spacing } from '@/theme/tokens';
 
@@ -503,7 +503,7 @@ function LocationSheet({ visible, onClose }: { visible: boolean; onClose: () => 
   const operator = useOperator();
   return (
     <SheetShell visible={visible} title="Working location" onClose={onClose}>
-      {DEMO_LOCATIONS.map((location) => (
+      {operator.locations.map((location) => (
         <Pressable
           key={location.id}
           accessibilityRole="radio"

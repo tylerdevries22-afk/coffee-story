@@ -2,7 +2,6 @@ import { Fraunces_700Bold } from '@expo-google-fonts/fraunces/700Bold';
 import { Inter_400Regular } from '@expo-google-fonts/inter/400Regular';
 import { Inter_600SemiBold } from '@expo-google-fonts/inter/600SemiBold';
 import { Inter_700Bold } from '@expo-google-fonts/inter/700Bold';
-import { StripeProvider } from '@/lib/stripe';
 import { fontGateReady } from '@/lib/font-gate';
 import { initMonitoring } from '@/lib/monitoring';
 import { liveConfigFromEnv, missingLiveConfig, type MobileLiveConfig } from '@/lib/runtime-config';
@@ -67,25 +66,13 @@ function RuntimeProviders() {
   // which decides whether live mode is even offered -- cannot disagree about
   // what this build carries.
   const config: MobileLiveConfig = liveConfigFromEnv();
-  const stripeKey = typeof config.stripePublishableKey === 'string'
-    ? config.stripePublishableKey
-    : 'pk_test_demo';
 
   return (
-    <StripeProvider
-      publishableKey={stripeKey}
-      urlScheme="coffeestory"
-      // Must match the merchant id registered against the Apple Developer
-      // account and enabled in the app's Merchant capability. The previous
-      // value carried the massage studio's name and matched nothing.
-      merchantIdentifier="merchant.com.coffeestory.app"
-    >
-      <AppErrorBoundary>
-        <DemoProvider>
-          <ConfiguredApp config={config} />
-        </DemoProvider>
-      </AppErrorBoundary>
-    </StripeProvider>
+    <AppErrorBoundary>
+      <DemoProvider>
+        <ConfiguredApp config={config} />
+      </DemoProvider>
+    </AppErrorBoundary>
   );
 }
 

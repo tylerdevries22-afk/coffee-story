@@ -2,8 +2,10 @@ import type { Session, User } from '@supabase/supabase-js';
 import * as Linking from 'expo-linking';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type PropsWithChildren } from 'react';
 
+import type { TenantClaims } from '@platform/schema';
+
 import { recoveryCodeFromUrl, recoveryRedirectUrl } from '@/lib/auth-links';
-import { mobileApi } from '@/lib/mobile-api';
+import { loadStaffContext } from '@/lib/live-portal';
 import { hasSupabaseConfig, supabase } from '@/lib/supabase';
 import { useDemo } from '@/state/demo-context';
 import { createRequestSequence } from '@/state/request-sequence';
@@ -14,6 +16,11 @@ type AuthState = {
   user: User | null;
   role: AppRole;
   portal: PortalBundle;
+  /** Hook-minted tenancy (live mode only): brand, role, claimed locations. */
+  tenant: TenantClaims | null;
+  /** The locations this account may work (live mode; demo uses its roster). */
+  liveLocations: { id: string; name: string }[];
+  brandName: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   isDemo: boolean;
@@ -49,6 +56,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const isDemo = demo.mode === 'demo';
   const [session, setSession] = useState<Session | null>(null);
   const [livePortal, setLivePortal] = useState<PortalBundle>(EMPTY_PORTAL);
+  const [tenant, setTenant] = useState<TenantClaims | null>(null);
+  const [liveLocations, setLiveLocations] = useState<{ id: string; name: string }[]>([]);
+  const [brandName, setBrandName] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(demo.isHydrating || (!isDemo && hasSupabaseConfig));
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -73,12 +83,22 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
     setError(null);
     try {
-      const nextPortal = await mobileApi.bootstrap();
+      if (!supabase || !expectedSession) {
+        if (isCurrent()) setIsLoading(false);
+        return;
+      }
+      const context = await loadStaffContext(supabase, expectedSession);
       if (!isCurrent()) return;
-      setLivePortal(nextPortal);
+      setLivePortal(context.bundle);
+      setTenant(context.claims);
+      setLiveLocations(context.locations);
+      setBrandName(context.brandName);
     } catch (loadError) {
       if (!isCurrent()) return;
       setLivePortal(EMPTY_PORTAL);
+      setTenant(null);
+      setLiveLocations([]);
+      setBrandName(null);
       setError(loadError instanceof Error ? loadError.message : 'Your account could not be loaded.');
     } finally {
       if (isCurrent()) setIsLoading(false);
@@ -197,6 +217,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
     user: session?.user ?? null,
     role: (isDemo ? demo.portal.role : livePortal.role),
     portal: isDemo ? demo.portal : livePortal,
+    tenant: isDemo ? null : tenant,
+    liveLocations: isDemo ? [] : liveLocations,
+    brandName: isDemo ? null : brandName,
     isLoading: demo.isHydrating || (!isDemo && (
       isLoading || (Boolean(session) && !livePortal.profile.id && !error)
     )),
@@ -210,7 +233,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     updatePassword,
     signOut,
     refresh: () => loadPortal(session),
-  }), [demo.isHydrating, demo.portal, error, isDemo, isLoading, isPasswordRecovery, livePortal, loadPortal, requestPasswordReset, session, signIn, signOut, signUp, updatePassword]);
+  }), [brandName, demo.isHydrating, demo.portal, error, isDemo, isLoading, isPasswordRecovery, livePortal, liveLocations, loadPortal, requestPasswordReset, session, signIn, signOut, signUp, tenant, updatePassword]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

@@ -44,12 +44,13 @@ const DIVERGENT_BY_DESIGN = [
   'features/drops.ts',
   'features/rewards/presentation.ts',
   'features/setup/setup.ts',
+  // The live planes are persona-different by design: the customer bundle is
+  // a guest's world through the platform API, the operator's is staff claims
+  // and direct-RLS board writes; their live-config needs differ the same way.
+  'lib/live-portal.ts',
   'lib/mobile-api.ts',
-  // Diverged by the customer app's live wiring (P4); the operator app
-  // re-aligns onto the same live-config/web-navigation shape in P5.
   'lib/runtime-config.test.ts',
   'lib/runtime-config.ts',
-  'lib/web-navigation.test.ts',
   'lib/web-navigation.ts',
   'screens/auth/auth-screen.tsx',
   'screens/client/more/profile-and-intake.tsx',
