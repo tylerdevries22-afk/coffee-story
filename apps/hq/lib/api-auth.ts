@@ -9,6 +9,8 @@
  * and must degrade to 501 on an unconfigured deployment instead of crashing
  * the build. Imports are relative (no `@/` alias) for the same reason.
  */
+import { timingSafeEqual } from 'node:crypto';
+
 import type { ApiErrorBody } from '@platform/api-client';
 import { parseTenantClaims, type TenantClaims } from '@platform/schema';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
@@ -53,6 +55,20 @@ export function jsonWithCors(body: unknown, status = 200): Response {
 export function jsonError(status: number, code: string, message: string): Response {
   const body: ApiErrorBody = { error: { code, message } };
   return Response.json(body, { status, headers: CORS_HEADERS });
+}
+
+/**
+ * Constant-time comparison for a shared secret. `!==` on strings returns at
+ * the first differing byte, which is a timing oracle: an attacker who can
+ * measure the difference recovers the secret one character at a time.
+ * Length is compared first because timingSafeEqual throws on a mismatch —
+ * that leak is only the length, which the format already implies.
+ */
+export function matchesSecret(provided: string | null, expected: string): boolean {
+  if (!provided) return false;
+  const given = Buffer.from(provided);
+  const want = Buffer.from(expected);
+  return given.length === want.length && timingSafeEqual(given, want);
 }
 
 export const notConfigured = (): Response =>
