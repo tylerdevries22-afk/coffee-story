@@ -98,11 +98,13 @@ jobs:
   # builds alike. Publishing production automatically would let a merge reach
   # store users. That stays a manual `pnpm run publish:production` in
   # apps/customer.
+  #
+  # Dispatch-only, at the owner's request: merging to main runs the gate but
+  # never publishes. A deploy happens when someone triggers this workflow with
+  # the publish input checked (Actions -> verify -> Run workflow).
   publish-preview:
     needs: [verify, audit]
-    if: >-
-      github.event_name == 'workflow_dispatch' && inputs.publish ||
-      github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' && inputs.publish
     runs-on: ubuntu-latest
     timeout-minutes: 20
     # Attach a GitHub Environment named `expo-preview` to this job to require a
