@@ -1,8 +1,9 @@
-import { DEMO_DROPS, DEMO_KPIS } from '@/lib/demo-data';
+import { loadDrops, loadKpis } from '@/lib/data';
 import { formatMoney, formatShare, rollupByLocation } from '@/lib/kpi';
 
-export default function AnalyticsPage() {
-  const byLocation = rollupByLocation(DEMO_KPIS);
+export default async function AnalyticsPage() {
+  const [kpis, drops] = await Promise.all([loadKpis(), loadDrops()]);
+  const byLocation = rollupByLocation(kpis);
   return (
     <>
       <h1>Analytics</h1>
@@ -35,7 +36,7 @@ export default function AnalyticsPage() {
             <tr><th>Drop</th><th>Status</th><th className="num">Orders</th><th className="num">Revenue</th><th className="num">Orders/day</th></tr>
           </thead>
           <tbody>
-            {DEMO_DROPS.map((drop) => {
+            {drops.map((drop) => {
               const days = Math.max(1, Math.round((new Date(drop.endsAt).getTime() - new Date(drop.startsAt).getTime()) / 86_400_000));
               return (
                 <tr key={drop.id}>

@@ -1,6 +1,7 @@
-import { DEMO_CAMPAIGNS } from '@/lib/demo-data';
+import { loadCampaigns } from '@/lib/data';
 
-export default function CampaignsPage() {
+export default async function CampaignsPage() {
+  const campaigns = await loadCampaigns();
   return (
     <>
       <h1>Campaigns</h1>
@@ -11,7 +12,7 @@ export default function CampaignsPage() {
             <tr><th>Campaign</th><th>Channel</th><th>Audience</th><th>Status</th><th className="num">Sent</th><th className="num">Redeemed</th></tr>
           </thead>
           <tbody>
-            {DEMO_CAMPAIGNS.map((campaign) => (
+            {campaigns.map((campaign) => (
               <tr key={campaign.id}>
                 <td><strong>{campaign.name}</strong></td>
                 <td>{campaign.channel}</td>

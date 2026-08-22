@@ -1,6 +1,7 @@
-import { DEMO_LOCATIONS } from '@/lib/demo-data';
+import { loadLocations } from '@/lib/data';
 
-export default function LocationsPage() {
+export default async function LocationsPage() {
+  const locations = await loadLocations();
   return (
     <>
       <h1>Locations</h1>
@@ -11,7 +12,7 @@ export default function LocationsPage() {
             <tr><th>Location</th><th>Hours</th><th>Square</th><th>Ordering</th><th /></tr>
           </thead>
           <tbody>
-            {DEMO_LOCATIONS.map((location) => (
+            {locations.map((location) => (
               <tr key={location.id}>
                 <td>
                   <strong>{location.name}</strong>
