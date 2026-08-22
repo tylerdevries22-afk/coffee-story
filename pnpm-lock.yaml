@@ -189,6 +189,9 @@ importers:
 
   apps/hq:
     dependencies:
+      '@platform/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
       '@platform/engine':
         specifier: workspace:*
         version: link:../../packages/engine
