@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { computeAppFeeCents, feeMonthKey } from './fees';
+import { computeAppFeeCents, feeMonthKey, feeMonthRange } from './fees';
 
 const CONFIG = { feeBps: 300, feeBpsTier2: 150, tierThresholdCents: 2_000_000 };
 
@@ -40,5 +40,40 @@ describe('feeMonthKey', () => {
     // 2026-09-01T04:30Z is still Aug 31 in Denver.
     assert.equal(feeMonthKey(new Date('2026-09-01T04:30:00Z'), 'America/Denver'), '2026-08');
     assert.equal(feeMonthKey(new Date('2026-09-01T04:30:00Z'), 'UTC'), '2026-09');
+  });
+});
+
+describe('feeMonthRange', () => {
+  it('covers the location’s own month, not UTC’s', () => {
+    // Denver is UTC-6 in August, so its August starts at 06:00 UTC on the 1st.
+    const { startIso, endIso } = feeMonthRange(new Date('2026-08-15T12:00:00Z'), 'America/Denver');
+    assert.equal(startIso, '2026-08-01T06:00:00.000Z');
+    assert.equal(endIso, '2026-09-01T06:00:00.000Z');
+  });
+
+  it('does not sweep the previous evening into the new month', () => {
+    // 11pm on July 31 in Denver is 05:00 UTC on August 1: a busy close that
+    // the old bare-date filter counted as August gross.
+    const { startIso } = feeMonthRange(new Date('2026-08-15T12:00:00Z'), 'America/Denver');
+    assert.ok(new Date('2026-08-01T05:00:00Z') < new Date(startIso), 'July’s close stays in July');
+  });
+
+  it('handles a zone ahead of UTC, where the old filter dropped real payments', () => {
+    // Tokyo is UTC+9: its August began at 15:00 UTC on July 31.
+    const { startIso, endIso } = feeMonthRange(new Date('2026-08-15T12:00:00Z'), 'Asia/Tokyo');
+    assert.equal(startIso, '2026-07-31T15:00:00.000Z');
+    assert.equal(endIso, '2026-08-31T15:00:00.000Z');
+  });
+
+  it('rolls December into the next year', () => {
+    const { startIso, endIso } = feeMonthRange(new Date('2026-12-10T12:00:00Z'), 'America/Denver');
+    assert.equal(startIso, '2026-12-01T07:00:00.000Z');
+    assert.equal(endIso, '2027-01-01T07:00:00.000Z');
+  });
+
+  it('is exact for UTC itself', () => {
+    const { startIso, endIso } = feeMonthRange(new Date('2026-08-15T12:00:00Z'), 'UTC');
+    assert.equal(startIso, '2026-08-01T00:00:00.000Z');
+    assert.equal(endIso, '2026-09-01T00:00:00.000Z');
   });
 });
