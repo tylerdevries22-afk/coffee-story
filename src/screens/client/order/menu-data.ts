@@ -6,7 +6,6 @@
  * stay free of asset imports so `node:test` can reach them.
  */
 import { MENU_CATEGORY_META, SERVICES, type MenuCategoryId, type Service } from '@/data/catalog';
-import type { CatalogSize } from '@/features/order/sizes';
 
 export type MenuSection = {
   id: MenuCategoryId;
@@ -27,9 +26,4 @@ export function menuSections(): MenuSection[] {
 
 export function findMenuItem(itemId: string): Service | undefined {
   return SERVICES.find((service) => service.id === itemId);
-}
-
-/** `Service.durations` under the name the rest of the order flow uses. */
-export function sizesFor(service: Service): readonly CatalogSize[] {
-  return service.durations;
 }

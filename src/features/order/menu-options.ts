@@ -121,16 +121,18 @@ function addOnCents(slug: string): number {
  * Every add-on except oat milk, which the Milk group already sells. Sourced
  * from `DEMO_ADD_ONS` so the register and the app never drift on price.
  */
-const EXTRAS = multi(
-  'extras',
-  'Add-ins',
-  DEMO_ADD_ONS.length,
-  DEMO_ADD_ONS.filter((addOn) => addOn.slug !== 'oat-milk').map((addOn) => ({
+const EXTRA_CHOICES: readonly OptionChoice[] = DEMO_ADD_ONS
+  .filter((addOn) => addOn.slug !== 'oat-milk')
+  .map((addOn) => ({
     id: `extra-${addOn.slug}`,
     name: addOn.name,
     priceDeltaCents: addOn.priceCents,
-  })),
-);
+  }));
+
+// The cap is the number of rows, not the number of add-ons. Taking it from
+// DEMO_ADD_ONS.length printed "choose up to 4" above three checkboxes, and
+// promised a grey-out that could never fire.
+const EXTRAS = multi('extras', 'Add-ins', EXTRA_CHOICES.length, EXTRA_CHOICES);
 
 function flavors(id: string, name: string, names: readonly string[]): OptionGroup {
   return single(

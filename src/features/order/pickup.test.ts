@@ -10,6 +10,7 @@ import {
   describePickupWindow,
   hoursForDay,
   pickupTimeLabel,
+  isWindowStillBookable,
   pickupWindows,
   shopStatus,
 } from './pickup';
@@ -162,5 +163,33 @@ describe('shopStatus', () => {
 
   it('reports unavailable rather than guessing for an invalid clock', () => {
     assert.deepEqual(shopStatus(new Date('nonsense')), { open: false, label: 'Hours unavailable' });
+  });
+});
+
+describe('isWindowStillBookable', () => {
+  it('accepts a window that is still at least the lead time away', () => {
+    const [first] = pickupWindows(wednesday(12), 1);
+    assert.equal(isWindowStillBookable(first.value, wednesday(12)), true);
+  });
+
+  it('rejects a window whose start has already gone', () => {
+    // The failure this exists for: a guest picks the earliest slot, spends
+    // forty minutes on a sixty-item menu, and places the order against a time
+    // that has been and gone -- which files it under Past orders on arrival.
+    const [first] = pickupWindows(wednesday(12), 1);
+    assert.equal(isWindowStillBookable(first.value, wednesday(13)), false);
+  });
+
+  it('rejects a window too close to make in time', () => {
+    const [first] = pickupWindows(wednesday(12), 1);
+    const start = new Date(first.value);
+    const almost = new Date(start.getTime() - (PICKUP_LEAD_MINUTES - 1) * 60_000);
+    assert.equal(isWindowStillBookable(first.value, almost), false);
+  });
+
+  it('rejects a value that is not a time, and a clock that is not one either', () => {
+    assert.equal(isWindowStillBookable('nonsense', wednesday(12)), false);
+    const [first] = pickupWindows(wednesday(12), 1);
+    assert.equal(isWindowStillBookable(first.value, new Date('nonsense')), false);
   });
 });

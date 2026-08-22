@@ -73,11 +73,11 @@ function ServiceCard({ service, onBook }: { service: Service; onBook: () => void
 
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`Book ${service.name}`}
+        accessibilityLabel={`Order ${service.name}`}
         onPress={onBook}
         style={({ pressed }) => [styles.book, pressed && styles.pressed]}
       >
-        <Text style={styles.bookLabel}>Book {service.name}</Text>
+        <Text style={styles.bookLabel}>Order {service.name}</Text>
       </Pressable>
     </Card>
   );

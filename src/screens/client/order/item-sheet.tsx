@@ -143,7 +143,16 @@ function ItemSheetBody({
         {sizes.length > 1 ? (
           <View style={styles.block}>
             <Text style={styles.blockTitle}>Size</Text>
-            <SizeSegmented sizes={sizes} value={sizeSlug} onChange={setSizeSlug} />
+            <SizeSegmented
+              sizes={sizes}
+              value={sizeSlug}
+              // A different size is a different line, so whatever the last
+              // size could not fit says nothing about this one.
+              onChange={(slug) => {
+                setShortfall(null);
+                setSizeSlug(slug);
+              }}
+            />
           </View>
         ) : null}
 

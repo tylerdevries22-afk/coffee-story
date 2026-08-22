@@ -428,7 +428,7 @@ function RecipientExperience({ initialToken, isDemo, onBook, onBack }: { initial
       {claimed ? (
         <>
           <PillRow title={claimed.code} subtitle={`$${(claimed.balanceCents / 100).toFixed(2)} available · never expires`} symbol="creditcard" />
-          <Button label="Book as a guest" onPress={onBook} />
+          <Button label="Order as a guest" onPress={onBook} />
           {isDemo ? (
             <Button
               label={isAdded ? 'Added to my account' : 'Add to my account'}
@@ -463,7 +463,7 @@ function GiftDetail({ gift, onBook, onBack }: { gift: GiftCard; onBook: () => vo
       </View>
       <PillRow title="Available balance" subtitle={`$${(gift.balanceCents / 100).toFixed(2)} · ${gift.status}`} symbol="creditcard" />
       {gift.recipientEmail ? <PillRow title="Recipient" subtitle={gift.recipientEmail} symbol="message" /> : null}
-      <Button label="Book with this gift" onPress={onBook} />
+      <Button label="Order with this gift" onPress={onBook} />
     </CollapsingScreen>
   );
 }

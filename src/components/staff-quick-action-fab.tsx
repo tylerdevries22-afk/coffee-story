@@ -337,15 +337,18 @@ function SoapFields({
         onSelect={(serviceSlug, serviceName) => onChange({ ...draft, serviceSlug, serviceName })}
       />
       <NativeOptionPicker
-        label="Treatment date"
+        label="Order date"
         value={draft.treatmentDate}
         options={upcomingDates(new Date(), 30)}
         onChange={(treatmentDate) => onChange({ ...draft, treatmentDate })}
       />
-      <Field label="Subjective" value={draft.subjective} onChangeText={(subjective) => onChange({ ...draft, subjective })} multiline />
-      <Field label="Objective" value={draft.objective} onChangeText={(objective) => onChange({ ...draft, objective })} multiline />
-      <Field label="Assessment" value={draft.assessment} onChangeText={(assessment) => onChange({ ...draft, assessment })} multiline />
-      <Field label="Plan" value={draft.plan} onChangeText={(plan) => onChange({ ...draft, plan })} multiline />
+      {/* The four fields keep their contract names -- the portal API still
+          speaks them -- but a barista reads the labels, and these match what
+          clients-screen.tsx renders the saved note back as. */}
+      <Field label="Asked for" value={draft.subjective} onChangeText={(subjective) => onChange({ ...draft, subjective })} multiline />
+      <Field label="Usual order" value={draft.objective} onChangeText={(objective) => onChange({ ...draft, objective })} multiline />
+      <Field label="Notes" value={draft.assessment} onChangeText={(assessment) => onChange({ ...draft, assessment })} multiline />
+      <Field label="Next time" value={draft.plan} onChangeText={(plan) => onChange({ ...draft, plan })} multiline />
     </>
   );
 }

@@ -15,17 +15,26 @@ export function workspaceTone(role: AppRole): 'admin' | 'staff' {
   return role === 'admin' ? 'admin' : 'staff';
 }
 
-/** Care segments the workspace filters by, matching the web portal chips. */
+/**
+ * Guest segments the workspace filters by.
+ *
+ * The last five were massage modalities -- Deep tissue, Sports, Prenatal,
+ * Lymphatic, Trigger point -- rendered as filter chips above the guest
+ * directory, where none of them matched a single guest: `data/demo.ts` had
+ * already been rebranded and tags its guests Brew Club, Spanish latte, Boba,
+ * Matcha, Cold brew and Turkish coffee. The chips now match the data, so every
+ * one of them filters to something. The web portal's chips have to follow.
+ */
 export const CLIENT_TAGS = [
   'Regular',
   'New',
   'VIP',
-  'Membership',
-  'Deep tissue',
-  'Sports',
-  'Prenatal',
-  'Lymphatic',
-  'Trigger point',
+  'Brew Club',
+  'Spanish latte',
+  'Boba',
+  'Matcha',
+  'Cold brew',
+  'Turkish coffee',
 ] as const;
 
 export type ClientTag = (typeof CLIENT_TAGS)[number];

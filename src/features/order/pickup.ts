@@ -146,6 +146,20 @@ function clockLabel(day: Date, minutes: number): string {
     .format(atMinutes(day, minutes));
 }
 
+/**
+ * Whether a window chosen earlier can still be honoured.
+ *
+ * The picker is only consulted while the Details step is mounted, and a guest
+ * can easily spend longer than one window browsing a sixty-item menu. Without
+ * this, an order placed at 5:40 for a 5:15-5:45 window is stored at 5:15 and
+ * lands in Past orders the moment it is confirmed.
+ */
+export function isWindowStillBookable(value: string, now: Date): boolean {
+  const start = new Date(value);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(now.getTime())) return false;
+  return start.getTime() >= now.getTime() + PICKUP_LEAD_MINUTES * 60_000;
+}
+
 /** The label pair for a stored window value, or null if it is not a real time. */
 export function describePickupWindow(value: string, now: Date): PickupWindow | null {
   const start = new Date(value);

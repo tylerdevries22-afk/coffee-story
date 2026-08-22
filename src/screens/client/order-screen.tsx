@@ -24,7 +24,7 @@ import { Body } from '@/components/ui';
 import type { Service } from '@/data/catalog';
 import type { BookingFulfillment, VisitMode } from '@/features/booking/fulfillment';
 import { formatMoney } from '@/features/money';
-import { PICKUP_WINDOW_MINUTES, describePickupWindow } from '@/features/order/pickup';
+import { PICKUP_WINDOW_MINUTES, describePickupWindow, isWindowStillBookable } from '@/features/order/pickup';
 import { orderTotals, pointsForOrder } from '@/features/order/totals';
 import { HEART_POINTS_LABEL } from '@/features/rewards/presentation';
 import { REWARD_TIERS, tierForAnnualPoints } from '@/features/rewards/rules';
@@ -156,6 +156,19 @@ export function OrderScreen() {
     if (placing.current) return;
     if (!order.fulfillment || !order.windowValue || order.isEmpty) return;
     setPayError(null);
+
+    // Re-checked here, not just in the picker: browsing a sixty-item menu
+    // easily outlasts the window that was chosen before it, and an order
+    // placed against a lapsed one confirms with a time that has been and gone,
+    // then files itself under Past orders.
+    if (!isWindowStillBookable(order.windowValue, new Date())) {
+      setPayError('That pickup time has passed. Choose a new one from the time pill on the menu.');
+      order.setWindowValue(null);
+      setOverlay('none');
+      setStep('details');
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => undefined);
+      return;
+    }
 
     if (!isDemo) {
       setPayError(
@@ -308,6 +321,10 @@ export function OrderScreen() {
           <PlaceStep
             mode={mode}
             isDemo={isDemo}
+            // Without this the form remounts empty every time it is reopened,
+            // so editing a delivery order meant retyping the whole address --
+            // an address the menu pill was displaying one tap earlier.
+            initialAddress={order.fulfillment?.mode === 'dispatch' ? order.fulfillment.address : undefined}
             onBack={() => setStep('hub')}
             onChoose={choosePlace}
           />

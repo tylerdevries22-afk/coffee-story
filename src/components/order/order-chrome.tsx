@@ -235,34 +235,6 @@ export function Skeleton({
   );
 }
 
-/** The menu's loading state: a category strip and a handful of item rows. */
-export function MenuSkeleton({ rows = 5 }: { rows?: number }) {
-  return (
-    <View
-      accessibilityRole="progressbar"
-      accessibilityLabel="Loading the menu"
-      style={styles.menuSkeleton}
-    >
-      <View style={styles.skeletonStrip}>
-        {[92, 128, 104, 84].map((width, index) => (
-          <Skeleton key={index} width={width} height={14} radius={radius.pill} />
-        ))}
-      </View>
-      <Skeleton width="60%" height={22} />
-      {Array.from({ length: rows }, (_, index) => (
-        <View key={index} style={styles.skeletonRow}>
-          <Skeleton width={72} height={72} radius={radius.md} />
-          <View style={styles.skeletonCopy}>
-            <Skeleton height={14} />
-            <Skeleton width="35%" height={12} />
-            <Skeleton width="80%" height={12} />
-          </View>
-        </View>
-      ))}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   pressed: { opacity: 0.72, transform: [{ scale: 0.99 }] },
 
@@ -360,8 +332,4 @@ const styles = StyleSheet.create({
 
   skeleton: { backgroundColor: colors.ink200 },
   skeletonFlex: { alignSelf: 'stretch' },
-  menuSkeleton: { gap: spacing.md },
-  skeletonStrip: { flexDirection: 'row', gap: spacing.lg, paddingVertical: spacing.sm },
-  skeletonRow: { flexDirection: 'row', gap: spacing.md, alignItems: 'center' },
-  skeletonCopy: { flex: 1, gap: spacing.xs },
 });

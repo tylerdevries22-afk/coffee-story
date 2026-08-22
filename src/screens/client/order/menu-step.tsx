@@ -24,7 +24,7 @@ import {
 import { CollapsingPageHeader } from '@/components/collapsing-page-header';
 import { AppIcon } from '@/components/icon';
 import { CategoryStrip } from '@/components/order/category-strip';
-import { CartPill, MenuSkeleton, Ribbon } from '@/components/order/order-chrome';
+import { CartPill, Ribbon } from '@/components/order/order-chrome';
 import { useTabBarClearance } from '@/components/navigation/tab-screen';
 import type { Service } from '@/data/catalog';
 import { fulfillmentDetail, fulfillmentLabel, type BookingFulfillment } from '@/features/booking/fulfillment';
@@ -37,12 +37,20 @@ import { menuSections } from './menu-data';
 /** How far below the strip a section has to reach before it counts as current. */
 const SECTION_ACTIVATION_OFFSET = 140;
 
+/**
+ * Height of the pinned category strip: a 48pt row plus its hairline.
+ *
+ * A tap used to scroll to `top - 8`, which parked the section heading under
+ * the strip -- the control the guest had just used to ask for it covered the
+ * top half of the answer.
+ */
+const STRIP_HEIGHT = 49;
+
 export function MenuStep({
   fulfillment,
   windowValue,
   itemCount,
   subtotalCents,
-  loading = false,
   highlightItemId,
   onBack,
   onEdit,
@@ -53,8 +61,12 @@ export function MenuStep({
   windowValue: string | null;
   itemCount: number;
   subtotalCents: number;
-  loading?: boolean;
-  /** Opened straight from a Home tap, so the guest lands on the drink they chose. */
+  /**
+   * The item the guest tapped on Home before landing here. It marks that one
+   * row so it is findable in a sixty-item menu -- it does not mean the item is
+   * a house favourite, which is what the ribbon used to claim about whatever
+   * had last been tapped.
+   */
   highlightItemId?: string | null;
   onBack: () => void;
   onEdit: () => void;
@@ -104,7 +116,7 @@ export function MenuStep({
     setActiveId(id);
     if (top === undefined) return;
     pending.current = id;
-    scrollRef.current?.scrollTo({ y: Math.max(0, top - 8), animated: true });
+    scrollRef.current?.scrollTo({ y: Math.max(0, top - STRIP_HEIGHT - spacing.sm), animated: true });
   }, []);
 
   return (
@@ -134,10 +146,7 @@ export function MenuStep({
         />
       </View>
 
-      {loading ? (
-        <View style={styles.loading}><MenuSkeleton /></View>
-      ) : (
-        <ScrollView
+      <ScrollView
           ref={scrollRef}
           stickyHeaderIndices={[0]}
           onScroll={onScroll}
@@ -169,8 +178,7 @@ export function MenuStep({
               ))}
             </View>
           ))}
-        </ScrollView>
-      )}
+      </ScrollView>
 
       <CartPill count={itemCount} subtotalCents={subtotalCents} onPress={onOpenBag} />
     </View>
@@ -226,7 +234,7 @@ function MenuRow({
     >
       <Image source={item.image} style={styles.rowImage} contentFit="cover" alt="" />
       <View style={styles.rowCopy}>
-        {highlighted ? <Ribbon label="House favourite" /> : null}
+        {highlighted ? <Ribbon label="From your tap" tone="quiet" /> : null}
         <Text style={styles.rowName}>{item.name}</Text>
         <Text style={styles.rowPrice}>{price}</Text>
         <Text numberOfLines={2} style={styles.rowDescription}>{item.description}</Text>
@@ -259,7 +267,6 @@ const styles = StyleSheet.create({
   pillDetail: { color: colors.ink600, fontFamily: fonts.sans, fontSize: 12 },
   pillAction: { color: colors.brand700, fontFamily: fonts.sansMedium, fontSize: 13 },
 
-  loading: { flex: 1, padding: spacing.lg },
   scroll: { paddingBottom: spacing.xxl },
 
   section: { paddingTop: spacing.lg },
