@@ -6,6 +6,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -67,7 +68,9 @@ export function OrdersBoardScreen() {
     const fresh = [...operator.unseenIds].filter((id) => !alerted.current.has(id));
     if (fresh.length === 0) return;
     for (const id of fresh) alerted.current.add(id);
-    if (operator.settings.newOrderAlert) {
+    if (operator.settings.newOrderAlert && Platform.OS !== 'web') {
+      // Web has no haptics; navigator.vibrate just logs a blocked-call
+      // warning before any interaction. The badge carries the alert there.
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
     }
   }, [operator.settings.newOrderAlert, operator.unseenIds]);
@@ -662,7 +665,9 @@ const styles = StyleSheet.create({
 
   columnsScroll: { flex: 1 },
   columns: { paddingHorizontal: spacing.lg, gap: spacing.md, paddingBottom: spacing.xl },
-  columnsWide: { flex: 1 },
+  // Side-by-side columns above the breakpoint; the vertical ScrollView's
+  // content container needs the row direction stated, or the columns stack.
+  columnsWide: { flex: 1, flexDirection: 'row' },
   column: {
     flex: 1,
     borderRadius: radius.lg,

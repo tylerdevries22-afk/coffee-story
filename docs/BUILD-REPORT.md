@@ -138,3 +138,58 @@ All documented with comments in the root `.env.example`:
 | Checkly | `CHECKLY_API_KEY`, `CHECKLY_ACCOUNT_ID`, `PLATFORM_BASE_URL` |
 | Apple/EAS | Apple team + a real operator bundle id; `EXPO_TOKEN` as a CI repository secret; per-tenant `easProjectId` in brand.json |
 | Build selection | `TENANT` (defaults to coffee-story) |
+
+## Runtime verification appendix (browser-driven)
+
+All three surfaces were launched and driven with headless Chromium
+(Playwright against the customer/operator web exports and the built HQ
+server), screenshotting every step — not just bundled.
+
+**Verified working end to end:**
+- Customer: boot → setup wizard → home with the live drop countdown → the
+  full order journey (pickup, location, time grid, menu with category strip,
+  item sheet with sizes/options and live-priced button, bag with stepper→bin,
+  note, checkout with per-jurisdiction tax rows) → Beans redemption driving
+  the total to $0 with $0 tax → Place Order → confirmation snapshot → the
+  tracking timeline advancing on the simulator. 86'd item rendered sold-out
+  and unpressable; the drops archive rendered live + past runs. Zero console
+  errors.
+- Operator: boot straight to the staff workspace → the Orders board in three
+  side-by-side columns at iPad width with the scheduled lane → one-tap
+  advance → order detail with partial/full refund controls → menu control
+  (pause toggle, live 86 board) → settings → PIN lock/unlock cycle.
+- HQ: all ten pages rendered on fixtures (dashboard KPIs, locations, drops,
+  campaigns, customers, analytics, platform fees, brand editor with live
+  preview, onboarding, per-tenant status), and the CSV export streamed
+  correct rows.
+
+**Defects found by driving (fixed on this branch):**
+1. The web tab bar painted over the order flow's covering pages —
+   react-native-web gives every View z-index 0, so the flow's layers can
+   never out-stack a sibling bar. The bar now hides on an explicit
+   `barCovered` signal from the flow, matching the native covering metaphor.
+2. The operator board's three columns stacked vertically at iPad width
+   (`columnsWide` never declared the row direction).
+3. The web staff bar had no Orders tab at all (it hard-codes its own list;
+   the Phase-5 wiring had only touched the native triggers), and the board
+   glyph was missing from the icon map.
+4. The operator demo booted into the guest-handoff notice: its demo role
+   defaulted to client. The operator demo now opens on the shift floor.
+5. Massage-era copy surfaced at runtime that no grep for the old brand
+   caught: the setup wizard's "care plan" hint, a "Pressure — medium" intake
+   summary, "booking and care", the staff wizard's "ready for bookings",
+   and the home hero's "Book Now". All now speak coffee (the API's
+   `pressurePreference` wire values stay; `strengthLabel` renders
+   Light/Medium/Bold).
+6. The board's new-order haptic logged a blocked `navigator.vibrate` call
+   on web; guarded to native.
+7. Design-philosophy alignment: HQ display type now carries the serif voice
+   (system serif stack, no font fetch), its brass accent is documented as
+   the dark-ground tint of the apps' brass-500, and `docs/DESIGN.md`
+   codifies the one-language/three-expressions system (linked from
+   CLAUDE.md).
+
+**Known cosmetic leftovers:** HQ has no favicon (a 404 in devtools); the
+legacy staff Today/Calendar surfaces still speak appointments (transitional,
+see gap 6); a `navigator.vibrate` warning still fires once at workspace boot
+from a legacy haptic path.

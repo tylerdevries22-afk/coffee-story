@@ -40,6 +40,7 @@ export function BottomNav({
   onQuickActions?: () => void;
 }) {
   const insets = useSafeAreaInsets();
+  const { barCovered } = useAppState();
   const { clientTab, staffTab, setClientTab, setStaffTab } = useAppState();
   const items = staff ? STAFF_ITEMS : CLIENT_ITEMS;
   const active = staff ? staffTab : clientTab;
@@ -49,6 +50,7 @@ export function BottomNav({
     else setClientTab(key as ClientTab);
   }
 
+  if (barCovered) return null;
   return (
     <GlassContainer
       accessibilityRole="tablist"
@@ -135,7 +137,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   quickActionPressed: { opacity: 0.85 },
-  wrap: { position: 'absolute', left: 15, right: 15, height: 64, borderRadius: radius.pill, overflow: 'hidden', ...shadow.card },
+  // In the shell's layer map (see order-chrome.tsx) the bar sits with the
+  // FAB layer: above content (30), below a sticky action bar (40) and a
+  // pushed page (60). Without an explicit z the web build painted it above
+  // everything by DOM order, hiding the order flow's See Menu button.
+  wrap: { position: 'absolute', left: 15, right: 15, height: 64, borderRadius: radius.pill, overflow: 'hidden', zIndex: 30, ...shadow.card },
   surface: { borderRadius: radius.pill },
   content: { flex: 1, padding: 4, flexDirection: 'row' },
   webGlassFallback: { backgroundColor: 'rgba(255,252,254,0.82)', borderWidth: 1, borderColor: colors.ink200 },

@@ -49,8 +49,21 @@ export const CLIENT_GOAL_OPTIONS = [
   'Catering for events',
 ] as const;
 
-/** How sweet a guest takes their drinks. The field name is the portal API's. */
+/**
+ * How strong a guest takes their coffee. The field name and wire values are
+ * the portal API's (`pressurePreference: light|medium|firm`); every label a
+ * person reads comes from `strengthLabel`.
+ */
 export const PRESSURE_OPTIONS = ['light', 'medium', 'firm'] as const;
+
+export function strengthLabel(value: string): string {
+  switch (value) {
+    case 'light': return 'Light';
+    case 'medium': return 'Medium';
+    case 'firm': return 'Bold';
+    default: return value;
+  }
+}
 
 export const PREFERRED_TIME_OPTIONS = [
   'Weekday mornings',
@@ -204,7 +217,7 @@ export function setupSummary(role: AppRole, setup: PortalSetupState): { label: s
     const { answers } = setup.client;
     return [
       { label: 'Goals', value: answers.goals.length ? answers.goals.slice(0, 2).join(', ') : '—' },
-      { label: 'Pressure', value: answers.pressure },
+      { label: 'Strength', value: strengthLabel(answers.pressure) },
       { label: 'Best times', value: answers.preferredTimes.length ? answers.preferredTimes.slice(0, 2).join(', ') : 'Flexible' },
     ];
   }

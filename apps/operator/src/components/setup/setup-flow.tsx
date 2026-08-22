@@ -33,12 +33,12 @@ const ROLE_COPY: Record<AppRole, { title: string; subtitle: string; done: string
   client: {
     title: 'Set up your portal',
     subtitle: 'A minute now personalizes every visit',
-    done: 'Your preferences now shape booking and care.',
+    done: 'Your preferences now shape every order.',
   },
   staff: {
     title: 'Staff setup',
     subtitle: 'Your specialties and availability',
-    done: 'Your schedule and services are ready for bookings.',
+    done: 'Your station and hours are set. The board is ready for orders.',
   },
   admin: {
     title: 'Studio setup',
@@ -223,7 +223,7 @@ function StepBody({
       return (
         <ChipGroup
           legend="What brings you in?"
-          hint="Pick anything that applies — it shapes your care plan."
+          hint="Pick anything that applies — it shapes what we suggest."
           options={CLIENT_GOAL_OPTIONS}
           selected={answers.goals}
           onToggle={(goal) => set({ goals: toggleListItem(answers.goals, goal) })}
@@ -234,14 +234,14 @@ function StepBody({
       return (
         <View style={styles.stepGap}>
           <ChipGroup
-            legend="Preferred pressure"
+            legend="Coffee strength"
             options={PRESSURE_OPTIONS}
             selected={[answers.pressure]}
             onToggle={(pressure) => set({ pressure: pressure as typeof answers.pressure })}
             single
           />
           <ChipGroup
-            legend="Best appointment times"
+            legend="Best times to swing by"
             options={PREFERRED_TIME_OPTIONS}
             selected={answers.preferredTimes}
             onToggle={(time) => set({ preferredTimes: toggleListItem(answers.preferredTimes, time) })}
@@ -267,7 +267,7 @@ function StepBody({
       return (
         <ChipGroup
           legend="Your specialties"
-          hint="Shown on your profile and used to match bookings."
+          hint="Shown on your profile so the team knows your station."
           options={STAFF_SPECIALTY_OPTIONS}
           selected={answers.specialties}
           onToggle={(item) => set({ specialties: toggleListItem(answers.specialties, item) })}

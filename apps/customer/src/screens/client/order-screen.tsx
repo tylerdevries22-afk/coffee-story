@@ -75,7 +75,7 @@ export function OrderScreen() {
   const demo = useDemo();
   const order = useOrder();
   const stripe = useStripe();
-  const { selectedServiceId, setClientTab, openMore } = useAppState();
+  const { selectedServiceId, setBarCovered, setClientTab, openMore } = useAppState();
 
   const [mode, setMode] = useState<VisitMode | null>(null);
   const [step, setStep] = useState<SetupStep>('hub');
@@ -234,6 +234,13 @@ export function OrderScreen() {
       setPaying(false);
     }
   }, [demo, isDemo, order, pointsEarned, simulated, totals.totalCents]);
+
+  // The web tab bar hides while a covering page is up (see app-context).
+  // hub and menu keep the bar, exactly like native.
+  useEffect(() => {
+    setBarCovered(step === 'place' || step === 'details' || overlay !== 'none');
+    return () => setBarCovered(false);
+  }, [overlay, setBarCovered, step]);
 
   const overlayAtLeast = (level: Overlay) =>
     OVERLAY_STACK.indexOf(overlay) >= OVERLAY_STACK.indexOf(level);

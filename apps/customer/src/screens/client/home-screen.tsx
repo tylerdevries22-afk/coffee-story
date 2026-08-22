@@ -374,7 +374,7 @@ export function HomeScreen() {
           style={({ pressed }) => [styles.stickyBookNowButton, pressed && styles.pressed]}
         >
           <PulseDot reducedMotion={reducedMotion} />
-          <Text style={styles.stickyBookNowText}>Book Now</Text>
+          <Text style={styles.stickyBookNowText}>Order Now</Text>
           <Text style={styles.stickyBookNowWait}>~ 3 min</Text>
           <AppIcon name="chevron.right" size={14} tintColor={colors.white} />
         </Pressable>
@@ -419,7 +419,7 @@ function BookNowPill({ onPress, reducedMotion }: { onPress: () => void; reducedM
       style={({ pressed }) => [styles.bookNowPill, pressed && styles.pressed]}
     >
       <PulseDot reducedMotion={reducedMotion} />
-      <Text style={styles.bookNowText}>Book Now</Text>
+      <Text style={styles.bookNowText}>Order Now</Text>
       <View style={styles.bookNowDivider} />
       <Text style={styles.bookNowWait}>~ 3 min</Text>
       <AppIcon name="chevron.right" size={14} tintColor={colors.white} />
