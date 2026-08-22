@@ -837,11 +837,45 @@ export type RefundDeps = {
 
 export type RefundInput = {
   orderId: string;
-  /** Cents to return, or the whole charge. */
+  /** Cents to return, or everything not already returned. */
   amountCents: number | 'full';
   reason: string;
   actorUserId: string | null;
+  /**
+   * Identifies this refund ATTEMPT. Square deduplicates on it, so a retry
+   * after a lost response returns the first refund instead of sending the
+   * money twice — and two genuinely separate refunds of equal size must
+   * carry different keys, which keying on the amount could never do.
+   */
+  requestKey: string;
 };
+
+/**
+ * What has already gone back on this order.
+ *
+ * Keyed on the refund id in the snapshot rather than the event type: a
+ * partial refund records itself without moving the order (see below), so it
+ * does not carry type 'refunded' and a type filter would miss exactly the
+ * events this sum exists to count.
+ */
+type RefundedEvent = { snapshot: { refund_id?: unknown; amount_cents?: unknown } | null };
+
+async function refundedSoFar(db: SupabaseClient, orderId: string): Promise<number> {
+  const { data, error } = await db
+    .from('order_events')
+    .select('snapshot')
+    .eq('order_id', orderId)
+    .returns<RefundedEvent[]>();
+  if (error) throw error;
+  return (data ?? []).reduce((sum, row) => {
+    if (typeof row.snapshot?.refund_id !== 'string') return sum;
+    const amount = row.snapshot.amount_cents;
+    return sum + (typeof amount === 'number' ? amount : 0);
+  }, 0);
+}
+
+/** States a refund may legally follow. Checked before money moves. */
+const REFUNDABLE: ReadonlySet<string> = new Set(['paid', 'in_progress', 'ready', 'picked_up', 'refunded']);
 
 /**
  * Money back through Square, then the event that records it. Only a card
@@ -855,13 +889,14 @@ export async function refundOrderPayment(
 ): Promise<{ orderId: string; refundId: string; amountCents: number }> {
   const loaded = await deps.db
     .from('orders')
-    .select('id, brand_id, status, total_cents, tender_type, square_payment_id')
+    .select('id, brand_id, status, total_cents, stored_value_applied_cents, tender_type, square_payment_id')
     .eq('id', input.orderId)
     .maybeSingle<{
       id: string;
       brand_id: string;
       status: string;
       total_cents: number;
+      stored_value_applied_cents: number;
       tender_type: string;
       square_payment_id: string | null;
     }>();
@@ -872,27 +907,59 @@ export async function refundOrderPayment(
     throw new OrderError('refund_unavailable',
       'This order was not paid by card through the app, so there is nothing to return here — refund it at the register.');
   }
-  const amountCents = input.amountCents === 'full' ? order.total_cents : input.amountCents;
-  if (!Number.isInteger(amountCents) || amountCents <= 0 || amountCents > order.total_cents) {
-    throw new OrderError('invalid_request', 'Refund amount must be between one cent and the order total.');
+  // Checked BEFORE Square is called. Money that moves and then cannot be
+  // recorded is the one failure with no clean recovery: the guest has their
+  // refund, the platform has no trace of it, and every retry repeats the
+  // question. A cancelled order has no legal edge to refunded, so it would
+  // have charged and then thrown.
+  if (!REFUNDABLE.has(order.status)) {
+    throw new OrderError('refund_unavailable',
+      `This order is ${order.status}; it cannot be refunded.`);
+  }
+
+  const alreadyRefunded = await refundedSoFar(deps.db, order.id);
+  const refundable = order.total_cents - order.stored_value_applied_cents - alreadyRefunded;
+  if (refundable <= 0) {
+    throw new OrderError('refund_unavailable', 'This order has already been fully refunded.');
+  }
+  const amountCents = input.amountCents === 'full' ? refundable : input.amountCents;
+  if (!Number.isInteger(amountCents) || amountCents <= 0) {
+    throw new OrderError('invalid_request', 'Refund amount must be a whole number of cents.');
+  }
+  // The cap is what is LEFT, not the order total: three $10 refunds on a $22
+  // order each passed a per-call check that never looked at the other two.
+  if (amountCents > refundable) {
+    throw new OrderError('invalid_request',
+      `Only ${refundable} cents are left to refund on this order.`);
   }
 
   const refund = await refundSquarePayment(deps.square, deps.locationAccessToken, {
     paymentId: order.square_payment_id,
     amountCents,
-    // Distinct per amount: a partial refund followed by the rest must not
-    // collide with the first refund's idempotency key.
-    referenceId: `${order.id}-${amountCents}`,
+    // The caller's key, not the amount: two separate $5 refunds are two
+    // refunds, and keying on the amount made Square treat the second as a
+    // replay of the first — returning $5 while the books recorded $10.
+    referenceId: input.requestKey,
     reason: input.reason,
   });
   const refundId = refund.refund?.id;
   if (!refundId) throw new Error('Square returned no refund id.');
 
+  // A refund that does not cover the order leaves it where it was: 'refunded'
+  // is terminal, and asserting it for a $2 courtesy refund stranded a $22
+  // order the barista still had to hand over, with no legal move left.
+  const fullyRefunded = alreadyRefunded + amountCents >= order.total_cents - order.stored_value_applied_cents;
   const { error: eventError } = await deps.db.from('order_events').insert({
     brand_id: order.brand_id,
     order_id: order.id,
-    type: 'refunded',
-    snapshot: { refund_id: refundId, amount_cents: amountCents, reason: input.reason },
+    // Partial refunds record themselves without moving the order.
+    type: fullyRefunded ? 'refunded' : order.status,
+    snapshot: {
+      refund_id: refundId,
+      amount_cents: amountCents,
+      reason: input.reason,
+      partial: !fullyRefunded,
+    },
     actor_user_id: input.actorUserId,
     source: 'operator',
   });

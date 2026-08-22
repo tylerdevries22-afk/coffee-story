@@ -242,9 +242,50 @@ describe('platform API routes', { skip: skipUnlessConfigured }, () => {
     assert.equal(((await broke.json()) as { error: { code: string } }).error.code, 'insufficient_points');
 
     const unknown = await post(redeemPost, '/api/loyalty/redeem', {
-      token, body: { rewardSlug: 'yacht' },
+      token, idempotencyKey: randomUUID(), body: { rewardSlug: 'yacht' },
     });
     assert.equal(unknown.status, 404);
+  });
+
+  it('cannot be raced into spending the same points twice', async () => {
+    // The exact shape that used to double-spend: distinct keys, sent at
+    // once, each reading a balance that covers one reward. Every request
+    // passed its own check and stored the same debited number, so N rewards
+    // cost one reward's points.
+    const racer = await createSignedInUser({ userMetadata: { brand_slug: SLUG } });
+    const account = await sql<{ id: string }>(
+      `insert into public.customers (brand_id, user_id, full_name)
+       values ($1, $2, 'Racer') returning id`,
+      [brandId, racer.userId],
+    );
+    const loyalty = await sql<{ id: string }>(
+      `insert into public.loyalty_accounts (brand_id, customer_id, points_balance, lifetime_points)
+       values ($1, $2, 200, 200) returning id`,
+      [brandId, account.rows[0]!.id],
+    );
+
+    const attempts = await Promise.all(Array.from({ length: 5 }, () => post(
+      redeemPost,
+      '/api/loyalty/redeem',
+      { token: racer.accessToken, idempotencyKey: randomUUID(), body: { rewardSlug: 'free-drip' } },
+    )));
+    const granted = attempts.filter((response) => response.status === 200);
+    assert.equal(granted.length, 1, 'exactly one of five concurrent redemptions is granted');
+
+    const balance = await sql<{ points_balance: string }>(
+      `select points_balance from public.loyalty_accounts where id = $1`, [loyalty.rows[0]!.id]);
+    assert.equal(Number(balance.rows[0]!.points_balance), 0, 'the points were spent once');
+    const spends = await sql<{ count: string }>(
+      `select count(*)::text as count from public.loyalty_events
+        where account_id = $1 and type = 'redeem'`, [loyalty.rows[0]!.id]);
+    assert.equal(spends.rows[0]!.count, '1', 'and only one redemption was recorded');
+  });
+
+  it('requires an idempotency key to redeem at all', async () => {
+    const response = await post(redeemPost, '/api/loyalty/redeem', {
+      token, body: { rewardSlug: 'free-drip' },
+    });
+    assert.equal(response.status, 400);
   });
 
   it('registers a push token and re-homes it on re-registration', async () => {

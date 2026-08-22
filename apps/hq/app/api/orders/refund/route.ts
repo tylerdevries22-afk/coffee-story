@@ -4,6 +4,7 @@ import { canManageLocation } from '@platform/schema';
 import {
   authenticate,
   corsPreflight,
+  idempotencyKeyOf,
   jsonError,
   jsonWithCors,
   notConfigured,
@@ -97,7 +98,15 @@ export async function POST(request: Request): Promise<Response> {
   try {
     const result = await refundOrderPayment(
       { db, square: square.square, locationAccessToken: square.locationAccessToken },
-      { orderId: order.data.id, amountCents, reason, actorUserId: auth.userId },
+      {
+        orderId: order.data.id,
+        amountCents,
+        reason,
+        actorUserId: auth.userId,
+        // Identifies this attempt to Square: a retry after a lost response
+        // returns the first refund rather than sending the money again.
+        requestKey: idempotencyKeyOf(request) ?? `${order.data.id}-${Date.now()}`,
+      },
     );
     return jsonWithCors(result, 200);
   } catch (error) {
