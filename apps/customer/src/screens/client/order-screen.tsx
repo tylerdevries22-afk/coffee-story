@@ -39,7 +39,7 @@ import { newIdempotencyKey } from '@platform/api-client';
 import { subscribeToOrderStatus } from '@platform/data';
 import type { OrderStatus } from '@platform/schema';
 import { REWARD_TIERS, tierForAnnualPoints } from '@/features/rewards/rules';
-import { choiceState } from '@/lib/a11y-state';
+import { choiceState, disabledState } from '@/lib/a11y-state';
 import { platformApi } from '@/lib/api';
 import { liveOrderContext } from '@/lib/live-portal';
 import { usesSimulatedNativeFlows } from '@/lib/native-adapters';
@@ -769,6 +769,7 @@ function OrderPlaced({
             accessibilityRole="button"
             accessibilityLabel="Cancel this order"
             disabled={cancelling}
+            {...disabledState(cancelling)}
             onPress={onCancel}
             style={({ pressed }) => [styles.cancelRow, pressed && styles.cardPressed]}
           >
