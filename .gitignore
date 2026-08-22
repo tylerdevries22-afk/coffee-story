@@ -52,3 +52,6 @@ mobile-expo-go-demo/
 # Next.js
 .next/
 next-env.d.ts
+
+# per-app metro caches
+.metro-cache/
