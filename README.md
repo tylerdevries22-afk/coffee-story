@@ -64,6 +64,9 @@ npm run verify
 npm audit --omit=dev --audit-level=high
 ```
 
+`.github/workflows/verify.yml` runs the same gate on every pull request, plus
+a web bundle and a full-graph audit.
+
 `verify` runs `expo lint --max-warnings=0`, `tsc --noEmit`, the `node:test`
 suite, and a full `expo export --platform ios`. The test suite covers the pure
 modules — money, tax, the cart, the reward ladder, navigation state, the

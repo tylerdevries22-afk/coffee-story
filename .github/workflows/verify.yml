@@ -1,0 +1,68 @@
+name: verify
+
+# Nothing ran on a pull request before this: `npm run verify` existed in
+# package.json and was only ever invoked by hand, so a branch could reach a
+# reviewer with a type error, a failing test, or a bundle that does not build.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # `ci`, not `install`: the lockfile is the contract, and a job that
+      # silently resolves a different tree is not verifying what ships.
+      - run: npm ci
+
+      - name: Lint
+        run: npx expo lint --max-warnings=0
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Test
+        run: npx tsx --test "src/**/*.test.ts"
+
+      # The bundle is part of the gate. Lint and tsc both pass on code Metro
+      # cannot resolve -- a missing asset or a bad platform-specific import
+      # only shows up here.
+      - name: Bundle for iOS
+        run: npx expo export --platform ios
+
+      - name: Bundle for web
+        run: npx expo export --platform web
+
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      # Both graphs, because `expo` is a production dependency that drags the
+      # whole bundler in with it -- the metro/image-size advisories this repo
+      # pins around showed up in the production-only audit.
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Audit the full dependency graph
+        run: npm audit --audit-level=high
