@@ -17,6 +17,7 @@ import {
   TAX_RATE,
   type CartLine,
 } from '@/features/staff/pos-totals';
+import { formatRate } from '@/features/money';
 import { formatClockTime, formatMoney } from '@/features/staff/workspace';
 import { colors, fonts, radius, spacing } from '@/theme/tokens';
 import type { PortalAppointment } from '@/types/domain';
@@ -217,7 +218,11 @@ export function CartSection({
 
         <TotalRow label="Subtotal" value={formatMoney(subtotalCents)} />
         {discountCents > 0 ? <TotalRow label="Discount" value={`−${formatMoney(discountCents)}`} /> : null}
-        <TotalRow label={`Tax (${Math.round(TAX_RATE * 100)}%)`} value={formatMoney(taxCents)} />
+        {/* `formatRate`, not a rounded whole percent: the combined Aurora
+            rate is 7.90%, and Math.round(7.9) printed "Tax (8%)" against a
+            7.90% charge -- a receipt stating a rate the shop is not licensed
+            to collect, off by 10c on a $110 ticket and more above that. */}
+        <TotalRow label={`Tax (${formatRate(TAX_RATE)})`} value={formatMoney(taxCents)} />
 
         <Button
           testID="checkout-continue-to-payment"

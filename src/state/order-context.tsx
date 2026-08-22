@@ -15,6 +15,7 @@ import type { BookingFulfillment } from '@/features/booking/fulfillment';
 import {
   EMPTY_CART,
   addOrderLine,
+  addableQuantity,
   changeOrderLineQuantity,
   clearOrderCart,
   isCartEmpty,
@@ -42,7 +43,8 @@ export type OrderState = {
   guestName: string;
   tipCents: number;
 
-  addLine: (line: OrderLine) => void;
+  /** Returns how many were actually added; less than asked when the line is full. */
+  addLine: (line: OrderLine) => number;
   changeQuantity: (lineId: string, delta: number) => void;
   removeLine: (lineId: string) => void;
   setNote: (note: string) => void;
@@ -66,7 +68,13 @@ export function OrderProvider({ children }: PropsWithChildren) {
   const [guestName, setGuestName] = useState('');
   const [tipCents, setTipCentsState] = useState(0);
 
-  const addLine = useCallback((line: OrderLine) => setCart((current) => addOrderLine(current, line)), []);
+  const addLine = useCallback((line: OrderLine) => {
+    // Measured against the cart this render is showing, which is the cart the
+    // guest is looking at when they press Add.
+    const added = addableQuantity(cart, line);
+    if (added > 0) setCart((current) => addOrderLine(current, line));
+    return added;
+  }, [cart]);
   const changeQuantity = useCallback(
     (lineId: string, delta: number) => setCart((current) => changeOrderLineQuantity(current, lineId, delta)),
     [],

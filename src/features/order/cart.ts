@@ -108,6 +108,20 @@ function clampQuantity(quantity: number): number {
   return Math.min(MAX_LINE_QUANTITY, Math.max(1, Math.round(quantity)));
 }
 
+/**
+ * How many of `line` the bag can actually take.
+ *
+ * `addOrderLine` clamps a merged line at `MAX_LINE_QUANTITY`, which means a
+ * bag already holding the maximum swallows the next add whole -- the guest
+ * taps a button quoting five more drinks and nothing changes. Callers ask
+ * first so they can say so.
+ */
+export function addableQuantity(cart: OrderCart, line: OrderLine): number {
+  const existing = cart.lines.find((entry) => entry.id === line.id);
+  const room = MAX_LINE_QUANTITY - (existing?.quantity ?? 0);
+  return Math.max(0, Math.min(line.quantity, room));
+}
+
 /** Adds a configured line, merging into an identical one already in the bag. */
 export function addOrderLine(cart: OrderCart, line: OrderLine): OrderCart {
   const existing = cart.lines.find((entry) => entry.id === line.id);

@@ -37,7 +37,7 @@ export function ItemSheet({
 }: {
   item: Service | null;
   onClose: () => void;
-  onAdd: (line: OrderLine) => void;
+  onAdd: (line: OrderLine) => number;
 }) {
   // `SheetModal` holds its tree through the exit precisely so the dismissal
   // can play. Gating the children on the same `item` that gates `visible`
@@ -65,7 +65,7 @@ function ItemSheetBody({
 }: {
   item: Service;
   onClose: () => void;
-  onAdd: (line: OrderLine) => void;
+  onAdd: (line: OrderLine) => number;
 }) {
   const bottom = useCoveringBottomInset();
   const groups = useMemo(() => optionGroupsFor(item.id, item.category), [item.id, item.category]);
@@ -73,6 +73,7 @@ function ItemSheetBody({
   const [selection, setSelection] = useState<OptionSelection>(() => defaultOptionSelection(groups));
   const [quantity, setQuantity] = useState(1);
   const [showRequired, setShowRequired] = useState(false);
+  const [shortfall, setShortfall] = useState<number | null>(null);
 
   const size = item.durations.find((entry) => entry.slug === sizeSlug) ?? item.durations[0];
   const basePriceCents = size ? sizePriceCents(size) : 0;
@@ -93,7 +94,7 @@ function ItemSheetBody({
       return;
     }
     if (!size) return;
-    onAdd(buildOrderLine({
+    const added = onAdd(buildOrderLine({
       itemId: item.id,
       name: item.name,
       sizeSlug: size.slug,
@@ -103,6 +104,14 @@ function ItemSheetBody({
       selection,
       quantity,
     }));
+    // The bag caps one line at MAX_LINE_QUANTITY. Closing on a success haptic
+    // when fewer went in than the button quoted would drop drinks the guest
+    // had just been given a price for, with no message anywhere in the flow.
+    if (added < quantity) {
+      setShortfall(added);
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => undefined);
+      return;
+    }
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
   }
 
@@ -145,6 +154,7 @@ function ItemSheetBody({
               selection={selection}
               onToggle={(groupId, choiceId) => {
                 setShowRequired(false);
+                setShortfall(null);
                 setSelection((current) => toggleOptionChoice(groups, current, groupId, choiceId));
               }}
             />
@@ -157,14 +167,28 @@ function ItemSheetBody({
             quantity={quantity}
             max={MAX_LINE_QUANTITY}
             itemLabel={item.name}
-            onDecrease={() => setQuantity((current) => Math.max(1, current - 1))}
-            onIncrease={() => setQuantity((current) => Math.min(MAX_LINE_QUANTITY, current + 1))}
+            onDecrease={() => {
+              setShortfall(null);
+              setQuantity((current) => Math.max(1, current - 1));
+            }}
+            onIncrease={() => {
+              setShortfall(null);
+              setQuantity((current) => Math.min(MAX_LINE_QUANTITY, current + 1));
+            }}
           />
         </View>
 
         {showRequired && missing.length > 0 ? (
           <Text accessibilityRole="alert" style={styles.error}>
             Choose {missing.map((group) => group.name.toLowerCase()).join(' and ')} first.
+          </Text>
+        ) : null}
+
+        {shortfall !== null ? (
+          <Text accessibilityRole="alert" style={styles.error}>
+            {shortfall === 0
+              ? `Your bag already holds ${MAX_LINE_QUANTITY} of these — the most we make to order. Call the shop for a larger run.`
+              : `Only ${shortfall} more would fit; ${MAX_LINE_QUANTITY} per drink is the most we make to order.`}
           </Text>
         ) : null}
       </ScrollView>

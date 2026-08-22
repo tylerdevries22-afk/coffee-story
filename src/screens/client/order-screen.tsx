@@ -226,8 +226,11 @@ export function OrderScreen() {
           item={detailItem}
           onClose={() => setDetailItem(null)}
           onAdd={(line) => {
-            order.addLine(line);
-            setDetailItem(null);
+            const added = order.addLine(line);
+            // The sheet stays open and explains itself when the bag could not
+            // take everything the button quoted.
+            if (added === line.quantity) setDetailItem(null);
+            return added;
           }}
         />
 

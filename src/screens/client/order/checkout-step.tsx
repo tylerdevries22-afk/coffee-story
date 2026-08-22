@@ -67,7 +67,18 @@ export function CheckoutStep({
   function chooseTip(cents: number) {
     void Haptics.selectionAsync().catch(() => undefined);
     setCustomTipOpen(false);
+    // Cleared, or the field reopens showing an amount that is no longer the
+    // one being charged -- a guest looking at "10" while the total carries $2.
+    setCustomTip('');
     onTipChange(cents);
+  }
+
+  function openCustomTip() {
+    void Haptics.selectionAsync().catch(() => undefined);
+    // Seeded from the tip actually in force, so opening the field never shows
+    // a blank box beside a Total that already includes a preset tip.
+    setCustomTip(totals.tipCents > 0 ? (totals.tipCents / 100).toFixed(2) : '');
+    setCustomTipOpen(true);
   }
 
   function applyCustomTip(raw: string) {
@@ -118,10 +129,7 @@ export function CheckoutStep({
             <TipChip
               label="Other"
               selected={customTipOpen || (!isPreset && totals.tipCents > 0)}
-              onPress={() => {
-                void Haptics.selectionAsync().catch(() => undefined);
-                setCustomTipOpen(true);
-              }}
+              onPress={openCustomTip}
             />
           </View>
           {customTipOpen ? (

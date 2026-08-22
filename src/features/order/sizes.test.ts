@@ -29,7 +29,12 @@ describe('sizeLabelFor', () => {
     assert.equal(sizeLabelFor('espresso'), 'Each');
   });
 
-  it('does not mistake a hyphenated number inside a name for a size', () => {
+  it('reads the trailing number, not a number in the middle of the slug', () => {
+    // The end anchor in the pattern is the whole point. Without it a slug with
+    // an internal number would be labelled by that number, and the label goes
+    // straight onto the bag row and the barista's ticket.
+    assert.equal(sizeLabelFor('ade-2-for-1-16'), '16 oz');
+    assert.equal(sizeLabelFor('sandwich-6-inch'), 'Each');
     assert.equal(sizeLabelFor('boba-milk-tea'), 'Each');
   });
 });

@@ -6,6 +6,7 @@ import {
   MAX_LINE_QUANTITY,
   MAX_ORDER_NOTE_LENGTH,
   addOrderLine,
+  addableQuantity,
   buildOrderLine,
   changeOrderLineQuantity,
   clearOrderCart,
@@ -123,6 +124,26 @@ describe('addOrderLine', () => {
     const line = latte({ serve: ['serve-hot'] }, MAX_LINE_QUANTITY);
     const cart = addOrderLine(addOrderLine(EMPTY_CART, line), line);
     assert.equal(cart.lines[0].quantity, MAX_LINE_QUANTITY);
+  });
+
+  it('reports how many of an add the bag can actually take', () => {
+    // The cap is silent inside addOrderLine, so a caller that does not ask
+    // first would quote a guest five more drinks and add none of them.
+    const full = addOrderLine(EMPTY_CART, latte({ serve: ['serve-hot'] }, MAX_LINE_QUANTITY));
+    assert.equal(addableQuantity(full, latte({ serve: ['serve-hot'] }, 5)), 0);
+
+    const nearlyFull = addOrderLine(EMPTY_CART, latte({ serve: ['serve-hot'] }, MAX_LINE_QUANTITY - 2));
+    assert.equal(addableQuantity(nearlyFull, latte({ serve: ['serve-hot'] }, 5)), 2);
+  });
+
+  it('takes a full add when there is room, and when the line is new', () => {
+    assert.equal(addableQuantity(EMPTY_CART, latte({ serve: ['serve-hot'] }, 3)), 3);
+    const other = addOrderLine(EMPTY_CART, latte({ serve: ['serve-hot'], milk: ['milk-oat'] }, MAX_LINE_QUANTITY));
+    assert.equal(addableQuantity(other, latte({ serve: ['serve-hot'] }, 4)), 4);
+  });
+
+  it('never reports more room than was asked for', () => {
+    assert.equal(addableQuantity(EMPTY_CART, latte({ serve: ['serve-hot'] }, 1)), 1);
   });
 
   it('leaves the original cart untouched', () => {
