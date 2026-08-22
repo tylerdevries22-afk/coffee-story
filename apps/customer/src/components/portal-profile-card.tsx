@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppIcon } from '@/components/icon';
 import { ProfileAvatar } from '@/components/profile-avatar';
-import { colors, fonts, radius, shadow, spacing } from '@/theme/tokens';
+import { colors, fonts, radius, spacing } from '@/theme/tokens';
 
 export type ProfileMetric = {
   label: string;
@@ -106,14 +106,17 @@ export function PortalProfileCard({
 }
 
 const styles = StyleSheet.create({
+  // Same tinted-pill language as the PillRow menu items below it: brand50
+  // ground, brand100 hairline, no shadow — the card reads as the first row of
+  // the page rather than a separate white panel floating on it.
   card: {
     gap: spacing.md,
     padding: spacing.md,
-    borderRadius: radius.lg,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.xl,
     borderWidth: 1,
     borderColor: colors.brand100,
-    backgroundColor: colors.white,
-    ...shadow.card,
+    backgroundColor: colors.brand50,
   },
   headerTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 54 },
   identity: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 54 },

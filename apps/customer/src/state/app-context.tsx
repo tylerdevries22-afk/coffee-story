@@ -5,10 +5,6 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 
 import { useAuth } from '@/state/auth-context';
 import { useDemo } from '@/state/demo-context';
-import {
-  SETUP_AUTO_PROMPT_DELAY_MS,
-  shouldScheduleSetupAutoPrompt,
-} from '@/features/setup/setup';
 import { destinationForIntentUrl, giftTokenFromUrl } from '@/state/intent-links';
 import {
   clientMoreHref,
@@ -36,14 +32,6 @@ type AppState = {
   giftClaimToken: string | null;
   moreView: MoreView;
   staffDetailPath: string | null;
-  /**
-   * Persona whose setup flow is open. Manual requests arrive immediately;
-   * automatic requests wait for a stable role and honor the persisted global
-   * dismissal before the SetupFlowHost chooses review or wizard content.
-   */
-  setupPromptRole: AppRole | null;
-  queueSetupPrompt: (role: AppRole) => void;
-  dismissSetupPrompt: () => void;
   /** Everything seen so far this session; drives the header badge count. */
   readNotificationIds: ReadonlySet<string>;
   /**
@@ -100,10 +88,6 @@ export function AppStateProvider({ children }: PropsWithChildren) {
   const [modeOverride, setModeOverride] = useState<{ role: AppRole; isStaffMode: boolean } | null>(null);
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
   const [giftClaimToken, setGiftClaimToken] = useState<string | null>(null);
-  const [setupPrompt, setSetupPrompt] = useState<{
-    role: AppRole;
-    source: 'auto' | 'manual';
-  } | null>(null);
 
   // Where you are is now the router's business, not this provider's. Reading it
   // back out keeps the `clientTab` / `moreView` / `staffDetailPath` fields that
@@ -112,16 +96,6 @@ export function AppStateProvider({ children }: PropsWithChildren) {
   const moreView = clientMoreViewFromPathname(pathname);
   const staffTab = staffTabFromPathname(pathname);
   const staffDetailPath = staffDetailPathFromPathname(pathname);
-  const setupPromptRole = setupPrompt?.role ?? null;
-  const queueSetupPrompt = useCallback((promptRole: AppRole) => {
-    setSetupPrompt({ role: promptRole, source: 'manual' });
-  }, []);
-  const dismissSetupPrompt = useCallback(() => {
-    // Closing or completing either presentation consumes the pending automatic
-    // offer. Manual opening itself remains immediate and does not dismiss it.
-    if (setupPrompt && isDemo) demo.dismissSetupAutoPrompt();
-    setSetupPrompt(null);
-  }, [demo, isDemo, setupPrompt]);
   // Read ids accumulate for the session. Anything absent is unread, so a
   // notification generated later still arrives unread with no extra bookkeeping.
   const [barCovered, setBarCovered] = useState(false);
@@ -160,21 +134,6 @@ export function AppStateProvider({ children }: PropsWithChildren) {
   const closeNotifications = useCallback(() => {
     if (router.canGoBack()) router.back();
   }, []);
-
-  useEffect(() => {
-    const shouldSchedule = shouldScheduleSetupAutoPrompt({
-      isDemo,
-      isHydrating: demo.isHydrating,
-      dismissed: demo.portal.autoPromptDismissed === true,
-      promptOpen: setupPrompt !== null,
-    });
-    if (!shouldSchedule) return undefined;
-    const stableRole = role;
-    const timer = setTimeout(() => {
-      setSetupPrompt({ role: stableRole, source: 'auto' });
-    }, SETUP_AUTO_PROMPT_DELAY_MS);
-    return () => clearTimeout(timer);
-  }, [demo.isHydrating, demo.portal.autoPromptDismissed, isDemo, role, setupPrompt]);
 
   const setClientTab = useCallback((tab: ClientTab) => {
     selectionFeedback();
@@ -241,9 +200,6 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     giftClaimToken,
     moreView,
     staffDetailPath,
-    setupPromptRole,
-    queueSetupPrompt,
-    dismissSetupPrompt,
     readNotificationIds,
     unreadNotificationIds,
     openNotifications,
@@ -267,13 +223,6 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     selectRole: (nextRole) => {
       if (!isDemo) return;
       selectionFeedback();
-      // A role must stay selected for three seconds before setup is offered.
-      // Clearing the current request here also cancels an open automatic prompt
-      // before the destination workspace replaces it.
-      if (nextRole !== role) {
-        if (setupPrompt?.source === 'auto') demo.dismissSetupAutoPrompt();
-        setSetupPrompt(null);
-      }
       demo.setRole(nextRole);
       // Stay on More. The role switch lives on the More page in every persona,
       // so landing on Home/Today threw the picker off screen and made comparing
@@ -294,10 +243,6 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     closeNotifications,
     closeStaffDestination,
     demo,
-    dismissSetupPrompt,
-    queueSetupPrompt,
-    setupPromptRole,
-    setupPrompt?.source,
     isDemo,
     isStaffMode,
     giftClaimToken,

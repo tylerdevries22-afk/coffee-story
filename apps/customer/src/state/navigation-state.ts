@@ -28,7 +28,9 @@ export const CLIENT_TAB_LABELS: Readonly<Record<ClientTab, string>> = {
   gift: 'Gift',
   book: 'Order',
   rewards: 'Rewards',
-  more: 'More',
+  // The route segment stays `more`; the label matches the native tab and the
+  // page header, which both read "Profile".
+  more: 'Profile',
 };
 
 /**

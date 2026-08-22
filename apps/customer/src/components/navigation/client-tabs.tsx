@@ -74,7 +74,7 @@ export function ClientTabs() {
           "Profile" label sits below either way. */}
       <NativeTabs.Trigger name="more">
         <TabIcon src={avatar.source} renderingMode={avatar.isPhoto ? 'original' : 'template'} />
-        <TabLabel>Profile</TabLabel>
+        <TabLabel>{CLIENT_TAB_LABELS.more}</TabLabel>
       </NativeTabs.Trigger>
     </NativeTabs>
   );

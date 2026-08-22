@@ -18,7 +18,6 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppErrorBoundary } from '@/components/app-error-boundary';
 import { Button } from '@/components/ui';
 import { InstallPrompt } from '@/components/install-prompt';
-import { SetupFlowHost } from '@/components/setup/setup-flow';
 import { brandCache } from '@/lib/brand-cache';
 import { AppStateProvider } from '@/state/app-context';
 import { AuthProvider } from '@/state/auth-context';
@@ -123,11 +122,10 @@ function ConfiguredApp({ config }: { config: MobileLiveConfig }) {
             <Stack.Screen name="notifications" options={{ animation: 'slide_from_right' }} />
           </Stack>
           {/* Global chrome that used to live in `app/index.tsx` when it was the
-              entire app. Both now sit above the Stack so they survive
-              navigating into `/client` or `/staff` instead of unmounting the
-              moment the redirect fires. */}
+              entire app. It sits above the Stack so it survives navigating into
+              `/client` or `/staff` instead of unmounting the moment the
+              redirect fires. */}
           <InstallPrompt />
-          <SetupFlowHost />
         </OrderProvider>
       </AppStateProvider>
     </AuthProvider>

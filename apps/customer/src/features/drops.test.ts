@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { dropArchive, dropStatus, featuredDrop, type Drop } from './drops';
+import { dropArchive, dropStatus, dropWindowLabel, featuredDrop, weeklyDrops, type Drop } from './drops';
 
 const drop = (id: string, startsAt: string, endsAt: string): Drop => ({
   id, itemId: `item-${id}`, title: id, blurb: '', startsAt, endsAt,
@@ -40,6 +40,31 @@ describe('featuredDrop', () => {
   it('picks the drop ending soonest when two are live', () => {
     const longer = drop('longer', '2026-08-19T00:00:00Z', '2026-08-30T00:00:00Z');
     assert.equal(featuredDrop([longer, live], NOW)?.id, 'live');
+  });
+});
+
+describe('weeklyDrops', () => {
+  it('lists live drops before upcoming and drops the ended', () => {
+    assert.deepEqual(weeklyDrops([past, soon, live], NOW).map((entry) => entry.id), ['live', 'soon']);
+  });
+
+  it('is empty when nothing is live or coming', () => {
+    assert.deepEqual(weeklyDrops([past], NOW), []);
+  });
+});
+
+describe('dropWindowLabel', () => {
+  it('spans earliest start to latest end within a month', () => {
+    assert.equal(dropWindowLabel([live, soon]), 'Aug 20 – 28');
+  });
+
+  it('names both months when the window crosses one', () => {
+    const straddle = drop('straddle', '2026-08-30T00:00:00Z', '2026-09-05T00:00:00Z');
+    assert.equal(dropWindowLabel([straddle]), 'Aug 30 – Sep 5');
+  });
+
+  it('returns empty for malformed windows instead of NaN dates', () => {
+    assert.equal(dropWindowLabel([drop('bad', 'nonsense', 'worse')]), '');
   });
 });
 
