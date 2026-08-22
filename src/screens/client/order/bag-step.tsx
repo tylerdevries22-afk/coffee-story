@@ -6,7 +6,7 @@
  * padding.
  */
 import { Image } from 'expo-image';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { CollapsingScreen } from '@/components/collapsing-screen';
 import { AppIcon } from '@/components/icon';
@@ -147,14 +147,18 @@ function ContextRow({
         {detail ? <Text numberOfLines={1} style={styles.contextDetail}>{detail}</Text> : null}
       </View>
       {onEdit ? (
-        <Text
+        // A Pressable, not a Text with onPress: react-native-web gives the
+        // press responder keyboard activation, which a Text does not get, and
+        // the label on its own was a 38x17pt target.
+        <Pressable
           accessibilityRole="button"
           accessibilityLabel="Change when and where this order is going"
+          hitSlop={8}
           onPress={onEdit}
-          style={styles.contextEdit}
+          style={({ pressed }) => [styles.contextEditButton, pressed && styles.pressed]}
         >
-          Edit
-        </Text>
+          <Text style={styles.contextEdit}>Edit</Text>
+        </Pressable>
       ) : null}
     </View>
   );
@@ -259,7 +263,9 @@ const styles = StyleSheet.create({
   contextCopy: { flex: 1 },
   contextLabel: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 14 },
   contextDetail: { color: colors.ink600, fontFamily: fonts.sans, fontSize: 12 },
-  contextEdit: { color: colors.brand700, fontFamily: fonts.sansMedium, fontSize: 14, paddingHorizontal: spacing.xs },
+  contextEditButton: { minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center' },
+  contextEdit: { color: colors.brand700, fontFamily: fonts.sansMedium, fontSize: 14 },
+  pressed: { opacity: 0.72 },
 
   empty: { gap: spacing.xs, paddingVertical: spacing.xl },
   emptyTitle: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 20 },

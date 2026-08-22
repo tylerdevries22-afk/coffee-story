@@ -165,6 +165,7 @@ function ItemSheetBody({
           <Text style={styles.blockTitle}>Quantity</Text>
           <QuantityStepper
             quantity={quantity}
+            min={1}
             max={MAX_LINE_QUANTITY}
             itemLabel={item.name}
             onDecrease={() => {

@@ -49,7 +49,7 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="apple-mobile-web-app-title" content="Coffee Story" />
         {/* 180px is exactly what iOS asks for; handing it the 512 just makes
             Safari downscale a file 4x larger on every add-to-home-screen. */}
-        <link rel="apple-touch-icon" href="/icon.png" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/icon-180.png" />
 
         {/* coffeestoryco.com is the shop's site; this build is the app. */}
         <meta name="robots" content="noindex" />

@@ -181,6 +181,7 @@ function OptionRow({
  */
 export function QuantityStepper({
   quantity,
+  min = 0,
   max,
   itemLabel,
   onDecrease,
@@ -188,6 +189,13 @@ export function QuantityStepper({
   style,
 }: {
   quantity: number;
+  /**
+   * The lowest this control can reach. 0 means going below one removes the
+   * line, and the minus becomes a bin at one; 1 means there is nothing to
+   * remove, so it stays a minus and greys out -- rather than offering a
+   * destructive action, announcing "Remove", and then doing nothing.
+   */
+  min?: number;
   max: number;
   /** Named in every button label, so the buttons are distinguishable. */
   itemLabel: string;
@@ -195,7 +203,8 @@ export function QuantityStepper({
   onIncrease: () => void;
   style?: StyleProp<ViewStyle>;
 }) {
-  const removes = quantity <= 1;
+  const removes = min <= 0 && quantity <= 1;
+  const atMin = quantity <= min;
   const atMax = quantity >= max;
   return (
     <View style={[styles.stepper, style]}>
@@ -203,11 +212,17 @@ export function QuantityStepper({
         accessibilityRole="button"
         accessibilityLabel={removes ? `Remove ${itemLabel}` : `One fewer ${itemLabel}`}
         hitSlop={6}
+        disabled={atMin}
+        {...disabledState(atMin)}
         onPress={() => {
           tap();
           onDecrease();
         }}
-        style={({ pressed }) => [styles.stepperButton, pressed && styles.pressed]}
+        style={({ pressed }) => [
+          styles.stepperButton,
+          pressed && styles.pressed,
+          atMin && styles.stepperButtonDisabled,
+        ]}
       >
         <AppIcon name={removes ? 'trash' : 'minus'} size={16} tintColor={colors.ink900} />
       </Pressable>
