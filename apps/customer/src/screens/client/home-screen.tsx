@@ -24,9 +24,10 @@ import { DEMO_ADD_ONS, MENU_CATEGORY_META, SERVICES, type MenuCategoryId, type S
 import { useAppState } from '@/state/app-context';
 import { useAuth } from '@/state/auth-context';
 import { openWebPath } from '@/lib/web-navigation';
-import { colors, fonts, radius, shadow, spacing } from '@/theme/tokens';
+import { colors, fonts, radius, spacing } from '@/theme/tokens';
 import { demoDrops } from '@/data/drops';
-import { featuredDrop, dropStatus } from '@/features/drops';
+import { dropStatus, dropWindowLabel, weeklyDrops, type Drop } from '@/features/drops';
+import { SiriAssistant, type SiriCommand } from '@/components/siri/siri-assistant';
 import { useReducedMotion } from '@/hooks/use-reduced-motion';
 import { tenantFeature } from '@/tenant';
 import { DropCountdown } from '@platform/ui';
@@ -68,6 +69,7 @@ export function HomeScreen() {
   const [activeSlide, setActiveSlide] = useState(0);
   const stickyVisible = useRef(false);
   const [showStickyCta, setShowStickyCta] = useState(false);
+  const [showAssistant, setShowAssistant] = useState(true);
   const [overHero, setOverHero] = useState(true);
   const [expanded, setExpanded] = useState<ReadonlySet<MenuCategoryId>>(new Set());
   const firstName = portal.profile.fullName.split(/\s+/)[0] || 'there';
@@ -83,9 +85,14 @@ export function HomeScreen() {
     (service): service is Service => Boolean(service),
   );
 
-  // The rotating-drop model's front door: the live drop, or the next one.
-  const drop = useMemo(() => (tenantFeature('drops') ? featuredDrop(demoDrops(), new Date()) : null), []);
-  const dropItem = drop ? SERVICES.find((service) => service.id === drop.itemId) ?? null : null;
+  // The rotating-drop model's front door: this week's board — everything live
+  // plus what's about to land, each row mapped onto its catalog item.
+  const weekly = useMemo(() => {
+    if (!tenantFeature('drops')) return [];
+    return weeklyDrops(demoDrops(), new Date())
+      .map((entry) => ({ drop: entry, item: SERVICES.find((service) => service.id === entry.itemId) ?? null }))
+      .filter((entry): entry is { drop: Drop; item: Service } => entry.item !== null);
+  }, []);
 
   const onScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offset = event.nativeEvent.contentOffset.y;
@@ -107,6 +114,13 @@ export function HomeScreen() {
   const onBookNow = useCallback(() => {
     startBooking('tiramisu-latte');
   }, [startBooking]);
+
+  const siriCommands: readonly SiriCommand[] = [
+    { key: 'book', phrase: 'Order my usual', onRun: () => startBooking() },
+    { key: 'next-visit', phrase: 'When is my next pickup?', onRun: () => openMore('visits') },
+    { key: 'rewards', phrase: 'Check my rewards balance', onRun: () => setClientTab('rewards') },
+    { key: 'gift', phrase: 'Send a gift card', onRun: () => setClientTab('gift') },
+  ];
 
   const onOpenPackages = useCallback(() => {
     void openWebPath('/menu').catch((error: unknown) => {
@@ -249,27 +263,26 @@ export function HomeScreen() {
         </View>
       </View>
 
-      {drop && dropItem ? (
+      {weekly.length ? (
         <View style={styles.dropSection}>
+          {/* The dated drop board: a date-range chip over a generic section
+              title, then each drop as an alternating edge-bleed feature row —
+              the same header + staggered-row grammar as the rest of the page,
+              so a second drop in the window slots in without a new layout. */}
           <SectionHeader
-            pill={dropStatus(drop, new Date()) === 'live' ? 'Dropping now' : 'Next drop'}
-            title={drop.title}
-            body={drop.blurb}
+            pill={dropWindowLabel(weekly.map((entry) => entry.drop))}
+            title="Weekly Drops"
+            body="New and returning pours land each week. Order them before they're gone."
           />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`${drop.title}. Order the drop`}
-            onPress={() => startBooking(dropItem.id)}
-            style={({ pressed }) => [styles.dropCard, pressed && { opacity: 0.9 }]}
-          >
-            <Image source={dropItem.image} style={styles.dropImage} contentFit="cover" alt={drop.title} />
-            <View style={styles.dropInfo}>
-              <DropCountdown startsAt={new Date(drop.startsAt)} endsAt={new Date(drop.endsAt)} />
-              <Text style={styles.dropCta}>
-                {dropStatus(drop, new Date()) === 'live' ? 'Order it while it lasts' : 'See what else is pouring'}
-              </Text>
-            </View>
-          </Pressable>
+          {weekly.map((entry, index) => (
+            <DropFeatureRow
+              key={entry.drop.id}
+              drop={entry.drop}
+              item={entry.item}
+              flip={index % 2 === 1}
+              onPress={() => startBooking(entry.item.id)}
+            />
+          ))}
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Past drops"
@@ -352,6 +365,12 @@ export function HomeScreen() {
           </View>
         ))}
       </View>
+
+      {showAssistant ? (
+        <View style={styles.siriWrap}>
+          <SiriAssistant commands={siriCommands} onClose={() => setShowAssistant(false)} />
+        </View>
+      ) : null}
 
       {/* Preserve the final breathing room without rendering a second CTA. */}
       <View style={styles.footerCtaSpace} accessible={false} />
@@ -473,6 +492,44 @@ function FeatureRow({
   );
 }
 
+/** One drop on the weekly board, in the page's alternating feature grammar. */
+function DropFeatureRow({
+  drop,
+  item,
+  flip,
+  onPress,
+}: {
+  drop: Drop;
+  item: Service;
+  flip: boolean;
+  onPress: () => void;
+}) {
+  const live = dropStatus(drop, new Date()) === 'live';
+  return (
+    <View style={[styles.feature, flip && styles.featureFlip]}>
+      <Image
+        source={item.image}
+        style={[styles.featureImage, flip ? styles.featureImageRight : styles.featureImageLeft]}
+        contentFit="cover"
+        alt={drop.title}
+      />
+      <View style={styles.featureCopy}>
+        <View style={styles.tag}><Text style={styles.tagText}>{live ? 'This week only' : 'Coming soon'}</Text></View>
+        <Text style={styles.featureTitle}>{drop.title}</Text>
+        <Text numberOfLines={2} style={styles.dropBlurb}>{drop.blurb}</Text>
+        <DropCountdown startsAt={new Date(drop.startsAt)} endsAt={new Date(drop.endsAt)} />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${drop.title}. Order the drop`}
+          onPress={onPress}
+        >
+          <Text style={styles.learnMore}>{live ? 'Order it while it lasts  ›' : 'See what’s pouring next  ›'}</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
 function MenuRow({ item, onPress }: { item: Service; onPress: () => void }) {
   const from = item.durations[0]?.price;
   return (
@@ -494,18 +551,9 @@ function MenuRow({ item, onPress }: { item: Service; onPress: () => void }) {
 }
 
 const styles = StyleSheet.create({
-  dropSection: { gap: spacing.md },
-  dropCard: {
-    marginHorizontal: spacing.lg,
-    borderRadius: radius.lg,
-    backgroundColor: colors.white,
-    overflow: 'hidden',
-    ...shadow.card,
-  },
-  dropImage: { width: '100%', height: 210, backgroundColor: colors.brand100 },
-  dropInfo: { padding: spacing.lg, gap: spacing.sm },
-  dropCta: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 16 },
-  dropArchiveLink: { alignSelf: 'center', paddingVertical: spacing.xs, paddingHorizontal: spacing.md },
+  dropSection: { gap: 0 },
+  dropBlurb: { color: colors.ink500, fontFamily: fonts.sans, fontSize: 13, lineHeight: 18 },
+  dropArchiveLink: { alignSelf: 'center', marginTop: spacing.md, paddingVertical: spacing.xs, paddingHorizontal: spacing.md },
   dropArchiveText: { color: colors.ink600, fontFamily: fonts.sansMedium, fontSize: 14, textDecorationLine: 'underline' },
   shell: { flex: 1 },
   screen: { backgroundColor: colors.surface },
@@ -517,8 +565,11 @@ const styles = StyleSheet.create({
   heroMedia: { position: 'absolute', top: 0, bottom: 0, left: '-14%', right: '-14%' },
   openingContent: { position: 'absolute', left: spacing.lg, right: spacing.lg, bottom: 42 },
 
+  // Content-width and centered, sized to the carousel's compact pill button
+  // (the gifting slide's) rather than spanning the screen edge to edge.
   bookNowPill: {
-    minHeight: 56,
+    alignSelf: 'center',
+    minHeight: 46,
     borderRadius: radius.pill,
     backgroundColor: colors.brand600,
     flexDirection: 'row',
@@ -527,9 +578,9 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingHorizontal: spacing.lg,
   },
-  bookNowText: { color: colors.white, fontFamily: fonts.sansBold, fontSize: 17 },
-  bookNowDivider: { width: 1, height: 18, backgroundColor: 'rgba(255,255,255,0.35)' },
-  bookNowWait: { color: 'rgba(255,255,255,0.82)', fontFamily: fonts.sansMedium, fontSize: 14 },
+  bookNowText: { color: colors.white, fontFamily: fonts.sansBold, fontSize: 15 },
+  bookNowDivider: { width: 1, height: 16, backgroundColor: 'rgba(255,255,255,0.35)' },
+  bookNowWait: { color: 'rgba(255,255,255,0.82)', fontFamily: fonts.sansMedium, fontSize: 13 },
 
   pulseWrap: { width: 12, height: 12, alignItems: 'center', justifyContent: 'center' },
   pulseRing: { position: 'absolute', width: 12, height: 12, borderRadius: 8, backgroundColor: colors.liveGlow },
@@ -676,32 +727,34 @@ const styles = StyleSheet.create({
   addOnBody: { color: colors.ink500, fontFamily: fonts.sans, fontSize: 13 },
   addOnPrice: { color: colors.ink900, fontFamily: fonts.display, fontSize: 19 },
 
+  siriWrap: { paddingHorizontal: spacing.lg, paddingTop: spacing.xl },
   footerCtaSpace: { height: spacing.xl + 48 },
   stickyCtaWrap: {
     position: 'absolute',
     left: spacing.lg,
     right: spacing.lg,
     zIndex: 40,
-    alignItems: 'stretch',
+    // Centered content width, matching the hero pill above.
+    alignItems: 'center',
   },
   stickyBookNowButton: {
-    minHeight: 56,
+    minHeight: 46,
     borderRadius: radius.pill,
     backgroundColor: colors.brand600,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
     gap: spacing.sm,
-    paddingHorizontal: spacing.xl,
+    paddingHorizontal: spacing.lg,
   },
   stickyBookNowText: {
     color: colors.white,
     fontFamily: fonts.sansBold,
-    fontSize: 17,
+    fontSize: 15,
   },
   stickyBookNowWait: {
     color: 'rgba(255,255,255,0.82)',
     fontFamily: fonts.sansMedium,
-    fontSize: 14,
+    fontSize: 13,
   },
 });

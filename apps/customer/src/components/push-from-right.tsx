@@ -48,7 +48,7 @@ export function PushFromRight({
   // matched on the very frame the page was dismissed and unmounted the tree
   // before the exit had a single frame to play -- the page vanished instead of
   // sliding out. Re-arming during render is the sanctioned
-  // adjust-state-from-props pattern, and matches SetupFlowHost.
+  // adjust-state-from-props pattern.
   const [closed, setClosed] = useState(!visible);
   const wasClosed = closed;
   if (visible && closed) setClosed(false);

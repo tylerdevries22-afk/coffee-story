@@ -30,7 +30,7 @@ export function CollapsingPageHeader({
   title,
   eyebrow,
   onBack,
-  backLabel = 'More',
+  backLabel = 'Profile',
   actions,
   scrollY,
   backgroundColor = colors.surface,

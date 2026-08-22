@@ -34,6 +34,37 @@ export function featuredDrop(drops: readonly Drop[], now: Date): Drop | null {
   return upcoming[0] ?? null;
 }
 
+/**
+ * The week's drop board: everything live now plus what's about to land,
+ * soonest-ending first. The home page renders these as a dated section.
+ */
+export function weeklyDrops(drops: readonly Drop[], now: Date): Drop[] {
+  const live = drops
+    .filter((drop) => dropStatus(drop, now) === 'live')
+    .sort((a, b) => new Date(a.endsAt).getTime() - new Date(b.endsAt).getTime());
+  const upcoming = drops
+    .filter((drop) => dropStatus(drop, now) === 'upcoming')
+    .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
+  return [...live, ...upcoming];
+}
+
+/**
+ * The date-range chip over the drop board, spanning the earliest start to the
+ * latest end: "Aug 18 – 24" within a month, "Aug 30 – Sep 5" across one.
+ */
+export function dropWindowLabel(drops: readonly Drop[]): string {
+  const starts = drops.map((drop) => new Date(drop.startsAt)).filter((date) => !Number.isNaN(date.getTime()));
+  const ends = drops.map((drop) => new Date(drop.endsAt)).filter((date) => !Number.isNaN(date.getTime()));
+  if (!starts.length || !ends.length) return '';
+  const from = new Date(Math.min(...starts.map((date) => date.getTime())));
+  const to = new Date(Math.max(...ends.map((date) => date.getTime())));
+  const month = (date: Date) => date.toLocaleDateString('en-US', { month: 'short' });
+  const sameMonth = from.getMonth() === to.getMonth() && from.getFullYear() === to.getFullYear();
+  return sameMonth
+    ? `${month(from)} ${from.getDate()} – ${to.getDate()}`
+    : `${month(from)} ${from.getDate()} – ${month(to)} ${to.getDate()}`;
+}
+
 /** Newest first, for the archive screen. Includes the live drop. */
 export function dropArchive(drops: readonly Drop[], now: Date): Drop[] {
   return drops

@@ -12,13 +12,11 @@ import { CollapsingPageHeader } from '@/components/collapsing-page-header';
 import { HeaderIconButton } from '@/components/more-page-header';
 import { MoreSearchTakeover } from '@/components/more-search-takeover';
 import { PortalProfileCard } from '@/components/portal-profile-card';
-import { SetupProgressCard } from '@/components/setup/setup-progress-card';
 import { BUSINESS } from '@/data/business';
 import { SERVICES } from '@/data/catalog';
 import { buildClientNotifications } from '@/features/notifications/feed';
 import { searchClientAccount, type ClientSearchResult } from '@/features/search/client-search';
 import { summarizeGiftCardOwnership } from '@/features/gifts/ownership';
-import { portalSetup } from '@/features/setup/setup';
 import { useAppState, type MoreView } from '@/state/app-context';
 import { tenantFeature } from '@/tenant';
 import { useAuth } from '@/state/auth-context';
@@ -52,11 +50,9 @@ const SEARCH_SYMBOLS: Record<ClientSearchResult['kind'], 'doc.text' | 'clock.arr
  */
 export function MoreScreen() {
   const {
-    role,
     openNotifications,
     readNotificationIds,
     openMore,
-    queueSetupPrompt,
     setClientTab,
     startBooking,
   } = useAppState();
@@ -84,7 +80,6 @@ export function MoreScreen() {
     { label: 'Gift balance', value: `$${(giftSummary.spendableBalanceCents / 100).toFixed(2)}` },
     { label: 'Beans', value: portal.rewardAccount.availablePoints.toLocaleString('en-US') },
   ] as const;
-  const setup = portalSetup(portal)[role];
   function openResult(result: ClientSearchResult) {
     setSearchOpen(false);
     setQuery('');
@@ -128,7 +123,7 @@ export function MoreScreen() {
       scrollEventThrottle={16}
     >
       <CollapsingPageHeader
-        title="More"
+        title="Profile"
         scrollY={scrollY}
         actions={(
           <>
@@ -156,7 +151,6 @@ export function MoreScreen() {
         profileLabel="Open account settings"
         onProfile={() => openMore('profile')}
       />
-      {isDemo ? <SetupProgressCard setup={setup} onPress={() => queueSetupPrompt(role)} /> : null}
 
       <SectionTitle>General</SectionTitle>
       <PillRow

@@ -6,9 +6,9 @@ import { useAuth } from '@/state/auth-context';
 import { ErrorState, LoadingState } from '@/components/ui';
 
 /**
- * The auth gate. `InstallPrompt` and `SetupFlowHost` used to mount here too,
- * back when this screen WAS the entire app; they moved to the root layout
- * (see `_layout.tsx`) so they stay mounted once this redirects into a shell.
+ * The auth gate. `InstallPrompt` used to mount here too, back when this
+ * screen WAS the entire app; it moved to the root layout (see `_layout.tsx`)
+ * so it stays mounted once this redirects into a shell.
  */
 export default function AppIndex() {
   const { isStaffMode } = useAppState();

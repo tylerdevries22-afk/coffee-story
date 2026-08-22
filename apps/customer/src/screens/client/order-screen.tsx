@@ -19,7 +19,6 @@ import { Animated, Pressable, StyleSheet, Text, View, useWindowDimensions } from
 import { CollapsingScreen } from '@/components/collapsing-screen';
 import { AppIcon } from '@/components/icon';
 import { PushFromRight } from '@/components/push-from-right';
-import { SiriAssistant, type SiriCommand } from '@/components/siri/siri-assistant';
 import { Body } from '@/components/ui';
 import type { Service } from '@/data/catalog';
 import type { BookingFulfillment, VisitMode } from '@/features/booking/fulfillment';
@@ -415,16 +414,8 @@ function OrderHub({
   onOpenRewards: () => void;
   pointsPerDollar: number;
 }) {
-  const [showAssistant, setShowAssistant] = useState(true);
   const { width } = useWindowDimensions();
-  const { startBooking, openMore, setClientTab } = useAppState();
   const compact = width < 360;
-  const siriCommands: readonly SiriCommand[] = [
-    { key: 'book', phrase: 'Order my usual', onRun: () => startBooking() },
-    { key: 'next-visit', phrase: 'When is my next pickup?', onRun: () => openMore('visits') },
-    { key: 'rewards', phrase: 'Check my rewards balance', onRun: () => setClientTab('rewards') },
-    { key: 'gift', phrase: 'Send a gift card', onRun: () => setClientTab('gift') },
-  ];
 
   return (
     <CollapsingScreen
@@ -435,8 +426,6 @@ function OrderHub({
       headerBorderColor={colors.brand200}
       contentContainerStyle={[styles.content, compact && styles.contentCompact]}
     >
-      {showAssistant ? <SiriAssistant commands={siriCommands} onClose={() => setShowAssistant(false)} /> : null}
-
       <View accessibilityRole="radiogroup" style={[styles.modeRow, compact && styles.modeRowCompact]}>
         <ModeCard
           mode="dispatch"
