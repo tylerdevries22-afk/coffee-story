@@ -1,19 +1,15 @@
-import { useStripe } from '@/lib/stripe';
-import Constants from 'expo-constants';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { CollapsingScreen } from '@/components/collapsing-screen';
 import { Body, Button, Card, Eyebrow, PillRow, Screen, SectionTitle, Title } from '@/components/ui';
 import { mobileApi } from '@/lib/mobile-api';
-import { usesSimulatedNativeFlows } from '@/lib/native-adapters';
 import { useAppState } from '@/state/app-context';
 import { useAuth } from '@/state/auth-context';
 import { useDemo } from '@/state/demo-context';
 import { GiftCardSheet, GiftGallery, GiftInfoSheet } from '@/components/gift/gift-shelves';
 import { giftDesignByKey, type GiftDesign } from '@/data/gift-designs';
-import { requestKey } from '@/features/booking/request-key';
 import { tierForAnnualPoints } from '@/features/rewards/rules';
 import { BUSINESS, BUSINESS_MONOGRAM } from '@/data/business';
 import { colors, fonts, radius, spacing } from '@/theme/tokens';
@@ -23,15 +19,6 @@ import { choiceState } from '@/lib/a11y-state';
 const AMOUNTS = [50, 75, 100, 150, 200] as const;
 
 type GiftView = 'gallery' | 'wallet' | 'purchase' | 'recipient' | 'detail' | 'sent' | 'card' | 'info';
-type StableRequestKey = { fingerprint: string; key: string };
-
-function stableRequestKey(ref: { current: StableRequestKey | null }, scope: string, fingerprint: string): string {
-  if (!ref.current || ref.current.fingerprint !== fingerprint) {
-    ref.current = { fingerprint, key: requestKey(scope) };
-  }
-  return ref.current.key;
-}
-
 export function GiftScreen({
   initialClaimToken,
   onClaimTokenConsumed,
@@ -51,10 +38,7 @@ export function GiftScreen({
   const [claimToken, setClaimToken] = useState('');
   const [selectedGift, setSelectedGift] = useState<GiftCard | null>(null);
   const [paymentMethodId, setPaymentMethodId] = useState<string | null>(null);
-  const payRequest = useRef<StableRequestKey | null>(null);
-  const walletRequest = useRef<StableRequestKey | null>(null);
-  const stripe = useStripe();
-  const { isDemo, portal, refresh } = useAuth();
+  const { isDemo, portal } = useAuth();
   const demo = useDemo();
   const { startBooking } = useAppState();
   const paymentMethods = portal.paymentMethods ?? [];
@@ -111,39 +95,10 @@ export function GiftScreen({
         setView('sent');
         return;
       }
-      if (usesSimulatedNativeFlows(isDemo, Constants.appOwnership)) {
-        Alert.alert('Demo mode required', 'Expo Go simulates gift-card payments in Demo mode. Switch from More to continue safely.');
-        return;
-      }
-      const deliveryAt = delivery === 'week'
-        ? new Date(Date.now() + 7 * 86_400_000).toISOString()
-        : null;
-      const idempotencyKey = stableRequestKey(
-        payRequest,
-        'gift-payment',
-        JSON.stringify({ amount, recipient, recipientName, message, designKey, delivery }),
-      );
-      const payload = await mobileApi.createGiftPayment({
-        amountCents: amount * 100,
-        recipientEmail: recipient.trim(),
-        recipientName: recipientName.trim(),
-        message,
-        designKey,
-        deliveryAt,
-        idempotencyKey,
-      });
-      const initialized = await stripe.initPaymentSheet({
-        merchantDisplayName: 'Coffee Story',
-        paymentIntentClientSecret: payload.paymentIntent,
-        customerEphemeralKeySecret: payload.ephemeralKey,
-        customerId: payload.customer,
-        returnURL: 'coffeestory://stripe-redirect',
-      });
-      if (initialized.error) throw new Error(initialized.error.message);
-      const presented = await stripe.presentPaymentSheet();
-      if (presented.error) throw new Error(presented.error.message);
-      await refresh();
-      setView('sent');
+      // Gift purchases go live with card payments (Square). Until then the
+      // full flow works in Demo and live accounts see the honest state.
+      Alert.alert('Coming soon', 'Gift card purchases are coming to live accounts soon. Preview the whole flow in Demo.');
+      return;
     } catch (paymentError) {
       Alert.alert(
         'Payment could not be completed',
@@ -184,35 +139,8 @@ export function GiftScreen({
         setView('wallet');
         return;
       }
-      if (usesSimulatedNativeFlows(isDemo, Constants.appOwnership)) {
-        Alert.alert('Demo mode required', 'Expo Go simulates gift-card payments in Demo mode. Switch from More to continue safely.');
-        return;
-      }
-      const payload = await mobileApi.createGiftPayment({
-        amountCents: amount * quantity * 100,
-        recipientEmail: portal.profile.email,
-        recipientName: portal.profile.fullName,
-        message: '',
-        designKey,
-        deliveryAt: null,
-        idempotencyKey: stableRequestKey(
-          walletRequest,
-          'gift-wallet-payment',
-          JSON.stringify({ amount, quantity, designKey }),
-        ),
-      });
-      const initialized = await stripe.initPaymentSheet({
-        merchantDisplayName: 'Coffee Story',
-        paymentIntentClientSecret: payload.paymentIntent,
-        customerEphemeralKeySecret: payload.ephemeralKey,
-        customerId: payload.customer,
-        returnURL: 'coffeestory://stripe-redirect',
-      });
-      if (initialized.error) throw new Error(initialized.error.message);
-      const presented = await stripe.presentPaymentSheet();
-      if (presented.error) throw new Error(presented.error.message);
-      await refresh();
-      setView('wallet');
+      Alert.alert('Coming soon', 'Gift card purchases are coming to live accounts soon. Preview the whole flow in Demo.');
+      return;
     } catch (purchaseError) {
       Alert.alert(
         'Payment could not be completed',
