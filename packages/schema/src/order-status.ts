@@ -43,8 +43,13 @@ export function isTerminal(status: OrderStatus): boolean {
   return status === 'cancelled' || status === 'refunded';
 }
 
-/** What the operator app may write directly (RLS mirrors this list). */
+/**
+ * What the operator app may write directly (RLS mirrors this list).
+ * `paid` is here for the pay_at_pickup tender: the shop floor asserts payment
+ * at handoff when no processor was involved.
+ */
 export const OPERATOR_TRANSITIONS: readonly OrderStatus[] = [
+  'paid',
   'in_progress',
   'ready',
   'picked_up',

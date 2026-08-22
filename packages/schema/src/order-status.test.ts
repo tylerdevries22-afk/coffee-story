@@ -6,10 +6,10 @@ import { describe, it } from 'node:test';
 
 import { ORDER_TRANSITIONS, OPERATOR_TRANSITIONS, canTransition } from './order-status';
 
-const sql = readFileSync(
-  join(dirname(fileURLToPath(import.meta.url)), '../migrations/0005_orders.sql'),
-  'utf8',
-);
+// Migrations live in the repo-root supabase/ dir (CLI layout) since 0009+.
+const MIGRATIONS = join(dirname(fileURLToPath(import.meta.url)), '../../../supabase/migrations');
+
+const sql = readFileSync(join(MIGRATIONS, '20260722000005_orders.sql'), 'utf8');
 
 describe('order status machine', () => {
   it('matches the SQL trigger transition for transition', () => {
@@ -28,12 +28,10 @@ describe('order status machine', () => {
   });
 
   it('matches the RLS insert policy for what operators may write', () => {
-    // 0007's order_events_insert lists the same four states.
-    const rls = readFileSync(
-      join(dirname(fileURLToPath(import.meta.url)), '../migrations/0007_rls.sql'),
-      'utf8',
-    );
-    const policy = rls.split('order_events_insert')[1]!.split(';')[0]!;
+    // 0010 supersedes 0007's order_events_insert; the drift check reads the
+    // definition actually in force.
+    const rls = readFileSync(join(MIGRATIONS, '20260722000010_rls_fixes.sql'), 'utf8');
+    const policy = rls.split('create policy order_events_insert')[1]!.split(';')[0]!;
     for (const status of OPERATOR_TRANSITIONS) {
       assert.ok(policy.includes(`'${status}'`), `RLS is missing operator state ${status}`);
     }
