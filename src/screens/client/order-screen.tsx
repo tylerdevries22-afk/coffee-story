@@ -13,7 +13,7 @@
  */
 import Constants from 'expo-constants';
 import * as Haptics from 'expo-haptics';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
 import { CollapsingScreen } from '@/components/collapsing-screen';
@@ -45,8 +45,21 @@ import { PlaceStep, DetailsStep } from './order/fulfillment-steps';
 import { ItemSheet } from './order/item-sheet';
 import { MenuStep } from './order/menu-step';
 
-type SetupStep = 'hub' | 'place' | 'details';
+type SetupStep = 'hub' | 'place' | 'details' | 'menu';
 type Overlay = 'none' | 'bag' | 'note' | 'checkout' | 'placed';
+
+/**
+ * The overlays, innermost last. A page stays presented while anything above
+ * it is open, so going forward slides the next page over the current one and
+ * coming back reveals it exactly as it was left -- rather than sliding the
+ * old page off to the right at the same moment, briefly exposing the menu
+ * between the two, and remounting it scrolled to the top on the way back.
+ */
+const OVERLAY_STACK: readonly Overlay[] = ['none', 'bag', 'note', 'checkout', 'placed'];
+
+/** The setup pages, stacked the same way. `menu` is not an overlay: it is the
+ *  tab screen itself, so reaching it replaces the hub rather than covering it. */
+const SETUP_STACK: readonly SetupStep[] = ['hub', 'place', 'details', 'menu'];
 
 export function OrderScreen() {
   const { isDemo, portal } = useAuth();
@@ -61,6 +74,11 @@ export function OrderScreen() {
   const [detailItem, setDetailItem] = useState<Service | null>(null);
   const [applePaySupported, setApplePaySupported] = useState(false);
   const [paying, setPaying] = useState(false);
+  // `paying` is set and cleared inside one synchronous handler, so React
+  // batches it and the button never actually renders disabled. The checkout
+  // page also stays mounted and touchable through its 220ms exit, so a second
+  // tap would run `demo.book` again -- against a bag the first tap emptied.
+  const placing = useRef(false);
   const [payError, setPayError] = useState<string | null>(null);
   // Snapshotted at the moment the order is placed. Reading `totals` here
   // instead would show the confirmation screen the totals of the bag that
@@ -130,10 +148,13 @@ export function OrderScreen() {
     setOverlay('none');
     setMode(null);
     setStep('hub');
+    setPlaced(null);
+    placing.current = false;
   }, [order]);
 
   const placeOrder = useCallback(() => {
-    if (!order.fulfillment || !order.windowValue) return;
+    if (placing.current) return;
+    if (!order.fulfillment || !order.windowValue || order.isEmpty) return;
     setPayError(null);
 
     if (!isDemo) {
@@ -146,6 +167,7 @@ export function OrderScreen() {
       return;
     }
 
+    placing.current = true;
     setPaying(true);
     try {
       const summary = order.cart.lines
@@ -172,7 +194,17 @@ export function OrderScreen() {
     }
   }, [demo, isDemo, order, pointsEarned, simulated, totals.totalCents]);
 
-  if (order.fulfillment && order.windowValue) {
+  const overlayAtLeast = (level: Overlay) =>
+    OVERLAY_STACK.indexOf(overlay) >= OVERLAY_STACK.indexOf(level);
+  const setupAtLeast = (level: SetupStep) =>
+    SETUP_STACK.indexOf(step) >= SETUP_STACK.indexOf(level);
+
+  // Keyed on the flow's own step. Keying it on `order.windowValue` meant
+  // tapping a time chip unmounted the whole Details step mid-flow: the menu
+  // appeared instantly, the sticky "See the menu" button and the name
+  // validation behind it were unreachable, and a mis-tapped time could not be
+  // corrected without going back through the menu's own time pill.
+  if (step === 'menu' && order.fulfillment && order.windowValue) {
     return (
       <>
         <MenuStep
@@ -185,7 +217,6 @@ export function OrderScreen() {
           onEdit={() => {
             setMode(order.fulfillment?.mode ?? null);
             setStep('details');
-            order.setWindowValue(null);
           }}
           onSelectItem={setDetailItem}
           onOpenBag={() => setOverlay('bag')}
@@ -200,7 +231,7 @@ export function OrderScreen() {
           }}
         />
 
-        <PushFromRight visible={overlay === 'bag'} onDismiss={() => setOverlay('none')}>
+        <PushFromRight visible={overlayAtLeast('bag')} onDismiss={() => setOverlay('none')}>
           <BagStep
             cart={order.cart}
             fulfillment={order.fulfillment}
@@ -214,7 +245,7 @@ export function OrderScreen() {
           />
         </PushFromRight>
 
-        <PushFromRight visible={overlay === 'note'} onDismiss={() => setOverlay('bag')}>
+        <PushFromRight visible={overlayAtLeast('note')} onDismiss={() => setOverlay('bag')}>
           <NoteStep
             note={order.cart.note}
             onBack={() => setOverlay('bag')}
@@ -223,7 +254,7 @@ export function OrderScreen() {
           />
         </PushFromRight>
 
-        <PushFromRight visible={overlay === 'checkout'} onDismiss={() => setOverlay('bag')}>
+        <PushFromRight visible={overlayAtLeast('checkout')} onDismiss={() => setOverlay('note')}>
           <CheckoutStep
             totals={totals}
             pointsEarned={pointsEarned}
@@ -232,14 +263,14 @@ export function OrderScreen() {
             paying={paying}
             simulated={simulated}
             error={payError}
-            onBack={() => setOverlay('bag')}
+            onBack={() => setOverlay('note')}
             onTipChange={order.setTipCents}
             onPlaceOrder={placeOrder}
             onManagePayment={() => openMore('payments')}
           />
         </PushFromRight>
 
-        <PushFromRight visible={overlay === 'placed'} onDismiss={editOrder}>
+        <PushFromRight visible={overlayAtLeast('placed')} onDismiss={editOrder}>
           <OrderPlaced
             summary={placed?.summary ?? ''}
             guestName={guestName}
@@ -269,7 +300,7 @@ export function OrderScreen() {
         pointsPerDollar={pointsPerDollar}
       />
 
-      <PushFromRight visible={step === 'place'} onDismiss={() => setStep('hub')}>
+      <PushFromRight visible={setupAtLeast('place')} onDismiss={() => setStep('hub')}>
         {mode ? (
           <PlaceStep
             mode={mode}
@@ -280,7 +311,7 @@ export function OrderScreen() {
         ) : null}
       </PushFromRight>
 
-      <PushFromRight visible={step === 'details'} onDismiss={() => setStep('place')}>
+      <PushFromRight visible={setupAtLeast('details')} onDismiss={() => setStep('place')}>
         {mode ? (
           <DetailsStep
             mode={mode}
@@ -290,7 +321,7 @@ export function OrderScreen() {
             onBack={() => setStep('place')}
             onChangeName={order.setGuestName}
             onChangeWindow={order.setWindowValue}
-            onDone={() => setStep('hub')}
+            onDone={() => setStep('menu')}
           />
         ) : null}
       </PushFromRight>

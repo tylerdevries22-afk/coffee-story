@@ -114,7 +114,15 @@ export function PushFromRight({
   if (!visible && closed) return null;
 
   return (
-    <Animated.View accessibilityViewIsModal style={[StyleSheet.absoluteFill, styles.overlay, slide]}>
+    <Animated.View
+      accessibilityViewIsModal
+      // Inert while it leaves. The tree is deliberately held through the exit
+      // so the dismissal has frames to play in, which also left the page
+      // accepting taps for the whole 220ms -- long enough to press an action
+      // twice on a page that had already committed it.
+      pointerEvents={visible ? 'auto' : 'none'}
+      style={[StyleSheet.absoluteFill, styles.overlay, slide]}
+    >
       {children}
       <GestureDetector gesture={gesture}>
         <Animated.View accessibilityElementsHidden style={styles.swipeZone} />

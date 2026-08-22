@@ -8,7 +8,7 @@
  */
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { AppIcon } from '@/components/icon';
@@ -39,13 +39,21 @@ export function ItemSheet({
   onClose: () => void;
   onAdd: (line: OrderLine) => void;
 }) {
+  // `SheetModal` holds its tree through the exit precisely so the dismissal
+  // can play. Gating the children on the same `item` that gates `visible`
+  // defeated that: the body unmounted on the first frame, the sheet collapsed
+  // to zero height, and a full-strength scrim faded alone over the menu.
+  const lastItem = useRef<Service | null>(null);
+  if (item) lastItem.current = item;
+  const shown = item ?? lastItem.current;
+
   return (
     <SheetModal
       visible={item !== null}
       onRequestClose={onClose}
       sheetStyle={styles.sheet}
     >
-      {item ? <ItemSheetBody key={item.id} item={item} onClose={onClose} onAdd={onAdd} /> : null}
+      {shown ? <ItemSheetBody key={shown.id} item={shown} onClose={onClose} onAdd={onAdd} /> : null}
     </SheetModal>
   );
 }
