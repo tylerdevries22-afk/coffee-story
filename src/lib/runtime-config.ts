@@ -39,12 +39,46 @@ function jwtRoleClaim(token: string): string | null {
   const payload = token.split('.')[1];
   if (!payload) return null;
   try {
-    const json = globalThis.atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
-    const claims = JSON.parse(json) as { role?: unknown };
+    const claims = JSON.parse(decodeBase64Url(payload)) as { role?: unknown };
     return typeof claims.role === 'string' ? claims.role : null;
   } catch {
     return null;
   }
+}
+
+const BASE64_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
+/**
+ * Base64url -> string, without `atob`.
+ *
+ * React Native does not put `atob` on the global scope -- it is in neither
+ * `Libraries/Core` nor the shipped global type declarations -- so calling it
+ * here would throw on Hermes. The throw would be swallowed by the caller's
+ * catch, `jwtRoleClaim` would return null, and a perfectly good legacy anon
+ * key would be reported as missing config. This app would then refuse to start
+ * in live mode, on device only, for exactly the guests who had it configured
+ * correctly.
+ *
+ * Only ASCII claims are decodable this way, which is all a Supabase JWT
+ * carries (`iss`, `ref`, `role`, `iat`, `exp`).
+ */
+function decodeBase64Url(value: string): string {
+  const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
+  let bits = 0;
+  let bitCount = 0;
+  let decoded = '';
+  for (const character of normalized) {
+    if (character === '=') break;
+    const index = BASE64_ALPHABET.indexOf(character);
+    if (index < 0) throw new RangeError('not base64url');
+    bits = (bits << 6) | index;
+    bitCount += 6;
+    if (bitCount >= 8) {
+      bitCount -= 8;
+      decoded += String.fromCharCode((bits >> bitCount) & 0xff);
+    }
+  }
+  return decoded;
 }
 
 export function missingLiveConfig(config: MobileLiveConfig): string[] {

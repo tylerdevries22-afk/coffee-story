@@ -29,6 +29,25 @@ test('accepts only Supabase keys that are safe to publish', () => {
   assert.equal(isValidSupabasePublishableKey(ANON_JWT), true);
 });
 
+test('reads the role claim without depending on a global atob', () => {
+  // React Native does not provide `atob`; the decoder is our own. Deleting the
+  // global here proves the check still works on a runtime that has none.
+  const original = Reflect.get(globalThis, 'atob');
+  Reflect.deleteProperty(globalThis, 'atob');
+  try {
+    assert.equal(isValidSupabasePublishableKey(ANON_JWT), true);
+    assert.equal(isValidSupabasePublishableKey(SERVICE_ROLE_JWT), false);
+  } finally {
+    if (original !== undefined) Reflect.set(globalThis, 'atob', original);
+  }
+});
+
+test('treats a malformed token as unusable rather than throwing', () => {
+  assert.equal(isValidSupabasePublishableKey('not.a.jwt.at.all.really.truly'), false);
+  assert.equal(isValidSupabasePublishableKey('aaaa.!!!!!!!!!!!!!!!!!!!!!.bbbb'), false);
+  assert.equal(isValidSupabasePublishableKey('.'.repeat(30)), false);
+});
+
 test('refuses a secret key rather than inlining it into the public bundle', () => {
   // The old check was `length >= 20`, so both of these passed and
   // lib/supabase.ts shipped full database authority in the JavaScript every
