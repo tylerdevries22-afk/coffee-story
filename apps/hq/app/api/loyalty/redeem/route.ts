@@ -114,7 +114,9 @@ export async function POST(request: Request): Promise<Response> {
     cost: reward.points_cost,
   });
   if (spent.error) throw spent.error;
-  const nextBalance = spent.data as number | null;
+  // Null means the account could not cover it. Coerced because a bigint can
+  // arrive as a string depending on the driver, and "0" is not 0.
+  const nextBalance = spent.data === null || spent.data === undefined ? null : Number(spent.data);
   if (nextBalance === null) {
     // Release the claim so the guest can retry once they have the points.
     await db.from('loyalty_events').delete()

@@ -12,11 +12,17 @@
 -- Both functions below move the balance in one statement, so the row lock
 -- serialises concurrent callers and the arithmetic happens on whatever the
 -- balance actually is at that moment.
+--
+-- They live in `public` rather than `app` because PostgREST only exposes the
+-- schemas in config.toml (public, storage), and the engine reaches them over
+-- the REST rpc endpoint. Execute is revoked from anon and authenticated and
+-- granted to service_role alone, so being reachable is not being callable:
+-- no client role can move a balance directly.
 
 -- Spend: refuses rather than overdrawing. Returns the new balance, or null
 -- when the account cannot afford it -- the caller turns null into its own
 -- "insufficient points" answer.
-create or replace function app.loyalty_spend(account uuid, cost bigint)
+create or replace function public.loyalty_spend(account uuid, cost bigint)
 returns bigint
 language sql
 security definer
@@ -33,7 +39,7 @@ $$;
 
 -- Adjust: earn (positive) or reverse (negative), clamped at zero so a
 -- reversal can never drive an account negative.
-create or replace function app.loyalty_adjust(account uuid, delta bigint)
+create or replace function public.loyalty_adjust(account uuid, delta bigint)
 returns bigint
 language sql
 security definer
@@ -51,10 +57,10 @@ $$;
 
 -- Service-role only: every caller is engine code holding the service key.
 -- No client role may move a balance directly.
-revoke all on function app.loyalty_spend(uuid, bigint) from public, anon, authenticated;
-revoke all on function app.loyalty_adjust(uuid, bigint) from public, anon, authenticated;
-grant execute on function app.loyalty_spend(uuid, bigint) to service_role;
-grant execute on function app.loyalty_adjust(uuid, bigint) to service_role;
+revoke all on function public.loyalty_spend(uuid, bigint) from public, anon, authenticated;
+revoke all on function public.loyalty_adjust(uuid, bigint) from public, anon, authenticated;
+grant execute on function public.loyalty_spend(uuid, bigint) to service_role;
+grant execute on function public.loyalty_adjust(uuid, bigint) to service_role;
 
 -- One reversal per order, whatever the delivery count. The refund webhook
 -- reverses an order's earn, and Square retries deliveries: the event id is
