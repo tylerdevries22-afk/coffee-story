@@ -41,10 +41,17 @@ yarn-error.*
 example
 
 # generated native folders
-/ios
-/android
+apps/*/ios/
+apps/*/android/
 
 # Coffee Story local workspace artifacts
 _assets-web/
 _sdk54-backup/
 mobile-expo-go-demo/
+
+# Next.js
+.next/
+next-env.d.ts
+
+# per-app metro caches
+.metro-cache/

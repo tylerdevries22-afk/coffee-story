@@ -1,0 +1,18 @@
+{
+  "name": "@platform/schema",
+  "version": "0.1.0",
+  "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "lint": "echo 'lint: SQL reviewed by hand; TS added in Phase 2'",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test \"src/**/*.test.ts\"",
+    "verify": "pnpm typecheck && pnpm test",
+    "seed": "tsx seed/seed.ts",
+    "migrate": "./migrate.sh"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.111.0"
+  }
+}

@@ -1,0 +1,13 @@
+slug,name,category,description,base_price_cents,sizes
+espresso,Espresso,Coffee & Espresso,Double shot of Corvus Coffee.,350,
+americano,Americano,Coffee & Espresso,Espresso with hot water.,400,12:300|16:400|20:500
+latte,Latte,Coffee & Espresso,Espresso with steamed milk and foam.,500,12:400|16:500|20:600
+cappuccino,Cappuccino,Coffee & Espresso,Equal parts espresso and velvet foam.,500,12:400|16:500|20:600
+cold-brew,Cold Brew,Coffee & Espresso,Our Corvus Coffee brewed with cold water over many hours.,500,12:400|16:500|20:600
+spanish-latte,Spanish Latte,Signature Lattes,Espresso with sweetened condensed milk — silky and rich.,600,12:500|16:600|20:700
+honey-lavender-latte,Honey Lavender Latte,Signature Lattes,Floral lavender and golden honey over espresso.,600,12:500|16:600|20:700
+biscoff-latte,Biscoff Latte,Signature Lattes,Cookie butter folded into espresso and milk.,600,12:500|16:600|20:700
+chai-latte,Chai Latte,Tea & Matcha,House-spiced chai with steamed milk.,550,12:450|16:550|20:650
+boba-brown-sugar,Brown Sugar Boba,Boba,Brown sugar syrup and chewy boba over milk.,600,16:600|20:700
+ade-mango,Mango Ade,Sparkling Ades & Smoothies,Sparkling mango with real fruit.,550,16:450|20:550
+avocado-toast,Avocado Toast,Sandwiches,"Smashed avocado, chili flake, sourdough.",800,
