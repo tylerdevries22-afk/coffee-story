@@ -5,11 +5,11 @@
  * sticky bar through `useStickyBarClearance` rather than `Screen`'s tab-bar
  * padding.
  */
-import { Image } from 'expo-image';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { CollapsingScreen } from '@/components/collapsing-screen';
 import { AppIcon } from '@/components/icon';
+import { MenuImage } from '@/components/menu-image';
 import { QuantityStepper } from '@/components/order/option-controls';
 import {
   ActionButton,
@@ -30,6 +30,7 @@ import {
 import { describePickupWindow } from '@/features/order/pickup';
 import { HEART_POINTS_LABEL } from '@/features/rewards/presentation';
 import { colors, fonts, radius, spacing } from '@/theme/tokens';
+import { menuImageFrame } from '@platform/ui';
 
 import { findMenuItem } from './menu-data';
 
@@ -176,7 +177,7 @@ function BagLine({
     <View style={styles.line}>
       <View style={styles.lineTop}>
         {item ? (
-          <Image source={item.image} style={styles.lineImage} contentFit="cover" alt="" />
+          <MenuImage source={item.image} variant="line" alt="" />
         ) : (
           <View style={styles.lineImage} />
         )}
@@ -253,6 +254,8 @@ export function NoteStep({
   );
 }
 
+const LINE_FRAME = menuImageFrame('line');
+
 const styles = StyleSheet.create({
   page: { backgroundColor: colors.brand200 },
   content: { gap: spacing.md },
@@ -272,7 +275,9 @@ const styles = StyleSheet.create({
 
   line: { borderRadius: radius.md, backgroundColor: colors.white, padding: spacing.md, gap: spacing.sm },
   lineTop: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
-  lineImage: { width: 64, height: 64, borderRadius: radius.sm, backgroundColor: colors.brand100 },
+  // Empty state for a line whose item has no photograph. Sized from the same
+  // frame MenuImage uses, so the two cannot drift apart.
+  lineImage: { width: LINE_FRAME.size, height: LINE_FRAME.size, borderRadius: radius.sm, backgroundColor: colors.brand100 },
   lineCopy: { flex: 1, gap: 3 },
   lineName: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 16 },
   lineSummary: { color: colors.ink600, fontFamily: fonts.sans, fontSize: 12, lineHeight: 17 },

@@ -1,0 +1,821 @@
+{
+  "ade-mango": {
+    "hash": "e4fb67c07e155958053e2e868f96f2bdd2140f7fd22605129da59b282890e4c8",
+    "measured": {
+      "luminance": 61.5,
+      "warmth": 72.6,
+      "saturation": 0.768
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "ade-passion-fruit": {
+    "hash": "90502e960ddd9b8a73ae15bd5c06c3043dee31d3ef186d07d896ae7a441e71c9",
+    "measured": {
+      "luminance": 57.4,
+      "warmth": 50.4,
+      "saturation": 0.616
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "ade-strawberry": {
+    "hash": "fe0da0874d68a0351a71ee6729c1e27bb1aa97bb860d8fbe0a3f8625eaf1db25",
+    "measured": {
+      "luminance": 56.6,
+      "warmth": 64.5,
+      "saturation": 0.751
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "ade-sunset": {
+    "hash": "e8e79e9a47347a25644f4f5b793c27f7fc99cb4c154ed9d6bbbd47c7add1263e",
+    "measured": {
+      "luminance": 142.8,
+      "warmth": 16,
+      "saturation": 0.214
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    },
+    "needsReshoot": [
+      "luminance",
+      "saturation"
+    ]
+  },
+  "adeni-chai": {
+    "hash": "3cf81d9cb17df3e90d7f5762d61c867cdeb3bf3336df5b93097bd1c1ef2e8485",
+    "measured": {
+      "luminance": 158.4,
+      "warmth": 33.7,
+      "saturation": 0.253
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    },
+    "needsReshoot": [
+      "luminance",
+      "saturation"
+    ]
+  },
+  "americano": {
+    "hash": "f1a5388b85bb511bd03d18e9f59c12331705ab9eb9a3c576065a22ad238c79b2",
+    "measured": {
+      "luminance": 30.7,
+      "warmth": 32.4,
+      "saturation": 0.732
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "avocado-toast": {
+    "hash": "44cb32f01b81acf2b414767ba302606c64be824360a018652a8d7aeeb410dec7",
+    "measured": {
+      "luminance": 47.4,
+      "warmth": 52.5,
+      "saturation": 0.752
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "biscoff-latte": {
+    "hash": "eaeff7735cf83766de2d5f4e9193a098335244f742befad0e406eeaa76352612",
+    "measured": {
+      "luminance": 42.8,
+      "warmth": 46.2,
+      "saturation": 0.758
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "boba-brown-sugar": {
+    "hash": "81b57c32babbbf658ee4f4443a1096247fd80c90badf5072947fbeef849d5f46",
+    "measured": {
+      "luminance": 41.7,
+      "warmth": 44.1,
+      "saturation": 0.727
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "boba-milk-tea": {
+    "hash": "897f2b2c8378f64aca64a00f5d6c00e58c2d6f17295775e6f3888397541ebc4d",
+    "measured": {
+      "luminance": 57,
+      "warmth": 60.8,
+      "saturation": 0.788
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "boba-rooh-afza": {
+    "hash": "9e9ce8a910cc3e8b6c15ec0a15385728906e5194197e1852810acb88634af877",
+    "measured": {
+      "luminance": 48.7,
+      "warmth": 36.9,
+      "saturation": 0.619
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "boba-strawberry": {
+    "hash": "03715c3b4619028b7ba103a516254f621ec0e509f8f68c3f6cdc99639dadc064",
+    "measured": {
+      "luminance": 38.9,
+      "warmth": 32.4,
+      "saturation": 0.652
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "boba-thai-tea": {
+    "hash": "2bf02c61e4330c739c3fb5a77c3ee13ce82327b6aefd22dcc987b77aa85633c2",
+    "measured": {
+      "luminance": 54.7,
+      "warmth": 64.6,
+      "saturation": 0.729
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "boba-ube": {
+    "hash": "a53736270d10cd04a85aa70eebadea7d647b4f6ee443fb2e8e0fc55e6a5aa0eb",
+    "measured": {
+      "luminance": 59.3,
+      "warmth": 38.9,
+      "saturation": 0.682
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "brown-sugar-shaken-espresso": {
+    "hash": "7df60552cedafb35e638d76018b0b6b7447bb45fea92bb8eab30185221cca109",
+    "measured": {
+      "luminance": 60.5,
+      "warmth": 68.2,
+      "saturation": 0.806
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "cappuccino": {
+    "hash": "fb97cf0d6af6f173be0476839b3d1ad79e126ce04e354afd7f9005f265d6393b",
+    "measured": {
+      "luminance": 47.6,
+      "warmth": 47.4,
+      "saturation": 0.745
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "chai-latte": {
+    "hash": "c89bc66c1fa547833e75196bc3f3fc9097d02ec2ee92a82106d33d769b9fcdde",
+    "measured": {
+      "luminance": 48,
+      "warmth": 46.4,
+      "saturation": 0.683
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "cold-brew": {
+    "hash": "3b4a9abd883b9670d3f34291e6127336f64ddead3d351da82ec380115db891ae",
+    "measured": {
+      "luminance": 30.8,
+      "warmth": 33.8,
+      "saturation": 0.725
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "cortado": {
+    "hash": "4a71f385f068a4c6cc04a67a4b005bda63390cf97bded5fa1cdfaf043976242a",
+    "measured": {
+      "luminance": 58.5,
+      "warmth": 63.2,
+      "saturation": 0.78
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "croissant-cheese-honey": {
+    "hash": "b3dd4e94fcc9c1d2f0a7b1d86ba20c0fd07a78c4150f001341d17aa9c9cef8fd",
+    "measured": {
+      "luminance": 58.3,
+      "warmth": 63,
+      "saturation": 0.785
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "espresso": {
+    "hash": "3ee76b1580d81fff93dd46e1b117c027f25ab22d26ce3a2c69503debe1c2aced",
+    "measured": {
+      "luminance": 39.4,
+      "warmth": 44,
+      "saturation": 0.686
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "flat-white": {
+    "hash": "1da1bd81820ba1f31c926fe7691ccab8996e374bfcca99bfaf1cef2b3c15059b",
+    "measured": {
+      "luminance": 43.3,
+      "warmth": 39.6,
+      "saturation": 0.675
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "frappe": {
+    "hash": "23c4e0c3da37ea5202d000044059bce4438eab406633b6dc168a0a8a6010f03c",
+    "measured": {
+      "luminance": 60.2,
+      "warmth": 49.3,
+      "saturation": 0.682
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "grilled-cheese": {
+    "hash": "8e7f69bb9ca8b06e4a99fc3d6c96b7e32b5a4c29bf3912e8ae1b50b656f1db98",
+    "measured": {
+      "luminance": 38.7,
+      "warmth": 58.1,
+      "saturation": 0.888
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "honey-lavender-latte": {
+    "hash": "5506d263b78d9b7c217f47a778c45b2d58bd6796a381844766407385c215673b",
+    "measured": {
+      "luminance": 39.7,
+      "warmth": 36.7,
+      "saturation": 0.744
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "honey-lavender-matcha": {
+    "hash": "09aff0b200c842baeddc7dd07d94ea7fe43531c40d34e9760fe8800adde5f093",
+    "measured": {
+      "luminance": 50,
+      "warmth": 43,
+      "saturation": 0.732
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "honey-rose-latte": {
+    "hash": "26c0c0aee79bd46c12677d80f8bbb95795a9b42178f378d7fb8beee7d3ff59e4",
+    "measured": {
+      "luminance": 43.7,
+      "warmth": 42.3,
+      "saturation": 0.774
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "honeycomb-bites": {
+    "hash": "79c9fd9983de4e0170cc111bf17556f4149f8c1fcbc510e63132cb4299fb4c6b",
+    "measured": {
+      "luminance": 122.1,
+      "warmth": 49.5,
+      "saturation": 0.545
+    },
+    "correction": {
+      "brightness": 0.5896805896805897,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "honeycomb-cheese-bread": {
+    "hash": "eebd08e3894644a85071f7c638d65201e6eb89059d9560b1df05e5e61ae8daa1",
+    "measured": {
+      "luminance": 83.9,
+      "warmth": 100.3,
+      "saturation": 0.745
+    },
+    "correction": {
+      "brightness": 0.8581644815256256,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "honeycomb-condensed": {
+    "hash": "bb273f765670922c3d03414de487a5d16e3781c1520797d53e90bf4674e0c87c",
+    "measured": {
+      "luminance": 62.5,
+      "warmth": 83.6,
+      "saturation": 0.783
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "latte": {
+    "hash": "4e90db527a0d19e66dfeb374049673af734871ccd5d4003b00e8961a73ead56b",
+    "measured": {
+      "luminance": 113.8,
+      "warmth": 13.7,
+      "saturation": 0.288
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    },
+    "needsReshoot": [
+      "saturation"
+    ]
+  },
+  "libyan-nescafe": {
+    "hash": "abecbbfb01b8d80ea2469afd94a2c5ed1effcbb1c1d2dd8092446fd8171e2d66",
+    "measured": {
+      "luminance": 66.6,
+      "warmth": 57.5,
+      "saturation": 0.696
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "london-fog": {
+    "hash": "c29c2002c0d22b053b3e7c16563c2f577d324151c0781abb4f278e3cf656d133",
+    "measured": {
+      "luminance": 65.5,
+      "warmth": 47.4,
+      "saturation": 0.6
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "loose-leaf-tea": {
+    "hash": "57e52b0f1af5237c79aca58bfc657e6ef8596c725aa70fbea336ef433694487a",
+    "measured": {
+      "luminance": 44.3,
+      "warmth": 45.7,
+      "saturation": 0.758
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "macchiato": {
+    "hash": "b7df29a494b025850ef3e1a10f1589bdc976949cca9816385adbe1d1cce9cae8",
+    "measured": {
+      "luminance": 50.4,
+      "warmth": 46.3,
+      "saturation": 0.706
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "matcha-latte": {
+    "hash": "20e31992f19af9ed3124f518603a91e4901ef4ec549a3478901ec052826d51fc",
+    "measured": {
+      "luminance": 130.7,
+      "warmth": 23.7,
+      "saturation": 0.235
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    },
+    "needsReshoot": [
+      "saturation"
+    ]
+  },
+  "midnight-lychee": {
+    "hash": "da9aa292ba3696301a8f4e9dc313af4795ff8e8341ff77e73104bcb1aa6ba261",
+    "measured": {
+      "luminance": 133.7,
+      "warmth": -3,
+      "saturation": 0.174
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    },
+    "needsReshoot": [
+      "luminance",
+      "saturation",
+      "warmth"
+    ]
+  },
+  "milk-cake": {
+    "hash": "6f2b148e3483402e89f363076ef50d4fa2ce9ba6ba67691312b00aa31420c5a8",
+    "measured": {
+      "luminance": 125.2,
+      "warmth": 91.5,
+      "saturation": 0.62
+    },
+    "correction": {
+      "brightness": 0.5750798722044729,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "mocha": {
+    "hash": "8c63a4ad31f520ab36b133546cb7a2413462a7dd8d0ff0fdc261b66007dde5d6",
+    "measured": {
+      "luminance": 43,
+      "warmth": 49.2,
+      "saturation": 0.825
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "mochi-donut": {
+    "hash": "468da7766629b7a5577ee664630e8e3f6efc159967d8943add37cd71ebbdc5c4",
+    "measured": {
+      "luminance": 84.6,
+      "warmth": 7.2,
+      "saturation": 0.276
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    },
+    "needsReshoot": [
+      "saturation"
+    ]
+  },
+  "orange-blossom-matcha": {
+    "hash": "3073563889aa7d9ce723a820aa8e0d7a6df2a9abd50fae0e702594e28f18d20f",
+    "measured": {
+      "luminance": 45.4,
+      "warmth": 58.5,
+      "saturation": 0.848
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "panini-mozzarella": {
+    "hash": "6d2ba67fce8cdfb30aea9d847654ed1b559d508016828fdce8c0c29f376ca5c4",
+    "measured": {
+      "luminance": 51.3,
+      "warmth": 51.5,
+      "saturation": 0.741
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "pistachio-latte": {
+    "hash": "c49228ea5ddabdf243c3572971c35fe12058e5828dbb810b1b725ffc4d67bf46",
+    "measured": {
+      "luminance": 42.8,
+      "warmth": 42.6,
+      "saturation": 0.696
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "sandwich-teriyaki": {
+    "hash": "7340e26005f0feac330b393e13c053bc7d05882a63f4afc90d3a672a76ad4a8d",
+    "measured": {
+      "luminance": 45.6,
+      "warmth": 55.5,
+      "saturation": 0.836
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "sandwich-veggie": {
+    "hash": "f00f1204dd3aea85a3e129d38613d738e1a3f9bca95d233544194308012431eb",
+    "measured": {
+      "luminance": 62.9,
+      "warmth": 55.8,
+      "saturation": 0.679
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "smoothie-banana-date": {
+    "hash": "c3b242bc92ca1604bd2a5f7fc067be0a32442b5cdfa16fe5343d4aaf53dd6135",
+    "measured": {
+      "luminance": 45.7,
+      "warmth": 50.7,
+      "saturation": 0.767
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "smoothie-green-machine": {
+    "hash": "f6a36361a07aaf65eabef088f19b46cd070dda0e3224b72d52256da79033b7df",
+    "measured": {
+      "luminance": 42.5,
+      "warmth": 47.8,
+      "saturation": 0.829
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "smoothie-mango-banana": {
+    "hash": "74380edc54d9f32d7b46fecbde141ba479873c0c5fa614b0d1be5c7a558dffe6",
+    "measured": {
+      "luminance": 48.5,
+      "warmth": 66.4,
+      "saturation": 0.87
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "smoothie-strawberry-banana": {
+    "hash": "aa6dd2dc0c8d7b996477629d5930c1663e4f381bef3d0fdc9a3363a83b50e907",
+    "measured": {
+      "luminance": 43.6,
+      "warmth": 48.8,
+      "saturation": 0.784
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "smoothie-strawberry-mango": {
+    "hash": "bab8989bb8b343766a595c0b7d7cf4027875e34511d885dba5de5c39010ed142",
+    "measured": {
+      "luminance": 53.5,
+      "warmth": 58.6,
+      "saturation": 0.756
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "spanish-latte": {
+    "hash": "823a4a0392b267f471f18ad69198d5eb07a03e148e8162b724bf543aa8989163",
+    "measured": {
+      "luminance": 72.8,
+      "warmth": 38.6,
+      "saturation": 0.52
+    },
+    "correction": {
+      "brightness": 0.989010989010989,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "spanish-matcha": {
+    "hash": "60fb054c9509de58c5c21f11ce08d2a03858212224b3f5588d044fb07ad88484",
+    "measured": {
+      "luminance": 50.5,
+      "warmth": 61.4,
+      "saturation": 0.86
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "spanish-oat-shaken": {
+    "hash": "ca8819264fea60b647798632314930b4f6c5c008592f6f1cff67681794985ba7",
+    "measured": {
+      "luminance": 58.2,
+      "warmth": 39.2,
+      "saturation": 0.466
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "strawberry-matcha": {
+    "hash": "ff36db1efcb3d5acab7a96a9034737394e1ef93cd86f1cb54c0707fccb6ccc49",
+    "measured": {
+      "luminance": 59.7,
+      "warmth": 52.8,
+      "saturation": 0.715
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "strawberry-nutella-croissant": {
+    "hash": "83eb5a685591daa81b60b1a4712f8276add820abeabcc73aa78f6dc4fe4188ca",
+    "measured": {
+      "luminance": 115.3,
+      "warmth": 70.3,
+      "saturation": 0.541
+    },
+    "correction": {
+      "brightness": 0.6244579358196011,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "tiramisu-latte": {
+    "hash": "4e992fb5a657a7e5d185c3f8d204ce9f6fb6bc19bf4bf490a9cd3d77bdb64365",
+    "measured": {
+      "luminance": 52.8,
+      "warmth": 55.3,
+      "saturation": 0.801
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "toasted-bagel": {
+    "hash": "691788ae13c1eefd8137e48a3b6a8f9ed3e643949dff6c7eb343267a052696e4",
+    "measured": {
+      "luminance": 56.8,
+      "warmth": 68.4,
+      "saturation": 0.861
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "turkish-coffee": {
+    "hash": "fce3fedb5683c85414382870708e7d3b7fbb67d454d454cc0cda4f13a1b933e7",
+    "measured": {
+      "luminance": 151,
+      "warmth": 31.6,
+      "saturation": 0.225
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    },
+    "needsReshoot": [
+      "luminance",
+      "saturation"
+    ]
+  },
+  "ube-latte": {
+    "hash": "30bb6ae6955b3b8795c88d1ae00460576d97c207ea71ce5c721a0cc51edf7c2d",
+    "measured": {
+      "luminance": 47.7,
+      "warmth": 47.8,
+      "saturation": 0.759
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "ube-matcha": {
+    "hash": "b77072d7a85efa457291527c0fe42b8c22da5ab1bc74e225bd4572be3645970b",
+    "measured": {
+      "luminance": 46,
+      "warmth": 47.4,
+      "saturation": 0.741
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "wrap-chicken-caesar": {
+    "hash": "a8aaa736760e43de7d9d0c0a2abedd7eddccd1d9c76e23773d753d21eba484de",
+    "measured": {
+      "luminance": 50.8,
+      "warmth": 55.5,
+      "saturation": 0.793
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  }
+}

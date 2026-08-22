@@ -22,6 +22,9 @@ importers:
       '@platform/schema':
         specifier: workspace:*
         version: link:packages/schema
+      '@platform/ui':
+        specifier: workspace:*
+        version: link:packages/ui
       '@supabase/supabase-js':
         specifier: ^2.111.0
         version: 2.112.3(@opentelemetry/api@1.9.1)

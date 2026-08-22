@@ -1,7 +1,7 @@
-import { Image } from 'expo-image';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { CollapsingScreen } from '@/components/collapsing-screen';
+import { MenuImage } from '@/components/menu-image';
 import { Body, Card, SectionTitle } from '@/components/ui';
 import { DEMO_ADD_ONS, SERVICES, type Service } from '@/data/catalog';
 import { colors, fonts, radius, spacing } from '@/theme/tokens';
@@ -54,7 +54,7 @@ export function ServicesPage({
 function ServiceCard({ service, onBook }: { service: Service; onBook: () => void }) {
   return (
     <Card style={styles.card}>
-      <Image source={service.image} style={styles.image} contentFit="cover" alt={service.name} />
+      <MenuImage source={service.image} variant="hero" alt={service.name} style={styles.image} />
       <View style={styles.copy}>
         <Text style={styles.name}>{service.name}</Text>
         <Body muted>{service.description}</Body>
@@ -85,7 +85,7 @@ function ServiceCard({ service, onBook }: { service: Service; onBook: () => void
 
 const styles = StyleSheet.create({
   card: { gap: spacing.sm, padding: spacing.md, overflow: 'hidden' },
-  image: { width: '100%', height: 132, borderRadius: radius.md },
+  image: { borderRadius: radius.md },
   copy: { gap: 2 },
   name: { color: colors.ink900, fontFamily: fonts.display, fontSize: 20 },
   durations: { gap: 0 },

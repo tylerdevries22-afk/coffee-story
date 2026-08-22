@@ -6,12 +6,12 @@
  * presented in a `Modal`, so a bar positioned against the screen would sit
  * behind it.
  */
-import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { AppIcon } from '@/components/icon';
+import { MenuImage } from '@/components/menu-image';
 import { OptionGroupField, QuantityStepper, SizeSegmented } from '@/components/order/option-controls';
 import { ActionButton, useCoveringBottomInset } from '@/components/order/order-chrome';
 import { SheetModal } from '@/components/sheet-modal';
@@ -127,7 +127,7 @@ function ItemSheetBody({
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.hero}>
-          <Image source={item.image} style={styles.heroImage} contentFit="cover" alt="" />
+          <MenuImage source={item.image} variant="hero" alt="" />
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={`Close ${item.name}`}
@@ -236,8 +236,9 @@ const styles = StyleSheet.create({
   scroll: { paddingBottom: spacing.lg, gap: spacing.lg },
   pressed: { opacity: 0.72 },
 
-  hero: { height: 260, backgroundColor: colors.brand100 },
-  heroImage: { width: '100%', height: '100%' },
+  // No fixed height: the hero is as tall as the square master is wide, so it
+  // shows the identical framing the thumbnails do.
+  hero: { backgroundColor: colors.brand100 },
   close: {
     position: 'absolute',
     top: spacing.md,

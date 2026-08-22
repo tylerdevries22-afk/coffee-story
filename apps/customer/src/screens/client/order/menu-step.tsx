@@ -7,7 +7,6 @@
  * when it is wanted and where it is going — and stay put, because that is the
  * pair a guest re-checks most while they browse.
  */
-import { Image } from 'expo-image';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   Animated,
@@ -23,6 +22,7 @@ import {
 
 import { CollapsingPageHeader } from '@/components/collapsing-page-header';
 import { AppIcon } from '@/components/icon';
+import { MenuImage } from '@/components/menu-image';
 import { CategoryStrip } from '@/components/order/category-strip';
 import { CartPill, Ribbon } from '@/components/order/order-chrome';
 import { disabledState } from '@/lib/a11y-state';
@@ -236,7 +236,7 @@ function MenuRow({
       onPress={onPress}
       style={({ pressed }) => [styles.row, highlighted && styles.rowHighlighted, pressed && styles.pressed, soldOut && styles.rowSoldOut]}
     >
-      <Image source={item.image} style={styles.rowImage} contentFit="cover" alt="" />
+      <MenuImage source={item.image} variant="row" alt="" />
       <View style={styles.rowCopy}>
         {soldOut ? <Ribbon label="Sold out today" tone="danger" /> : null}
         {highlighted && !soldOut ? <Ribbon label="From your tap" tone="quiet" /> : null}
@@ -291,7 +291,6 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.ink200,
   },
   rowHighlighted: { backgroundColor: colors.brand50 },
-  rowImage: { width: 76, height: 76, borderRadius: radius.md, backgroundColor: colors.brand100 },
   rowCopy: { flex: 1, gap: 2 },
   rowName: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 16 },
   rowPrice: { color: colors.ink600, fontFamily: fonts.sansMedium, fontSize: 13 },

@@ -55,5 +55,8 @@ elevation, the same semantic family — expressed for a different room.
   malformed tenant value field-by-field rather than unbranding the app.
 - `docs/DO-NOT-RESEMBLE.md` bounds what the language may ever look like;
   the `audit-originality` skill is its enforcement pass.
+- `docs/MENU-IMAGERY.md` is the same contract for photographs: one square
+  format, one grade band, one render component. `pnpm normalize-menu-images
+  --check` runs it in CI.
 - Runtime verification drives all three surfaces in a browser before a
   release (see BUILD-REPORT's verification appendix).

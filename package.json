@@ -7,7 +7,8 @@
     "typecheck": "pnpm -r --workspace-concurrency=1 typecheck && tsc -p scripts",
     "test": "pnpm -r --workspace-concurrency=1 test",
     "verify": "pnpm -r --workspace-concurrency=1 verify",
-    "onboard": "tsx scripts/onboard.ts"
+    "onboard": "tsx scripts/onboard.ts",
+    "normalize-menu-images": "tsx scripts/normalize-menu-images.ts"
   },
   "devDependencies": {
     "@types/node": "^26.1.2",
@@ -29,6 +30,7 @@
   "dependencies": {
     "@platform/engine": "workspace:*",
     "@platform/schema": "workspace:*",
-    "@supabase/supabase-js": "^2.111.0"
+    "@supabase/supabase-js": "^2.111.0",
+    "@platform/ui": "workspace:*"
   }
 }
