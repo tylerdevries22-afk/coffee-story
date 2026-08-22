@@ -4,6 +4,13 @@ import { isConfigured } from '@/lib/supabase-server';
 
 import { requestEmailCode, signInWithPassword, verifyEmailCode } from './actions';
 
+// Decided per request, never at build: the unconfigured-redirect below runs
+// before searchParams is touched, so `next build` on an unconfigured machine
+// would otherwise bake redirect('/') into a static /login — and a configured
+// deployment then loops forever between the middleware's gate and that baked
+// redirect.
+export const dynamic = 'force-dynamic';
+
 /**
  * Console sign-in. Unconfigured deployments never land here (middleware is
  * a no-op and the console runs on the demo session); if someone navigates
