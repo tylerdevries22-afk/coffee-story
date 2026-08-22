@@ -112,8 +112,12 @@ describe('square_link tender and refunds', { skip: skipUnlessConfigured }, () =>
 
     ({ brandId, locationId } = await seedBrand(SLUG));
     await sql(
-      `update public.brands set fee_bps = 300, fee_bps_tier2 = 150, tier_threshold_cents = 2000000 where id = $1`,
-      [brandId],
+      `update public.brands set fee_bps = 300, fee_bps_tier2 = 150, tier_threshold_cents = 2000000,
+              brand_config = $2 where id = $1`,
+      [brandId, JSON.stringify({
+        identity: { slug: SLUG, scheme: 'coffeestory' },
+        tax: { jurisdictions: [{ id: 'city', label: 'City Sales Tax', rate: 0.05 }] },
+      })],
     );
     const menu = await sql<{ id: string }>(
       `insert into public.menus (brand_id, name, is_published) values ($1, 'Menu', true) returning id`,
@@ -190,7 +194,9 @@ describe('square_link tender and refunds', { skip: skipUnlessConfigured }, () =>
       token: guestToken, idempotencyKey: key, body: orderBody({ redirectUrl: 'coffeestory://order' }),
     });
     assert.equal(first.status, 201);
-    const created = await first.json() as { orderId: string; status: string; totalCents: number; checkoutUrl?: string };
+    const created = await first.json() as {
+      orderId: string; status: string; totalCents: number; taxCents: number; checkoutUrl?: string;
+    };
     assert.equal(created.checkoutUrl, 'https://square.link/u/test-checkout');
     // Rule 2: a card order is not paid until the money lands.
     assert.equal(created.status, 'created');
@@ -198,11 +204,31 @@ describe('square_link tender and refunds', { skip: skipUnlessConfigured }, () =>
     const mint = captured.find((call) => call.path === '/v2/online-checkout/payment-links');
     assert.ok(mint, 'the platform asked Square for a payment link');
     assert.equal(mint.authorization, `Bearer ${MERCHANT_TOKEN}`, 'the location’s own token authorizes it');
-    const order = mint.body.order as { location_id: string; reference_id: string; line_items: unknown[] };
+    const order = mint.body.order as {
+      location_id: string;
+      reference_id: string;
+      line_items: { base_price_money: { amount: number }; quantity: string }[];
+      service_charges?: { name: string; amount_money: { amount: number } }[];
+    };
     assert.equal(order.location_id, SQUARE_LOCATION_ID);
     assert.equal(order.reference_id, created.orderId, 'the link points back at our order');
+
+    // The guest must be asked for the whole total. The first version sent
+    // line items only, so tax and tip were never collected while the books
+    // and the platform fee still counted them.
+    assert.ok(created.taxCents > 0, 'this brand charges tax');
+    const charged = order.line_items.reduce(
+      (sum, line) => sum + line.base_price_money.amount * Number(line.quantity), 0)
+      + (order.service_charges ?? []).reduce((sum, charge) => sum + charge.amount_money.amount, 0);
+    assert.equal(charged, created.totalCents, 'Square is asked for exactly the order total');
+    assert.equal(
+      (order.service_charges ?? []).find((charge) => charge.name === 'City Sales Tax')?.amount_money.amount,
+      created.taxCents,
+      'tax rides as an exact amount, not a percentage Square recomputes',
+    );
+
     const options = mint.body.checkout_options as { app_fee_money?: { amount: number }; redirect_url?: string };
-    // Rule 3: 300 bps of the 400c drink + tax, to the cent.
+    // Rule 3: 300 bps of the whole charge, to the cent.
     assert.equal(options.app_fee_money?.amount, Math.round(created.totalCents * 300 / 10_000));
     assert.equal(options.redirect_url, 'coffeestory://order');
     assert.equal(mint.body.idempotency_key, `link-${created.orderId}`);
@@ -216,6 +242,19 @@ describe('square_link tender and refunds', { skip: skipUnlessConfigured }, () =>
     assert.equal(replayed.orderId, created.orderId);
     assert.equal(replayed.checkoutUrl, created.checkoutUrl);
     assert.equal(captured.length, before, 'a replay asks Square for nothing at all');
+  });
+
+  it('refuses a checkout redirect that is not this app’s own deep link', async () => {
+    const before = captured.length;
+    const response = await post(ordersPost, '/api/orders', {
+      token: guestToken,
+      idempotencyKey: randomUUID(),
+      body: orderBody({ redirectUrl: 'https://evil.example.com/collect' }),
+    });
+    assert.equal(response.status, 400);
+    const body = await response.json() as { error: { code: string } };
+    assert.equal(body.error.code, 'invalid_request');
+    assert.equal(captured.length, before, 'Square was never asked for a page pointing off-app');
   });
 
   it('returns money through Square and records the refund as an event', async () => {

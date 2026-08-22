@@ -33,7 +33,8 @@ describe('mapSquareEvent', () => {
       data: { object: { payment: { id: 'PAY1', status: 'COMPLETED', order_id: 'SQORD1' } } },
     });
     assert.deepEqual(mapped, {
-      squareEventId: 'e-pay', orderStatus: 'paid', squareOrderId: 'SQORD1', squarePaymentId: 'PAY1', kind: 'payment',
+      squareEventId: 'e-pay', orderStatus: 'paid', squareOrderId: 'SQORD1', squarePaymentId: 'PAY1',
+      refundedCents: null, kind: 'payment',
     });
   });
 
@@ -54,6 +55,20 @@ describe('mapSquareEvent', () => {
       event_id: 'e-ord', type: 'order.updated',
       data: { object: { order: { id: 'SQORD1', state: 'CANCELED' } } },
     })?.orderStatus, 'cancelled');
+  });
+
+  it('carries what a refund actually returned, so a partial refund stays partial', () => {
+    // Dropping this was why a $2 courtesy refund reversed a $50 order's
+    // whole loyalty earn: the route had no figure but the order total.
+    assert.equal(mapSquareEvent({
+      event_id: 'e-part', type: 'refund.updated',
+      data: { object: { refund: { id: 'R2', status: 'COMPLETED', payment_id: 'PAY1', amount_money: { amount: 200, currency: 'USD' } } } },
+    })?.refundedCents, 200);
+    // Square omits it on some deliveries; null means "unknown", not zero.
+    assert.equal(mapSquareEvent({
+      event_id: 'e-ref', type: 'refund.updated',
+      data: { object: { refund: { id: 'R1', status: 'COMPLETED', payment_id: 'PAY1' } } },
+    })?.refundedCents, null);
   });
 
   it('keeps unknown event types as recorded-but-ignored, and drops eventless payloads', () => {

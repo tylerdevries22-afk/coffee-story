@@ -9,6 +9,7 @@ import {
 } from '@platform/engine';
 
 import { squareRuntimeFor, type BrandFeeRow } from '../../../lib/square-runtime';
+import { isTenantRedirect, tenantSchemeOf } from '../../../lib/tenant-redirect';
 
 import {
   authenticate,
@@ -132,6 +133,14 @@ export async function POST(request: Request): Promise<Response> {
     }
     if (!square) {
       return jsonError(503, 'tender_unavailable', 'Card payments are not connected for this location yet; order with pay_at_pickup.');
+    }
+    // Square appends the transaction ids to whatever URL it is given, on a
+    // page wearing the brand's name, so the destination must be this
+    // tenant's own app. Fail closed: a brand that declares no scheme takes
+    // no redirect.
+    if (body.redirectUrl !== undefined
+      && !isTenantRedirect(body.redirectUrl, tenantSchemeOf(brand.data.brand_config))) {
+      return jsonError(400, 'invalid_request', 'redirectUrl must be this app’s own deep link.');
     }
   }
 
