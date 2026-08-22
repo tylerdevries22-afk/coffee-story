@@ -25,6 +25,7 @@ import { CollapsingPageHeader } from '@/components/collapsing-page-header';
 import { AppIcon } from '@/components/icon';
 import { CategoryStrip } from '@/components/order/category-strip';
 import { CartPill, Ribbon } from '@/components/order/order-chrome';
+import { disabledState } from '@/lib/a11y-state';
 import { useTabBarClearance } from '@/components/navigation/tab-screen';
 import type { Service } from '@/data/catalog';
 import { fulfillmentDetail, fulfillmentLabel, type BookingFulfillment } from '@/features/booking/fulfillment';
@@ -225,16 +226,20 @@ function MenuRow({
   onPress: () => void;
 }) {
   const price = menuPriceLabel(item.durations);
+  const soldOut = Boolean(item.soldOutToday);
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${item.name}, ${price}. ${item.description}`}
+      accessibilityLabel={soldOut ? `${item.name}, sold out today` : `${item.name}, ${price}. ${item.description}`}
+      {...disabledState(soldOut)}
+      disabled={soldOut}
       onPress={onPress}
-      style={({ pressed }) => [styles.row, highlighted && styles.rowHighlighted, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.row, highlighted && styles.rowHighlighted, pressed && styles.pressed, soldOut && styles.rowSoldOut]}
     >
       <Image source={item.image} style={styles.rowImage} contentFit="cover" alt="" />
       <View style={styles.rowCopy}>
-        {highlighted ? <Ribbon label="From your tap" tone="quiet" /> : null}
+        {soldOut ? <Ribbon label="Sold out today" tone="danger" /> : null}
+        {highlighted && !soldOut ? <Ribbon label="From your tap" tone="quiet" /> : null}
         <Text style={styles.rowName}>{item.name}</Text>
         <Text style={styles.rowPrice}>{price}</Text>
         <Text numberOfLines={2} style={styles.rowDescription}>{item.description}</Text>
@@ -274,6 +279,7 @@ const styles = StyleSheet.create({
   sectionTitle: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 22, lineHeight: 28 },
   sectionTagline: { color: colors.ink600, fontFamily: fonts.sans, fontSize: 13 },
 
+  rowSoldOut: { opacity: 0.55 },
   row: {
     minHeight: 96,
     flexDirection: 'row',

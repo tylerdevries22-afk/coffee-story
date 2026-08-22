@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { DEFAULT_COPY, formatCopy, resolveCopy } from './copy.ts';
+import { DEFAULT_COPY, formatCopy, resolveCopy } from './copy';
 
 describe('resolveCopy', () => {
   it('overlays the tenant dictionary on the defaults', () => {

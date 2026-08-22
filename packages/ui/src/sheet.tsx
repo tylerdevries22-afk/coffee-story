@@ -2,8 +2,8 @@
 import { useEffect, useRef, type PropsWithChildren } from 'react';
 import { Animated, Easing, Modal, Pressable, ScrollView, Text, View } from 'react-native';
 
-import { withAlpha } from './components.tsx';
-import { useTokens } from './theme.tsx';
+import { withAlpha } from './components';
+import { useTokens } from './theme';
 
 export function Sheet({
   visible,

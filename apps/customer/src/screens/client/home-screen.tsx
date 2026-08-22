@@ -2,7 +2,7 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Animated,
@@ -24,8 +24,12 @@ import { DEMO_ADD_ONS, MENU_CATEGORY_META, SERVICES, type MenuCategoryId, type S
 import { useAppState } from '@/state/app-context';
 import { useAuth } from '@/state/auth-context';
 import { openWebPath } from '@/lib/web-navigation';
-import { colors, fonts, radius, spacing } from '@/theme/tokens';
+import { colors, fonts, radius, shadow, spacing } from '@/theme/tokens';
+import { demoDrops } from '@/data/drops';
+import { featuredDrop, dropStatus } from '@/features/drops';
 import { useReducedMotion } from '@/hooks/use-reduced-motion';
+import { tenantFeature } from '@/tenant';
+import { DropCountdown } from '@platform/ui';
 
 import heroVideo from '../../../assets/hero/home-hero.mp4';
 import packagesMedia from '../../../assets/hero/stones.webp';
@@ -53,7 +57,7 @@ const CATEGORY_PREVIEW_COUNT = 7;
  * menu, sectioned by category with a capped preview and a Show All reveal.
  */
 export function HomeScreen() {
-  const { setClientTab, startBooking } = useAppState();
+  const { openMore, setClientTab, startBooking } = useAppState();
   const { portal } = useAuth();
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -78,6 +82,10 @@ export function HomeScreen() {
   const favorites = HOUSE_FAVORITE_IDS.map((id) => SERVICES.find((service) => service.id === id)).filter(
     (service): service is Service => Boolean(service),
   );
+
+  // The rotating-drop model's front door: the live drop, or the next one.
+  const drop = useMemo(() => (tenantFeature('drops') ? featuredDrop(demoDrops(), new Date()) : null), []);
+  const dropItem = drop ? SERVICES.find((service) => service.id === drop.itemId) ?? null : null;
 
   const onScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offset = event.nativeEvent.contentOffset.y;
@@ -240,6 +248,38 @@ export function HomeScreen() {
           ))}
         </View>
       </View>
+
+      {drop && dropItem ? (
+        <View style={styles.dropSection}>
+          <SectionHeader
+            pill={dropStatus(drop, new Date()) === 'live' ? 'Dropping now' : 'Next drop'}
+            title={drop.title}
+            body={drop.blurb}
+          />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${drop.title}. Order the drop`}
+            onPress={() => startBooking(dropItem.id)}
+            style={({ pressed }) => [styles.dropCard, pressed && { opacity: 0.9 }]}
+          >
+            <Image source={dropItem.image} style={styles.dropImage} contentFit="cover" alt={drop.title} />
+            <View style={styles.dropInfo}>
+              <DropCountdown startsAt={new Date(drop.startsAt)} endsAt={new Date(drop.endsAt)} />
+              <Text style={styles.dropCta}>
+                {dropStatus(drop, new Date()) === 'live' ? 'Order it while it lasts' : 'See what else is pouring'}
+              </Text>
+            </View>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Past drops"
+            onPress={() => openMore('drops')}
+            style={({ pressed }) => [styles.dropArchiveLink, pressed && { opacity: 0.7 }]}
+          >
+            <Text style={styles.dropArchiveText}>Past drops</Text>
+          </Pressable>
+        </View>
+      ) : null}
 
       <SectionHeader
         pill={`Welcome back, ${firstName}`}
@@ -454,6 +494,19 @@ function MenuRow({ item, onPress }: { item: Service; onPress: () => void }) {
 }
 
 const styles = StyleSheet.create({
+  dropSection: { gap: spacing.md },
+  dropCard: {
+    marginHorizontal: spacing.lg,
+    borderRadius: radius.lg,
+    backgroundColor: colors.white,
+    overflow: 'hidden',
+    ...shadow.card,
+  },
+  dropImage: { width: '100%', height: 210, backgroundColor: colors.brand100 },
+  dropInfo: { padding: spacing.lg, gap: spacing.sm },
+  dropCta: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 16 },
+  dropArchiveLink: { alignSelf: 'center', paddingVertical: spacing.xs, paddingHorizontal: spacing.md },
+  dropArchiveText: { color: colors.ink600, fontFamily: fonts.sansMedium, fontSize: 14, textDecorationLine: 'underline' },
   shell: { flex: 1 },
   screen: { backgroundColor: colors.surface },
   content: { paddingTop: 0, paddingHorizontal: 0, paddingBottom: 150, gap: 0 },

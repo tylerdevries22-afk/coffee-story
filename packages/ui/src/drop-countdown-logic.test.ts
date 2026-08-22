@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { dropPhase, formatCountdown } from './drop-countdown-logic.ts';
+import { dropPhase, formatCountdown } from './drop-countdown-logic';
 
 const at = (iso: string) => new Date(iso);
 

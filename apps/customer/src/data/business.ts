@@ -1,31 +1,29 @@
 /**
- * The shop's own details, in one place.
+ * The shop's own details, derived from the tenant config in one place.
  *
- * They were written out three times and disagreed: `features/more/
- * information-pages.ts` carried the real Aurora shop, while
- * `features/admin/admin-settings.ts` still carried the massage studio's
- * Greenwood Village address, phone and a `coffeestoryhealingoasis.com` email
- * that is a mashup of the two brands. A guest reading Location and a staff
- * member reading Settings saw two different businesses.
+ * They were written out three times and disagreed (see git history); now the
+ * single source is `src/tenant/brand.json`, so rebranding the binary for
+ * another tenant rebrands every error screen, receipt and calendar note with
+ * it (rule 4 applies to words too).
  *
- * Pure — no asset imports — so both the app and `node:test` can read it.
+ * Pure -- no asset imports -- so both the app and `node:test` can read it.
  */
+import { TENANT } from '@/tenant';
 
 export const BUSINESS = {
-  name: 'Coffee Story',
-  legalName: 'Coffee Story by Barakah Brews',
-  tagline: 'A Blessing In Every Cup',
-  /** Confirm this mailbox is live before the app tells guests to write to it. */
-  email: 'hello@coffeestoryco.com',
-  phone: '(720) 609-2971',
-  street: '2222 S Havana St Unit A1',
-  cityLine: 'Aurora, CO 80014',
-  website: 'https://coffeestoryco.com',
+  name: TENANT.identity.name,
+  legalName: TENANT.business.legalName,
+  tagline: TENANT.business.tagline,
+  email: TENANT.business.email,
+  phone: TENANT.business.phone,
+  street: TENANT.location.address.street,
+  cityLine: `${TENANT.location.address.city}, ${TENANT.location.address.region} ${TENANT.location.address.postal}`,
+  website: TENANT.business.website,
   /** Prefix on every gift-card code the app issues. */
-  giftCodePrefix: 'CS',
+  giftCodePrefix: TENANT.business.giftCodePrefix,
 } as const;
 
 export const BUSINESS_ADDRESS = `${BUSINESS.street}, ${BUSINESS.cityLine}`;
 
-/** The two-letter mark the app falls back to when there is no name or photo. */
-export const BUSINESS_MONOGRAM = 'CS';
+/** The 1-3 letter mark the app falls back to when there is no name or photo. */
+export const BUSINESS_MONOGRAM = TENANT.business.monogram;

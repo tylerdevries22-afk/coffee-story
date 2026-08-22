@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 
 import { recoveryCodeFromUrl, recoveryRedirectUrl } from '@/lib/auth-links';
 import { mobileApi } from '@/lib/mobile-api';
+import { registerForPush } from '@/lib/push';
 import { hasSupabaseConfig, supabase } from '@/lib/supabase';
 import { useDemo } from '@/state/demo-context';
 import { createRequestSequence } from '@/state/request-sequence';
@@ -20,6 +21,9 @@ type AuthState = {
   isPasswordRecovery: boolean;
   error: string | null;
   signIn: (email: string, password: string) => Promise<void>;
+  /** Sends the six-digit SMS code. The phone must already be E.164. */
+  signInWithPhone: (phone: string) => Promise<void>;
+  verifyPhoneCode: (phone: string, code: string) => Promise<void>;
   signUp: (fullName: string, email: string, password: string) => Promise<void>;
   requestPasswordReset: (email: string) => Promise<void>;
   updatePassword: (password: string) => Promise<void>;
@@ -158,6 +162,35 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
   }, []);
 
+  // Ask for push permission once a real session exists -- never in Demo,
+  // never in Expo Go (lib/push guards both). The token lands on
+  // customers.push_token through the engine once its API exists; until then
+  // registration proves the flow and the OS prompt shows at the right moment.
+  useEffect(() => {
+    if (isDemo || !session) return;
+    let active = true;
+    void registerForPush().then((token) => {
+      if (active && token) {
+        console.log(`Push registered: ${token.slice(0, 18)}…`);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [isDemo, session]);
+
+  const signInWithPhone = useCallback(async (phone: string) => {
+    if (!supabase) throw new Error('Live sign-in is not configured in this build.');
+    const { error: otpError } = await supabase.auth.signInWithOtp({ phone });
+    if (otpError) throw new Error(otpError.message);
+  }, []);
+
+  const verifyPhoneCode = useCallback(async (phone: string, code: string) => {
+    if (!supabase) throw new Error('Live sign-in is not configured in this build.');
+    const { error: verifyError } = await supabase.auth.verifyOtp({ phone, token: code, type: 'sms' });
+    if (verifyError) throw new Error(verifyError.message);
+  }, []);
+
   const signUp = useCallback(async (fullName: string, email: string, password: string) => {
     if (!supabase) throw new Error('Supabase is not configured.');
     setError(null);
@@ -205,12 +238,14 @@ export function AuthProvider({ children }: PropsWithChildren) {
     isPasswordRecovery,
     error: isDemo ? null : error,
     signIn,
+    signInWithPhone,
+    verifyPhoneCode,
     signUp,
     requestPasswordReset,
     updatePassword,
     signOut,
     refresh: () => loadPortal(session),
-  }), [demo.isHydrating, demo.portal, error, isDemo, isLoading, isPasswordRecovery, livePortal, loadPortal, requestPasswordReset, session, signIn, signOut, signUp, updatePassword]);
+  }), [demo.isHydrating, demo.portal, error, isDemo, isLoading, isPasswordRecovery, livePortal, loadPortal, requestPasswordReset, session, signIn, signInWithPhone, signOut, signUp, updatePassword, verifyPhoneCode]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { canManageLocation, isStaffRole, parseTenantClaims } from './claims.ts';
+import { canManageLocation, isStaffRole, parseTenantClaims } from './claims';
 
 const BRAND = '11111111-2222-3333-4444-555555555555';
 const LOC = '99999999-8888-7777-6666-555555555555';

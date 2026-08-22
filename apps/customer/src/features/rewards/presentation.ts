@@ -1,7 +1,9 @@
 // Staged replacement for src/features/rewards/presentation.ts
 import type { RewardEntry } from '@/types/domain';
 
-export const HEART_POINTS_LABEL = 'Beans';
+import { TENANT } from '@/tenant';
+
+export const HEART_POINTS_LABEL = TENANT.copy.pointsName ?? 'Points';
 
 export type RewardProgress = {
   currentFloor: number;

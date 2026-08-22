@@ -2,24 +2,66 @@ import { useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Body, Button, Card, Eyebrow, Screen, Title } from '@/components/ui';
+import { BUSINESS } from '@/data/business';
+import { isValidOtpCode, normalizePhone } from '@/features/auth/phone';
+import { HEART_POINTS_LABEL } from '@/features/rewards/presentation';
 import { useAuth } from '@/state/auth-context';
 import { useDemo } from '@/state/demo-context';
 import { colors, fonts, radius, spacing } from '@/theme/tokens';
 
-type AuthView = 'sign-in' | 'create' | 'reset';
+type AuthView = 'sign-in' | 'create' | 'reset' | 'phone' | 'phone-code';
 
 export function AuthScreen() {
-  const { signIn, signUp, requestPasswordReset } = useAuth();
+  const { signIn, signInWithPhone, signUp, requestPasswordReset, verifyPhoneCode } = useAuth();
   const { chooseDemo } = useDemo();
   const [view, setView] = useState<AuthView>('sign-in');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [phone, setPhone] = useState('');
+  const [otpCode, setOtpCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  async function resendCode() {
+    const normalized = normalizePhone(phone);
+    if (!normalized) return;
+    setError(null);
+    setOtpCode('');
+    setLoading(true);
+    try {
+      await signInWithPhone(normalized);
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : 'The code could not be sent.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function submit() {
     setError(null);
+    if (view === 'phone' || view === 'phone-code') {
+      const normalized = normalizePhone(phone);
+      if (!normalized) {
+        setError('Enter your phone number with area code.');
+        return;
+      }
+      setLoading(true);
+      try {
+        if (view === 'phone') {
+          await signInWithPhone(normalized);
+          setView('phone-code');
+        } else {
+          if (!isValidOtpCode(otpCode)) throw new Error('Enter the six-digit code from the text.');
+          await verifyPhoneCode(normalized, otpCode.trim());
+        }
+      } catch (submitError) {
+        setError(submitError instanceof Error ? submitError.message : 'The request could not be completed.');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
     if (!email.includes('@')) {
       setError('Enter a valid email address.');
       return;
@@ -51,23 +93,51 @@ export function AuthScreen() {
   return (
     <Screen keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
       <View style={styles.intro}>
-        <Eyebrow>Coffee Story · by Barakah Brews</Eyebrow>
-        <Title>{view === 'create' ? 'Start your story.' : view === 'reset' ? 'Reset your password.' : 'Welcome back.'}</Title>
-        <Body muted>Order ahead, gifts, Bean rewards, and your favorites in one place. A blessing in every cup.</Body>
+        <Eyebrow>{BUSINESS.legalName}</Eyebrow>
+        <Title>
+          {view === 'create' ? 'Start your story.'
+            : view === 'reset' ? 'Reset your password.'
+            : view === 'phone' ? 'Sign in with your phone.'
+            : view === 'phone-code' ? 'Enter the code we texted.'
+            : 'Welcome back.'}
+        </Title>
+        <Body muted>Order ahead, gifts, {HEART_POINTS_LABEL} rewards, and your favorites in one place. {BUSINESS.tagline}.</Body>
       </View>
       <Card style={styles.form}>
         {view === 'create' ? <Field label="Full name" value={fullName} onChangeText={setFullName} autoComplete="name" /> : null}
-        <Field label="Email" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" autoComplete="email" />
-        {view !== 'reset' ? <Field label="Password" value={password} onChangeText={setPassword} secureTextEntry autoComplete={view === 'create' ? 'new-password' : 'current-password'} /> : null}
+        {view === 'phone' || view === 'phone-code' ? (
+          <Field
+            label="Phone number"
+            value={phone}
+            onChangeText={setPhone}
+            keyboardType="phone-pad"
+            autoComplete="tel"
+            editable={view === 'phone'}
+          />
+        ) : (
+          <Field label="Email" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" autoComplete="email" />
+        )}
+        {view === 'phone-code' ? (
+          <Field label="Six-digit code" value={otpCode} onChangeText={setOtpCode} keyboardType="number-pad" autoComplete="sms-otp" />
+        ) : null}
+        {view === 'sign-in' || view === 'create' ? (
+          <Field label="Password" value={password} onChangeText={setPassword} secureTextEntry autoComplete={view === 'create' ? 'new-password' : 'current-password'} />
+        ) : null}
         {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
         <Button
-          label={view === 'create' ? 'Create account' : view === 'reset' ? 'Send reset link' : 'Sign in'}
+          label={view === 'create' ? 'Create account'
+            : view === 'reset' ? 'Send reset link'
+            : view === 'phone' ? 'Text me a code'
+            : view === 'phone-code' ? 'Verify and sign in'
+            : 'Sign in'}
           loading={loading}
           onPress={() => void submit()}
         />
       </Card>
       <View style={styles.links}>
-        {view !== 'sign-in' ? <AuthLink label="Back to sign in" onPress={() => setView('sign-in')} /> : null}
+        {view !== 'sign-in' ? <AuthLink label="Back to sign in" onPress={() => { setError(null); setView('sign-in'); }} /> : null}
+        {view === 'sign-in' ? <AuthLink label="Sign in with phone instead" onPress={() => { setError(null); setView('phone'); }} /> : null}
+        {view === 'phone-code' ? <AuthLink label="Send a new code" onPress={() => void resendCode()} /> : null}
         {view === 'sign-in' ? <AuthLink label="Create an account" onPress={() => setView('create')} /> : null}
         {view === 'sign-in' ? <AuthLink label="Forgot password?" onPress={() => setView('reset')} /> : null}
       </View>

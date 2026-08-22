@@ -19,7 +19,7 @@ export type StaffTab = 'today' | 'calendar' | 'quick-actions' | 'clients' | 'che
 export type MoreView =
   | 'menu' | 'services' | 'visits' | 'profile' | 'intake' | 'messages' | 'membership'
   | 'payments' | 'gift-balance' | 'location' | 'resources' | 'faq' | 'care-policy'
-  | 'privacy' | 'admin';
+  | 'privacy' | 'admin' | 'drops' | 'catering' | 'referrals';
 
 /** Left-to-right order of the client tab bar. */
 export const CLIENT_TAB_ORDER: readonly ClientTab[] = ['home', 'gift', 'book', 'rewards', 'more'];
@@ -124,6 +124,7 @@ export function staffDetailPathFromPathname(pathname: string): string | null {
 
 const MORE_VIEWS: readonly MoreView[] = [
   'menu', 'services', 'visits', 'profile', 'intake', 'messages', 'membership',
+  'drops', 'catering', 'referrals',
   'payments', 'gift-balance', 'location', 'resources', 'faq', 'care-policy',
   'privacy', 'admin',
 ];

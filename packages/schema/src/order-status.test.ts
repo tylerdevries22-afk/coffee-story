@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { describe, it } from 'node:test';
 
-import { ORDER_TRANSITIONS, OPERATOR_TRANSITIONS, canTransition } from './order-status.ts';
+import { ORDER_TRANSITIONS, OPERATOR_TRANSITIONS, canTransition } from './order-status';
 
 const sql = readFileSync(
   join(dirname(fileURLToPath(import.meta.url)), '../migrations/0005_orders.sql'),

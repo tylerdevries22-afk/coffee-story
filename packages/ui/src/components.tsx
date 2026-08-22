@@ -17,10 +17,10 @@ import {
 
 import type { OrderStatus } from '@platform/schema';
 
-import { loyaltyProgress } from './loyalty-logic.ts';
-import { STATUS_PRESENTATION, type StatusTone } from './order-status-pill-logic.ts';
-import { useTokens } from './theme.tsx';
-import type { BrandTokens } from './tokens.ts';
+import { loyaltyProgress } from './loyalty-logic';
+import { STATUS_PRESENTATION, type StatusTone } from './order-status-pill-logic';
+import { useTokens } from './theme';
+import type { BrandTokens } from './tokens';
 
 function toneColor(tokens: BrandTokens, tone: StatusTone): string {
   switch (tone) {

@@ -11,7 +11,7 @@ import {
 } from 'react';
 import { Animated, Easing, Text, View } from 'react-native';
 
-import { useTokens } from './theme.tsx';
+import { useTokens } from './theme';
 
 export type ToastTone = 'neutral' | 'success' | 'danger';
 type ToastItem = { id: number; message: string; tone: ToastTone };

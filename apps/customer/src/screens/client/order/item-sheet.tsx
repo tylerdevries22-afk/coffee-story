@@ -88,6 +88,10 @@ function ItemSheetBody({
   }));
 
   function add() {
+    // Belt and braces with the menu row's disabled state: an 86'd item can
+    // still be reached through a stale deep link or a tap raced with a menu
+    // refresh, and it must not land in the bag.
+    if (item.soldOutToday) return;
     if (missing.length > 0) {
       setShowRequired(true);
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => undefined);
@@ -205,8 +209,9 @@ function ItemSheetBody({
 
       <View style={[styles.footer, { paddingBottom: bottom + spacing.sm }]}>
         <ActionButton
-          label={quantity > 1 ? `Add ${quantity} to Bag` : 'Add to Bag'}
-          value={formatMoney(unitPriceCents * quantity)}
+          label={item.soldOutToday ? 'Sold out today' : quantity > 1 ? `Add ${quantity} to Bag` : 'Add to Bag'}
+          value={item.soldOutToday ? undefined : formatMoney(unitPriceCents * quantity)}
+          disabled={Boolean(item.soldOutToday)}
           onPress={add}
           accessibilityHint={
             missing.length > 0

@@ -1,3 +1,3 @@
-export * from './claims.ts';
-export * from './order-status.ts';
-export * from './types.ts';
+export * from './claims';
+export * from './order-status';
+export * from './types';

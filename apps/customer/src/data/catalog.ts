@@ -86,6 +86,8 @@ export type Service = {
    * Each size carries the slug an order is actually made against.
    */
   durations: readonly { slug: string; minutes: number; price: number }[];
+  /** 86'd: out for the day. Listed, visible, not orderable. */
+  soldOutToday?: boolean;
 };
 
 export const MENU_CATEGORY_META: readonly { id: MenuCategoryId; title: string; tagline: string }[] = [
@@ -196,7 +198,7 @@ export const SERVICES: readonly Service[] = [
   { id: 'wrap-chicken-caesar', name: 'Chicken Caesar Wrap', description: 'Chicken, romaine, parmesan and Caesar dressing in a tortilla.', image: wrapCaesarImg, category: 'sandwiches', durations: eachSize('wrap-chicken-caesar', 9) },
   { id: 'panini-mozzarella', name: 'Mozzarella Panini', description: 'Mozzarella, roasted red pepper, tomato, pesto and balsamic glaze.', image: paniniImg, category: 'sandwiches', durations: eachSize('panini-mozzarella', 9) },
   { id: 'sandwich-veggie', name: 'Veggie Sandwich', description: 'Spring mix, avocado, tomato, mozzarella, pesto and balsamic on white bread.', image: veggieImg, category: 'sandwiches', durations: eachSize('sandwich-veggie', 9) },
-  { id: 'avocado-toast', name: 'Avocado Toast', description: 'Avocado, cherry tomato, pepper and balsamic glaze on toast.', image: avocadoToastImg, category: 'sandwiches', durations: eachSize('avocado-toast', 8) },
+  { id: 'avocado-toast', soldOutToday: true, name: 'Avocado Toast', description: 'Avocado, cherry tomato, pepper and balsamic glaze on toast.', image: avocadoToastImg, category: 'sandwiches', durations: eachSize('avocado-toast', 8) },
   { id: 'grilled-cheese', name: 'Grilled Cheese', description: 'Mozzarella, cheddar and provolone on buttered toast.', image: grilledCheeseImg, category: 'sandwiches', durations: eachSize('grilled-cheese', 7) },
   { id: 'toasted-bagel', name: 'Toasted Bagels', description: 'Plain or everything bagel with cream cheese.', image: bagelImg, category: 'sandwiches', durations: eachSize('toasted-bagel', 4) },
 

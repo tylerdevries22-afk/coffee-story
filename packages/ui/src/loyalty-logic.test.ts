@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { loyaltyProgress } from './loyalty-logic.ts';
+import { loyaltyProgress } from './loyalty-logic';
 
 describe('loyaltyProgress', () => {
   it('reports position inside the current reward band', () => {

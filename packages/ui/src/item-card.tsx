@@ -2,9 +2,9 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
-import { Badge, withAlpha } from './components.tsx';
-import { dropPhase, formatCountdown } from './drop-countdown-logic.ts';
-import { useCopy, useTokens } from './theme.tsx';
+import { Badge, withAlpha } from './components';
+import { dropPhase, formatCountdown } from './drop-countdown-logic';
+import { useCopy, useTokens } from './theme';
 
 export function ItemCard({
   name,

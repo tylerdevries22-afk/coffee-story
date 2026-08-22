@@ -26,7 +26,16 @@ import type { BookingFulfillment, VisitMode } from '@/features/booking/fulfillme
 import { formatMoney } from '@/features/money';
 import { PICKUP_WINDOW_MINUTES, describePickupWindow, isWindowStillBookable } from '@/features/order/pickup';
 import { orderTotals, pointsForOrder } from '@/features/order/totals';
+import { summarizeGiftCardOwnership } from '@/features/gifts/ownership';
+import {
+  maxRedeemableCents,
+  pointsForRedemption,
+  splitPayment,
+} from '@/features/order/payment-split';
 import { HEART_POINTS_LABEL } from '@/features/rewards/presentation';
+import { simulateProgress, trackingView } from '@/features/tracking';
+import { tenantFeature } from '@/tenant';
+import type { OrderStatus } from '@platform/schema';
 import { REWARD_TIERS, tierForAnnualPoints } from '@/features/rewards/rules';
 import { choiceState } from '@/lib/a11y-state';
 import { usesSimulatedNativeFlows } from '@/lib/native-adapters';
@@ -80,6 +89,8 @@ export function OrderScreen() {
   // tap would run `demo.book` again -- against a bag the first tap emptied.
   const placing = useRef(false);
   const [payError, setPayError] = useState<string | null>(null);
+  const [redeemCents, setRedeemCents] = useState(0);
+  const [useGiftBalance, setUseGiftBalance] = useState(false);
   // Snapshotted at the moment the order is placed. Reading `totals` here
   // instead would show the confirmation screen the totals of the bag that
   // `clearBag()` has just emptied -- "Paid $0", earning 0 Beans.
@@ -91,10 +102,23 @@ export function OrderScreen() {
   const totals = useMemo(() => orderTotals({
     subtotalCents: order.subtotalCents,
     deliveryFeeCents: order.deliveryFeeCents,
+    discountCents: redeemCents,
     tipCents: order.tipCents,
-  }), [order.deliveryFeeCents, order.subtotalCents, order.tipCents]);
+  }), [order.deliveryFeeCents, order.subtotalCents, order.tipCents, redeemCents]);
 
   const annualPoints = portal.rewardAccount.annualPoints;
+  const redeemableCents = maxRedeemableCents(portal.rewardAccount.availablePoints, order.subtotalCents);
+  const giftBalanceCents = tenantFeature('stored_value')
+    ? summarizeGiftCardOwnership(portal.giftCards).spendableBalanceCents
+    : 0;
+  const split = splitPayment(totals.totalCents, giftBalanceCents, useGiftBalance);
+
+  // The bag can shrink under an applied redemption (a line removed from the
+  // bag while checkout is open); a stale discount would survive into the pay
+  // button, so it resets rather than clamps -- the guest re-applies knowingly.
+  useEffect(() => {
+    if (redeemCents > 0 && redeemCents > redeemableCents) setRedeemCents(0);
+  }, [redeemCents, redeemableCents]);
   const pointsPerDollar = tierForAnnualPoints(annualPoints, REWARD_TIERS).pointsPerDollar;
   const pointsEarned = pointsForOrder(totals, annualPoints);
 
@@ -149,6 +173,8 @@ export function OrderScreen() {
     setMode(null);
     setStep('hub');
     setPlaced(null);
+    setRedeemCents(0);
+    setUseGiftBalance(false);
     placing.current = false;
   }, [order]);
 
@@ -200,6 +226,8 @@ export function OrderScreen() {
       setPlaced({ summary, totalCents: totals.totalCents, points: pointsEarned });
       order.clearBag();
       order.setTipCents(0);
+      setRedeemCents(0);
+      setUseGiftBalance(false);
       setOverlay('placed');
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
     } finally {
@@ -279,6 +307,20 @@ export function OrderScreen() {
             paying={paying}
             simulated={simulated}
             error={payError}
+            redeem={redeemableCents > 0 || redeemCents > 0 ? {
+              availableCents: redeemableCents,
+              appliedCents: redeemCents,
+              pointsCharged: pointsForRedemption(redeemCents),
+              pointsName: HEART_POINTS_LABEL,
+              onToggle: () => setRedeemCents((current) => (current > 0 ? 0 : redeemableCents)),
+            } : null}
+            storedValue={giftBalanceCents > 0 ? {
+              balanceCents: giftBalanceCents,
+              appliedCents: split.storedValueAppliedCents,
+              enabled: useGiftBalance,
+              onToggle: () => setUseGiftBalance((current) => !current),
+            } : null}
+            cardChargeCents={split.cardChargeCents}
             onBack={() => setOverlay('note')}
             onTipChange={order.setTipCents}
             onPlaceOrder={placeOrder}
@@ -599,6 +641,12 @@ function OrderPlaced({
   onDone: () => void;
 }) {
   const window = describePickupWindow(windowValue, new Date());
+  // The demo shop makes the drink in front of you: paid now, in progress in a
+  // few seconds, ready shortly after -- the same rule-2 states a live order
+  // streams over Realtime (lib/realtime-orders.ts).
+  const [status, setStatus] = useState<OrderStatus>('paid');
+  useEffect(() => simulateProgress(setStatus), []);
+  const tracking = trackingView(status);
   return (
     <CollapsingScreen
       title="Order placed"
@@ -631,6 +679,22 @@ function OrderPlaced({
         </Text>
       </View>
 
+      <View accessibilityLiveRegion="polite" style={styles.trackCard}>
+        {tracking.steps.map((step, index) => {
+          const reached = tracking.activeIndex >= index;
+          const current = tracking.activeIndex === index;
+          return (
+            <View key={step.status} style={styles.trackRow}>
+              <View style={[styles.trackDot, reached && styles.trackDotReached, current && styles.trackDotCurrent]} />
+              <View style={styles.trackCopy}>
+                <Text style={[styles.trackTitle, !reached && styles.trackMuted]}>{step.title}</Text>
+                {current ? <Text style={styles.trackDetail}>{step.detail}</Text> : null}
+              </View>
+            </View>
+          );
+        })}
+      </View>
+
       <Pressable
         accessibilityRole="button"
         onPress={onViewVisits}
@@ -650,6 +714,27 @@ function OrderPlaced({
 }
 
 const styles = StyleSheet.create({
+  trackCard: {
+    marginHorizontal: spacing.lg,
+    borderRadius: radius.md,
+    backgroundColor: colors.white,
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  trackRow: { flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start' },
+  trackDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginTop: 3,
+    backgroundColor: colors.ink200,
+  },
+  trackDotReached: { backgroundColor: colors.success },
+  trackDotCurrent: { borderWidth: 3, borderColor: colors.brand200, width: 16, height: 16, borderRadius: 8, marginTop: 1 },
+  trackCopy: { flex: 1, gap: 2 },
+  trackTitle: { color: colors.ink900, fontFamily: fonts.sansMedium, fontSize: 15 },
+  trackMuted: { color: colors.ink500 },
+  trackDetail: { color: colors.ink600, fontFamily: fonts.sans, fontSize: 13 },
   page: { backgroundColor: colors.brand200 },
   content: { gap: spacing.lg },
   contentCompact: { paddingHorizontal: spacing.md, gap: spacing.md },

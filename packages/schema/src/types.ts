@@ -7,8 +7,8 @@
  * and reconcile. A drift test is not possible without a database, so the
  * migrations are the source of truth and this file follows them.
  */
-import type { OrderStatus } from './order-status.ts';
-import type { BrandRole } from './claims.ts';
+import type { OrderStatus } from './order-status';
+import type { BrandRole } from './claims';
 
 export type FulfillmentType = 'pickup' | 'curbside' | 'catering' | 'delivery';
 export type OrderChannel = 'app' | 'web' | 'kiosk' | 'pos';

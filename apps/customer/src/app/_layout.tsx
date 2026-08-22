@@ -18,11 +18,14 @@ import { AppErrorBoundary } from '@/components/app-error-boundary';
 import { Button } from '@/components/ui';
 import { InstallPrompt } from '@/components/install-prompt';
 import { SetupFlowHost } from '@/components/setup/setup-flow';
+import { brandCache } from '@/lib/brand-cache';
 import { AppStateProvider } from '@/state/app-context';
 import { AuthProvider } from '@/state/auth-context';
 import { DemoProvider, useDemo } from '@/state/demo-context';
 import { OrderProvider } from '@/state/order-context';
+import { TENANT, TENANT_BRAND_CONFIG } from '@/tenant';
 import { colors } from '@/theme/tokens';
+import { ThemeProvider, ToastProvider } from '@platform/ui';
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
@@ -71,17 +74,23 @@ function RuntimeProviders() {
   return (
     <StripeProvider
       publishableKey={stripeKey}
-      urlScheme="coffeestory"
+      urlScheme={TENANT.identity.scheme}
       // Must match the merchant id registered against the Apple Developer
       // account and enabled in the app's Merchant capability. The previous
       // value carried the massage studio's name and matched nothing.
-      merchantIdentifier="merchant.com.coffeestory.app"
+      merchantIdentifier={`merchant.${TENANT.identity.bundleId}`}
     >
-      <AppErrorBoundary>
-        <DemoProvider>
-          <ConfiguredApp config={config} />
-        </DemoProvider>
-      </AppErrorBoundary>
+      {/* Rule 4: tokens + copy hydrate from the tenant's brand config; the
+          cache keeps a cold offline start branded. */}
+      <ThemeProvider brandConfig={TENANT_BRAND_CONFIG} storage={brandCache}>
+        <ToastProvider>
+          <AppErrorBoundary>
+            <DemoProvider>
+              <ConfiguredApp config={config} />
+            </DemoProvider>
+          </AppErrorBoundary>
+        </ToastProvider>
+      </ThemeProvider>
     </StripeProvider>
   );
 }

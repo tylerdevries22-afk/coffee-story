@@ -4,7 +4,6 @@
     "target": "ES2022",
     "module": "preserve",
     "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
     "noEmit": true,
     "esModuleInterop": true,
     "skipLibCheck": true,

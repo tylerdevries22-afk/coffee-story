@@ -13,12 +13,14 @@ import { HeaderIconButton } from '@/components/more-page-header';
 import { MoreSearchTakeover } from '@/components/more-search-takeover';
 import { PortalProfileCard } from '@/components/portal-profile-card';
 import { SetupProgressCard } from '@/components/setup/setup-progress-card';
+import { BUSINESS } from '@/data/business';
 import { SERVICES } from '@/data/catalog';
 import { buildClientNotifications } from '@/features/notifications/feed';
 import { searchClientAccount, type ClientSearchResult } from '@/features/search/client-search';
 import { summarizeGiftCardOwnership } from '@/features/gifts/ownership';
 import { portalSetup } from '@/features/setup/setup';
 import { useAppState, type MoreView } from '@/state/app-context';
+import { tenantFeature } from '@/tenant';
 import { useAuth } from '@/state/auth-context';
 import { useDemo } from '@/state/demo-context';
 import { colors } from '@/theme/tokens';
@@ -163,8 +165,17 @@ export function MoreScreen() {
         symbol="heart"
         onPress={() => openMore('services')}
       />
-      <PillRow title="Shop location & hours" subtitle="2222 S Havana St, Aurora CO" symbol="calendar" onPress={() => openMore('location')} />
+      <PillRow title="Shop location & hours" subtitle={`${BUSINESS.street}, ${BUSINESS.cityLine}`} symbol="calendar" onPress={() => openMore('location')} />
       <PillRow title="Our story & brewing guides" symbol="doc.text" onPress={() => openMore('resources')} />
+      {tenantFeature('drops') ? (
+        <PillRow title="Drops" subtitle="Limited runs, past and present" symbol="clock.arrow.circlepath" onPress={() => openMore('drops')} />
+      ) : null}
+      {tenantFeature('catering') ? (
+        <PillRow title="Catering" subtitle="Carafes and pastry boxes for events" symbol="calendar" onPress={() => openMore('catering')} />
+      ) : null}
+      {tenantFeature('referrals') ? (
+        <PillRow title="Refer a friend" subtitle="A free drink for you both" symbol="heart" onPress={() => openMore('referrals')} />
+      ) : null}
       <PillRow title="My usual & preferences" subtitle={portal.intake?.completed ? 'Saved' : 'Needs attention'} symbol="doc.text" onPress={() => openMore('intake')} />
       <PillRow title="Membership" subtitle={portal.membership?.name ?? 'Explore plans'} symbol="heart" onPress={() => openMore('membership')} />
 

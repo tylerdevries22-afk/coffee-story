@@ -9,8 +9,8 @@
  */
 import { createContext, useContext, useEffect, useMemo, useState, type PropsWithChildren } from 'react';
 
-import { formatCopy, resolveCopy, type BrandCopy } from './copy.ts';
-import { resolveTokens, type BrandTokens, DEFAULT_TOKENS } from './tokens.ts';
+import { formatCopy, resolveCopy, type BrandCopy } from './copy';
+import { resolveTokens, type BrandTokens, DEFAULT_TOKENS } from './tokens';
 
 export type TokenStorage = {
   getItem: (key: string) => Promise<string | null> | string | null;

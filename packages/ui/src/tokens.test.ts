@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { DEFAULT_TOKENS, resolveTokens } from './tokens.ts';
+import { DEFAULT_TOKENS, resolveTokens } from './tokens';
 
 describe('resolveTokens', () => {
   it('returns the defaults for a missing config', () => {

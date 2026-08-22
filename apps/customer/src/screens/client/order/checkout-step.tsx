@@ -22,7 +22,7 @@ import {
 import { formatMoney, formatRate } from '@/features/money';
 import { TIP_PRESETS_CENTS, type OrderTotals } from '@/features/order/totals';
 import { HEART_POINTS_LABEL } from '@/features/rewards/presentation';
-import { choiceState } from '@/lib/a11y-state';
+import { choiceState, toggleState } from '@/lib/a11y-state';
 import { colors, fonts, radius, spacing } from '@/theme/tokens';
 import type { PaymentMethod } from '@/types/domain';
 
@@ -38,6 +38,9 @@ export function CheckoutStep({
   paying,
   simulated,
   error,
+  redeem,
+  storedValue,
+  cardChargeCents,
   onBack,
   onTipChange,
   onPlaceOrder,
@@ -51,6 +54,23 @@ export function CheckoutStep({
   /** True when the charge is simulated — Demo mode or Expo Go. */
   simulated: boolean;
   error: string | null;
+  /** Loyalty redemption control; null hides it (no balance, or feature off). */
+  redeem?: {
+    availableCents: number;
+    appliedCents: number;
+    pointsCharged: number;
+    pointsName: string;
+    onToggle: () => void;
+  } | null;
+  /** Gift/stored-value tender; null hides it. */
+  storedValue?: {
+    balanceCents: number;
+    appliedCents: number;
+    enabled: boolean;
+    onToggle: () => void;
+  } | null;
+  /** What the card is actually charged once stored value is applied. */
+  cardChargeCents?: number;
   onBack: () => void;
   onTipChange: (cents: number) => void;
   onPlaceOrder: () => void;
@@ -150,6 +170,12 @@ export function CheckoutStep({
             <Text style={styles.totalLabel}>Total</Text>
             <Text style={styles.totalValue}>{formatMoney(totals.totalCents)}</Text>
           </View>
+          {storedValue && storedValue.appliedCents > 0 ? (
+            <>
+              <ReceiptRow label="Gift balance applied" value={`-${formatMoney(storedValue.appliedCents)}`} />
+              <ReceiptRow label="Card charge" value={formatMoney(cardChargeCents ?? totals.totalCents)} />
+            </>
+          ) : null}
         </View>
 
         <View style={styles.card}>
@@ -182,6 +208,50 @@ export function CheckoutStep({
             </Pressable>
           )}
 
+          {redeem && (redeem.availableCents > 0 || redeem.appliedCents > 0) ? (
+            <Pressable
+              accessibilityRole="switch"
+              {...toggleState(redeem.appliedCents > 0)}
+              accessibilityLabel={
+                redeem.appliedCents > 0
+                  ? `Redeeming ${formatMoney(redeem.appliedCents)} for ${redeem.pointsCharged} ${redeem.pointsName}. Turn off`
+                  : `Redeem ${redeem.pointsName}: up to ${formatMoney(redeem.availableCents)} available`
+              }
+              onPress={redeem.onToggle}
+              style={({ pressed }) => [styles.promoRow, pressed && styles.pressed]}
+            >
+              <AppIcon name="star.fill" size={16} tintColor={redeem.appliedCents > 0 ? colors.success : colors.ink700} />
+              <Text style={styles.promoLabel}>
+                {redeem.appliedCents > 0
+                  ? `Redeeming ${formatMoney(redeem.appliedCents)} (${redeem.pointsCharged} ${redeem.pointsName})`
+                  : `Redeem up to ${formatMoney(redeem.availableCents)} of ${redeem.pointsName}`}
+              </Text>
+              <Text style={styles.toggleHint}>{redeem.appliedCents > 0 ? 'On' : 'Off'}</Text>
+            </Pressable>
+          ) : null}
+
+          {storedValue && storedValue.balanceCents > 0 ? (
+            <Pressable
+              accessibilityRole="switch"
+              {...toggleState(storedValue.enabled)}
+              accessibilityLabel={
+                storedValue.enabled
+                  ? `Gift balance covering ${formatMoney(storedValue.appliedCents)}. Turn off`
+                  : `Use gift balance: ${formatMoney(storedValue.balanceCents)} available`
+              }
+              onPress={storedValue.onToggle}
+              style={({ pressed }) => [styles.promoRow, pressed && styles.pressed]}
+            >
+              <AppIcon name="giftcard" size={16} tintColor={storedValue.enabled ? colors.success : colors.ink700} />
+              <Text style={styles.promoLabel}>
+                {storedValue.enabled
+                  ? `Gift balance covering ${formatMoney(storedValue.appliedCents)}`
+                  : `Use gift balance (${formatMoney(storedValue.balanceCents)})`}
+              </Text>
+              <Text style={styles.toggleHint}>{storedValue.enabled ? 'On' : 'Off'}</Text>
+            </Pressable>
+          ) : null}
+
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Add a gift card, voucher, or promo code"
@@ -212,7 +282,7 @@ export function CheckoutStep({
       <StickyActionBar>
         <ActionButton
           label={paying ? 'Placing your order…' : applePay ? 'Pay with Apple Pay' : 'Place Order'}
-          value={paying ? undefined : formatMoney(totals.totalCents)}
+          value={paying ? undefined : formatMoney(cardChargeCents ?? totals.totalCents)}
           disabled={!canPay}
           onPress={onPlaceOrder}
           accessibilityHint={payment ? undefined : 'Add a payment method first'}
@@ -336,6 +406,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     backgroundColor: colors.warm,
   },
+  toggleHint: { color: colors.ink500, fontFamily: fonts.sansMedium, fontSize: 13 },
   promoLabel: { color: colors.ink700, fontFamily: fonts.sansMedium, fontSize: 13 },
 
   legal: { color: colors.ink500, fontFamily: fonts.sans, fontSize: 11, lineHeight: 16, fontStyle: 'italic' },
