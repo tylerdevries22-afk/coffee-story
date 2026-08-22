@@ -163,8 +163,8 @@ describe('agendaTotalCents', () => {
 
 describe('filterClients', () => {
   const clients: StaffClient[] = [
-    { id: '1', fullName: 'Maria Alvarez', email: 'maria@email.com', phone: null, completedVisits: 14, tags: ['Regular', 'Trigger point'] },
-    { id: '2', fullName: 'Tom Becker', email: 'tbecker@email.com', phone: null, completedVisits: 9, tags: ['Sports', 'Membership'] },
+    { id: '1', fullName: 'Maria Alvarez', email: 'maria@email.com', phone: null, completedVisits: 14, tags: ['Regular', 'Matcha'] },
+    { id: '2', fullName: 'Tom Becker', email: 'tbecker@email.com', phone: null, completedVisits: 9, tags: ['Cold brew', 'Brew Club'] },
     { id: '3', fullName: 'Dana Kim', email: 'dana.kim@email.com', phone: null, completedVisits: 2, tags: [] },
   ];
 
@@ -174,8 +174,8 @@ describe('filterClients', () => {
   });
 
   it('narrows by tag and combines both filters', () => {
-    assert.deepEqual(filterClients(clients, '', 'Membership').map((c) => c.id), ['2']);
-    assert.deepEqual(filterClients(clients, 'maria', 'Membership').map((c) => c.id), []);
+    assert.deepEqual(filterClients(clients, '', 'Brew Club').map((c) => c.id), ['2']);
+    assert.deepEqual(filterClients(clients, 'maria', 'Brew Club').map((c) => c.id), []);
   });
 
   it('returns everyone when nothing is applied', () => {

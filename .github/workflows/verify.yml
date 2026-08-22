@@ -1,0 +1,158 @@
+name: verify
+
+# Nothing ran on a pull request before this: `npm run verify` existed in
+# package.json and was only ever invoked by hand, so a branch could reach a
+# reviewer with a type error, a failing test, or a bundle that does not build.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Publish an EAS Update to the preview channel after the gate passes'
+        type: boolean
+        default: false
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # `ci`, not `install`: the lockfile is the contract, and a job that
+      # silently resolves a different tree is not verifying what ships.
+      - run: npm ci
+
+      - name: Lint
+        run: npx expo lint --max-warnings=0
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Test
+        run: npx tsx --test "src/**/*.test.ts"
+
+      # The bundle is part of the gate. Lint and tsc both pass on code Metro
+      # cannot resolve -- a missing asset or a bad platform-specific import
+      # only shows up here.
+      - name: Bundle for iOS
+        run: npx expo export --platform ios
+
+      - name: Bundle for web
+        run: npx expo export --platform web
+
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      # Both graphs, because `expo` is a production dependency that drags the
+      # whole bundler in with it -- the metro/image-size advisories this repo
+      # pins around showed up in the production-only audit.
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Audit the full dependency graph
+        run: npm audit --audit-level=high
+
+  # Publishes the Expo Go demo. This lives in the same workflow as the gate
+  # rather than in its own file so it can `needs:` those jobs directly -- a
+  # separate workflow could only watch for them with `workflow_run`, which runs
+  # against the default branch's copy of the file and has to re-derive the sha.
+  #
+  # Preview only, deliberately. `app.json` pins `runtimeVersion` to
+  # `exposdk:54.0.0` for every channel (PRODUCTION_SETUP.md gap 2), so a
+  # production update is runtime-compatible with Expo Go clients and preview
+  # builds alike. Publishing production automatically would let a merge reach
+  # store users. That stays a manual `npm run publish:production`.
+  publish-preview:
+    needs: [verify, audit]
+    if: >-
+      github.event_name == 'workflow_dispatch' && inputs.publish ||
+      github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Attach a GitHub Environment named `expo-preview` to this job to require a
+    # human approval before each publish. Left off so the first publish works
+    # without extra setup.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Fails loudly rather than skipping. A publish job that quietly no-ops
+      # reports green, and you find out the demo was never updated when someone
+      # scans the QR and gets last month's build.
+      #
+      # Checked in the shell, not in `if:` -- the `secrets` context is not
+      # available to a step-level condition, so `if: ${{ !secrets.EXPO_TOKEN }}`
+      # would evaluate to false and the guard would never fire.
+      - name: Require an EAS token
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "${EXPO_TOKEN:-}" ]; then
+            echo "::error::EXPO_TOKEN is not set. Create one at https://expo.dev/settings/access-tokens and add it as a repository secret named EXPO_TOKEN (Settings -> Secrets and variables -> Actions)."
+            exit 1
+          fi
+          echo "EAS token present."
+
+      # `--environment preview` reads the preview environment's variables from
+      # EAS server-side; nothing here is inlined from a local .env. Expo Go
+      # opens in Demo whatever they contain -- see `parseStoredAppMode`.
+      #
+      # The commit subject reaches the CLI through the environment, never
+      # interpolated into the shell: a commit message is attacker-controllable
+      # text and `${{ }}` inside a `run:` is a command-injection hole.
+      - name: Publish to the preview channel
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          COMMIT_SUBJECT: ${{ github.event.head_commit.message }}
+        run: |
+          set -euo pipefail
+          subject="${COMMIT_SUBJECT:-}"
+          message="${subject%%$'\n'*}"
+          [ -n "$message" ] || message="Manual publish of ${GITHUB_SHA:0:7}"
+          # --json implies --non-interactive and puts everything that is not
+          # JSON on stderr, so this redirect captures the manifest alone.
+          # --silent keeps npm's own banner out of it too.
+          npm run --silent publish:preview:all -- --json --message "$message" > update.json
+
+      # Reporting must never turn a successful publish red, so this step is
+      # `continue-on-error`: by the time it runs the update is already live.
+      - name: Report the QR and deep link
+        continue-on-error: true
+        run: node .github/scripts/report-update.mjs update.json
+
+      - name: Keep the update manifest for the run
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eas-update-manifest
+          path: update.json
+          if-no-files-found: ignore

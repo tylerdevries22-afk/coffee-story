@@ -16,6 +16,8 @@ import {
   visitLines,
   type CartLine,
 } from './pos-totals';
+import { orderTotals } from '@/features/order/totals';
+import { COMBINED_TAX_RATE, taxCentsFor } from '@/features/tax';
 
 const visit = { serviceName: 'Deep Tissue Massage', balanceCents: 11000 };
 const line = (over: Partial<CartLine> = {}): CartLine => ({
@@ -57,32 +59,34 @@ test('tip rides on the pre-discount subtotal, so a studio discount does not cut 
 });
 
 test('tip and tax round to whole cents', () => {
-  // 3333 * 0.15 = 499.95 and 3333 * 0.08 = 266.64: both must land on an integer.
+  // 3333 * 0.15 = 499.95, and the four Aurora rows on 3333 are 96.657, 124.9875,
+  // 33.33 and 8.3325: every one must land on an integer.
   const totals = registerTotals({ cart: [line({ priceCents: 3333 })], tipRate: TIP_RATES['15%'] });
   assert.equal(totals.tipCents, 500);
-  assert.equal(totals.taxCents, 267);
+  assert.equal(totals.taxCents, taxCentsFor(3333));
+  assert.equal(totals.taxCents, 97 + 125 + 33 + 8);
   assert.ok(Number.isInteger(totals.totalCents));
 });
 
 test('tax follows the discount, so a discounted ticket is not overtaxed', () => {
   // The regression this file was written for. Previously tax was computed on
-  // the full subtotal, so this ticket billed 880 and the customer overpaid
-  // $1.20. Matches lib/booking/pos-totals.ts on the web register.
+  // the full subtotal, so the customer overpaid on every discounted ticket.
   const totals = registerTotals({ cart: [line({ priceCents: 11000 })], codeApplied: true });
   assert.equal(totals.taxableCents, 11000 - DISCOUNT_CODE_CENTS);
-  assert.equal(totals.taxCents, 760);
-  assert.equal(totals.baseCents, 9500 + 760);
+  assert.equal(totals.taxCents, taxCentsFor(9500));
+  assert.equal(totals.baseCents, 9500 + totals.taxCents);
 });
 
-test('the register agrees with the web POS, to the cent', () => {
-  // lib/booking/pos-totals.ts works in dollars and rounds with
-  // Math.round(v * 100) / 100. Comparing in cents rather than dollars is not
-  // pedantry: 9500 / 100 * 0.08 is 7.6000000000000005 in float, which is the
-  // dust the cents representation exists to avoid.
+test('the register charges the same tax the client checkout prints', () => {
+  // The register used to apply a flat 8% while features/order/totals.ts
+  // itemised Aurora's four authorities at 7.90%, so the same order cost more
+  // rung up at the bar than ordered from the app. Both now read
+  // features/tax.ts. NOTE: the web register at lib/booking/pos-totals.ts is
+  // still on the flat rate and has to follow -- see PRODUCTION_SETUP.md.
   const totals = registerTotals({ cart: [line({ priceCents: 11000 })], codeApplied: true });
-  const webTaxCents = Math.round(((11000 - DISCOUNT_CODE_CENTS) / 100) * TAX_RATE * 100);
-  assert.equal(totals.taxCents, webTaxCents);
-  assert.equal(totals.taxCents, 760);
+  const fromCheckout = orderTotals({ subtotalCents: 9500 });
+  assert.equal(totals.taxCents, fromCheckout.taxCents);
+  assert.equal(TAX_RATE, COMBINED_TAX_RATE);
 });
 
 test('a card tender settles the visit balance plus tip, never the ticket total', () => {

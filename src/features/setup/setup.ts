@@ -41,14 +41,15 @@ export function setupProgressPercent(setup: RoleSetup<unknown>): number {
 }
 
 export const CLIENT_GOAL_OPTIONS = [
-  'Relieve chronic pain',
-  'Recover from training',
-  'Reduce stress',
-  'Improve sleep',
-  'Injury rehabilitation',
-  'Prenatal support',
+  'A reliable morning coffee',
+  'Somewhere to work or study',
+  'Trying the signature drinks',
+  'Late-night hours',
+  'Halal-friendly food',
+  'Catering for events',
 ] as const;
 
+/** How sweet a guest takes their drinks. The field name is the portal API's. */
 export const PRESSURE_OPTIONS = ['light', 'medium', 'firm'] as const;
 
 export const PREFERRED_TIME_OPTIONS = [
@@ -59,12 +60,12 @@ export const PREFERRED_TIME_OPTIONS = [
 ] as const;
 
 export const STAFF_SPECIALTY_OPTIONS = [
-  'Deep tissue',
-  'Swedish',
-  'Trigger point',
-  'Sports',
-  'Lymphatic drainage',
-  'Prenatal',
+  'Espresso bar',
+  'Latte art',
+  'Matcha & tea',
+  'Boba',
+  'Pastry & bakes',
+  'Coffee cart catering',
 ] as const;
 
 export const DAY_OPTIONS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;

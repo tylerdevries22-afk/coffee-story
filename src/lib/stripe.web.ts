@@ -30,5 +30,9 @@ export function useStripe() {
     initPaymentSheet: async (): Promise<StripeResult> => UNAVAILABLE,
     presentPaymentSheet: async (): Promise<StripeResult> => UNAVAILABLE,
     confirmPayment: async (): Promise<StripeResult> => UNAVAILABLE,
+    // Apple Pay and Google Pay are native sheets; the browser demo has
+    // neither, so checkout falls back to a saved card rather than offering a
+    // wallet button that could never open.
+    isPlatformPaySupported: async (): Promise<boolean> => false,
   };
 }

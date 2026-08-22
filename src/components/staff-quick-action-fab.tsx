@@ -32,7 +32,7 @@ const ACTIONS: readonly {
   { key: 'book', label: 'Book Appointment', symbol: 'calendar' },
   { key: 'quick-book', label: 'Quick Book', symbol: 'bolt' },
   { key: 'block-time', label: 'Block Time', symbol: 'clock' },
-  { key: 'soap', label: 'Add SOAP Note', symbol: 'doc.text' },
+  { key: 'soap', label: 'Add Order Note', symbol: 'doc.text' },
 ] as const;
 
 export function StaffQuickActionFab({
@@ -337,15 +337,18 @@ function SoapFields({
         onSelect={(serviceSlug, serviceName) => onChange({ ...draft, serviceSlug, serviceName })}
       />
       <NativeOptionPicker
-        label="Treatment date"
+        label="Order date"
         value={draft.treatmentDate}
         options={upcomingDates(new Date(), 30)}
         onChange={(treatmentDate) => onChange({ ...draft, treatmentDate })}
       />
-      <Field label="Subjective" value={draft.subjective} onChangeText={(subjective) => onChange({ ...draft, subjective })} multiline />
-      <Field label="Objective" value={draft.objective} onChangeText={(objective) => onChange({ ...draft, objective })} multiline />
-      <Field label="Assessment" value={draft.assessment} onChangeText={(assessment) => onChange({ ...draft, assessment })} multiline />
-      <Field label="Plan" value={draft.plan} onChangeText={(plan) => onChange({ ...draft, plan })} multiline />
+      {/* The four fields keep their contract names -- the portal API still
+          speaks them -- but a barista reads the labels, and these match what
+          clients-screen.tsx renders the saved note back as. */}
+      <Field label="Asked for" value={draft.subjective} onChangeText={(subjective) => onChange({ ...draft, subjective })} multiline />
+      <Field label="Usual order" value={draft.objective} onChangeText={(objective) => onChange({ ...draft, objective })} multiline />
+      <Field label="Notes" value={draft.assessment} onChangeText={(assessment) => onChange({ ...draft, assessment })} multiline />
+      <Field label="Next time" value={draft.plan} onChangeText={(plan) => onChange({ ...draft, plan })} multiline />
     </>
   );
 }
@@ -473,7 +476,7 @@ async function runHandler(
     if (!handlers['block-time']) throw new Error('Schedule blocking is not connected.');
     return handlers['block-time'](submission);
   }
-  if (!handlers.soap) throw new Error('SOAP notes are not connected.');
+  if (!handlers.soap) throw new Error('Order notes are not connected.');
   return handlers.soap(submission);
 }
 
@@ -496,13 +499,13 @@ function actionTitle(action: AdminQuickActionKey | null): string {
 
 function submitLabel(action: AdminQuickActionKey | null): string {
   if (action === 'block-time') return 'Block schedule';
-  if (action === 'soap') return 'Save SOAP note';
+  if (action === 'soap') return 'Save order note';
   return 'Create appointment';
 }
 
 function successMessage(action: AdminQuickActionKey): string {
   if (action === 'block-time') return 'The availability block is live.';
-  if (action === 'soap') return 'The SOAP note is saved to the client record.';
+  if (action === 'soap') return 'The note is saved to the guest record.';
   return 'The appointment is confirmed on the schedule.';
 }
 

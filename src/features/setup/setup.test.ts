@@ -42,12 +42,12 @@ test('portalSetup fills defaults when the bundle has no setup', () => {
 
 test('portalSetup sanitizes hostile stored values', () => {
   const setup = portalSetup(bundleWith({
-    client: { status: 'root', step: 99, answers: { goals: ['Reduce stress', 'evil'], pressure: 'crushing', preferredTimes: 'no' } },
+    client: { status: 'root', step: 99, answers: { goals: ['Late-night hours', 'evil'], pressure: 'crushing', preferredTimes: 'no' } },
     admin: { status: 'completed', step: 2, answers: { businessName: 42, openDays: ['Mon', 'Funday'], servicesConfirmed: 'yes' } },
   }));
   assert.equal(setup.client.status, 'not_started');
   assert.equal(setup.client.step, 2);
-  assert.deepEqual(setup.client.answers.goals, ['Reduce stress']);
+  assert.deepEqual(setup.client.answers.goals, ['Late-night hours']);
   assert.equal(setup.client.answers.pressure, 'medium');
   assert.deepEqual(setup.client.answers.preferredTimes, []);
   assert.equal(setup.admin.status, 'completed');
@@ -61,7 +61,7 @@ test('withRoleSetup persists one role and leaves the others intact', () => {
   const staffSetup = {
     status: 'in_progress' as const,
     step: 1,
-    answers: { specialties: ['Deep tissue'], workingDays: ['Mon', 'Tue'] },
+    answers: { specialties: ['Espresso bar'], workingDays: ['Mon', 'Tue'] },
   };
   const next = withRoleSetup(portal, 'staff', staffSetup);
   assert.deepEqual(portalSetup(next).staff, staffSetup);

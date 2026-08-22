@@ -30,6 +30,11 @@ const SURFACES = {
   card: colors.white,
   surface: colors.surface,
   warm: colors.warm,
+  // The order flow paints its page and header with brand200 (pinned by
+  // components/collapsing-screen.test.ts). It was the one real text surface
+  // this file did not guard, and it is the darkest of them -- ink500 measures
+  // 4.41:1 on it, which is why components/ui.tsx's muted copy is ink600.
+  order: colors.brand200,
 } as const;
 
 test('body and muted copy clear AA on every light surface', () => {
@@ -92,8 +97,24 @@ test('muted stays visibly lighter than body, so the hierarchy is real', () => {
 });
 
 test('semantic colours clear AA on the surfaces they are used on', () => {
+  // Every surface, not just white. The order flow draws its validation and
+  // payment errors straight onto brand200, where the original
+  // #3E6B4F / #9A5B24 / #A04038 measured 4.21 / 3.70 / 4.38 -- all under AA,
+  // and unguarded because this test only ever looked at white.
+  for (const [surface, background] of Object.entries(SURFACES)) {
+    for (const [name, color] of [['success', colors.success], ['warning', colors.warning], ['danger', colors.danger]] as const) {
+      const ratio = contrastRatio(color, background);
+      assert.ok(ratio >= AA_NORMAL, `${name} (${color}) on ${surface} is ${round(ratio)}:1`);
+    }
+  }
+});
+
+test('white stays legible on the semantic colours used as a fill', () => {
+  // The notification badge, the placed-order mark and the setup tick all paint
+  // one of these and put white on top, so darkening them for the text case
+  // must not be allowed to go so far the fill case breaks instead.
   for (const [name, color] of [['success', colors.success], ['warning', colors.warning], ['danger', colors.danger]] as const) {
-    const ratio = contrastRatio(color, colors.white);
-    assert.ok(ratio >= AA_NORMAL, `${name} (${color}) on white is ${round(ratio)}:1`);
+    const ratio = contrastRatio(colors.white, color);
+    assert.ok(ratio >= AA_NORMAL, `white on ${name} (${color}) is ${round(ratio)}:1`);
   }
 });

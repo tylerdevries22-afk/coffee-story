@@ -16,7 +16,7 @@ test('builds a validated quick booking submission', () => {
     buildAdminQuickActionSubmission('quick-book', draft({
       clientName: ' Alex Rivera ',
       customerId: 'client-1',
-      serviceName: 'Deep Tissue Massage',
+      serviceName: 'Pistachio Latte (16 oz)',
       serviceSlug: 'deep-tissue',
       startsAt: '2026-08-02T20:30:00.000Z',
     })),
@@ -27,7 +27,7 @@ test('builds a validated quick booking submission', () => {
         customerId: 'client-1',
         clientName: 'Alex Rivera',
         serviceSlug: 'deep-tissue',
-        serviceName: 'Deep Tissue Massage',
+        serviceName: 'Pistachio Latte (16 oz)',
         startsAt: '2026-08-02T20:30:00.000Z',
         notes: '',
       },
@@ -53,15 +53,15 @@ test('rejects an invalid schedule block and normalizes a valid one', () => {
   if (result.ok) assert.equal(result.value.kind, 'block-time');
 });
 
-test('requires every SOAP section before saving', () => {
+test('requires every part of an order note before saving', () => {
   assert.deepEqual(
     buildAdminQuickActionSubmission('soap', draft({
       customerId: 'client-2',
       clientName: 'Jamie Lee',
-      serviceName: 'Deep Tissue Massage',
+      serviceName: 'Pistachio Latte (16 oz)',
       treatmentDate: '2026-08-02',
-      subjective: 'Feeling better.',
+      subjective: 'Asked for half-sweet.',
     })),
-    { ok: false, error: 'Complete all four SOAP sections.' },
+    { ok: false, error: 'Fill in all four parts of the note.' },
   );
 });

@@ -298,9 +298,9 @@ function attentionRows(
     } : null,
     notesToWrite > 0 ? {
       key: 'soap',
-      title: `${notesToWrite} SOAP ${notesToWrite === 1 ? 'note' : 'notes'} to write`,
+      title: `${notesToWrite} order ${notesToWrite === 1 ? 'note' : 'notes'} to write`,
       hint: 'From the past 7 days',
-      actionLabel: 'Open clients to write SOAP notes',
+      actionLabel: 'Open guests to write order notes',
       onPress: () => setStaffTab('clients'),
     } : null,
   ];

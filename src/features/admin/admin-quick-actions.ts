@@ -97,9 +97,9 @@ function buildSoapSubmission(
 ): { ok: true; value: AdminQuickActionSubmission } | { ok: false; error: string } {
   if (!draft.customerId.trim() || !draft.clientName.trim()) return { ok: false, error: 'Choose a client.' };
   if (!draft.serviceName.trim()) return { ok: false, error: 'Enter the service name.' };
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(draft.treatmentDate)) return { ok: false, error: 'Enter the treatment date as YYYY-MM-DD.' };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(draft.treatmentDate)) return { ok: false, error: 'Enter the order date as YYYY-MM-DD.' };
   if (![draft.subjective, draft.objective, draft.assessment, draft.plan].every((value) => value.trim())) {
-    return { ok: false, error: 'Complete all four SOAP sections.' };
+    return { ok: false, error: 'Fill in all four parts of the note.' };
   }
   return {
     ok: true,

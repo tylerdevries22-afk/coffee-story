@@ -21,8 +21,11 @@ export type AppIconName = Extract<SymbolViewProps['name'], string>;
  * so a missing entry is visible in review instead of silently blank.
  */
 export const IONICON: Record<string, keyof typeof Ionicons.glyphMap> = {
+  applelogo: 'logo-apple',
   'arrow.down.to.line': 'download-outline',
   'arrow.up.right': 'open-outline',
+  bag: 'bag-handle-outline',
+  'bag.fill': 'bag-handle',
   banknote: 'cash-outline',
   bell: 'notifications-outline',
   bolt: 'flash-outline',
@@ -38,6 +41,7 @@ export const IONICON: Record<string, keyof typeof Ionicons.glyphMap> = {
   clock: 'time-outline',
   creditcard: 'card-outline',
   'creditcard.fill': 'card',
+  'cup.and.saucer.fill': 'cafe',
   'doc.plaintext': 'document-outline',
   'doc.text': 'document-text-outline',
   ellipsis: 'ellipsis-horizontal',
@@ -54,7 +58,9 @@ export const IONICON: Record<string, keyof typeof Ionicons.glyphMap> = {
   magnifyingglass: 'search-outline',
   mappin: 'location-outline',
   message: 'chatbubble-outline',
+  minus: 'remove',
   paperplane: 'paper-plane-outline',
+  pencil: 'pencil-outline',
   'person.2': 'people-outline',
   'person.crop.circle': 'person-circle-outline',
   plus: 'add',
@@ -64,6 +70,8 @@ export const IONICON: Record<string, keyof typeof Ionicons.glyphMap> = {
   star: 'star-outline',
   'star.fill': 'star',
   'sun.max': 'sunny-outline',
+  tag: 'pricetag-outline',
+  trash: 'trash-outline',
   'wallet.pass': 'wallet-outline',
   'wave.3.right': 'radio-outline',
   xmark: 'close',

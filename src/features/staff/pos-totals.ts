@@ -12,6 +12,8 @@
  * the rounding the cents representation exists to avoid.
  */
 
+import { COMBINED_TAX_RATE, taxCentsFor } from '@/features/tax';
+
 export type CartLine = {
   id: string;
   name: string;
@@ -35,7 +37,14 @@ export type RegisterTotals = {
   extrasCents: number;
 };
 
-export const TAX_RATE = 0.08;
+/**
+ * The combined Aurora rate, kept for callers that need one number. The tax a
+ * ticket actually owes comes from `features/tax.ts`, which the client checkout
+ * also reads -- the register used to charge a flat 8% while the app charged
+ * 7.90%, so the same order cost a different amount depending on where it was
+ * rung up.
+ */
+export const TAX_RATE = COMBINED_TAX_RATE;
 export const DISCOUNT_CODE_CENTS = 1500;
 export const MEMBERSHIP_CREDIT_CENTS = 2500;
 
@@ -51,11 +60,19 @@ export const TIP_RATES: Record<TipOption, number> = {
   '20%': 0.2,
 };
 
+/**
+ * The quick-add strip on the register.
+ *
+ * Priced from `data/add-ons.ts`, which the client menu also reads, so a shot
+ * costs the same at the bar as it does in the app. It stays a plain list here
+ * rather than importing that module, because this one is the register's own
+ * ordering and `data/add-ons.ts` is the client menu's.
+ */
 export const ADD_ONS: readonly { name: string; priceCents: number }[] = [
-  { name: 'Aromatherapy', priceCents: 1500 },
-  { name: 'CBD balm', priceCents: 2000 },
-  { name: 'Hot stones', priceCents: 2500 },
-  { name: 'Extra 15 min', priceCents: 3000 },
+  { name: 'Extra Espresso Shot', priceCents: 150 },
+  { name: 'Oat Milk', priceCents: 75 },
+  { name: 'Boba Pearls', priceCents: 100 },
+  { name: 'Pistachio Cold Foam', priceCents: 125 },
 ];
 
 export const GIFT_AMOUNTS_CENTS: readonly number[] = [5000, 10000, 15000, 20000];
@@ -95,10 +112,10 @@ export function registerTotals({
   // billed $6.80 instead of $4.80. lib/booking/pos-totals.ts fixed exactly this
   // on the web register; the mobile one kept the original shape until now.
   const taxableCents = subtotalCents - discountCents;
-  const taxCents = Math.round(taxableCents * TAX_RATE);
+  const taxCents = taxCentsFor(taxableCents);
   const baseCents = taxableCents + taxCents;
-  // Tip rides on the PRE-discount subtotal on purpose: it is the therapist's,
-  // and a studio-side discount should not quietly reduce it. Same rule as
+  // Tip rides on the PRE-discount subtotal on purpose: it is the barista's,
+  // and a shop-side discount should not quietly reduce it. Same rule as
   // lib/booking/pos-totals.ts.
   const tipCents = Math.round(subtotalCents * tipRate);
   const totalCents = baseCents + tipCents;

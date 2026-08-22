@@ -15,6 +15,7 @@ import { GiftCardSheet, GiftGallery, GiftInfoSheet } from '@/components/gift/gif
 import { giftDesignByKey, type GiftDesign } from '@/data/gift-designs';
 import { requestKey } from '@/features/booking/request-key';
 import { tierForAnnualPoints } from '@/features/rewards/rules';
+import { BUSINESS, BUSINESS_MONOGRAM } from '@/data/business';
 import { colors, fonts, radius, spacing } from '@/theme/tokens';
 import type { GiftCard } from '@/types/domain';
 import { choiceState } from '@/lib/a11y-state';
@@ -96,7 +97,7 @@ export function GiftScreen({
       if (isDemo) {
         const deliveryAt = delivery === 'week' ? new Date(Date.now() + 7 * 86_400_000).toISOString() : null;
         demo.addGift({
-          code: `FH-DEMO-${String(Date.now()).slice(-6)}`,
+          code: `${BUSINESS.giftCodePrefix}-DEMO-${String(Date.now()).slice(-6)}`,
           initialCents: amount * 100,
           balanceCents: amount * 100,
           recipientEmail: recipient.trim(),
@@ -168,7 +169,7 @@ export function GiftScreen({
       if (isDemo) {
         for (let index = 0; index < quantity; index += 1) {
           demo.addGift({
-            code: `FH-DEMO-${String(Date.now() + index).slice(-6)}`,
+            code: `${BUSINESS.giftCodePrefix}-DEMO-${String(Date.now() + index).slice(-6)}`,
             initialCents: amount * 100,
             balanceCents: amount * 100,
             recipientEmail: portal.profile.email,
@@ -403,7 +404,7 @@ function RecipientExperience({ initialToken, isDemo, onBook, onBack }: { initial
     setError(null);
     try {
       if (isDemo) {
-        setClaimed({ code: 'FH-GUEST-DEMO', balanceCents: 6000 });
+        setClaimed({ code: `${BUSINESS.giftCodePrefix}-GUEST-DEMO`, balanceCents: 6000 });
         return;
       }
       const result = await mobileApi.claimGift(token.trim(), claimRequestKey);
@@ -427,7 +428,7 @@ function RecipientExperience({ initialToken, isDemo, onBook, onBack }: { initial
       {claimed ? (
         <>
           <PillRow title={claimed.code} subtitle={`$${(claimed.balanceCents / 100).toFixed(2)} available · never expires`} symbol="creditcard" />
-          <Button label="Book as a guest" onPress={onBook} />
+          <Button label="Order as a guest" onPress={onBook} />
           {isDemo ? (
             <Button
               label={isAdded ? 'Added to my account' : 'Add to my account'}
@@ -462,7 +463,7 @@ function GiftDetail({ gift, onBook, onBack }: { gift: GiftCard; onBook: () => vo
       </View>
       <PillRow title="Available balance" subtitle={`$${(gift.balanceCents / 100).toFixed(2)} · ${gift.status}`} symbol="creditcard" />
       {gift.recipientEmail ? <PillRow title="Recipient" subtitle={gift.recipientEmail} symbol="message" /> : null}
-      <Button label="Book with this gift" onPress={onBook} />
+      <Button label="Order with this gift" onPress={onBook} />
     </CollapsingScreen>
   );
 }
@@ -470,7 +471,7 @@ function GiftDetail({ gift, onBook, onBack }: { gift: GiftCard; onBook: () => vo
 function SentScreen({ amount, recipient, isDemo, onReset }: { amount: number; recipient: string; isDemo: boolean; onReset: () => void }) {
   return (
     <Screen contentContainerStyle={styles.sent}>
-      <View style={styles.sentMark}><Text style={styles.sentMarkText}>FH</Text></View>
+      <View style={styles.sentMark}><Text style={styles.sentMarkText}>{BUSINESS_MONOGRAM}</Text></View>
       <Eyebrow>Gift sent</Eyebrow>
       <Title>${amount} of care is on its way.</Title>
       <Body muted>{isDemo ? `Preview complete for ${recipient}; no email or payment was sent.` : `A secure gift link will be delivered to ${recipient}.`}</Body>

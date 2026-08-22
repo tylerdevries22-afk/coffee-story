@@ -34,9 +34,14 @@ export const colors = {
   white: '#FFFFFF',
   surface: '#FFFDF8',
   warm: '#FAF5EE',
-  success: '#3E6B4F',
-  warning: '#9A5B24',
-  danger: '#A04038',
+  // Darkened from #3E6B4F / #9A5B24 / #A04038, which measured 4.21 / 3.70 /
+  // 4.38 against brand200 -- the order flow's page surface, where the
+  // validation and payment errors are drawn. All three now clear AA on every
+  // surface in theme/contrast.test.ts, and white on each of them is still
+  // above 6.5:1, so the badges and marks that use them as a fill are unaffected.
+  success: '#3B664B',
+  warning: '#864F1F',
+  danger: '#9D3F37',
   siriCyan: '#5FD4F5',
   siriBlue: '#5E8CF0',
   siriPurple: '#9D6BF5',

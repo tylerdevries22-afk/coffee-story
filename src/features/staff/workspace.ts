@@ -1,5 +1,10 @@
 import type { AppRole, BookingSource, PortalAppointment, StaffClient } from '@/types/domain';
 
+// Moved to `features/money.ts` so the client menu and the register share one
+// formatter. Re-exported here because every staff call site already imports it
+// from this module.
+export { formatMoney } from '@/features/money';
+
 /**
  * Surface a workspace renders on. The owner workspace sits on the darker plum
  * and the staff workspace a step lighter, so the two read apart immediately;
@@ -10,17 +15,26 @@ export function workspaceTone(role: AppRole): 'admin' | 'staff' {
   return role === 'admin' ? 'admin' : 'staff';
 }
 
-/** Care segments the workspace filters by, matching the web portal chips. */
+/**
+ * Guest segments the workspace filters by.
+ *
+ * The last five were massage modalities -- Deep tissue, Sports, Prenatal,
+ * Lymphatic, Trigger point -- rendered as filter chips above the guest
+ * directory, where none of them matched a single guest: `data/demo.ts` had
+ * already been rebranded and tags its guests Brew Club, Spanish latte, Boba,
+ * Matcha, Cold brew and Turkish coffee. The chips now match the data, so every
+ * one of them filters to something. The web portal's chips have to follow.
+ */
 export const CLIENT_TAGS = [
   'Regular',
   'New',
   'VIP',
-  'Membership',
-  'Deep tissue',
-  'Sports',
-  'Prenatal',
-  'Lymphatic',
-  'Trigger point',
+  'Brew Club',
+  'Spanish latte',
+  'Boba',
+  'Matcha',
+  'Cold brew',
+  'Turkish coffee',
 ] as const;
 
 export type ClientTag = (typeof CLIENT_TAGS)[number];
@@ -38,15 +52,6 @@ export function formatClockTime(iso: string): string {
 export function appointmentMinutes(appointment: PortalAppointment): number {
   const span = new Date(appointment.endsAt).getTime() - new Date(appointment.startsAt).getTime();
   return Math.max(0, Math.round(span / 60_000));
-}
-
-export function formatMoney(cents: number): string {
-  const dollars = cents / 100;
-  const whole = Number.isInteger(dollars);
-  return `$${dollars.toLocaleString('en-US', {
-    minimumFractionDigits: whole ? 0 : 2,
-    maximumFractionDigits: whole ? 0 : 2,
-  })}`;
 }
 
 export function initials(name: string): string {

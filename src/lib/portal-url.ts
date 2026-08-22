@@ -1,3 +1,15 @@
+// The web portal this app links out to.
+//
+// `.env.example` must name this same host. It used to name
+// `faithful-heart-healing-oasis.vercel.app` -- the massage business the app
+// was rebranded from -- so anyone who followed the README's `cp .env.example
+// .env` sent their Supabase bearer token to another company's domain, and
+// anyone who set only one of the two variables hit `resolvePortalUrl`'s
+// fail-closed host check instead.
+//
+// The name below is a Vercel project slug, not a brand string, and it is left
+// exactly as deployed. The owner must confirm it against the live deployment
+// before release -- see PRODUCTION_SETUP.md.
 export const PRODUCTION_PORTAL_URL = 'https://coffee-story-healing-oasis.vercel.app';
 export const PRODUCTION_PORTAL_HOST = 'coffee-story-healing-oasis.vercel.app';
 

@@ -72,7 +72,7 @@ export type PortalAppointment = {
   recoveryMinutes?: number;
   /** True when this is the client's first visit on record. */
   isNewClient?: boolean;
-  /** Therapist the visit is assigned to. */
+  /** Barista the order is assigned to. */
   staffName?: string;
 };
 
@@ -216,6 +216,14 @@ export type StaffClient = {
   lastVisitAt?: string | null;
 };
 
+/**
+ * A note the bar keeps against a regular's order.
+ *
+ * The name and the four field names are the portal API's, inherited from the
+ * clinical SOAP record this app was rebranded from. The server still speaks
+ * them, so they stay; every label a person reads says "order note" instead --
+ * see `screens/staff/clients-screen.tsx`.
+ */
 export type StaffSoapNote = {
   id: string;
   customerId: string;

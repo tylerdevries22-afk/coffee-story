@@ -22,7 +22,7 @@ import type { StaffClient, StaffDashboard, StaffPayment, StaffSoapNote } from '@
 import { tabState } from '@/lib/a11y-state';
 
 /** Detail tabs, in the same order the web admin client record uses. */
-const CLIENT_DETAIL_TABS = ['Details', 'Activity', 'Notes', 'Account', 'SOAP Notes'] as const;
+const CLIENT_DETAIL_TABS = ['Details', 'Activity', 'Notes', 'Account', 'Order Notes'] as const;
 type ClientDetailTab = (typeof CLIENT_DETAIL_TABS)[number];
 
 export function ClientsScreen({ dashboard }: { dashboard: StaffDashboard }) {
@@ -218,10 +218,10 @@ function ClientDetail({
         </>
       ) : null}
 
-      {tab === 'SOAP Notes' ? (
+      {tab === 'Order Notes' ? (
         notes.length
-          ? notes.map((note) => <SoapNoteCard key={note.id} note={note} />)
-          : <EmptyState title="Order notes" message="No SOAP notes recorded yet." />
+          ? notes.map((note) => <OrderNoteCard key={note.id} note={note} />)
+          : <EmptyState title="Order notes" message="Nothing recorded for this guest yet." />
       ) : null}
 
       <PillRow
@@ -261,19 +261,27 @@ function PaymentRow({ payment }: { payment: StaffPayment }) {
   );
 }
 
-function SoapNoteCard({ note }: { note: StaffSoapNote }) {
+/**
+ * A note the bar keeps against a regular's order.
+ *
+ * The four fields are inherited from the clinical SOAP record this app was
+ * rebranded from; the stored data is already about coffee, so only the labels
+ * needed rewriting. Renaming the type itself would ripple through the portal
+ * contract, which the server still speaks.
+ */
+function OrderNoteCard({ note }: { note: StaffSoapNote }) {
   return (
     <WorkspaceCard title={note.serviceName}>
       <Text style={styles.entryMeta}>{formatDate(note.treatmentDate)}</Text>
-      <SoapLine tag="S" value={note.subjective} />
-      <SoapLine tag="O" value={note.objective} />
-      <SoapLine tag="A" value={note.assessment} />
-      <SoapLine tag="P" value={note.plan} />
+      <NoteLine tag="Asked for" value={note.subjective} />
+      <NoteLine tag="Usual" value={note.objective} />
+      <NoteLine tag="Notes" value={note.assessment} />
+      <NoteLine tag="Next time" value={note.plan} />
     </WorkspaceCard>
   );
 }
 
-function SoapLine({ tag, value }: { tag: string; value: string }) {
+function NoteLine({ tag, value }: { tag: string; value: string }) {
   return (
     <View style={styles.soapLine}>
       <Text style={styles.soapTag}>{`${tag}:`}</Text>

@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { BUSINESS_MONOGRAM } from '@/data/business';
 import { colors, fonts, radius, shadow, spacing } from '@/theme/tokens';
 import type { AppIconName } from '@/components/icon-map';
 import { AppIcon } from '@/components/icon';
@@ -178,7 +179,7 @@ export function ErrorState({ title = 'Something went quiet.', message, onRetry }
   return (
     <StaticScreen>
       <View style={styles.stateWrap}>
-        <View style={styles.stateMark}><Text style={styles.stateMarkText}>FH</Text></View>
+        <View style={styles.stateMark}><Text style={styles.stateMarkText}>{BUSINESS_MONOGRAM}</Text></View>
         <Title>{title}</Title>
         <Body muted>{message}</Body>
         {onRetry ? <Button label="Try again" onPress={onRetry} /> : null}
@@ -362,7 +363,10 @@ const styles = StyleSheet.create({
   sectionTitleDeep: { color: colors.white },
   body: { color: colors.ink700, fontFamily: fonts.sans, fontSize: 15, lineHeight: 22 },
   bodyDeep: { color: colors.brand200 },
-  muted: { color: colors.ink500 },
+  // ink600, not ink500: the tokens already document ink600 as the muted copy
+  // colour, and ink500 measures 4.41:1 on brand200 (the order flow's page
+  // surface), which is under AA. Pinned by theme/contrast.test.ts.
+  muted: { color: colors.ink600 },
   mutedDeep: { color: colors.brand300 },
   eyebrow: { color: colors.brand600, fontFamily: fonts.sansBold, fontSize: 12, letterSpacing: 1.3, textTransform: 'uppercase' },
   eyebrowDeep: { color: colors.brand300 },

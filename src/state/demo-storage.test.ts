@@ -123,7 +123,39 @@ test('parseStoredAppMode honors the stored mode and live-config fallback', () =>
   assert.equal(parseStoredAppMode('live', true), 'live');
   assert.equal(parseStoredAppMode('live', false), 'demo');
   assert.equal(parseStoredAppMode('demo', true), 'demo');
-  assert.equal(parseStoredAppMode(null, true), 'demo');
+});
+
+test('parseStoredAppMode opens a configured build on live, an unconfigured one on demo', () => {
+  // With nothing stored, the build decides. This used to be 'demo' either way,
+  // and since nothing in the app ever called chooseLive, a production build
+  // with real credentials still booted into fabricated data and never showed
+  // the sign-in screen.
+  assert.equal(parseStoredAppMode(null, true), 'live');
+  assert.equal(parseStoredAppMode(null, false), 'demo');
+});
+
+test('parseStoredAppMode never defaults Expo Go to live', () => {
+  // Expo Go cannot run the native payment flows live mode needs, and a preview
+  // channel published with the owner's Supabase variables would otherwise hand
+  // every reviewer who scans the QR a sign-in screen for an account they do
+  // not have.
+  assert.equal(parseStoredAppMode(null, true, true), 'demo');
+  assert.equal(parseStoredAppMode(null, false, true), 'demo');
+});
+
+test('an explicit live choice still wins inside Expo Go', () => {
+  assert.equal(parseStoredAppMode('live', true, true), 'live');
+  assert.equal(parseStoredAppMode('live', false, true), 'demo');
+});
+
+test('parseStoredAppMode treats an unrecognized stored value as unset', () => {
+  assert.equal(parseStoredAppMode('nonsense', true), 'live');
+  assert.equal(parseStoredAppMode('nonsense', false), 'demo');
+});
+
+test('an explicit demo choice survives a build that could go live', () => {
+  // Someone who picked Demo from More stays there on the next launch.
+  assert.equal(parseStoredAppMode('demo', true), 'demo');
 });
 
 test('parseStoredAppMode forces demo mode for /demo shell URLs', () => {
@@ -147,6 +179,7 @@ test('parseStoredAppMode tolerates a React Native window without location', () =
 
   try {
     assert.equal(parseStoredAppMode(null, false), 'demo');
+    assert.equal(parseStoredAppMode(null, true), 'live');
   } finally {
     globalThis.window = originalWindow;
   }
