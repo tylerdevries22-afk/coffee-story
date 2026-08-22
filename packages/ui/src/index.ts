@@ -3,6 +3,7 @@ export * from './copy';
 export * from './theme';
 export * from './components';
 export * from './item-card';
+export * from './menu-image';
 export * from './sheet';
 export * from './toast';
 export * from './drop-countdown-logic';

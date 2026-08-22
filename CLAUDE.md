@@ -62,6 +62,10 @@ docs/               AUDIT, ARCHITECTURE, RUNBOOK, BUILD-REPORT, legal/
 - Comments explain *why*, not *what*; sentence case; no decoration.
 - Design: `docs/DESIGN.md` — one language, three expressions. Warm tenant
   surfaces in the apps, executive dark in HQ, same tokens/type/voice family.
+- **Menu photographs are a contract too** (`docs/MENU-IMAGERY.md`): stored
+  square, graded into one band, drawn only through `MenuImage` with a named
+  variant — never a hand-rolled `<Image>` with its own size. Run
+  `pnpm normalize-menu-images` after adding or replacing an asset.
 - Accessibility: use the `a11y-state` helpers so `accessibilityState` and the
   matching `aria-*` attribute are both emitted (react-native-web drops
   `accessibilityState` on `Pressable`).

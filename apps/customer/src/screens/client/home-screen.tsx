@@ -27,6 +27,7 @@ import { openWebPath } from '@/lib/web-navigation';
 import { colors, fonts, radius, spacing } from '@/theme/tokens';
 import { demoDrops } from '@/data/drops';
 import { dropStatus, dropWindowLabel, weeklyDrops, type Drop } from '@/features/drops';
+import { MenuImage } from '@/components/menu-image';
 import { SiriAssistant, type SiriCommand } from '@/components/siri/siri-assistant';
 import { useReducedMotion } from '@/hooks/use-reduced-motion';
 import { tenantFeature } from '@/tenant';
@@ -539,7 +540,7 @@ function MenuRow({ item, onPress }: { item: Service; onPress: () => void }) {
       onPress={onPress}
       style={({ pressed }) => [styles.menuRow, pressed && styles.pressed]}
     >
-      <Image source={item.image} style={styles.menuRowImage} contentFit="cover" alt={item.name} />
+      <MenuImage source={item.image} variant="thumb" alt={item.name} />
       <View style={styles.menuRowCopy}>
         <Text style={styles.menuRowName}>{item.name}</Text>
         <Text numberOfLines={1} style={styles.menuRowBody}>{item.description}</Text>
@@ -692,7 +693,6 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.ink200,
     paddingVertical: spacing.sm,
   },
-  menuRowImage: { width: 56, height: 56, borderRadius: radius.sm, backgroundColor: colors.brand100 },
   menuRowCopy: { flex: 1, minWidth: 0, gap: 2 },
   menuRowName: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 15 },
   menuRowBody: { color: colors.ink500, fontFamily: fonts.sans, fontSize: 12.5 },

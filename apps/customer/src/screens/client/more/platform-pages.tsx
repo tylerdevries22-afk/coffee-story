@@ -5,9 +5,10 @@
  * lands on its empty state rather than a crash.
  */
 import { useMemo, useState } from 'react';
-import { Image, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Share, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { CollapsingScreen } from '@/components/collapsing-screen';
+import { MenuImage } from '@/components/menu-image';
 import { Body, Button, Card } from '@/components/ui';
 import { demoDrops } from '@/data/drops';
 import { BUSINESS } from '@/data/business';
@@ -45,7 +46,7 @@ function DropRow({ drop, onOrder }: { drop: Drop; onOrder: () => void }) {
   return (
     <Card style={pageStyles.detailCard}>
       <View style={local.dropRow}>
-        {item ? <Image source={item.image} style={local.dropImage} accessibilityIgnoresInvertColors /> : null}
+        {item ? <MenuImage source={item.image} variant="tile" alt="" /> : null}
         <View style={local.dropBody}>
           <Text style={pageStyles.detailTitle}>{drop.title}</Text>
           <Body muted>{drop.blurb}</Body>
@@ -189,7 +190,6 @@ export function Referrals({ onBack }: { onBack: () => void }) {
 
 const local = StyleSheet.create({
   dropRow: { flexDirection: 'row', gap: spacing.md, alignItems: 'center' },
-  dropImage: { width: 72, height: 72, borderRadius: radius.md, backgroundColor: colors.brand100 },
   dropBody: { flex: 1, gap: spacing.xs },
   endedLabel: { color: colors.ink500, fontFamily: fonts.sansMedium, fontSize: 13 },
   fieldLabel: { color: colors.ink700, fontFamily: fonts.sansMedium, fontSize: 13 },

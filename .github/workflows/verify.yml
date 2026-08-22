@@ -54,6 +54,15 @@ jobs:
       - name: Test all workspaces
         run: pnpm -r --workspace-concurrency=1 test
 
+      # Menu photographs are a design contract like tokens are, and nothing
+      # enforced it before: 61 assets had drifted to a 5x spread in exposure
+      # and were stored in a shape no render site actually used. This fails if
+      # an asset no longer matches MENU_IMAGE_SPEC. It reports, but does not
+      # fail on, the photographs that are outside what grading may fix -- those
+      # need reshooting, and are tracked in docs/MENU-IMAGERY.md.
+      - name: Check menu imagery against the spec
+        run: pnpm normalize-menu-images --check
+
       # The bundle is part of the gate. Lint and tsc both pass on code Metro
       # cannot resolve -- a missing asset or a bad platform-specific import
       # only shows up here.
