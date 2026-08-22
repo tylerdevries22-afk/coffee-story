@@ -1,8 +1,10 @@
 import { OrderError, refundOrderPayment } from '@platform/engine';
+import { canManageLocation } from '@platform/schema';
 
 import {
   authenticate,
   corsPreflight,
+  idempotencyKeyOf,
   jsonError,
   jsonWithCors,
   notConfigured,
@@ -67,8 +69,12 @@ export async function POST(request: Request): Promise<Response> {
     .maybeSingle<{ id: string; brand_id: string; location_id: string }>();
   if (order.error) return jsonError(500, 'internal', 'Could not load that order.');
   if (!order.data) return jsonError(404, 'not_found', 'That order does not exist.');
-  const scoped = auth.claims.location_ids ?? [];
-  if (auth.claims.role === 'staff' && scoped.length > 0 && !scoped.includes(order.data.location_id)) {
+  // The shared claims helper, not a hand-rolled check: the previous one asked
+  // only about the 'staff' role, so a location_manager could refund any store
+  // in the brand — and it skipped the check entirely when location_ids was
+  // empty, which is the column's default, so a staff account with no
+  // locations had brand-wide authority over refunds.
+  if (!canManageLocation(auth.claims, order.data.location_id)) {
     return jsonError(403, 'forbidden', 'That order belongs to another location.');
   }
 
@@ -92,7 +98,15 @@ export async function POST(request: Request): Promise<Response> {
   try {
     const result = await refundOrderPayment(
       { db, square: square.square, locationAccessToken: square.locationAccessToken },
-      { orderId: order.data.id, amountCents, reason, actorUserId: auth.userId },
+      {
+        orderId: order.data.id,
+        amountCents,
+        reason,
+        actorUserId: auth.userId,
+        // Identifies this attempt to Square: a retry after a lost response
+        // returns the first refund rather than sending the money again.
+        requestKey: idempotencyKeyOf(request) ?? `${order.data.id}-${Date.now()}`,
+      },
     );
     return jsonWithCors(result, 200);
   } catch (error) {

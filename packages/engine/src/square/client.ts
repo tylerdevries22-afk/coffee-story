@@ -165,6 +165,15 @@ export function createPaymentLink(
     squareLocationId: string;
     referenceId: string;
     lines: SquareOrderLine[];
+    /**
+     * Tax and tip as exact amounts, not percentages Square recomputes.
+     * The platform rounds tax per row per authority, and the guest must be
+     * charged the total those rows add up to — a percentage handed to Square
+     * can land a cent away from it, which is a cent nobody can reconcile.
+     */
+    taxCents: number;
+    taxLabel: string;
+    tipCents: number;
     appFeeCents: number;
     /** Where Square sends the guest afterwards; the app's order screen. */
     redirectUrl?: string;
@@ -172,6 +181,20 @@ export function createPaymentLink(
     note?: string;
   },
 ): Promise<{ payment_link?: { id?: string; url?: string; order_id?: string } }> {
+  const serviceCharges = [
+    ...(input.taxCents > 0 ? [{
+      name: input.taxLabel,
+      amount_money: { amount: input.taxCents, currency: 'USD' as const },
+      calculation_phase: 'TOTAL_PHASE',
+      taxable: false,
+    }] : []),
+    ...(input.tipCents > 0 ? [{
+      name: 'Tip',
+      amount_money: { amount: input.tipCents, currency: 'USD' as const },
+      calculation_phase: 'TOTAL_PHASE',
+      taxable: false,
+    }] : []),
+  ];
   return call(config, '/v2/online-checkout/payment-links', {
     method: 'POST',
     token,
@@ -181,6 +204,7 @@ export function createPaymentLink(
         location_id: input.squareLocationId,
         reference_id: input.referenceId,
         line_items: input.lines,
+        ...(serviceCharges.length > 0 ? { service_charges: serviceCharges } : {}),
       },
       checkout_options: {
         allow_tipping: false,          // the tip is already priced into the order

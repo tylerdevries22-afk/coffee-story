@@ -37,7 +37,12 @@ export type SquareEvent = {
   data?: {
     object?: {
       payment?: { id?: string; status?: string; order_id?: string };
-      refund?: { id?: string; status?: string; payment_id?: string };
+      refund?: {
+        id?: string;
+        status?: string;
+        payment_id?: string;
+        amount_money?: { amount?: number; currency?: string };
+      };
       order?: { id?: string; state?: string };
     };
   };
@@ -49,6 +54,12 @@ export type MappedEvent = {
   orderStatus: OrderStatus | null;
   squareOrderId: string | null;
   squarePaymentId: string | null;
+  /**
+   * What a refund actually returned, in cents. Square sends it and the
+   * platform used to drop it, then reversed loyalty as though every refund
+   * were the whole order — a $2 courtesy refund wiped a $50 order's points.
+   */
+  refundedCents: number | null;
   kind: 'payment' | 'refund' | 'order' | 'ignored';
 };
 
@@ -69,6 +80,7 @@ export function mapSquareEvent(event: SquareEvent): MappedEvent | null {
       orderStatus: object.payment.status === 'COMPLETED' ? 'paid' : null,
       squareOrderId: object.payment.order_id ?? null,
       squarePaymentId: object.payment.id ?? null,
+      refundedCents: null,
       kind: 'payment',
     };
   }
@@ -78,6 +90,9 @@ export function mapSquareEvent(event: SquareEvent): MappedEvent | null {
       orderStatus: object.refund.status === 'COMPLETED' ? 'refunded' : null,
       squareOrderId: null,
       squarePaymentId: object.refund.payment_id ?? null,
+      refundedCents: typeof object.refund.amount_money?.amount === 'number'
+        ? object.refund.amount_money.amount
+        : null,
       kind: 'refund',
     };
   }
@@ -87,8 +102,16 @@ export function mapSquareEvent(event: SquareEvent): MappedEvent | null {
       orderStatus: object.order.state === 'CANCELED' ? 'cancelled' : null,
       squareOrderId: object.order.id ?? null,
       squarePaymentId: null,
+      refundedCents: null,
       kind: 'order',
     };
   }
-  return { squareEventId: id, orderStatus: null, squareOrderId: null, squarePaymentId: null, kind: 'ignored' };
+  return {
+    squareEventId: id,
+    orderStatus: null,
+    squareOrderId: null,
+    squarePaymentId: null,
+    refundedCents: null,
+    kind: 'ignored',
+  };
 }

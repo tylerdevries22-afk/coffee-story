@@ -70,44 +70,59 @@ export async function POST(request: Request): Promise<Response> {
     return jsonError(409, 'insufficient_points', `${reward.name} needs ${reward.points_cost} points.`);
   }
 
-  // The replay check comes BEFORE the balance check: the first attempt spent
-  // the points, so a retry after a lost response would otherwise read the
-  // already-debited balance and answer "insufficient" for a redemption that
-  // succeeded.
+  // A key is required, because it is the only thing that makes a retry
+  // distinguishable from a second redemption. The clients always send one.
   const clientKey = idempotencyKeyOf(request);
-  const note = clientKey ? `${reward.slug} [${clientKey}]` : reward.slug;
-  if (clientKey) {
-    const replay = await db
-      .from('loyalty_events')
-      .select('id')
-      .eq('account_id', account.data.id)
-      .eq('type', 'redeem')
-      .eq('note', note)
-      .maybeSingle<{ id: string }>();
-    if (replay.data) {
-      const response: RedeemRewardResponse = { pointsBalance: account.data.points_balance };
-      return jsonWithCors(response);
-    }
+  if (!clientKey) {
+    return jsonError(400, 'invalid_request', 'An Idempotency-Key header is required to redeem.');
   }
+  const note = `${reward.slug} [${clientKey}]`;
 
-  if (account.data.points_balance < reward.points_cost) {
-    return jsonError(409, 'insufficient_points', `${reward.name} needs ${reward.points_cost} points.`);
-  }
-
-  const redeemed = await db.from('loyalty_events').insert({
+  // The event row is claimed FIRST, and the unique index on (account_id,
+  // note) is what decides. The previous order — look for a replay, then
+  // check the balance, then write — let two concurrent retries of one key
+  // both find nothing, both pass, and both store the same debited balance:
+  // two rewards for one guest's points.
+  const claimed = await db.from('loyalty_events').insert({
     brand_id: auth.claims.brand_id,
     account_id: account.data.id,
     type: 'redeem',
     points: -reward.points_cost,
     note,
   });
-  if (redeemed.error) throw redeemed.error;
-  const nextBalance = account.data.points_balance - reward.points_cost;
-  const updated = await db
-    .from('loyalty_accounts')
-    .update({ points_balance: nextBalance })
-    .eq('id', account.data.id);
-  if (updated.error) throw updated.error;
+  if (claimed.error) {
+    // Someone already redeemed under this key: the first attempt spent the
+    // points, so answer with the balance as it stands rather than charging
+    // again or reporting a failure for work that succeeded.
+    if (claimed.error.code === '23505') {
+      const current = await db
+        .from('loyalty_accounts')
+        .select('points_balance')
+        .eq('id', account.data.id)
+        .single<{ points_balance: number }>();
+      if (current.error) throw current.error;
+      const response: RedeemRewardResponse = { pointsBalance: current.data.points_balance };
+      return jsonWithCors(response);
+    }
+    throw claimed.error;
+  }
+
+  // One statement decides affordability and moves the balance, so it cannot
+  // be outrun. Null means the account could not cover it after all.
+  const spent = await db.rpc('loyalty_spend', {
+    account: account.data.id,
+    cost: reward.points_cost,
+  });
+  if (spent.error) throw spent.error;
+  // Null means the account could not cover it. Coerced because a bigint can
+  // arrive as a string depending on the driver, and "0" is not 0.
+  const nextBalance = spent.data === null || spent.data === undefined ? null : Number(spent.data);
+  if (nextBalance === null) {
+    // Release the claim so the guest can retry once they have the points.
+    await db.from('loyalty_events').delete()
+      .eq('account_id', account.data.id).eq('type', 'redeem').eq('note', note);
+    return jsonError(409, 'insufficient_points', `${reward.name} needs ${reward.points_cost} points.`);
+  }
 
   const response: RedeemRewardResponse = { pointsBalance: nextBalance };
   return jsonWithCors(response);

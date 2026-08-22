@@ -1,6 +1,8 @@
 import {
   mapSquareEvent,
-  pointsToReverse,
+  recordLoyaltyEarn,
+  recordPlatformFee,
+  reverseLoyaltyEarn,
   verifySquareSignature,
   type SquareEvent,
 } from '@platform/engine';
@@ -43,51 +45,70 @@ export async function POST(request: Request): Promise<Response> {
   const db = createClient(serviceUrl, serviceKey, { auth: { persistSession: false } });
 
   const orderQuery = mapped.squareOrderId
-    ? db.from('orders').select('id, brand_id, customer_id, total_cents, subtotal_cents').eq('square_order_id', mapped.squareOrderId)
-    : db.from('orders').select('id, brand_id, customer_id, total_cents, subtotal_cents').eq('square_payment_id', mapped.squarePaymentId ?? '');
+    ? db.from('orders').select('id, brand_id, location_id, customer_id, total_cents, subtotal_cents, stored_value_applied_cents').eq('square_order_id', mapped.squareOrderId)
+    : db.from('orders').select('id, brand_id, location_id, customer_id, total_cents, subtotal_cents, stored_value_applied_cents').eq('square_payment_id', mapped.squarePaymentId ?? '');
   const { data: order } = await orderQuery.maybeSingle();
   if (!order) return new Response('Order not known (yet); Square will retry', { status: 404 });
 
-  const { error: insertError } = await db.from('order_events').upsert(
+  // `.select()` is what tells a first delivery from a retry: with
+  // ignoreDuplicates a replay succeeds and returns no rows. Everything after
+  // this point moves money or points, so it must run once per event, not
+  // once per delivery — Square retries the same event id freely.
+  const { data: written, error: insertError } = await db.from('order_events').upsert(
     {
       brand_id: order.brand_id,
       order_id: order.id,
       type: mapped.orderStatus,
-      snapshot: { square_event: event.type, square_event_id: mapped.squareEventId },
+      snapshot: {
+        square_event: event.type,
+        square_event_id: mapped.squareEventId,
+        ...(mapped.refundedCents !== null ? { refunded_cents: mapped.refundedCents } : {}),
+      },
       square_event_id: mapped.squareEventId,
       source: 'webhook',
     },
     { onConflict: 'square_event_id', ignoreDuplicates: true },
-  );
+  ).select('id');
   if (insertError) return new Response(`Event rejected: ${insertError.message}`, { status: 409 });
+  const isNewDelivery = (written?.length ?? 0) > 0;
+  if (!isNewDelivery) return new Response('Already handled', { status: 200 });
 
-  if (mapped.orderStatus === 'refunded' && order.customer_id) {
-    const { data: account } = await db
-      .from('loyalty_accounts')
-      .select('id, points_balance')
-      .eq('customer_id', order.customer_id)
-      .maybeSingle();
-    const { data: earnEvent } = await db
-      .from('loyalty_events')
-      .select('points')
-      .eq('order_id', order.id)
-      .eq('type', 'earn')
-      .maybeSingle();
-    if (account && earnEvent) {
-      const reverse = pointsToReverse(earnEvent.points, order.total_cents, order.total_cents);
-      if (reverse > 0) {
-        await db.from('loyalty_events').insert({
-          brand_id: order.brand_id,
-          account_id: account.id,
-          order_id: order.id,
-          type: 'reverse',
-          points: -reverse,
-        });
-        await db.from('loyalty_accounts')
-          .update({ points_balance: Math.max(0, account.points_balance - reverse) })
-          .eq('id', account.id);
-      }
+  // A hosted-checkout order earns nothing until the money actually lands:
+  // createSquareCheckoutLink deliberately leaves the order 'created', so this
+  // is the only place a square_link guest's points and the platform's own fee
+  // row are ever written. Without it a card order earned no points at all,
+  // and platform_fees stayed empty — which also meant the volume tier could
+  // never trip, so the brand paid tier-1 forever (rule 3).
+  if (mapped.orderStatus === 'paid') {
+    if (order.customer_id) {
+      await recordLoyaltyEarn(db, {
+        brandId: order.brand_id,
+        customerId: order.customer_id,
+        orderId: order.id,
+        subtotalCents: order.subtotal_cents,
+      });
     }
+    if (mapped.squarePaymentId) {
+      await recordPlatformFee(db, {
+        brandId: order.brand_id,
+        locationId: order.location_id,
+        orderId: order.id,
+        squarePaymentId: mapped.squarePaymentId,
+        grossCents: order.total_cents - order.stored_value_applied_cents,
+      });
+    }
+  }
+
+  if (mapped.orderStatus === 'refunded') {
+    // What Square says came back, not the whole order: a partial refund takes
+    // back a proportional share of the earn.
+    await reverseLoyaltyEarn(db, {
+      brandId: order.brand_id,
+      customerId: order.customer_id,
+      orderId: order.id,
+      orderTotalCents: order.total_cents,
+      refundedCents: mapped.refundedCents ?? order.total_cents,
+    });
   }
 
   return new Response('OK', { status: 200 });

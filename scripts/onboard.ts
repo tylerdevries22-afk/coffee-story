@@ -121,6 +121,10 @@ async function run() {
           tier_threshold_cents: brand.fees.tierThresholdCents,
           ...brand.features,
           brand_config: {
+            // The server needs the app's own scheme to tell this tenant's
+            // deep links from anyone else's -- the checkout redirect is
+            // validated against it.
+            identity: { slug: brand.identity.slug, scheme: brand.identity.scheme },
             tokens: brand.tokens,
             copy: brand.copy,
             business: brand.business,

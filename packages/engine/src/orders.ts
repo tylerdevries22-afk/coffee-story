@@ -21,7 +21,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { computeAppFeeCents, feeMonthKey, type FeeConfig } from './fees';
-import { pointsEarnedFor } from './loyalty';
+import { pointsEarnedFor, pointsToReverse } from './loyalty';
 import { priceLine, MenuPricingError, type MenuItemPricing } from './menu-pricing';
 import { taxCentsFor, taxRowsFor, type TaxJurisdiction } from './tax';
 import {
@@ -45,6 +45,7 @@ export class OrderError extends Error {
     | 'ordering_paused'
     | 'item_unavailable'
     | 'refund_unavailable'
+    | 'cancel_unavailable'
     | MenuPricingError['code'];
 
   constructor(code: OrderError['code'], message: string) {
@@ -297,20 +298,7 @@ export async function recordLoyaltyEarn(
 ): Promise<number> {
   const earned = pointsEarnedFor(input.subtotalCents);
   if (earned <= 0) return 0;
-  let { data: account } = await db
-    .from('loyalty_accounts')
-    .select('id, points_balance, lifetime_points')
-    .eq('customer_id', input.customerId)
-    .maybeSingle<{ id: string; points_balance: number; lifetime_points: number }>();
-  if (!account) {
-    const created = await db
-      .from('loyalty_accounts')
-      .insert({ brand_id: input.brandId, customer_id: input.customerId })
-      .select('id, points_balance, lifetime_points')
-      .single<{ id: string; points_balance: number; lifetime_points: number }>();
-    if (created.error) throw created.error;
-    account = created.data;
-  }
+  const account = await loyaltyAccountFor(db, input);
   const earnEvent = await db.from('loyalty_events').insert({
     brand_id: input.brandId,
     account_id: account.id,
@@ -319,15 +307,156 @@ export async function recordLoyaltyEarn(
     points: earned,
   });
   if (earnEvent.error) throw earnEvent.error;
-  const updated = await db
-    .from('loyalty_accounts')
-    .update({
-      points_balance: account.points_balance + earned,
-      lifetime_points: account.lifetime_points + earned,
-    })
-    .eq('id', account.id);
-  if (updated.error) throw updated.error;
+  // Relative, in one statement: an absolute write computed from a read taken
+  // moments earlier silently discards any movement that happened in between.
+  const { error } = await db.rpc('loyalty_adjust', { account: account.id, delta: earned });
+  if (error) throw error;
   return earned;
+}
+
+/**
+ * The platform's cut for one settled card payment (rule 3), written once.
+ *
+ * platform_fees is both the revenue record and the input to the volume tier —
+ * appFeeForCharge sums the month's rows to decide which rate applies — so a
+ * payment that never writes one is billed at tier 1 forever and quietly
+ * under-reports the platform's own revenue. `square_payment_id` is UNIQUE, so
+ * a replayed settlement lands on the conflict rather than a second row.
+ */
+export async function recordPlatformFee(
+  db: SupabaseClient,
+  input: {
+    brandId: string;
+    locationId: string;
+    orderId: string;
+    squarePaymentId: string;
+    grossCents: number;
+  },
+): Promise<void> {
+  if (input.grossCents <= 0) return;
+  const brand = await db
+    .from('brands')
+    .select('fee_bps, fee_bps_tier2, tier_threshold_cents')
+    .eq('id', input.brandId)
+    .single<{ fee_bps: number; fee_bps_tier2: number; tier_threshold_cents: number }>();
+  if (brand.error) throw brand.error;
+  const location = await db
+    .from('locations')
+    .select('timezone')
+    .eq('id', input.locationId)
+    .single<{ timezone: string | null }>();
+  if (location.error) throw location.error;
+
+  const fee = await appFeeForCharge(db, {
+    locationId: input.locationId,
+    chargeCents: input.grossCents,
+    feeConfig: {
+      feeBps: Number(brand.data.fee_bps),
+      feeBpsTier2: Number(brand.data.fee_bps_tier2),
+      tierThresholdCents: Number(brand.data.tier_threshold_cents),
+    },
+    locationTimezone: location.data.timezone ?? 'UTC',
+  });
+
+  const { error } = await db.from('platform_fees').insert({
+    brand_id: input.brandId,
+    location_id: input.locationId,
+    order_id: input.orderId,
+    gross_cents: input.grossCents,
+    fee_cents: fee.feeCents,
+    fee_bps_applied: fee.feeBpsApplied,
+    square_payment_id: input.squarePaymentId,
+  });
+  // Already recorded for this payment.
+  if (error && error.code !== '23505') throw error;
+}
+
+/** The guest's account, created on first contact so a first coffee counts. */
+async function loyaltyAccountFor(
+  db: SupabaseClient,
+  input: { brandId: string; customerId: string },
+): Promise<{ id: string }> {
+  const found = await db
+    .from('loyalty_accounts')
+    .select('id')
+    .eq('customer_id', input.customerId)
+    .maybeSingle<{ id: string }>();
+  // Checked, not discarded: a swallowed read error used to look like "no
+  // account", and the insert that followed hit unique (customer_id).
+  if (found.error) throw found.error;
+  if (found.data) return found.data;
+  const created = await db
+    .from('loyalty_accounts')
+    .insert({ brand_id: input.brandId, customer_id: input.customerId })
+    .select('id')
+    .single<{ id: string }>();
+  if (created.error) {
+    // Two first orders at once: the loser reads the winner's row.
+    if (created.error.code === '23505') {
+      const winner = await db
+        .from('loyalty_accounts')
+        .select('id')
+        .eq('customer_id', input.customerId)
+        .single<{ id: string }>();
+      if (winner.error) throw winner.error;
+      return winner.data;
+    }
+    throw created.error;
+  }
+  return created.data;
+}
+
+/**
+ * Takes back the points an order earned, once and only once.
+ *
+ * Both callers need this to be idempotent for different reasons: Square
+ * retries a refund delivery (the event id is deduplicated, but everything
+ * after it used to run again), and a guest can cancel an order that a refund
+ * already reversed. The unique index on (order_id) where type = 'reverse'
+ * makes "once" true even when two callers race.
+ *
+ * `refundedCents` is what actually went back, so a partial refund takes back
+ * a proportional share rather than the whole earn.
+ */
+export async function reverseLoyaltyEarn(
+  db: SupabaseClient,
+  input: {
+    brandId: string;
+    customerId: string | null;
+    orderId: string;
+    orderTotalCents: number;
+    refundedCents: number;
+  },
+): Promise<number> {
+  if (!input.customerId) return 0;
+  const earn = await db
+    .from('loyalty_events')
+    .select('points, account_id')
+    .eq('order_id', input.orderId)
+    .eq('type', 'earn')
+    .maybeSingle<{ points: number; account_id: string }>();
+  if (earn.error) throw earn.error;
+  if (!earn.data) return 0;
+
+  const points = pointsToReverse(earn.data.points, input.orderTotalCents, input.refundedCents);
+  if (points <= 0) return 0;
+
+  const event = await db.from('loyalty_events').insert({
+    brand_id: input.brandId,
+    account_id: earn.data.account_id,
+    order_id: input.orderId,
+    type: 'reverse',
+    points: -points,
+  });
+  // Already reversed: the unique index caught a retry, and the balance was
+  // moved by whoever got there first.
+  if (event.error) {
+    if (event.error.code === '23505') return 0;
+    throw event.error;
+  }
+  const { error } = await db.rpc('loyalty_adjust', { account: earn.data.account_id, delta: -points });
+  if (error) throw error;
+  return points;
 }
 
 /** The cart lines in Square's shape. Pure; covered by orders.test.ts. */
@@ -489,6 +618,18 @@ async function appFeeForCharge(
   return computeAppFeeCents(input.feeConfig, monthGrossBefore, input.chargeCents);
 }
 
+/**
+ * What to call the tax line on the checkout page. One authority keeps its own
+ * name; several become a single "Sales Tax" charge, because the guest is
+ * paying one rounded sum and itemising four rates on a payment page invites
+ * a cent-level argument the receipt already answers.
+ */
+function taxLabelFor(totals: { tax_rows?: { label?: string }[] } & Record<string, unknown>): string {
+  const rows = totals.tax_rows ?? [];
+  const single = rows.length === 1 ? rows[0]?.label : undefined;
+  return typeof single === 'string' && single.length > 0 ? single : 'Sales Tax';
+}
+
 export type CheckoutLinkInput = {
   orderId: string;
   /** Where Square returns the guest; usually the app's order screen. */
@@ -511,7 +652,7 @@ export async function createSquareCheckoutLink(
 ): Promise<{ orderId: string; checkoutUrl: string; replayed: boolean }> {
   const loaded = await deps.db
     .from('orders')
-    .select('id, brand_id, location_id, status, tender_type, totals, tip_cents, total_cents, stored_value_applied_cents, square_checkout_url')
+    .select('id, brand_id, location_id, status, tender_type, totals, tax_cents, tip_cents, total_cents, stored_value_applied_cents, square_checkout_url')
     .eq('id', input.orderId)
     .maybeSingle<{
       id: string;
@@ -520,6 +661,7 @@ export async function createSquareCheckoutLink(
       status: string;
       tender_type: string;
       totals: { lines?: SnapshotLine[] } & Record<string, unknown>;
+      tax_cents: number;
       tip_cents: number;
       total_cents: number;
       stored_value_applied_cents: number;
@@ -552,10 +694,26 @@ export async function createSquareCheckoutLink(
     locationTimezone: deps.locationTimezone,
   });
 
+  // The page must ask for exactly what the order says, or the guest pays one
+  // number while the books, the metrics and the platform's fee use another.
+  // The first version sent line items alone: tax and tip were simply never
+  // collected, while the fee was still computed on the full total.
+  const taxCents = order.tax_cents;
+  const tipCents = order.tip_cents;
+  const linesTotal = lines.reduce((sum, line) => sum + line.unitPriceCents * line.quantity, 0);
+  if (linesTotal + taxCents + tipCents !== chargeCents) {
+    throw new Error(
+      `Checkout would not charge the order total: lines ${linesTotal} + tax ${taxCents} + tip ${tipCents} != ${chargeCents}.`,
+    );
+  }
+
   const link = await createPaymentLink(deps.square, deps.locationAccessToken, {
     squareLocationId: deps.squareLocationId,
     referenceId: order.id,
     lines: buildSquareLines(lines),
+    taxCents,
+    taxLabel: taxLabelFor(order.totals),
+    tipCents,
     appFeeCents: fee.feeCents,
     ...(input.redirectUrl ? { redirectUrl: input.redirectUrl } : {}),
     ...(input.buyerEmail ? { buyerEmail: input.buyerEmail } : {}),
@@ -575,6 +733,102 @@ export async function createSquareCheckoutLink(
   return { orderId: order.id, checkoutUrl, replayed: false };
 }
 
+/** Cancellable by the guest only while the shop has not started making it. */
+const GUEST_CANCELLABLE: ReadonlySet<string> = new Set(['created', 'paid']);
+
+export type CancelOrderInput = {
+  orderId: string;
+  /** The guest's customer row. The order must be theirs. */
+  customerId: string;
+  actorUserId: string | null;
+  reason: string;
+};
+
+/**
+ * A guest calling off their own order.
+ *
+ * The state machine has always allowed created/paid -> cancelled and the
+ * event table has always allowed a 'customer' source, but nothing wrote one:
+ * a guest who ordered by mistake had no way out, and the shop got a drink
+ * ticket nobody would collect. This is the missing writer.
+ *
+ * Two limits, both about honesty rather than permission. Once the barista
+ * hits Start, the drink exists — that cancellation is a conversation at the
+ * counter, not a button. And an order whose card already charged needs the
+ * money returned, which only staff can do through Square, so it says so
+ * instead of quietly cancelling and keeping the payment.
+ */
+export async function cancelOrder(
+  deps: CreateOrderDeps,
+  input: CancelOrderInput,
+): Promise<{ orderId: string; status: string; alreadyCancelled: boolean }> {
+  const loaded = await deps.db
+    .from('orders')
+    .select('id, brand_id, customer_id, status, total_cents, square_payment_id')
+    .eq('id', input.orderId)
+    .maybeSingle<{
+      id: string;
+      brand_id: string;
+      customer_id: string | null;
+      status: string;
+      total_cents: number;
+      square_payment_id: string | null;
+    }>();
+  if (loaded.error) throw loaded.error;
+  const order = loaded.data;
+  // Same answer for "no such order" and "not yours": a guest must not be able
+  // to probe which order ids exist.
+  if (!order || order.customer_id !== input.customerId) {
+    throw new OrderError('invalid_request', 'That order does not exist.');
+  }
+  if (order.status === 'cancelled') {
+    return { orderId: order.id, status: 'cancelled', alreadyCancelled: true };
+  }
+  if (order.square_payment_id) {
+    throw new OrderError('cancel_unavailable',
+      'This order is already paid by card. Ask the shop to cancel and refund it.');
+  }
+  if (!GUEST_CANCELLABLE.has(order.status)) {
+    throw new OrderError('cancel_unavailable',
+      order.status === 'in_progress' || order.status === 'ready'
+        ? 'The shop has already started this order — talk to them at the counter.'
+        : `This order is ${order.status} and can no longer be cancelled.`);
+  }
+
+  const { error } = await deps.db.from('order_events').insert({
+    brand_id: order.brand_id,
+    order_id: order.id,
+    type: 'cancelled',
+    snapshot: { reason: input.reason, cancelled_by: 'guest' },
+    actor_user_id: input.actorUserId,
+    source: 'customer',
+  });
+  if (error) {
+    // The barista started it between the read and the write: the trigger
+    // refuses the transition. Only that gets the counter sentence — every
+    // other failure is an infrastructure problem, and claiming the shop
+    // started an order it did not is both a lie to the guest and a 409 that
+    // hides a 500 from whoever is watching the logs.
+    if (/illegal order transition/i.test(error.message)) {
+      throw new OrderError('cancel_unavailable',
+        'The shop started this order just now — talk to them at the counter.');
+    }
+    throw error;
+  }
+
+  // A pay-at-pickup order earns its points the moment it is placed, because
+  // the shop is about to make it. Cancelling has to give them back, or
+  // ordering and cancelling in a loop mints points out of nothing.
+  await reverseLoyaltyEarn(deps.db, {
+    brandId: order.brand_id,
+    customerId: order.customer_id,
+    orderId: order.id,
+    orderTotalCents: order.total_cents,
+    refundedCents: order.total_cents,
+  });
+  return { orderId: order.id, status: 'cancelled', alreadyCancelled: false };
+}
+
 export type RefundDeps = {
   db: SupabaseClient;
   square: SquareConfig;
@@ -583,11 +837,45 @@ export type RefundDeps = {
 
 export type RefundInput = {
   orderId: string;
-  /** Cents to return, or the whole charge. */
+  /** Cents to return, or everything not already returned. */
   amountCents: number | 'full';
   reason: string;
   actorUserId: string | null;
+  /**
+   * Identifies this refund ATTEMPT. Square deduplicates on it, so a retry
+   * after a lost response returns the first refund instead of sending the
+   * money twice — and two genuinely separate refunds of equal size must
+   * carry different keys, which keying on the amount could never do.
+   */
+  requestKey: string;
 };
+
+/**
+ * What has already gone back on this order.
+ *
+ * Keyed on the refund id in the snapshot rather than the event type: a
+ * partial refund records itself without moving the order (see below), so it
+ * does not carry type 'refunded' and a type filter would miss exactly the
+ * events this sum exists to count.
+ */
+type RefundedEvent = { snapshot: { refund_id?: unknown; amount_cents?: unknown } | null };
+
+async function refundedSoFar(db: SupabaseClient, orderId: string): Promise<number> {
+  const { data, error } = await db
+    .from('order_events')
+    .select('snapshot')
+    .eq('order_id', orderId)
+    .returns<RefundedEvent[]>();
+  if (error) throw error;
+  return (data ?? []).reduce((sum, row) => {
+    if (typeof row.snapshot?.refund_id !== 'string') return sum;
+    const amount = row.snapshot.amount_cents;
+    return sum + (typeof amount === 'number' ? amount : 0);
+  }, 0);
+}
+
+/** States a refund may legally follow. Checked before money moves. */
+const REFUNDABLE: ReadonlySet<string> = new Set(['paid', 'in_progress', 'ready', 'picked_up', 'refunded']);
 
 /**
  * Money back through Square, then the event that records it. Only a card
@@ -601,13 +889,14 @@ export async function refundOrderPayment(
 ): Promise<{ orderId: string; refundId: string; amountCents: number }> {
   const loaded = await deps.db
     .from('orders')
-    .select('id, brand_id, status, total_cents, tender_type, square_payment_id')
+    .select('id, brand_id, status, total_cents, stored_value_applied_cents, tender_type, square_payment_id')
     .eq('id', input.orderId)
     .maybeSingle<{
       id: string;
       brand_id: string;
       status: string;
       total_cents: number;
+      stored_value_applied_cents: number;
       tender_type: string;
       square_payment_id: string | null;
     }>();
@@ -618,27 +907,59 @@ export async function refundOrderPayment(
     throw new OrderError('refund_unavailable',
       'This order was not paid by card through the app, so there is nothing to return here — refund it at the register.');
   }
-  const amountCents = input.amountCents === 'full' ? order.total_cents : input.amountCents;
-  if (!Number.isInteger(amountCents) || amountCents <= 0 || amountCents > order.total_cents) {
-    throw new OrderError('invalid_request', 'Refund amount must be between one cent and the order total.');
+  // Checked BEFORE Square is called. Money that moves and then cannot be
+  // recorded is the one failure with no clean recovery: the guest has their
+  // refund, the platform has no trace of it, and every retry repeats the
+  // question. A cancelled order has no legal edge to refunded, so it would
+  // have charged and then thrown.
+  if (!REFUNDABLE.has(order.status)) {
+    throw new OrderError('refund_unavailable',
+      `This order is ${order.status}; it cannot be refunded.`);
+  }
+
+  const alreadyRefunded = await refundedSoFar(deps.db, order.id);
+  const refundable = order.total_cents - order.stored_value_applied_cents - alreadyRefunded;
+  if (refundable <= 0) {
+    throw new OrderError('refund_unavailable', 'This order has already been fully refunded.');
+  }
+  const amountCents = input.amountCents === 'full' ? refundable : input.amountCents;
+  if (!Number.isInteger(amountCents) || amountCents <= 0) {
+    throw new OrderError('invalid_request', 'Refund amount must be a whole number of cents.');
+  }
+  // The cap is what is LEFT, not the order total: three $10 refunds on a $22
+  // order each passed a per-call check that never looked at the other two.
+  if (amountCents > refundable) {
+    throw new OrderError('invalid_request',
+      `Only ${refundable} cents are left to refund on this order.`);
   }
 
   const refund = await refundSquarePayment(deps.square, deps.locationAccessToken, {
     paymentId: order.square_payment_id,
     amountCents,
-    // Distinct per amount: a partial refund followed by the rest must not
-    // collide with the first refund's idempotency key.
-    referenceId: `${order.id}-${amountCents}`,
+    // The caller's key, not the amount: two separate $5 refunds are two
+    // refunds, and keying on the amount made Square treat the second as a
+    // replay of the first — returning $5 while the books recorded $10.
+    referenceId: input.requestKey,
     reason: input.reason,
   });
   const refundId = refund.refund?.id;
   if (!refundId) throw new Error('Square returned no refund id.');
 
+  // A refund that does not cover the order leaves it where it was: 'refunded'
+  // is terminal, and asserting it for a $2 courtesy refund stranded a $22
+  // order the barista still had to hand over, with no legal move left.
+  const fullyRefunded = alreadyRefunded + amountCents >= order.total_cents - order.stored_value_applied_cents;
   const { error: eventError } = await deps.db.from('order_events').insert({
     brand_id: order.brand_id,
     order_id: order.id,
-    type: 'refunded',
-    snapshot: { refund_id: refundId, amount_cents: amountCents, reason: input.reason },
+    // Partial refunds record themselves without moving the order.
+    type: fullyRefunded ? 'refunded' : order.status,
+    snapshot: {
+      refund_id: refundId,
+      amount_cents: amountCents,
+      reason: input.reason,
+      partial: !fullyRefunded,
+    },
     actor_user_id: input.actorUserId,
     source: 'operator',
   });
