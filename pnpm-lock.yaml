@@ -366,6 +366,41 @@ importers:
         specifier: ~5.9.2
         version: 5.9.3
 
+  packages/api-client:
+    dependencies:
+      '@platform/schema':
+        specifier: workspace:*
+        version: link:../schema
+    devDependencies:
+      '@types/node':
+        specifier: ~24.6.2
+        version: 24.6.2
+      tsx:
+        specifier: ^4.20.6
+        version: 4.23.12
+      typescript:
+        specifier: ~5.9.2
+        version: 5.9.3
+
+  packages/data:
+    dependencies:
+      '@platform/schema':
+        specifier: workspace:*
+        version: link:../schema
+      '@supabase/supabase-js':
+        specifier: ^2.111.0
+        version: 2.112.3(@opentelemetry/api@1.9.1)
+    devDependencies:
+      '@types/node':
+        specifier: ~24.6.2
+        version: 24.6.2
+      tsx:
+        specifier: ^4.20.6
+        version: 4.23.12
+      typescript:
+        specifier: ~5.9.2
+        version: 5.9.3
+
   packages/engine:
     dependencies:
       '@platform/schema':
@@ -397,8 +432,23 @@ importers:
         specifier: 0.81.5
         version: 0.81.5(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0)
 
+  tests/consistency:
+    devDependencies:
+      '@types/node':
+        specifier: ~24.6.2
+        version: 24.6.2
+      tsx:
+        specifier: ^4.20.6
+        version: 4.23.12
+      typescript:
+        specifier: ~5.9.2
+        version: 5.9.3
+
   tests/integration:
     dependencies:
+      '@platform/data':
+        specifier: workspace:*
+        version: link:../../packages/data
       '@platform/schema':
         specifier: workspace:*
         version: link:../../packages/schema
@@ -9041,7 +9091,7 @@ snapshots:
 
   '@types/pg@8.23.1':
     dependencies:
-      '@types/node': 24.6.2
+      '@types/node': 26.2.0
       pg-protocol: 1.16.0
       pg-types: 2.2.0
 
