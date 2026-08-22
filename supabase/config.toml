@@ -1,0 +1,58 @@
+# Local/CI Supabase stack for this platform. `supabase start` applies
+# supabase/migrations/ and this config; the hosted project mirrors it via
+# `supabase db push` (or MCP apply_migration) plus the dashboard settings the
+# comments below call out.
+
+project_id = "coffee-story-platform"
+
+[db]
+port = 54322
+major_version = 17
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage"]
+# app is intentionally NOT exposed over PostgREST: its helpers are for RLS
+# policies and the auth hook, not the REST surface.
+extra_search_path = ["public"]
+max_rows = 1000
+
+[auth]
+enabled = true
+site_url = "http://127.0.0.1:3000"
+# Guests sign in with email OTP (owner decision); staff/HQ use email+password.
+# Phone OTP stays dormant until Twilio is configured on the hosted project.
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+enable_confirmations = false
+# OTP, not magic links, so the same code path works in Expo Go and web.
+otp_length = 6
+otp_expiry = 3600
+
+# The claim minter (0009). On the hosted project this is registered under
+# Authentication -> Hooks -> Customize Access Token.
+[auth.hook.custom_access_token]
+enabled = true
+uri = "pg-functions://postgres/app/custom_access_token"
+
+[local_smtp]
+# Local mail catcher (Mailpit): integration/E2E tests fetch OTP codes from
+# its API instead of bypassing the real email flow.
+enabled = true
+port = 54324
+
+[storage]
+enabled = true
+file_size_limit = "10MiB"
+
+[realtime]
+enabled = true
+
+[studio]
+enabled = false
+
+[analytics]
+enabled = false

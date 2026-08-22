@@ -1,0 +1,16 @@
+{
+  "name": "@platform/consistency-tests",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "tsx --test \"src/**/*.test.ts\"",
+    "lint": "echo 'consistency tests: lint covered by typecheck'",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "~24.6.2",
+    "tsx": "^4.20.6",
+    "typescript": "~5.9.2"
+  }
+}

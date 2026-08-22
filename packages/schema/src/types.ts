@@ -18,6 +18,25 @@ export type CampaignStatus = 'draft' | 'scheduled' | 'sending' | 'sent' | 'cance
 
 export type Json = string | number | boolean | null | { [key: string]: Json } | Json[];
 
+/**
+ * The world-readable brand_storefront view (0015): everything a guest's app
+ * needs to boot — identity, feature flags, brand_config tokens/copy — and
+ * none of the platform's fee terms, which stay claim-gated on brands.
+ */
+export type BrandStorefrontRow = {
+  id: string;
+  slug: string;
+  name: string;
+  drops: boolean;
+  catering: boolean;
+  delivery: boolean;
+  multi_location: boolean;
+  sms: boolean;
+  stored_value: boolean;
+  referrals: boolean;
+  brand_config: Json;
+};
+
 export type BrandRow = {
   id: string;
   slug: string;
