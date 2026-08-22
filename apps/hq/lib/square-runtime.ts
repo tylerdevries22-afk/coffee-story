@@ -38,15 +38,7 @@ type ConnectionRow = {
 type LocationRow = {
   id: string;
   timezone: string | null;
-  square_connection_id: string | null;
-  square_connections: ConnectionRow | ConnectionRow[] | null;
 };
-
-/** PostgREST returns an embedded to-one as an object or a one-element array. */
-function firstConnection(embedded: LocationRow['square_connections']): ConnectionRow | null {
-  if (!embedded) return null;
-  return Array.isArray(embedded) ? embedded[0] ?? null : embedded;
-}
 
 /** Rule 3's numbers are brand columns, not config JSON. */
 export type BrandFeeRow = {
@@ -71,14 +63,29 @@ export async function squareRuntimeFor(
   db: SupabaseClient,
   input: { brandId: string; locationId: string; brand: BrandFeeRow },
 ): Promise<SquareRuntime | null> {
-  const { data, error } = await db
-    .from('locations')
-    .select('id, timezone, square_connection_id, square_connections (square_location_id, access_token_encrypted)')
-    .eq('id', input.locationId)
-    .eq('brand_id', input.brandId)
-    .maybeSingle<LocationRow>();
-  if (error) throw error;
-  const connection = firstConnection(data?.square_connections ?? null);
+  // Read the two rows separately rather than embedding them: locations and
+  // square_connections reference each other (the connection names its
+  // location; the location keeps a back-pointer), and PostgREST refuses an
+  // ambiguous embed across two relationships. square_connections.location_id
+  // is the authoritative side — it is UNIQUE and written in the same upsert
+  // that stores the tokens, while the back-pointer is a second, best-effort
+  // write that a failed request could leave unset.
+  const [location, connectionRow] = await Promise.all([
+    db.from('locations')
+      .select('id, timezone')
+      .eq('id', input.locationId)
+      .eq('brand_id', input.brandId)
+      .maybeSingle<LocationRow>(),
+    db.from('square_connections')
+      .select('square_location_id, access_token_encrypted')
+      .eq('location_id', input.locationId)
+      .eq('brand_id', input.brandId)
+      .maybeSingle<ConnectionRow>(),
+  ]);
+  if (location.error) throw location.error;
+  if (connectionRow.error) throw connectionRow.error;
+  const data = location.data;
+  const connection = connectionRow.data;
   if (!data || !connection?.square_location_id) return null;
 
   let square: SquareConfig;
