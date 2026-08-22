@@ -29,10 +29,17 @@ Dashboard: <https://expo.dev/accounts/tylerdevries222/projects/coffee-story>
 
 ## Publish a demo revision
 
-**Merging to `main` publishes automatically.** `.github/workflows/verify.yml`
-runs the quality gate first and only publishes if lint, typecheck, the tests,
-both bundles and both dependency audits pass — so the demo channel can never
-serve a build that does not compile.
+**Publishing is explicit; merging does not publish.** `publish-preview` in
+`.github/workflows/verify.yml` is gated on `github.event_name ==
+'workflow_dispatch'`, so a merge to `main` runs the quality gate and stops
+there. To publish, run the **verify** workflow from the Actions tab against any
+ref and tick **Publish the customer app to the Expo Go preview channel** (and
+**Also publish the operator app** if you want that one too).
+
+The gate still guards it: the publish job declares `needs: [verify, audit]`, so
+it only runs if lint, typecheck, the tests, the menu-imagery check, both bundles
+and both dependency audits pass — the demo channel can never serve a build that
+does not compile.
 
 The run's **job summary** prints the QR link and the `exp://` deep link for
 both platforms. Copy them into the section above; a publish can mint new update
@@ -43,9 +50,6 @@ It needs one repository secret, `EXPO_TOKEN` — create it at
 and variables → Actions**. Without it the publish job fails with that message
 rather than skipping quietly, because a green run that published nothing is
 how you end up handing someone last month's build.
-
-To publish from a branch, run the **verify** workflow manually from the Actions
-tab with **Publish an EAS Update** ticked.
 
 By hand, from a terminal:
 
