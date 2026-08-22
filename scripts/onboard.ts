@@ -84,6 +84,19 @@ async function run() {
   const menuPath = join(tenantDir, 'menu.csv');
   const menu = existsSync(menuPath) ? parseMenuCsv(readFileSync(menuPath, 'utf8')) : { rows: [], errors: [] };
   problems.push(...menu.errors.map((error) => `menu.csv: ${error}`));
+  // Option groups per item slug, in the JSONB shape the engine's
+  // menu-pricing module reads. Optional; items absent from it sell plain.
+  const modifiersPath = join(tenantDir, 'modifiers.json');
+  const modifiersBySlug: Record<string, unknown[]> = existsSync(modifiersPath)
+    ? JSON.parse(readFileSync(modifiersPath, 'utf8')) as Record<string, unknown[]>
+    : {};
+  for (const [itemSlug, groups] of Object.entries(modifiersBySlug)) {
+    if (!Array.isArray(groups)) {
+      problems.push(`modifiers.json: "${itemSlug}" must map to an array of option groups.`);
+    } else if (menu.rows.length > 0 && !menu.rows.some((row) => row.slug === itemSlug)) {
+      problems.push(`modifiers.json: "${itemSlug}" is not in menu.csv.`);
+    }
+  }
   if (problems.length > 0) {
     console.error(`tenants/${slug} does not validate:`);
     for (const problem of problems) console.error(`  - ${problem}`);
@@ -173,6 +186,7 @@ async function run() {
             description: row.description,
             base_price_cents: row.basePriceCents,
             sizes: row.sizes,
+            modifiers: modifiersBySlug[row.slug] ?? [],
             sort_order: index,
           },
           { onConflict: 'menu_id,slug' },

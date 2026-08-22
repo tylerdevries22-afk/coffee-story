@@ -33,12 +33,17 @@ import {
 } from '@/features/order/payment-split';
 import { HEART_POINTS_LABEL } from '@/features/rewards/presentation';
 import { simulateProgress, trackingView } from '@/features/tracking';
+import { sizeSuffix } from '@/data/menu-export';
 import { tenantFeature } from '@/tenant';
+import { newIdempotencyKey } from '@platform/api-client';
+import { subscribeToOrderStatus } from '@platform/data';
 import type { OrderStatus } from '@platform/schema';
 import { REWARD_TIERS, tierForAnnualPoints } from '@/features/rewards/rules';
 import { choiceState } from '@/lib/a11y-state';
+import { platformApi } from '@/lib/api';
+import { liveOrderContext } from '@/lib/live-portal';
 import { usesSimulatedNativeFlows } from '@/lib/native-adapters';
-import { useStripe } from '@/lib/stripe';
+import { supabase } from '@/lib/supabase';
 import { useAppState } from '@/state/app-context';
 import { useAuth } from '@/state/auth-context';
 import { useDemo } from '@/state/demo-context';
@@ -73,14 +78,12 @@ export function OrderScreen() {
   const { isDemo, portal } = useAuth();
   const demo = useDemo();
   const order = useOrder();
-  const stripe = useStripe();
   const { selectedServiceId, setBarCovered, setClientTab, openMore } = useAppState();
 
   const [mode, setMode] = useState<VisitMode | null>(null);
   const [step, setStep] = useState<SetupStep>('hub');
   const [overlay, setOverlay] = useState<Overlay>('none');
   const [detailItem, setDetailItem] = useState<Service | null>(null);
-  const [applePaySupported, setApplePaySupported] = useState(false);
   const [paying, setPaying] = useState(false);
   // `paying` is set and cleared inside one synchronous handler, so React
   // batches it and the button never actually renders disabled. The checkout
@@ -93,7 +96,12 @@ export function OrderScreen() {
   // Snapshotted at the moment the order is placed. Reading `totals` here
   // instead would show the confirmation screen the totals of the bag that
   // `clearBag()` has just emptied -- "Paid $0", earning 0 Beans.
-  const [placed, setPlaced] = useState<{ summary: string; totalCents: number; points: number } | null>(null);
+  // orderId is present for live orders only; it drives realtime tracking.
+  const [placed, setPlaced] = useState<{ summary: string; totalCents: number; points: number; orderId?: string } | null>(null);
+  // One key per checkout ATTEMPT: held across retries of the same order so
+  // the server returns the already-created order instead of ringing twice;
+  // released only once placement succeeds.
+  const checkoutKey = useRef<string | null>(null);
 
   const simulated = usesSimulatedNativeFlows(isDemo, Constants.appOwnership ?? null);
   const guestName = order.guestName;
@@ -121,27 +129,12 @@ export function OrderScreen() {
   const pointsPerDollar = tierForAnnualPoints(annualPoints, REWARD_TIERS).pointsPerDollar;
   const pointsEarned = pointsForOrder(totals, annualPoints);
 
-  // Only ask the platform once a real Stripe module is present. In Expo Go and
-  // in Demo mode there is no native Stripe, and the question would throw.
-  useEffect(() => {
-    if (simulated) return undefined;
-    const probe = stripe.isPlatformPaySupported?.();
-    if (!probe) return undefined;
-    let active = true;
-    void probe
-      .then((supported: boolean) => {
-        if (active) setApplePaySupported(supported);
-      })
-      .catch(() => undefined);
-    return () => {
-      active = false;
-    };
-  }, [simulated, stripe]);
-
+  // Live orders settle at the counter until the brand connects card
+  // payments; the demo keeps its saved-card flow.
   const savedCard = (portal.paymentMethods ?? []).find((method) => method.isDefault)
     ?? (portal.paymentMethods ?? [])[0];
-  const payment: CheckoutPaymentMethod | null = applePaySupported
-    ? { kind: 'apple-pay' }
+  const payment: CheckoutPaymentMethod | null = !isDemo
+    ? { kind: 'pay-at-pickup' }
     : savedCard
       ? { kind: 'card', method: savedCard }
       : null;
@@ -195,22 +188,70 @@ export function OrderScreen() {
       return;
     }
 
+    const summary = order.cart.lines
+      .map((line) => (line.quantity > 1 ? `${line.quantity}× ${line.name}` : line.name))
+      .join(', ');
+
     if (!isDemo) {
-      setPayError(
-        simulated
-          ? 'Expo Go cannot take a real card. Switch to Demo from More to walk the whole order through.'
-          : 'Menu orders need the shop’s order endpoint before a card can be charged. Nothing was charged.',
-      );
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => undefined);
+      if (order.fulfillment.mode === 'dispatch') {
+        setPayError('Delivery ordering is coming to live accounts soon — pickup is ready now.');
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => undefined);
+        return;
+      }
+      placing.current = true;
+      setPaying(true);
+      const fulfillment = order.fulfillment;
+      void (async () => {
+        try {
+          if (!supabase || !platformApi) {
+            throw new Error('Live ordering is not configured in this build.');
+          }
+          const context = await liveOrderContext(supabase);
+          if (!context) throw new Error('The shop is not accepting orders right now.');
+          checkoutKey.current ??= newIdempotencyKey();
+          const result = await platformApi.placeOrder({
+            locationId: context.locationId,
+            fulfillmentType: fulfillment.mode === 'office' ? 'pickup' : 'delivery',
+            scheduledFor: order.windowValue,
+            lines: order.cart.lines.map((line) => ({
+              itemSlug: line.itemId,
+              sizeSlug: sizeSuffix(line.itemId, line.sizeSlug),
+              quantity: line.quantity,
+              modifierSlugs: [...line.optionIds],
+            })),
+            tipCents: order.tipCents,
+            note: order.cart.note,
+            tenderType: 'pay_at_pickup',
+          }, checkoutKey.current);
+          checkoutKey.current = null;
+          setPlaced({
+            summary,
+            // The server's math is the order's truth; the client never
+            // renders its own totals for a live order.
+            totalCents: result.totalCents,
+            points: Math.floor(result.subtotalCents / 10),
+            orderId: result.orderId,
+          });
+          order.clearBag();
+          order.setTipCents(0);
+          setRedeemCents(0);
+          setUseGiftBalance(false);
+          setOverlay('placed');
+          void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
+        } catch (placeError) {
+          setPayError(placeError instanceof Error ? placeError.message : 'The order could not be placed.');
+          void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => undefined);
+        } finally {
+          placing.current = false;
+          setPaying(false);
+        }
+      })();
       return;
     }
 
     placing.current = true;
     setPaying(true);
     try {
-      const summary = order.cart.lines
-        .map((line) => (line.quantity > 1 ? `${line.quantity}× ${line.name}` : line.name))
-        .join(', ');
       const service: BookingService = {
         slug: `order-${order.windowValue}`,
         name: summary,
@@ -232,7 +273,7 @@ export function OrderScreen() {
     } finally {
       setPaying(false);
     }
-  }, [demo, isDemo, order, pointsEarned, simulated, totals.totalCents]);
+  }, [demo, isDemo, order, pointsEarned, totals.totalCents]);
 
   // The web tab bar hides while a covering page is up (see app-context).
   // hub and menu keep the bar, exactly like native.
@@ -313,7 +354,10 @@ export function OrderScreen() {
             paying={paying}
             simulated={simulated}
             error={payError}
-            redeem={redeemableCents > 0 || redeemCents > 0 ? {
+            // Point redemption applies at checkout in Demo only; live points
+            // buy catalog rewards on the Rewards tab until the order API
+            // carries a points-to-cents rule.
+            redeem={isDemo && (redeemableCents > 0 || redeemCents > 0) ? {
               availableCents: redeemableCents,
               appliedCents: redeemCents,
               pointsCharged: pointsForRedemption(redeemCents),
@@ -341,6 +385,7 @@ export function OrderScreen() {
             windowValue={order.windowValue}
             totalCents={placed?.totalCents ?? 0}
             pointsEarned={placed?.points ?? 0}
+            orderId={placed?.orderId ?? null}
             isDelivery={order.fulfillment.mode === 'dispatch'}
             onViewVisits={() => {
               editOrder();
@@ -623,6 +668,7 @@ function OrderPlaced({
   windowValue,
   totalCents,
   pointsEarned,
+  orderId,
   isDelivery,
   onViewVisits,
   onDone,
@@ -632,16 +678,21 @@ function OrderPlaced({
   windowValue: string;
   totalCents: number;
   pointsEarned: number;
+  /** Present for live orders: drives realtime tracking instead of the simulator. */
+  orderId: string | null;
   isDelivery: boolean;
   onViewVisits: () => void;
   onDone: () => void;
 }) {
   const window = describePickupWindow(windowValue, new Date());
-  // The demo shop makes the drink in front of you: paid now, in progress in a
-  // few seconds, ready shortly after -- the same rule-2 states a live order
-  // streams over Realtime (lib/realtime-orders.ts).
+  // A live order streams rule-2's states over Realtime; the demo shop makes
+  // the drink in front of you on believable delays. Both render the same
+  // timeline.
   const [status, setStatus] = useState<OrderStatus>('paid');
-  useEffect(() => simulateProgress(setStatus), []);
+  useEffect(() => {
+    if (orderId) return subscribeToOrderStatus(supabase, orderId, setStatus);
+    return simulateProgress(setStatus);
+  }, [orderId]);
   const tracking = trackingView(status);
   return (
     <CollapsingScreen

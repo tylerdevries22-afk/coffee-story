@@ -1,26 +1,54 @@
 import Constants from 'expo-constants';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
 
 import { CollapsingScreen } from '@/components/collapsing-screen';
 import { Body, Button, Card, Segmented } from '@/components/ui';
 import { appointmentToBookingService } from '@/features/booking/appointment-to-booking-service';
 import { requestKey } from '@/features/booking/request-key';
+import { formatMoney } from '@/features/money';
+import { trackingView } from '@/features/tracking';
 import { mobileApi } from '@/lib/mobile-api';
 import { addAppointmentToCalendar } from '@/lib/native-adapters';
 import { useAuth } from '@/state/auth-context';
 import { useDemo } from '@/state/demo-context';
-import type { PortalAppointment } from '@/types/domain';
+import type { PortalAppointment, PortalOrder } from '@/types/domain';
 import { choiceState } from '@/lib/a11y-state';
 
 import { styles } from './information-page';
 import { Field } from './profile-and-intake';
+
+const ACTIVE_ORDER_STATUSES = new Set(['created', 'paid', 'in_progress', 'ready']);
 
 export function Visits({ onBack, onBook }: { onBack: () => void; onBook: () => void }) {
   const { portal, isDemo, refresh } = useAuth();
   const demo = useDemo();
   const [tab, setTab] = useState<'Upcoming' | 'Past'>('Upcoming');
   const [referenceTime] = useState(() => Date.now());
+
+  // Live orders move under the operator's hands; re-read on entry so the
+  // list reflects the shop, not the last bootstrap.
+  useEffect(() => {
+    if (!isDemo) void refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on entry
+  }, []);
+
+  if (!isDemo) {
+    const orders = portal.orders ?? [];
+    const shown = orders.filter((entry) => (
+      tab === 'Upcoming' ? ACTIVE_ORDER_STATUSES.has(entry.status) : !ACTIVE_ORDER_STATUSES.has(entry.status)
+    ));
+    return (
+      <CollapsingScreen title="Orders" eyebrow="My account" onBack={onBack}>
+        <Segmented options={['Upcoming', 'Past'] as const} value={tab} onChange={setTab} />
+        {shown.map((entry) => <OrderCard key={entry.id} order={entry} />)}
+        {!shown.length ? (
+          <Card><Body muted>{tab === 'Upcoming' ? 'No orders in progress.' : 'No past orders yet.'}</Body></Card>
+        ) : null}
+        <Button label="Start an order" onPress={onBook} />
+      </CollapsingScreen>
+    );
+  }
   const visits = portal.appointments.filter((appointment) => (
     tab === 'Upcoming'
       ? new Date(appointment.startsAt).getTime() >= referenceTime && appointment.status !== 'cancelled'
@@ -113,6 +141,28 @@ function AppointmentCard({
           ) : null}
         </>
       ) : null}
+    </Card>
+  );
+}
+
+/** One live order: what it was, where it stands, what it cost. */
+function OrderCard({ order }: { order: PortalOrder }) {
+  const tracking = trackingView(order.status);
+  const active = tracking.activeIndex >= 0 && order.status !== 'picked_up';
+  const statusLine = tracking.failed
+    ? (tracking.failed === 'cancelled' ? 'Cancelled' : 'Refunded')
+    : tracking.steps[Math.max(tracking.activeIndex, 0)]?.title ?? 'Order received';
+  return (
+    <Card style={styles.detailCard}>
+      <Text style={styles.detailTitle}>{order.summary}</Text>
+      <Body muted>{formatVisitDate(order.scheduledFor ?? order.placedAt)}</Body>
+      <Body>{statusLine} · {formatMoney(order.totalCents)}</Body>
+      {active ? (
+        <Body muted>
+          {tracking.steps[tracking.activeIndex]?.detail ?? ''}
+        </Body>
+      ) : null}
+      {order.note ? <Body muted>“{order.note}”</Body> : null}
     </Card>
   );
 }

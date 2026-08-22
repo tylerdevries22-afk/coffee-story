@@ -80,8 +80,9 @@ export function createApiClient(config: ApiClientConfig) {
      */
     placeOrder: (input: PlaceOrderRequest, idempotencyKey: string) =>
       request<PlaceOrderResponse>(API_ROUTES.orders, input, idempotencyKey),
-    redeemReward: (input: RedeemRewardRequest) =>
-      request<RedeemRewardResponse>(API_ROUTES.loyaltyRedeem, input),
+    /** Hold one key across retries of the same redemption; the server spends once per key. */
+    redeemReward: (input: RedeemRewardRequest, idempotencyKey?: string) =>
+      request<RedeemRewardResponse>(API_ROUTES.loyaltyRedeem, input, idempotencyKey),
     registerPushToken: (input: RegisterPushTokenRequest) =>
       request<{ ok: true }>(API_ROUTES.pushTokens, input),
     updateProfile: (input: UpdateProfileRequest) =>

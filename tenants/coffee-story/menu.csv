@@ -1,13 +1,62 @@
 slug,name,category,description,base_price_cents,sizes
-espresso,Espresso,Coffee & Espresso,Double shot of Corvus Coffee.,350,
-americano,Americano,Coffee & Espresso,Espresso with hot water.,400,12:300|16:400|20:500
-latte,Latte,Coffee & Espresso,Espresso with steamed milk and foam.,500,12:400|16:500|20:600
-cappuccino,Cappuccino,Coffee & Espresso,Equal parts espresso and velvet foam.,500,12:400|16:500|20:600
-cold-brew,Cold Brew,Coffee & Espresso,Our Corvus Coffee brewed with cold water over many hours.,500,12:400|16:500|20:600
-spanish-latte,Spanish Latte,Signature Lattes,Espresso with sweetened condensed milk — silky and rich.,600,12:500|16:600|20:700
-honey-lavender-latte,Honey Lavender Latte,Signature Lattes,Floral lavender and golden honey over espresso.,600,12:500|16:600|20:700
-biscoff-latte,Biscoff Latte,Signature Lattes,Cookie butter folded into espresso and milk.,600,12:500|16:600|20:700
-chai-latte,Chai Latte,Tea & Matcha,House-spiced chai with steamed milk.,550,12:450|16:550|20:650
-boba-brown-sugar,Brown Sugar Boba,Boba,Brown sugar syrup and chewy boba over milk.,600,16:600|20:700
-ade-mango,Mango Ade,Sparkling Ades & Smoothies,Sparkling mango with real fruit.,550,16:450|20:550
-avocado-toast,Avocado Toast,Sandwiches,"Smashed avocado, chili flake, sourdough.",800,
+espresso,Espresso,Coffee & Espresso,Classic espresso shot.,400,
+americano,Americano,Coffee & Espresso,Espresso with hot water.,300,12:300|16:400|20:500
+latte,Latte,Coffee & Espresso,Espresso with steamed milk and foam.,400,12:400|16:500|20:600
+cappuccino,Cappuccino,Coffee & Espresso,"Equal parts espresso, steamed milk, milk foam.",400,12:400|16:500|20:600
+flat-white,Flat White,Coffee & Espresso,Espresso topped with micro-foamed milk.,400,12:400|16:500|20:600
+cortado,Cortado,Coffee & Espresso,"Equal parts espresso and warm milk, no foam.",500,
+macchiato,Macchiato,Coffee & Espresso,Espresso 'stained' with milk foam.,400,
+mocha,Mocha,Coffee & Espresso,"Espresso, steamed milk and chocolate.",500,12:500|16:600|20:700
+cold-brew,Cold Brew,Coffee & Espresso,Our Corvus Coffee brewed with cold water over many hours.,400,12:400|16:500|20:600
+frappe,Frappes,Coffee & Espresso,"Biscoff, caramel, strawberry, or Nutella.",600,12:600|16:700|20:800
+tiramisu-latte,Tiramisu Latte,Signature Lattes,"Espresso layered with mascarpone cream, dusted with cocoa.",600,12:600|16:700|20:800
+spanish-latte,Spanish Latte,Signature Lattes,Espresso with sweetened condensed milk — silky and rich.,500,12:500|16:600|20:700
+pistachio-latte,Pistachio Latte,Signature Lattes,House pistachio cream folded into espresso and steamed milk.,600,12:600|16:700|20:800
+ube-latte,Ube Latte,Signature Lattes,Purple yam sweetness swirled into creamy espresso.,600,12:600|16:700|20:800
+honey-lavender-latte,Honey Lavender Latte,Signature Lattes,Floral lavender and golden honey over espresso.,500,12:500|16:600|20:700
+honey-rose-latte,Honey Rose Latte,Signature Lattes,Soft rose notes sweetened with honey.,500,12:500|16:600|20:700
+brown-sugar-shaken-espresso,Brown Sugar Shaken Espresso,Signature Lattes,"Shaken, frothy espresso with caramelized brown sugar.",500,12:500|16:600|20:700
+biscoff-latte,Biscoff Latte,Signature Lattes,Cookie butter swirled into espresso and milk.,600,12:600|16:700|20:800
+spanish-oat-shaken,Spanish Oat Milk Shaken Espresso,Signature Lattes,Creamy oat milk shaken with sweetened espresso.,500,12:500|16:600|20:700
+libyan-nescafe,Libyan Nescafe,Signature Lattes,"The beloved Libyan classic — light, frothy, comforting.",500,
+turkish-coffee,Turkish Coffee,Signature Lattes,"Traditional, slow-brewed and unfiltered — a ritual in a cup.",500,single:500|double:700
+loose-leaf-tea,Loose Leaf Tea,Tea & Matcha,Fresh brewed whole tea leaves.,400,
+chai-latte,Chai Latte,Tea & Matcha,Black tea blended with cinnamon and cardamom.,400,12:400|16:500|20:600
+london-fog,London Fog,Tea & Matcha,Earl Grey tea with vanilla and steamed milk.,400,12:400|16:500|20:600
+matcha-latte,Matcha Latte,Tea & Matcha,Finely ground green tea whisked with milk.,500,12:500|16:600|20:700
+strawberry-matcha,Strawberry Matcha,Tea & Matcha,Matcha latte layered with strawberry.,500,12:500|16:600|20:700
+ube-matcha,Ube Matcha,Tea & Matcha,Matcha with purple yam (ube).,500,12:500|16:600|20:700
+orange-blossom-matcha,Orange Blossom Matcha,Tea & Matcha,Matcha infused with orange blossom notes.,500,12:500|16:600|20:700
+honey-lavender-matcha,Honey Lavender Matcha,Tea & Matcha,Matcha sweetened with honey and lavender.,500,12:500|16:600|20:700
+spanish-matcha,Spanish Matcha,Tea & Matcha,A creamy matcha made with condensed milk.,500,12:500|16:600|20:700
+adeni-chai,Adeni Chai,Tea & Matcha,Traditional Yemeni chai brewed with black tea and warm spices.,400,12:400|16:500|20:600
+boba-milk-tea,Milk Tea Boba,Boba,Classic creamy milk tea with brown sugar boba.,600,16:600|20:700
+boba-brown-sugar,Brown Sugar Boba,Boba,Tiger-stripe brown sugar syrup over fresh milk and boba.,600,16:600|20:700
+boba-ube,Ube Boba,Boba,Purple yam milk tea with chewy boba pearls.,600,16:600|20:700
+boba-strawberry,Strawberry Boba,Boba,Pink strawberry milk tea with boba pearls.,600,16:600|20:700
+boba-thai-tea,Thai Tea Boba,Boba,Bright orange Thai tea over ice with boba.,600,16:600|20:700
+boba-rooh-afza,Rooh Afza Boba,Boba,Rose-kissed Rooh Afza milk drink with boba pearls.,600,16:600|20:700
+ade-strawberry,Strawberry Sparkling Ade,Sparkling Ades & Smoothies,Ruby strawberry sparkling ade over ice. Add an energy shot.,500,12:500|16:600|20:700
+ade-mango,Mango Sparkling Ade,Sparkling Ades & Smoothies,Golden mango sparkling ade over ice.,500,12:500|16:600|20:700
+ade-sunset,Sunset Sparkling Ade,Sparkling Ades & Smoothies,Our golden-hour signature — citrus layers over ice.,500,12:500|16:600|20:700
+ade-passion-fruit,Passion Fruit Sparkling Ade,Sparkling Ades & Smoothies,Tropical passion fruit sparkle over ice.,500,12:500|16:600|20:700
+midnight-lychee,Midnight Lychee Ade,Sparkling Ades & Smoothies,Sparkling lychee ade — our late-night favorite.,500,12:500|16:600|20:700
+smoothie-strawberry-banana,Strawberry Banana Smoothie,Sparkling Ades & Smoothies,"Thick, creamy strawberry-banana blend.",600,12:600|16:700|20:800
+smoothie-mango-banana,Mango Banana Smoothie,Sparkling Ades & Smoothies,Golden mango blended smooth with banana.,600,12:600|16:700|20:800
+smoothie-strawberry-mango,Strawberry Mango Smoothie,Sparkling Ades & Smoothies,Pink and orange layers in one cup.,600,12:600|16:700|20:800
+smoothie-green-machine,Green Machine Smoothie,Sparkling Ades & Smoothies,Vibrant green and mango smoothie — fresh and bright.,600,12:600|16:700|20:800
+smoothie-banana-date,Banana Date Smoothie,Sparkling Ades & Smoothies,Creamy banana with sweet dates and honey.,600,12:600|16:700|20:800
+sandwich-teriyaki,Teriyaki Chicken Sandwich,Sandwiches,"Teriyaki chicken, mozzarella, avocado, sun-dried tomato and pesto on white bread.",1000,
+wrap-chicken-caesar,Chicken Caesar Wrap,Sandwiches,"Chicken, romaine, parmesan and Caesar dressing in a tortilla.",900,
+panini-mozzarella,Mozzarella Panini,Sandwiches,"Mozzarella, roasted red pepper, tomato, pesto and balsamic glaze.",900,
+sandwich-veggie,Veggie Sandwich,Sandwiches,"Spring mix, avocado, tomato, mozzarella, pesto and balsamic on white bread.",900,
+avocado-toast,Avocado Toast,Sandwiches,"Avocado, cherry tomato, pepper and balsamic glaze on toast.",800,
+grilled-cheese,Grilled Cheese,Sandwiches,"Mozzarella, cheddar and provolone on buttered toast.",700,
+toasted-bagel,Toasted Bagels,Sandwiches,Plain or everything bagel with cream cheese.,400,
+strawberry-nutella-croissant,Strawberry Nutella Croissant,Sweets & Desserts,"Fresh baked croissant stuffed with Nutella, topped with strawberry and Nutella drizzle.",600,
+croissant-cheese-honey,Cheese & Honey Croissant,Sweets & Desserts,"Croissant stuffed with cream cheese, topped with honey drizzle.",600,
+honeycomb-cheese-bread,Honeycomb Cheese Bread,Sweets & Desserts,"Topped with Nutella, Biscoff, or white chocolate.",700,
+honeycomb-condensed,Condensed Milk Honeycomb,Sweets & Desserts,Honeycomb cheese bread soaked in condensed milk.,800,
+honeycomb-bites,Honeycomb Bites,Sweets & Desserts,Bite-size honeycomb cheese bread.,500,
+milk-cake,Flavored Milk Cakes,Sweets & Desserts,"Tres leches style cakes — pistachio, lotus, or saffron.",700,
+mochi-donut,Mochi Donut,Sweets & Desserts,"Chewy, glazed, made fresh — pistachio, ube, or Nutella.",400,single:400|trio:1000
