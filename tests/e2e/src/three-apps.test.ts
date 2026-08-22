@@ -43,6 +43,10 @@ describe('three apps, one stack', { skip: skipUnlessConfigured }, () => {
   after(async () => {
     await closeBrowser();
     for (const stop of stops) stop();
+    // Belt and suspenders: if any stray handle survives the teardown, exit
+    // with the verdict the runner has already established instead of hanging
+    // the CI job until its timeout. Unref'd, so a clean exit ignores it.
+    setTimeout(() => process.exit(process.exitCode ?? 1), 15_000).unref();
   });
 
   it('demo smoke: the Expo Go preview still opens without any backend', async () => {

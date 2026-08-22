@@ -44,7 +44,11 @@ export function startStaticServer(root: string, port: number): Promise<() => voi
   });
   return new Promise((resolve, reject) => {
     server.once('error', reject);
-    server.listen(port, '127.0.0.1', () => resolve(() => server.close()));
+    server.listen(port, '127.0.0.1', () => resolve(() => {
+      // close() alone leaves keep-alive sockets holding the event loop open.
+      server.close();
+      server.closeAllConnections();
+    }));
   });
 }
 
@@ -65,12 +69,19 @@ async function waitForHttp(url: string, timeoutMs: number): Promise<void> {
 }
 
 export async function startHq(port: number): Promise<() => void> {
+  // detached + piped output, and the stop kills the whole process group:
+  // `npx` is only a wrapper, so SIGTERM to the child alone orphans the real
+  // next-server grandchild — and with `stdio: inherit` that orphan holds the
+  // CI step's output pipe open forever, hanging the job long after the test
+  // process has exited. Piping through this process keeps the logs without
+  // ever handing the step's pipe to the grandchild.
   const child: ChildProcess = spawn(
     'npx',
     ['next', 'start', '-p', String(port)],
     {
       cwd: stack.hqDir,
-      stdio: ['ignore', 'inherit', 'inherit'],
+      detached: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
       env: {
         ...process.env,
         SUPABASE_URL: stack.url,
@@ -81,6 +92,29 @@ export async function startHq(port: number): Promise<() => void> {
       },
     },
   );
-  await waitForHttp(`http://127.0.0.1:${port}/api/health`, 60_000);
-  return () => child.kill('SIGTERM');
+  child.stdout?.pipe(process.stdout);
+  child.stderr?.pipe(process.stderr);
+  const stop = () => {
+    const pid = child.pid;
+    if (!pid) return;
+    try {
+      process.kill(-pid, 'SIGTERM');
+    } catch {
+      child.kill('SIGTERM');
+    }
+    setTimeout(() => {
+      try {
+        process.kill(-pid, 'SIGKILL');
+      } catch {
+        // Already gone — the normal case.
+      }
+    }, 5000).unref();
+  };
+  try {
+    await waitForHttp(`http://127.0.0.1:${port}/api/health`, 60_000);
+  } catch (error) {
+    stop();
+    throw error;
+  }
+  return stop;
 }
