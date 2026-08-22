@@ -43,3 +43,34 @@ describe('reconcileQueue', () => {
     assert.equal(result.conflicts[0].serverStatus, null);
   });
 });
+
+describe('reconcileQueue replays a collapsed run', () => {
+  it('turns one queued intent back into the taps the barista made', () => {
+    // Start then Ready with no connection: the queue keeps one entry per
+    // order, so what survives is "reach ready" against a server still at
+    // paid — and paid has no edge to ready. It used to be dropped, telling
+    // the barista the order "moved elsewhere" when nothing had moved, and
+    // the board rolled back over their work.
+    const result = reconcileQueue([t('a', 'ready')], new Map([['a', 'paid']] as const));
+    assert.equal(result.conflicts.length, 0);
+    assert.deepEqual(result.apply.map((entry) => entry.to), ['in_progress', 'ready']);
+    assert.deepEqual(result.apply.map((entry) => entry.orderId), ['a', 'a']);
+  });
+
+  it('walks a whole shift’s worth in order', () => {
+    const result = reconcileQueue([t('a', 'picked_up')], new Map([['a', 'paid']] as const));
+    assert.deepEqual(result.apply.map((entry) => entry.to), ['in_progress', 'ready', 'picked_up']);
+  });
+
+  it('keeps a direct edge direct', () => {
+    const result = reconcileQueue([t('a', 'refunded')], new Map([['a', 'paid']] as const));
+    assert.deepEqual(result.apply.map((entry) => entry.to), ['refunded']);
+  });
+
+  it('still refuses a move the machine has no route for', () => {
+    // refunded is terminal: nothing leads out of it.
+    const result = reconcileQueue([t('a', 'ready')], new Map([['a', 'refunded']] as const));
+    assert.equal(result.apply.length, 0);
+    assert.equal(result.conflicts.length, 1);
+  });
+});

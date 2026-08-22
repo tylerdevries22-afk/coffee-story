@@ -4,7 +4,7 @@
  * (someone else advanced or refunded the order first) instead of failing the
  * whole queue. Pure; persistence is the screen's storage adapter.
  */
-import { canTransition, type OrderStatus } from '@platform/schema';
+import { transitionPath, type OrderStatus } from '@platform/schema';
 
 export type QueuedTransition = {
   orderId: string;
@@ -37,8 +37,14 @@ export function reconcileQueue(
   for (const transition of queue) {
     const current = serverStatus.get(transition.orderId) ?? null;
     if (current === transition.to) continue; // already there: idempotent, silent
-    if (current !== null && canTransition(current, transition.to)) {
-      apply.push(transition);
+    // The queue keeps one intent per order, so a barista who tapped Start
+    // then Ready offline leaves a single hop from 'paid' to 'ready' that the
+    // machine has no edge for. Replay the run they actually made instead of
+    // dropping it and telling them the order "moved elsewhere" when nothing
+    // moved at all.
+    const path = current === null ? null : transitionPath(current, transition.to);
+    if (path && path.length > 0) {
+      for (const step of path) apply.push({ ...transition, to: step });
     } else {
       conflicts.push({ transition, serverStatus: current });
     }
