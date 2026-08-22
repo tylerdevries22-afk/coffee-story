@@ -193,6 +193,17 @@ export function OperatorProvider({ children }: PropsWithChildren) {
             ...existing,
             { orderId: transition.orderId, message: `The change was rejected: ${inserted.error.message}` },
           ]);
+          // Put the board back where the server actually is, now. The
+          // optimistic advance stood until the next heartbeat otherwise —
+          // up to a minute of a KDS reading "Ready" for an order the
+          // database still had at paid, and a drink handed over that was
+          // never started.
+          const known = serverStatus.get(transition.orderId);
+          if (known) {
+            setOrders((current) => current.map((order) => (
+              order.id === transition.orderId ? { ...order, status: known } : order
+            )));
+          }
         } else {
           queueRef.current = enqueueTransition(queueRef.current, transition);
         }

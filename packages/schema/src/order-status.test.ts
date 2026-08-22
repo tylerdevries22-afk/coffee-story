@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { describe, it } from 'node:test';
 
-import { ORDER_TRANSITIONS, OPERATOR_TRANSITIONS, canTransition } from './order-status';
+import { ORDER_STATUSES, ORDER_TRANSITIONS, OPERATOR_TRANSITIONS, canTransition, transitionPath } from './order-status';
 
 // Migrations live in the repo-root supabase/ dir (CLI layout) since 0009+.
 const MIGRATIONS = join(dirname(fileURLToPath(import.meta.url)), '../../../supabase/migrations');
@@ -47,6 +47,38 @@ describe('order status machine', () => {
     const path = ['created', 'paid', 'in_progress', 'ready', 'picked_up'] as const;
     for (let i = 1; i < path.length; i += 1) {
       assert.ok(canTransition(path[i - 1]!, path[i]!), `${path[i - 1]} -> ${path[i]}`);
+    }
+  });
+});
+
+describe('transitionPath', () => {
+  it('finds the run a collapsed queue entry stands for', () => {
+    assert.deepEqual(transitionPath('paid', 'ready'), ['in_progress', 'ready']);
+    assert.deepEqual(transitionPath('paid', 'picked_up'), ['in_progress', 'ready', 'picked_up']);
+  });
+
+  it('prefers the direct edge over a longer route', () => {
+    assert.deepEqual(transitionPath('paid', 'refunded'), ['refunded']);
+    assert.deepEqual(transitionPath('paid', 'cancelled'), ['cancelled']);
+  });
+
+  it('is empty for a state already reached, and null where no route exists', () => {
+    assert.deepEqual(transitionPath('ready', 'ready'), []);
+    assert.equal(transitionPath('refunded', 'ready'), null, 'refunded is terminal');
+    assert.equal(transitionPath('picked_up', 'in_progress'), null, 'the machine does not run backwards');
+  });
+
+  it('agrees with canTransition on every single step it returns', () => {
+    for (const from of ORDER_STATUSES) {
+      for (const to of ORDER_STATUSES) {
+        const path = transitionPath(from, to);
+        if (!path) continue;
+        let cursor = from;
+        for (const step of path) {
+          assert.equal(canTransition(cursor, step), true, `${cursor} -> ${step}`);
+          cursor = step;
+        }
+      }
     }
   });
 });

@@ -126,6 +126,25 @@ export function OrderScreen() {
   useEffect(() => {
     if (redeemCents > 0 && redeemCents > redeemableCents) setRedeemCents(0);
   }, [redeemCents, redeemableCents]);
+
+  // The idempotency key identifies one CART, not one visit to this screen.
+  // It used to be released only on success, so after a request that timed
+  // out server-side -- the order written, the response lost -- a guest who
+  // added a croissant and pressed Place Order again sent the same key. The
+  // server replayed the original order, the app cleared the bag and said
+  // "Order placed", and the croissant was never ordered. Anything that
+  // changes what is being bought retires the key.
+  const cartSignature = JSON.stringify([
+    order.cart.lines.map((line) => [line.id, line.quantity, line.unitPriceCents]),
+    order.tipCents,
+    order.deliveryFeeCents,
+    redeemCents,
+    order.fulfillment?.mode ?? null,
+    order.windowValue,
+  ]);
+  useEffect(() => {
+    checkoutKey.current = null;
+  }, [cartSignature]);
   const pointsPerDollar = tierForAnnualPoints(annualPoints, REWARD_TIERS).pointsPerDollar;
   const pointsEarned = pointsForOrder(totals, annualPoints);
 

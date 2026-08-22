@@ -35,6 +35,36 @@ export function canTransition(from: OrderStatus, to: OrderStatus): boolean {
   return ORDER_TRANSITIONS.some(([a, b]) => a === from && b === to);
 }
 
+/**
+ * The shortest legal run of transitions from one state to another, or null
+ * when the machine offers no route.
+ *
+ * The board advances one tap at a time, but a queue does not: a barista who
+ * taps Start then Ready with no connection produces one queued intent to
+ * reach `ready` from an order the server still has at `paid` — and paid does
+ * not reach ready in a single move. Expanding it here replays the work the
+ * barista actually did, rather than dropping it as an illegal transition.
+ *
+ * Breadth-first, so 'paid' -> 'refunded' stays the direct edge rather than
+ * wandering through in_progress.
+ */
+export function transitionPath(from: OrderStatus, to: OrderStatus): OrderStatus[] | null {
+  if (from === to) return [];
+  const queue: OrderStatus[][] = [[from]];
+  const seen = new Set<OrderStatus>([from]);
+  while (queue.length > 0) {
+    const path = queue.shift()!;
+    const tail = path[path.length - 1]!;
+    for (const [a, b] of ORDER_TRANSITIONS) {
+      if (a !== tail || seen.has(b)) continue;
+      if (b === to) return [...path.slice(1), b];
+      seen.add(b);
+      queue.push([...path, b]);
+    }
+  }
+  return null;
+}
+
 /** The states the operator's live board shows, in column order. */
 export const BOARD_STATUSES = ['paid', 'in_progress', 'ready'] as const;
 

@@ -20,7 +20,7 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { computeAppFeeCents, feeMonthKey, type FeeConfig } from './fees';
+import { computeAppFeeCents, feeMonthRange, type FeeConfig } from './fees';
 import { pointsEarnedFor, pointsToReverse } from './loyalty';
 import { priceLine, MenuPricingError, type MenuItemPricing } from './menu-pricing';
 import { taxCentsFor, taxRowsFor, type TaxJurisdiction } from './tax';
@@ -558,10 +558,18 @@ export async function captureSquarePayment(
   const paymentId = payment.payment?.id;
   if (!paymentId) throw new Error('Square returned no payment id.');
 
-  await deps.db
+  // Checked, because this is the field a refund later depends on: an
+  // unchecked failure here left a charged card on an order the app could
+  // never return money for, while the rest of the function reported success.
+  const linked = await deps.db
     .from('orders')
     .update({ square_order_id: squareOrderId, square_payment_id: paymentId })
     .eq('id', order.id);
+  if (linked.error) {
+    throw new Error(
+      `Square payment ${paymentId} was taken but could not be recorded on order ${order.id}: ${linked.error.message}`,
+    );
+  }
 
   // The paid event: state moves through order_events only (rule 2). The
   // webhook will assert paid again with its own event id; the trigger treats
@@ -606,12 +614,15 @@ async function appFeeForCharge(
   db: SupabaseClient,
   input: { locationId: string; chargeCents: number; feeConfig: FeeConfig; locationTimezone: string },
 ): Promise<{ feeCents: number; feeBpsApplied: number }> {
-  const monthKey = feeMonthKey(new Date(), input.locationTimezone);
+  // The location's own month, as UTC instants: a bare date string resolves
+  // at UTC midnight, which is not when the month starts anywhere but UTC.
+  const { startIso, endIso } = feeMonthRange(new Date(), input.locationTimezone);
   const { data, error } = await db
     .from('platform_fees')
     .select('gross_cents, created_at')
     .eq('location_id', input.locationId)
-    .gte('created_at', `${monthKey}-01`);
+    .gte('created_at', startIso)
+    .lt('created_at', endIso);
   if (error) throw error;
   const monthGrossBefore = (data ?? []).reduce(
     (sum: number, row: { gross_cents: number }) => sum + row.gross_cents, 0);
