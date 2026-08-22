@@ -1,0 +1,68 @@
+{
+  "$docs": {
+    "status": "Placeholder palette (warm neutrals, deep espresso, brass accent) derived from the existing app's own tokens -- replace with the client's real brand once supplied. Fees are the platform default pending the signed agreement. Hours mirror src SHOP_HOURS (Sun-Thu 8-11pm, Fri-Sat 8-midnight)."
+  },
+  "identity": {
+    "slug": "coffee-story",
+    "name": "Coffee Story",
+    "bundleId": "com.coffeestory.app",
+    "scheme": "coffeestory",
+    "easProjectId": "3dcaf174-4065-4c3b-8c57-35ce0a4bad19"
+  },
+  "tokens": {
+    "primary": "#2E211A",
+    "secondary": "#4C3626",
+    "surface": "#FAF5EF",
+    "surfaceElevated": "#FFFFFF",
+    "accent": "#B08D57",
+    "textPrimary": "#241710",
+    "textMuted": "#6B5B4E",
+    "success": "#3E6B4F",
+    "warning": "#9A5B24",
+    "danger": "#A04038",
+    "radius": { "sm": 10, "md": 16, "lg": 24, "pill": 999 },
+    "spacing": { "xs": 4, "sm": 8, "md": 12, "lg": 16, "xl": 24, "xxl": 32 },
+    "fontDisplay": "Fraunces",
+    "fontBody": "Inter",
+    "motion": { "fast": 120, "base": 220, "slow": 360 }
+  },
+  "copy": {
+    "appName": "Coffee Story",
+    "pointsName": "Beans",
+    "orderCta": "Start an order",
+    "earnBanner": "Earn {points} {pointsName} for this order",
+    "memberFallback": "Member",
+    "dropLive": "Pouring now"
+  },
+  "features": {
+    "drops": true,
+    "catering": true,
+    "delivery": true,
+    "multi_location": false,
+    "sms": false,
+    "stored_value": true,
+    "referrals": true
+  },
+  "fees": {
+    "feeBps": 300,
+    "feeBpsTier2": 150,
+    "tierThresholdCents": 2000000
+  },
+  "location": {
+    "name": "Coffee Story",
+    "address": { "street": "2222 S Havana St Unit A1", "city": "Aurora", "region": "CO", "postal": "80014" },
+    "timezone": "America/Denver",
+    "hours": {
+      "mon": [{ "open": "08:00", "close": "23:00" }],
+      "tue": [{ "open": "08:00", "close": "23:00" }],
+      "wed": [{ "open": "08:00", "close": "23:00" }],
+      "thu": [{ "open": "08:00", "close": "23:00" }],
+      "fri": [{ "open": "08:00", "close": "24:00" }],
+      "sat": [{ "open": "08:00", "close": "24:00" }],
+      "sun": [{ "open": "08:00", "close": "23:00" }]
+    }
+  },
+  "illustrations": {
+    "$note": "The Skia rewards-cup espresso palette stays in apps/customer glass-cup-palettes.ts until it reads from here (AUDIT.md disposition)."
+  }
+}

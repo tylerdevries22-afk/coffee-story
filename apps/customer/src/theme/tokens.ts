@@ -5,6 +5,8 @@
 // ink neutrals go warm. Token *names* are unchanged so every screen picks the
 // new brand up with no call-site edits.
 export const colors = {
+  /** The pulsing "open now" dot on the hero. */
+  liveGlow: '#7ED492',
   brand50: '#FAF5EF',
   brand100: '#F3EAE0',
   brand200: '#E4D3C3',

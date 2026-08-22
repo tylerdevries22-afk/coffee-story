@@ -86,7 +86,7 @@ const styles = StyleSheet.create({
   },
   optionSelected: {
     backgroundColor: colors.white,
-    shadowColor: '#000000',
+    shadowColor: colors.ink900,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.12,
     shadowRadius: 3,

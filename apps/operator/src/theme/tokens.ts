@@ -5,6 +5,11 @@
 // ink neutrals go warm. Token *names* are unchanged so every screen picks the
 // new brand up with no call-site edits.
 export const colors = {
+  /** Soft state tints behind success/danger badges. */
+  successTint: '#E4F0EA',
+  dangerTint: '#F6E3E5',
+  /** The hero's pulsing open-now dot (shared palette with the customer app). */
+  liveGlow: '#7ED492',
   brand50: '#FAF5EF',
   brand100: '#F3EAE0',
   brand200: '#E4D3C3',

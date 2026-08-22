@@ -479,8 +479,8 @@ const styles = StyleSheet.create({
   bookNowWait: { color: 'rgba(255,255,255,0.82)', fontFamily: fonts.sansMedium, fontSize: 14 },
 
   pulseWrap: { width: 12, height: 12, alignItems: 'center', justifyContent: 'center' },
-  pulseRing: { position: 'absolute', width: 12, height: 12, borderRadius: 8, backgroundColor: '#7ED492' },
-  pulseCore: { width: 7, height: 7, borderRadius: 5, backgroundColor: '#7ED492' },
+  pulseRing: { position: 'absolute', width: 12, height: 12, borderRadius: 8, backgroundColor: colors.liveGlow },
+  pulseCore: { width: 7, height: 7, borderRadius: 5, backgroundColor: colors.liveGlow },
 
   pressed: { opacity: 0.85 },
   dots: { position: 'absolute', left: spacing.lg, bottom: 19, flexDirection: 'row', gap: 6 },

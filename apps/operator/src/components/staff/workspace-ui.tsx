@@ -10,11 +10,11 @@ import { toggleState } from '@/lib/a11y-state';
 
 /** Status → pill colour, matching the web portal's badge tones. */
 const STATUS_TONE: Record<PortalAppointment['status'], { fg: string; bg: string }> = {
-  confirmed: { fg: colors.success, bg: '#E4F0EA' },
+  confirmed: { fg: colors.success, bg: colors.successTint },
   pending: { fg: colors.warning, bg: colors.gold50 },
   completed: { fg: colors.brand600, bg: colors.brand50 },
   cancelled: { fg: colors.ink500, bg: colors.ink200 },
-  no_show: { fg: colors.danger, bg: '#F6E3E5' },
+  no_show: { fg: colors.danger, bg: colors.dangerTint },
 };
 
 export function StatusBadge({ status }: { status: PortalAppointment['status'] }) {
@@ -30,7 +30,7 @@ export function SourceBadge({ label, tone = 'plum' }: { label: string; tone?: 'p
   const palette = {
     plum: { fg: colors.brand600, bg: colors.brand50 },
     amber: { fg: colors.warning, bg: colors.gold50 },
-    green: { fg: colors.success, bg: '#E4F0EA' },
+    green: { fg: colors.success, bg: colors.successTint },
     gray: { fg: colors.ink500, bg: colors.warm },
   }[tone];
   return (
