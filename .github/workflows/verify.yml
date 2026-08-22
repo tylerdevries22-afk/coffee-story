@@ -109,6 +109,71 @@ jobs:
           export SUPABASE_TEST_DB_URL="$DB_URL"
           pnpm --filter @platform/integration-tests test
 
+  # The three-apps-together proof: a guest signs in with an email code and
+  # places a real order in the customer web build, the operator board works
+  # it over Realtime, and HQ's dashboard carries the money — one seeded
+  # supabase-CLI stack, the real onboarding path, the real API, real RLS.
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Start the Supabase stack (applies supabase/migrations)
+        run: supabase start
+      - name: Install the Playwright browser
+        working-directory: tests/e2e
+        run: npx playwright install --with-deps chromium
+      - name: Seed the tenant through the real onboarding path
+        run: |
+          set -euo pipefail
+          eval "$(supabase status -o env | sed 's/^/export /')"
+          export SUPABASE_URL="$API_URL"
+          export SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY"
+          pnpm onboard --tenant coffee-story
+      - name: Build the three app surfaces against the stack
+        run: |
+          set -euo pipefail
+          eval "$(supabase status -o env | sed 's/^/export /')"
+          ( cd apps/customer && \
+            EXPO_PUBLIC_SUPABASE_URL="$API_URL" \
+            EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$ANON_KEY" \
+            EXPO_PUBLIC_API_URL="http://127.0.0.1:4383" \
+            npx expo export --platform web --output-dir dist-e2e )
+          ( cd apps/operator && \
+            EXPO_PUBLIC_SUPABASE_URL="$API_URL" \
+            EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$ANON_KEY" \
+            npx expo export --platform web --output-dir dist-e2e )
+          pnpm --filter @platform/hq build
+      - name: Run the end-to-end suite
+        run: |
+          set -euo pipefail
+          eval "$(supabase status -o env | sed 's/^/export /')"
+          export SUPABASE_TEST_URL="$API_URL"
+          export SUPABASE_TEST_ANON_KEY="$ANON_KEY"
+          export SUPABASE_TEST_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY"
+          export SUPABASE_TEST_DB_URL="$DB_URL"
+          export E2E_CUSTOMER_DIR="$GITHUB_WORKSPACE/apps/customer/dist-e2e"
+          export E2E_OPERATOR_DIR="$GITHUB_WORKSPACE/apps/operator/dist-e2e"
+          export E2E_HQ_DIR="$GITHUB_WORKSPACE/apps/hq"
+          export E2E_SHOT_DIR="$GITHUB_WORKSPACE/e2e-shots"
+          pnpm --filter @platform/e2e-tests test
+      - name: Keep the walkthrough screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-screenshots
+          path: e2e-shots/
+          if-no-files-found: ignore
+
   audit:
     runs-on: ubuntu-latest
     timeout-minutes: 10

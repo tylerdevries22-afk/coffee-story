@@ -1,4 +1,8 @@
 import { loadCampaigns } from '@/lib/data';
+// The console is live data behind a session: never prerender a fixture
+// snapshot at build time and serve it as if it were today's numbers.
+export const dynamic = 'force-dynamic';
+
 
 export default async function CampaignsPage() {
   const campaigns = await loadCampaigns();

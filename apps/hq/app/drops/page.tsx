@@ -1,5 +1,9 @@
 import { loadDrops } from '@/lib/data';
 import { formatMoney } from '@/lib/kpi';
+// The console is live data behind a session: never prerender a fixture
+// snapshot at build time and serve it as if it were today's numbers.
+export const dynamic = 'force-dynamic';
+
 
 const STATUS_PILL: Record<string, string> = {
   live: 'pill success',

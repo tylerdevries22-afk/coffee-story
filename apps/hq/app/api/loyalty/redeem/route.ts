@@ -1,6 +1,8 @@
 import type { RedeemRewardRequest, RedeemRewardResponse } from '@platform/api-client';
 
 import {
+  corsPreflight,
+  jsonWithCors,
   authenticate,
   idempotencyKeyOf,
   jsonError,
@@ -84,7 +86,7 @@ export async function POST(request: Request): Promise<Response> {
       .maybeSingle<{ id: string }>();
     if (replay.data) {
       const response: RedeemRewardResponse = { pointsBalance: account.data.points_balance };
-      return Response.json(response);
+      return jsonWithCors(response);
     }
   }
 
@@ -108,5 +110,10 @@ export async function POST(request: Request): Promise<Response> {
   if (updated.error) throw updated.error;
 
   const response: RedeemRewardResponse = { pointsBalance: nextBalance };
-  return Response.json(response);
+  return jsonWithCors(response);
+}
+
+/** Browser preflight for the customer web build. */
+export function OPTIONS(): Response {
+  return corsPreflight();
 }

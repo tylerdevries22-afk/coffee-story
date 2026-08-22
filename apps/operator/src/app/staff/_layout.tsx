@@ -11,7 +11,12 @@ import { StaffWorkspaceProvider, useStaffWorkspace } from '@/state/staff-workspa
 /** See `client/_layout.tsx`'s equivalent guard for why this redirect exists. */
 export default function StaffLayout() {
   const { isStaffMode } = useAppState();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
+  // Both answers below are still loading on a cold open: the session restores
+  // asynchronously, and isStaffMode derives from the role the tenant claims
+  // carry, which arrives with the portal. Redirecting before either resolves
+  // threw a barista opening a board link straight back to sign-in.
+  if (isLoading) return <View style={styles.shell}><LoadingState label="Loading the staff workspace…" /></View>;
   if (!isAuthenticated) return <Redirect href="/" />;
   if (!isStaffMode) return <Redirect href="/" />;
   return (

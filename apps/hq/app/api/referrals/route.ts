@@ -3,6 +3,8 @@ import { randomInt } from 'node:crypto';
 import type { MintReferralResponse } from '@platform/api-client';
 
 import {
+  corsPreflight,
+  jsonWithCors,
   authenticate,
   notConfigured,
   resolveCustomer,
@@ -49,7 +51,7 @@ export async function POST(request: Request): Promise<Response> {
   if (existing.error) throw existing.error;
   if (existing.data) {
     const response: MintReferralResponse = { code: existing.data.code };
-    return Response.json(response);
+    return jsonWithCors(response);
   }
 
   // UNIQUE (brand_id, code): on the rare collision, roll again.
@@ -62,9 +64,14 @@ export async function POST(request: Request): Promise<Response> {
     });
     if (!minted.error) {
       const response: MintReferralResponse = { code };
-      return Response.json(response, { status: 201 });
+      return jsonWithCors(response, 201);
     }
     if (minted.error.code !== '23505') throw minted.error;
   }
   throw new Error('Could not mint a unique referral code.');
+}
+
+/** Browser preflight for the customer web build. */
+export function OPTIONS(): Response {
+  return corsPreflight();
 }

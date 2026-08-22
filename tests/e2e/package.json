@@ -1,0 +1,23 @@
+{
+  "name": "@platform/e2e-tests",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "tsx --test --test-timeout=300000 \"src/**/*.test.ts\"",
+    "lint": "echo 'e2e tests: lint covered by typecheck'",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@platform/schema": "workspace:*",
+    "@supabase/supabase-js": "^2.111.0",
+    "pg": "^8.16.0",
+    "playwright": "^1.55.0"
+  },
+  "devDependencies": {
+    "@types/node": "~24.6.2",
+    "@types/pg": "^8.15.0",
+    "tsx": "^4.20.6",
+    "typescript": "~5.9.2"
+  }
+}
