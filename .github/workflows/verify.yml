@@ -65,6 +65,37 @@ jobs:
         working-directory: apps/operator
         run: npx expo export --platform ios
 
+  # Everything above is static; this job is the only place the schema's SQL
+  # actually executes. `supabase start` (Docker lives on the hosted runners;
+  # the dev container has no daemon) applies supabase/migrations/ and the
+  # config.toml auth hook, then the tests exercise RLS with real hook-minted
+  # JWTs, the order state machine, webhook replay, and the idempotency key.
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Start the Supabase stack (applies supabase/migrations)
+        run: supabase start
+      - name: Run integration tests against the stack
+        run: |
+          set -euo pipefail
+          eval "$(supabase status -o env | sed 's/^/export /')"
+          export SUPABASE_TEST_URL="$API_URL"
+          export SUPABASE_TEST_ANON_KEY="$ANON_KEY"
+          export SUPABASE_TEST_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY"
+          export SUPABASE_TEST_DB_URL="$DB_URL"
+          pnpm --filter @platform/integration-tests test
+
   audit:
     runs-on: ubuntu-latest
     timeout-minutes: 10
