@@ -8,7 +8,7 @@
  */
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { AppIcon } from '@/components/icon';
@@ -65,12 +65,6 @@ function ItemSheetBody({
   const [selection, setSelection] = useState<OptionSelection>(() => defaultOptionSelection(groups));
   const [quantity, setQuantity] = useState(1);
   const [showRequired, setShowRequired] = useState(false);
-
-  // A different item reuses this component only through the `key` above, but
-  // the groups can still change when the catalog reloads underneath it.
-  useEffect(() => {
-    setSelection(defaultOptionSelection(groups));
-  }, [groups]);
 
   const size = item.durations.find((entry) => entry.slug === sizeSlug) ?? item.durations[0];
   const basePriceCents = size ? sizePriceCents(size) : 0;

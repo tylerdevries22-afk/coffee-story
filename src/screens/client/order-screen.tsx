@@ -62,10 +62,13 @@ export function OrderScreen() {
   const [applePaySupported, setApplePaySupported] = useState(false);
   const [paying, setPaying] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
-  const [placedSummary, setPlacedSummary] = useState<string | null>(null);
+  // Snapshotted at the moment the order is placed. Reading `totals` here
+  // instead would show the confirmation screen the totals of the bag that
+  // `clearBag()` has just emptied -- "Paid $0", earning 0 Beans.
+  const [placed, setPlaced] = useState<{ summary: string; totalCents: number; points: number } | null>(null);
 
   const simulated = usesSimulatedNativeFlows(isDemo, Constants.appOwnership ?? null);
-  const guestName = order.guestName || portal.profile.fullName;
+  const guestName = order.guestName;
 
   const totals = useMemo(() => orderTotals({
     subtotalCents: order.subtotalCents,
@@ -107,6 +110,15 @@ export function OrderScreen() {
     setStep('place');
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
   }, []);
+
+  // Seeded once, rather than falling back to the profile name at render time.
+  // With a fallback, clearing the field wrote '' to the context and the render
+  // immediately put the profile name back -- the clear button did nothing.
+  useEffect(() => {
+    if (step === 'place' && !order.guestName && portal.profile.fullName) {
+      order.setGuestName(portal.profile.fullName);
+    }
+  }, [order, portal.profile.fullName, step]);
 
   const choosePlace = useCallback((fulfillment: BookingFulfillment) => {
     order.setFulfillment(fulfillment);
@@ -150,7 +162,7 @@ export function OrderScreen() {
         description: order.cart.note || undefined,
       };
       demo.book({ service, addOns: [], startsAt: order.windowValue, fulfillment: order.fulfillment });
-      setPlacedSummary(summary);
+      setPlaced({ summary, totalCents: totals.totalCents, points: pointsEarned });
       order.clearBag();
       order.setTipCents(0);
       setOverlay('placed');
@@ -158,7 +170,7 @@ export function OrderScreen() {
     } finally {
       setPaying(false);
     }
-  }, [demo, isDemo, order, simulated, totals.totalCents]);
+  }, [demo, isDemo, order, pointsEarned, simulated, totals.totalCents]);
 
   if (order.fulfillment && order.windowValue) {
     return (
@@ -229,11 +241,11 @@ export function OrderScreen() {
 
         <PushFromRight visible={overlay === 'placed'} onDismiss={editOrder}>
           <OrderPlaced
-            summary={placedSummary ?? ''}
+            summary={placed?.summary ?? ''}
             guestName={guestName}
             windowValue={order.windowValue}
-            totalCents={totals.totalCents}
-            pointsEarned={pointsEarned}
+            totalCents={placed?.totalCents ?? 0}
+            pointsEarned={placed?.points ?? 0}
             isDelivery={order.fulfillment.mode === 'dispatch'}
             onViewVisits={() => {
               editOrder();

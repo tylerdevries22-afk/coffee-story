@@ -141,6 +141,12 @@ export function MenuStep({
           ref={scrollRef}
           stickyHeaderIndices={[0]}
           onScroll={onScroll}
+          // A finger on the list means the guest has taken over from a
+          // tap-driven scroll. Without this the guard stayed armed whenever
+          // they interrupted one, and the strip froze on the tapped tab.
+          onScrollBeginDrag={() => {
+            pending.current = null;
+          }}
           scrollEventThrottle={16}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={[styles.scroll, { paddingBottom: clearance + 56 }]}
