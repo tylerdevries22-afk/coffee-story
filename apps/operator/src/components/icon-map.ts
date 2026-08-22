@@ -48,6 +48,7 @@ export const IONICON: Record<string, keyof typeof Ionicons.glyphMap> = {
   gearshape: 'settings-outline',
   gift: 'gift-outline',
   giftcard: 'gift',
+  'rectangle.grid.2x2': 'grid',
   'heart.fill': 'heart',
   house: 'home-outline',
   'house.fill': 'home',

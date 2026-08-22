@@ -236,7 +236,8 @@ export const DEMO_PORTAL: PortalBundle = {
     birthday: '1990-07-08',
     avatarUrl: null,
   },
-  role: 'client',
+  // The operator app's demo opens on the shift floor, not in the guest shell.
+  role: 'staff',
   appointments: [...upcomingAppointments, ...pastAppointments],
   rewardAccount: {
     availablePoints: 1376,

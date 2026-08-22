@@ -31,7 +31,7 @@ const AuthContext = createContext<AuthState | null>(null);
 
 const EMPTY_PORTAL: PortalBundle = {
   profile: { id: '', fullName: '', email: '', phone: null, birthday: null, avatarUrl: null },
-  role: 'client',
+  role: 'staff',
   appointments: [],
   rewardAccount: { availablePoints: 0, annualPoints: 0, cashCents: 0, annualPeriodStart: `${new Date().getFullYear()}-01-01` },
   rewardLedger: [],

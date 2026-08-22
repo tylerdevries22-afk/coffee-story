@@ -6,6 +6,7 @@ import { ProfileAvatar } from '@/components/profile-avatar';
 import { CollapsingScreen } from '@/components/collapsing-screen';
 import { Body, Button, Card, SectionTitle } from '@/components/ui';
 import { mobileApi } from '@/lib/mobile-api';
+import { strengthLabel } from '@/features/setup/setup';
 import { useAuth } from '@/state/auth-context';
 import { useDemo } from '@/state/demo-context';
 import { colors, fonts, spacing } from '@/theme/tokens';
@@ -248,9 +249,9 @@ export function Intake({ onBack }: { onBack: () => void }) {
   return (
     <CollapsingScreen title="Intake & consent" eyebrow="Private care profile" onBack={onBack} keyboardShouldPersistTaps="handled">
       <Field label="What should the bar know?" value={intake.concerns} multiline onChangeText={(concerns) => setIntake({ ...intake, concerns })} />
-      <SectionTitle>Pressure preference</SectionTitle>
+      <SectionTitle>Coffee strength</SectionTitle>
       <View style={styles.options}>{(['light', 'medium', 'firm'] as const).map((pressure) => (
-        <Button key={pressure} label={pressure} variant={intake.pressurePreference === pressure ? 'primary' : 'secondary'} style={styles.option} onPress={() => setIntake({ ...intake, pressurePreference: pressure })} />
+        <Button key={pressure} label={strengthLabel(pressure)} variant={intake.pressurePreference === pressure ? 'primary' : 'secondary'} style={styles.option} onPress={() => setIntake({ ...intake, pressurePreference: pressure })} />
       ))}</View>
       <Button label={intake.consentAccepted ? 'Consent accepted' : 'Review and accept consent'} variant="secondary" onPress={() => setIntake({ ...intake, consentAccepted: true })} />
       <Button label="Save draft" variant="secondary" loading={saving === 'draft'} disabled={saving !== null} onPress={() => void persistIntake(false)} />

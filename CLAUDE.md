@@ -60,6 +60,8 @@ docs/               AUDIT, ARCHITECTURE, RUNBOOK, BUILD-REPORT, legal/
   plain `.ts`, no component renderer. Keep domain modules asset-free so tests
   can reach them; view-layer helpers that touch assets live beside screens.
 - Comments explain *why*, not *what*; sentence case; no decoration.
+- Design: `docs/DESIGN.md` — one language, three expressions. Warm tenant
+  surfaces in the apps, executive dark in HQ, same tokens/type/voice family.
 - Accessibility: use the `a11y-state` helpers so `accessibilityState` and the
   matching `aria-*` attribute are both emitted (react-native-web drops
   `accessibilityState` on `Pressable`).

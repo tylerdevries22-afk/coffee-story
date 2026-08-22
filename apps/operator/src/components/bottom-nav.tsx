@@ -14,7 +14,7 @@ import { AppIcon } from '@/components/icon';
 /** SF Symbol names, plus the one mark the app draws itself. */
 type NavIcon =
   | 'house' | 'calendar' | 'gift' | 'ellipsis' | 'sun.max' | 'person.2' | 'creditcard'
-  | 'cup';
+  | 'cup' | 'rectangle.grid.2x2';
 
 const CLIENT_ITEMS: readonly { key: ClientTab; label: string; icon: NavIcon }[] = [
   { key: 'home', label: CLIENT_TAB_LABELS.home, icon: 'house' },
@@ -25,6 +25,7 @@ const CLIENT_ITEMS: readonly { key: ClientTab; label: string; icon: NavIcon }[] 
 ];
 
 const STAFF_ITEMS: readonly { key: StaffTab; label: string; icon: NavIcon }[] = [
+  { key: 'orders', label: 'Orders', icon: 'rectangle.grid.2x2' },
   { key: 'today', label: 'Today', icon: 'sun.max' },
   { key: 'calendar', label: 'Calendar', icon: 'calendar' },
   { key: 'clients', label: 'Clients', icon: 'person.2' },

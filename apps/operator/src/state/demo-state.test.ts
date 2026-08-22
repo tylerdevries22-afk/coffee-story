@@ -66,10 +66,11 @@ test('migrates an invalid persisted avatar back to the initials fallback', () =>
 
 test('changes the preview role without mutating portal data', () => {
   const initial = createInitialDemoPortal();
-  const staff = setDemoRole(initial, 'staff');
-  const admin = setDemoRole(staff, 'admin');
-  assert.equal(initial.role, 'client');
-  assert.equal(staff.role, 'staff');
+  const client = setDemoRole(initial, 'client');
+  const admin = setDemoRole(client, 'admin');
+  // The operator app's demo opens on the shift floor (data/demo.ts).
+  assert.equal(initial.role, 'staff');
+  assert.equal(client.role, 'client');
   assert.equal(admin.role, 'admin');
   assert.equal(admin.profile.fullName, initial.profile.fullName);
   assert.notEqual(admin, initial);

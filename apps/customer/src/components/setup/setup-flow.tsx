@@ -8,6 +8,7 @@ import {
   DAY_OPTIONS,
   PREFERRED_TIME_OPTIONS,
   PRESSURE_OPTIONS,
+  strengthLabel,
   SETUP_STEP_COUNT,
   STAFF_SPECIALTY_OPTIONS,
   portalSetup,
@@ -33,7 +34,7 @@ const ROLE_COPY: Record<AppRole, { title: string; subtitle: string; done: string
   client: {
     title: 'Set up your portal',
     subtitle: 'A minute now personalizes every visit',
-    done: 'Your preferences now shape booking and care.',
+    done: 'Your preferences now shape every order.',
   },
   staff: {
     title: 'Staff setup',
@@ -223,7 +224,7 @@ function StepBody({
       return (
         <ChipGroup
           legend="What brings you in?"
-          hint="Pick anything that applies — it shapes your care plan."
+          hint="Pick anything that applies — it shapes what we suggest."
           options={CLIENT_GOAL_OPTIONS}
           selected={answers.goals}
           onToggle={(goal) => set({ goals: toggleListItem(answers.goals, goal) })}
@@ -234,14 +235,15 @@ function StepBody({
       return (
         <View style={styles.stepGap}>
           <ChipGroup
-            legend="Preferred pressure"
+            legend="Coffee strength"
             options={PRESSURE_OPTIONS}
             selected={[answers.pressure]}
             onToggle={(pressure) => set({ pressure: pressure as typeof answers.pressure })}
+            formatLabel={strengthLabel}
             single
           />
           <ChipGroup
-            legend="Best appointment times"
+            legend="Best times to swing by"
             options={PREFERRED_TIME_OPTIONS}
             selected={answers.preferredTimes}
             onToggle={(time) => set({ preferredTimes: toggleListItem(answers.preferredTimes, time) })}
@@ -253,7 +255,7 @@ function StepBody({
       <SummaryBlock
         rows={[
           { label: 'Goals', value: answers.goals.length ? answers.goals.join(', ') : '—' },
-          { label: 'Pressure', value: answers.pressure },
+          { label: 'Strength', value: strengthLabel(answers.pressure) },
           { label: 'Best times', value: answers.preferredTimes.length ? answers.preferredTimes.join(', ') : 'Flexible' },
         ]}
       />
@@ -359,6 +361,7 @@ function ChipGroup({
   selected,
   onToggle,
   single = false,
+  formatLabel,
 }: {
   legend: string;
   hint?: string;
@@ -366,6 +369,8 @@ function ChipGroup({
   selected: readonly string[];
   onToggle: (option: string) => void;
   single?: boolean;
+  /** Wire values stay stable; what a person reads can differ. */
+  formatLabel?: (option: string) => string;
 }) {
   return (
     <View accessibilityRole={single ? 'radiogroup' : undefined} accessibilityLabel={legend}>
@@ -384,7 +389,7 @@ function ChipGroup({
               onPress={() => onToggle(option)}
               style={({ pressed }) => [styles.chip, on && styles.chipOn, pressed && styles.pressed]}
             >
-              <Text style={[styles.chipLabel, on && styles.chipLabelOn]}>{option}</Text>
+              <Text style={[styles.chipLabel, on && styles.chipLabelOn]}>{formatLabel ? formatLabel(option) : option}</Text>
             </Pressable>
           );
         })}
