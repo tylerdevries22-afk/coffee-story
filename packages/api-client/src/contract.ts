@@ -81,6 +81,18 @@ export type HealthResponse = {
 };
 
 /** Route table: one place the paths live. */
+export type CancelOrderRequest = {
+  orderId: string;
+  reason?: string;
+};
+
+export type CancelOrderResponse = {
+  orderId: string;
+  status: OrderStatus;
+  /** True when the order was already cancelled; the call changed nothing. */
+  alreadyCancelled: boolean;
+};
+
 export type RefundOrderRequest = {
   orderId: string;
   /** Whole cents to return, or the whole order. */
@@ -96,6 +108,7 @@ export type RefundOrderResponse = {
 
 export const API_ROUTES = {
   orders: '/api/orders',
+  ordersCancel: '/api/orders/cancel',
   ordersRefund: '/api/orders/refund',
   loyaltyRedeem: '/api/loyalty/redeem',
   pushTokens: '/api/push-tokens',

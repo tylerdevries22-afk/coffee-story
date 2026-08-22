@@ -694,6 +694,26 @@ function OrderPlaced({
     return simulateProgress(setStatus);
   }, [orderId]);
   const tracking = trackingView(status);
+
+  // Calling it off is only offered while it is still true: once the shop
+  // starts the drink the button disappears rather than failing on tap.
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+  const canCancel = Boolean(orderId) && (status === 'created' || status === 'paid');
+  const onCancel = useCallback(() => {
+    if (!orderId || !platformApi) return;
+    setCancelling(true);
+    setCancelError(null);
+    platformApi
+      .cancelOrder({ orderId })
+      .then(() => setStatus('cancelled'))
+      .catch((error: unknown) => {
+        setCancelError(error instanceof Error
+          ? error.message
+          : 'That did not go through. Try again, or ask the shop.');
+      })
+      .finally(() => setCancelling(false));
+  }, [orderId]);
   return (
     <CollapsingScreen
       title="Order placed"
@@ -742,6 +762,26 @@ function OrderPlaced({
         })}
       </View>
 
+      {canCancel ? (
+        <View style={styles.cancelBlock}>
+          {cancelError ? <Text style={styles.cancelError}>{cancelError}</Text> : null}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Cancel this order"
+            disabled={cancelling}
+            onPress={onCancel}
+            style={({ pressed }) => [styles.cancelRow, pressed && styles.cardPressed]}
+          >
+            <Text style={styles.cancelText}>
+              {cancelling ? 'Cancelling…' : 'Cancel this order'}
+            </Text>
+          </Pressable>
+          <Text style={styles.cancelNote}>
+            You can cancel until the shop starts making it.
+          </Text>
+        </View>
+      ) : null}
+
       <Pressable
         accessibilityRole="button"
         onPress={onViewVisits}
@@ -761,6 +801,18 @@ function OrderPlaced({
 }
 
 const styles = StyleSheet.create({
+  cancelBlock: { marginHorizontal: spacing.lg, gap: spacing.xs },
+  cancelRow: {
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.ink200,
+    backgroundColor: colors.white,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+  },
+  cancelText: { color: colors.danger, fontFamily: fonts.sansMedium, fontSize: 15 },
+  cancelNote: { color: colors.ink500, fontFamily: fonts.sans, fontSize: 13, textAlign: 'center' },
+  cancelError: { color: colors.danger, fontFamily: fonts.sans, fontSize: 13, textAlign: 'center' },
   trackCard: {
     marginHorizontal: spacing.lg,
     borderRadius: radius.md,

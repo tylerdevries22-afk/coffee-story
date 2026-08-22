@@ -33,6 +33,7 @@ token>` and an `Idempotency-Key`.
 | Route | Does |
 |---|---|
 | `POST /api/orders` | Places an order. Prices are recomputed server-side from `menu_items` and the brand's tax table; the idempotency key persists as `orders.client_key`, so a retry returns the first order. Tenders: `pay_at_pickup` (asserts `paid` immediately — it settles at the register) and `square_link` (returns `checkoutUrl`, a Square-hosted page; the order stays `created` until the payment webhook arrives). `square_link` answers 503 unless that location has a Square connection; `square_card` needs a native card SDK and answers 503 until store builds. |
+| `POST /api/orders/cancel` | A guest calling off their own order, while the shop has not started it. Server-side because RLS lets only location staff write an `order_event`; the order must belong to the caller's own customer row. Answers 409 `cancel_unavailable` once it is `in_progress` or later, or when a card already charged (that needs a staff refund). Repeat calls answer 200 with `alreadyCancelled`. |
 | `POST /api/orders/refund` | Staff only. Refunds through Square, then writes the `refunded` event. The one transition that is not a direct `order_events` insert: it needs the location's decrypted token, which no client may hold. Answers 409 `refund_unavailable` for an order no card paid for (refund those at the register). |
 | `POST /api/loyalty/redeem` | Spends points on a reward from `brand_config.loyalty.rewards`. |
 | `POST /api/push-tokens` | Registers a device push token (re-homes it if the device changes accounts). |

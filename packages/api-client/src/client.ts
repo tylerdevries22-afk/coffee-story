@@ -1,5 +1,7 @@
 import {
   API_ROUTES,
+  type CancelOrderRequest,
+  type CancelOrderResponse,
   type MintReferralResponse,
   type PlaceOrderRequest,
   type PlaceOrderResponse,
@@ -85,6 +87,9 @@ export function createApiClient(config: ApiClientConfig) {
     /** Hold one key across retries of the same redemption; the server spends once per key. */
     redeemReward: (input: RedeemRewardRequest, idempotencyKey?: string) =>
       request<RedeemRewardResponse>(API_ROUTES.loyaltyRedeem, input, idempotencyKey),
+    /** The guest calling off their own order, before the shop starts it. */
+    cancelOrder: (input: CancelOrderRequest, idempotencyKey?: string) =>
+      request<CancelOrderResponse>(API_ROUTES.ordersCancel, input, idempotencyKey),
     /**
      * Staff only. Every other status change is a direct order_events insert
      * under RLS, but a refund moves money at Square first, so it goes through

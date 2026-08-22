@@ -67,6 +67,7 @@ const ERROR_STATUS: Record<OrderError['code'], number> = {
   ordering_paused: 409,
   item_unavailable: 409,
   refund_unavailable: 409,
+  cancel_unavailable: 409,
 };
 
 export async function POST(request: Request): Promise<Response> {
