@@ -41,8 +41,8 @@ yarn-error.*
 example
 
 # generated native folders
-/ios
-/android
+apps/*/ios/
+apps/*/android/
 
 # Coffee Story local workspace artifacts
 _assets-web/

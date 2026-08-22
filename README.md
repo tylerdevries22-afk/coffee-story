@@ -1,15 +1,27 @@
-# Coffee Story
+# Multi-tenant ordering platform
 
-The Coffee Story mobile app — Expo SDK 54, React Native 0.81, expo-router v6.
+A white-label ordering platform in a pnpm monorepo: a shared engine and
+schema, a token-driven UI kit, and three front ends. The first tenant is
+Coffee Story, a specialty coffee shop at 2222 S Havana St Unit A1, Aurora CO
+80014. Architecture rules live in `CLAUDE.md`; the platform audit that shaped
+this layout is `docs/AUDIT.md`.
 
-Coffee Story is a specialty coffee shop at 2222 S Havana St Unit A1, Aurora CO
-80014. The app lets a guest order ahead for pickup or delivery, send a digital
-gift card, and earn Beans on what they spend; staff get a register, a shift
-board, a guest directory, and the owner tools behind them.
+```
+apps/customer      guest app (Expo SDK 54) — one binary per brand
+apps/operator      staff/manager app (Expo SDK 54) — one listing, iPad-first
+apps/hq            brand-owner + platform console (Next.js)
+packages/engine    ordering, loyalty, drops, square, notifications, analytics
+packages/ui        design tokens + ThemeProvider + component kit
+packages/schema    Supabase migrations, RLS, generated types, seed
+tenants/<slug>     brand config, menu, assets, app-store listing material
+```
 
-## What is in here
+Run everything from the root: `pnpm install`, then `pnpm verify` (lint,
+typecheck, tests, and both app bundles per workspace).
 
-**Client**
+## The customer app (`apps/customer`)
+
+Expo SDK 54, React Native 0.81, expo-router v6. What a guest sees today:
 
 - **Order** — the whole ordering journey: pickup or delivery, which shop, the
   name and pickup window, the full menu by category, an item sheet with sizes
@@ -22,10 +34,11 @@ board, a guest directory, and the owner tools behind them.
 - **More** — orders, profile, preferences, messages, payments, location, FAQ,
   privacy.
 
-**Staff and owner**
+## The operator app (`apps/operator`)
 
-- Today, calendar, guest directory, point of sale, and the admin pages behind
-  the More stack, role-gated.
+Today, calendar, guest directory, point of sale, and the admin pages behind
+the More stack. Split out of the customer binary so operator functionality
+never ships to a guest (rule 7); tenancy is by login, one listing.
 
 ## Modes
 

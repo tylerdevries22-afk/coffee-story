@@ -1,0 +1,13 @@
+{
+  "name": "@platform/schema",
+  "version": "0.1.0",
+  "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "lint": "echo 'lint: SQL reviewed by hand; TS added in Phase 2'",
+    "typecheck": "tsc --noEmit",
+    "test": "echo 'no tests yet'",
+    "verify": "pnpm typecheck && pnpm test"
+  }
+}

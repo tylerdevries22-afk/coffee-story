@@ -1,0 +1,11 @@
+{
+  "name": "@platform/hq",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "lint": "echo 'hq scaffolded in Phase 6'",
+    "typecheck": "echo 'hq scaffolded in Phase 6'",
+    "test": "echo 'hq scaffolded in Phase 6'",
+    "verify": "echo 'hq scaffolded in Phase 6'"
+  }
+}
