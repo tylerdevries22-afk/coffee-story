@@ -187,7 +187,7 @@ describe('square_link tender and refunds', { skip: skipUnlessConfigured }, () =>
 
     const key = randomUUID();
     const first = await post(ordersPost, '/api/orders', {
-      token: guestToken, idempotencyKey: key, body: orderBody({ redirectUrl: 'coffee-story://order' }),
+      token: guestToken, idempotencyKey: key, body: orderBody({ redirectUrl: 'coffeestory://order' }),
     });
     assert.equal(first.status, 201);
     const created = await first.json() as { orderId: string; status: string; totalCents: number; checkoutUrl?: string };
@@ -204,12 +204,12 @@ describe('square_link tender and refunds', { skip: skipUnlessConfigured }, () =>
     const options = mint.body.checkout_options as { app_fee_money?: { amount: number }; redirect_url?: string };
     // Rule 3: 300 bps of the 400c drink + tax, to the cent.
     assert.equal(options.app_fee_money?.amount, Math.round(created.totalCents * 300 / 10_000));
-    assert.equal(options.redirect_url, 'coffee-story://order');
+    assert.equal(options.redirect_url, 'coffeestory://order');
     assert.equal(mint.body.idempotency_key, `link-${created.orderId}`);
 
     const before = captured.length;
     const replay = await post(ordersPost, '/api/orders', {
-      token: guestToken, idempotencyKey: key, body: orderBody({ redirectUrl: 'coffee-story://order' }),
+      token: guestToken, idempotencyKey: key, body: orderBody({ redirectUrl: 'coffeestory://order' }),
     });
     assert.equal(replay.status, 200);
     const replayed = await replay.json() as { orderId: string; checkoutUrl?: string };

@@ -25,6 +25,25 @@ function money(cents: number): string {
 }
 
 /**
+ * The board advances optimistically and inserts the event behind the tap, so
+ * a click and the row it produces are never simultaneous. Wait for the status
+ * the tap asked for, and report whatever it actually reached if it never
+ * arrives — asserting on one immediate read is a race the suite would lose
+ * at random.
+ */
+async function waitForOrderStatus(orderId: string, status: string, timeoutMs = 20_000): Promise<string> {
+  const deadline = Date.now() + timeoutMs;
+  let seen = '';
+  while (Date.now() < deadline) {
+    const row = await sql<{ status: string }>('select status from public.orders where id = $1', [orderId]);
+    seen = row.rows[0]?.status ?? '(gone)';
+    if (seen === status) return seen;
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  return seen;
+}
+
+/**
  * The three apps together, against one real stack: what a guest does in the
  * customer app must appear under the barista's hands in the operator app and
  * in the owner's numbers in HQ — through the actual database, the actual
@@ -140,12 +159,7 @@ describe('three apps, one stack', { skip: skipUnlessConfigured }, () => {
       await waitText(customer.page, 'Ready for pickup', 30_000);
       await customer.shot('05-customer-ready');
       await clickLabel(operator.page, `Picked up order ${callOut}`);
-
-      const finished = await sql<{ status: string }>(
-        `select status from public.orders where id = $1`,
-        [order.id],
-      );
-      assert.equal(finished.rows[0]!.status, 'picked_up');
+      assert.equal(await waitForOrderStatus(order.id, 'picked_up'), 'picked_up');
 
       // ---- A rival brand's order never reaches this board (RLS isolation).
       const rival = await seedRivalBrandOrder();
