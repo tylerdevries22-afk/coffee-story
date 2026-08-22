@@ -57,6 +57,10 @@ const DIVERGENT_BY_DESIGN = [
   'screens/notifications-screen.tsx',
   'state/app-context.tsx',
   'state/auth-context.tsx',
+  // Who "the shop" is differs by persona: the guest binary is built for one
+  // tenant, the staff binary serves every tenant and resolves the signed-in
+  // brand row at runtime. Same hook name, same shape, different source.
+  'state/business.ts',
   'state/demo-state.test.ts',
   'state/navigation-state.test.ts',
   'state/navigation-state.ts',

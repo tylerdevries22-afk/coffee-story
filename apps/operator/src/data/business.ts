@@ -1,12 +1,16 @@
 /**
- * The shop's own details, in one place.
+ * The shop's own details.
  *
- * They were written out three times and disagreed: `features/more/
- * information-pages.ts` carried the real Aurora shop, while
- * `features/admin/admin-settings.ts` still carried the massage studio's
- * Greenwood Village address, phone and a `coffeestoryhealingoasis.com` email
- * that is a mashup of the two brands. A guest reading Location and a staff
- * member reading Settings saw two different businesses.
+ * The staff app is ONE listing for every tenant — tenancy is by login (rule 7)
+ * — so unlike the guest binary it cannot bake a brand in at build time. The
+ * real identity is the signed-in staff member's brand row; the constants below
+ * are the demo fallback, nothing more. They are still Coffee Story's because
+ * demo mode is Coffee Story's shop.
+ *
+ * Reading `BUSINESS` directly in a screen is therefore a bug: it shows Coffee
+ * Story's name, mark, phone and website to whichever tenant's staff happen to
+ * be signed in. Use `useBusiness()` (state/business.ts) in components, and
+ * `currentBusiness()` in the plain helpers that cannot hold a hook.
  *
  * Pure — no asset imports — so both the app and `node:test` can read it.
  */
@@ -40,28 +44,114 @@ export type BusinessDetails = {
   cityLine: string;
   website: string;
   giftCodePrefix: string;
+  monogram: string;
+};
+
+export type BusinessAddressSource = {
+  street?: string;
+  city?: string;
+  region?: string;
+  postal?: string;
+} | null;
+
+export const DEMO_BUSINESS: BusinessDetails = {
+  ...BUSINESS,
+  monogram: BUSINESS_MONOGRAM,
 };
 
 /**
- * Tenancy is by login (rule 7): a signed-in operator's shop details come
- * from the brand row's config, with the bundled shop as the demo fallback.
- * The white-label sweep migrates the static BUSINESS call sites onto this.
+ * Up to three letters from a shop name, for the no-photo avatar fallback.
+ *
+ * Blank when the name is blank -- a shop we have not identified yet shows no
+ * mark rather than the bundled tenant's, which is the whole point of this
+ * module.
  */
-export function businessFromBrandConfig(brandConfig: unknown): BusinessDetails {
-  const configured = (brandConfig as { business?: Record<string, unknown> } | null)?.business ?? {};
+function monogramOf(name: string): string {
+  return name
+    .split(/\s+/)
+    .map((word) => word.replace(/[^\p{L}\p{N}]/gu, '')[0] ?? '')
+    .filter(Boolean)
+    .join('')
+    .toUpperCase()
+    .slice(0, 3);
+}
+
+/**
+ * The signed-in staff member's shop, out of the brand row.
+ *
+ * `brand_config` carries what `tenants/<slug>/brand.json` puts there:
+ * `identity`, `tokens`, `copy` and `business`. It does NOT carry the shop's
+ * name (that is the `brands.name` column) nor its address (that belongs to the
+ * location row, rule 1) — the previous version of this function looked for
+ * `business.name`, `business.street` and `business.cityLine`, which no tenant
+ * file has ever written, so those three could only ever return Coffee Story.
+ * That was moot until now, because nothing called it at all.
+ */
+export function businessFromBrandConfig(
+  brandConfig: unknown,
+  brandName?: string | null,
+  address?: BusinessAddressSource,
+): BusinessDetails {
+  const config = (brandConfig ?? {}) as {
+    business?: Record<string, unknown>;
+    copy?: Record<string, unknown>;
+  };
+  const configured = config.business ?? {};
   const text = (key: string, fallback: string): string => {
     const value = configured[key];
-    return typeof value === 'string' && value.length > 0 ? value : fallback;
+    return typeof value === 'string' && value.trim().length > 0 ? value : fallback;
   };
+  const appName = config.copy?.appName;
+  // Blank until the brand row lands: during that window, and after a failed
+  // load, the app knows no shop -- and must not answer with the bundled one.
+  const name = brandName?.trim() || (typeof appName === 'string' ? appName.trim() : '');
+  const cityLine = [
+    [address?.city, address?.region].filter(Boolean).join(', '),
+    address?.postal,
+  ].filter(Boolean).join(' ');
+
   return {
-    name: text('name', BUSINESS.name),
-    legalName: text('legalName', BUSINESS.legalName),
-    tagline: text('tagline', BUSINESS.tagline),
-    email: text('email', BUSINESS.email),
-    phone: text('phone', BUSINESS.phone),
-    street: text('street', BUSINESS.street),
-    cityLine: text('cityLine', BUSINESS.cityLine),
-    website: text('website', BUSINESS.website),
-    giftCodePrefix: text('giftCodePrefix', BUSINESS.giftCodePrefix),
+    name,
+    legalName: text('legalName', name),
+    tagline: text('tagline', ''),
+    email: text('email', ''),
+    phone: text('phone', ''),
+    // An address the brand has not posted stays blank rather than borrowing
+    // another shop's: a staff member reading a wrong street would act on it.
+    street: address?.street?.trim() || '',
+    cityLine,
+    website: text('website', ''),
+    giftCodePrefix: text('giftCodePrefix', monogramOf(name)),
+    monogram: text('monogram', monogramOf(name)),
   };
+}
+
+/** Demo mode is Coffee Story's shop; live mode is whoever signed in. */
+export function resolveBusiness(input: {
+  isDemo: boolean;
+  brandConfig: unknown;
+  brandName: string | null;
+  address: BusinessAddressSource;
+}): BusinessDetails {
+  return input.isDemo
+    ? DEMO_BUSINESS
+    : businessFromBrandConfig(input.brandConfig, input.brandName, input.address);
+}
+
+/**
+ * The resolved shop for the plain, non-React helpers.
+ *
+ * `openWebPath` and friends are called from module-level functions that cannot
+ * hold a hook, so AuthProvider publishes the resolved shop here as it loads
+ * (one writer, everywhere else reads). Components use `useBusiness()` instead,
+ * which re-renders when the value lands; this is a last-read snapshot.
+ */
+let current: BusinessDetails = DEMO_BUSINESS;
+
+export function setCurrentBusiness(next: BusinessDetails): void {
+  current = next;
+}
+
+export function currentBusiness(): BusinessDetails {
+  return current;
 }

@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { BUSINESS_MONOGRAM } from '@/data/business';
+import { useBusiness } from '@/state/business';
 import { colors, fonts, radius, shadow, spacing } from '@/theme/tokens';
 import type { AppIconName } from '@/components/icon-map';
 import { AppIcon } from '@/components/icon';
@@ -176,10 +176,11 @@ export function LoadingState({ label }: { label: string }) {
 }
 
 export function ErrorState({ title = 'Something went quiet.', message, onRetry }: { title?: string; message: string; onRetry?: () => void }) {
+  const { monogram } = useBusiness();
   return (
     <StaticScreen>
       <View style={styles.stateWrap}>
-        <View style={styles.stateMark}><Text style={styles.stateMarkText}>{BUSINESS_MONOGRAM}</Text></View>
+        <View style={styles.stateMark}><Text style={styles.stateMarkText}>{monogram}</Text></View>
         <Title>{title}</Title>
         <Body muted>{message}</Body>
         {onRetry ? <Button label="Try again" onPress={onRetry} /> : null}

@@ -58,7 +58,7 @@ export function AdminSettingsScreen({
       setError('This settings group is read-only until its live save contract is connected.');
       return;
     }
-    const validationError = validateAdminSettings(draft);
+    const validationError = validateAdminSettings(draft, !isDemo);
     if (validationError) {
       setError(validationError);
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);

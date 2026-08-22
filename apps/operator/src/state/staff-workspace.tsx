@@ -10,6 +10,7 @@ import {
   DEFAULT_ADMIN_SETTINGS,
   mergeServerStaffSettings,
   serverStaffSettings,
+  withBusinessIdentity,
   type AdminSettingsState,
 } from '@/features/admin/admin-settings';
 import { OFFICE_LOCATIONS } from '@/features/booking/fulfillment';
@@ -19,6 +20,7 @@ import { applyDemoBlockTime, applyDemoSoapNote } from '@/features/staff/dashboar
 import { mobileApi } from '@/lib/mobile-api';
 import { useAppState } from '@/state/app-context';
 import { useAuth } from '@/state/auth-context';
+import { useBusiness } from '@/state/business';
 import type { BookingService, StaffDashboard } from '@/types/domain';
 
 /**
@@ -57,6 +59,7 @@ export function StaffWorkspaceProvider({ children }: PropsWithChildren) {
   const [dashboard, setDashboard] = useState<StaffDashboard>(DEMO_STAFF);
   const [liveBookingServices, setLiveBookingServices] = useState<BookingService[]>([]);
   const bookingServices = isDemo || !liveBookingServices.length ? demoBookingServices : liveBookingServices;
+  const business = useBusiness();
   const [adminSettings, setAdminSettings] = useState<AdminSettingsState>(DEFAULT_ADMIN_SETTINGS);
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [settingsReady, setSettingsReady] = useState(isDemo);
@@ -100,6 +103,13 @@ export function StaffWorkspaceProvider({ children }: PropsWithChildren) {
       .then((catalog) => setLiveBookingServices(catalog.services))
       .catch(() => setLiveBookingServices([]));
   }, [isDemo]);
+
+  // The Business Info tab is the brand's own identity, and in live mode that
+  // is whoever signed in — not the bundled demo shop the defaults carry.
+  useEffect(() => {
+    if (isDemo) return;
+    setAdminSettings((current) => withBusinessIdentity(current, business));
+  }, [business, isDemo]);
 
   const loadSettings = useCallback(async () => {
     if (isDemo) return;
