@@ -6,13 +6,19 @@ import { useAuth } from '@/state/auth-context';
 import { useDemo } from '@/state/demo-context';
 import { colors, fonts, radius, spacing } from '@/theme/tokens';
 
-type AuthView = 'sign-in' | 'create' | 'reset';
+/**
+ * No 'create' view. Tenancy in this app is by login (rule 7): a barista's
+ * account is made by the owner in the HQ console, which is also what writes
+ * the brand_users row the claims hook reads. Self-service sign-up here only
+ * ever produced an account with no brand and no role — a dead end for the
+ * person who tried it, and an account nobody asked for on the platform.
+ */
+type AuthView = 'sign-in' | 'reset';
 
 export function AuthScreen() {
-  const { signIn, signUp, requestPasswordReset } = useAuth();
+  const { signIn, requestPasswordReset } = useAuth();
   const { chooseDemo } = useDemo();
   const [view, setView] = useState<AuthView>('sign-in');
-  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -31,11 +37,6 @@ export function AuthScreen() {
     setLoading(true);
     try {
       if (view === 'sign-in') await signIn(email, password);
-      if (view === 'create') {
-        if (fullName.trim().length < 2) throw new Error('Enter your full name.');
-        await signUp(fullName, email, password);
-        Alert.alert('Check your email', 'Confirm your email address to finish creating your account.');
-      }
       if (view === 'reset') {
         await requestPasswordReset(email);
         Alert.alert('Reset link sent', 'Check your inbox for a secure password-reset link.');
@@ -52,23 +53,21 @@ export function AuthScreen() {
     <Screen keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
       <View style={styles.intro}>
         <Eyebrow>Coffee Story · by Barakah Brews</Eyebrow>
-        <Title>{view === 'create' ? 'Start your story.' : view === 'reset' ? 'Reset your password.' : 'Welcome back.'}</Title>
-        <Body muted>Order ahead, gifts, Bean rewards, and your favorites in one place. A blessing in every cup.</Body>
+        <Title>{view === 'reset' ? 'Reset your password.' : 'Welcome back.'}</Title>
+        <Body muted>The order board, the day&rsquo;s numbers, and the menu — sign in with your staff account.</Body>
       </View>
       <Card style={styles.form}>
-        {view === 'create' ? <Field label="Full name" value={fullName} onChangeText={setFullName} autoComplete="name" /> : null}
         <Field label="Email" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" autoComplete="email" />
-        {view !== 'reset' ? <Field label="Password" value={password} onChangeText={setPassword} secureTextEntry autoComplete={view === 'create' ? 'new-password' : 'current-password'} /> : null}
+        {view !== 'reset' ? <Field label="Password" value={password} onChangeText={setPassword} secureTextEntry autoComplete="current-password" /> : null}
         {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
         <Button
-          label={view === 'create' ? 'Create account' : view === 'reset' ? 'Send reset link' : 'Sign in'}
+          label={view === 'reset' ? 'Send reset link' : 'Sign in'}
           loading={loading}
           onPress={() => void submit()}
         />
       </Card>
       <View style={styles.links}>
         {view !== 'sign-in' ? <AuthLink label="Back to sign in" onPress={() => setView('sign-in')} /> : null}
-        {view === 'sign-in' ? <AuthLink label="Create an account" onPress={() => setView('create')} /> : null}
         {view === 'sign-in' ? <AuthLink label="Forgot password?" onPress={() => setView('reset')} /> : null}
       </View>
       <Button

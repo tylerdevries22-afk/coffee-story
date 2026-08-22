@@ -68,6 +68,21 @@ npm run verify            # lint, typecheck, tests, iOS bundle
 npx expo start
 ```
 
+### Both apps at once, on their own simulators
+
+```bash
+./scripts/launch-simulators.sh
+CUSTOMER_SIM='iPhone 16' OPERATOR_SIM='iPad Air 11-inch' ./scripts/launch-simulators.sh
+```
+
+macOS only. It boots each simulator *before* opening the app on it — opening
+a deep link on a device that is still booting is what makes `expo start
+--ios` report "Expo crashed" — and pins each app to its own device rather
+than both landing on whichever one happens to be booted. Simulator names
+match loosely, so `coffee story ops` and `Coffee-Story-Ops` are the same
+device. Defaults to simulators named `coffee story cust` and
+`coffee story ops`; both apps open in Demo mode and need no backend.
+
 `.env` is gitignored. Every `EXPO_PUBLIC_*` value is inlined into the
 JavaScript bundle and publicly readable, so only publishable keys belong in it
 — never a Supabase `service_role` key or a Stripe secret key.

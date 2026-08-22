@@ -27,7 +27,6 @@ type AuthState = {
   isPasswordRecovery: boolean;
   error: string | null;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (fullName: string, email: string, password: string) => Promise<void>;
   requestPasswordReset: (email: string) => Promise<void>;
   updatePassword: (password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -178,19 +177,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
   }, []);
 
-  const signUp = useCallback(async (fullName: string, email: string, password: string) => {
-    if (!supabase) throw new Error('Supabase is not configured.');
-    setError(null);
-    setIsLoading(true);
-    const { error: signUpError } = await supabase.auth.signUp({
-      email: email.trim(),
-      password,
-      options: { data: { full_name: fullName.trim() } },
-    });
-    setIsLoading(false);
-    if (signUpError) throw new Error(signUpError.message);
-  }, []);
-
   const requestPasswordReset = useCallback(async (email: string) => {
     if (!supabase) throw new Error('Supabase is not configured.');
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
@@ -228,12 +214,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
     isPasswordRecovery,
     error: isDemo ? null : error,
     signIn,
-    signUp,
     requestPasswordReset,
     updatePassword,
     signOut,
     refresh: () => loadPortal(session),
-  }), [brandName, demo.isHydrating, demo.portal, error, isDemo, isLoading, isPasswordRecovery, livePortal, liveLocations, loadPortal, requestPasswordReset, session, signIn, signOut, signUp, tenant, updatePassword]);
+  }), [brandName, demo.isHydrating, demo.portal, error, isDemo, isLoading, isPasswordRecovery, livePortal, liveLocations, loadPortal, requestPasswordReset, session, signIn, signOut, tenant, updatePassword]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
