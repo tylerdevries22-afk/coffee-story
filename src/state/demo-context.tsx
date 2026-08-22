@@ -53,6 +53,8 @@ type DemoState = {
   portal: PortalBundle;
   chooseDemo: () => Promise<void>;
   chooseLive: () => Promise<void>;
+  /** False when the build carries no Supabase credentials to sign in against. */
+  canGoLive: boolean;
   resetDemo: () => Promise<void>;
   setRole: (role: AppRole) => void;
   book: (input: Omit<DemoBookingInput, 'id'>) => void;
@@ -131,6 +133,7 @@ export function DemoProvider({ children }: PropsWithChildren) {
     portal,
     chooseDemo,
     chooseLive,
+    canGoLive: hasSupabaseConfig,
     resetDemo,
     setRole: (role) => savePortal((current) => setDemoRole(current, role)),
     book: (input) => savePortal((current) => addDemoBooking(current, { ...input, id: uniqueId('appointment') })),

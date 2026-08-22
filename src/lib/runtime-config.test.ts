@@ -20,9 +20,22 @@ test('accepts secure Supabase URLs and local development', () => {
   assert.equal(isValidSupabaseUrl('http://example.supabase.co'), false);
 });
 
-test('rejects missing Supabase publishable keys', () => {
+const ANON_JWT = 'eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJpc3MiOiAic3VwYWJhc2UiLCAicm9sZSI6ICJhbm9uIiwgImlhdCI6IDEsICJleHAiOiAyfQ.signature';
+const SERVICE_ROLE_JWT = 'eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJpc3MiOiAic3VwYWJhc2UiLCAicm9sZSI6ICJzZXJ2aWNlX3JvbGUiLCAiaWF0IjogMSwgImV4cCI6IDJ9.signature';
+
+test('accepts only Supabase keys that are safe to publish', () => {
   assert.equal(isValidSupabasePublishableKey('short'), false);
-  assert.equal(isValidSupabasePublishableKey('a'.repeat(20)), true);
+  assert.equal(isValidSupabasePublishableKey('sb_publishable_' + 'a'.repeat(24)), true);
+  assert.equal(isValidSupabasePublishableKey(ANON_JWT), true);
+});
+
+test('refuses a secret key rather than inlining it into the public bundle', () => {
+  // The old check was `length >= 20`, so both of these passed and
+  // lib/supabase.ts shipped full database authority in the JavaScript every
+  // guest downloads.
+  assert.equal(isValidSupabasePublishableKey(SERVICE_ROLE_JWT), false);
+  assert.equal(isValidSupabasePublishableKey('sb_secret_' + 'a'.repeat(24)), false);
+  assert.equal(isValidSupabasePublishableKey('a'.repeat(40)), false);
 });
 
 test('reports every missing live dependency', () => {

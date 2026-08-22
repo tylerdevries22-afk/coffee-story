@@ -72,7 +72,10 @@ function RuntimeProviders() {
     <StripeProvider
       publishableKey={stripeKey}
       urlScheme="coffeestory"
-      merchantIdentifier="merchant.com.coffeestory.healingoasis"
+      // Must match the merchant id registered against the Apple Developer
+      // account and enabled in the app's Merchant capability. The previous
+      // value carried the massage studio's name and matched nothing.
+      merchantIdentifier="merchant.com.coffeestory.app"
     >
       <AppErrorBoundary>
         <DemoProvider>

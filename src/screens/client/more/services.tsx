@@ -45,7 +45,7 @@ export function ServicesPage({
       </Card>
 
       <Body muted>
-        A ${'25'} deposit reserves your appointment and comes off the balance on the day.
+        Order ahead from the Order tab and pick it up at the bar, or have it delivered.
       </Body>
     </CollapsingScreen>
   );

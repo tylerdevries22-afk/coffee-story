@@ -331,7 +331,7 @@ const styles = StyleSheet.create({
   promoLabel: { color: colors.ink700, fontFamily: fonts.sansMedium, fontSize: 13 },
 
   legal: { color: colors.ink500, fontFamily: fonts.sans, fontSize: 11, lineHeight: 16, fontStyle: 'italic' },
-  legalQuiet: { color: colors.ink400, fontFamily: fonts.sans, fontSize: 11, fontStyle: 'italic' },
+  legalQuiet: { color: colors.ink500, fontFamily: fonts.sans, fontSize: 11, fontStyle: 'italic' },
 
   simulated: { color: colors.ink600, fontFamily: fonts.sans, fontSize: 12, lineHeight: 18 },
   error: { color: colors.danger, fontFamily: fonts.sansMedium, fontSize: 13, lineHeight: 19 },

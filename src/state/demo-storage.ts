@@ -282,8 +282,16 @@ export function parseStoredAppMode(raw: string | null, hasLiveConfig: boolean): 
     return 'demo';
   }
 
-  const requested = raw === 'live' ? 'live' : 'demo';
-  return requested === 'live' && !hasLiveConfig ? 'demo' : requested;
+  // Nothing stored yet: follow the build. A build carrying real Supabase
+  // credentials is a build meant to sign people in, so it opens on the auth
+  // screen; a build without them can only be the preview, so it opens there.
+  //
+  // This used to return 'demo' unconditionally, and nothing ever wrote 'live'
+  // -- `chooseLive` had no call site anywhere in the app. `isAuthenticated` is
+  // `isDemo || Boolean(session)`, so `app/index.tsx` never reached AuthScreen
+  // and a fully configured production build still booted into fabricated data.
+  if (raw !== 'live' && raw !== 'demo') return hasLiveConfig ? 'live' : 'demo';
+  return raw === 'live' && !hasLiveConfig ? 'demo' : raw;
 }
 
 export async function loadStoredAppMode(): Promise<string | null> {

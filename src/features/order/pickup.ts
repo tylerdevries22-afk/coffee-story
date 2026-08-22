@@ -119,6 +119,33 @@ export function pickupWindows(now: Date, count: number): PickupWindow[] {
   return windows;
 }
 
+export type ShopStatus = {
+  open: boolean;
+  /** "Now brewing", "Opens 8:00 AM", "Opens 8:00 AM tomorrow". */
+  label: string;
+};
+
+/**
+ * Whether the shop is serving right now, for the badge on a location card.
+ *
+ * The badge used to read "Now Brewing" unconditionally, which told a guest at
+ * one in the morning that the bar was pouring.
+ */
+export function shopStatus(now: Date): ShopStatus {
+  if (Number.isNaN(now.getTime())) return { open: false, label: 'Hours unavailable' };
+  const { openMinutes, closeMinutes } = hoursForDay(now);
+  const minutes = now.getHours() * 60 + now.getMinutes();
+  if (minutes >= openMinutes && minutes < closeMinutes) return { open: true, label: 'Now brewing' };
+  if (minutes < openMinutes) return { open: false, label: `Opens ${clockLabel(now, openMinutes)}` };
+  const tomorrow = addLocalDays(now, 1);
+  return { open: false, label: `Opens ${clockLabel(tomorrow, hoursForDay(tomorrow).openMinutes)} tomorrow` };
+}
+
+function clockLabel(day: Date, minutes: number): string {
+  return new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' })
+    .format(atMinutes(day, minutes));
+}
+
 /** The label pair for a stored window value, or null if it is not a real time. */
 export function describePickupWindow(value: string, now: Date): PickupWindow | null {
   const start = new Date(value);

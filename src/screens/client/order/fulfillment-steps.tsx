@@ -33,7 +33,7 @@ import {
   type VisitMode,
 } from '@/features/booking/fulfillment';
 import { formatMoney } from '@/features/money';
-import { pickupWindows, type PickupWindow } from '@/features/order/pickup';
+import { pickupWindows, shopStatus, type PickupWindow } from '@/features/order/pickup';
 import { DELIVERY_FEE_CENTS } from '@/features/order/totals';
 import { choiceState } from '@/lib/a11y-state';
 import { colors, fonts, radius, shadow, spacing } from '@/theme/tokens';
@@ -133,10 +133,11 @@ function PickupLocationStep({
 }
 
 function LocationCard({ office, onPress }: { office: OfficeLocation; onPress: () => void }) {
+  const status = shopStatus(new Date());
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${office.name}, ${office.address}, ${office.cityLine}. Now brewing.`}
+      accessibilityLabel={`${office.name}, ${office.address}, ${office.cityLine}. ${status.label}.`}
       onPress={onPress}
       style={({ pressed }) => [styles.locationCard, pressed && styles.pressed]}
     >
@@ -146,8 +147,10 @@ function LocationCard({ office, onPress }: { office: OfficeLocation; onPress: ()
       <View style={styles.locationCopy}>
         <Text style={styles.locationName}>{office.name}</Text>
         <View style={styles.locationBadges}>
-          <View style={styles.nowBrewing}>
-            <Text style={styles.nowBrewingText}>Now Brewing</Text>
+          <View style={[styles.statusBadge, status.open ? styles.statusBadgeOpen : styles.statusBadgeShut]}>
+            <Text style={[styles.statusText, status.open ? styles.statusTextOpen : styles.statusTextShut]}>
+              {status.label}
+            </Text>
           </View>
           <Text style={styles.locationNote}>{office.note}</Text>
         </View>
@@ -308,6 +311,7 @@ export function DetailsStep({
           maxLength={60}
           autoComplete="name"
           placeholder="Who should we call?"
+          onClear={guestName ? () => onChangeName('') : undefined}
         />
 
         <Text style={styles.sectionLabel}>
@@ -365,19 +369,34 @@ function WindowChip({
 
 /* ----------------------------------------------------------------- fields */
 
-function Field({ label, containerStyle, ...props }: TextInputProps & {
+function Field({ label, containerStyle, onClear, ...props }: TextInputProps & {
   label: string;
   containerStyle?: StyleProp<ViewStyle>;
+  /** Renders the clear button. Omit when there is nothing to clear. */
+  onClear?: () => void;
 }) {
   return (
     <View style={[styles.field, containerStyle]}>
       <Text style={styles.fieldLabel}>{label}</Text>
-      <TextInput
-        {...props}
-        accessibilityLabel={label}
-        placeholderTextColor={colors.ink400}
-        style={[styles.input, props.multiline && styles.multiline]}
-      />
+      <View>
+        <TextInput
+          {...props}
+          accessibilityLabel={label}
+          placeholderTextColor={colors.ink400}
+          style={[styles.input, props.multiline && styles.multiline, onClear && styles.inputClearable]}
+        />
+        {onClear ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Clear ${label.toLowerCase()}`}
+            hitSlop={8}
+            onPress={onClear}
+            style={({ pressed }) => [styles.clearButton, pressed && styles.pressed]}
+          >
+            <AppIcon name="xmark.circle.fill" size={20} tintColor={colors.ink400} />
+          </Pressable>
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -419,13 +438,12 @@ const styles = StyleSheet.create({
   locationCopy: { flex: 1, gap: 4 },
   locationName: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 16 },
   locationBadges: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' },
-  nowBrewing: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: radius.pill,
-    backgroundColor: colors.gold50,
-  },
-  nowBrewingText: { color: colors.warning, fontFamily: fonts.sansBold, fontSize: 11 },
+  statusBadge: { paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: radius.pill },
+  statusBadgeOpen: { backgroundColor: colors.gold50 },
+  statusBadgeShut: { backgroundColor: colors.warm },
+  statusText: { fontFamily: fonts.sansBold, fontSize: 11 },
+  statusTextOpen: { color: colors.warning },
+  statusTextShut: { color: colors.ink600 },
   locationNote: { flex: 1, color: colors.ink600, fontFamily: fonts.sans, fontSize: 11 },
   locationAddress: { color: colors.ink700, fontFamily: fonts.sans, fontSize: 13, lineHeight: 18 },
 
@@ -478,6 +496,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   multiline: { minHeight: 88, paddingTop: spacing.md, textAlignVertical: 'top' },
+  inputClearable: { paddingRight: 48 },
+  clearButton: {
+    position: 'absolute',
+    right: spacing.sm,
+    top: 0,
+    bottom: 0,
+    width: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   addressPreview: {
     flexDirection: 'row',
     alignItems: 'flex-start',

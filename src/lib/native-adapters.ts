@@ -34,7 +34,7 @@ export async function addAppointmentToCalendar(
     endDate: new Date(date.getTime() + service.durationMin * 60_000),
     timeZone: 'America/Denver',
     location: 'Coffee Story',
-    notes: 'Your massage visit is confirmed. Please arrive a few minutes early.',
+    notes: 'Your Coffee Story order is confirmed. See you at the bar.',
     alarms: [{ relativeOffset: -60 }],
   });
   return { simulated: false, message: 'Your visit is saved with a one-hour reminder.' };

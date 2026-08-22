@@ -11,6 +11,7 @@ import {
   hoursForDay,
   pickupTimeLabel,
   pickupWindows,
+  shopStatus,
 } from './pickup';
 
 /** A local wall-clock instant, so the tests read the way the shop does. */
@@ -133,5 +134,33 @@ describe('describePickupWindow', () => {
 
   it('returns null for a value that is not a time', () => {
     assert.equal(describePickupWindow('not-a-time', wednesday(12)), null);
+  });
+});
+
+describe('shopStatus', () => {
+  it('says the bar is pouring during opening hours', () => {
+    assert.deepEqual(shopStatus(wednesday(12)), { open: true, label: 'Now brewing' });
+  });
+
+  it('names the opening time before the shop opens', () => {
+    assert.deepEqual(shopStatus(wednesday(6, 30)), { open: false, label: 'Opens 8:00 AM' });
+  });
+
+  it('does not claim to be pouring after a weekday close', () => {
+    // 11pm Sunday-Thursday. The badge used to read "Now Brewing" here.
+    assert.deepEqual(shopStatus(wednesday(23, 30)), { open: false, label: 'Opens 8:00 AM tomorrow' });
+  });
+
+  it('is still open at 11:30pm on a Friday, when the shop closes at midnight', () => {
+    assert.equal(shopStatus(friday(23, 30)).open, true);
+  });
+
+  it('closes exactly on the hour rather than a minute past it', () => {
+    assert.equal(shopStatus(wednesday(22, 59)).open, true);
+    assert.equal(shopStatus(wednesday(23, 0)).open, false);
+  });
+
+  it('reports unavailable rather than guessing for an invalid clock', () => {
+    assert.deepEqual(shopStatus(new Date('nonsense')), { open: false, label: 'Hours unavailable' });
   });
 });

@@ -237,7 +237,7 @@ export function Intake({ onBack }: { onBack: () => void }) {
         await refresh();
       }
       Alert.alert(submit ? 'Intake submitted' : 'Draft saved', submit
-        ? 'Your therapist can now review your care profile.'
+        ? 'The bar can now see how you take your coffee.'
         : 'Your private answers were saved.');
     } catch (error) {
       Alert.alert('Intake not saved', error instanceof Error ? error.message : 'Try again later.');
@@ -247,7 +247,7 @@ export function Intake({ onBack }: { onBack: () => void }) {
   }
   return (
     <CollapsingScreen title="Intake & consent" eyebrow="Private care profile" onBack={onBack} keyboardShouldPersistTaps="handled">
-      <Field label="What should your therapist know?" value={intake.concerns} multiline onChangeText={(concerns) => setIntake({ ...intake, concerns })} />
+      <Field label="What should the bar know?" value={intake.concerns} multiline onChangeText={(concerns) => setIntake({ ...intake, concerns })} />
       <SectionTitle>Pressure preference</SectionTitle>
       <View style={styles.options}>{(['light', 'medium', 'firm'] as const).map((pressure) => (
         <Button key={pressure} label={pressure} variant={intake.pressurePreference === pressure ? 'primary' : 'secondary'} style={styles.option} onPress={() => setIntake({ ...intake, pressurePreference: pressure })} />

@@ -291,7 +291,7 @@ const styles = StyleSheet.create({
   noteField: { gap: spacing.xs },
   noteHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   fieldLabel: { color: colors.ink700, fontFamily: fonts.sansMedium, fontSize: 13 },
-  noteCount: { color: colors.ink500, fontFamily: fonts.sans, fontSize: 12 },
+  noteCount: { color: colors.ink600, fontFamily: fonts.sans, fontSize: 12 },
   noteInput: {
     minHeight: 108,
     borderRadius: radius.md,

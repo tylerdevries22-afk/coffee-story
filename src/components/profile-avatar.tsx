@@ -2,6 +2,7 @@ import { Image } from 'expo-image';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppIcon } from '@/components/icon';
+import { BUSINESS_MONOGRAM } from '@/data/business';
 import { colors, fonts, shadow } from '@/theme/tokens';
 
 type ProfileAvatarProps = {
@@ -61,7 +62,7 @@ export function ProfileAvatar({
 
 function initials(name: string): string {
   const pieces = name.trim().split(/\s+/).filter(Boolean);
-  return pieces.slice(0, 2).map((piece) => piece[0]?.toUpperCase() ?? '').join('') || 'FH';
+  return pieces.slice(0, 2).map((piece) => piece[0]?.toUpperCase() ?? '').join('') || BUSINESS_MONOGRAM;
 }
 
 const styles = StyleSheet.create({

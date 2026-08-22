@@ -1,0 +1,15 @@
+{
+  "name": "Coffee Story",
+  "short_name": "Coffee Story",
+  "description": "Order ahead, send a gift card, and earn Beans at Coffee Story in Aurora, Colorado.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FAF5EF",
+  "theme_color": "#241710",
+  "icons": [
+    { "src": "/icon.png", "sizes": "1024x1024", "type": "image/png", "purpose": "any" },
+    { "src": "/icon.png", "sizes": "1024x1024", "type": "image/png", "purpose": "maskable" }
+  ]
+}

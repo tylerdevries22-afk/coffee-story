@@ -1,3 +1,5 @@
+import { BUSINESS, BUSINESS_ADDRESS } from '@/data/business';
+
 import type { StaffSettings } from '@/types/domain';
 
 export type AdminSettingsTab = 'Availability' | 'Booking Rules' | 'Payments' | 'Messages' | 'Forms' | 'Business Info';
@@ -71,10 +73,10 @@ export const DEFAULT_ADMIN_SETTINGS: AdminSettingsState = {
   remindersEnabled: true,
   intakeRequired: true,
   consentRequired: true,
-  businessName: 'Coffee Story',
-  businessEmail: 'hello@coffeestoryhealingoasis.com',
-  businessPhone: '(720) 810-0336',
-  businessAddress: '5650 Greenwood Plaza Blvd, Suite 225-C · Greenwood Village, CO 80111',
+  businessName: BUSINESS.name,
+  businessEmail: BUSINESS.email,
+  businessPhone: BUSINESS.phone,
+  businessAddress: BUSINESS_ADDRESS,
 };
 
 export function validateAdminSettings(settings: AdminSettingsState): string | null {

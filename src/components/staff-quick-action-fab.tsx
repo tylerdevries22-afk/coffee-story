@@ -32,7 +32,7 @@ const ACTIONS: readonly {
   { key: 'book', label: 'Book Appointment', symbol: 'calendar' },
   { key: 'quick-book', label: 'Quick Book', symbol: 'bolt' },
   { key: 'block-time', label: 'Block Time', symbol: 'clock' },
-  { key: 'soap', label: 'Add SOAP Note', symbol: 'doc.text' },
+  { key: 'soap', label: 'Add Order Note', symbol: 'doc.text' },
 ] as const;
 
 export function StaffQuickActionFab({
@@ -473,7 +473,7 @@ async function runHandler(
     if (!handlers['block-time']) throw new Error('Schedule blocking is not connected.');
     return handlers['block-time'](submission);
   }
-  if (!handlers.soap) throw new Error('SOAP notes are not connected.');
+  if (!handlers.soap) throw new Error('Order notes are not connected.');
   return handlers.soap(submission);
 }
 
@@ -496,13 +496,13 @@ function actionTitle(action: AdminQuickActionKey | null): string {
 
 function submitLabel(action: AdminQuickActionKey | null): string {
   if (action === 'block-time') return 'Block schedule';
-  if (action === 'soap') return 'Save SOAP note';
+  if (action === 'soap') return 'Save order note';
   return 'Create appointment';
 }
 
 function successMessage(action: AdminQuickActionKey): string {
   if (action === 'block-time') return 'The availability block is live.';
-  if (action === 'soap') return 'The SOAP note is saved to the client record.';
+  if (action === 'soap') return 'The note is saved to the guest record.';
   return 'The appointment is confirmed on the schedule.';
 }
 

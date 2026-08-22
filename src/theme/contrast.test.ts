@@ -30,6 +30,11 @@ const SURFACES = {
   card: colors.white,
   surface: colors.surface,
   warm: colors.warm,
+  // The order flow paints its page and header with brand200 (pinned by
+  // components/collapsing-screen.test.ts). It was the one real text surface
+  // this file did not guard, and it is the darkest of them -- ink500 measures
+  // 4.41:1 on it, which is why components/ui.tsx's muted copy is ink600.
+  order: colors.brand200,
 } as const;
 
 test('body and muted copy clear AA on every light surface', () => {

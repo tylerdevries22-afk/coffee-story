@@ -216,12 +216,20 @@ export function MoreScreen() {
       ) : null}
 
       {isDemo ? (
-        <Button label="Reset demo data" variant="secondary" onPress={() => {
-          Alert.alert('Reset demo?', 'Bookings, gifts, messages, and account edits will return to their original preview state.', [
-            { text: 'Keep changes', style: 'cancel' },
-            { text: 'Reset', style: 'destructive', onPress: () => void demo.resetDemo() },
-          ]);
-        }} />
+        <>
+          <Button label="Reset demo data" variant="secondary" onPress={() => {
+            Alert.alert('Reset demo?', 'Bookings, gifts, messages, and account edits will return to their original preview state.', [
+              { text: 'Keep changes', style: 'cancel' },
+              { text: 'Reset', style: 'destructive', onPress: () => void demo.resetDemo() },
+            ]);
+          }} />
+          {/* Demo mode had no exit. `chooseLive` existed on the context and had
+              no call site anywhere, so once a build was in Demo -- which was
+              every build -- there was no way to reach the sign-in screen. */}
+          {demo.canGoLive ? (
+            <Button label="Sign in to your account" variant="secondary" onPress={() => void demo.chooseLive()} />
+          ) : null}
+        </>
       ) : (
         <>
           <Button label="Switch to Demo" variant="secondary" onPress={() => void demo.chooseDemo()} />

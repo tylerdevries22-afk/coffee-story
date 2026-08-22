@@ -12,32 +12,10 @@
  * breakdown the guest can read line by line.
  */
 import { pointsForPurchase, REWARD_TIERS, type PurchaseBreakdown, type RewardTier } from '@/features/rewards/rules';
+import { TAX_JURISDICTIONS, taxRowsFor, type TaxJurisdiction, type TaxRow } from '@/features/tax';
 
-export type TaxJurisdiction = {
-  id: string;
-  label: string;
-  /** Fractional rate, e.g. 0.029 for 2.90%. */
-  rate: number;
-};
-
-/**
- * The four jurisdictions that stack on a sale at 2222 S Havana St, Aurora CO
- * 80014 (Arapahoe County): 2.90 + 3.75 + 1.00 + 0.25 = 7.90%.
- *
- * They are broken out rather than summed because the guest sees each one on
- * the checkout screen, and because a rate change from any single authority
- * should be a one-line edit here. The owner must confirm these against their
- * current Colorado sales-tax licence before the app charges live money -- this
- * module is the only place they are stated.
- */
-export const TAX_JURISDICTIONS: readonly TaxJurisdiction[] = [
-  { id: 'state', label: 'State Sales Tax', rate: 0.029 },
-  { id: 'city', label: 'City of Aurora Sales Tax', rate: 0.0375 },
-  { id: 'rtd', label: 'Regional Transportation District Tax', rate: 0.01 },
-  { id: 'county', label: 'Arapahoe County Tax', rate: 0.0025 },
-] as const;
-
-export type TaxRow = TaxJurisdiction & { amountCents: number };
+export { TAX_JURISDICTIONS };
+export type { TaxJurisdiction, TaxRow };
 
 export type OrderTotals = {
   subtotalCents: number;
@@ -89,14 +67,10 @@ export function orderTotals({
   const discount = Math.min(wholeCents(discountCents), chargeableCents);
   const taxableCents = chargeableCents - discount;
 
-  // Each row is rounded on its own and the total is their sum, never a
-  // separate rounding of the combined rate. Rounding once at the end lets the
-  // printed rows disagree with the total they sit above by a cent, which is
-  // the kind of receipt a guest photographs and sends to the shop.
-  const taxRows = jurisdictions.map((jurisdiction) => ({
-    ...jurisdiction,
-    amountCents: Math.round(taxableCents * Math.max(0, jurisdiction.rate)),
-  }));
+  // `features/tax.ts` owns the rounding: each row is rounded on its own and
+  // the total is their sum, so the printed rows always add up to the total
+  // above them, and the staff register reaches the same number.
+  const taxRows = taxRowsFor(taxableCents, jurisdictions);
   const taxCents = taxRows.reduce((total, row) => total + row.amountCents, 0);
 
   // The tip is the barista's and rides on top of everything: a shop-side

@@ -15,6 +15,9 @@
       "usesAppleSignIn": false,
       "infoPlist": {
         "NSMotionUsageDescription": "Coffee Story uses device motion so the coffee in your rewards cup responds to how you hold your phone."
+      },
+      "config": {
+        "usesNonExemptEncryption": false
       }
     },
     "android": {
@@ -28,7 +31,8 @@
       "permissions": [
         "android.permission.READ_CALENDAR",
         "android.permission.WRITE_CALENDAR"
-      ]
+      ],
+      "package": "com.coffeestory.app"
     },
     "web": {
       "output": "static",
@@ -48,13 +52,16 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow Coffee Story to choose a profile photo for your account."
+          "photosPermission": "Allow Coffee Story to choose a profile photo for your account.",
+          "cameraPermission": false,
+          "microphonePermission": false
         }
       ],
       [
         "expo-calendar",
         {
-          "calendarPermission": "Allow Coffee Story to add coffee cart bookings to your calendar."
+          "calendarPermission": "Allow Coffee Story to add your pickup time to your calendar.",
+          "remindersPermission": false
         }
       ],
       "expo-video"
