@@ -64,10 +64,14 @@ export async function POST(request: Request): Promise<Response> {
     .eq('customer_id', customer.id)
     .maybeSingle<{ id: string; points_balance: number }>();
   if (account.error) throw account.error;
-  if (!account.data || account.data.points_balance < reward.points_cost) {
+  if (!account.data) {
     return jsonError(409, 'insufficient_points', `${reward.name} needs ${reward.points_cost} points.`);
   }
 
+  // The replay check comes BEFORE the balance check: the first attempt spent
+  // the points, so a retry after a lost response would otherwise read the
+  // already-debited balance and answer "insufficient" for a redemption that
+  // succeeded.
   const clientKey = idempotencyKeyOf(request);
   const note = clientKey ? `${reward.slug} [${clientKey}]` : reward.slug;
   if (clientKey) {
@@ -82,6 +86,10 @@ export async function POST(request: Request): Promise<Response> {
       const response: RedeemRewardResponse = { pointsBalance: account.data.points_balance };
       return Response.json(response);
     }
+  }
+
+  if (account.data.points_balance < reward.points_cost) {
+    return jsonError(409, 'insufficient_points', `${reward.name} needs ${reward.points_cost} points.`);
   }
 
   const redeemed = await db.from('loyalty_events').insert({
