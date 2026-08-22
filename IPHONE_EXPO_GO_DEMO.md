@@ -63,7 +63,11 @@ the Apple Developer credentials listed as outstanding in
 
 ## What does not work in Expo Go
 
-Expo Go is a development client with a fixed native module set, so anything
+Expo Go always opens in Demo mode, whatever the published channel's variables
+say — see `parseStoredAppMode`. Someone who scans the QR gets the whole app
+against local data, not a sign-in screen for an account they do not have.
+
+It is a development client with a fixed native module set, so anything
 custom-native falls back to the simulated Demo path:
 
 - Apple Pay and Google Pay are unavailable.

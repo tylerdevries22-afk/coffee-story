@@ -4,7 +4,7 @@ import { Inter_600SemiBold } from '@expo-google-fonts/inter/600SemiBold';
 import { Inter_700Bold } from '@expo-google-fonts/inter/700Bold';
 import { StripeProvider } from '@/lib/stripe';
 import { fontGateReady } from '@/lib/font-gate';
-import { missingLiveConfig, type MobileLiveConfig } from '@/lib/runtime-config';
+import { liveConfigFromEnv, missingLiveConfig, type MobileLiveConfig } from '@/lib/runtime-config';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -15,6 +15,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AppErrorBoundary } from '@/components/app-error-boundary';
+import { Button } from '@/components/ui';
 import { InstallPrompt } from '@/components/install-prompt';
 import { SetupFlowHost } from '@/components/setup/setup-flow';
 import { AppStateProvider } from '@/state/app-context';
@@ -59,11 +60,10 @@ export default function RootLayout() {
 }
 
 function RuntimeProviders() {
-  const config: MobileLiveConfig = {
-    stripePublishableKey: process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY,
-    supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
-    supabasePublishableKey: process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
-  };
+  // Read through `liveConfigFromEnv` so this and `hasCompleteLiveConfig` --
+  // which decides whether live mode is even offered -- cannot disagree about
+  // what this build carries.
+  const config: MobileLiveConfig = liveConfigFromEnv();
   const stripeKey = typeof config.stripePublishableKey === 'string'
     ? config.stripePublishableKey
     : 'pk_test_demo';
@@ -87,9 +87,11 @@ function RuntimeProviders() {
 }
 
 function ConfiguredApp({ config }: { config: MobileLiveConfig }) {
-  const { mode } = useDemo();
+  const { chooseDemo, mode } = useDemo();
   const missing = missingLiveConfig(config);
-  if (mode === 'live' && missing.length > 0) return <RuntimeConfigError missing={missing} />;
+  if (mode === 'live' && missing.length > 0) {
+    return <RuntimeConfigError missing={missing} onUseDemo={() => void chooseDemo()} />;
+  }
 
   return (
     <AuthProvider>
@@ -120,18 +122,29 @@ function ConfiguredApp({ config }: { config: MobileLiveConfig }) {
   );
 }
 
-function RuntimeConfigError({ missing }: { missing: string[] }) {
+/**
+ * The dead end this used to be is the reason `onUseDemo` exists.
+ *
+ * Live mode is persisted, so a build that reached this screen opened on it
+ * again on every launch, and the only control that could have changed the mode
+ * lives on a More page this screen replaces. Following the README's own
+ * `cp .env.example .env` produced exactly that: its Supabase placeholders
+ * validate and its Stripe placeholder does not.
+ */
+function RuntimeConfigError({ missing, onUseDemo }: { missing: string[]; onUseDemo: () => void }) {
   return (
-    <View style={{ flex: 1, justifyContent: 'center', padding: 32, backgroundColor: colors.surface }}>
-      <Text style={{ color: colors.ink900, fontSize: 24, fontWeight: '700', marginBottom: 12 }}>
+    <View style={{ flex: 1, justifyContent: 'center', padding: 32, gap: 16, backgroundColor: colors.surface }}>
+      <Text style={{ color: colors.ink900, fontSize: 24, fontWeight: '700' }}>
         Secure setup is incomplete
       </Text>
       <Text style={{ color: colors.ink600, fontSize: 16, lineHeight: 24 }}>
-        This live build is missing required payment or account configuration. Contact the studio before using it.
+        This build is missing the payment or account configuration live mode needs. You can still
+        explore the whole app in Demo.
       </Text>
-      <Text accessibilityRole="text" style={{ color: colors.ink500, fontSize: 12, marginTop: 20 }}>
+      <Text accessibilityRole="text" style={{ color: colors.ink500, fontSize: 12 }}>
         Missing: {missing.join(', ')}
       </Text>
+      <Button label="Continue in Demo" onPress={onUseDemo} />
     </View>
   );
 }

@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
+import { router } from 'expo-router';
 import {
   Alert,
   Animated,
@@ -227,7 +228,18 @@ export function MoreScreen() {
               no call site anywhere, so once a build was in Demo -- which was
               every build -- there was no way to reach the sign-in screen. */}
           {demo.canGoLive ? (
-            <Button label="Sign in to your account" variant="secondary" onPress={() => void demo.chooseLive()} />
+            <Button
+              label="Sign in to your account"
+              variant="secondary"
+              // Replacing back to the root is what actually shows the sign-in
+              // screen: `app/index.tsx` is the app's only auth gate and it
+              // unmounted when it redirected into these tabs, so flipping the
+              // mode alone left the guest inside the shell against an empty
+              // portal.
+              onPress={() => {
+                void demo.chooseLive().then(() => router.replace('/'));
+              }}
+            />
           ) : null}
         </>
       ) : (

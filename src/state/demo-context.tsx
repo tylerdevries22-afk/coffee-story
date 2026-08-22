@@ -9,7 +9,9 @@ import {
 } from 'react';
 
 import { withRoleSetup, type AnyRoleSetup } from '@/features/setup/setup';
-import { hasSupabaseConfig } from '@/lib/supabase';
+import Constants from 'expo-constants';
+
+import { hasCompleteLiveConfig } from '@/lib/runtime-config';
 import {
   addDemoBooking,
   addDemoGift,
@@ -53,7 +55,12 @@ type DemoState = {
   portal: PortalBundle;
   chooseDemo: () => Promise<void>;
   chooseLive: () => Promise<void>;
-  /** False when the build carries no Supabase credentials to sign in against. */
+  /**
+   * False unless live mode could actually run. Measured by the same
+   * `missingLiveConfig` the root layout uses -- offering the switch on a
+   * weaker test let a guest persist a mode that immediately swapped the whole
+   * tree for the setup-incomplete screen, with no way back.
+   */
   canGoLive: boolean;
   resetDemo: () => Promise<void>;
   setRole: (role: AppRole) => void;
@@ -80,7 +87,11 @@ function uniqueId(prefix: string): string {
 }
 
 export function DemoProvider({ children }: PropsWithChildren) {
-  const [mode, setMode] = useState<AppMode>(() => parseStoredAppMode(null, hasSupabaseConfig));
+  // Expo Go cannot run the native payment flows live mode needs, so it is
+  // never the startup default there. See `parseStoredAppMode`.
+  const isExpoGo = Constants.appOwnership === 'expo';
+  const canGoLive = hasCompleteLiveConfig();
+  const [mode, setMode] = useState<AppMode>(() => parseStoredAppMode(null, canGoLive, isExpoGo));
   const [portal, setPortal] = useState<PortalBundle>(createInitialDemoPortal);
   const [isHydrating, setIsHydrating] = useState(true);
 
@@ -91,7 +102,7 @@ export function DemoProvider({ children }: PropsWithChildren) {
       loadStoredPortal(),
     ]).then(([storedMode, storedPortal]) => {
       if (!mounted) return;
-      setMode(parseStoredAppMode(storedMode, hasSupabaseConfig));
+      setMode(parseStoredAppMode(storedMode, canGoLive, isExpoGo));
       if (storedPortal) setPortal(storedPortal);
     }).finally(() => {
       if (mounted) setIsHydrating(false);
@@ -99,7 +110,7 @@ export function DemoProvider({ children }: PropsWithChildren) {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [canGoLive, isExpoGo]);
 
   const savePortal = useCallback((transform: (current: PortalBundle) => PortalBundle) => {
     setPortal((current) => {
@@ -117,10 +128,10 @@ export function DemoProvider({ children }: PropsWithChildren) {
   }, []);
 
   const chooseLive = useCallback(async () => {
-    if (!hasSupabaseConfig) throw new Error('Connect Supabase before switching to live mode.');
+    if (!canGoLive) throw new Error('Finish the live payment and account setup before switching.');
     setMode('live');
     await saveStoredAppMode('live');
-  }, []);
+  }, [canGoLive]);
 
   const resetDemo = useCallback(async () => {
     setMode('demo');
@@ -133,7 +144,7 @@ export function DemoProvider({ children }: PropsWithChildren) {
     portal,
     chooseDemo,
     chooseLive,
-    canGoLive: hasSupabaseConfig,
+    canGoLive,
     resetDemo,
     setRole: (role) => savePortal((current) => setDemoRole(current, role)),
     book: (input) => savePortal((current) => addDemoBooking(current, { ...input, id: uniqueId('appointment') })),
@@ -164,7 +175,7 @@ export function DemoProvider({ children }: PropsWithChildren) {
     setMembershipStatus: (status) => savePortal((current) => setDemoMembershipStatus(current, status)),
     updateSetup: (role, setup) => savePortal((current) => withRoleSetup(current, role, setup)),
     dismissSetupAutoPrompt: () => savePortal(dismissDemoSetupAutoPrompt),
-  }), [chooseDemo, chooseLive, isHydrating, mode, portal, resetDemo, savePortal]);
+  }), [canGoLive, chooseDemo, chooseLive, isHydrating, mode, portal, resetDemo, savePortal]);
 
   return <DemoContext.Provider value={value}>{children}</DemoContext.Provider>;
 }

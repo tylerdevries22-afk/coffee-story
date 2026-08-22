@@ -51,8 +51,11 @@ Then, in the dashboard:
 3. The `service_role` secret belongs in the server environment only. Never in
    Expo, never in this repo.
 
-A build with no Supabase values opens in Demo mode and never reaches any of
-this. That is intended: it is what makes the Expo Go demo work offline.
+A build without a complete set of live values — Supabase *and* Stripe — opens
+in Demo and never reaches any of this, and so does Expo Go whatever it carries.
+That is intended: it is what makes the demo work offline, and it is why the
+startup default and the "Sign in to your account" button both ask
+`hasCompleteLiveConfig()` rather than "is Supabase set".
 
 ## 2. Server environment
 
@@ -102,8 +105,9 @@ The web portal owns the data and the money. It needs, at minimum:
 
 `npm audit` and `npm audit --omit=dev` both report **0 vulnerabilities**.
 
-Five `overrides` in `package.json` are load-bearing. Two of them knowingly
-violate a declared range and must be re-validated on every SDK 54 patch bump:
+Five `overrides` in `package.json` are load-bearing. All three of the entries
+below knowingly violate a declared range, and every one must be re-validated on
+an SDK 54 patch bump:
 
 - **`metro` / `metro-config` / `metro-transform-worker` at `0.83.8`** — clears
   8 high-severity findings (GHSA-w3rx-r6r6-pgpr, GHSA-5p2g-fcmc-qvqq) rooted

@@ -81,6 +81,33 @@ function decodeBase64Url(value: string): string {
   return decoded;
 }
 
+/**
+ * The live values as this build carries them.
+ *
+ * Each `process.env.EXPO_PUBLIC_*` is written out literally so Metro inlines
+ * it; a computed lookup would resolve to undefined in the bundle.
+ */
+export function liveConfigFromEnv(): MobileLiveConfig {
+  return {
+    stripePublishableKey: process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY,
+    supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
+    supabasePublishableKey: process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+  };
+}
+
+/**
+ * Whether live mode can actually run, by the same measure the root layout
+ * uses to decide whether to show `RuntimeConfigError`.
+ *
+ * Anything that offers live mode -- the startup default, the button on More --
+ * has to ask this rather than a weaker question like "is Supabase set". A
+ * build with Supabase values and no Stripe key answered yes to the weaker
+ * question and then hit the error screen, with the choice already persisted.
+ */
+export function hasCompleteLiveConfig(): boolean {
+  return missingLiveConfig(liveConfigFromEnv()).length === 0;
+}
+
 export function missingLiveConfig(config: MobileLiveConfig): string[] {
   const missing: string[] = [];
   if (!isValidStripePublishableKey(config.stripePublishableKey)) missing.push('EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY');

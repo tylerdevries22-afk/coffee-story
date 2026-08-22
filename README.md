@@ -32,14 +32,19 @@ board, a guest directory, and the owner tools behind them.
 The app runs in one of two modes.
 
 - **Demo** — everything works against a local dataset, with no backend at all.
-  Payments are simulated. This is what Expo Go runs, and what the App Store
-  reviewer would see if the build shipped without credentials.
+  Payments are simulated.
 - **Live** — Supabase for accounts, the web portal API for data, Stripe for
   payments.
 
-A build with `EXPO_PUBLIC_SUPABASE_*` set opens in Live and shows the sign-in
-screen; a build without them opens in Demo. Either mode can be chosen from
-**More** at any time.
+A build that carries a complete set of live values — Supabase *and* Stripe —
+opens in Live and shows the sign-in screen. Anything less opens in Demo, as
+does Expo Go regardless of configuration: its native module set is fixed, so
+card payments cannot run there, and a preview channel published with the
+owner's Supabase variables would otherwise hand every reviewer who scans the QR
+a sign-in screen for an account they do not have.
+
+Either mode can be chosen from **More** at any time, and the setup-incomplete
+screen offers Demo rather than stranding a half-configured build.
 
 ## Local development
 

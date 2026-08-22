@@ -268,7 +268,11 @@ export function parseStoredPortal(raw: string | null): PortalBundle | null {
   }
 }
 
-export function parseStoredAppMode(raw: string | null, hasLiveConfig: boolean): 'demo' | 'live' {
+export function parseStoredAppMode(
+  raw: string | null,
+  hasLiveConfig: boolean,
+  isExpoGo = false,
+): 'demo' | 'live' {
   // The /demo shell is intentionally a preview environment. Even if live
   // credentials are present in the build, we must keep startup deterministic
   // and visible in local/browser previews where optional keys may be omitted.
@@ -282,15 +286,22 @@ export function parseStoredAppMode(raw: string | null, hasLiveConfig: boolean): 
     return 'demo';
   }
 
-  // Nothing stored yet: follow the build. A build carrying real Supabase
-  // credentials is a build meant to sign people in, so it opens on the auth
-  // screen; a build without them can only be the preview, so it opens there.
+  // Nothing stored yet: follow the build. A build that can actually run live
+  // is a build meant to sign people in, so it opens on the auth screen; one
+  // that cannot can only be the preview, so it opens there.
   //
   // This used to return 'demo' unconditionally, and nothing ever wrote 'live'
   // -- `chooseLive` had no call site anywhere in the app. `isAuthenticated` is
   // `isDemo || Boolean(session)`, so `app/index.tsx` never reached AuthScreen
   // and a fully configured production build still booted into fabricated data.
-  if (raw !== 'live' && raw !== 'demo') return hasLiveConfig ? 'live' : 'demo';
+  //
+  // Expo Go is excluded for the same reason `shouldSimulateNativeFlow`
+  // excludes it: its native module set is fixed, so card payments cannot run
+  // there at all. A preview channel published with the owner's Supabase
+  // variables would otherwise hand every reviewer who scans the QR a sign-in
+  // screen for an account they do not have. An explicit choice still wins --
+  // someone who picks live in Expo Go gets live.
+  if (raw !== 'live' && raw !== 'demo') return hasLiveConfig && !isExpoGo ? 'live' : 'demo';
   return raw === 'live' && !hasLiveConfig ? 'demo' : raw;
 }
 

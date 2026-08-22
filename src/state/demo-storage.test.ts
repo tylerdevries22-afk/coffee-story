@@ -134,6 +134,20 @@ test('parseStoredAppMode opens a configured build on live, an unconfigured one o
   assert.equal(parseStoredAppMode(null, false), 'demo');
 });
 
+test('parseStoredAppMode never defaults Expo Go to live', () => {
+  // Expo Go cannot run the native payment flows live mode needs, and a preview
+  // channel published with the owner's Supabase variables would otherwise hand
+  // every reviewer who scans the QR a sign-in screen for an account they do
+  // not have.
+  assert.equal(parseStoredAppMode(null, true, true), 'demo');
+  assert.equal(parseStoredAppMode(null, false, true), 'demo');
+});
+
+test('an explicit live choice still wins inside Expo Go', () => {
+  assert.equal(parseStoredAppMode('live', true, true), 'live');
+  assert.equal(parseStoredAppMode('live', false, true), 'demo');
+});
+
 test('parseStoredAppMode treats an unrecognized stored value as unset', () => {
   assert.equal(parseStoredAppMode('nonsense', true), 'live');
   assert.equal(parseStoredAppMode('nonsense', false), 'demo');
