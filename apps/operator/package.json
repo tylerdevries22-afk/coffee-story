@@ -63,7 +63,9 @@
     "lint": "expo lint --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test \"src/**/*.test.ts\"",
-    "verify": "pnpm lint && pnpm typecheck && pnpm test && npx expo export --platform ios"
+    "verify": "pnpm lint && pnpm typecheck && pnpm test && npx expo export --platform ios",
+    "publish:preview": "npx eas-cli@21.4.0 update --channel preview --platform ios",
+    "publish:preview:all": "npx eas-cli@21.4.0 update --channel preview --platform all"
   },
   "overrides": {
     "metro": "0.83.8",

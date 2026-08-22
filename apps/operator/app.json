@@ -1,15 +1,15 @@
 {
   "expo": {
-    "name": "Operator",
-    "slug": "platform-operator",
+    "name": "Order Board",
+    "slug": "coffee-story-operator",
     "version": "1.0.0",
     "orientation": "default",
     "icon": "./assets/images/icon.png",
-    "scheme": "platform-operator",
+    "scheme": "coffee-operator",
     "runtimeVersion": "exposdk:54.0.0",
     "userInterfaceStyle": "light",
     "ios": {
-      "bundleIdentifier": "com.example.operator",
+      "bundleIdentifier": "com.coffeestory.operator",
       "supportsTablet": true,
       "usesAppleSignIn": false,
       "config": {
@@ -24,7 +24,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.example.operator"
+      "package": "com.coffeestory.operator"
     },
     "web": {
       "output": "static",
@@ -49,6 +49,7 @@
     },
     "extra": {
       "router": {}
-    }
+    },
+    "owner": "tylerdevries222"
   }
 }
