@@ -7,7 +7,11 @@
   "scripts": {
     "lint": "echo 'lint: added in Phase 7'",
     "typecheck": "tsc --noEmit",
-    "test": "echo 'no tests yet'",
+    "test": "tsx --test \"src/**/*.test.ts\"",
     "verify": "pnpm typecheck && pnpm test"
+  },
+  "dependencies": {
+    "@platform/schema": "workspace:*",
+    "@supabase/supabase-js": "^2.111.0"
   }
 }

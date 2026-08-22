@@ -15,6 +15,12 @@ importers:
 
   .:
     dependencies:
+      '@platform/engine':
+        specifier: workspace:*
+        version: link:packages/engine
+      '@platform/schema':
+        specifier: workspace:*
+        version: link:packages/schema
       '@supabase/supabase-js':
         specifier: ^2.111.0
         version: 2.112.3
@@ -173,6 +179,9 @@ importers:
 
   apps/hq:
     dependencies:
+      '@platform/engine':
+        specifier: workspace:*
+        version: link:../../packages/engine
       '@platform/schema':
         specifier: workspace:*
         version: link:../../packages/schema
@@ -341,7 +350,14 @@ importers:
         specifier: ~5.9.2
         version: 5.9.3
 
-  packages/engine: {}
+  packages/engine:
+    dependencies:
+      '@platform/schema':
+        specifier: workspace:*
+        version: link:../schema
+      '@supabase/supabase-js':
+        specifier: ^2.111.0
+        version: 2.112.3
 
   packages/schema:
     dependencies:
