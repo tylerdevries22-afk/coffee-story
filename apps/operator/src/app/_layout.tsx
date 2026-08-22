@@ -4,6 +4,7 @@ import { Inter_600SemiBold } from '@expo-google-fonts/inter/600SemiBold';
 import { Inter_700Bold } from '@expo-google-fonts/inter/700Bold';
 import { StripeProvider } from '@/lib/stripe';
 import { fontGateReady } from '@/lib/font-gate';
+import { initMonitoring } from '@/lib/monitoring';
 import { liveConfigFromEnv, missingLiveConfig, type MobileLiveConfig } from '@/lib/runtime-config';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
@@ -25,6 +26,8 @@ import { OrderProvider } from '@/state/order-context';
 import { colors } from '@/theme/tokens';
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
+
+initMonitoring();
 
 export default function RootLayout() {
   const [loaded, fontError] = useFonts({ Inter_400Regular, Inter_600SemiBold, Inter_700Bold, Fraunces_700Bold });

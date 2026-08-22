@@ -10,9 +10,11 @@
     "onboard": "tsx scripts/onboard.ts"
   },
   "devDependencies": {
+    "@types/node": "^26.1.2",
+    "checkly": "^8.22.0",
+    "sharp": "^0.35.3",
     "tsx": "^4.23.1",
-    "typescript": "~5.9.2",
-    "@types/node": "^26.1.2"
+    "typescript": "~5.9.2"
   },
   "pnpm": {
     "overrides": {
@@ -24,8 +26,8 @@
     }
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.111.0",
     "@platform/engine": "workspace:*",
-    "@platform/schema": "workspace:*"
+    "@platform/schema": "workspace:*",
+    "@supabase/supabase-js": "^2.111.0"
   }
 }

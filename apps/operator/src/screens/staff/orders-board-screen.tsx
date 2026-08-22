@@ -445,7 +445,7 @@ function MenuControlSheet({ visible, onClose }: { visible: boolean; onClose: () 
       />
       <Text style={styles.sheetSection}>86 board</Text>
       <Text style={styles.refundHint}>
-        86'd items stay on the menu marked sold out today and cannot be added
+        86&rsquo;d items stay on the menu marked sold out today and cannot be added
         to a bag. Everything resets at open.
       </Text>
       {SERVICES.map((service) => {
