@@ -32,6 +32,11 @@ export type PlaceOrderRequest = {
   loyaltyRedeemPoints?: number;
   note?: string;
   tenderType: TenderType;
+  /**
+   * square_link only: where Square returns the guest after paying — the app's
+   * own deep link back to the order. Ignored for every other tender.
+   */
+  redirectUrl?: string;
 };
 
 export type PlaceOrderResponse = {
@@ -76,8 +81,22 @@ export type HealthResponse = {
 };
 
 /** Route table: one place the paths live. */
+export type RefundOrderRequest = {
+  orderId: string;
+  /** Whole cents to return, or the whole order. */
+  amountCents?: number | 'full';
+  reason?: string;
+};
+
+export type RefundOrderResponse = {
+  orderId: string;
+  refundId: string;
+  amountCents: number;
+};
+
 export const API_ROUTES = {
   orders: '/api/orders',
+  ordersRefund: '/api/orders/refund',
   loyaltyRedeem: '/api/loyalty/redeem',
   pushTokens: '/api/push-tokens',
   profile: '/api/profile',

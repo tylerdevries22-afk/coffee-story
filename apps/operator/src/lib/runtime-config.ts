@@ -1,9 +1,12 @@
 /**
  * What live mode needs from the build environment: the Supabase project.
- * That is the operator app's whole backend — the board reads and writes
- * under staff RLS directly, so unlike the customer app there is no platform
- * API URL to configure. The validators live in @platform/data — one
- * definition of "safe to inline into a public bundle" for every app.
+ * That is nearly the whole backend — the board reads and writes under staff
+ * RLS directly. The one exception is a refund, which moves money at Square
+ * before any event is written and so must go through the platform API; that
+ * URL is therefore optional here, and a build without it simply says refunds
+ * are not configured on this device instead of refusing live mode. The
+ * validators live in @platform/data — one definition of "safe to inline into
+ * a public bundle" for every app.
  */
 import { isValidSupabasePublishableKey, isValidSupabaseUrl } from '@platform/data';
 
@@ -12,6 +15,8 @@ export { isValidSupabasePublishableKey, isValidSupabaseUrl } from '@platform/dat
 export type MobileLiveConfig = {
   supabaseUrl: unknown;
   supabasePublishableKey: unknown;
+  apiUrl: unknown;
+  allowedApiHost: unknown;
 };
 
 /**
@@ -24,6 +29,8 @@ export function liveConfigFromEnv(): MobileLiveConfig {
   return {
     supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
     supabasePublishableKey: process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+    apiUrl: process.env.EXPO_PUBLIC_API_URL,
+    allowedApiHost: process.env.EXPO_PUBLIC_ALLOWED_API_HOST,
   };
 }
 

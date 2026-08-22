@@ -1,11 +1,14 @@
 import type { PlaceOrderRequest, PlaceOrderResponse } from '@platform/api-client';
 import {
   createOrder,
+  createSquareCheckoutLink,
   OrderError,
   parseTaxJurisdictions,
   type CreateOrderLine,
   type OrderTenderType,
 } from '@platform/engine';
+
+import { squareRuntimeFor, type BrandFeeRow } from '../../../lib/square-runtime';
 
 import {
   authenticate,
@@ -26,14 +29,15 @@ import {
  * menu_items and the brand's tax config, and the Idempotency-Key becomes
  * orders.client_key so a retried request returns the first order.
  *
- * Tenders live today: pay_at_pickup. square_link / square_card answer 503
- * until the brand's Square connection exists (P8); external is POS-side
- * bookkeeping, never a client request.
+ * Tenders: pay_at_pickup always; square_link once the location has a Square
+ * connection, answering with a hosted checkout URL the app opens (the
+ * webhook, not the browser's return trip, is what marks it paid).
+ * square_card needs a native card SDK and waits for store builds; external is
+ * POS-side bookkeeping, never a client request.
  */
 
 const FULFILLMENT_TYPES = new Set(['pickup', 'curbside', 'catering', 'delivery']);
-const LIVE_TENDERS = new Set<OrderTenderType>(['pay_at_pickup']);
-const SQUARE_TENDERS = new Set<OrderTenderType>(['square_link', 'square_card']);
+const LIVE_TENDERS = new Set<OrderTenderType>(['pay_at_pickup', 'square_link']);
 
 function badLine(line: unknown): boolean {
   const candidate = line as Partial<CreateOrderLine>;
@@ -62,6 +66,7 @@ const ERROR_STATUS: Record<OrderError['code'], number> = {
   location_unknown: 404,
   ordering_paused: 409,
   item_unavailable: 409,
+  refund_unavailable: 409,
 };
 
 export async function POST(request: Request): Promise<Response> {
@@ -97,19 +102,37 @@ export async function POST(request: Request): Promise<Response> {
   if (body.note !== undefined && typeof body.note !== 'string') {
     return jsonError(400, 'invalid_request', 'note must be a string.');
   }
-  if (SQUARE_TENDERS.has(body.tenderType)) {
-    return jsonError(503, 'tender_unavailable', 'Card payments are not connected for this brand yet; order with pay_at_pickup.');
+  if (body.tenderType === 'square_card') {
+    return jsonError(503, 'tender_unavailable', 'In-app card payment needs a store build; use square_link or pay_at_pickup.');
   }
   if (!LIVE_TENDERS.has(body.tenderType)) {
-    return jsonError(400, 'invalid_request', 'tenderType must be pay_at_pickup.');
+    return jsonError(400, 'invalid_request', 'tenderType must be pay_at_pickup or square_link.');
   }
 
   const brand = await db
     .from('brands')
-    .select('id, brand_config')
+    .select('id, brand_config, fee_bps, fee_bps_tier2, tier_threshold_cents')
     .eq('id', auth.claims.brand_id)
-    .single<{ id: string; brand_config: unknown }>();
+    .single<{ id: string; brand_config: unknown } & BrandFeeRow>();
   if (brand.error) return jsonError(500, 'internal', 'Could not load the brand.');
+
+  // Checked before the order is written: a card order with nowhere to pay is
+  // a row the guest can never settle and the board must never show.
+  let square = null;
+  if (body.tenderType === 'square_link') {
+    try {
+      square = await squareRuntimeFor(db, {
+        brandId: auth.claims.brand_id,
+        locationId: body.locationId,
+        brand: brand.data,
+      });
+    } catch {
+      return jsonError(500, 'internal', 'Could not read this location’s payment connection.');
+    }
+    if (!square) {
+      return jsonError(503, 'tender_unavailable', 'Card payments are not connected for this location yet; order with pay_at_pickup.');
+    }
+  }
 
   let taxJurisdictions;
   try {
@@ -143,6 +166,21 @@ export async function POST(request: Request): Promise<Response> {
       tipCents: result.tipCents,
       totalCents: result.totalCents,
     };
+
+    if (square) {
+      // The order exists and is priced; this only mints the page to pay on.
+      // A replayed request finds the link already stored and returns it, so
+      // one cart never yields two checkout pages.
+      const link = await createSquareCheckoutLink(
+        { db, ...square },
+        {
+          orderId: result.orderId,
+          ...(body.redirectUrl ? { redirectUrl: body.redirectUrl } : {}),
+          ...(auth.email ? { buyerEmail: auth.email } : {}),
+        },
+      );
+      response.checkoutUrl = link.checkoutUrl;
+    }
     return jsonWithCors(response, result.replayed ? 200 : 201);
   } catch (error) {
     if (error instanceof OrderError) {
