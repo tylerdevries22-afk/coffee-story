@@ -55,6 +55,7 @@
     "eas:login": "npx eas-cli@21.4.0 login --browser",
     "publish:preview": "npx eas-cli@21.4.0 update --channel preview --environment preview --platform ios",
     "publish:preview:android": "npx eas-cli@21.4.0 update --channel preview --environment preview --platform android",
+    "publish:preview:all": "npx eas-cli@21.4.0 update --channel preview --environment preview --platform all",
     "publish:production": "npx eas-cli@21.4.0 update --channel production --environment production --platform ios",
     "publish:production:android": "npx eas-cli@21.4.0 update --channel production --environment production --platform android",
     "build:preview:ios": "npx eas-cli@21.4.0 build --platform ios --profile preview",

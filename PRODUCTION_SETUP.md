@@ -100,6 +100,13 @@ The web portal owns the data and the money. It needs, at minimum:
   disabled, because the app only opens the photo library and only writes
   calendar events. Do not remove those `false`s to "fix" a permission error —
   find out why something is asking first.
+- **`EXPO_TOKEN` must exist as a repository secret** for the Expo Go demo to
+  publish on merge. Create it at <https://expo.dev/settings/access-tokens> and
+  add it under Settings → Secrets and variables → Actions. Scope it to this
+  project if your plan allows. The publish job fails with an explicit message
+  until it is set — see `IPHONE_EXPO_GO_DEMO.md`.
+- Only the **preview** channel publishes automatically. Production is manual,
+  for the reason in gap 2 above.
 
 ## 5. Dependencies
 

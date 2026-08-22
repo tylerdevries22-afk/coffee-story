@@ -29,14 +29,37 @@ Dashboard: <https://expo.dev/accounts/tylerdevries222/projects/coffee-story>
 
 ## Publish a demo revision
 
+**Merging to `main` publishes automatically.** `.github/workflows/verify.yml`
+runs the quality gate first and only publishes if lint, typecheck, the tests,
+both bundles and both dependency audits pass — so the demo channel can never
+serve a build that does not compile.
+
+The run's **job summary** prints the QR link and the `exp://` deep link for
+both platforms. Copy them into the section above; a publish can mint new update
+ids, so an old QR keeps serving an old bundle.
+
+It needs one repository secret, `EXPO_TOKEN` — create it at
+<https://expo.dev/settings/access-tokens> and add it under **Settings → Secrets
+and variables → Actions**. Without it the publish job fails with that message
+rather than skipping quietly, because a green run that published nothing is
+how you end up handing someone last month's build.
+
+To publish from a branch, run the **verify** workflow manually from the Actions
+tab with **Publish an EAS Update** ticked.
+
+By hand, from a terminal:
+
 ```bash
 npm run verify
-npm run publish:preview -- --message "Describe the update"
+npm run eas:login                                     # or export EXPO_TOKEN
+npm run publish:preview:all -- --message "What changed"
 ```
 
-Then take the new update's QR and `exp://` link from the dashboard. A publish
-can mint a new platform update id, so re-share the link rather than reusing an
-old one.
+Only the **preview** channel is automated. Production stays manual
+(`npm run publish:production`): every channel shares
+`runtimeVersion: exposdk:54.0.0`, so a production update is runtime-compatible
+with Expo Go clients and preview builds alike, and a merge should not be able
+to reach store users. See `PRODUCTION_SETUP.md` gap 2.
 
 ## Open it on the iPhone
 
