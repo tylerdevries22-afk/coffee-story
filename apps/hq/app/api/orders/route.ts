@@ -9,8 +9,10 @@ import {
 
 import {
   authenticate,
+  corsPreflight,
   idempotencyKeyOf,
   jsonError,
+  jsonWithCors,
   notConfigured,
   parseJsonBody,
   resolveCustomer,
@@ -141,11 +143,16 @@ export async function POST(request: Request): Promise<Response> {
       tipCents: result.tipCents,
       totalCents: result.totalCents,
     };
-    return Response.json(response, { status: result.replayed ? 200 : 201 });
+    return jsonWithCors(response, result.replayed ? 200 : 201);
   } catch (error) {
     if (error instanceof OrderError) {
       return jsonError(ERROR_STATUS[error.code], error.code, error.message);
     }
     throw error;
   }
+}
+
+/** Browser preflight for the customer web build. */
+export function OPTIONS(): Response {
+  return corsPreflight();
 }

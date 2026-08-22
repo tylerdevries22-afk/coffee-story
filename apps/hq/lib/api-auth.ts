@@ -29,9 +29,30 @@ export function serviceDb(env: ServerEnv): SupabaseClient {
   return createClient(env.url, env.serviceRoleKey, { auth: { persistSession: false } });
 }
 
+/**
+ * The API serves browsers too (the customer app's web build calls it from
+ * its own origin), so every response carries CORS headers. `*` is safe here:
+ * auth is a Bearer token, never a cookie, so no ambient credential rides a
+ * cross-origin call.
+ */
+export const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'authorization, content-type, idempotency-key',
+  'Access-Control-Max-Age': '86400',
+} as const;
+
+export function corsPreflight(): Response {
+  return new Response(null, { status: 204, headers: CORS_HEADERS });
+}
+
+export function jsonWithCors(body: unknown, status = 200): Response {
+  return Response.json(body, { status, headers: CORS_HEADERS });
+}
+
 export function jsonError(status: number, code: string, message: string): Response {
   const body: ApiErrorBody = { error: { code, message } };
-  return Response.json(body, { status });
+  return Response.json(body, { status, headers: CORS_HEADERS });
 }
 
 export const notConfigured = (): Response =>

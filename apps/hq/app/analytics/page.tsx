@@ -1,5 +1,9 @@
 import { loadDrops, loadKpis } from '@/lib/data';
 import { formatMoney, formatShare, rollupByLocation } from '@/lib/kpi';
+// The console is live data behind a session: never prerender a fixture
+// snapshot at build time and serve it as if it were today's numbers.
+export const dynamic = 'force-dynamic';
+
 
 export default async function AnalyticsPage() {
   const [kpis, drops] = await Promise.all([loadKpis(), loadDrops()]);

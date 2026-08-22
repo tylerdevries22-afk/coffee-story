@@ -1,6 +1,10 @@
 import { currentSession, hasRole } from '@/lib/auth';
 import { loadFees } from '@/lib/data';
 import { formatMoney } from '@/lib/kpi';
+// The console is live data behind a session: never prerender a fixture
+// snapshot at build time and serve it as if it were today's numbers.
+export const dynamic = 'force-dynamic';
+
 
 /** The platform's own revenue: platform_admin only (rule 3 / RLS mirror). */
 export default async function FeesPage() {

@@ -1,6 +1,8 @@
 import type { UpdateProfileRequest } from '@platform/api-client';
 
 import {
+  corsPreflight,
+  jsonWithCors,
   authenticate,
   jsonError,
   notConfigured,
@@ -71,5 +73,10 @@ export async function POST(request: Request): Promise<Response> {
     throw updated.error;
   }
 
-  return Response.json({ ok: true });
+  return jsonWithCors({ ok: true });
+}
+
+/** Browser preflight for the customer web build. */
+export function OPTIONS(): Response {
+  return corsPreflight();
 }

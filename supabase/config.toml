@@ -56,3 +56,10 @@ enabled = false
 
 [analytics]
 enabled = false
+
+# OTP by email needs the code IN the email: GoTrue's default magic-link
+# template carries only a link. The E2E suite reads this code from Mailpit;
+# the hosted project mirrors the template under Authentication -> Templates.
+[auth.email.template.magic_link]
+subject = "Your sign-in code"
+content_path = "./supabase/templates/magic_link.html"
