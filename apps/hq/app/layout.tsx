@@ -2,7 +2,10 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 
 import { currentSession, hasRole } from '@/lib/auth';
+import { isConfigured } from '@/lib/supabase-server';
 import { NavLink } from '@/components/nav-link';
+
+import { signOut } from './login/actions';
 
 import './globals.css';
 
@@ -35,6 +38,11 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                   {session.email}
                   <br />
                   {session.role.replace('_', ' ')}
+                  {isConfigured() ? (
+                    <form action={signOut}>
+                      <button type="submit" className="linklike">Sign out</button>
+                    </form>
+                  ) : null}
                 </>
               ) : 'Signed out'}
             </div>

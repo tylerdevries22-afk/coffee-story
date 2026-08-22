@@ -56,6 +56,12 @@ importers:
       '@expo/vector-icons':
         specifier: ^15.0.3
         version: 15.1.1(expo-font@14.0.12(expo@54.0.37)(react-native@0.81.5(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0))(react-native@0.81.5(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
+      '@platform/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
+      '@platform/data':
+        specifier: workspace:*
+        version: link:../../packages/data
       '@platform/schema':
         specifier: workspace:*
         version: link:../../packages/schema
@@ -192,6 +198,9 @@ importers:
 
   apps/hq:
     dependencies:
+      '@platform/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
       '@platform/engine':
         specifier: workspace:*
         version: link:../../packages/engine
@@ -238,6 +247,12 @@ importers:
       '@expo/vector-icons':
         specifier: ^15.0.3
         version: 15.1.1(expo-font@14.0.12(expo@54.0.37)(react-native@0.81.5(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0))(react-native@0.81.5(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
+      '@platform/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
+      '@platform/data':
+        specifier: workspace:*
+        version: link:../../packages/data
       '@platform/schema':
         specifier: workspace:*
         version: link:../../packages/schema

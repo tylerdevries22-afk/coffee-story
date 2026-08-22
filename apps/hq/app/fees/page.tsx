@@ -1,5 +1,5 @@
 import { currentSession, hasRole } from '@/lib/auth';
-import { DEMO_FEES } from '@/lib/demo-data';
+import { loadFees } from '@/lib/data';
 import { formatMoney } from '@/lib/kpi';
 
 /** The platform's own revenue: platform_admin only (rule 3 / RLS mirror). */
@@ -13,13 +13,14 @@ export default async function FeesPage() {
       </>
     );
   }
-  const months = [...new Set(DEMO_FEES.map((row) => row.month))].sort().reverse();
+  const fees = await loadFees();
+  const months = [...new Set(fees.map((row) => row.month))].sort().reverse();
   return (
     <>
       <h1>Platform fees</h1>
       <p className="subtitle">app_fee_money collected per payment, tiered per location per calendar month.</p>
       {months.map((month) => {
-        const rows = DEMO_FEES.filter((row) => row.month === month);
+        const rows = fees.filter((row) => row.month === month);
         const totalFees = rows.reduce((sum, row) => sum + row.feeCents, 0);
         return (
           <div className="card" key={month}>

@@ -2,10 +2,14 @@ import type { Session, User } from '@supabase/supabase-js';
 import * as Linking from 'expo-linking';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type PropsWithChildren } from 'react';
 
+import { Platform } from 'react-native';
+
+import { platformApi } from '@/lib/api';
 import { recoveryCodeFromUrl, recoveryRedirectUrl } from '@/lib/auth-links';
-import { mobileApi } from '@/lib/mobile-api';
+import { loadLivePortal } from '@/lib/live-portal';
 import { registerForPush } from '@/lib/push';
 import { hasSupabaseConfig, supabase } from '@/lib/supabase';
+import { TENANT } from '@/tenant';
 import { useDemo } from '@/state/demo-context';
 import { createRequestSequence } from '@/state/request-sequence';
 import type { AppRole, PortalBundle } from '@/types/domain';
@@ -21,6 +25,9 @@ type AuthState = {
   isPasswordRecovery: boolean;
   error: string | null;
   signIn: (email: string, password: string) => Promise<void>;
+  /** Sends the six-digit email code; creates the account on first use. */
+  signInWithEmailOtp: (email: string) => Promise<void>;
+  verifyEmailCode: (email: string, code: string) => Promise<void>;
   /** Sends the six-digit SMS code. The phone must already be E.164. */
   signInWithPhone: (phone: string) => Promise<void>;
   verifyPhoneCode: (phone: string, code: string) => Promise<void>;
@@ -37,6 +44,7 @@ const EMPTY_PORTAL: PortalBundle = {
   profile: { id: '', fullName: '', email: '', phone: null, birthday: null, avatarUrl: null },
   role: 'client',
   appointments: [],
+  orders: [],
   rewardAccount: { availablePoints: 0, annualPoints: 0, cashCents: 0, annualPeriodStart: `${new Date().getFullYear()}-01-01` },
   rewardLedger: [],
   rewardActivities: [],
@@ -77,7 +85,16 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
     setError(null);
     try {
-      const nextPortal = await mobileApi.bootstrap();
+      if (!supabase || !expectedSession) {
+        if (isCurrent()) setIsLoading(false);
+        return;
+      }
+      const metadata = expectedSession.user.user_metadata as { full_name?: string } | null;
+      const nextPortal = await loadLivePortal(supabase, {
+        id: expectedSession.user.id,
+        email: expectedSession.user.email ?? null,
+        fullName: metadata?.full_name ?? '',
+      });
       if (!isCurrent()) return;
       setLivePortal(nextPortal);
     } catch (loadError) {
@@ -163,15 +180,23 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, []);
 
   // Ask for push permission once a real session exists -- never in Demo,
-  // never in Expo Go (lib/push guards both). The token lands on
-  // customers.push_token through the engine once its API exists; until then
-  // registration proves the flow and the OS prompt shows at the right moment.
+  // never in Expo Go (lib/push guards both). The token registers with the
+  // platform API so order-status pushes reach this device; a failed
+  // registration is logged and retried on the next session change.
   useEffect(() => {
     if (isDemo || !session) return;
     let active = true;
-    void registerForPush().then((token) => {
-      if (active && token) {
-        console.log(`Push registered: ${token.slice(0, 18)}…`);
+    void registerForPush().then(async (token) => {
+      if (!active || !token || !platformApi) return;
+      try {
+        await platformApi.registerPushToken({
+          token,
+          platform: Platform.OS === 'ios' || Platform.OS === 'android' || Platform.OS === 'web'
+            ? Platform.OS
+            : 'unknown',
+        });
+      } catch (registerError) {
+        console.warn('Push token registration failed', registerError instanceof Error ? registerError.message : registerError);
       }
     });
     return () => {
@@ -179,9 +204,33 @@ export function AuthProvider({ children }: PropsWithChildren) {
     };
   }, [isDemo, session]);
 
+  // Every OTP path carries brand_slug: the claims hook bootstraps a brand-new
+  // user's tenancy claim from it, validated against brands.slug server-side.
+  const signInWithEmailOtp = useCallback(async (email: string) => {
+    if (!supabase) throw new Error('Live sign-in is not configured in this build.');
+    const { error: otpError } = await supabase.auth.signInWithOtp({
+      email: email.trim(),
+      options: { shouldCreateUser: true, data: { brand_slug: TENANT.identity.slug } },
+    });
+    if (otpError) throw new Error(otpError.message);
+  }, []);
+
+  const verifyEmailCode = useCallback(async (email: string, code: string) => {
+    if (!supabase) throw new Error('Live sign-in is not configured in this build.');
+    const { error: verifyError } = await supabase.auth.verifyOtp({
+      email: email.trim(),
+      token: code,
+      type: 'email',
+    });
+    if (verifyError) throw new Error(verifyError.message);
+  }, []);
+
   const signInWithPhone = useCallback(async (phone: string) => {
     if (!supabase) throw new Error('Live sign-in is not configured in this build.');
-    const { error: otpError } = await supabase.auth.signInWithOtp({ phone });
+    const { error: otpError } = await supabase.auth.signInWithOtp({
+      phone,
+      options: { data: { brand_slug: TENANT.identity.slug } },
+    });
     if (otpError) throw new Error(otpError.message);
   }, []);
 
@@ -198,7 +247,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     const { error: signUpError } = await supabase.auth.signUp({
       email: email.trim(),
       password,
-      options: { data: { full_name: fullName.trim() } },
+      options: { data: { full_name: fullName.trim(), brand_slug: TENANT.identity.slug } },
     });
     setIsLoading(false);
     if (signUpError) throw new Error(signUpError.message);
@@ -238,6 +287,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
     isPasswordRecovery,
     error: isDemo ? null : error,
     signIn,
+    signInWithEmailOtp,
+    verifyEmailCode,
     signInWithPhone,
     verifyPhoneCode,
     signUp,
@@ -245,7 +296,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     updatePassword,
     signOut,
     refresh: () => loadPortal(session),
-  }), [demo.isHydrating, demo.portal, error, isDemo, isLoading, isPasswordRecovery, livePortal, loadPortal, requestPasswordReset, session, signIn, signInWithPhone, signOut, signUp, updatePassword, verifyPhoneCode]);
+  }), [demo.isHydrating, demo.portal, error, isDemo, isLoading, isPasswordRecovery, livePortal, loadPortal, requestPasswordReset, session, signIn, signInWithEmailOtp, signInWithPhone, signOut, signUp, updatePassword, verifyEmailCode, verifyPhoneCode]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

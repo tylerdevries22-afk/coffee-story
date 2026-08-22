@@ -29,3 +29,39 @@ export const BUSINESS_ADDRESS = `${BUSINESS.street}, ${BUSINESS.cityLine}`;
 
 /** The two-letter mark the app falls back to when there is no name or photo. */
 export const BUSINESS_MONOGRAM = 'CS';
+
+export type BusinessDetails = {
+  name: string;
+  legalName: string;
+  tagline: string;
+  email: string;
+  phone: string;
+  street: string;
+  cityLine: string;
+  website: string;
+  giftCodePrefix: string;
+};
+
+/**
+ * Tenancy is by login (rule 7): a signed-in operator's shop details come
+ * from the brand row's config, with the bundled shop as the demo fallback.
+ * The white-label sweep migrates the static BUSINESS call sites onto this.
+ */
+export function businessFromBrandConfig(brandConfig: unknown): BusinessDetails {
+  const configured = (brandConfig as { business?: Record<string, unknown> } | null)?.business ?? {};
+  const text = (key: string, fallback: string): string => {
+    const value = configured[key];
+    return typeof value === 'string' && value.length > 0 ? value : fallback;
+  };
+  return {
+    name: text('name', BUSINESS.name),
+    legalName: text('legalName', BUSINESS.legalName),
+    tagline: text('tagline', BUSINESS.tagline),
+    email: text('email', BUSINESS.email),
+    phone: text('phone', BUSINESS.phone),
+    street: text('street', BUSINESS.street),
+    cityLine: text('cityLine', BUSINESS.cityLine),
+    website: text('website', BUSINESS.website),
+    giftCodePrefix: text('giftCodePrefix', BUSINESS.giftCodePrefix),
+  };
+}

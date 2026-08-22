@@ -9,10 +9,10 @@ import { useAuth } from '@/state/auth-context';
 import { useDemo } from '@/state/demo-context';
 import { colors, fonts, radius, spacing } from '@/theme/tokens';
 
-type AuthView = 'sign-in' | 'create' | 'reset' | 'phone' | 'phone-code';
+type AuthView = 'sign-in' | 'create' | 'reset' | 'phone' | 'phone-code' | 'email-code' | 'email-code-verify';
 
 export function AuthScreen() {
-  const { signIn, signInWithPhone, signUp, requestPasswordReset, verifyPhoneCode } = useAuth();
+  const { signIn, signInWithEmailOtp, signInWithPhone, signUp, requestPasswordReset, verifyEmailCode, verifyPhoneCode } = useAuth();
   const { chooseDemo } = useDemo();
   const [view, setView] = useState<AuthView>('sign-in');
   const [fullName, setFullName] = useState('');
@@ -24,13 +24,17 @@ export function AuthScreen() {
   const [error, setError] = useState<string | null>(null);
 
   async function resendCode() {
-    const normalized = normalizePhone(phone);
-    if (!normalized) return;
     setError(null);
     setOtpCode('');
     setLoading(true);
     try {
-      await signInWithPhone(normalized);
+      if (view === 'email-code-verify') {
+        await signInWithEmailOtp(email);
+      } else {
+        const normalized = normalizePhone(phone);
+        if (!normalized) return;
+        await signInWithPhone(normalized);
+      }
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : 'The code could not be sent.');
     } finally {
@@ -40,6 +44,28 @@ export function AuthScreen() {
 
   async function submit() {
     setError(null);
+    if (view === 'email-code' || view === 'email-code-verify') {
+      if (!email.includes('@')) {
+        setError('Enter a valid email address.');
+        return;
+      }
+      setLoading(true);
+      try {
+        if (view === 'email-code') {
+          await signInWithEmailOtp(email);
+          setOtpCode('');
+          setView('email-code-verify');
+        } else {
+          if (!isValidOtpCode(otpCode)) throw new Error('Enter the six-digit code from the email.');
+          await verifyEmailCode(email, otpCode.trim());
+        }
+      } catch (submitError) {
+        setError(submitError instanceof Error ? submitError.message : 'The request could not be completed.');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
     if (view === 'phone' || view === 'phone-code') {
       const normalized = normalizePhone(phone);
       if (!normalized) {
@@ -99,6 +125,8 @@ export function AuthScreen() {
             : view === 'reset' ? 'Reset your password.'
             : view === 'phone' ? 'Sign in with your phone.'
             : view === 'phone-code' ? 'Enter the code we texted.'
+            : view === 'email-code' ? 'Sign in with your email.'
+            : view === 'email-code-verify' ? 'Enter the code we emailed.'
             : 'Welcome back.'}
         </Title>
         <Body muted>Order ahead, gifts, {HEART_POINTS_LABEL} rewards, and your favorites in one place. {BUSINESS.tagline}.</Body>
@@ -117,8 +145,8 @@ export function AuthScreen() {
         ) : (
           <Field label="Email" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" autoComplete="email" />
         )}
-        {view === 'phone-code' ? (
-          <Field label="Six-digit code" value={otpCode} onChangeText={setOtpCode} keyboardType="number-pad" autoComplete="sms-otp" />
+        {view === 'phone-code' || view === 'email-code-verify' ? (
+          <Field label="Six-digit code" value={otpCode} onChangeText={setOtpCode} keyboardType="number-pad" autoComplete={view === 'phone-code' ? 'sms-otp' : 'one-time-code'} />
         ) : null}
         {view === 'sign-in' || view === 'create' ? (
           <Field label="Password" value={password} onChangeText={setPassword} secureTextEntry autoComplete={view === 'create' ? 'new-password' : 'current-password'} />
@@ -128,7 +156,8 @@ export function AuthScreen() {
           label={view === 'create' ? 'Create account'
             : view === 'reset' ? 'Send reset link'
             : view === 'phone' ? 'Text me a code'
-            : view === 'phone-code' ? 'Verify and sign in'
+            : view === 'email-code' ? 'Email me a code'
+            : view === 'phone-code' || view === 'email-code-verify' ? 'Verify and sign in'
             : 'Sign in'}
           loading={loading}
           onPress={() => void submit()}
@@ -136,8 +165,9 @@ export function AuthScreen() {
       </Card>
       <View style={styles.links}>
         {view !== 'sign-in' ? <AuthLink label="Back to sign in" onPress={() => { setError(null); setView('sign-in'); }} /> : null}
+        {view === 'sign-in' ? <AuthLink label="Email me a sign-in code instead" onPress={() => { setError(null); setView('email-code'); }} /> : null}
         {view === 'sign-in' ? <AuthLink label="Sign in with phone instead" onPress={() => { setError(null); setView('phone'); }} /> : null}
-        {view === 'phone-code' ? <AuthLink label="Send a new code" onPress={() => void resendCode()} /> : null}
+        {view === 'phone-code' || view === 'email-code-verify' ? <AuthLink label="Send a new code" onPress={() => void resendCode()} /> : null}
         {view === 'sign-in' ? <AuthLink label="Create an account" onPress={() => setView('create')} /> : null}
         {view === 'sign-in' ? <AuthLink label="Forgot password?" onPress={() => setView('reset')} /> : null}
       </View>

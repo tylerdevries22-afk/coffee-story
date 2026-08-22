@@ -1,0 +1,5437 @@
+{
+  "espresso": [
+    {
+      "id": "sweetness",
+      "name": "Sweetness",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "sweet-0",
+          "name": "Unsweetened",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-50",
+          "name": "Half Sweet",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-100",
+          "name": "Regular Sweet",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "extras",
+      "name": "Add-ins",
+      "select": "multi",
+      "required": false,
+      "maxChoices": 3,
+      "choices": [
+        {
+          "id": "extra-extra-shot",
+          "name": "Extra Espresso Shot",
+          "priceDeltaCents": 150
+        },
+        {
+          "id": "extra-boba-pearls",
+          "name": "Boba Pearls",
+          "priceDeltaCents": 100
+        },
+        {
+          "id": "extra-pistachio-cold-foam",
+          "name": "Pistachio Cold Foam",
+          "priceDeltaCents": 125
+        }
+      ]
+    }
+  ],
+  "americano": [
+    {
+      "id": "serve",
+      "name": "Serve",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "serve-hot",
+          "name": "Hot",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "serve-iced",
+          "name": "Iced",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "ice",
+      "name": "Ice",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "ice-none",
+          "name": "No Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-light",
+          "name": "Light Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-regular",
+          "name": "Regular Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-extra",
+          "name": "Extra Ice",
+          "priceDeltaCents": 0
+        }
+      ],
+      "dependsOn": {
+        "groupId": "serve",
+        "choiceIds": [
+          "serve-iced"
+        ]
+      }
+    },
+    {
+      "id": "sweetness",
+      "name": "Sweetness",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "sweet-0",
+          "name": "Unsweetened",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-50",
+          "name": "Half Sweet",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-100",
+          "name": "Regular Sweet",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "extras",
+      "name": "Add-ins",
+      "select": "multi",
+      "required": false,
+      "maxChoices": 3,
+      "choices": [
+        {
+          "id": "extra-extra-shot",
+          "name": "Extra Espresso Shot",
+          "priceDeltaCents": 150
+        },
+        {
+          "id": "extra-boba-pearls",
+          "name": "Boba Pearls",
+          "priceDeltaCents": 100
+        },
+        {
+          "id": "extra-pistachio-cold-foam",
+          "name": "Pistachio Cold Foam",
+          "priceDeltaCents": 125
+        }
+      ]
+    }
+  ],
+  "latte": [
+    {
+      "id": "serve",
+      "name": "Serve",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "serve-hot",
+          "name": "Hot",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "serve-iced",
+          "name": "Iced",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "ice",
+      "name": "Ice",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "ice-none",
+          "name": "No Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-light",
+          "name": "Light Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-regular",
+          "name": "Regular Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-extra",
+          "name": "Extra Ice",
+          "priceDeltaCents": 0
+        }
+      ],
+      "dependsOn": {
+        "groupId": "serve",
+        "choiceIds": [
+          "serve-iced"
+        ]
+      }
+    },
+    {
+      "id": "milk",
+      "name": "Milk",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "milk-whole",
+          "name": "Whole Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-skim",
+          "name": "Skim Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-oat",
+          "name": "Oat Milk",
+          "priceDeltaCents": 75
+        },
+        {
+          "id": "milk-almond",
+          "name": "Almond Milk",
+          "priceDeltaCents": 75
+        }
+      ]
+    },
+    {
+      "id": "sweetness",
+      "name": "Sweetness",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "sweet-0",
+          "name": "Unsweetened",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-50",
+          "name": "Half Sweet",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-100",
+          "name": "Regular Sweet",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "extras",
+      "name": "Add-ins",
+      "select": "multi",
+      "required": false,
+      "maxChoices": 3,
+      "choices": [
+        {
+          "id": "extra-extra-shot",
+          "name": "Extra Espresso Shot",
+          "priceDeltaCents": 150
+        },
+        {
+          "id": "extra-boba-pearls",
+          "name": "Boba Pearls",
+          "priceDeltaCents": 100
+        },
+        {
+          "id": "extra-pistachio-cold-foam",
+          "name": "Pistachio Cold Foam",
+          "priceDeltaCents": 125
+        }
+      ]
+    }
+  ],
+  "cappuccino": [
+    {
+      "id": "milk",
+      "name": "Milk",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "milk-whole",
+          "name": "Whole Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-skim",
+          "name": "Skim Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-oat",
+          "name": "Oat Milk",
+          "priceDeltaCents": 75
+        },
+        {
+          "id": "milk-almond",
+          "name": "Almond Milk",
+          "priceDeltaCents": 75
+        }
+      ]
+    },
+    {
+      "id": "sweetness",
+      "name": "Sweetness",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "sweet-0",
+          "name": "Unsweetened",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-50",
+          "name": "Half Sweet",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-100",
+          "name": "Regular Sweet",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "extras",
+      "name": "Add-ins",
+      "select": "multi",
+      "required": false,
+      "maxChoices": 3,
+      "choices": [
+        {
+          "id": "extra-extra-shot",
+          "name": "Extra Espresso Shot",
+          "priceDeltaCents": 150
+        },
+        {
+          "id": "extra-boba-pearls",
+          "name": "Boba Pearls",
+          "priceDeltaCents": 100
+        },
+        {
+          "id": "extra-pistachio-cold-foam",
+          "name": "Pistachio Cold Foam",
+          "priceDeltaCents": 125
+        }
+      ]
+    }
+  ],
+  "flat-white": [
+    {
+      "id": "milk",
+      "name": "Milk",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "milk-whole",
+          "name": "Whole Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-skim",
+          "name": "Skim Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-oat",
+          "name": "Oat Milk",
+          "priceDeltaCents": 75
+        },
+        {
+          "id": "milk-almond",
+          "name": "Almond Milk",
+          "priceDeltaCents": 75
+        }
+      ]
+    },
+    {
+      "id": "sweetness",
+      "name": "Sweetness",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "sweet-0",
+          "name": "Unsweetened",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-50",
+          "name": "Half Sweet",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-100",
+          "name": "Regular Sweet",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "extras",
+      "name": "Add-ins",
+      "select": "multi",
+      "required": false,
+      "maxChoices": 3,
+      "choices": [
+        {
+          "id": "extra-extra-shot",
+          "name": "Extra Espresso Shot",
+          "priceDeltaCents": 150
+        },
+        {
+          "id": "extra-boba-pearls",
+          "name": "Boba Pearls",
+          "priceDeltaCents": 100
+        },
+        {
+          "id": "extra-pistachio-cold-foam",
+          "name": "Pistachio Cold Foam",
+          "priceDeltaCents": 125
+        }
+      ]
+    }
+  ],
+  "cortado": [
+    {
+      "id": "milk",
+      "name": "Milk",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "milk-whole",
+          "name": "Whole Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-skim",
+          "name": "Skim Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-oat",
+          "name": "Oat Milk",
+          "priceDeltaCents": 75
+        },
+        {
+          "id": "milk-almond",
+          "name": "Almond Milk",
+          "priceDeltaCents": 75
+        }
+      ]
+    },
+    {
+      "id": "sweetness",
+      "name": "Sweetness",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "sweet-0",
+          "name": "Unsweetened",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-50",
+          "name": "Half Sweet",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-100",
+          "name": "Regular Sweet",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "extras",
+      "name": "Add-ins",
+      "select": "multi",
+      "required": false,
+      "maxChoices": 3,
+      "choices": [
+        {
+          "id": "extra-extra-shot",
+          "name": "Extra Espresso Shot",
+          "priceDeltaCents": 150
+        },
+        {
+          "id": "extra-boba-pearls",
+          "name": "Boba Pearls",
+          "priceDeltaCents": 100
+        },
+        {
+          "id": "extra-pistachio-cold-foam",
+          "name": "Pistachio Cold Foam",
+          "priceDeltaCents": 125
+        }
+      ]
+    }
+  ],
+  "macchiato": [
+    {
+      "id": "milk",
+      "name": "Milk",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "milk-whole",
+          "name": "Whole Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-skim",
+          "name": "Skim Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-oat",
+          "name": "Oat Milk",
+          "priceDeltaCents": 75
+        },
+        {
+          "id": "milk-almond",
+          "name": "Almond Milk",
+          "priceDeltaCents": 75
+        }
+      ]
+    },
+    {
+      "id": "sweetness",
+      "name": "Sweetness",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "sweet-0",
+          "name": "Unsweetened",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-50",
+          "name": "Half Sweet",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-100",
+          "name": "Regular Sweet",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "extras",
+      "name": "Add-ins",
+      "select": "multi",
+      "required": false,
+      "maxChoices": 3,
+      "choices": [
+        {
+          "id": "extra-extra-shot",
+          "name": "Extra Espresso Shot",
+          "priceDeltaCents": 150
+        },
+        {
+          "id": "extra-boba-pearls",
+          "name": "Boba Pearls",
+          "priceDeltaCents": 100
+        },
+        {
+          "id": "extra-pistachio-cold-foam",
+          "name": "Pistachio Cold Foam",
+          "priceDeltaCents": 125
+        }
+      ]
+    }
+  ],
+  "mocha": [
+    {
+      "id": "serve",
+      "name": "Serve",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "serve-hot",
+          "name": "Hot",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "serve-iced",
+          "name": "Iced",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "ice",
+      "name": "Ice",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "ice-none",
+          "name": "No Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-light",
+          "name": "Light Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-regular",
+          "name": "Regular Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-extra",
+          "name": "Extra Ice",
+          "priceDeltaCents": 0
+        }
+      ],
+      "dependsOn": {
+        "groupId": "serve",
+        "choiceIds": [
+          "serve-iced"
+        ]
+      }
+    },
+    {
+      "id": "milk",
+      "name": "Milk",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "milk-whole",
+          "name": "Whole Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-skim",
+          "name": "Skim Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-oat",
+          "name": "Oat Milk",
+          "priceDeltaCents": 75
+        },
+        {
+          "id": "milk-almond",
+          "name": "Almond Milk",
+          "priceDeltaCents": 75
+        }
+      ]
+    },
+    {
+      "id": "sweetness",
+      "name": "Sweetness",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "sweet-0",
+          "name": "Unsweetened",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-50",
+          "name": "Half Sweet",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-100",
+          "name": "Regular Sweet",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "extras",
+      "name": "Add-ins",
+      "select": "multi",
+      "required": false,
+      "maxChoices": 3,
+      "choices": [
+        {
+          "id": "extra-extra-shot",
+          "name": "Extra Espresso Shot",
+          "priceDeltaCents": 150
+        },
+        {
+          "id": "extra-boba-pearls",
+          "name": "Boba Pearls",
+          "priceDeltaCents": 100
+        },
+        {
+          "id": "extra-pistachio-cold-foam",
+          "name": "Pistachio Cold Foam",
+          "priceDeltaCents": 125
+        }
+      ]
+    }
+  ],
+  "cold-brew": [
+    {
+      "id": "ice",
+      "name": "Ice",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "ice-none",
+          "name": "No Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-light",
+          "name": "Light Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-regular",
+          "name": "Regular Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-extra",
+          "name": "Extra Ice",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "sweetness",
+      "name": "Sweetness",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "sweet-0",
+          "name": "Unsweetened",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-50",
+          "name": "Half Sweet",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-100",
+          "name": "Regular Sweet",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "extras",
+      "name": "Add-ins",
+      "select": "multi",
+      "required": false,
+      "maxChoices": 3,
+      "choices": [
+        {
+          "id": "extra-extra-shot",
+          "name": "Extra Espresso Shot",
+          "priceDeltaCents": 150
+        },
+        {
+          "id": "extra-boba-pearls",
+          "name": "Boba Pearls",
+          "priceDeltaCents": 100
+        },
+        {
+          "id": "extra-pistachio-cold-foam",
+          "name": "Pistachio Cold Foam",
+          "priceDeltaCents": 125
+        }
+      ]
+    }
+  ],
+  "frappe": [
+    {
+      "id": "flavor",
+      "name": "Flavor",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "flavor-biscoff",
+          "name": "Biscoff",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "flavor-caramel",
+          "name": "Caramel",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "flavor-strawberry",
+          "name": "Strawberry",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "flavor-nutella",
+          "name": "Nutella",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "ice",
+      "name": "Ice",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "ice-none",
+          "name": "No Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-light",
+          "name": "Light Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-regular",
+          "name": "Regular Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-extra",
+          "name": "Extra Ice",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "milk",
+      "name": "Milk",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "milk-whole",
+          "name": "Whole Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-skim",
+          "name": "Skim Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-oat",
+          "name": "Oat Milk",
+          "priceDeltaCents": 75
+        },
+        {
+          "id": "milk-almond",
+          "name": "Almond Milk",
+          "priceDeltaCents": 75
+        }
+      ]
+    },
+    {
+      "id": "sweetness",
+      "name": "Sweetness",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "sweet-0",
+          "name": "Unsweetened",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-50",
+          "name": "Half Sweet",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-100",
+          "name": "Regular Sweet",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "extras",
+      "name": "Add-ins",
+      "select": "multi",
+      "required": false,
+      "maxChoices": 3,
+      "choices": [
+        {
+          "id": "extra-extra-shot",
+          "name": "Extra Espresso Shot",
+          "priceDeltaCents": 150
+        },
+        {
+          "id": "extra-boba-pearls",
+          "name": "Boba Pearls",
+          "priceDeltaCents": 100
+        },
+        {
+          "id": "extra-pistachio-cold-foam",
+          "name": "Pistachio Cold Foam",
+          "priceDeltaCents": 125
+        }
+      ]
+    }
+  ],
+  "tiramisu-latte": [
+    {
+      "id": "serve",
+      "name": "Serve",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "serve-hot",
+          "name": "Hot",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "serve-iced",
+          "name": "Iced",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "ice",
+      "name": "Ice",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "ice-none",
+          "name": "No Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-light",
+          "name": "Light Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-regular",
+          "name": "Regular Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-extra",
+          "name": "Extra Ice",
+          "priceDeltaCents": 0
+        }
+      ],
+      "dependsOn": {
+        "groupId": "serve",
+        "choiceIds": [
+          "serve-iced"
+        ]
+      }
+    },
+    {
+      "id": "milk",
+      "name": "Milk",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "milk-whole",
+          "name": "Whole Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-skim",
+          "name": "Skim Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-oat",
+          "name": "Oat Milk",
+          "priceDeltaCents": 75
+        },
+        {
+          "id": "milk-almond",
+          "name": "Almond Milk",
+          "priceDeltaCents": 75
+        }
+      ]
+    },
+    {
+      "id": "sweetness",
+      "name": "Sweetness",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "sweet-0",
+          "name": "Unsweetened",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-50",
+          "name": "Half Sweet",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-100",
+          "name": "Regular Sweet",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "extras",
+      "name": "Add-ins",
+      "select": "multi",
+      "required": false,
+      "maxChoices": 3,
+      "choices": [
+        {
+          "id": "extra-extra-shot",
+          "name": "Extra Espresso Shot",
+          "priceDeltaCents": 150
+        },
+        {
+          "id": "extra-boba-pearls",
+          "name": "Boba Pearls",
+          "priceDeltaCents": 100
+        },
+        {
+          "id": "extra-pistachio-cold-foam",
+          "name": "Pistachio Cold Foam",
+          "priceDeltaCents": 125
+        }
+      ]
+    }
+  ],
+  "spanish-latte": [
+    {
+      "id": "serve",
+      "name": "Serve",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "serve-hot",
+          "name": "Hot",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "serve-iced",
+          "name": "Iced",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "ice",
+      "name": "Ice",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "ice-none",
+          "name": "No Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-light",
+          "name": "Light Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-regular",
+          "name": "Regular Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-extra",
+          "name": "Extra Ice",
+          "priceDeltaCents": 0
+        }
+      ],
+      "dependsOn": {
+        "groupId": "serve",
+        "choiceIds": [
+          "serve-iced"
+        ]
+      }
+    },
+    {
+      "id": "milk",
+      "name": "Milk",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "milk-whole",
+          "name": "Whole Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-skim",
+          "name": "Skim Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-oat",
+          "name": "Oat Milk",
+          "priceDeltaCents": 75
+        },
+        {
+          "id": "milk-almond",
+          "name": "Almond Milk",
+          "priceDeltaCents": 75
+        }
+      ]
+    },
+    {
+      "id": "sweetness",
+      "name": "Sweetness",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "sweet-0",
+          "name": "Unsweetened",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-50",
+          "name": "Half Sweet",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-100",
+          "name": "Regular Sweet",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "extras",
+      "name": "Add-ins",
+      "select": "multi",
+      "required": false,
+      "maxChoices": 3,
+      "choices": [
+        {
+          "id": "extra-extra-shot",
+          "name": "Extra Espresso Shot",
+          "priceDeltaCents": 150
+        },
+        {
+          "id": "extra-boba-pearls",
+          "name": "Boba Pearls",
+          "priceDeltaCents": 100
+        },
+        {
+          "id": "extra-pistachio-cold-foam",
+          "name": "Pistachio Cold Foam",
+          "priceDeltaCents": 125
+        }
+      ]
+    }
+  ],
+  "pistachio-latte": [
+    {
+      "id": "serve",
+      "name": "Serve",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "serve-hot",
+          "name": "Hot",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "serve-iced",
+          "name": "Iced",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "ice",
+      "name": "Ice",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "ice-none",
+          "name": "No Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-light",
+          "name": "Light Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-regular",
+          "name": "Regular Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-extra",
+          "name": "Extra Ice",
+          "priceDeltaCents": 0
+        }
+      ],
+      "dependsOn": {
+        "groupId": "serve",
+        "choiceIds": [
+          "serve-iced"
+        ]
+      }
+    },
+    {
+      "id": "milk",
+      "name": "Milk",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "milk-whole",
+          "name": "Whole Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-skim",
+          "name": "Skim Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-oat",
+          "name": "Oat Milk",
+          "priceDeltaCents": 75
+        },
+        {
+          "id": "milk-almond",
+          "name": "Almond Milk",
+          "priceDeltaCents": 75
+        }
+      ]
+    },
+    {
+      "id": "sweetness",
+      "name": "Sweetness",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "sweet-0",
+          "name": "Unsweetened",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-50",
+          "name": "Half Sweet",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-100",
+          "name": "Regular Sweet",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "extras",
+      "name": "Add-ins",
+      "select": "multi",
+      "required": false,
+      "maxChoices": 3,
+      "choices": [
+        {
+          "id": "extra-extra-shot",
+          "name": "Extra Espresso Shot",
+          "priceDeltaCents": 150
+        },
+        {
+          "id": "extra-boba-pearls",
+          "name": "Boba Pearls",
+          "priceDeltaCents": 100
+        },
+        {
+          "id": "extra-pistachio-cold-foam",
+          "name": "Pistachio Cold Foam",
+          "priceDeltaCents": 125
+        }
+      ]
+    }
+  ],
+  "ube-latte": [
+    {
+      "id": "serve",
+      "name": "Serve",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "serve-hot",
+          "name": "Hot",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "serve-iced",
+          "name": "Iced",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "ice",
+      "name": "Ice",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "ice-none",
+          "name": "No Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-light",
+          "name": "Light Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-regular",
+          "name": "Regular Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-extra",
+          "name": "Extra Ice",
+          "priceDeltaCents": 0
+        }
+      ],
+      "dependsOn": {
+        "groupId": "serve",
+        "choiceIds": [
+          "serve-iced"
+        ]
+      }
+    },
+    {
+      "id": "milk",
+      "name": "Milk",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "milk-whole",
+          "name": "Whole Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-skim",
+          "name": "Skim Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-oat",
+          "name": "Oat Milk",
+          "priceDeltaCents": 75
+        },
+        {
+          "id": "milk-almond",
+          "name": "Almond Milk",
+          "priceDeltaCents": 75
+        }
+      ]
+    },
+    {
+      "id": "sweetness",
+      "name": "Sweetness",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "sweet-0",
+          "name": "Unsweetened",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-50",
+          "name": "Half Sweet",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-100",
+          "name": "Regular Sweet",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "extras",
+      "name": "Add-ins",
+      "select": "multi",
+      "required": false,
+      "maxChoices": 3,
+      "choices": [
+        {
+          "id": "extra-extra-shot",
+          "name": "Extra Espresso Shot",
+          "priceDeltaCents": 150
+        },
+        {
+          "id": "extra-boba-pearls",
+          "name": "Boba Pearls",
+          "priceDeltaCents": 100
+        },
+        {
+          "id": "extra-pistachio-cold-foam",
+          "name": "Pistachio Cold Foam",
+          "priceDeltaCents": 125
+        }
+      ]
+    }
+  ],
+  "honey-lavender-latte": [
+    {
+      "id": "serve",
+      "name": "Serve",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "serve-hot",
+          "name": "Hot",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "serve-iced",
+          "name": "Iced",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "ice",
+      "name": "Ice",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "ice-none",
+          "name": "No Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-light",
+          "name": "Light Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-regular",
+          "name": "Regular Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-extra",
+          "name": "Extra Ice",
+          "priceDeltaCents": 0
+        }
+      ],
+      "dependsOn": {
+        "groupId": "serve",
+        "choiceIds": [
+          "serve-iced"
+        ]
+      }
+    },
+    {
+      "id": "milk",
+      "name": "Milk",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "milk-whole",
+          "name": "Whole Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-skim",
+          "name": "Skim Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-oat",
+          "name": "Oat Milk",
+          "priceDeltaCents": 75
+        },
+        {
+          "id": "milk-almond",
+          "name": "Almond Milk",
+          "priceDeltaCents": 75
+        }
+      ]
+    },
+    {
+      "id": "sweetness",
+      "name": "Sweetness",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "sweet-0",
+          "name": "Unsweetened",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-50",
+          "name": "Half Sweet",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-100",
+          "name": "Regular Sweet",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "extras",
+      "name": "Add-ins",
+      "select": "multi",
+      "required": false,
+      "maxChoices": 3,
+      "choices": [
+        {
+          "id": "extra-extra-shot",
+          "name": "Extra Espresso Shot",
+          "priceDeltaCents": 150
+        },
+        {
+          "id": "extra-boba-pearls",
+          "name": "Boba Pearls",
+          "priceDeltaCents": 100
+        },
+        {
+          "id": "extra-pistachio-cold-foam",
+          "name": "Pistachio Cold Foam",
+          "priceDeltaCents": 125
+        }
+      ]
+    }
+  ],
+  "honey-rose-latte": [
+    {
+      "id": "serve",
+      "name": "Serve",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "serve-hot",
+          "name": "Hot",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "serve-iced",
+          "name": "Iced",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "ice",
+      "name": "Ice",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "ice-none",
+          "name": "No Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-light",
+          "name": "Light Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-regular",
+          "name": "Regular Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-extra",
+          "name": "Extra Ice",
+          "priceDeltaCents": 0
+        }
+      ],
+      "dependsOn": {
+        "groupId": "serve",
+        "choiceIds": [
+          "serve-iced"
+        ]
+      }
+    },
+    {
+      "id": "milk",
+      "name": "Milk",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "milk-whole",
+          "name": "Whole Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-skim",
+          "name": "Skim Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-oat",
+          "name": "Oat Milk",
+          "priceDeltaCents": 75
+        },
+        {
+          "id": "milk-almond",
+          "name": "Almond Milk",
+          "priceDeltaCents": 75
+        }
+      ]
+    },
+    {
+      "id": "sweetness",
+      "name": "Sweetness",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "sweet-0",
+          "name": "Unsweetened",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-50",
+          "name": "Half Sweet",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-100",
+          "name": "Regular Sweet",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "extras",
+      "name": "Add-ins",
+      "select": "multi",
+      "required": false,
+      "maxChoices": 3,
+      "choices": [
+        {
+          "id": "extra-extra-shot",
+          "name": "Extra Espresso Shot",
+          "priceDeltaCents": 150
+        },
+        {
+          "id": "extra-boba-pearls",
+          "name": "Boba Pearls",
+          "priceDeltaCents": 100
+        },
+        {
+          "id": "extra-pistachio-cold-foam",
+          "name": "Pistachio Cold Foam",
+          "priceDeltaCents": 125
+        }
+      ]
+    }
+  ],
+  "brown-sugar-shaken-espresso": [
+    {
+      "id": "serve",
+      "name": "Serve",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "serve-hot",
+          "name": "Hot",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "serve-iced",
+          "name": "Iced",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "ice",
+      "name": "Ice",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "ice-none",
+          "name": "No Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-light",
+          "name": "Light Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-regular",
+          "name": "Regular Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-extra",
+          "name": "Extra Ice",
+          "priceDeltaCents": 0
+        }
+      ],
+      "dependsOn": {
+        "groupId": "serve",
+        "choiceIds": [
+          "serve-iced"
+        ]
+      }
+    },
+    {
+      "id": "milk",
+      "name": "Milk",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "milk-whole",
+          "name": "Whole Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-skim",
+          "name": "Skim Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-oat",
+          "name": "Oat Milk",
+          "priceDeltaCents": 75
+        },
+        {
+          "id": "milk-almond",
+          "name": "Almond Milk",
+          "priceDeltaCents": 75
+        }
+      ]
+    },
+    {
+      "id": "sweetness",
+      "name": "Sweetness",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "sweet-0",
+          "name": "Unsweetened",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-50",
+          "name": "Half Sweet",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-100",
+          "name": "Regular Sweet",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "extras",
+      "name": "Add-ins",
+      "select": "multi",
+      "required": false,
+      "maxChoices": 3,
+      "choices": [
+        {
+          "id": "extra-extra-shot",
+          "name": "Extra Espresso Shot",
+          "priceDeltaCents": 150
+        },
+        {
+          "id": "extra-boba-pearls",
+          "name": "Boba Pearls",
+          "priceDeltaCents": 100
+        },
+        {
+          "id": "extra-pistachio-cold-foam",
+          "name": "Pistachio Cold Foam",
+          "priceDeltaCents": 125
+        }
+      ]
+    }
+  ],
+  "biscoff-latte": [
+    {
+      "id": "serve",
+      "name": "Serve",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "serve-hot",
+          "name": "Hot",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "serve-iced",
+          "name": "Iced",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "ice",
+      "name": "Ice",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "ice-none",
+          "name": "No Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-light",
+          "name": "Light Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-regular",
+          "name": "Regular Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-extra",
+          "name": "Extra Ice",
+          "priceDeltaCents": 0
+        }
+      ],
+      "dependsOn": {
+        "groupId": "serve",
+        "choiceIds": [
+          "serve-iced"
+        ]
+      }
+    },
+    {
+      "id": "milk",
+      "name": "Milk",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "milk-whole",
+          "name": "Whole Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-skim",
+          "name": "Skim Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-oat",
+          "name": "Oat Milk",
+          "priceDeltaCents": 75
+        },
+        {
+          "id": "milk-almond",
+          "name": "Almond Milk",
+          "priceDeltaCents": 75
+        }
+      ]
+    },
+    {
+      "id": "sweetness",
+      "name": "Sweetness",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "sweet-0",
+          "name": "Unsweetened",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-50",
+          "name": "Half Sweet",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-100",
+          "name": "Regular Sweet",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "extras",
+      "name": "Add-ins",
+      "select": "multi",
+      "required": false,
+      "maxChoices": 3,
+      "choices": [
+        {
+          "id": "extra-extra-shot",
+          "name": "Extra Espresso Shot",
+          "priceDeltaCents": 150
+        },
+        {
+          "id": "extra-boba-pearls",
+          "name": "Boba Pearls",
+          "priceDeltaCents": 100
+        },
+        {
+          "id": "extra-pistachio-cold-foam",
+          "name": "Pistachio Cold Foam",
+          "priceDeltaCents": 125
+        }
+      ]
+    }
+  ],
+  "spanish-oat-shaken": [
+    {
+      "id": "serve",
+      "name": "Serve",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "serve-hot",
+          "name": "Hot",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "serve-iced",
+          "name": "Iced",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "ice",
+      "name": "Ice",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "ice-none",
+          "name": "No Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-light",
+          "name": "Light Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-regular",
+          "name": "Regular Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-extra",
+          "name": "Extra Ice",
+          "priceDeltaCents": 0
+        }
+      ],
+      "dependsOn": {
+        "groupId": "serve",
+        "choiceIds": [
+          "serve-iced"
+        ]
+      }
+    },
+    {
+      "id": "milk",
+      "name": "Milk",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "milk-whole",
+          "name": "Whole Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-skim",
+          "name": "Skim Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-oat",
+          "name": "Oat Milk",
+          "priceDeltaCents": 75
+        },
+        {
+          "id": "milk-almond",
+          "name": "Almond Milk",
+          "priceDeltaCents": 75
+        }
+      ]
+    },
+    {
+      "id": "sweetness",
+      "name": "Sweetness",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "sweet-0",
+          "name": "Unsweetened",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-50",
+          "name": "Half Sweet",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-100",
+          "name": "Regular Sweet",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "extras",
+      "name": "Add-ins",
+      "select": "multi",
+      "required": false,
+      "maxChoices": 3,
+      "choices": [
+        {
+          "id": "extra-extra-shot",
+          "name": "Extra Espresso Shot",
+          "priceDeltaCents": 150
+        },
+        {
+          "id": "extra-boba-pearls",
+          "name": "Boba Pearls",
+          "priceDeltaCents": 100
+        },
+        {
+          "id": "extra-pistachio-cold-foam",
+          "name": "Pistachio Cold Foam",
+          "priceDeltaCents": 125
+        }
+      ]
+    }
+  ],
+  "libyan-nescafe": [
+    {
+      "id": "milk",
+      "name": "Milk",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "milk-whole",
+          "name": "Whole Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-skim",
+          "name": "Skim Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-oat",
+          "name": "Oat Milk",
+          "priceDeltaCents": 75
+        },
+        {
+          "id": "milk-almond",
+          "name": "Almond Milk",
+          "priceDeltaCents": 75
+        }
+      ]
+    },
+    {
+      "id": "sweetness",
+      "name": "Sweetness",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "sweet-0",
+          "name": "Unsweetened",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-50",
+          "name": "Half Sweet",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-100",
+          "name": "Regular Sweet",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "extras",
+      "name": "Add-ins",
+      "select": "multi",
+      "required": false,
+      "maxChoices": 3,
+      "choices": [
+        {
+          "id": "extra-extra-shot",
+          "name": "Extra Espresso Shot",
+          "priceDeltaCents": 150
+        },
+        {
+          "id": "extra-boba-pearls",
+          "name": "Boba Pearls",
+          "priceDeltaCents": 100
+        },
+        {
+          "id": "extra-pistachio-cold-foam",
+          "name": "Pistachio Cold Foam",
+          "priceDeltaCents": 125
+        }
+      ]
+    }
+  ],
+  "turkish-coffee": [
+    {
+      "id": "sweetness",
+      "name": "Sweetness",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "sweet-0",
+          "name": "Unsweetened",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-50",
+          "name": "Half Sweet",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-100",
+          "name": "Regular Sweet",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "extras",
+      "name": "Add-ins",
+      "select": "multi",
+      "required": false,
+      "maxChoices": 3,
+      "choices": [
+        {
+          "id": "extra-extra-shot",
+          "name": "Extra Espresso Shot",
+          "priceDeltaCents": 150
+        },
+        {
+          "id": "extra-boba-pearls",
+          "name": "Boba Pearls",
+          "priceDeltaCents": 100
+        },
+        {
+          "id": "extra-pistachio-cold-foam",
+          "name": "Pistachio Cold Foam",
+          "priceDeltaCents": 125
+        }
+      ]
+    }
+  ],
+  "loose-leaf-tea": [
+    {
+      "id": "flavor",
+      "name": "Tea",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "flavor-earl-grey",
+          "name": "Earl Grey",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "flavor-english-breakfast",
+          "name": "English Breakfast",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "flavor-green",
+          "name": "Green",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "flavor-mint",
+          "name": "Mint",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "serve",
+      "name": "Serve",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "serve-hot",
+          "name": "Hot",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "serve-iced",
+          "name": "Iced",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "ice",
+      "name": "Ice",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "ice-none",
+          "name": "No Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-light",
+          "name": "Light Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-regular",
+          "name": "Regular Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-extra",
+          "name": "Extra Ice",
+          "priceDeltaCents": 0
+        }
+      ],
+      "dependsOn": {
+        "groupId": "serve",
+        "choiceIds": [
+          "serve-iced"
+        ]
+      }
+    },
+    {
+      "id": "sweetness",
+      "name": "Sweetness",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "sweet-0",
+          "name": "Unsweetened",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-50",
+          "name": "Half Sweet",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-100",
+          "name": "Regular Sweet",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "extras",
+      "name": "Add-ins",
+      "select": "multi",
+      "required": false,
+      "maxChoices": 3,
+      "choices": [
+        {
+          "id": "extra-extra-shot",
+          "name": "Extra Espresso Shot",
+          "priceDeltaCents": 150
+        },
+        {
+          "id": "extra-boba-pearls",
+          "name": "Boba Pearls",
+          "priceDeltaCents": 100
+        },
+        {
+          "id": "extra-pistachio-cold-foam",
+          "name": "Pistachio Cold Foam",
+          "priceDeltaCents": 125
+        }
+      ]
+    }
+  ],
+  "chai-latte": [
+    {
+      "id": "serve",
+      "name": "Serve",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "serve-hot",
+          "name": "Hot",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "serve-iced",
+          "name": "Iced",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "ice",
+      "name": "Ice",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "ice-none",
+          "name": "No Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-light",
+          "name": "Light Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-regular",
+          "name": "Regular Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-extra",
+          "name": "Extra Ice",
+          "priceDeltaCents": 0
+        }
+      ],
+      "dependsOn": {
+        "groupId": "serve",
+        "choiceIds": [
+          "serve-iced"
+        ]
+      }
+    },
+    {
+      "id": "milk",
+      "name": "Milk",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "milk-whole",
+          "name": "Whole Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-skim",
+          "name": "Skim Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-oat",
+          "name": "Oat Milk",
+          "priceDeltaCents": 75
+        },
+        {
+          "id": "milk-almond",
+          "name": "Almond Milk",
+          "priceDeltaCents": 75
+        }
+      ]
+    },
+    {
+      "id": "sweetness",
+      "name": "Sweetness",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "sweet-0",
+          "name": "Unsweetened",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-50",
+          "name": "Half Sweet",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-100",
+          "name": "Regular Sweet",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "extras",
+      "name": "Add-ins",
+      "select": "multi",
+      "required": false,
+      "maxChoices": 3,
+      "choices": [
+        {
+          "id": "extra-extra-shot",
+          "name": "Extra Espresso Shot",
+          "priceDeltaCents": 150
+        },
+        {
+          "id": "extra-boba-pearls",
+          "name": "Boba Pearls",
+          "priceDeltaCents": 100
+        },
+        {
+          "id": "extra-pistachio-cold-foam",
+          "name": "Pistachio Cold Foam",
+          "priceDeltaCents": 125
+        }
+      ]
+    }
+  ],
+  "london-fog": [
+    {
+      "id": "serve",
+      "name": "Serve",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "serve-hot",
+          "name": "Hot",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "serve-iced",
+          "name": "Iced",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "ice",
+      "name": "Ice",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "ice-none",
+          "name": "No Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-light",
+          "name": "Light Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-regular",
+          "name": "Regular Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-extra",
+          "name": "Extra Ice",
+          "priceDeltaCents": 0
+        }
+      ],
+      "dependsOn": {
+        "groupId": "serve",
+        "choiceIds": [
+          "serve-iced"
+        ]
+      }
+    },
+    {
+      "id": "milk",
+      "name": "Milk",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "milk-whole",
+          "name": "Whole Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-skim",
+          "name": "Skim Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-oat",
+          "name": "Oat Milk",
+          "priceDeltaCents": 75
+        },
+        {
+          "id": "milk-almond",
+          "name": "Almond Milk",
+          "priceDeltaCents": 75
+        }
+      ]
+    },
+    {
+      "id": "sweetness",
+      "name": "Sweetness",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "sweet-0",
+          "name": "Unsweetened",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-50",
+          "name": "Half Sweet",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-100",
+          "name": "Regular Sweet",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "extras",
+      "name": "Add-ins",
+      "select": "multi",
+      "required": false,
+      "maxChoices": 3,
+      "choices": [
+        {
+          "id": "extra-extra-shot",
+          "name": "Extra Espresso Shot",
+          "priceDeltaCents": 150
+        },
+        {
+          "id": "extra-boba-pearls",
+          "name": "Boba Pearls",
+          "priceDeltaCents": 100
+        },
+        {
+          "id": "extra-pistachio-cold-foam",
+          "name": "Pistachio Cold Foam",
+          "priceDeltaCents": 125
+        }
+      ]
+    }
+  ],
+  "matcha-latte": [
+    {
+      "id": "serve",
+      "name": "Serve",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "serve-hot",
+          "name": "Hot",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "serve-iced",
+          "name": "Iced",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "ice",
+      "name": "Ice",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "ice-none",
+          "name": "No Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-light",
+          "name": "Light Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-regular",
+          "name": "Regular Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-extra",
+          "name": "Extra Ice",
+          "priceDeltaCents": 0
+        }
+      ],
+      "dependsOn": {
+        "groupId": "serve",
+        "choiceIds": [
+          "serve-iced"
+        ]
+      }
+    },
+    {
+      "id": "milk",
+      "name": "Milk",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "milk-whole",
+          "name": "Whole Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-skim",
+          "name": "Skim Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-oat",
+          "name": "Oat Milk",
+          "priceDeltaCents": 75
+        },
+        {
+          "id": "milk-almond",
+          "name": "Almond Milk",
+          "priceDeltaCents": 75
+        }
+      ]
+    },
+    {
+      "id": "sweetness",
+      "name": "Sweetness",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "sweet-0",
+          "name": "Unsweetened",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-50",
+          "name": "Half Sweet",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-100",
+          "name": "Regular Sweet",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "extras",
+      "name": "Add-ins",
+      "select": "multi",
+      "required": false,
+      "maxChoices": 3,
+      "choices": [
+        {
+          "id": "extra-extra-shot",
+          "name": "Extra Espresso Shot",
+          "priceDeltaCents": 150
+        },
+        {
+          "id": "extra-boba-pearls",
+          "name": "Boba Pearls",
+          "priceDeltaCents": 100
+        },
+        {
+          "id": "extra-pistachio-cold-foam",
+          "name": "Pistachio Cold Foam",
+          "priceDeltaCents": 125
+        }
+      ]
+    }
+  ],
+  "strawberry-matcha": [
+    {
+      "id": "serve",
+      "name": "Serve",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "serve-hot",
+          "name": "Hot",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "serve-iced",
+          "name": "Iced",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "ice",
+      "name": "Ice",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "ice-none",
+          "name": "No Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-light",
+          "name": "Light Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-regular",
+          "name": "Regular Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-extra",
+          "name": "Extra Ice",
+          "priceDeltaCents": 0
+        }
+      ],
+      "dependsOn": {
+        "groupId": "serve",
+        "choiceIds": [
+          "serve-iced"
+        ]
+      }
+    },
+    {
+      "id": "milk",
+      "name": "Milk",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "milk-whole",
+          "name": "Whole Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-skim",
+          "name": "Skim Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-oat",
+          "name": "Oat Milk",
+          "priceDeltaCents": 75
+        },
+        {
+          "id": "milk-almond",
+          "name": "Almond Milk",
+          "priceDeltaCents": 75
+        }
+      ]
+    },
+    {
+      "id": "sweetness",
+      "name": "Sweetness",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "sweet-0",
+          "name": "Unsweetened",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-50",
+          "name": "Half Sweet",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-100",
+          "name": "Regular Sweet",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "extras",
+      "name": "Add-ins",
+      "select": "multi",
+      "required": false,
+      "maxChoices": 3,
+      "choices": [
+        {
+          "id": "extra-extra-shot",
+          "name": "Extra Espresso Shot",
+          "priceDeltaCents": 150
+        },
+        {
+          "id": "extra-boba-pearls",
+          "name": "Boba Pearls",
+          "priceDeltaCents": 100
+        },
+        {
+          "id": "extra-pistachio-cold-foam",
+          "name": "Pistachio Cold Foam",
+          "priceDeltaCents": 125
+        }
+      ]
+    }
+  ],
+  "ube-matcha": [
+    {
+      "id": "serve",
+      "name": "Serve",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "serve-hot",
+          "name": "Hot",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "serve-iced",
+          "name": "Iced",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "ice",
+      "name": "Ice",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "ice-none",
+          "name": "No Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-light",
+          "name": "Light Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-regular",
+          "name": "Regular Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-extra",
+          "name": "Extra Ice",
+          "priceDeltaCents": 0
+        }
+      ],
+      "dependsOn": {
+        "groupId": "serve",
+        "choiceIds": [
+          "serve-iced"
+        ]
+      }
+    },
+    {
+      "id": "milk",
+      "name": "Milk",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "milk-whole",
+          "name": "Whole Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-skim",
+          "name": "Skim Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-oat",
+          "name": "Oat Milk",
+          "priceDeltaCents": 75
+        },
+        {
+          "id": "milk-almond",
+          "name": "Almond Milk",
+          "priceDeltaCents": 75
+        }
+      ]
+    },
+    {
+      "id": "sweetness",
+      "name": "Sweetness",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "sweet-0",
+          "name": "Unsweetened",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-50",
+          "name": "Half Sweet",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-100",
+          "name": "Regular Sweet",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "extras",
+      "name": "Add-ins",
+      "select": "multi",
+      "required": false,
+      "maxChoices": 3,
+      "choices": [
+        {
+          "id": "extra-extra-shot",
+          "name": "Extra Espresso Shot",
+          "priceDeltaCents": 150
+        },
+        {
+          "id": "extra-boba-pearls",
+          "name": "Boba Pearls",
+          "priceDeltaCents": 100
+        },
+        {
+          "id": "extra-pistachio-cold-foam",
+          "name": "Pistachio Cold Foam",
+          "priceDeltaCents": 125
+        }
+      ]
+    }
+  ],
+  "orange-blossom-matcha": [
+    {
+      "id": "serve",
+      "name": "Serve",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "serve-hot",
+          "name": "Hot",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "serve-iced",
+          "name": "Iced",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "ice",
+      "name": "Ice",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "ice-none",
+          "name": "No Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-light",
+          "name": "Light Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-regular",
+          "name": "Regular Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-extra",
+          "name": "Extra Ice",
+          "priceDeltaCents": 0
+        }
+      ],
+      "dependsOn": {
+        "groupId": "serve",
+        "choiceIds": [
+          "serve-iced"
+        ]
+      }
+    },
+    {
+      "id": "milk",
+      "name": "Milk",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "milk-whole",
+          "name": "Whole Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-skim",
+          "name": "Skim Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-oat",
+          "name": "Oat Milk",
+          "priceDeltaCents": 75
+        },
+        {
+          "id": "milk-almond",
+          "name": "Almond Milk",
+          "priceDeltaCents": 75
+        }
+      ]
+    },
+    {
+      "id": "sweetness",
+      "name": "Sweetness",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "sweet-0",
+          "name": "Unsweetened",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-50",
+          "name": "Half Sweet",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-100",
+          "name": "Regular Sweet",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "extras",
+      "name": "Add-ins",
+      "select": "multi",
+      "required": false,
+      "maxChoices": 3,
+      "choices": [
+        {
+          "id": "extra-extra-shot",
+          "name": "Extra Espresso Shot",
+          "priceDeltaCents": 150
+        },
+        {
+          "id": "extra-boba-pearls",
+          "name": "Boba Pearls",
+          "priceDeltaCents": 100
+        },
+        {
+          "id": "extra-pistachio-cold-foam",
+          "name": "Pistachio Cold Foam",
+          "priceDeltaCents": 125
+        }
+      ]
+    }
+  ],
+  "honey-lavender-matcha": [
+    {
+      "id": "serve",
+      "name": "Serve",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "serve-hot",
+          "name": "Hot",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "serve-iced",
+          "name": "Iced",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "ice",
+      "name": "Ice",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "ice-none",
+          "name": "No Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-light",
+          "name": "Light Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-regular",
+          "name": "Regular Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-extra",
+          "name": "Extra Ice",
+          "priceDeltaCents": 0
+        }
+      ],
+      "dependsOn": {
+        "groupId": "serve",
+        "choiceIds": [
+          "serve-iced"
+        ]
+      }
+    },
+    {
+      "id": "milk",
+      "name": "Milk",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "milk-whole",
+          "name": "Whole Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-skim",
+          "name": "Skim Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-oat",
+          "name": "Oat Milk",
+          "priceDeltaCents": 75
+        },
+        {
+          "id": "milk-almond",
+          "name": "Almond Milk",
+          "priceDeltaCents": 75
+        }
+      ]
+    },
+    {
+      "id": "sweetness",
+      "name": "Sweetness",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "sweet-0",
+          "name": "Unsweetened",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-50",
+          "name": "Half Sweet",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-100",
+          "name": "Regular Sweet",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "extras",
+      "name": "Add-ins",
+      "select": "multi",
+      "required": false,
+      "maxChoices": 3,
+      "choices": [
+        {
+          "id": "extra-extra-shot",
+          "name": "Extra Espresso Shot",
+          "priceDeltaCents": 150
+        },
+        {
+          "id": "extra-boba-pearls",
+          "name": "Boba Pearls",
+          "priceDeltaCents": 100
+        },
+        {
+          "id": "extra-pistachio-cold-foam",
+          "name": "Pistachio Cold Foam",
+          "priceDeltaCents": 125
+        }
+      ]
+    }
+  ],
+  "spanish-matcha": [
+    {
+      "id": "serve",
+      "name": "Serve",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "serve-hot",
+          "name": "Hot",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "serve-iced",
+          "name": "Iced",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "ice",
+      "name": "Ice",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "ice-none",
+          "name": "No Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-light",
+          "name": "Light Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-regular",
+          "name": "Regular Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-extra",
+          "name": "Extra Ice",
+          "priceDeltaCents": 0
+        }
+      ],
+      "dependsOn": {
+        "groupId": "serve",
+        "choiceIds": [
+          "serve-iced"
+        ]
+      }
+    },
+    {
+      "id": "milk",
+      "name": "Milk",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "milk-whole",
+          "name": "Whole Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-skim",
+          "name": "Skim Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-oat",
+          "name": "Oat Milk",
+          "priceDeltaCents": 75
+        },
+        {
+          "id": "milk-almond",
+          "name": "Almond Milk",
+          "priceDeltaCents": 75
+        }
+      ]
+    },
+    {
+      "id": "sweetness",
+      "name": "Sweetness",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "sweet-0",
+          "name": "Unsweetened",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-50",
+          "name": "Half Sweet",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-100",
+          "name": "Regular Sweet",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "extras",
+      "name": "Add-ins",
+      "select": "multi",
+      "required": false,
+      "maxChoices": 3,
+      "choices": [
+        {
+          "id": "extra-extra-shot",
+          "name": "Extra Espresso Shot",
+          "priceDeltaCents": 150
+        },
+        {
+          "id": "extra-boba-pearls",
+          "name": "Boba Pearls",
+          "priceDeltaCents": 100
+        },
+        {
+          "id": "extra-pistachio-cold-foam",
+          "name": "Pistachio Cold Foam",
+          "priceDeltaCents": 125
+        }
+      ]
+    }
+  ],
+  "adeni-chai": [
+    {
+      "id": "serve",
+      "name": "Serve",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "serve-hot",
+          "name": "Hot",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "serve-iced",
+          "name": "Iced",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "ice",
+      "name": "Ice",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "ice-none",
+          "name": "No Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-light",
+          "name": "Light Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-regular",
+          "name": "Regular Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-extra",
+          "name": "Extra Ice",
+          "priceDeltaCents": 0
+        }
+      ],
+      "dependsOn": {
+        "groupId": "serve",
+        "choiceIds": [
+          "serve-iced"
+        ]
+      }
+    },
+    {
+      "id": "milk",
+      "name": "Milk",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "milk-whole",
+          "name": "Whole Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-skim",
+          "name": "Skim Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-oat",
+          "name": "Oat Milk",
+          "priceDeltaCents": 75
+        },
+        {
+          "id": "milk-almond",
+          "name": "Almond Milk",
+          "priceDeltaCents": 75
+        }
+      ]
+    },
+    {
+      "id": "sweetness",
+      "name": "Sweetness",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "sweet-0",
+          "name": "Unsweetened",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-50",
+          "name": "Half Sweet",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-100",
+          "name": "Regular Sweet",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "extras",
+      "name": "Add-ins",
+      "select": "multi",
+      "required": false,
+      "maxChoices": 3,
+      "choices": [
+        {
+          "id": "extra-extra-shot",
+          "name": "Extra Espresso Shot",
+          "priceDeltaCents": 150
+        },
+        {
+          "id": "extra-boba-pearls",
+          "name": "Boba Pearls",
+          "priceDeltaCents": 100
+        },
+        {
+          "id": "extra-pistachio-cold-foam",
+          "name": "Pistachio Cold Foam",
+          "priceDeltaCents": 125
+        }
+      ]
+    }
+  ],
+  "boba-milk-tea": [
+    {
+      "id": "ice",
+      "name": "Ice",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "ice-none",
+          "name": "No Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-light",
+          "name": "Light Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-regular",
+          "name": "Regular Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-extra",
+          "name": "Extra Ice",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "milk",
+      "name": "Milk",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "milk-whole",
+          "name": "Whole Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-skim",
+          "name": "Skim Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-oat",
+          "name": "Oat Milk",
+          "priceDeltaCents": 75
+        },
+        {
+          "id": "milk-almond",
+          "name": "Almond Milk",
+          "priceDeltaCents": 75
+        }
+      ]
+    },
+    {
+      "id": "sweetness",
+      "name": "Sweetness",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "sweet-0",
+          "name": "Unsweetened",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-50",
+          "name": "Half Sweet",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-100",
+          "name": "Regular Sweet",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "extras",
+      "name": "Add-ins",
+      "select": "multi",
+      "required": false,
+      "maxChoices": 3,
+      "choices": [
+        {
+          "id": "extra-extra-shot",
+          "name": "Extra Espresso Shot",
+          "priceDeltaCents": 150
+        },
+        {
+          "id": "extra-boba-pearls",
+          "name": "Boba Pearls",
+          "priceDeltaCents": 100
+        },
+        {
+          "id": "extra-pistachio-cold-foam",
+          "name": "Pistachio Cold Foam",
+          "priceDeltaCents": 125
+        }
+      ]
+    }
+  ],
+  "boba-brown-sugar": [
+    {
+      "id": "ice",
+      "name": "Ice",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "ice-none",
+          "name": "No Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-light",
+          "name": "Light Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-regular",
+          "name": "Regular Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-extra",
+          "name": "Extra Ice",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "milk",
+      "name": "Milk",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "milk-whole",
+          "name": "Whole Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-skim",
+          "name": "Skim Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-oat",
+          "name": "Oat Milk",
+          "priceDeltaCents": 75
+        },
+        {
+          "id": "milk-almond",
+          "name": "Almond Milk",
+          "priceDeltaCents": 75
+        }
+      ]
+    },
+    {
+      "id": "sweetness",
+      "name": "Sweetness",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "sweet-0",
+          "name": "Unsweetened",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-50",
+          "name": "Half Sweet",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-100",
+          "name": "Regular Sweet",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "extras",
+      "name": "Add-ins",
+      "select": "multi",
+      "required": false,
+      "maxChoices": 3,
+      "choices": [
+        {
+          "id": "extra-extra-shot",
+          "name": "Extra Espresso Shot",
+          "priceDeltaCents": 150
+        },
+        {
+          "id": "extra-boba-pearls",
+          "name": "Boba Pearls",
+          "priceDeltaCents": 100
+        },
+        {
+          "id": "extra-pistachio-cold-foam",
+          "name": "Pistachio Cold Foam",
+          "priceDeltaCents": 125
+        }
+      ]
+    }
+  ],
+  "boba-ube": [
+    {
+      "id": "ice",
+      "name": "Ice",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "ice-none",
+          "name": "No Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-light",
+          "name": "Light Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-regular",
+          "name": "Regular Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-extra",
+          "name": "Extra Ice",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "milk",
+      "name": "Milk",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "milk-whole",
+          "name": "Whole Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-skim",
+          "name": "Skim Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-oat",
+          "name": "Oat Milk",
+          "priceDeltaCents": 75
+        },
+        {
+          "id": "milk-almond",
+          "name": "Almond Milk",
+          "priceDeltaCents": 75
+        }
+      ]
+    },
+    {
+      "id": "sweetness",
+      "name": "Sweetness",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "sweet-0",
+          "name": "Unsweetened",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-50",
+          "name": "Half Sweet",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-100",
+          "name": "Regular Sweet",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "extras",
+      "name": "Add-ins",
+      "select": "multi",
+      "required": false,
+      "maxChoices": 3,
+      "choices": [
+        {
+          "id": "extra-extra-shot",
+          "name": "Extra Espresso Shot",
+          "priceDeltaCents": 150
+        },
+        {
+          "id": "extra-boba-pearls",
+          "name": "Boba Pearls",
+          "priceDeltaCents": 100
+        },
+        {
+          "id": "extra-pistachio-cold-foam",
+          "name": "Pistachio Cold Foam",
+          "priceDeltaCents": 125
+        }
+      ]
+    }
+  ],
+  "boba-strawberry": [
+    {
+      "id": "ice",
+      "name": "Ice",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "ice-none",
+          "name": "No Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-light",
+          "name": "Light Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-regular",
+          "name": "Regular Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-extra",
+          "name": "Extra Ice",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "milk",
+      "name": "Milk",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "milk-whole",
+          "name": "Whole Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-skim",
+          "name": "Skim Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-oat",
+          "name": "Oat Milk",
+          "priceDeltaCents": 75
+        },
+        {
+          "id": "milk-almond",
+          "name": "Almond Milk",
+          "priceDeltaCents": 75
+        }
+      ]
+    },
+    {
+      "id": "sweetness",
+      "name": "Sweetness",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "sweet-0",
+          "name": "Unsweetened",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-50",
+          "name": "Half Sweet",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-100",
+          "name": "Regular Sweet",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "extras",
+      "name": "Add-ins",
+      "select": "multi",
+      "required": false,
+      "maxChoices": 3,
+      "choices": [
+        {
+          "id": "extra-extra-shot",
+          "name": "Extra Espresso Shot",
+          "priceDeltaCents": 150
+        },
+        {
+          "id": "extra-boba-pearls",
+          "name": "Boba Pearls",
+          "priceDeltaCents": 100
+        },
+        {
+          "id": "extra-pistachio-cold-foam",
+          "name": "Pistachio Cold Foam",
+          "priceDeltaCents": 125
+        }
+      ]
+    }
+  ],
+  "boba-thai-tea": [
+    {
+      "id": "ice",
+      "name": "Ice",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "ice-none",
+          "name": "No Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-light",
+          "name": "Light Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-regular",
+          "name": "Regular Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-extra",
+          "name": "Extra Ice",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "milk",
+      "name": "Milk",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "milk-whole",
+          "name": "Whole Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-skim",
+          "name": "Skim Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-oat",
+          "name": "Oat Milk",
+          "priceDeltaCents": 75
+        },
+        {
+          "id": "milk-almond",
+          "name": "Almond Milk",
+          "priceDeltaCents": 75
+        }
+      ]
+    },
+    {
+      "id": "sweetness",
+      "name": "Sweetness",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "sweet-0",
+          "name": "Unsweetened",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-50",
+          "name": "Half Sweet",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-100",
+          "name": "Regular Sweet",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "extras",
+      "name": "Add-ins",
+      "select": "multi",
+      "required": false,
+      "maxChoices": 3,
+      "choices": [
+        {
+          "id": "extra-extra-shot",
+          "name": "Extra Espresso Shot",
+          "priceDeltaCents": 150
+        },
+        {
+          "id": "extra-boba-pearls",
+          "name": "Boba Pearls",
+          "priceDeltaCents": 100
+        },
+        {
+          "id": "extra-pistachio-cold-foam",
+          "name": "Pistachio Cold Foam",
+          "priceDeltaCents": 125
+        }
+      ]
+    }
+  ],
+  "boba-rooh-afza": [
+    {
+      "id": "ice",
+      "name": "Ice",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "ice-none",
+          "name": "No Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-light",
+          "name": "Light Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-regular",
+          "name": "Regular Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-extra",
+          "name": "Extra Ice",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "milk",
+      "name": "Milk",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "milk-whole",
+          "name": "Whole Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-skim",
+          "name": "Skim Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-oat",
+          "name": "Oat Milk",
+          "priceDeltaCents": 75
+        },
+        {
+          "id": "milk-almond",
+          "name": "Almond Milk",
+          "priceDeltaCents": 75
+        }
+      ]
+    },
+    {
+      "id": "sweetness",
+      "name": "Sweetness",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "sweet-0",
+          "name": "Unsweetened",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-50",
+          "name": "Half Sweet",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-100",
+          "name": "Regular Sweet",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "extras",
+      "name": "Add-ins",
+      "select": "multi",
+      "required": false,
+      "maxChoices": 3,
+      "choices": [
+        {
+          "id": "extra-extra-shot",
+          "name": "Extra Espresso Shot",
+          "priceDeltaCents": 150
+        },
+        {
+          "id": "extra-boba-pearls",
+          "name": "Boba Pearls",
+          "priceDeltaCents": 100
+        },
+        {
+          "id": "extra-pistachio-cold-foam",
+          "name": "Pistachio Cold Foam",
+          "priceDeltaCents": 125
+        }
+      ]
+    }
+  ],
+  "ade-strawberry": [
+    {
+      "id": "ice",
+      "name": "Ice",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "ice-none",
+          "name": "No Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-light",
+          "name": "Light Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-regular",
+          "name": "Regular Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-extra",
+          "name": "Extra Ice",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "milk",
+      "name": "Milk",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "milk-whole",
+          "name": "Whole Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-skim",
+          "name": "Skim Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-oat",
+          "name": "Oat Milk",
+          "priceDeltaCents": 75
+        },
+        {
+          "id": "milk-almond",
+          "name": "Almond Milk",
+          "priceDeltaCents": 75
+        }
+      ]
+    },
+    {
+      "id": "sweetness",
+      "name": "Sweetness",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "sweet-0",
+          "name": "Unsweetened",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-50",
+          "name": "Half Sweet",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-100",
+          "name": "Regular Sweet",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "extras",
+      "name": "Add-ins",
+      "select": "multi",
+      "required": false,
+      "maxChoices": 3,
+      "choices": [
+        {
+          "id": "extra-extra-shot",
+          "name": "Extra Espresso Shot",
+          "priceDeltaCents": 150
+        },
+        {
+          "id": "extra-boba-pearls",
+          "name": "Boba Pearls",
+          "priceDeltaCents": 100
+        },
+        {
+          "id": "extra-pistachio-cold-foam",
+          "name": "Pistachio Cold Foam",
+          "priceDeltaCents": 125
+        }
+      ]
+    }
+  ],
+  "ade-mango": [
+    {
+      "id": "ice",
+      "name": "Ice",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "ice-none",
+          "name": "No Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-light",
+          "name": "Light Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-regular",
+          "name": "Regular Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-extra",
+          "name": "Extra Ice",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "milk",
+      "name": "Milk",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "milk-whole",
+          "name": "Whole Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-skim",
+          "name": "Skim Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-oat",
+          "name": "Oat Milk",
+          "priceDeltaCents": 75
+        },
+        {
+          "id": "milk-almond",
+          "name": "Almond Milk",
+          "priceDeltaCents": 75
+        }
+      ]
+    },
+    {
+      "id": "sweetness",
+      "name": "Sweetness",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "sweet-0",
+          "name": "Unsweetened",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-50",
+          "name": "Half Sweet",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-100",
+          "name": "Regular Sweet",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "extras",
+      "name": "Add-ins",
+      "select": "multi",
+      "required": false,
+      "maxChoices": 3,
+      "choices": [
+        {
+          "id": "extra-extra-shot",
+          "name": "Extra Espresso Shot",
+          "priceDeltaCents": 150
+        },
+        {
+          "id": "extra-boba-pearls",
+          "name": "Boba Pearls",
+          "priceDeltaCents": 100
+        },
+        {
+          "id": "extra-pistachio-cold-foam",
+          "name": "Pistachio Cold Foam",
+          "priceDeltaCents": 125
+        }
+      ]
+    }
+  ],
+  "ade-sunset": [
+    {
+      "id": "ice",
+      "name": "Ice",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "ice-none",
+          "name": "No Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-light",
+          "name": "Light Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-regular",
+          "name": "Regular Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-extra",
+          "name": "Extra Ice",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "milk",
+      "name": "Milk",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "milk-whole",
+          "name": "Whole Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-skim",
+          "name": "Skim Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-oat",
+          "name": "Oat Milk",
+          "priceDeltaCents": 75
+        },
+        {
+          "id": "milk-almond",
+          "name": "Almond Milk",
+          "priceDeltaCents": 75
+        }
+      ]
+    },
+    {
+      "id": "sweetness",
+      "name": "Sweetness",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "sweet-0",
+          "name": "Unsweetened",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-50",
+          "name": "Half Sweet",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-100",
+          "name": "Regular Sweet",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "extras",
+      "name": "Add-ins",
+      "select": "multi",
+      "required": false,
+      "maxChoices": 3,
+      "choices": [
+        {
+          "id": "extra-extra-shot",
+          "name": "Extra Espresso Shot",
+          "priceDeltaCents": 150
+        },
+        {
+          "id": "extra-boba-pearls",
+          "name": "Boba Pearls",
+          "priceDeltaCents": 100
+        },
+        {
+          "id": "extra-pistachio-cold-foam",
+          "name": "Pistachio Cold Foam",
+          "priceDeltaCents": 125
+        }
+      ]
+    }
+  ],
+  "ade-passion-fruit": [
+    {
+      "id": "ice",
+      "name": "Ice",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "ice-none",
+          "name": "No Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-light",
+          "name": "Light Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-regular",
+          "name": "Regular Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-extra",
+          "name": "Extra Ice",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "milk",
+      "name": "Milk",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "milk-whole",
+          "name": "Whole Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-skim",
+          "name": "Skim Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-oat",
+          "name": "Oat Milk",
+          "priceDeltaCents": 75
+        },
+        {
+          "id": "milk-almond",
+          "name": "Almond Milk",
+          "priceDeltaCents": 75
+        }
+      ]
+    },
+    {
+      "id": "sweetness",
+      "name": "Sweetness",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "sweet-0",
+          "name": "Unsweetened",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-50",
+          "name": "Half Sweet",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-100",
+          "name": "Regular Sweet",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "extras",
+      "name": "Add-ins",
+      "select": "multi",
+      "required": false,
+      "maxChoices": 3,
+      "choices": [
+        {
+          "id": "extra-extra-shot",
+          "name": "Extra Espresso Shot",
+          "priceDeltaCents": 150
+        },
+        {
+          "id": "extra-boba-pearls",
+          "name": "Boba Pearls",
+          "priceDeltaCents": 100
+        },
+        {
+          "id": "extra-pistachio-cold-foam",
+          "name": "Pistachio Cold Foam",
+          "priceDeltaCents": 125
+        }
+      ]
+    }
+  ],
+  "midnight-lychee": [
+    {
+      "id": "ice",
+      "name": "Ice",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "ice-none",
+          "name": "No Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-light",
+          "name": "Light Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-regular",
+          "name": "Regular Ice",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "ice-extra",
+          "name": "Extra Ice",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "milk",
+      "name": "Milk",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "milk-whole",
+          "name": "Whole Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-skim",
+          "name": "Skim Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-oat",
+          "name": "Oat Milk",
+          "priceDeltaCents": 75
+        },
+        {
+          "id": "milk-almond",
+          "name": "Almond Milk",
+          "priceDeltaCents": 75
+        }
+      ]
+    },
+    {
+      "id": "sweetness",
+      "name": "Sweetness",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "sweet-0",
+          "name": "Unsweetened",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-50",
+          "name": "Half Sweet",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-100",
+          "name": "Regular Sweet",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "extras",
+      "name": "Add-ins",
+      "select": "multi",
+      "required": false,
+      "maxChoices": 3,
+      "choices": [
+        {
+          "id": "extra-extra-shot",
+          "name": "Extra Espresso Shot",
+          "priceDeltaCents": 150
+        },
+        {
+          "id": "extra-boba-pearls",
+          "name": "Boba Pearls",
+          "priceDeltaCents": 100
+        },
+        {
+          "id": "extra-pistachio-cold-foam",
+          "name": "Pistachio Cold Foam",
+          "priceDeltaCents": 125
+        }
+      ]
+    }
+  ],
+  "smoothie-strawberry-banana": [
+    {
+      "id": "milk",
+      "name": "Milk",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "milk-whole",
+          "name": "Whole Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-skim",
+          "name": "Skim Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-oat",
+          "name": "Oat Milk",
+          "priceDeltaCents": 75
+        },
+        {
+          "id": "milk-almond",
+          "name": "Almond Milk",
+          "priceDeltaCents": 75
+        }
+      ]
+    },
+    {
+      "id": "sweetness",
+      "name": "Sweetness",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "sweet-0",
+          "name": "Unsweetened",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-50",
+          "name": "Half Sweet",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-100",
+          "name": "Regular Sweet",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "extras",
+      "name": "Add-ins",
+      "select": "multi",
+      "required": false,
+      "maxChoices": 3,
+      "choices": [
+        {
+          "id": "extra-extra-shot",
+          "name": "Extra Espresso Shot",
+          "priceDeltaCents": 150
+        },
+        {
+          "id": "extra-boba-pearls",
+          "name": "Boba Pearls",
+          "priceDeltaCents": 100
+        },
+        {
+          "id": "extra-pistachio-cold-foam",
+          "name": "Pistachio Cold Foam",
+          "priceDeltaCents": 125
+        }
+      ]
+    }
+  ],
+  "smoothie-mango-banana": [
+    {
+      "id": "milk",
+      "name": "Milk",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "milk-whole",
+          "name": "Whole Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-skim",
+          "name": "Skim Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-oat",
+          "name": "Oat Milk",
+          "priceDeltaCents": 75
+        },
+        {
+          "id": "milk-almond",
+          "name": "Almond Milk",
+          "priceDeltaCents": 75
+        }
+      ]
+    },
+    {
+      "id": "sweetness",
+      "name": "Sweetness",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "sweet-0",
+          "name": "Unsweetened",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-50",
+          "name": "Half Sweet",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-100",
+          "name": "Regular Sweet",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "extras",
+      "name": "Add-ins",
+      "select": "multi",
+      "required": false,
+      "maxChoices": 3,
+      "choices": [
+        {
+          "id": "extra-extra-shot",
+          "name": "Extra Espresso Shot",
+          "priceDeltaCents": 150
+        },
+        {
+          "id": "extra-boba-pearls",
+          "name": "Boba Pearls",
+          "priceDeltaCents": 100
+        },
+        {
+          "id": "extra-pistachio-cold-foam",
+          "name": "Pistachio Cold Foam",
+          "priceDeltaCents": 125
+        }
+      ]
+    }
+  ],
+  "smoothie-strawberry-mango": [
+    {
+      "id": "milk",
+      "name": "Milk",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "milk-whole",
+          "name": "Whole Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-skim",
+          "name": "Skim Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-oat",
+          "name": "Oat Milk",
+          "priceDeltaCents": 75
+        },
+        {
+          "id": "milk-almond",
+          "name": "Almond Milk",
+          "priceDeltaCents": 75
+        }
+      ]
+    },
+    {
+      "id": "sweetness",
+      "name": "Sweetness",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "sweet-0",
+          "name": "Unsweetened",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-50",
+          "name": "Half Sweet",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-100",
+          "name": "Regular Sweet",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "extras",
+      "name": "Add-ins",
+      "select": "multi",
+      "required": false,
+      "maxChoices": 3,
+      "choices": [
+        {
+          "id": "extra-extra-shot",
+          "name": "Extra Espresso Shot",
+          "priceDeltaCents": 150
+        },
+        {
+          "id": "extra-boba-pearls",
+          "name": "Boba Pearls",
+          "priceDeltaCents": 100
+        },
+        {
+          "id": "extra-pistachio-cold-foam",
+          "name": "Pistachio Cold Foam",
+          "priceDeltaCents": 125
+        }
+      ]
+    }
+  ],
+  "smoothie-green-machine": [
+    {
+      "id": "milk",
+      "name": "Milk",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "milk-whole",
+          "name": "Whole Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-skim",
+          "name": "Skim Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-oat",
+          "name": "Oat Milk",
+          "priceDeltaCents": 75
+        },
+        {
+          "id": "milk-almond",
+          "name": "Almond Milk",
+          "priceDeltaCents": 75
+        }
+      ]
+    },
+    {
+      "id": "sweetness",
+      "name": "Sweetness",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "sweet-0",
+          "name": "Unsweetened",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-50",
+          "name": "Half Sweet",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-100",
+          "name": "Regular Sweet",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "extras",
+      "name": "Add-ins",
+      "select": "multi",
+      "required": false,
+      "maxChoices": 3,
+      "choices": [
+        {
+          "id": "extra-extra-shot",
+          "name": "Extra Espresso Shot",
+          "priceDeltaCents": 150
+        },
+        {
+          "id": "extra-boba-pearls",
+          "name": "Boba Pearls",
+          "priceDeltaCents": 100
+        },
+        {
+          "id": "extra-pistachio-cold-foam",
+          "name": "Pistachio Cold Foam",
+          "priceDeltaCents": 125
+        }
+      ]
+    }
+  ],
+  "smoothie-banana-date": [
+    {
+      "id": "milk",
+      "name": "Milk",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "milk-whole",
+          "name": "Whole Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-skim",
+          "name": "Skim Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-oat",
+          "name": "Oat Milk",
+          "priceDeltaCents": 75
+        },
+        {
+          "id": "milk-almond",
+          "name": "Almond Milk",
+          "priceDeltaCents": 75
+        }
+      ]
+    },
+    {
+      "id": "sweetness",
+      "name": "Sweetness",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "sweet-0",
+          "name": "Unsweetened",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-50",
+          "name": "Half Sweet",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "sweet-100",
+          "name": "Regular Sweet",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "extras",
+      "name": "Add-ins",
+      "select": "multi",
+      "required": false,
+      "maxChoices": 3,
+      "choices": [
+        {
+          "id": "extra-extra-shot",
+          "name": "Extra Espresso Shot",
+          "priceDeltaCents": 150
+        },
+        {
+          "id": "extra-boba-pearls",
+          "name": "Boba Pearls",
+          "priceDeltaCents": 100
+        },
+        {
+          "id": "extra-pistachio-cold-foam",
+          "name": "Pistachio Cold Foam",
+          "priceDeltaCents": 125
+        }
+      ]
+    }
+  ],
+  "sandwich-teriyaki": [
+    {
+      "id": "preparation",
+      "name": "Preparation",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "prep-toasted",
+          "name": "Toasted",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "prep-untoasted",
+          "name": "Not toasted",
+          "priceDeltaCents": 0
+        }
+      ]
+    }
+  ],
+  "wrap-chicken-caesar": [
+    {
+      "id": "preparation",
+      "name": "Preparation",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "prep-toasted",
+          "name": "Toasted",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "prep-untoasted",
+          "name": "Not toasted",
+          "priceDeltaCents": 0
+        }
+      ]
+    }
+  ],
+  "panini-mozzarella": [
+    {
+      "id": "preparation",
+      "name": "Preparation",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "prep-toasted",
+          "name": "Toasted",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "prep-untoasted",
+          "name": "Not toasted",
+          "priceDeltaCents": 0
+        }
+      ]
+    }
+  ],
+  "sandwich-veggie": [
+    {
+      "id": "preparation",
+      "name": "Preparation",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "prep-toasted",
+          "name": "Toasted",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "prep-untoasted",
+          "name": "Not toasted",
+          "priceDeltaCents": 0
+        }
+      ]
+    }
+  ],
+  "avocado-toast": [
+    {
+      "id": "preparation",
+      "name": "Preparation",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "prep-toasted",
+          "name": "Toasted",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "prep-untoasted",
+          "name": "Not toasted",
+          "priceDeltaCents": 0
+        }
+      ]
+    }
+  ],
+  "grilled-cheese": [
+    {
+      "id": "preparation",
+      "name": "Preparation",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "prep-toasted",
+          "name": "Toasted",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "prep-untoasted",
+          "name": "Not toasted",
+          "priceDeltaCents": 0
+        }
+      ]
+    }
+  ],
+  "toasted-bagel": [
+    {
+      "id": "flavor",
+      "name": "Bagel",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "flavor-plain",
+          "name": "Plain",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "flavor-everything",
+          "name": "Everything",
+          "priceDeltaCents": 0
+        }
+      ]
+    },
+    {
+      "id": "preparation",
+      "name": "Preparation",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "prep-toasted",
+          "name": "Toasted",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "prep-untoasted",
+          "name": "Not toasted",
+          "priceDeltaCents": 0
+        }
+      ]
+    }
+  ],
+  "honeycomb-cheese-bread": [
+    {
+      "id": "flavor",
+      "name": "Topping",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "flavor-nutella",
+          "name": "Nutella",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "flavor-biscoff",
+          "name": "Biscoff",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "flavor-white-chocolate",
+          "name": "White Chocolate",
+          "priceDeltaCents": 0
+        }
+      ]
+    }
+  ],
+  "milk-cake": [
+    {
+      "id": "flavor",
+      "name": "Flavor",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "flavor-pistachio",
+          "name": "Pistachio",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "flavor-lotus",
+          "name": "Lotus",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "flavor-saffron",
+          "name": "Saffron",
+          "priceDeltaCents": 0
+        }
+      ]
+    }
+  ],
+  "mochi-donut": [
+    {
+      "id": "flavor",
+      "name": "Flavor",
+      "select": "single",
+      "required": true,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "flavor-pistachio",
+          "name": "Pistachio",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "flavor-ube",
+          "name": "Ube",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "flavor-nutella",
+          "name": "Nutella",
+          "priceDeltaCents": 0
+        }
+      ]
+    }
+  ]
+}

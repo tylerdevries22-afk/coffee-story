@@ -70,6 +70,14 @@
     "feeBpsTier2": 150,
     "tierThresholdCents": 2000000
   },
+  "tax": {
+    "$docs": "Optional. Each authority on the brand's sales-tax licence, as a fractional rate (0.029 = 2.9%). The order API prices tax from this list, one rounded row per authority; absent or empty means no tax is charged.",
+    "jurisdictions": []
+  },
+  "loyalty": {
+    "$docs": "Optional. The rewards points buy, served by /api/loyalty/redeem. points_cost is integer points.",
+    "rewards": []
+  },
   "location": {
     "name": "Main",
     "address": {

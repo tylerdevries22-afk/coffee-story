@@ -68,16 +68,22 @@ export function MoreScreen() {
   const notifications = useMemo(() => buildClientNotifications(portal, now), [now, portal]);
   const unreadCount = notifications.filter((item) => !readNotificationIds.has(item.id)).length;
 
-  const completedVisits = portal.appointments.filter((appointment) => appointment.status === 'completed').length;
+  const liveOrders = portal.orders ?? [];
+  const completedVisits = isDemo
+    ? portal.appointments.filter((appointment) => appointment.status === 'completed').length
+    : liveOrders.filter((entry) => entry.status === 'picked_up').length;
   const searchResults = searchClientAccount(query, portal, BOOKABLE_SERVICES);
   const giftSummary = summarizeGiftCardOwnership(portal.giftCards);
-  const upcomingVisits = portal.appointments.filter((appointment) => (
-    (appointment.status === 'confirmed' || appointment.status === 'pending')
-    && new Date(appointment.startsAt).getTime() > now.getTime()
-  )).length;
+  const giftBalanceCents = isDemo ? giftSummary.spendableBalanceCents : portal.rewardAccount.cashCents;
+  const upcomingVisits = isDemo
+    ? portal.appointments.filter((appointment) => (
+      (appointment.status === 'confirmed' || appointment.status === 'pending')
+      && new Date(appointment.startsAt).getTime() > now.getTime()
+    )).length
+    : liveOrders.filter((entry) => ['created', 'paid', 'in_progress', 'ready'].includes(entry.status)).length;
   const clientMetrics = [
     { label: 'Upcoming', value: String(upcomingVisits) },
-    { label: 'Gift balance', value: `$${(giftSummary.spendableBalanceCents / 100).toFixed(2)}` },
+    { label: 'Gift balance', value: `$${(giftBalanceCents / 100).toFixed(2)}` },
     { label: 'Beans', value: portal.rewardAccount.availablePoints.toLocaleString('en-US') },
   ] as const;
   function openResult(result: ClientSearchResult) {
@@ -170,8 +176,15 @@ export function MoreScreen() {
       {tenantFeature('referrals') ? (
         <PillRow title="Refer a friend" subtitle="A free drink for you both" symbol="heart" onPress={() => openMore('referrals')} />
       ) : null}
-      <PillRow title="My usual & preferences" subtitle={portal.intake?.completed ? 'Saved' : 'Needs attention'} symbol="doc.text" onPress={() => openMore('intake')} />
-      <PillRow title="Membership" subtitle={portal.membership?.name ?? 'Explore plans'} symbol="heart" onPress={() => openMore('membership')} />
+      {/* Domains the live plane does not serve yet stay demo-only: the live
+          bundle omits their keys, so these rows only render with data behind
+          them. */}
+      {portal.intake !== undefined ? (
+        <PillRow title="My usual & preferences" subtitle={portal.intake?.completed ? 'Saved' : 'Needs attention'} symbol="doc.text" onPress={() => openMore('intake')} />
+      ) : null}
+      {portal.membership !== undefined ? (
+        <PillRow title="Membership" subtitle={portal.membership?.name ?? 'Explore plans'} symbol="heart" onPress={() => openMore('membership')} />
+      ) : null}
 
       <SectionTitle>My account</SectionTitle>
       <PillRow
@@ -181,15 +194,21 @@ export function MoreScreen() {
         onPress={() => setClientTab('rewards')}
       />
       <PillRow title="Account settings" subtitle={portal.profile.fullName} symbol="person.crop.circle" onPress={() => openMore('profile')} />
-      <PillRow
-        title="Gift card balance"
-        subtitle={`$${(giftSummary.spendableBalanceCents / 100).toFixed(2)} available · ${giftSummary.sentCards.length} sent`}
-        symbol="creditcard"
-        onPress={() => openMore('gift-balance')}
-      />
+      {isDemo || portal.giftCards.length > 0 ? (
+        <PillRow
+          title="Gift card balance"
+          subtitle={`$${(giftSummary.spendableBalanceCents / 100).toFixed(2)} available · ${giftSummary.sentCards.length} sent`}
+          symbol="creditcard"
+          onPress={() => openMore('gift-balance')}
+        />
+      ) : null}
       <PillRow title="Orders & pickup history" subtitle={`${completedVisits} completed orders`} symbol="clock.arrow.circlepath" onPress={() => openMore('visits')} />
-      <PillRow title="Payment methods" subtitle={`${portal.paymentMethods?.length ?? 0} saved`} symbol="creditcard" onPress={() => openMore('payments')} />
-      <PillRow title="Messages" subtitle={`${portal.messages?.filter((message) => !message.read).length ?? 0} unread`} symbol="message" onPress={() => openMore('messages')} />
+      {portal.paymentMethods !== undefined ? (
+        <PillRow title="Payment methods" subtitle={`${portal.paymentMethods.length} saved`} symbol="creditcard" onPress={() => openMore('payments')} />
+      ) : null}
+      {portal.messages !== undefined ? (
+        <PillRow title="Messages" subtitle={`${portal.messages.filter((message) => !message.read).length} unread`} symbol="message" onPress={() => openMore('messages')} />
+      ) : null}
 
       <SectionTitle>Support</SectionTitle>
       <PillRow title="Frequently asked questions" onPress={() => openMore('faq')} />
