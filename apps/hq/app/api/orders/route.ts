@@ -104,6 +104,10 @@ export async function POST(request: Request): Promise<Response> {
   if (body.note !== undefined && typeof body.note !== 'string') {
     return jsonError(400, 'invalid_request', 'note must be a string.');
   }
+  const clientKey = idempotencyKeyOf(request);
+  if (clientKey === false) {
+    return jsonError(400, 'invalid_request', 'Idempotency-Key must be a UUID.');
+  }
   if (body.tenderType === 'square_card') {
     return jsonError(503, 'tender_unavailable', 'In-app card payment needs a store build; use square_link or pay_at_pickup.');
   }
@@ -165,7 +169,7 @@ export async function POST(request: Request): Promise<Response> {
       lines: body.lines,
       tipCents: body.tipCents,
       tenderType: body.tenderType,
-      clientKey: idempotencyKeyOf(request),
+      clientKey,
       taxJurisdictions,
     });
     const response: PlaceOrderResponse = {

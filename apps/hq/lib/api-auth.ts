@@ -122,12 +122,18 @@ export async function parseJsonBody<T>(request: Request): Promise<T | Response> 
   }
 }
 
-const MAX_IDEMPOTENCY_KEY_LENGTH = 200;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export function idempotencyKeyOf(request: Request): string | null {
+/** A well-formed key, or null. `false` when one was sent and is unusable. */
+export function idempotencyKeyOf(request: Request): string | null | false {
   const key = request.headers.get('idempotency-key');
   if (!key) return null;
-  return key.length <= MAX_IDEMPOTENCY_KEY_LENGTH ? key : key.slice(0, MAX_IDEMPOTENCY_KEY_LENGTH);
+  // orders.client_key is a uuid column, so anything else reached Postgres as
+  // 22P02 and surfaced as a 500 — the client's malformed header reported as
+  // the server's fault. Truncating to 200 characters was worse than useless
+  // for a uuid column, and for the redeem note it could make two distinct
+  // keys share a prefix and count as one redemption.
+  return UUID.test(key) ? key.toLowerCase() : false;
 }
 
 export type CustomerIdentity = {

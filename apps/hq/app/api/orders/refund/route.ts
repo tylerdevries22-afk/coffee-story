@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import { OrderError, refundOrderPayment } from '@platform/engine';
 import { canManageLocation } from '@platform/schema';
 
@@ -55,6 +57,10 @@ export async function POST(request: Request): Promise<Response> {
   if (amountCents !== 'full' && (typeof amountCents !== 'number' || !Number.isInteger(amountCents))) {
     return jsonError(400, 'invalid_request', 'amountCents must be whole cents, or "full".');
   }
+  const requestKey = idempotencyKeyOf(request);
+  if (requestKey === false) {
+    return jsonError(400, 'invalid_request', 'Idempotency-Key must be a UUID.');
+  }
   const reason = typeof body.reason === 'string' && body.reason.length > 0
     ? body.reason.slice(0, 190)
     : 'Refunded by staff';
@@ -104,8 +110,10 @@ export async function POST(request: Request): Promise<Response> {
         reason,
         actorUserId: auth.userId,
         // Identifies this attempt to Square: a retry after a lost response
-        // returns the first refund rather than sending the money again.
-        requestKey: idempotencyKeyOf(request) ?? `${order.data.id}-${Date.now()}`,
+        // returns the first refund rather than sending the money again. A
+        // caller that sends no key gets one per attempt, which is the honest
+        // reading of "this is a new refund".
+        requestKey: requestKey ?? randomUUID(),
       },
     );
     return jsonWithCors(result, 200);

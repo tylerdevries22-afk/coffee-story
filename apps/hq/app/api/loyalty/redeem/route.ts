@@ -74,7 +74,10 @@ export async function POST(request: Request): Promise<Response> {
   // distinguishable from a second redemption. The clients always send one.
   const clientKey = idempotencyKeyOf(request);
   if (!clientKey) {
-    return jsonError(400, 'invalid_request', 'An Idempotency-Key header is required to redeem.');
+    return jsonError(400, 'invalid_request',
+      clientKey === false
+        ? 'Idempotency-Key must be a UUID.'
+        : 'An Idempotency-Key header is required to redeem.');
   }
   const note = `${reward.slug} [${clientKey}]`;
 

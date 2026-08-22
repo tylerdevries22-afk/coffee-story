@@ -44,6 +44,17 @@ export async function POST(request: Request): Promise<Response> {
 
   const db = createClient(serviceUrl, serviceKey, { auth: { persistSession: false } });
 
+  // The delivery log migration 0011 describes ("the webhook route writes a
+  // row per delivery") was never actually written by this route — only the
+  // trigger's stale-transition branch added rows, so the durable record of
+  // what Square sent did not exist. It does now, before anything is acted
+  // on, so a delivery that later fails still left a trace of arriving.
+  await db.from('webhook_events').insert({
+    provider: 'square',
+    event_id: mapped.squareEventId,
+    payload: event as unknown as Record<string, unknown>,
+  }).select('id');
+
   const orderQuery = mapped.squareOrderId
     ? db.from('orders').select('id, brand_id, location_id, customer_id, total_cents, subtotal_cents, stored_value_applied_cents').eq('square_order_id', mapped.squareOrderId)
     : db.from('orders').select('id, brand_id, location_id, customer_id, total_cents, subtotal_cents, stored_value_applied_cents').eq('square_payment_id', mapped.squarePaymentId ?? '');
@@ -110,6 +121,12 @@ export async function POST(request: Request): Promise<Response> {
       refundedCents: mapped.refundedCents ?? order.total_cents,
     });
   }
+
+  // Stamped only once the money and points work above has actually run, so
+  // an unstamped row is a delivery that arrived and did not finish.
+  await db.from('webhook_events')
+    .update({ processed_at: new Date().toISOString() })
+    .eq('event_id', mapped.squareEventId);
 
   return new Response('OK', { status: 200 });
 }

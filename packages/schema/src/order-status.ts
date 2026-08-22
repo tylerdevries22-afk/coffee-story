@@ -27,6 +27,9 @@ export const ORDER_TRANSITIONS: readonly (readonly [OrderStatus, OrderStatus])[]
   ['in_progress', 'cancelled'],
   ['in_progress', 'refunded'],
   ['ready', 'picked_up'],
+  // A drink nobody collects: pay_at_pickup never charged a card, so refunding
+  // it is not an option and this was the only way off the board (0021).
+  ['ready', 'cancelled'],
   ['ready', 'refunded'],
   ['picked_up', 'refunded'],
 ] as const;
