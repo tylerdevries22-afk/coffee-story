@@ -74,7 +74,8 @@ describe('RLS matrix', { skip: skipUnlessConfigured }, () => {
       source: 'operator',
       actor_user_id: staff.userId,
     });
-    assert.ok(wrongLocation.error, 'other-location transition must be denied');
+    assert.match(wrongLocation.error?.message ?? '', /row-level security/,
+      'other-location transition must be denied by POLICY (not a missing table grant)');
   });
 
   it('order_events cannot carry a forged brand_id (0010 fix)', async () => {
@@ -101,7 +102,8 @@ describe('RLS matrix', { skip: skipUnlessConfigured }, () => {
       source: 'operator',
       actor_user_id: staff.userId,
     });
-    assert.ok(forged.error, 'a brand_id that does not match the order must be denied');
+    assert.match(forged.error?.message ?? '', /row-level security/,
+      'a brand_id that does not match the order must be denied by POLICY');
   });
 
   it('staff cannot re-point customers.user_id, and cannot edit prices — but can 86 (0010 fixes)', async () => {
@@ -228,8 +230,10 @@ describe('RLS matrix', { skip: skipUnlessConfigured }, () => {
     });
     const db = userClient(staffA.accessToken);
     const orders = await db.from('orders').select('id, brand_id');
+    assert.equal(orders.error, null, `query must succeed so emptiness proves ISOLATION: ${orders.error?.message}`);
     assert.ok((orders.data ?? []).every((row) => row.brand_id !== b.brandId), 'no cross-brand orders visible');
     const fees = await db.from('platform_fees').select('id');
+    assert.equal(fees.error, null, `platform_fees query must succeed: ${fees.error?.message}`);
     assert.equal((fees.data ?? []).length, 0, 'platform_fees hidden from brand owners');
   });
 });

@@ -30,7 +30,7 @@ declare
   staff record;
   guest record;
   bootstrap record;
-  slug text;
+  wanted_slug text;
 begin
   select bu.brand_id, bu.role, bu.location_ids, b.name as brand_name
     into staff
@@ -59,9 +59,11 @@ begin
     if found then
       meta := meta || jsonb_build_object('brand_id', guest.brand_id, 'brand_name', guest.brand_name);
     else
-      slug := event -> 'claims' -> 'user_metadata' ->> 'brand_slug';
-      if slug is not null then
-        select b.id, b.name into bootstrap from public.brands b where b.slug = slug;
+      -- Named to avoid colliding with brands.slug in the query below: an
+      -- ambiguous reference raises at runtime and fails token issuance.
+      wanted_slug := event -> 'claims' -> 'user_metadata' ->> 'brand_slug';
+      if wanted_slug is not null then
+        select b.id, b.name into bootstrap from public.brands b where b.slug = wanted_slug;
         if found then
           meta := meta || jsonb_build_object('brand_id', bootstrap.id, 'brand_name', bootstrap.name);
         end if;

@@ -38,9 +38,9 @@ otp_expiry = 3600
 enabled = true
 uri = "pg-functions://postgres/app/custom_access_token"
 
-[inbucket]
-# Local mail catcher: integration/E2E tests fetch OTP codes from its API
-# instead of bypassing the real email flow.
+[local_smtp]
+# Local mail catcher (Mailpit): integration/E2E tests fetch OTP codes from
+# its API instead of bypassing the real email flow.
 enabled = true
 port = 54324
 

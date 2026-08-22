@@ -38,15 +38,29 @@ create trigger customers_protect_identity before update on public.customers
 -- 3. customers_select handed every staff-role user the whole brand's PII.
 --    Shift staff now see themselves, plus only guests with an order at a
 --    location they are claimed into; managers and owners keep brand scope.
+--
+--    The location check consults orders, and orders_select consults
+--    customers -- an inline subquery here recurses (42P17). SECURITY DEFINER
+--    breaks the cycle: the helper reads orders as its owner, outside RLS,
+--    and leaks nothing beyond the boolean it answers.
+create or replace function app.customer_ordered_at(customer uuid, locs uuid[])
+returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from public.orders o
+    where o.customer_id = customer and o.location_id = any (locs)
+  );
+$$;
+
+revoke execute on function app.customer_ordered_at from public;
+grant execute on function app.customer_ordered_at to authenticated;
+
 drop policy customers_select on public.customers;
 create policy customers_select on public.customers for select
   using (
     user_id = auth.uid()
     or (app.is_brand_staff(brand_id) and app.jwt_role() in ('brand_owner', 'location_manager', 'platform_admin'))
-    or (app.is_brand_staff(brand_id) and exists (
-      select 1 from public.orders o
-      where o.customer_id = customers.id
-        and o.location_id = any (app.jwt_location_ids())))
+    or (app.is_brand_staff(brand_id) and app.customer_ordered_at(id, app.jwt_location_ids()))
   );
 
 -- Same narrowing on the update side: staff edits (notes, opt-ins) follow the
@@ -57,10 +71,7 @@ create policy customers_update on public.customers for update
   using (
     user_id = auth.uid()
     or (app.is_brand_staff(brand_id) and app.jwt_role() in ('brand_owner', 'location_manager', 'platform_admin'))
-    or (app.is_brand_staff(brand_id) and exists (
-      select 1 from public.orders o
-      where o.customer_id = customers.id
-        and o.location_id = any (app.jwt_location_ids())))
+    or (app.is_brand_staff(brand_id) and app.customer_ordered_at(id, app.jwt_location_ids()))
   )
   with check (app.is_brand_staff(brand_id) or user_id = auth.uid());
 
