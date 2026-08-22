@@ -37,11 +37,12 @@ test('an unrecognised More segment falls back to the menu rather than throwing',
   assert.equal(clientMoreViewFromPathname('/client/more/not-a-real-view'), 'menu');
 });
 
-test('the quick-action + is a real staff tab, and checkout stays off the bar', () => {
-  assert.deepEqual(STAFF_TAB_ORDER, ['today', 'calendar', 'quick-actions', 'clients', 'more']);
-  // Six items is one past what UIKit shows before it collapses the overflow
-  // into its own system More list -- see the comment on STAFF_TAB_ORDER.
-  assert.equal(STAFF_TAB_ORDER.length, 5);
+test('the order board leads the bar, and checkout stays off it', () => {
+  assert.deepEqual(STAFF_TAB_ORDER, ['orders', 'today', 'calendar', 'quick-actions', 'clients', 'more']);
+  // Six triggers: fine on the iPad this app targets first; a phone-sized
+  // UITabBar folds the sixth into the system More overflow, which is the
+  // accepted cost of keeping the board as the first tab.
+  assert.equal(STAFF_TAB_ORDER.length, 6);
 });
 
 test('primary admin paths route to their matching staff tab, not a detail page', () => {

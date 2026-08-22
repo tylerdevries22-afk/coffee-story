@@ -44,7 +44,8 @@ export type TabSymbol =
   | 'sun.max' | 'sun.max.fill'
   | 'heart' | 'person.circle'
   | 'cup.and.saucer' | 'cup.and.saucer.fill'
-  | 'person.2' | 'person.2.fill';
+  | 'person.2' | 'person.2.fill'
+  | 'rectangle.grid.2x2' | 'rectangle.grid.2x2.fill';
 
 /** A symbol that changes when its tab is selected, the way UIKit's own do. */
 export type TabSymbolPair = { default: TabSymbol; selected: TabSymbol };

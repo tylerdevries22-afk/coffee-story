@@ -31,6 +31,11 @@ export function StaffTabs() {
       iconColor={colors.ink500}
       blurEffect="systemChromeMaterial"
     >
+      <NativeTabs.Trigger name="orders">
+        <TabIcon sf={{ default: 'rectangle.grid.2x2', selected: 'rectangle.grid.2x2.fill' }} />
+        <TabLabel>{STAFF_TAB_LABELS.orders}</TabLabel>
+      </NativeTabs.Trigger>
+
       <NativeTabs.Trigger name="today">
         <TabIcon sf={{ default: 'sun.max', selected: 'sun.max.fill' }} />
         <TabLabel>{STAFF_TAB_LABELS.today}</TabLabel>

@@ -15,7 +15,7 @@
  */
 
 export type ClientTab = 'home' | 'book' | 'gift' | 'rewards' | 'more';
-export type StaffTab = 'today' | 'calendar' | 'quick-actions' | 'clients' | 'checkout' | 'more';
+export type StaffTab = 'orders' | 'today' | 'calendar' | 'quick-actions' | 'clients' | 'checkout' | 'more';
 export type MoreView =
   | 'menu' | 'services' | 'visits' | 'profile' | 'intake' | 'messages' | 'membership'
   | 'payments' | 'gift-balance' | 'location' | 'resources' | 'faq' | 'care-policy'
@@ -40,8 +40,9 @@ export const CLIENT_TAB_LABELS: Readonly<Record<ClientTab, string>> = {
  * the overflow into its own system "More" list, which would then sit beside the
  * app's own More tab.
  */
-export const STAFF_TAB_ORDER: readonly StaffTab[] = ['today', 'calendar', 'quick-actions', 'clients', 'more'];
+export const STAFF_TAB_ORDER: readonly StaffTab[] = ['orders', 'today', 'calendar', 'quick-actions', 'clients', 'more'];
 export const STAFF_TAB_LABELS: Readonly<Record<StaffTab, string>> = {
+  orders: 'Orders',
   today: 'Today',
   calendar: 'Calendar',
   'quick-actions': 'Create',
@@ -108,7 +109,7 @@ export function staffTabFromPathname(pathname: string): StaffTab {
   const segments = segmentsOf(pathname, STAFF_ROOT);
   const [first] = segments;
   if (first === 'more' && segments[1] === 'checkout') return 'checkout';
-  return STAFF_TAB_ORDER.find((tab) => tab === first) ?? 'today';
+  return STAFF_TAB_ORDER.find((tab) => tab === first) ?? 'orders';
 }
 
 /**
