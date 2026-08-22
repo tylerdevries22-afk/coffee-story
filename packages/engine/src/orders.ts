@@ -95,6 +95,11 @@ export type CreateOrderDeps = { db: SupabaseClient };
 
 const MAX_LINES = 100;
 const MAX_NOTE_LENGTH = 500;
+/** How far ahead an order may be scheduled, and how late a clock may run. */
+const SCHEDULE_HORIZON_DAYS = 30;
+const SCHEDULE_HORIZON_MS = SCHEDULE_HORIZON_DAYS * 24 * 60 * 60 * 1000;
+// A phone whose clock is a few minutes behind should not lose its order.
+const SCHEDULE_GRACE_MS = 15 * 60 * 1000;
 
 type ExistingOrder = {
   id: string;
@@ -142,8 +147,22 @@ export async function createOrder(deps: CreateOrderDeps, input: CreateOrderInput
   if (input.note.length > MAX_NOTE_LENGTH) {
     throw new OrderError('invalid_request', `The order note caps at ${MAX_NOTE_LENGTH} characters.`);
   }
-  if (input.scheduledFor !== null && Number.isNaN(Date.parse(input.scheduledFor))) {
-    throw new OrderError('invalid_request', 'scheduledFor must be an ISO timestamp.');
+  if (input.scheduledFor !== null) {
+    const when = Date.parse(input.scheduledFor);
+    if (Number.isNaN(when)) {
+      throw new OrderError('invalid_request', 'scheduledFor must be an ISO timestamp.');
+    }
+    // The app checks the window before it sends, but a direct caller does
+    // not: a pickup in the past drops straight into Past orders without ever
+    // reaching the board, and one years out sits on the scheduled lane
+    // forever. Neither is an order the shop can act on.
+    const now = Date.now();
+    if (when < now - SCHEDULE_GRACE_MS) {
+      throw new OrderError('invalid_request', 'That pickup time has already passed.');
+    }
+    if (when > now + SCHEDULE_HORIZON_MS) {
+      throw new OrderError('invalid_request', `Orders can be scheduled up to ${SCHEDULE_HORIZON_DAYS} days ahead.`);
+    }
   }
 
   if (input.clientKey) {

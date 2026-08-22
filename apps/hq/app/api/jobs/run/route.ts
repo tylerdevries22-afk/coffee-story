@@ -1,6 +1,6 @@
 import { dueCampaigns, dueDropTransitions } from '@platform/engine';
 
-import { jsonError, notConfigured, serverEnv, serviceDb } from '../../../../lib/api-auth';
+import { jsonError, matchesSecret, notConfigured, serverEnv, serviceDb } from '../../../../lib/api-auth';
 
 /**
  * POST /api/jobs/run — the scheduled tick (Vercel Cron via vercel.json;
@@ -13,7 +13,10 @@ import { jsonError, notConfigured, serverEnv, serviceDb } from '../../../../lib/
 export async function POST(request: Request): Promise<Response> {
   const secret = process.env.CRON_SECRET;
   if (!secret) return jsonError(501, 'not_configured', 'CRON_SECRET is not set on this deployment.');
-  if (request.headers.get('authorization') !== `Bearer ${secret}`) {
+  // Constant-time, like the Square callback next door: `!==` returns as soon
+  // as two bytes differ, which leaks the shared secret one character at a
+  // time to anyone who can measure the difference.
+  if (!matchesSecret(request.headers.get('authorization'), `Bearer ${secret}`)) {
     return jsonError(401, 'unauthorized', 'Bad cron secret.');
   }
   const env = serverEnv();

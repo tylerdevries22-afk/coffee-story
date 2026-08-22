@@ -9,6 +9,8 @@
  * and must degrade to 501 on an unconfigured deployment instead of crashing
  * the build. Imports are relative (no `@/` alias) for the same reason.
  */
+import { timingSafeEqual } from 'node:crypto';
+
 import type { ApiErrorBody } from '@platform/api-client';
 import { parseTenantClaims, type TenantClaims } from '@platform/schema';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
@@ -53,6 +55,20 @@ export function jsonWithCors(body: unknown, status = 200): Response {
 export function jsonError(status: number, code: string, message: string): Response {
   const body: ApiErrorBody = { error: { code, message } };
   return Response.json(body, { status, headers: CORS_HEADERS });
+}
+
+/**
+ * Constant-time comparison for a shared secret. `!==` on strings returns at
+ * the first differing byte, which is a timing oracle: an attacker who can
+ * measure the difference recovers the secret one character at a time.
+ * Length is compared first because timingSafeEqual throws on a mismatch —
+ * that leak is only the length, which the format already implies.
+ */
+export function matchesSecret(provided: string | null, expected: string): boolean {
+  if (!provided) return false;
+  const given = Buffer.from(provided);
+  const want = Buffer.from(expected);
+  return given.length === want.length && timingSafeEqual(given, want);
 }
 
 export const notConfigured = (): Response =>
@@ -106,12 +122,18 @@ export async function parseJsonBody<T>(request: Request): Promise<T | Response> 
   }
 }
 
-const MAX_IDEMPOTENCY_KEY_LENGTH = 200;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export function idempotencyKeyOf(request: Request): string | null {
+/** A well-formed key, or null. `false` when one was sent and is unusable. */
+export function idempotencyKeyOf(request: Request): string | null | false {
   const key = request.headers.get('idempotency-key');
   if (!key) return null;
-  return key.length <= MAX_IDEMPOTENCY_KEY_LENGTH ? key : key.slice(0, MAX_IDEMPOTENCY_KEY_LENGTH);
+  // orders.client_key is a uuid column, so anything else reached Postgres as
+  // 22P02 and surfaced as a 500 — the client's malformed header reported as
+  // the server's fault. Truncating to 200 characters was worse than useless
+  // for a uuid column, and for the redeem note it could make two distinct
+  // keys share a prefix and count as one redemption.
+  return UUID.test(key) ? key.toLowerCase() : false;
 }
 
 export type CustomerIdentity = {

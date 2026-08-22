@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { describe, it } from 'node:test';
@@ -9,7 +9,23 @@ import { ORDER_STATUSES, ORDER_TRANSITIONS, OPERATOR_TRANSITIONS, canTransition,
 // Migrations live in the repo-root supabase/ dir (CLI layout) since 0009+.
 const MIGRATIONS = join(dirname(fileURLToPath(import.meta.url)), '../../../supabase/migrations');
 
-const sql = readFileSync(join(MIGRATIONS, '20260722000005_orders.sql'), 'utf8');
+/**
+ * The definition actually in force, not the first one written: a later
+ * migration may redefine the function, and pinning the table to 0005 would
+ * check this list against SQL the database no longer runs. Same reasoning as
+ * the RLS check below, which already reads 0010 over 0007.
+ */
+function latestDefining(marker: string): string {
+  const file = readdirSync(MIGRATIONS)
+    .filter((name) => name.endsWith('.sql'))
+    .sort()
+    .reverse()
+    .find((name) => readFileSync(join(MIGRATIONS, name), 'utf8').includes(`function app.${marker}`));
+  if (!file) throw new Error(`No migration defines app.${marker}`);
+  return readFileSync(join(MIGRATIONS, file), 'utf8');
+}
+
+const sql = latestDefining('order_transition_allowed');
 
 describe('order status machine', () => {
   it('matches the SQL trigger transition for transition', () => {
