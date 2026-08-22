@@ -4,14 +4,15 @@
   "packageManager": "pnpm@10.33.0",
   "scripts": {
     "lint": "pnpm -r --workspace-concurrency=1 lint",
-    "typecheck": "pnpm -r --workspace-concurrency=1 typecheck",
+    "typecheck": "pnpm -r --workspace-concurrency=1 typecheck && tsc -p scripts",
     "test": "pnpm -r --workspace-concurrency=1 test",
     "verify": "pnpm -r --workspace-concurrency=1 verify",
     "onboard": "tsx scripts/onboard.ts"
   },
   "devDependencies": {
     "tsx": "^4.23.1",
-    "typescript": "~5.9.2"
+    "typescript": "~5.9.2",
+    "@types/node": "^26.1.2"
   },
   "pnpm": {
     "overrides": {
@@ -21,5 +22,8 @@
       "postcss": "8.5.25",
       "uuid": "11.1.1"
     }
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.111.0"
   }
 }
