@@ -36,6 +36,7 @@ import {
   reconcileQueue,
   type QueuedTransition,
 } from '@/features/operator/offline-queue';
+import { platformApi } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/state/auth-context';
 
@@ -338,17 +339,38 @@ export function OperatorProvider({ children }: PropsWithChildren) {
   }, [applyTransition]);
 
   const refund = useCallback((orderId: string, amountCents: number | 'full') => {
-    void amountCents;
-    if (live) {
-      // Money can only move back once Square is connected; the state machine
-      // deliberately refuses an operator-sourced refunded event until then.
+    if (!live) {
+      applyTransition(orderId, 'refunded');
+      return;
+    }
+    // Live, money moves at Square before any event is written, and only the
+    // server holds the location's token — so unlike every other transition
+    // this one is a request, and the board waits for its answer rather than
+    // advancing optimistically.
+    if (!platformApi) {
       setConflicts((existing) => [
         ...existing,
-        { orderId, message: 'Refunds arrive with the Square connection. Nothing was changed.' },
+        { orderId, message: 'This device has no payments connection configured. Nothing was changed.' },
       ]);
       return;
     }
-    applyTransition(orderId, 'refunded');
+    void platformApi
+      .refundOrder({ orderId, amountCents })
+      .then(() => {
+        // The refunded event the server wrote arrives over Realtime like any
+        // other transition; nothing to apply here.
+      })
+      .catch((error: unknown) => {
+        setConflicts((existing) => [
+          ...existing,
+          {
+            orderId,
+            message: error instanceof Error
+              ? `${error.message} Nothing was changed.`
+              : 'That refund did not go through. Nothing was changed.',
+          },
+        ]);
+      });
   }, [applyTransition, live]);
 
   const updateSettings = useCallback((patch: Partial<OperatorSettings>) => {

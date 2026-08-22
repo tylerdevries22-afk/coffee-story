@@ -25,8 +25,10 @@ import { pointsEarnedFor } from './loyalty';
 import { priceLine, MenuPricingError, type MenuItemPricing } from './menu-pricing';
 import { taxCentsFor, taxRowsFor, type TaxJurisdiction } from './tax';
 import {
+  createPaymentLink,
   createSquareOrder,
   createSquarePayment,
+  refundSquarePayment,
   type SquareConfig,
   type SquareOrderLine,
 } from './square/client';
@@ -42,6 +44,7 @@ export class OrderError extends Error {
     | 'location_unknown'
     | 'ordering_paused'
     | 'item_unavailable'
+    | 'refund_unavailable'
     | MenuPricingError['code'];
 
   constructor(code: OrderError['code'], message: string) {
@@ -408,16 +411,12 @@ export async function captureSquarePayment(
   const cardChargeCents = order.total_cents - order.stored_value_applied_cents;
 
   // Rule 3: the month's gross so far decides the tier for this payment.
-  const monthKey = feeMonthKey(new Date(), deps.locationTimezone);
-  const { data: monthRows, error: monthError } = await deps.db
-    .from('platform_fees')
-    .select('gross_cents, created_at')
-    .eq('location_id', order.location_id)
-    .gte('created_at', `${monthKey}-01`);
-  if (monthError) throw monthError;
-  const monthGrossBefore = (monthRows ?? []).reduce(
-    (sum: number, row: { gross_cents: number }) => sum + row.gross_cents, 0);
-  const fee = computeAppFeeCents(deps.feeConfig, monthGrossBefore, cardChargeCents);
+  const fee = await appFeeForCharge(deps.db, {
+    locationId: order.location_id,
+    chargeCents: cardChargeCents,
+    feeConfig: deps.feeConfig,
+    locationTimezone: deps.locationTimezone,
+  });
 
   const payment = await createSquarePayment(deps.square, deps.locationAccessToken, {
     sourceId: input.sourceId,
@@ -468,4 +467,182 @@ export async function captureSquarePayment(
   }
 
   return { orderId: order.id, squarePaymentId: paymentId };
+}
+
+/**
+ * Rule 3's tiering needs the month's gross before this charge, per location.
+ * Both money paths ask the same question, so they ask it in one place.
+ */
+async function appFeeForCharge(
+  db: SupabaseClient,
+  input: { locationId: string; chargeCents: number; feeConfig: FeeConfig; locationTimezone: string },
+): Promise<{ feeCents: number; feeBpsApplied: number }> {
+  const monthKey = feeMonthKey(new Date(), input.locationTimezone);
+  const { data, error } = await db
+    .from('platform_fees')
+    .select('gross_cents, created_at')
+    .eq('location_id', input.locationId)
+    .gte('created_at', `${monthKey}-01`);
+  if (error) throw error;
+  const monthGrossBefore = (data ?? []).reduce(
+    (sum: number, row: { gross_cents: number }) => sum + row.gross_cents, 0);
+  return computeAppFeeCents(input.feeConfig, monthGrossBefore, input.chargeCents);
+}
+
+export type CheckoutLinkInput = {
+  orderId: string;
+  /** Where Square returns the guest; usually the app's order screen. */
+  redirectUrl?: string;
+  buyerEmail?: string;
+};
+
+/**
+ * The square_link tender's back half: a Square-hosted checkout page for an
+ * order that is already priced and written. Nothing here moves the order —
+ * it stays 'created' until Square's webhook says the money arrived, so a
+ * guest who abandons the page leaves no phantom paid order behind.
+ *
+ * Idempotent: an order that already carries a link gets that same link back,
+ * because minting a second page for one cart is how a guest pays twice.
+ */
+export async function createSquareCheckoutLink(
+  deps: CapturePaymentDeps,
+  input: CheckoutLinkInput,
+): Promise<{ orderId: string; checkoutUrl: string; replayed: boolean }> {
+  const loaded = await deps.db
+    .from('orders')
+    .select('id, brand_id, location_id, status, tender_type, totals, tip_cents, total_cents, stored_value_applied_cents, square_checkout_url')
+    .eq('id', input.orderId)
+    .maybeSingle<{
+      id: string;
+      brand_id: string;
+      location_id: string;
+      status: string;
+      tender_type: string;
+      totals: { lines?: SnapshotLine[] } & Record<string, unknown>;
+      tip_cents: number;
+      total_cents: number;
+      stored_value_applied_cents: number;
+      square_checkout_url: string | null;
+    }>();
+  if (loaded.error) throw loaded.error;
+  const order = loaded.data;
+  if (!order) throw new OrderError('invalid_request', 'That order does not exist.');
+  if (order.square_checkout_url) {
+    return { orderId: order.id, checkoutUrl: order.square_checkout_url, replayed: true };
+  }
+  if (order.tender_type !== 'square_link') {
+    throw new OrderError('invalid_request', `Order is a ${order.tender_type} order; only square_link orders get a checkout page.`);
+  }
+  if (order.status !== 'created') {
+    throw new OrderError('invalid_request', `Order is ${order.status}; only a created order can be sent to checkout.`);
+  }
+
+  const lines = (order.totals.lines ?? []).map((line) => ({
+    name: line.name,
+    quantity: line.quantity,
+    unitPriceCents: line.unit_price_cents,
+    options: line.options ?? [],
+  }));
+  const chargeCents = order.total_cents - order.stored_value_applied_cents;
+  const fee = await appFeeForCharge(deps.db, {
+    locationId: order.location_id,
+    chargeCents,
+    feeConfig: deps.feeConfig,
+    locationTimezone: deps.locationTimezone,
+  });
+
+  const link = await createPaymentLink(deps.square, deps.locationAccessToken, {
+    squareLocationId: deps.squareLocationId,
+    referenceId: order.id,
+    lines: buildSquareLines(lines),
+    appFeeCents: fee.feeCents,
+    ...(input.redirectUrl ? { redirectUrl: input.redirectUrl } : {}),
+    ...(input.buyerEmail ? { buyerEmail: input.buyerEmail } : {}),
+  });
+  const checkoutUrl = link.payment_link?.url;
+  if (!checkoutUrl) throw new Error('Square returned no checkout URL.');
+
+  const { error: saveError } = await deps.db
+    .from('orders')
+    .update({
+      square_checkout_url: checkoutUrl,
+      ...(link.payment_link?.order_id ? { square_order_id: link.payment_link.order_id } : {}),
+    })
+    .eq('id', order.id);
+  if (saveError) throw saveError;
+
+  return { orderId: order.id, checkoutUrl, replayed: false };
+}
+
+export type RefundDeps = {
+  db: SupabaseClient;
+  square: SquareConfig;
+  locationAccessToken: string;
+};
+
+export type RefundInput = {
+  orderId: string;
+  /** Cents to return, or the whole charge. */
+  amountCents: number | 'full';
+  reason: string;
+  actorUserId: string | null;
+};
+
+/**
+ * Money back through Square, then the event that records it. Only a card
+ * order can refund here: a pay-at-pickup order never charged a card through
+ * the platform, so returning that money is a register action and saying so
+ * beats a failure the barista cannot act on.
+ */
+export async function refundOrderPayment(
+  deps: RefundDeps,
+  input: RefundInput,
+): Promise<{ orderId: string; refundId: string; amountCents: number }> {
+  const loaded = await deps.db
+    .from('orders')
+    .select('id, brand_id, status, total_cents, tender_type, square_payment_id')
+    .eq('id', input.orderId)
+    .maybeSingle<{
+      id: string;
+      brand_id: string;
+      status: string;
+      total_cents: number;
+      tender_type: string;
+      square_payment_id: string | null;
+    }>();
+  if (loaded.error) throw loaded.error;
+  const order = loaded.data;
+  if (!order) throw new OrderError('invalid_request', 'That order does not exist.');
+  if (!order.square_payment_id) {
+    throw new OrderError('refund_unavailable',
+      'This order was not paid by card through the app, so there is nothing to return here — refund it at the register.');
+  }
+  const amountCents = input.amountCents === 'full' ? order.total_cents : input.amountCents;
+  if (!Number.isInteger(amountCents) || amountCents <= 0 || amountCents > order.total_cents) {
+    throw new OrderError('invalid_request', 'Refund amount must be between one cent and the order total.');
+  }
+
+  const refund = await refundSquarePayment(deps.square, deps.locationAccessToken, {
+    paymentId: order.square_payment_id,
+    amountCents,
+    // Distinct per amount: a partial refund followed by the rest must not
+    // collide with the first refund's idempotency key.
+    referenceId: `${order.id}-${amountCents}`,
+    reason: input.reason,
+  });
+  const refundId = refund.refund?.id;
+  if (!refundId) throw new Error('Square returned no refund id.');
+
+  const { error: eventError } = await deps.db.from('order_events').insert({
+    brand_id: order.brand_id,
+    order_id: order.id,
+    type: 'refunded',
+    snapshot: { refund_id: refundId, amount_cents: amountCents, reason: input.reason },
+    actor_user_id: input.actorUserId,
+    source: 'operator',
+  });
+  if (eventError) throw eventError;
+
+  return { orderId: order.id, refundId, amountCents };
 }

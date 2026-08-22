@@ -32,7 +32,8 @@ token>` and an `Idempotency-Key`.
 
 | Route | Does |
 |---|---|
-| `POST /api/orders` | Places an order. Prices are recomputed server-side from `menu_items` and the brand's tax table; the idempotency key persists as `orders.client_key`, so a retry returns the first order. Tender live today: `pay_at_pickup` (order asserts `paid` immediately — it settles at the register). `square_link` / `square_card` answer 503 until the brand connects Square. |
+| `POST /api/orders` | Places an order. Prices are recomputed server-side from `menu_items` and the brand's tax table; the idempotency key persists as `orders.client_key`, so a retry returns the first order. Tenders: `pay_at_pickup` (asserts `paid` immediately — it settles at the register) and `square_link` (returns `checkoutUrl`, a Square-hosted page; the order stays `created` until the payment webhook arrives). `square_link` answers 503 unless that location has a Square connection; `square_card` needs a native card SDK and answers 503 until store builds. |
+| `POST /api/orders/refund` | Staff only. Refunds through Square, then writes the `refunded` event. The one transition that is not a direct `order_events` insert: it needs the location's decrypted token, which no client may hold. Answers 409 `refund_unavailable` for an order no card paid for (refund those at the register). |
 | `POST /api/loyalty/redeem` | Spends points on a reward from `brand_config.loyalty.rewards`. |
 | `POST /api/push-tokens` | Registers a device push token (re-homes it if the device changes accounts). |
 | `POST /api/profile` | Updates the guest's own contact card. |
@@ -95,7 +96,33 @@ bundle**):
 - `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` — `sb_publishable_` key or legacy
   anon JWT; `packages/data` rejects anything with database authority
 - `EXPO_PUBLIC_API_URL` + `EXPO_PUBLIC_ALLOWED_API_HOST` — the HQ
-  deployment; the API client fails closed when they disagree
+  deployment; the API client fails closed when they disagree. Required by
+  the customer app; optional for the operator app, whose board works
+  entirely under staff RLS — set it there to enable refunds
+
+## Turning on card payments
+
+Everything below is code-complete and covered by
+`tests/integration/src/square-tender.test.ts` (which drives a stand-in
+Square over real HTTP). Activating it for a brand is configuration, not a
+deploy:
+
+1. Set `SQUARE_APP_ID`, `SQUARE_APP_SECRET` and `SQUARE_TOKEN_KEY` on the
+   HQ deployment. `SQUARE_TOKEN_KEY` is 32 random bytes, base64
+   (`openssl rand -base64 32`) — losing it means every stored merchant
+   token must be reconnected.
+2. In the console: Locations → Connect Square, per location. The OAuth
+   callback writes the encrypted tokens and the merchant's
+   `square_location_id`.
+3. Point Square's webhook at `/api/webhooks/square` and set
+   `SQUARE_WEBHOOK_SIGNATURE_KEY`. The webhook is what marks an order paid;
+   the guest returning from the checkout page never is.
+4. The customer app then sends `tenderType: 'square_link'` and opens the
+   `checkoutUrl` it gets back. Until a location is connected that tender
+   answers 503, which is why the app keeps `pay_at_pickup` as its default.
+
+`SQUARE_API_BASE` overrides Square's host. It exists for the integration
+suite; leave it unset everywhere else.
 
 The `service_role` key exists only in the Vercel server environment. Never
 in Expo, never in this repository, never in `packages/data`.

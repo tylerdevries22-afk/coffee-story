@@ -32,8 +32,19 @@ test('reports every missing live dependency', () => {
   assert.deepEqual(missingLiveConfig({
     supabaseUrl: 'bad',
     supabasePublishableKey: 'short',
+    apiUrl: undefined,
+    allowedApiHost: undefined,
   }), [
     'EXPO_PUBLIC_SUPABASE_URL',
     'EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY',
   ]);
+});
+
+test('runs live without the platform API: only refunds need it', () => {
+  assert.deepEqual(missingLiveConfig({
+    supabaseUrl: 'https://example.supabase.co',
+    supabasePublishableKey: ANON_JWT,
+    apiUrl: undefined,
+    allowedApiHost: undefined,
+  }), []);
 });

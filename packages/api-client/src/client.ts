@@ -5,6 +5,8 @@ import {
   type PlaceOrderResponse,
   type RedeemRewardRequest,
   type RedeemRewardResponse,
+  type RefundOrderRequest,
+  type RefundOrderResponse,
   type RegisterPushTokenRequest,
   type UpdateProfileRequest,
 } from './contract';
@@ -83,6 +85,13 @@ export function createApiClient(config: ApiClientConfig) {
     /** Hold one key across retries of the same redemption; the server spends once per key. */
     redeemReward: (input: RedeemRewardRequest, idempotencyKey?: string) =>
       request<RedeemRewardResponse>(API_ROUTES.loyaltyRedeem, input, idempotencyKey),
+    /**
+     * Staff only. Every other status change is a direct order_events insert
+     * under RLS, but a refund moves money at Square first, so it goes through
+     * the server that holds the location's token.
+     */
+    refundOrder: (input: RefundOrderRequest, idempotencyKey?: string) =>
+      request<RefundOrderResponse>(API_ROUTES.ordersRefund, input, idempotencyKey),
     registerPushToken: (input: RegisterPushTokenRequest) =>
       request<{ ok: true }>(API_ROUTES.pushTokens, input),
     updateProfile: (input: UpdateProfileRequest) =>
