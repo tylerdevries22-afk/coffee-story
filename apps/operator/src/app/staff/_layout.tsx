@@ -2,6 +2,7 @@ import { Redirect } from 'expo-router';
 import { View, StyleSheet } from 'react-native';
 
 import { StaffTabs } from '@/components/navigation/staff-tabs';
+import { LoadingState } from '@/components/ui';
 import { useAppState } from '@/state/app-context';
 import { useAuth } from '@/state/auth-context';
 import { OperatorProvider } from '@/state/operator-store';
