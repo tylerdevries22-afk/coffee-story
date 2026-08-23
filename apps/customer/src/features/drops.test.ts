@@ -7,10 +7,19 @@ const drop = (id: string, startsAt: string, endsAt: string): Drop => ({
   id, itemId: `item-${id}`, title: id, blurb: '', startsAt, endsAt,
 });
 
+/**
+ * Windows open and close at 8am in the shop's zone (America/Denver, UTC-6 in
+ * August), not at midnight UTC.
+ *
+ * The fixtures used to say T00:00:00Z and expect the UTC calendar day, which
+ * is the previous evening in Denver -- so dropWindowLabel's assertions only
+ * held on a machine running UTC. A drop window is a shop-local fact; writing
+ * it as one is what makes the expectations true anywhere.
+ */
 const NOW = new Date('2026-08-22T12:00:00Z');
-const past = drop('past', '2026-08-01T00:00:00Z', '2026-08-04T00:00:00Z');
-const live = drop('live', '2026-08-20T00:00:00Z', '2026-08-24T00:00:00Z');
-const soon = drop('soon', '2026-08-25T00:00:00Z', '2026-08-28T00:00:00Z');
+const past = drop('past', '2026-08-01T14:00:00Z', '2026-08-04T14:00:00Z');
+const live = drop('live', '2026-08-20T14:00:00Z', '2026-08-24T14:00:00Z');
+const soon = drop('soon', '2026-08-25T14:00:00Z', '2026-08-28T14:00:00Z');
 
 describe('dropStatus', () => {
   it('reads the window against the clock', () => {
@@ -59,7 +68,7 @@ describe('dropWindowLabel', () => {
   });
 
   it('names both months when the window crosses one', () => {
-    const straddle = drop('straddle', '2026-08-30T00:00:00Z', '2026-09-05T00:00:00Z');
+    const straddle = drop('straddle', '2026-08-30T14:00:00Z', '2026-09-05T14:00:00Z');
     assert.equal(dropWindowLabel([straddle]), 'Aug 30 – Sep 5');
   });
 

@@ -49,20 +49,50 @@ export function weeklyDrops(drops: readonly Drop[], now: Date): Drop[] {
 }
 
 /**
+ * The shop's own timezone.
+ *
+ * A drop window is a shop-local fact -- "this week's lineup" means the week the
+ * shop is having, not the one the guest's phone is in -- so the label is
+ * formatted in the location's zone rather than the device's. Defaulted here and
+ * wired from `locations.timezone` when the menu moves server-side.
+ */
+const SHOP_TIME_ZONE = 'America/Denver';
+
+/**
  * The date-range chip over the drop board, spanning the earliest start to the
  * latest end: "Aug 18 – 24" within a month, "Aug 30 – Sep 5" across one.
+ *
+ * Every part is read in one explicit zone. This used to mix `getDate()` and
+ * `toLocaleDateString()`, both of which read the *device's* zone: a window
+ * starting at midnight UTC rendered as the day before anywhere west of it, so
+ * a Denver guest saw a drop labelled a day early and the test only passed on a
+ * UTC machine.
  */
-export function dropWindowLabel(drops: readonly Drop[]): string {
+export function dropWindowLabel(
+  drops: readonly Drop[],
+  timeZone: string = SHOP_TIME_ZONE,
+): string {
   const starts = drops.map((drop) => new Date(drop.startsAt)).filter((date) => !Number.isNaN(date.getTime()));
   const ends = drops.map((drop) => new Date(drop.endsAt)).filter((date) => !Number.isNaN(date.getTime()));
   if (!starts.length || !ends.length) return '';
   const from = new Date(Math.min(...starts.map((date) => date.getTime())));
   const to = new Date(Math.max(...ends.map((date) => date.getTime())));
-  const month = (date: Date) => date.toLocaleDateString('en-US', { month: 'short' });
-  const sameMonth = from.getMonth() === to.getMonth() && from.getFullYear() === to.getFullYear();
+
+  const partsOf = (date: Date) => {
+    const formatted = new Intl.DateTimeFormat('en-US', {
+      timeZone, month: 'short', day: 'numeric', year: 'numeric',
+    }).formatToParts(date);
+    const part = (type: Intl.DateTimeFormatPartTypes) =>
+      formatted.find((entry) => entry.type === type)?.value ?? '';
+    return { month: part('month'), day: part('day'), year: part('year') };
+  };
+
+  const a = partsOf(from);
+  const b = partsOf(to);
+  const sameMonth = a.month === b.month && a.year === b.year;
   return sameMonth
-    ? `${month(from)} ${from.getDate()} – ${to.getDate()}`
-    : `${month(from)} ${from.getDate()} – ${month(to)} ${to.getDate()}`;
+    ? `${a.month} ${a.day} – ${b.day}`
+    : `${a.month} ${a.day} – ${b.month} ${b.day}`;
 }
 
 /** Newest first, for the archive screen. Includes the live drop. */
