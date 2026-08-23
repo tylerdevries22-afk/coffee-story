@@ -22,8 +22,17 @@ const ROOT = join(process.cwd(), '..', '..');
 const CUSTOMER = join(ROOT, 'apps', 'customer', 'src');
 const OPERATOR = join(ROOT, 'apps', 'operator', 'src');
 
-/** Files that differ by DESIGN (persona copy, navigation shape, tenant data).
- * Sorted; keep it that way. Every entry is a debt marker for P4/P5/P9. */
+/**
+ * Files that differ by DESIGN (persona copy, navigation shape, tenant data).
+ * Sorted; keep it that way. Every entry is a debt marker.
+ *
+ * The list shrank when the shared modules moved to @platform/domain: money,
+ * tax, totals, sizes, fulfillment, rewards rules, search, notifications, the
+ * information pages, intent links, portal navigation and the row types are one
+ * copy now, so they cannot drift and do not need guarding. What remains here
+ * is genuinely per-app -- the two personas' shells, their tenant data, and
+ * their live planes.
+ */
 const DIVERGENT_BY_DESIGN = [
   'app/_layout.tsx',
   'app/index.tsx',
@@ -52,7 +61,6 @@ const DIVERGENT_BY_DESIGN = [
   'lib/runtime-config.ts',
   'lib/web-navigation.ts',
   'screens/auth/auth-screen.tsx',
-  'screens/client/more/profile-and-intake.tsx',
   'screens/notifications-screen.tsx',
   'state/app-context.tsx',
   'state/auth-context.tsx',

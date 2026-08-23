@@ -1,4 +1,4 @@
-import type { RewardCatalogItem } from '@/types/domain';
+import type { RewardCatalogItem } from '@platform/domain';
 
 /** A tier perk as shown in the perk sheet. */
 export type PerkDetail = {

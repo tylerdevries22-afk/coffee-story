@@ -5,7 +5,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 
 import { useAuth } from '@/state/auth-context';
 import { useDemo } from '@/state/demo-context';
-import { destinationForIntentUrl, giftTokenFromUrl } from '@/state/intent-links';
+import { destinationForIntentUrl, giftTokenFromUrl } from '@platform/domain';
 import {
   clientMoreHref,
   clientMoreViewFromPathname,
@@ -16,11 +16,11 @@ import {
   staffTabFromPathname,
   staffTabHref,
 } from '@/state/navigation-state';
-import type { AppRole } from '@/types/domain';
+import type { AppRole } from '@platform/domain';
 
 import type { ClientTab, MoreView, StaffTab } from '@/state/navigation-state';
 
-export type { AppRole } from '@/types/domain';
+export type { AppRole } from '@platform/domain';
 export type { ClientTab, MoreView, StaffTab } from '@/state/navigation-state';
 
 type AppState = {

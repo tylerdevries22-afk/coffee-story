@@ -4,13 +4,13 @@ import { Alert, Animated, Pressable, StyleSheet, Text, View } from 'react-native
 import { CollapsingPageHeader } from '@/components/collapsing-page-header';
 import { StatTile, StatusBadge, WorkspaceCard } from '@/components/staff/workspace-ui';
 import { Body, Button, Card, Screen, SectionTitle } from '@/components/ui';
-import { appointmentMinutes, formatClockTime, formatMoney, sourceLabel } from '@/features/staff/workspace';
+import { orderMinutes, formatClockTime, formatMoney, sourceLabel } from '@/features/staff/workspace';
 import { colors, fonts, radius, spacing } from '@/theme/tokens';
-import type { PortalAppointment, StaffDashboard, StaffPayment } from '@/types/domain';
+import type { PortalOrder, StaffDashboard, StaffPayment } from '@platform/domain';
 import { AppIcon } from '@/components/icon';
 
 /** Callback shape shared by the hero card, the agenda rows and the alert flow. */
-type StatusUpdater = (id: string, status: 'confirmed' | 'cancelled' | 'no_show') => Promise<void>;
+type StatusUpdater = (id: string, status: 'paid' | 'cancelled' | 'cancelled') => Promise<void>;
 
 /** Plot height of the income bars. Labels sit underneath, outside the track. */
 const CHART_HEIGHT = 92;
@@ -26,34 +26,37 @@ const PAYMENT_METHOD_LABEL: Record<StaffPayment['method'], string> = {
 
 /**
  * Staff "Today" tab: greeting, KPI tiles with period-over-period deltas, the
- * next visit, income and booking-source charts, reputation, recent payments,
+ * next order, income and booking-source charts, reputation, recent payments,
  * and the day's agenda.
  *
  * Still shaped around the booking workspace it came from — it reads
- * appointments, not orders. Rebuilding it around the order feed and the EOD
+ * orders, not orders. Rebuilding it around the order feed and the EOD
  * summary is the next pass; the attention queue went already, because both of
  * its rows pointed at the register and guest screens that are gone.
  */
 export function TodayScreen({ dashboard, onUpdateStatus }: {
   dashboard: StaffDashboard;
-  onUpdateStatus: (id: string, status: 'confirmed' | 'cancelled' | 'no_show') => Promise<void>;
+  onUpdateStatus: (id: string, status: 'paid' | 'cancelled' | 'cancelled') => Promise<void>;
 }) {
   const [scrollY] = useState(() => new Animated.Value(0));
   const now = new Date();
   const today = now.toDateString();
 
-  const appointments = dashboard.appointments
-    .filter((appointment) => new Date(appointment.startsAt).toDateString() === today)
-    .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
-  const activeAppointments = appointments.filter((appointment) => (
-    appointment.status !== 'cancelled' && appointment.status !== 'completed' && appointment.status !== 'no_show'
+  const orders = dashboard.orders
+    .filter((order) => new Date(order.placedAt).toDateString() === today)
+    .sort((a, b) => a.placedAt.localeCompare(b.placedAt));
+  // Still on the floor: not collected, not cancelled, not refunded.
+  const activeOrders = orders.filter((order) => (
+    order.status !== 'cancelled' && order.status !== 'picked_up' && order.status !== 'refunded'
   ));
-  const next = activeAppointments.find((appointment) => new Date(appointment.endsAt) > now) ?? activeAppointments[0];
+  const next = activeOrders.find(
+    (order) => new Date(order.scheduledFor ?? order.placedAt) > now,
+  ) ?? activeOrders[0];
 
   const metrics = dashboard.metrics;
   const trend = metrics?.revenueTrend ?? [];
   const trendPeak = trend.reduce((peak, point) => Math.max(peak, point.cents), 0);
-  const sources = metrics?.bookingSources ?? [];
+  const sources = metrics?.orderSources ?? [];
   const sourcePeak = sources.reduce((peak, entry) => Math.max(peak, entry.count), 0);
   const payments = dashboard.recentPayments ?? [];
   const filledStars = Math.round(dashboard.reputation?.score ?? 0);
@@ -67,7 +70,7 @@ export function TodayScreen({ dashboard, onUpdateStatus }: {
     >
       <CollapsingPageHeader title={greeting(now)} scrollY={scrollY} />
       <Text style={styles.subtitle}>
-        {`${formatDayLabel(now)} · ${appointments.length} ${appointments.length === 1 ? 'appointment' : 'appointments'} today`}
+        {`${formatDayLabel(now)} · ${orders.length} ${orders.length === 1 ? 'order' : 'orders'} today`}
       </Text>
 
       <View style={styles.tiles}>
@@ -81,16 +84,16 @@ export function TodayScreen({ dashboard, onUpdateStatus }: {
             />
             <StatTile
               label="Orders"
-              value={String(metrics.appointmentCount)}
-              current={metrics.appointmentCount}
-              previous={metrics.previous?.appointmentCount}
+              value={String(metrics.orderCount)}
+              current={metrics.orderCount}
+              previous={metrics.previous?.orderCount}
             />
             <StatTile label="New guests" value={String(metrics.newClientCount)} hint="this week" />
             <StatTile label="Return rate" value={`${metrics.rebookRatePct}%`} hint="30-day" />
           </>
         ) : (
           <>
-            <StatTile label="Orders" value={String(appointments.length)} />
+            <StatTile label="Orders" value={String(orders.length)} />
             <StatTile label="Open time" value={`${dashboard.openMinutes}m`} />
             <StatTile label="Projected" value={formatMoney(dashboard.projectedCents)} />
           </>
@@ -100,20 +103,20 @@ export function TodayScreen({ dashboard, onUpdateStatus }: {
 
       {next ? (
         <Card style={styles.nextCard}>
-          <Text style={styles.nextLabel}>Next visit</Text>
-          <Text style={styles.nextTime}>{formatClockTime(next.startsAt)}</Text>
-          <Text style={styles.nextName}>{next.clientName ?? 'Guest client'}</Text>
-          <Body>{next.serviceName} · {appointmentMinutes(next)} minutes</Body>
+          <Text style={styles.nextLabel}>Next order</Text>
+          <Text style={styles.nextTime}>{formatClockTime(next.scheduledFor ?? next.placedAt)}</Text>
+          <Text style={styles.nextName}>{next.guestLabel ?? 'Guest'}</Text>
+          <Body>{next.summary} · {orderMinutes(next)} minutes</Body>
           <View style={styles.actions}>
             <Button
-              label={next.status === 'confirmed' ? 'Confirmed' : 'Confirm visit'}
-              disabled={next.status === 'confirmed'}
+              label={next.status === 'paid' ? 'Confirmed' : 'Confirm order'}
+              disabled={next.status === 'paid'}
               style={styles.actionButton}
-              onPress={() => void runStatusUpdate(next.id, 'confirmed', onUpdateStatus)}
+              onPress={() => void runStatusUpdate(next.id, 'paid', onUpdateStatus)}
             />
           </View>
         </Card>
-      ) : <Card><Body muted>No appointments are scheduled today.</Body></Card>}
+      ) : <Card><Body muted>No orders are scheduled today.</Body></Card>}
 
       {trend.length ? (
         <WorkspaceCard title="Income">
@@ -180,7 +183,7 @@ export function TodayScreen({ dashboard, onUpdateStatus }: {
           {payments.map((payment) => (
             <View key={payment.id} style={styles.paymentRow}>
               <View style={styles.paymentCopy}>
-                <Text style={styles.paymentName}>{payment.clientName}</Text>
+                <Text style={styles.paymentName}>{payment.guestName}</Text>
                 <Text style={styles.paymentDetail}>
                   {`${payment.itemName} · ${PAYMENT_METHOD_LABEL[payment.method]}`}
                 </Text>
@@ -192,23 +195,23 @@ export function TodayScreen({ dashboard, onUpdateStatus }: {
       ) : null}
 
       <SectionTitle>Today&apos;s schedule</SectionTitle>
-      {appointments.length ? appointments.map((appointment) => (
+      {orders.length ? orders.map((order) => (
         <Pressable
-          key={appointment.id}
+          key={order.id}
           accessibilityRole="button"
-          accessibilityLabel={`${formatClockTime(appointment.startsAt)} · ${appointment.clientName ?? 'Guest client'} · ${appointment.serviceName}. Update visit status.`}
-          onPress={() => promptAppointmentStatus(appointment, onUpdateStatus)}
+          accessibilityLabel={`${formatClockTime(order.placedAt)} · ${order.guestLabel ?? 'Guest client'} · ${order.summary}. Update order status.`}
+          onPress={() => promptAppointmentStatus(order, onUpdateStatus)}
           style={({ pressed }) => [styles.scheduleRow, pressed && styles.pressed]}
         >
-          <Text style={styles.scheduleTime}>{formatClockTime(appointment.startsAt)}</Text>
+          <Text style={styles.scheduleTime}>{formatClockTime(order.placedAt)}</Text>
           <View style={styles.scheduleCopy}>
-            <Text style={styles.scheduleName}>{appointment.clientName ?? 'Guest client'}</Text>
-            <Text style={styles.scheduleService}>{appointment.serviceName}</Text>
-            <StatusBadge status={appointment.status} />
+            <Text style={styles.scheduleName}>{order.guestLabel ?? 'Guest client'}</Text>
+            <Text style={styles.scheduleService}>{order.summary}</Text>
+            <StatusBadge status={order.status} />
           </View>
-          <Text style={styles.schedulePrice}>{formatMoney(appointment.subtotalCents)}</Text>
+          <Text style={styles.schedulePrice}>{formatMoney(order.subtotalCents)}</Text>
         </Pressable>
-      )) : <Card><Body muted>No appointments are scheduled today.</Body></Card>}
+      )) : <Card><Body muted>No orders are scheduled today.</Body></Card>}
     </Screen>
   );
 }
@@ -240,23 +243,23 @@ function barPercent(value: number, peak: number): number {
  * the card never claims work that does not exist.
  */
 async function runStatusUpdate(
-  appointmentId: string,
-  status: 'confirmed' | 'cancelled' | 'no_show',
+  orderId: string,
+  status: 'paid' | 'cancelled' | 'cancelled',
   onUpdateStatus: StatusUpdater,
 ) {
   try {
-    await onUpdateStatus(appointmentId, status);
+    await onUpdateStatus(orderId, status);
   } catch (statusError) {
-    Alert.alert('Visit not updated', statusError instanceof Error ? statusError.message : 'Try again in a moment.');
+    Alert.alert('Order not updated', statusError instanceof Error ? statusError.message : 'Try again in a moment.');
   }
 }
 
-function promptAppointmentStatus(appointment: PortalAppointment, onUpdateStatus: StatusUpdater) {
-  Alert.alert(appointment.clientName ?? 'Guest client', `${appointment.serviceName}\nChoose a visit status.`, [
+function promptAppointmentStatus(order: PortalOrder, onUpdateStatus: StatusUpdater) {
+  Alert.alert(order.guestLabel ?? 'Guest client', `${order.summary}\nChoose a order status.`, [
     { text: 'Close', style: 'cancel' },
-    { text: 'Confirm', onPress: () => void runStatusUpdate(appointment.id, 'confirmed', onUpdateStatus) },
-    { text: 'No show', onPress: () => void runStatusUpdate(appointment.id, 'no_show', onUpdateStatus) },
-    { text: 'Cancel visit', style: 'destructive', onPress: () => void runStatusUpdate(appointment.id, 'cancelled', onUpdateStatus) },
+    { text: 'Confirm', onPress: () => void runStatusUpdate(order.id, 'paid', onUpdateStatus) },
+    { text: 'No show', onPress: () => void runStatusUpdate(order.id, 'cancelled', onUpdateStatus) },
+    { text: 'Cancel order', style: 'destructive', onPress: () => void runStatusUpdate(order.id, 'cancelled', onUpdateStatus) },
   ]);
 }
 

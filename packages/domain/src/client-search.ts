@@ -1,5 +1,5 @@
-import { formatMoney } from '@/features/money';
-import type { OrderableItem, GiftCard, PortalOrder, PortalBundle } from '@/types/domain';
+import { formatMoney } from './money';
+import type { OrderableItem, GiftCard, PortalOrder, PortalBundle } from './domain';
 
 /**
  * One row in the client search sheet.

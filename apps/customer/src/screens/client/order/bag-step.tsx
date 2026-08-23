@@ -18,8 +18,8 @@ import {
   useStickyBarClearance,
 } from '@/components/order/order-chrome';
 import { Body } from '@/components/ui';
-import { fulfillmentDetail, fulfillmentLabel, type OrderFulfillment } from '@/features/order/fulfillment';
-import { formatMoney } from '@/features/money';
+import { fulfillmentDetail, fulfillmentLabel, type OrderFulfillment } from '@platform/domain';
+import { formatMoney } from '@platform/domain';
 import {
   MAX_LINE_QUANTITY,
   MAX_ORDER_NOTE_LENGTH,

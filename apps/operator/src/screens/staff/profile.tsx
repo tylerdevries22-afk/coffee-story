@@ -1,3 +1,11 @@
+/**
+ * The staff member's own profile.
+ *
+ * Split out of a guest screen that also carried drink preferences. Those went
+ * with the rest of `screens/client/**` when the operator stopped shipping guest
+ * surfaces (architecture rule 7); a barista editing their own name and avatar
+ * is staff functionality and stays.
+ */
 import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
 import { Alert, Platform, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -8,10 +16,9 @@ import { Body, Button, Card, SectionTitle } from '@/components/ui';
 import { mobileApi } from '@/lib/mobile-api';
 import { useAuth } from '@/state/auth-context';
 import { useDemo } from '@/state/demo-context';
-import { colors, fonts, spacing } from '@/theme/tokens';
-import type { IntakeProfile, PortalProfile } from '@/types/domain';
+import { colors, fonts, radius, spacing } from '@/theme/tokens';
+import type { PortalProfile } from '@platform/domain';
 
-import { styles } from './information-page';
 
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
 
@@ -198,77 +205,31 @@ export function Profile({
   );
 }
 
-export function Intake({ onBack }: { onBack: () => void }) {
-  const { portal, isDemo, refresh } = useAuth();
-  const demo = useDemo();
-  const initial: IntakeProfile = portal.intake ?? { completed: false, concerns: '', pressurePreference: 'medium', consentAccepted: false, updatedAt: null };
-  const [intake, setIntake] = useState(initial);
-  const [saving, setSaving] = useState<'draft' | 'submit' | null>(null);
-  async function persistIntake(submit: boolean) {
-    if (submit && !intake.consentAccepted) {
-      Alert.alert('Consent required', 'Review and accept the care consent before submitting.');
-      return;
-    }
-    setSaving(submit ? 'submit' : 'draft');
-    try {
-      const next = {
-        ...intake,
-        completed: submit ? true : intake.completed,
-        updatedAt: new Date().toISOString(),
-      };
-      if (isDemo) {
-        demo.updateIntake(next);
-      } else {
-        const idempotencyKey = `intake-${submit ? 'submit' : 'draft'}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-        // Send ONLY the three fields the server contract accepts. /api/mobile/intake
-        // parses with a `.strict()` zod schema, so posting `next` verbatim -- which
-        // also carries the local-only `completed` and `updatedAt` -- was rejected
-        // with 400 every time, making live intake impossible to save or submit.
-        // The `Pick<>` on mobileApi.submitIntake does not protect against this:
-        // it is erased at runtime and TypeScript skips excess-property checking
-        // for a variable, so the extra keys reached JSON.stringify unnoticed.
-        const contractPayload = {
-          concerns: next.concerns,
-          pressurePreference: next.pressurePreference,
-          consentAccepted: next.consentAccepted,
-        };
-        if (submit) await mobileApi.submitIntake(contractPayload, idempotencyKey);
-        else await mobileApi.updateIntake(contractPayload, idempotencyKey);
-        await refresh();
-      }
-      Alert.alert(submit ? 'Intake submitted' : 'Draft saved', submit
-        ? 'The bar can now see how you take your coffee.'
-        : 'Your private answers were saved.');
-    } catch (error) {
-      Alert.alert('Intake not saved', error instanceof Error ? error.message : 'Try again later.');
-    } finally {
-      setSaving(null);
-    }
-  }
-  return (
-    <CollapsingScreen title="Intake & consent" eyebrow="Private care profile" onBack={onBack} keyboardShouldPersistTaps="handled">
-      <Field label="What should the bar know?" value={intake.concerns} multiline onChangeText={(concerns) => setIntake({ ...intake, concerns })} />
-      <SectionTitle>Pressure preference</SectionTitle>
-      <View style={styles.options}>{(['light', 'medium', 'firm'] as const).map((pressure) => (
-        <Button key={pressure} label={pressure} variant={intake.pressurePreference === pressure ? 'primary' : 'secondary'} style={styles.option} onPress={() => setIntake({ ...intake, pressurePreference: pressure })} />
-      ))}</View>
-      <Button label={intake.consentAccepted ? 'Consent accepted' : 'Review and accept consent'} variant="secondary" onPress={() => setIntake({ ...intake, consentAccepted: true })} />
-      <Button label="Save draft" variant="secondary" loading={saving === 'draft'} disabled={saving !== null} onPress={() => void persistIntake(false)} />
-      <Button label="Submit intake" loading={saving === 'submit'} disabled={saving !== null} onPress={() => void persistIntake(true)} />
-    </CollapsingScreen>
-  );
-}
-
 export function Field({ label, ...props }: React.ComponentProps<typeof TextInput> & { label: string }) {
   return (
-    <View style={styles.field}>
-      <Text style={styles.fieldLabel}>{label}</Text>
-      <TextInput accessibilityLabel={`${label} input`} {...props} placeholderTextColor={colors.ink400} style={[styles.input, props.multiline && styles.multiline]} />
+    <View style={profileStyles.field}>
+      <Text style={profileStyles.fieldLabel}>{label}</Text>
+      <TextInput
+        accessibilityLabel={`${label} input`}
+        {...props}
+        placeholderTextColor={colors.ink400}
+        style={[profileStyles.input, props.multiline && profileStyles.multiline]}
+      />
     </View>
   );
 }
 
 const profileStyles = StyleSheet.create({
+  // Inlined when this split out of the guest screen: the field styles lived in
+  // information-page.tsx, which went with the rest of screens/client/**.
+  field: { gap: spacing.xs },
+  fieldLabel: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 14 },
+  input: {
+    minHeight: 54, borderRadius: radius.md, borderWidth: 1, borderColor: colors.ink300,
+    paddingHorizontal: spacing.md, color: colors.ink900, fontFamily: fonts.sans,
+    fontSize: 15, backgroundColor: colors.white,
+  },
+  multiline: { minHeight: 110, paddingTop: spacing.md, textAlignVertical: 'top' },
   avatarHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg, paddingVertical: spacing.sm },
   avatarCopy: { flex: 1, gap: spacing.xs },
   profileName: { color: colors.ink900, fontFamily: fonts.display, fontSize: 25, lineHeight: 30 },

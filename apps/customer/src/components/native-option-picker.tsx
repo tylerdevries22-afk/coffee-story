@@ -1,7 +1,7 @@
 import { ActionSheetIOS, Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors, fonts, radius, spacing } from '@/theme/tokens';
-import type { NativePickerOption } from '@/features/dates';
+import type { NativePickerOption } from '@platform/domain';
 
 /**
  * A small native selector for values that already come from availability.

@@ -16,13 +16,12 @@ import {
 
 import { Screen } from '@/components/ui';
 import { POINTS_LABEL } from '@/features/rewards/presentation';
-import { tierForAnnualPoints, REWARD_TIERS, type RewardTierName } from '@/features/rewards/rules';
+import { tierForAnnualPoints, REWARD_TIERS, type RewardTierName , RewardCatalogItem } from '@platform/domain';
 import { useReducedMotion } from '@/hooks/use-reduced-motion';
 import { mobileApi } from '@/lib/mobile-api';
 import { useAppState } from '@/state/app-context';
 import { useAuth } from '@/state/auth-context';
 import { useDemo } from '@/state/demo-context';
-import type { RewardCatalogItem } from '@/types/domain';
 
 import { hapticError, hapticSelection, hapticSuccess } from './rewards/haptics';
 import { RewardsHeader, RewardTabs, type RewardTab } from './rewards/header';

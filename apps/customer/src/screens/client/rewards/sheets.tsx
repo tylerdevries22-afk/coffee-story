@@ -8,7 +8,7 @@ import { POINTS_LABEL, demoReferralCode, referralShareUrl } from '@/features/rew
 import { mobileApi } from '@/lib/mobile-api';
 import { TENANT } from '@/tenant';
 import { colors } from '@/theme/tokens';
-import type { RewardCatalogItem, RewardReferral } from '@/types/domain';
+import type { RewardCatalogItem, RewardReferral } from '@platform/domain';
 
 import { hapticError, hapticSuccess } from './haptics';
 import { RewardMark } from './reward-mark';

@@ -20,7 +20,7 @@ import {
   updateDemoIntake,
   updateDemoProfile,
 } from './demo-state';
-import type { PortalBundle } from '@/types/domain';
+import type { PortalBundle } from '@platform/domain';
 
 const item = {
   slug: 'deep-tissue-60',

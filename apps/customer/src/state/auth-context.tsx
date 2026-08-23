@@ -12,7 +12,7 @@ import { hasSupabaseConfig, supabase } from '@/lib/supabase';
 import { TENANT } from '@/tenant';
 import { useDemo } from '@/state/demo-context';
 import { createRequestSequence } from '@/state/request-sequence';
-import type { AppRole, PortalBundle } from '@/types/domain';
+import type { AppRole, PortalBundle } from '@platform/domain';
 
 type AuthState = {
   session: Session | null;

@@ -1,4 +1,4 @@
-import type { GiftCard } from '@/types/domain';
+import type { GiftCard } from '@platform/domain';
 
 export type GiftCardOwnershipSummary = {
   spendableCards: GiftCard[];

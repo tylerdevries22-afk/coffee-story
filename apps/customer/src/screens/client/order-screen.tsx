@@ -21,10 +21,9 @@ import { AppIcon } from '@/components/icon';
 import { PushFromRight } from '@/components/push-from-right';
 import { Body } from '@/components/ui';
 import type { MenuItem } from '@/data/catalog';
-import type { OrderFulfillment, FulfillmentMode } from '@/features/order/fulfillment';
-import { formatMoney } from '@/features/money';
+import type { OrderFulfillment, FulfillmentMode , OrderableItem } from '@platform/domain';
+import { formatMoney , orderTotals, pointsForOrder , REWARD_TIERS, tierForAnnualPoints } from '@platform/domain';
 import { PICKUP_WINDOW_MINUTES, describePickupWindow, isWindowStillBookable } from '@/features/order/pickup';
-import { orderTotals, pointsForOrder } from '@/features/order/totals';
 import { summarizeGiftCardOwnership } from '@/features/gifts/ownership';
 import {
   maxRedeemableCents,
@@ -38,7 +37,6 @@ import { tenantFeature } from '@/tenant';
 import { newIdempotencyKey } from '@platform/api-client';
 import { subscribeToOrderStatus } from '@platform/data';
 import type { OrderStatus } from '@platform/schema';
-import { REWARD_TIERS, tierForAnnualPoints } from '@/features/rewards/rules';
 import { choiceState, disabledState } from '@/lib/a11y-state';
 import { platformApi } from '@/lib/api';
 import { liveOrderContext } from '@/lib/live-portal';
@@ -50,7 +48,6 @@ import { useDemo } from '@/state/demo-context';
 import { useOrder } from '@/state/order-context';
 import { useReducedMotion } from '@/hooks/use-reduced-motion';
 import { colors, fonts, radius, shadow, spacing } from '@/theme/tokens';
-import type { OrderableItem } from '@/types/domain';
 
 import { BagStep, NoteStep } from './order/bag-step';
 import { CheckoutStep, type CheckoutPaymentMethod } from './order/checkout-step';

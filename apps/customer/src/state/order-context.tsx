@@ -11,7 +11,7 @@
  */
 import { createContext, useCallback, useContext, useMemo, useState, type PropsWithChildren } from 'react';
 
-import type { OrderFulfillment } from '@/features/order/fulfillment';
+import type { OrderFulfillment } from '@platform/domain';
 import {
   EMPTY_CART,
   addOrderLine,
@@ -26,7 +26,7 @@ import {
   type OrderCart,
   type OrderLine,
 } from '@/features/order/cart';
-import { DELIVERY_FEE_CENTS } from '@/features/order/totals';
+import { DELIVERY_FEE_CENTS } from '@platform/domain';
 
 export type OrderState = {
   cart: OrderCart;

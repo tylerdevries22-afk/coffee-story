@@ -11,7 +11,7 @@
  * and every `*Cents` field in `types/domain.ts`. Nothing here ever sees a
  * float dollar amount.
  */
-import { formatPriceDelta } from '@/features/money';
+import { formatPriceDelta } from '@platform/domain';
 
 import {
   optionDeltaCents,

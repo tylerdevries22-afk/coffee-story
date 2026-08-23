@@ -1,6 +1,6 @@
 import { BUSINESS, BUSINESS_ADDRESS } from '@/data/business';
 
-import type { StaffSettings } from '@/types/domain';
+import type { StaffSettings } from '@platform/domain';
 
 export type AdminSettingsTab = 'Availability' | 'Booking Rules' | 'Payments' | 'Messages' | 'Forms' | 'Business Info';
 
@@ -60,7 +60,7 @@ export const DEFAULT_ADMIN_SETTINGS: AdminSettingsState = {
     { weekday: 5, label: 'Friday', enabled: true, startMin: 600, endMin: 1050 },
     { weekday: 6, label: 'Saturday', enabled: true, startMin: 600, endMin: 960 },
   ],
-  onlineBookingEnabled: true,
+  onlineOrderingEnabled: true,
   requireAccountToBook: false,
   waitlistEnabled: true,
   leadTimeMinutes: 120,
@@ -100,7 +100,7 @@ export function validateAdminSettings(settings: AdminSettingsState): string | nu
 export function serverStaffSettings(settings: AdminSettingsState): StaffSettings {
   return {
     availability: settings.availability,
-    onlineBookingEnabled: settings.onlineBookingEnabled,
+    onlineOrderingEnabled: settings.onlineOrderingEnabled,
     requireAccountToBook: settings.requireAccountToBook,
     waitlistEnabled: settings.waitlistEnabled,
     leadTimeMinutes: settings.leadTimeMinutes,

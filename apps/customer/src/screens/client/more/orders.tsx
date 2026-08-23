@@ -4,14 +4,13 @@ import { Alert, Pressable, Text, View } from 'react-native';
 
 import { CollapsingScreen } from '@/components/collapsing-screen';
 import { Body, Button, Card, Segmented } from '@/components/ui';
-import { requestKey } from '@/features/order/request-key';
-import { formatMoney } from '@/features/money';
+import { requestKey , formatMoney } from '@platform/domain';
 import { trackingView } from '@/features/tracking';
 import { mobileApi } from '@/lib/mobile-api';
 import { addOrderToCalendar } from '@/lib/native-adapters';
 import { useAuth } from '@/state/auth-context';
 import { useDemo } from '@/state/demo-context';
-import type { PortalOrder } from '@/types/domain';
+import type { PortalOrder } from '@platform/domain';
 import { choiceState } from '@/lib/a11y-state';
 
 import { styles } from './information-page';

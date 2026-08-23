@@ -7,7 +7,7 @@ import type {
   RoleSetup,
   SetupStatus,
   StaffSetupAnswers,
-} from '@/types/domain';
+} from '@platform/domain';
 
 /**
  * Pure setup/onboarding logic for the demo portal — the native counterpart of
@@ -50,7 +50,7 @@ export const CLIENT_GOAL_OPTIONS = [
 ] as const;
 
 /** How sweet a guest takes their drinks. The field name is the portal API's. */
-export const PRESSURE_OPTIONS = ['light', 'medium', 'firm'] as const;
+export const PRESSURE_OPTIONS = ['light', 'medium', 'bold'] as const;
 
 export const PREFERRED_TIME_OPTIONS = [
   'Weekday mornings',
@@ -92,9 +92,9 @@ const INITIAL_ADMIN: RoleSetup<AdminSetupAnswers> = {
   answers: {
     businessName: 'Coffee Story',
     openDays: [],
-    servicesConfirmed: false,
+    menuConfirmed: false,
     teamConfirmed: false,
-    onlineBooking: true,
+    onlineOrdering: true,
   },
 };
 
@@ -162,9 +162,9 @@ export function portalSetup(portal: PortalBundle): PortalSetupState {
           ? candidate.businessName.slice(0, 120)
           : INITIAL_ADMIN.answers.businessName,
         openDays: safeStrings(candidate.openDays, DAY_OPTIONS),
-        servicesConfirmed: candidate.servicesConfirmed === true,
+        menuConfirmed: candidate.menuConfirmed === true,
         teamConfirmed: candidate.teamConfirmed === true,
-        onlineBooking: candidate.onlineBooking !== false,
+        onlineOrdering: candidate.onlineOrdering !== false,
       };
     }),
   };
@@ -177,7 +177,7 @@ export type AnyRoleSetup =
 
 /**
  * Persist one role's setup onto the bundle. Completing the client wizard also
- * writes the pressure preference into the intake profile, the same way the web
+ * writes the pressure preference into the preferences profile, the same way the web
  * wizard feeds the portal profile.
  */
 export function withRoleSetup(
@@ -189,10 +189,10 @@ export function withRoleSetup(
     ...portal,
     setup: { ...portalSetup(portal), [role]: setup },
   };
-  if (role === 'client' && setup.status === 'completed' && portal.intake) {
-    next.intake = {
-      ...portal.intake,
-      pressurePreference: (setup as RoleSetup<ClientSetupAnswers>).answers.pressure,
+  if (role === 'client' && setup.status === 'completed' && portal.preferences) {
+    next.preferences = {
+      ...portal.preferences,
+      strength: (setup as RoleSetup<ClientSetupAnswers>).answers.pressure,
     };
   }
   return next;
@@ -219,7 +219,7 @@ export function setupSummary(role: AppRole, setup: PortalSetupState): { label: s
   return [
     { label: 'Studio', value: answers.businessName || '—' },
     { label: 'Open days', value: answers.openDays.length ? `${answers.openDays.length} of 7` : '—' },
-    { label: 'Online booking', value: answers.onlineBooking ? 'On' : 'Off' },
+    { label: 'Online booking', value: answers.onlineOrdering ? 'On' : 'Off' },
   ];
 }
 

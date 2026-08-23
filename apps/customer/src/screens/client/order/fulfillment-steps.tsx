@@ -31,10 +31,9 @@ import {
   type DeliveryAddress,
   type PickupLocation,
   type FulfillmentMode,
-} from '@/features/order/fulfillment';
-import { formatMoney } from '@/features/money';
+} from '@platform/domain';
+import { formatMoney , DELIVERY_FEE_CENTS } from '@platform/domain';
 import { pickupWindows, shopStatus, type PickupWindow } from '@/features/order/pickup';
-import { DELIVERY_FEE_CENTS } from '@/features/order/totals';
 import { choiceState } from '@/lib/a11y-state';
 import { colors, fonts, radius, shadow, spacing } from '@/theme/tokens';
 

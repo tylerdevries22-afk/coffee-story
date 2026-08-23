@@ -45,7 +45,7 @@ import type {
   PortalBundle,
   PortalProfile,
   RewardCatalogItem,
-} from '@/types/domain';
+} from '@platform/domain';
 
 export type AppMode = 'demo' | 'live';
 

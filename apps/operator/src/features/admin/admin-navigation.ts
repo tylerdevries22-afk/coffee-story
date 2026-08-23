@@ -1,5 +1,4 @@
-import { ADMIN_DESTINATIONS, adminDestinationsForRole, type WebDestination } from '@/data/portal-navigation';
-import type { AppRole, StaffClient } from '@/types/domain';
+import { ADMIN_DESTINATIONS, adminDestinationsForRole, type WebDestination , AppRole, StaffClient } from '@platform/domain';
 
 export type AdminNavigationGroup = {
   title: 'Operations' | 'People' | 'Marketing' | 'Configuration';
@@ -16,7 +15,7 @@ const GROUP_PATHS: readonly {
 }[] = [
   {
     title: 'Operations',
-    paths: ['/admin/dashboard', '/admin/calendar', '/admin/clients', '/admin/pos', '/admin/services'],
+    paths: ['/admin/dashboard', '/admin/calendar', '/admin/clients', '/admin/pos', '/admin/items'],
   },
   {
     title: 'People',

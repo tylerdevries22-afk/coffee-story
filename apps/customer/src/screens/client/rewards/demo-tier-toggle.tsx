@@ -5,7 +5,7 @@ import { AppIcon } from '@/components/icon';
 import { paletteForTier } from '@/components/rewards/glass-cup-palettes';
 import { hapticSelection } from './haptics';
 import { styles } from './styles';
-import { REWARD_TIERS, type RewardTierName } from '@/features/rewards/rules';
+import { REWARD_TIERS, type RewardTierName } from '@platform/domain';
 import { choiceState } from '@/lib/a11y-state';
 import { colors } from '@/theme/tokens';
 

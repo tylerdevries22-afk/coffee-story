@@ -14,16 +14,16 @@ import {
   searchAdminWorkspace,
   type AdminSearchResult,
 } from '@/features/admin/admin-navigation';
-import { buildStaffNotifications } from '@/features/notifications/feed';
+import { buildStaffNotifications } from '@platform/domain';
 import { portalSetup } from '@/features/setup/setup';
 import { workspaceTone } from '@/features/staff/workspace';
 import { openWebPath } from '@/lib/web-navigation';
 import { useAppState } from '@/state/app-context';
 import { useAuth } from '@/state/auth-context';
 import { colors, fonts, radius, spacing } from '@/theme/tokens';
-import type { PortalAppointment, StaffDashboard } from '@/types/domain';
+import type { PortalOrder, StaffDashboard } from '@platform/domain';
 import { AppIcon } from '@/components/icon';
-import { Profile } from '@/screens/client/more/profile-and-intake';
+import { Profile } from '@/screens/staff/profile';
 
 import rewardsCup from '../../../assets/tabs/cup.png';
 
@@ -50,7 +50,7 @@ export function AdminMoreScreen({ dashboard }: { dashboard: StaffDashboard }) {
   const unreadCount = notifications.filter((item) => !readNotificationIds.has(item.id)).length;
   const profileMetrics = [
     { label: 'Revenue', value: `$${Math.round(dashboard.projectedCents / 100)}` },
-    { label: 'Appts today', value: String(countToday(dashboard.appointments)) },
+    { label: 'Appts today', value: String(countToday(dashboard.orders)) },
     { label: 'Open hours', value: `${Math.round(dashboard.openMinutes / 60)}h` },
   ] as const;
   const setup = portalSetup(portal)[role];
@@ -215,9 +215,9 @@ export function AdminMoreScreen({ dashboard }: { dashboard: StaffDashboard }) {
   );
 }
 
-function countToday(appointments: readonly PortalAppointment[]): number {
+function countToday(orders: readonly PortalOrder[]): number {
   const today = new Date().toDateString();
-  return appointments.filter((appointment) => new Date(appointment.startsAt).toDateString() === today).length;
+  return orders.filter((order) => new Date(order.placedAt).toDateString() === today).length;
 }
 
 /**
@@ -259,10 +259,10 @@ function WorkspaceSearchResults({
 function destinationDescription(path: string): string {
   const descriptions: Readonly<Record<string, string>> = {
     '/admin/dashboard': 'Today, revenue, schedule, and care actions',
-    '/admin/calendar': 'Schedule, availability, and visit status',
+    '/admin/calendar': 'Schedule, availability, and order status',
     '/admin/clients': 'Profiles, care records, and communication',
     '/admin/pos': 'Checkout, tips, and payment collection',
-    '/admin/services': 'Services, pricing, deposits, and enhancements',
+    '/admin/items': 'Menu items, sizes, pricing, and add-ons',
     '/admin/talent-acquisition': 'Applicants, interviews, and hiring',
     '/admin/staff': 'Team access, permissions, and availability',
     '/admin/rewards': 'Tiers, earning rules, points, and expiry',

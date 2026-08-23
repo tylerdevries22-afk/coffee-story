@@ -34,8 +34,8 @@ import {
   recordSuccess,
   type PinState,
 } from '@/features/operator/pin-lock';
-import { formatMoney } from '@/features/money';
-import { SERVICES } from '@/data/catalog';
+import { formatMoney } from '@platform/domain';
+import { MENU_ITEMS } from '@/data/catalog';
 import { useOperator } from '@/state/operator-store';
 import { disabledState, toggleState } from '@/lib/a11y-state';
 import { colors, fonts, radius, shadow, spacing } from '@/theme/tokens';
@@ -451,7 +451,7 @@ function MenuControlSheet({ visible, onClose }: { visible: boolean; onClose: () 
         86&rsquo;d items stay on the menu marked sold out today and cannot be added
         to a bag. Everything resets at open.
       </Text>
-      {SERVICES.map((service) => {
+      {MENU_ITEMS.map((service) => {
         const is86d = operator.eightySixed.has(service.id);
         return (
           <Pressable

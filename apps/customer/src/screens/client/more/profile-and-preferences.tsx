@@ -6,12 +6,12 @@ import { ProfileAvatar } from '@/components/profile-avatar';
 import { CollapsingScreen } from '@/components/collapsing-screen';
 import { Body, Button, Card, SectionTitle } from '@/components/ui';
 import { mobileApi } from '@/lib/mobile-api';
-import { requestKey } from '@/features/order/request-key';
+import { requestKey } from '@platform/domain';
 import { STRENGTH_OPTIONS, strengthLabel } from '@/features/setup/setup';
 import { useAuth } from '@/state/auth-context';
 import { useDemo } from '@/state/demo-context';
 import { colors, fonts, spacing } from '@/theme/tokens';
-import type { GuestPreferences, PortalProfile } from '@/types/domain';
+import type { GuestPreferences, PortalProfile } from '@platform/domain';
 
 import { styles } from './information-page';
 

@@ -16,10 +16,9 @@ import {
   visitLines,
   type CartLine,
 } from './pos-totals';
-import { orderTotals } from '@/features/order/totals';
-import { COMBINED_TAX_RATE, taxCentsFor } from '@/features/tax';
+import { orderTotals , COMBINED_TAX_RATE, taxCentsFor } from '@platform/domain';
 
-const visit = { serviceName: 'Deep Tissue Massage', balanceCents: 11000 };
+const order = { serviceName: 'Deep Tissue Massage', balanceCents: 11000 };
 const line = (over: Partial<CartLine> = {}): CartLine => ({
   id: 'l1', name: 'Aromatherapy', priceCents: 1500, qty: 1, ...over,
 });
@@ -89,15 +88,15 @@ test('the register charges the same tax the client checkout prints', () => {
   assert.equal(TAX_RATE, COMBINED_TAX_RATE);
 });
 
-test('a card tender settles the visit balance plus tip, never the ticket total', () => {
-  const cart = [...visitLines(visit), line({ id: 'addon', priceCents: 2500 })];
-  const totals = registerTotals({ cart, tipRate: TIP_RATES['20%'], visitBalanceCents: visit.balanceCents });
-  assert.equal(totals.cardChargeCents, visit.balanceCents + totals.tipCents);
+test('a card tender settles the order balance plus tip, never the ticket total', () => {
+  const cart = [...visitLines(order), line({ id: 'addon', priceCents: 2500 })];
+  const totals = registerTotals({ cart, tipRate: TIP_RATES['20%'], visitBalanceCents: order.balanceCents });
+  assert.equal(totals.cardChargeCents, order.balanceCents + totals.tipCents);
   assert.ok(totals.cardChargeCents < totals.totalCents);
   assert.equal(totals.extrasCents, totals.totalCents - totals.cardChargeCents);
 });
 
-test('with no visit attached the card is asked for the whole ticket and nothing is extra', () => {
+test('with no order attached the card is asked for the whole ticket and nothing is extra', () => {
   const totals = registerTotals({ cart: [line()], tipRate: TIP_RATES['10%'] });
   assert.equal(totals.cardChargeCents, totals.totalCents);
   assert.equal(totals.extrasCents, 0);
@@ -108,12 +107,12 @@ test('extras never go negative when the balance exceeds the ticket', () => {
   assert.equal(totals.extrasCents, 0);
 });
 
-test('visitLines yields nothing without an appointment', () => {
+test('visitLines yields nothing without an order', () => {
   assert.deepEqual(visitLines(undefined), []);
 });
 
-test('selecting a visit swaps the visit line and keeps the add-ons', () => {
-  const cart = [...visitLines(visit), line({ id: 'addon' })];
+test('selecting a order swaps the order line and keeps the add-ons', () => {
+  const cart = [...visitLines(order), line({ id: 'addon' })];
   const next = selectVisitLines(cart, { serviceName: 'Swedish', balanceCents: 9000 });
   assert.equal(next.filter((l) => l.id === VISIT_LINE_ID).length, 1);
   assert.equal(next[0].priceCents, 9000);
@@ -150,7 +149,7 @@ test('cart mutations never mutate the input array', () => {
   addCartLine(cart, 'Hot stones', 2500);
   changeCartQty(cart, 'l1', 1);
   removeCartLine(cart, 'l1');
-  selectVisitLines(cart, visit);
+  selectVisitLines(cart, order);
   assert.deepEqual(cart, snapshot);
 });
 

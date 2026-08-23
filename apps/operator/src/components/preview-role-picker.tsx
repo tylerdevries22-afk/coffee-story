@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { choiceState } from '@/lib/a11y-state';
 import { colors, fonts, radius, spacing } from '@/theme/tokens';
-import type { AppRole } from '@/types/domain';
+import type { AppRole } from '@platform/domain';
 
 const ROLES: readonly AppRole[] = ['client', 'staff', 'admin'];
 

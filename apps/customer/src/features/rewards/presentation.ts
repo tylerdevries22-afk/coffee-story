@@ -1,5 +1,5 @@
 // Staged replacement for src/features/rewards/presentation.ts
-import type { RewardEntry } from '@/types/domain';
+import type { RewardEntry } from '@platform/domain';
 
 import { TENANT } from '@/tenant';
 

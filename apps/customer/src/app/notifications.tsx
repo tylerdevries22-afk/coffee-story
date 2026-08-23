@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { buildClientNotifications, type NotificationItem } from '@/features/notifications/feed';
+import { buildClientNotifications, type NotificationItem } from '@platform/domain';
 import { NotificationsScreen } from '@/screens/notifications-screen';
 import { useAppState } from '@/state/app-context';
 import { useAuth } from '@/state/auth-context';

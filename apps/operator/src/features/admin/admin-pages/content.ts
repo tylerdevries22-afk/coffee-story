@@ -81,7 +81,7 @@ export const NATIVE_ADMIN_PAGES: Readonly<Record<string, NativeAdminPageConfig>>
     rows: [
       { title: 'Online booking', subtitle: 'Enabled · 2-hour lead time' },
       { title: 'Payments', subtitle: 'Stripe connected · Deposits enabled' },
-      { title: 'Intake forms', subtitle: '3 active documents' },
+      { title: 'Preferences forms', subtitle: '3 active documents' },
     ],
     action: 'Save changes',
   },

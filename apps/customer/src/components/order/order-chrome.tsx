@@ -19,7 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppIcon } from '@/components/icon';
 import { useTabBarClearance } from '@/components/navigation/tab-screen';
-import { formatMoney } from '@/features/money';
+import { formatMoney } from '@platform/domain';
 import { useReducedMotion } from '@/hooks/use-reduced-motion';
 import { disabledState } from '@/lib/a11y-state';
 import { colors, fonts, radius, shadow, spacing } from '@/theme/tokens';

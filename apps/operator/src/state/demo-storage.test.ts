@@ -38,12 +38,23 @@ test('parseStoredPortal rejects a structurally incomplete portal instead of hydr
   })), null);
   assert.equal(parseStoredPortal(JSON.stringify({
     ...portal,
-    appointments: [{ ...portal.appointments[0], startsAt: 'not-a-date' }],
+    orders: [{ ...portal.orders[0], placedAt: 'not-a-date' }],
   })), null);
   assert.equal(parseStoredPortal(JSON.stringify({
     ...portal,
-    appointments: [{ ...portal.appointments[0], bookingSource: 'unknown' }],
+    orders: [{ ...portal.orders[0], fulfillmentType: 'teleport' }],
   })), null);
+  // A line's option list must be strings; a malformed cart snapshot re-seeds
+  // rather than reaching a receipt.
+  assert.equal(parseStoredPortal(JSON.stringify({
+    ...portal,
+    orders: [{ ...portal.orders[0], lines: [{ name: 'x', quantity: 1, unitPriceCents: 1, options: [7] }] }],
+  })), null);
+  // null scheduledFor is legal -- an asap order has no pickup window.
+  assert.ok(parseStoredPortal(JSON.stringify({
+    ...portal,
+    orders: [{ ...portal.orders[0], scheduledFor: null }],
+  })));
 });
 
 test('parseStoredPortal round-trips a production-scale portal larger than the SecureStore limit', () => {

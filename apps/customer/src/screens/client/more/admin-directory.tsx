@@ -1,6 +1,6 @@
 import { CollapsingScreen } from '@/components/collapsing-screen';
 import { PillRow, SectionTitle } from '@/components/ui';
-import { adminDestinationsForRole } from '@/data/portal-navigation';
+import { adminDestinationsForRole } from '@platform/domain';
 import { useAppState } from '@/state/app-context';
 import { useAuth } from '@/state/auth-context';
 

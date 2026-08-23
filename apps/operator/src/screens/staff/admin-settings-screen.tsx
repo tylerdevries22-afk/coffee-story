@@ -22,7 +22,7 @@ import {
   type AdminSettingsState,
   type AdminSettingsTab,
 } from '@/features/admin/admin-settings';
-import { INTAKE_FORM_CATALOG, type IntakeFormCatalogEntry } from '@/features/admin/intake-forms';
+import { INTAKE_FORM_CATALOG, type IntakeFormCatalogEntry } from '@/features/admin/preferences-forms';
 import { mobileApi } from '@/lib/mobile-api';
 import { openWebPath } from '@/lib/web-navigation';
 import { workspaceTone } from '@/features/staff/workspace';
@@ -91,7 +91,7 @@ export function AdminSettingsScreen({
       {tab === 'Business Info' ? <BusinessInfoPanel value={draft} onChange={setDraft} isDemo={isDemo} /> : null}
       {!isDemo && tab === 'Messages' ? (
         <Text style={styles.helper}>
-          Booking confirmations and appointment reminders are read-only here. Review-request changes are connected and can be saved.
+          Booking confirmations and order reminders are read-only here. Review-request changes are connected and can be saved.
         </Text>
       ) : null}
       {!isDemo && tab === 'Forms' ? (
@@ -198,7 +198,7 @@ function BookingRulesPanel({ value, onChange }: SettingsPanelProps) {
   return (
     <View style={styles.panel}>
       <PanelHeading title="Online booking rules" detail="Set expectations before a guest selects a time." />
-      <ToggleRow label="Online booking" detail="Allow clients to reserve from the portal." value={value.onlineBookingEnabled} onChange={(onlineBookingEnabled) => onChange({ ...value, onlineBookingEnabled })} />
+      <ToggleRow label="Online booking" detail="Allow clients to reserve from the portal." value={value.onlineOrderingEnabled} onChange={(onlineOrderingEnabled) => onChange({ ...value, onlineOrderingEnabled })} />
       <ToggleRow label="Account required" detail="Require sign-in before checkout." value={value.requireAccountToBook} onChange={(requireAccountToBook) => onChange({ ...value, requireAccountToBook })} />
       <ToggleRow label="Waitlist" detail="Collect interest when a day is full." value={value.waitlistEnabled} onChange={(waitlistEnabled) => onChange({ ...value, waitlistEnabled })} />
       <NumberField label="Minimum lead time (minutes)" value={value.leadTimeMinutes} onChange={(leadTimeMinutes) => onChange({ ...value, leadTimeMinutes })} />
@@ -230,7 +230,7 @@ function MessagesPanel({ value, onChange, isDemo }: SettingsPanelProps & { isDem
     <View style={styles.panel}>
       <PanelHeading title="Outgoing messages" detail="Choose the follow-ups guests receive automatically." />
       <ToggleRow label="Booking confirmations" detail="Send immediately after a reservation." value={value.confirmationsEnabled} disabled={!isDemo && !isAdminSettingWritableInLive('confirmationsEnabled')} onChange={(confirmationsEnabled) => onChange({ ...value, confirmationsEnabled })} />
-      <ToggleRow label="Order reminders" detail="Send before a scheduled visit." value={value.remindersEnabled} disabled={!isDemo && !isAdminSettingWritableInLive('remindersEnabled')} onChange={(remindersEnabled) => onChange({ ...value, remindersEnabled })} />
+      <ToggleRow label="Order reminders" detail="Send before a scheduled order." value={value.remindersEnabled} disabled={!isDemo && !isAdminSettingWritableInLive('remindersEnabled')} onChange={(remindersEnabled) => onChange({ ...value, remindersEnabled })} />
       <ToggleRow label="Review requests" detail="Invite feedback after completed care." value={value.reviewRequestEnabled} onChange={(reviewRequestEnabled) => onChange({ ...value, reviewRequestEnabled })} />
     </View>
   );
@@ -286,7 +286,7 @@ function FormsPanel({ value, onChange, isDemo }: SettingsPanelProps & { isDemo: 
   return (
     <View style={styles.panel}>
       <PanelHeading title="Forms & documents" detail="Keep consent requirements visible before care begins." />
-      <ToggleRow label="No usual saved" detail="Require a current intake before the first session." value={value.intakeRequired} disabled={!isDemo} onChange={(intakeRequired) => onChange({ ...value, intakeRequired })} />
+      <ToggleRow label="No usual saved" detail="Require a current preferences before the first session." value={value.intakeRequired} disabled={!isDemo} onChange={(intakeRequired) => onChange({ ...value, intakeRequired })} />
       <ToggleRow label="Care consent required" detail="Require an accepted consent record." value={value.consentRequired} disabled={!isDemo} onChange={(consentRequired) => onChange({ ...value, consentRequired })} />
 
       <Card style={styles.formSummary}>
@@ -329,7 +329,7 @@ function FormsPanel({ value, onChange, isDemo }: SettingsPanelProps & { isDemo: 
                   <Pressable
                     accessibilityRole="link"
                     accessibilityLabel={`View ${draft.title} on the website`}
-                    onPress={() => void openWebPath(`/intake-forms#${draft.id}`).catch(() => setNotice('That page could not be opened on this device.'))}
+                    onPress={() => void openWebPath(`/preferences-forms#${draft.id}`).catch(() => setNotice('That page could not be opened on this device.'))}
                     style={({ pressed }) => [styles.viewOnSite, pressed && styles.formHeaderPressed]}
                   >
                     <Text style={styles.viewOnSiteLabel}>View on the website</Text>

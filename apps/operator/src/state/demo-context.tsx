@@ -13,22 +13,22 @@ import Constants from 'expo-constants';
 
 import { hasCompleteLiveConfig } from '@/lib/runtime-config';
 import {
-  addDemoBooking,
+  addDemoOrder,
   addDemoGift,
   addDemoMessage,
-  cancelDemoAppointment,
+  cancelDemoOrder,
   completeDemoRewardActivity,
   createInitialDemoPortal,
   dismissDemoSetupAutoPrompt,
   redeemDemoReward,
   removeDemoPaymentMethod,
-  rescheduleDemoAppointment,
-  reviewDemoAppointment,
+  rescheduleDemoOrder,
+  reviewDemoOrder,
   setDemoRole,
   setDemoMembershipStatus,
   updateDemoIntake,
   updateDemoProfile,
-  type DemoBookingInput,
+  type DemoOrderInput,
 } from '@/state/demo-state';
 import {
   loadStoredAppMode,
@@ -41,11 +41,11 @@ import {
 import type {
   GiftCard,
   AppRole,
-  IntakeProfile,
+  GuestPreferences,
   PortalBundle,
   PortalProfile,
   RewardCatalogItem,
-} from '@/types/domain';
+} from '@platform/domain';
 
 export type AppMode = 'demo' | 'live';
 
@@ -64,15 +64,15 @@ type DemoState = {
   canGoLive: boolean;
   resetDemo: () => Promise<void>;
   setRole: (role: AppRole) => void;
-  book: (input: Omit<DemoBookingInput, 'id'>) => void;
-  cancelAppointment: (appointmentId: string) => void;
-  rescheduleAppointment: (appointmentId: string, startsAt: string) => void;
-  reviewAppointment: (appointmentId: string, rating: number, note: string) => void;
+  book: (input: Omit<DemoOrderInput, 'id'>) => void;
+  cancelOrder: (orderId: string) => void;
+  rescheduleOrder: (orderId: string, placedAt: string) => void;
+  reviewOrder: (orderId: string, rating: number, note: string) => void;
   redeemReward: (reward: RewardCatalogItem) => void;
   completeActivity: (activityKey: string) => void;
   addGift: (gift: Omit<GiftCard, 'id' | 'createdAt'>) => void;
   updateProfile: (profile: PortalProfile) => void;
-  updateIntake: (intake: IntakeProfile) => void;
+  updatePreferences: (preferences: GuestPreferences) => void;
   sendMessage: (body: string) => void;
   removePaymentMethod: (methodId: string) => void;
   setMembershipStatus: (status: 'active' | 'paused' | 'cancelled') => void;
@@ -147,10 +147,10 @@ export function DemoProvider({ children }: PropsWithChildren) {
     canGoLive,
     resetDemo,
     setRole: (role) => savePortal((current) => setDemoRole(current, role)),
-    book: (input) => savePortal((current) => addDemoBooking(current, { ...input, id: uniqueId('appointment') })),
-    cancelAppointment: (appointmentId) => savePortal((current) => cancelDemoAppointment(current, appointmentId)),
-    rescheduleAppointment: (appointmentId, startsAt) => savePortal((current) => (
-      rescheduleDemoAppointment(current, appointmentId, startsAt)
+    book: (input) => savePortal((current) => addDemoOrder(current, { ...input, id: uniqueId('order') })),
+    cancelOrder: (orderId) => savePortal((current) => cancelDemoOrder(current, orderId)),
+    rescheduleOrder: (orderId, startsAt) => savePortal((current) => (
+      rescheduleDemoOrder(current, orderId, startsAt)
     )),
     redeemReward: (reward) => savePortal((current) => redeemDemoReward(current, reward, uniqueId('ledger'), new Date().toISOString())),
     completeActivity: (activityKey) => savePortal((current) => completeDemoRewardActivity(current, activityKey, uniqueId('ledger'), new Date().toISOString())),
@@ -159,11 +159,11 @@ export function DemoProvider({ children }: PropsWithChildren) {
       id: uniqueId('gift'),
       createdAt: new Date().toISOString(),
     })),
-    reviewAppointment: (appointmentId, rating, note) => savePortal((current) => (
-      reviewDemoAppointment(current, appointmentId, rating, note, new Date().toISOString())
+    reviewOrder: (orderId, rating, note) => savePortal((current) => (
+      reviewDemoOrder(current, orderId, rating, note, new Date().toISOString())
     )),
     updateProfile: (profile) => savePortal((current) => updateDemoProfile(current, profile)),
-    updateIntake: (intake) => savePortal((current) => updateDemoIntake(current, intake)),
+    updatePreferences: (preferences) => savePortal((current) => updateDemoIntake(current, preferences)),
     sendMessage: (body) => savePortal((current) => addDemoMessage(current, {
       id: uniqueId('message'),
       sender: 'client',

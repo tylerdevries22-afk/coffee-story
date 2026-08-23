@@ -7,12 +7,12 @@
  *
  * The web register has a twin at lib/booking/pos-totals.ts. It works in whole
  * dollars; this works in cents, because every amount the mobile app handles --
- * `PortalAppointment.balanceCents`, service prices, tender totals -- is already
+ * `PortalOrder.balanceCents`, service prices, tender totals -- is already
  * integer cents, and converting to floats to share one module would reintroduce
  * the rounding the cents representation exists to avoid.
  */
 
-import { COMBINED_TAX_RATE, taxCentsFor } from '@/features/tax';
+import { COMBINED_TAX_RATE, taxCentsFor } from '@platform/domain';
 
 export type CartLine = {
   id: string;
@@ -48,8 +48,8 @@ export const TAX_RATE = COMBINED_TAX_RATE;
 export const DISCOUNT_CODE_CENTS = 1500;
 export const MEMBERSHIP_CREDIT_CENTS = 2500;
 
-/** Line id for the visit the sale is attached to; at most one exists. */
-export const VISIT_LINE_ID = 'visit-balance';
+/** Line id for the order the sale is attached to; at most one exists. */
+export const VISIT_LINE_ID = 'order-balance';
 
 export const TIP_OPTIONS = ['No tip', '10%', '15%', '20%'] as const;
 export type TipOption = (typeof TIP_OPTIONS)[number];
@@ -80,8 +80,8 @@ export const GIFT_AMOUNTS_CENTS: readonly number[] = [5000, 10000, 15000, 20000]
 /**
  * Totals for a ticket.
  *
- * `visitBalanceCents` is the selected appointment's outstanding balance, or
- * null when the sale is not attached to a visit. Stripe prices the visit
+ * `visitBalanceCents` is the selected order's outstanding balance, or
+ * null when the sale is not attached to a order. Stripe prices the order
  * server-side, so a card tender settles that balance plus tip and never the
  * ticket total -- anything above it is recorded, not charged, which is what
  * `extrasCents` reports to the payment screen.
@@ -108,7 +108,7 @@ export function registerTotals({
   );
   // Tax is owed on what the customer actually pays for the goods, so it follows
   // the discount. Computing it on the pre-discount subtotal overcharges tax on
-  // every discounted ticket -- an $85 visit with the $25 membership credit
+  // every discounted ticket -- an $85 order with the $25 membership credit
   // billed $6.80 instead of $4.80. lib/booking/pos-totals.ts fixed exactly this
   // on the web register; the mobile one kept the original shape until now.
   const taxableCents = subtotalCents - discountCents;
@@ -135,25 +135,25 @@ export function registerTotals({
   };
 }
 
-/** The single line representing the visit a sale is attached to. */
+/** The single line representing the order a sale is attached to. */
 export function visitLines(
-  appointment: { serviceName: string; balanceCents: number } | undefined,
+  order: { serviceName: string; balanceCents: number } | undefined,
 ): CartLine[] {
-  if (!appointment) return [];
+  if (!order) return [];
   return [{
     id: VISIT_LINE_ID,
-    name: appointment.serviceName,
-    priceCents: appointment.balanceCents,
+    name: order.serviceName,
+    priceCents: order.balanceCents,
     qty: 1,
   }];
 }
 
-/** Replaces the visit line, keeping every add-on already rung up. */
+/** Replaces the order line, keeping every add-on already rung up. */
 export function selectVisitLines(
   cart: readonly CartLine[],
-  appointment: { serviceName: string; balanceCents: number } | undefined,
+  order: { serviceName: string; balanceCents: number } | undefined,
 ): CartLine[] {
-  return [...visitLines(appointment), ...cart.filter((line) => line.id !== VISIT_LINE_ID)];
+  return [...visitLines(order), ...cart.filter((line) => line.id !== VISIT_LINE_ID)];
 }
 
 /** Adds one of `name`, merging into an identical line rather than repeating it. */

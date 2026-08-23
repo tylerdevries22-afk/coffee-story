@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import type { PortalAppointment, StaffClient } from '@/types/domain';
+import type { PortalOrder, StaffClient } from '@platform/domain';
 
 import {
   agendaTotalCents,
-  appointmentMinutes,
-  appointmentsOn,
+  orderMinutes,
+  ordersOn,
   deltaPercent,
   filterClients,
   formatMoney,
@@ -19,77 +19,75 @@ import {
   statusLabel,
 } from './workspace';
 
-function visit(overrides: Partial<PortalAppointment> & { startsAt: string; endsAt: string }): PortalAppointment {
+function makeOrder(
+  overrides: Partial<PortalOrder> & { placedAt: string; scheduledFor: string },
+): PortalOrder {
   return {
-    id: overrides.id ?? 'visit',
-    serviceName: 'Swedish Massage',
-    status: 'confirmed',
-    subtotalCents: 10500,
-    depositCents: 0,
-    balanceCents: 10500,
+    id: overrides.id ?? 'order',
+    status: 'paid',
+    summary: 'Spanish Latte (16 oz)',
+    lines: [],
+    fulfillmentType: 'pickup',
+    subtotalCents: 700,
+    taxCents: 58,
+    tipCents: 0,
+    totalCents: 758,
+    note: '',
     ...overrides,
   };
 }
 
-describe('appointmentMinutes', () => {
+describe('orderMinutes', () => {
   it('measures the booked span in whole minutes', () => {
-    const appointment = visit({
-      startsAt: '2026-07-22T15:00:00.000Z',
-      endsAt: '2026-07-22T16:15:00.000Z',
+    const order = makeOrder({
+      placedAt: '2026-07-22T15:00:00.000Z',
+      scheduledFor: '2026-07-22T16:15:00.000Z',
     });
-    assert.equal(appointmentMinutes(appointment), 75);
+    assert.equal(orderMinutes(order), 75);
   });
 
   it('never reports a negative duration for inverted times', () => {
-    const appointment = visit({
-      startsAt: '2026-07-22T16:00:00.000Z',
-      endsAt: '2026-07-22T15:00:00.000Z',
+    const order = makeOrder({
+      placedAt: '2026-07-22T16:00:00.000Z',
+      scheduledFor: '2026-07-22T15:00:00.000Z',
     });
-    assert.equal(appointmentMinutes(appointment), 0);
+    assert.equal(orderMinutes(order), 0);
   });
 });
 
 describe('openGapMinutes', () => {
-  it('reports the daylight between one visit and the next', () => {
-    const first = visit({ startsAt: '2026-07-22T15:00:00.000Z', endsAt: '2026-07-22T17:00:00.000Z' });
-    const second = visit({ startsAt: '2026-07-22T17:30:00.000Z', endsAt: '2026-07-22T18:30:00.000Z' });
+  it('reports the daylight between one order and the next', () => {
+    const first = makeOrder({ placedAt: '2026-07-22T15:00:00.000Z', scheduledFor: '2026-07-22T17:00:00.000Z' });
+    const second = makeOrder({ placedAt: '2026-07-22T17:30:00.000Z', scheduledFor: '2026-07-22T18:30:00.000Z' });
     assert.equal(openGapMinutes(first, second), 30);
   });
 
-  it('is zero for back-to-back and overlapping visits', () => {
-    const first = visit({ startsAt: '2026-07-22T15:00:00.000Z', endsAt: '2026-07-22T17:00:00.000Z' });
-    const touching = visit({ startsAt: '2026-07-22T17:00:00.000Z', endsAt: '2026-07-22T18:00:00.000Z' });
-    const overlapping = visit({ startsAt: '2026-07-22T16:30:00.000Z', endsAt: '2026-07-22T18:00:00.000Z' });
+  it('is zero for back-to-back and overlapping orders', () => {
+    const first = makeOrder({ placedAt: '2026-07-22T15:00:00.000Z', scheduledFor: '2026-07-22T17:00:00.000Z' });
+    const touching = makeOrder({ placedAt: '2026-07-22T17:00:00.000Z', scheduledFor: '2026-07-22T18:00:00.000Z' });
+    const overlapping = makeOrder({ placedAt: '2026-07-22T16:30:00.000Z', scheduledFor: '2026-07-22T18:00:00.000Z' });
     assert.equal(openGapMinutes(first, touching), 0);
     assert.equal(openGapMinutes(first, overlapping), 0);
   });
 
-  it('is zero for the last visit of the day', () => {
-    const only = visit({ startsAt: '2026-07-22T15:00:00.000Z', endsAt: '2026-07-22T16:00:00.000Z' });
+  it('is zero for the last order of the day', () => {
+    const only = makeOrder({ placedAt: '2026-07-22T15:00:00.000Z', scheduledFor: '2026-07-22T16:00:00.000Z' });
     assert.equal(openGapMinutes(only, undefined), 0);
   });
 });
 
 describe('scheduleStrip', () => {
-  it('prefers the recovery buffer over the raw gap, matching the web agenda', () => {
-    const first = visit({
-      startsAt: '2026-07-22T15:00:00.000Z',
-      endsAt: '2026-07-22T16:00:00.000Z',
-      recoveryMinutes: 15,
-    });
-    const second = visit({ startsAt: '2026-07-22T16:30:00.000Z', endsAt: '2026-07-22T17:30:00.000Z' });
-    assert.deepEqual(scheduleStrip(first, second), { kind: 'recovery', minutes: 15 });
-  });
-
+  // The 'recovery' variant is gone with the room-reset buffer an appointment
+  // reserved after itself; a counter resets nothing between orders.
   it('falls back to the open gap when no buffer is set', () => {
-    const first = visit({ startsAt: '2026-07-22T15:00:00.000Z', endsAt: '2026-07-22T16:00:00.000Z' });
-    const second = visit({ startsAt: '2026-07-22T16:30:00.000Z', endsAt: '2026-07-22T17:30:00.000Z' });
+    const first = makeOrder({ placedAt: '2026-07-22T15:00:00.000Z', scheduledFor: '2026-07-22T16:00:00.000Z' });
+    const second = makeOrder({ placedAt: '2026-07-22T16:30:00.000Z', scheduledFor: '2026-07-22T17:30:00.000Z' });
     assert.deepEqual(scheduleStrip(first, second), { kind: 'open', minutes: 30 });
   });
 
-  it('renders nothing when the visits are back to back', () => {
-    const first = visit({ startsAt: '2026-07-22T15:00:00.000Z', endsAt: '2026-07-22T16:00:00.000Z' });
-    const second = visit({ startsAt: '2026-07-22T16:00:00.000Z', endsAt: '2026-07-22T17:00:00.000Z' });
+  it('renders nothing when the orders are back to back', () => {
+    const first = makeOrder({ placedAt: '2026-07-22T15:00:00.000Z', scheduledFor: '2026-07-22T16:00:00.000Z' });
+    const second = makeOrder({ placedAt: '2026-07-22T16:00:00.000Z', scheduledFor: '2026-07-22T17:00:00.000Z' });
     assert.equal(scheduleStrip(first, second), null);
   });
 });
@@ -136,36 +134,37 @@ describe('sourceLabel', () => {
 });
 
 describe('statusLabel', () => {
-  it('reads no_show as two words', () => {
-    assert.equal(statusLabel('no_show'), 'no show');
-    assert.equal(statusLabel('confirmed'), 'confirmed');
+  it('reads a multi-word status as separate words', () => {
+    assert.equal(statusLabel('in_progress'), 'in progress');
+    assert.equal(statusLabel('picked_up'), 'picked up');
+    assert.equal(statusLabel('paid'), 'paid');
   });
 });
 
-describe('appointmentsOn', () => {
+describe('ordersOn', () => {
   it('keeps only the chosen day and orders it by start time', () => {
     const day = new Date('2026-07-22T12:00:00.000Z');
-    const later = visit({ id: 'later', startsAt: '2026-07-22T20:00:00.000Z', endsAt: '2026-07-22T21:00:00.000Z' });
-    const earlier = visit({ id: 'earlier', startsAt: '2026-07-22T14:00:00.000Z', endsAt: '2026-07-22T15:00:00.000Z' });
-    const otherDay = visit({ id: 'other', startsAt: '2026-07-23T14:00:00.000Z', endsAt: '2026-07-23T15:00:00.000Z' });
-    const result = appointmentsOn([later, earlier, otherDay], day);
-    assert.deepEqual(result.map((appointment) => appointment.id), ['earlier', 'later']);
+    const later = makeOrder({ id: 'later', placedAt: '2026-07-22T20:00:00.000Z', scheduledFor: '2026-07-22T21:00:00.000Z' });
+    const earlier = makeOrder({ id: 'earlier', placedAt: '2026-07-22T14:00:00.000Z', scheduledFor: '2026-07-22T15:00:00.000Z' });
+    const otherDay = makeOrder({ id: 'other', placedAt: '2026-07-23T14:00:00.000Z', scheduledFor: '2026-07-23T15:00:00.000Z' });
+    const result = ordersOn([later, earlier, otherDay], day);
+    assert.deepEqual(result.map((order) => order.id), ['earlier', 'later']);
   });
 });
 
 describe('agendaTotalCents', () => {
   it('sums the booked value of the day', () => {
-    const first = visit({ startsAt: '2026-07-22T15:00:00.000Z', endsAt: '2026-07-22T16:00:00.000Z', subtotalCents: 18500 });
-    const second = visit({ startsAt: '2026-07-22T17:00:00.000Z', endsAt: '2026-07-22T18:00:00.000Z', subtotalCents: 11000 });
+    const first = makeOrder({ placedAt: '2026-07-22T15:00:00.000Z', scheduledFor: '2026-07-22T16:00:00.000Z', subtotalCents: 18500 });
+    const second = makeOrder({ placedAt: '2026-07-22T17:00:00.000Z', scheduledFor: '2026-07-22T18:00:00.000Z', subtotalCents: 11000 });
     assert.equal(agendaTotalCents([first, second]), 29500);
   });
 });
 
 describe('filterClients', () => {
   const clients: StaffClient[] = [
-    { id: '1', fullName: 'Maria Alvarez', email: 'maria@email.com', phone: null, completedVisits: 14, tags: ['Regular', 'Matcha'] },
-    { id: '2', fullName: 'Tom Becker', email: 'tbecker@email.com', phone: null, completedVisits: 9, tags: ['Cold brew', 'Brew Club'] },
-    { id: '3', fullName: 'Dana Kim', email: 'dana.kim@email.com', phone: null, completedVisits: 2, tags: [] },
+    { id: '1', fullName: 'Maria Alvarez', email: 'maria@email.com', phone: null, completedOrders: 14, tags: ['Regular', 'Matcha'] },
+    { id: '2', fullName: 'Tom Becker', email: 'tbecker@email.com', phone: null, completedOrders: 9, tags: ['Cold brew', 'Brew Club'] },
+    { id: '3', fullName: 'Dana Kim', email: 'dana.kim@email.com', phone: null, completedOrders: 2, tags: [] },
   ];
 
   it('matches on name or email, case-insensitively', () => {

@@ -26,7 +26,7 @@ import {
 import { colors, fonts, radius, shadow, spacing } from '@/theme/tokens';
 import { AppIcon, type AppIconName } from '@/components/icon';
 import { disabledState, expandedState } from '@/lib/a11y-state';
-import type { PaymentMethod } from '@/types/domain';
+import type { PaymentMethod } from '@platform/domain';
 
 /** Gift-card artwork is 3:2, matching the generated art. */
 const CARD_RATIO = 2 / 3;

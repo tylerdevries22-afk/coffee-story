@@ -27,7 +27,7 @@ export function AdminProposalScreen({ onBack }: { onBack: () => void }) {
         <Body>Website discovery, client booking, rewards, gifting, and staff operations share one calm brand system.</Body>
       </Card>
       <Text style={styles.sectionTitle}>Included in the proposal</Text>
-      <ProposalRow title="Guest experience" detail="Service discovery, booking, intake, memberships, gifts, and rewards." />
+      <ProposalRow title="Guest experience" detail="MenuItem discovery, booking, preferences, memberships, gifts, and rewards." />
       <ProposalRow title="Staff operations" detail="Schedule, clients, checkout, services, settings, and reports." />
       <ProposalRow title="Production foundation" detail="Responsive accessibility, secure data boundaries, analytics, and release readiness." />
       <Text style={styles.sectionTitle}>Current handoff</Text>

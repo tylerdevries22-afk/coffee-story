@@ -28,9 +28,9 @@ import { CartPill, Ribbon } from '@/components/order/order-chrome';
 import { disabledState } from '@/lib/a11y-state';
 import { useTabBarClearance } from '@/components/navigation/tab-screen';
 import type { MenuItem } from '@/data/catalog';
-import { fulfillmentDetail, fulfillmentLabel, type OrderFulfillment } from '@/features/order/fulfillment';
+import { fulfillmentDetail, fulfillmentLabel, type OrderFulfillment } from '@platform/domain';
 import { describePickupWindow } from '@/features/order/pickup';
-import { menuPriceLabel } from '@/features/order/sizes';
+import { menuPriceLabel } from '@platform/domain';
 import { colors, fonts, radius, spacing } from '@/theme/tokens';
 
 import { menuSections } from './menu-data';

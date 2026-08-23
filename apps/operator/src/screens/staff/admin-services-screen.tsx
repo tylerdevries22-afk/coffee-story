@@ -2,49 +2,50 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { CollapsingScreen } from '@/components/collapsing-screen';
 import { Body, Card, SectionTitle } from '@/components/ui';
-import { DEMO_ADD_ONS, SERVICES } from '@/data/catalog';
+import { formatMoney, sizeLabelFor, sizePriceCents } from '@platform/domain';
+
+import { DEMO_ADD_ONS, MENU_ITEMS } from '@/data/catalog';
 import { workspaceTone } from '@/features/staff/workspace';
 import { useAuth } from '@/state/auth-context';
 import { colors, fonts, radius, spacing } from '@/theme/tokens';
 
 /**
- * The service menu, read from the catalog the app actually ships.
+ * The item menu, read from the catalog the app actually ships.
  *
  * What stood here was a generic placeholder fed by hand-written strings: it
  * claimed "9 Active / 4 Add-ons / $114 Average" when the studio sells 7
  * services and 3 add-ons, listed a five-minute aromatherapy that has never
- * existed, and offered an "Add service" button whose workflow discarded
+ * existed, and offered an "Add item" button whose workflow discarded
  * whatever was typed into it. Numbers on an owner's screen have to come from
  * somewhere, so these are derived.
  */
 export function AdminServicesScreen({ onBack }: { onBack: () => void }) {
   const { role } = useAuth();
-  const sessions = SERVICES.flatMap((service) => service.durations);
-  const averageCents =
-    sessions.length > 0
-      ? Math.round(sessions.reduce((total, session) => total + session.price, 0) / sessions.length)
-      : 0;
+  const sizes = MENU_ITEMS.flatMap((item) => item.sizes);
+  const averageCents = sizes.length > 0
+    ? Math.round(sizes.reduce((total, size) => total + sizePriceCents(size), 0) / sizes.length)
+    : 0;
 
   return (
     <CollapsingScreen title="Menu" eyebrow="Catalog" onBack={onBack} tone={workspaceTone(role)}>
-      <Body muted>Bookable sessions, pricing, durations, and enhancements.</Body>
+      <Body muted>Bookable sizes, pricing, durations, and enhancements.</Body>
 
       <View style={styles.metrics}>
-        <Metric label="Services" value={String(SERVICES.length)} />
-        <Metric label="Lengths" value={String(sessions.length)} />
+        <Metric label="Menu items" value={String(MENU_ITEMS.length)} />
+        <Metric label="Sizes" value={String(sizes.length)} />
         <Metric label="Add-ons" value={String(DEMO_ADD_ONS.length)} />
-        <Metric label="Average" value={`$${averageCents}`} />
+        <Metric label="Average" value={`${formatMoney(averageCents)}`} />
       </View>
 
       <SectionTitle>Sessions</SectionTitle>
-      {SERVICES.map((service) => (
-        <Card key={service.id} style={styles.card}>
-          <Text style={styles.name}>{service.name}</Text>
-          <Body muted>{service.description}</Body>
-          {service.durations.map((duration) => (
-            <View key={duration.slug} style={styles.row}>
-              <Text style={styles.rowLabel}>{duration.minutes} min</Text>
-              <Text style={styles.rowValue}>${duration.price}</Text>
+      {MENU_ITEMS.map((item) => (
+        <Card key={item.id} style={styles.card}>
+          <Text style={styles.name}>{item.name}</Text>
+          <Body muted>{item.description}</Body>
+          {item.sizes.map((size) => (
+            <View key={size.slug} style={styles.row}>
+              <Text style={styles.rowLabel}>{sizeLabelFor(size.slug)}</Text>
+              <Text style={styles.rowValue}>{formatMoney(sizePriceCents(size))}</Text>
             </View>
           ))}
         </Card>

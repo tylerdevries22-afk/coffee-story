@@ -4,7 +4,7 @@
  *
  * The three clinical forms this list inherited from the massage business --
  * a health history, a massage consent and a cancellation policy for reserved
- * appointment time -- are gone. A coffee shop does not take a health history,
+ * order time -- are gone. A coffee shop does not take a health history,
  * and an admin opening Settings should not be offered one. The wording below
  * still needs counsel's review before it is put in front of a guest; see
  * PRODUCTION_SETUP.md.
@@ -15,7 +15,7 @@
  * list. The catalog only changes when a release changes it, so there is nothing
  * a live fetch would catch.
  *
- * Kept honest by `lib/intake-forms-catalog.test.ts` in the web app, which fails
+ * Kept honest by `lib/preferences-forms-catalog.test.ts` in the web app, which fails
  * CI if this list stops matching the rows the migration seeds.
  */
 export type IntakeFormCatalogEntry = {
@@ -25,7 +25,7 @@ export type IntakeFormCatalogEntry = {
   eyebrow: string;
   /** The one-paragraph description a client reads before opening it. */
   summary: string;
-  /** When the client is asked to sign it, e.g. "Before first visit". */
+  /** When the client is asked to sign it, e.g. "Before first order". */
   stage: string;
   version: string;
   duration: string;

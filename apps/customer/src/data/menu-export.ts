@@ -17,7 +17,7 @@
  */
 import type { OptionGroup } from '@/features/order/menu-options';
 import { optionGroupsFor } from '@/features/order/menu-options';
-import { sizePriceCents } from '@/features/order/sizes';
+import { sizePriceCents } from '@platform/domain';
 
 import { CATALOG_ITEMS, MENU_CATEGORY_META } from './catalog-data';
 

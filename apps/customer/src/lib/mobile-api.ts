@@ -12,7 +12,7 @@ import { ApiError, type ApiClient } from '@platform/api-client';
 
 import { platformApi } from '@/lib/api';
 import { TENANT } from '@/tenant';
-import type { PortalProfile, RewardReferral } from '@/types/domain';
+import type { PortalProfile, RewardReferral } from '@platform/domain';
 
 export class MobileApiError extends Error {
   readonly status: number;

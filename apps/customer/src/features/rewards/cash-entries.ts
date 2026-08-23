@@ -1,5 +1,5 @@
 import { cashDeltaForEntry } from '@/features/rewards/presentation';
-import type { RewardEntry } from '@/types/domain';
+import type { RewardEntry } from '@platform/domain';
 
 export type CashEntry = { entry: RewardEntry; delta: number };
 

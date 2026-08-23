@@ -2,10 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  addDemoBooking,
+  addDemoOrder,
   addDemoGift,
   addDemoMessage,
-  cancelDemoAppointment,
+  cancelDemoOrder,
   completeDemoRewardActivity,
   createInitialDemoPortal,
   dismissDemoSetupAutoPrompt,
@@ -14,18 +14,18 @@ import {
   migrateDemoPortalState,
   redeemDemoReward,
   removeDemoPaymentMethod,
-  rescheduleDemoAppointment,
+  rescheduleDemoOrder,
   setDemoRole,
   setDemoMembershipStatus,
   updateDemoIntake,
   updateDemoProfile,
 } from './demo-state';
-import type { PortalBundle } from '@/types/domain';
+import type { PortalBundle } from '@platform/domain';
 
-const service = {
+const item = {
   slug: 'deep-tissue-60',
   name: 'Deep Tissue Massage',
-  category: 'therapeutic' as const,
+  category: 'specialty' as const,
   durationMin: 60,
   priceCents: 11000,
   depositCents: 2500,
@@ -84,12 +84,12 @@ test('validates ISO slots and converts demo labels into ISO values', () => {
   assert.equal(demoSlotFor('bad-date', '1:30 PM'), null);
 });
 
-test('adds a demo booking with add-on totals and duration', () => {
-  const portal = addDemoBooking(createInitialDemoPortal(), {
-    id: 'appointment-new',
-    service,
+test('adds a demo order with add-on totals and a pickup window', () => {
+  const portal = addDemoOrder(createInitialDemoPortal(), {
+    id: 'order-new',
+    item,
     addOns: [addOn],
-    startsAt: '2026-08-04T19:30:00.000Z',
+    placedAt: '2026-08-04T19:30:00.000Z',
     fulfillment: {
       mode: 'pickup',
       location: {
@@ -101,38 +101,45 @@ test('adds a demo booking with add-on totals and duration', () => {
       },
     },
   });
-  const appointment = portal.appointments[0];
-  assert.equal(appointment.id, 'appointment-new');
-  assert.equal(appointment.subtotalCents, 12500);
-  assert.equal(new Date(appointment.endsAt).getTime() - new Date(appointment.startsAt).getTime(), 65 * 60_000);
-  assert.equal(appointment.fulfillmentMode, 'pickup');
-  assert.equal(appointment.locationLabel, 'Greenwood Village');
-  assert.match(appointment.locationDetail ?? '', /5650 Greenwood Plaza/);
+  const order = portal.orders[0];
+  assert.equal(order.id, 'order-new');
+  assert.equal(order.subtotalCents, 12500);
+  // Prep time stands in for the pickup window: scheduledFor sits that far past
+  // placedAt.
+  assert.equal(
+    new Date(order.scheduledFor ?? '').getTime() - new Date(order.placedAt).getTime(),
+    65 * 60_000,
+  );
+  assert.equal(order.totalCents, order.subtotalCents + order.taxCents);
+  assert.equal(order.fulfillmentType, 'pickup');
+  assert.equal(order.locationLabel, 'Greenwood Village');
+  assert.match(order.locationDetail ?? '', /5650 Greenwood Plaza/);
 });
 
-test('rejects a demo booking without a valid ISO slot', () => {
-  assert.throws(() => addDemoBooking(createInitialDemoPortal(), {
+test('rejects a demo order without a valid ISO slot', () => {
+  assert.throws(() => addDemoOrder(createInitialDemoPortal(), {
     id: 'bad',
-    service,
+    item,
     addOns: [],
-    startsAt: '11:30 AM',
+    placedAt: '11:30 AM',
   }));
 });
 
-test('cancels only the selected appointment', () => {
+test('cancels only the selected order', () => {
   const initial = createInitialDemoPortal();
-  const next = cancelDemoAppointment(initial, initial.appointments[0].id);
-  assert.equal(next.appointments[0].status, 'cancelled');
+  const next = cancelDemoOrder(initial, initial.orders[0].id);
+  assert.equal(next.orders[0].status, 'cancelled');
 });
 
-test('reschedules only the selected appointment and preserves duration', () => {
+test('reschedules only the selected order, moving pickup and not placement', () => {
   const initial = createInitialDemoPortal();
-  const appointment = initial.appointments[0];
-  const originalDuration = new Date(appointment.endsAt).getTime() - new Date(appointment.startsAt).getTime();
-  const nextStart = '2026-08-18T19:30:00.000Z';
-  const next = rescheduleDemoAppointment(initial, appointment.id, nextStart);
-  assert.equal(next.appointments[0].startsAt, nextStart);
-  assert.equal(new Date(next.appointments[0].endsAt).getTime() - new Date(nextStart).getTime(), originalDuration);
+  const order = initial.orders[0];
+  const nextPickup = '2026-08-18T19:30:00.000Z';
+  const next = rescheduleDemoOrder(initial, order.id, nextPickup);
+  assert.equal(next.orders[0].scheduledFor, nextPickup);
+  // Rescheduling moves when the order is due, never when it was placed.
+  assert.equal(next.orders[0].placedAt, order.placedAt);
+  assert.equal(next.orders[1]?.scheduledFor, initial.orders[1]?.scheduledFor);
 });
 
 test('redeems an affordable cash reward and adds a ledger entry', () => {
@@ -168,8 +175,8 @@ test('normalizes profile name and email', () => {
 
 test('updates intake state', () => {
   const initial = createInitialDemoPortal();
-  const intake = { completed: true, concerns: 'Shoulders', pressurePreference: 'medium' as const, consentAccepted: true, updatedAt: '2026-08-01T00:00:00.000Z' };
-  assert.deepEqual(updateDemoIntake(initial, intake).intake, intake);
+  const intake = { completed: true, notes: 'Shoulders', strength: 'medium' as const, consentAccepted: true, updatedAt: '2026-08-01T00:00:00.000Z' };
+  assert.deepEqual(updateDemoIntake(initial, intake).preferences, intake);
 });
 
 test('adds a message after existing conversation', () => {

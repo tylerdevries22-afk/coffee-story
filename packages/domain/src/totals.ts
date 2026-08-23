@@ -7,12 +7,12 @@
  * rounding that representation exists to avoid.
  *
  * The two registers stay separate on purpose. The staff one settles an
- * appointment balance against a percentage tip and a flat discount code; this
+ * order balance against a percentage tip and a flat discount code; this
  * one prices a bag of goods against a fixed-dollar tip and an itemised tax
  * breakdown the guest can read line by line.
  */
-import { pointsForPurchase, REWARD_TIERS, type PurchaseBreakdown, type RewardTier } from '@/features/rewards/rules';
-import { TAX_JURISDICTIONS, taxRowsFor, type TaxJurisdiction, type TaxRow } from '@/features/tax';
+import { pointsForPurchase, REWARD_TIERS, type PurchaseBreakdown, type RewardTier } from './rules';
+import { TAX_JURISDICTIONS, taxRowsFor, type TaxJurisdiction, type TaxRow } from './tax';
 
 export { TAX_JURISDICTIONS };
 export type { TaxJurisdiction, TaxRow };
@@ -101,7 +101,7 @@ export function orderPurchaseBreakdown(totals: OrderTotals): PurchaseBreakdown {
   // large enough to swallow the goods eats into delivery next, never below zero.
   const deliveryCents = Math.min(totals.deliveryFeeCents, totals.taxableCents);
   return {
-    servicesCents: totals.taxableCents - deliveryCents,
+    itemsCents: totals.taxableCents - deliveryCents,
     giftCardsCents: 0,
     deliveryCents,
     tipsCents: totals.tipCents,

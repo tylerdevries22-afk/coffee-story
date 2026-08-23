@@ -9,7 +9,7 @@ import {
   SETUP_AUTO_PROMPT_DELAY_MS,
   shouldScheduleSetupAutoPrompt,
 } from '@/features/setup/setup';
-import { destinationForIntentUrl, giftTokenFromUrl } from '@/state/intent-links';
+import { destinationForIntentUrl, giftTokenFromUrl } from '@platform/domain';
 import {
   clientMoreHref,
   clientMoreViewFromPathname,
@@ -20,11 +20,11 @@ import {
   staffTabFromPathname,
   staffTabHref,
 } from '@/state/navigation-state';
-import type { AppRole } from '@/types/domain';
+import type { AppRole } from '@platform/domain';
 
 import type { ClientTab, MoreView, StaffTab } from '@/state/navigation-state';
 
-export type { AppRole } from '@/types/domain';
+export type { AppRole } from '@platform/domain';
 export type { ClientTab, MoreView, StaffTab } from '@/state/navigation-state';
 
 type AppState = {
@@ -48,7 +48,7 @@ type AppState = {
   readNotificationIds: ReadonlySet<string>;
   /**
    * What was still unread the moment the page opened. Instagram keeps those
-   * rows highlighted for the duration of the visit even though the badge
+   * rows highlighted for the duration of the order even though the badge
    * clears immediately, so the highlight reads from this snapshot rather than
    * from the live read set.
    */
@@ -57,7 +57,7 @@ type AppState = {
   closeNotifications: () => void;
   setClientTab: (tab: ClientTab) => void;
   setStaffTab: (tab: StaffTab) => void;
-  startBooking: (serviceId?: string) => void;
+  startOrder: (itemId?: string) => void;
   consumeGiftClaimToken: () => void;
   openMore: (view: MoreView) => void;
   enterStaff: () => void;
@@ -174,9 +174,9 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     selectionFeedback();
     go(staffTabHref(tab));
   }, []);
-  const startBooking = useCallback((serviceId?: string) => {
+  const startOrder = useCallback((itemId?: string) => {
     selectionFeedback();
-    setSelectedServiceId(serviceId ?? null);
+    setSelectedServiceId(itemId ?? null);
     go(clientTabHref('book'));
   }, []);
   const openGiftClaim = useCallback((token: string) => {
@@ -193,7 +193,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     else go(clientMoreHref(view), 'push');
   }, []);
 
-  // Siri / App Intents deep links (coffeestory://book|visits|rewards|gift).
+  // Siri / App Intents deep links (coffeestory://book|orders|rewards|gift).
   useEffect(() => {
     const dispatch = (url: string | null) => {
       const giftToken = giftTokenFromUrl(url);
@@ -203,14 +203,14 @@ export function AppStateProvider({ children }: PropsWithChildren) {
       }
       const destination = destinationForIntentUrl(url);
       if (!destination) return;
-      if (destination === 'book') startBooking();
-      else if (destination === 'visits') openMore('visits');
+      if (destination === 'book') startOrder();
+      else if (destination === 'orders') openMore('orders');
       else setClientTab(destination);
     };
     void Linking.getInitialURL().then(dispatch);
     const subscription = Linking.addEventListener('url', ({ url }) => dispatch(url));
     return () => subscription.remove();
-  }, [openGiftClaim, startBooking, openMore, setClientTab]);
+  }, [openGiftClaim, startOrder, openMore, setClientTab]);
 
   const openStaffDestination = useCallback((path: string) => {
     selectionFeedback();
@@ -240,7 +240,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     closeNotifications,
     setClientTab,
     setStaffTab,
-    startBooking,
+    startOrder,
     consumeGiftClaimToken,
     openMore,
     enterStaff: () => {
@@ -300,7 +300,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     setStaffTab,
     staffDetailPath,
     staffTab,
-    startBooking,
+    startOrder,
     unreadNotificationIds,
   ]);
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

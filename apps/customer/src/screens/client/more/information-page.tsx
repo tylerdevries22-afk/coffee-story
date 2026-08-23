@@ -3,7 +3,7 @@ import { Alert, StyleSheet, Text } from 'react-native';
 
 import { CollapsingScreen } from '@/components/collapsing-screen';
 import { Body, Button, Card, PillRow } from '@/components/ui';
-import { INFORMATION_PAGES, type InformationPageKey } from '@/features/more/information-pages';
+import { INFORMATION_PAGES, type InformationPageKey } from '@platform/domain';
 import { openWebPath } from '@/lib/web-navigation';
 import { colors, fonts, radius, spacing } from '@/theme/tokens';
 

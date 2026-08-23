@@ -13,21 +13,21 @@ function draft(overrides: Partial<AdminQuickActionDraft>): AdminQuickActionDraft
 
 test('builds a validated quick booking submission', () => {
   assert.deepEqual(
-    buildAdminQuickActionSubmission('quick-book', draft({
-      clientName: ' Alex Rivera ',
+    buildAdminQuickActionSubmission('quick-order', draft({
+      guestName: ' Alex Rivera ',
       customerId: 'client-1',
-      serviceName: 'Pistachio Latte (16 oz)',
-      serviceSlug: 'deep-tissue',
+      itemName: 'Pistachio Latte (16 oz)',
+      itemSlug: 'deep-tissue',
       startsAt: '2026-08-02T20:30:00.000Z',
     })),
     {
       ok: true,
       value: {
-        kind: 'quick-book',
+        kind: 'quick-order',
         customerId: 'client-1',
-        clientName: 'Alex Rivera',
-        serviceSlug: 'deep-tissue',
-        serviceName: 'Pistachio Latte (16 oz)',
+        guestName: 'Alex Rivera',
+        itemSlug: 'deep-tissue',
+        itemName: 'Pistachio Latte (16 oz)',
         startsAt: '2026-08-02T20:30:00.000Z',
         notes: '',
       },
@@ -53,15 +53,24 @@ test('rejects an invalid schedule block and normalizes a valid one', () => {
   if (result.ok) assert.equal(result.value.kind, 'block-time');
 });
 
-test('requires every part of an order note before saving', () => {
+test('requires a guest and some text before saving a note', () => {
+  // The four-part SOAP validation went with the clinical record it guarded; a
+  // guest note is one line, so there are two things left to require.
   assert.deepEqual(
-    buildAdminQuickActionSubmission('soap', draft({
+    buildAdminQuickActionSubmission('guest-note', draft({
       customerId: 'client-2',
-      clientName: 'Jamie Lee',
-      serviceName: 'Pistachio Latte (16 oz)',
-      treatmentDate: '2026-08-02',
-      subjective: 'Asked for half-sweet.',
+      guestName: 'Jamie Lee',
     })),
-    { ok: false, error: 'Fill in all four parts of the note.' },
+    { ok: false, error: 'Write the note.' },
   );
+  assert.deepEqual(
+    buildAdminQuickActionSubmission('guest-note', draft({ note: 'Oat, half-sweet.' })),
+    { ok: false, error: 'Choose a guest.' },
+  );
+  const saved = buildAdminQuickActionSubmission('guest-note', draft({
+    customerId: 'client-2',
+    guestName: 'Jamie Lee',
+    note: 'Oat, half-sweet.',
+  }));
+  assert.equal(saved.ok, true);
 });

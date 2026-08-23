@@ -10,10 +10,10 @@ import { useAuth } from '@/state/auth-context';
 import { useDemo } from '@/state/demo-context';
 import { GiftCardSheet, GiftGallery, GiftInfoSheet } from '@/components/gift/gift-shelves';
 import { giftDesignByKey, type GiftDesign } from '@/data/gift-designs';
-import { tierForAnnualPoints } from '@/features/rewards/rules';
+import { tierForAnnualPoints } from '@platform/domain';
 import { BUSINESS, BUSINESS_MONOGRAM } from '@/data/business';
 import { colors, fonts, radius, spacing } from '@/theme/tokens';
-import type { GiftCard } from '@/types/domain';
+import type { GiftCard } from '@platform/domain';
 import { choiceState } from '@/lib/a11y-state';
 
 const AMOUNTS = [50, 75, 100, 150, 200] as const;

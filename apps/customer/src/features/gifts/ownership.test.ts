@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { summarizeGiftCardOwnership } from './ownership';
-import type { GiftCard } from '../../types/domain';
+import type { GiftCard } from '@platform/domain';
 
 function gift(overrides: Partial<GiftCard>): GiftCard {
   return {

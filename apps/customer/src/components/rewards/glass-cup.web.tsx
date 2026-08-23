@@ -11,7 +11,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import Svg, { ClipPath, Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 
-import type { RewardTierName } from '@/features/rewards/rules';
+import type { RewardTierName } from '@platform/domain';
 import { useReducedMotion } from '@/hooks/use-reduced-motion';
 
 import { paletteForTier } from './glass-cup-palettes';

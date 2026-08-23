@@ -19,12 +19,11 @@ import {
   StickyActionBar,
   useStickyBarClearance,
 } from '@/components/order/order-chrome';
-import { formatMoney, formatRate } from '@/features/money';
-import { TIP_PRESETS_CENTS, type OrderTotals } from '@/features/order/totals';
+import { formatMoney, formatRate } from '@platform/domain';
+import { TIP_PRESETS_CENTS, type OrderTotals , PaymentMethod } from '@platform/domain';
 import { POINTS_LABEL } from '@/features/rewards/presentation';
 import { choiceState, toggleState } from '@/lib/a11y-state';
 import { colors, fonts, radius, spacing } from '@/theme/tokens';
-import type { PaymentMethod } from '@/types/domain';
 
 export type CheckoutPaymentMethod =
   | { kind: 'apple-pay' }

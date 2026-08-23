@@ -1,4 +1,4 @@
-import type { RewardCatalogItem } from '@/types/domain';
+import type { RewardCatalogItem } from '@platform/domain';
 
 export function rewardIsLocked(reward: RewardCatalogItem, availablePoints: number): boolean {
   return reward.pointsCost > availablePoints;

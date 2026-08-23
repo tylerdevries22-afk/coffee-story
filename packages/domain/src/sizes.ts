@@ -1,17 +1,23 @@
 /**
  * Reading a size out of a catalog slug.
  *
- * `data/catalog.ts` carries sizes in the `durations` slot it inherited from
- * the appointment app: `minutes` holds ounces for a drink, and the slug holds
- * the suffix for everything else (`-single`, `-double`, `-trio`, `-slice`).
- * This module is the one place that translation happens, so the menu, the bag
- * and the receipt cannot describe the same line differently.
+ * A drink's size lives in `ounces`; everything else carries it in the slug
+ * suffix (`-single`, `-double`, `-trio`, `-slice`). This module is the one
+ * place that translation happens, so the menu, the bag and the receipt cannot
+ * describe the same line differently.
  *
  * Pure — no asset imports — so `node:test` reaches it.
  */
-import { formatMoney } from '@/features/money';
+import { formatMoney } from './money';
 
-export type CatalogSize = { slug: string; minutes: number; price: number };
+/**
+ * One orderable size of a menu item.
+ *
+ * The type lives here rather than beside the catalog data: the catalog is
+ * per-tenant content, but what a size *is* -- a slug, an optional volume, and
+ * a price in integer cents -- is the same on every surface that prices one.
+ */
+export type CatalogSize = { slug: string; ounces?: number; priceCents: number };
 
 /** "16 oz", "Single", "Each". */
 export function sizeLabelFor(slug: string): string {
@@ -24,9 +30,9 @@ export function sizeLabelFor(slug: string): string {
   return 'Each';
 }
 
-/** Catalog prices are whole dollars; everything downstream works in cents. */
+/** Kept as the single read point now that the catalog itself carries cents. */
 export function sizePriceCents(size: CatalogSize): number {
-  return Math.max(0, Math.round(size.price * 100));
+  return Math.max(0, Math.round(size.priceCents));
 }
 
 /**

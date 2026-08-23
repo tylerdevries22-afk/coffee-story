@@ -10,24 +10,23 @@ import {
   toggleListItem,
   withRoleSetup,
 } from '@/features/setup/setup';
-import type { PortalBundle, RoleSetup, ClientSetupAnswers } from '@/types/domain';
+import type { PortalBundle, RoleSetup, ClientSetupAnswers } from '@platform/domain';
 
 function bundleWith(setup?: unknown): PortalBundle {
   return {
     profile: { id: 'p1', fullName: 'Alex Rivera', email: 'alex@email.com', phone: null, birthday: null, avatarUrl: null },
     role: 'client',
-    appointments: [],
+    orders: [],
     rewardAccount: { availablePoints: 0, annualPoints: 0, cashCents: 0, tier: 'Warm Heart' },
     rewardLedger: [],
     rewardActivities: [],
     rewardCatalog: [],
     giftCards: [],
-    intake: {
+    preferences: {
       completed: true,
-      concerns: '',
-      pressurePreference: 'medium',
-      consentAccepted: true,
-      updatedAt: null,
+      notes: '',
+      strength: 'medium',
+            updatedAt: null,
     },
     setup: setup as PortalBundle['setup'],
   } as unknown as PortalBundle;
@@ -36,14 +35,14 @@ function bundleWith(setup?: unknown): PortalBundle {
 test('portalSetup fills defaults when the bundle has no setup', () => {
   const setup = portalSetup(bundleWith(undefined));
   assert.equal(setup.client.status, 'not_started');
-  assert.equal(setup.admin.answers.onlineBooking, true);
+  assert.equal(setup.admin.answers.onlineOrdering, true);
   assert.deepEqual(setup.staff.answers.specialties, []);
 });
 
 test('portalSetup sanitizes hostile stored values', () => {
   const setup = portalSetup(bundleWith({
     client: { status: 'root', step: 99, answers: { goals: ['Late-night hours', 'evil'], pressure: 'crushing', preferredTimes: 'no' } },
-    admin: { status: 'completed', step: 2, answers: { businessName: 42, openDays: ['Mon', 'Funday'], servicesConfirmed: 'yes' } },
+    admin: { status: 'completed', step: 2, answers: { businessName: 42, openDays: ['Mon', 'Funday'], menuConfirmed: 'yes' } },
   }));
   assert.equal(setup.client.status, 'not_started');
   assert.equal(setup.client.step, 2);
@@ -53,7 +52,7 @@ test('portalSetup sanitizes hostile stored values', () => {
   assert.equal(setup.admin.status, 'completed');
   assert.equal(setup.admin.answers.businessName, 'Coffee Story');
   assert.deepEqual(setup.admin.answers.openDays, ['Mon']);
-  assert.equal(setup.admin.answers.servicesConfirmed, false);
+  assert.equal(setup.admin.answers.menuConfirmed, false);
 });
 
 test('withRoleSetup persists one role and leaves the others intact', () => {
@@ -68,14 +67,14 @@ test('withRoleSetup persists one role and leaves the others intact', () => {
   assert.equal(portalSetup(next).client.status, 'not_started');
 });
 
-test('completing the client setup writes the intake pressure preference', () => {
+test('completing the client setup writes the preferences pressure preference', () => {
   const completed: RoleSetup<ClientSetupAnswers> = {
     status: 'completed',
     step: 2,
-    answers: { goals: ['Improve sleep'], pressure: 'firm', preferredTimes: ['Saturday'] },
+    answers: { goals: ['Improve sleep'], pressure: 'bold', preferredTimes: ['Saturday'] },
   };
   const next = withRoleSetup(bundleWith(undefined), 'client', completed);
-  assert.equal(next.intake?.pressurePreference, 'firm');
+  assert.equal(next.preferences?.strength, 'bold');
 });
 
 test('setupSummary reports role-appropriate facts', () => {

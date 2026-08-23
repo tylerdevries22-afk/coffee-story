@@ -8,8 +8,8 @@ import {
 } from './admin-navigation';
 
 const CLIENTS = [
-  { id: 'client-1', fullName: 'Alex Rivera', email: 'alex@example.com', phone: '303-555-0181', completedVisits: 4 },
-  { id: 'client-2', fullName: 'Jamie Lee', email: 'jamie@example.com', phone: null, completedVisits: 2 },
+  { id: 'client-1', fullName: 'Alex Rivera', email: 'alex@example.com', phone: '303-555-0181', completedOrders: 4 },
+  { id: 'client-2', fullName: 'Jamie Lee', email: 'jamie@example.com', phone: null, completedOrders: 2 },
 ] as const;
 
 test('admin More groups preserve the web information architecture', () => {
@@ -24,7 +24,7 @@ test('staff More excludes owner-only groups and destinations', () => {
   assert.deepEqual(groups.map((group) => group.title), ['Operations', 'Marketing']);
   assert.deepEqual(
     groups.flatMap((group) => group.destinations.map((destination) => destination.path)),
-    ['/admin/dashboard', '/admin/calendar', '/admin/clients', '/admin/pos', '/admin/services', '/admin/rewards', '/admin/reviews'],
+    ['/admin/dashboard', '/admin/calendar', '/admin/clients', '/admin/pos', '/admin/items', '/admin/rewards', '/admin/reviews'],
   );
 });
 

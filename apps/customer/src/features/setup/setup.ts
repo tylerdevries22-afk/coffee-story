@@ -7,7 +7,7 @@ import type {
   RoleSetup,
   SetupStatus,
   StaffSetupAnswers,
-} from '@/types/domain';
+} from '@platform/domain';
 
 /**
  * Pure setup/onboarding logic for the demo portal — the native counterpart of

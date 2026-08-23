@@ -1,5 +1,5 @@
 import type { AdminQuickActionSubmission } from '@/features/admin/admin-quick-actions';
-import type { StaffDashboard, StaffSoapNote } from '@/types/domain';
+import type { GuestNote, StaffDashboard } from '@platform/domain';
 
 /**
  * Demo-mode reducers for staff quick actions. The demo workspace must behave
@@ -16,41 +16,44 @@ export function applyDemoBlockTime(
   const blockedMinutes = Math.max(0, Math.round((endsAt.getTime() - startsAt.getTime()) / 60_000));
   return {
     ...dashboard,
-    appointments: [...dashboard.appointments, {
+    // A block rides in the order list so the floor can see it, priced at zero
+    // so it can never move a total. Crew mode gives blocks their own row and
+    // this representation goes with it.
+    orders: [...dashboard.orders, {
       id,
-      serviceName: `Blocked · ${submission.reason}`,
-      startsAt: startsAt.toISOString(),
-      endsAt: endsAt.toISOString(),
-      status: 'confirmed',
+      status: 'paid',
+      summary: `Blocked · ${submission.reason}`,
+      lines: [],
+      fulfillmentType: 'pickup',
+      placedAt: startsAt.toISOString(),
+      scheduledFor: endsAt.toISOString(),
       subtotalCents: 0,
-      depositCents: 0,
-      balanceCents: 0,
-      clientName: 'Schedule block',
+      taxCents: 0,
+      tipCents: 0,
+      totalCents: 0,
+      note: submission.reason,
+      guestLabel: 'Schedule block',
     }],
     openMinutes: Math.max(0, dashboard.openMinutes - blockedMinutes),
   };
 }
 
-export function applyDemoSoapNote(
+export function applyDemoGuestNote(
   dashboard: StaffDashboard,
-  submission: Extract<AdminQuickActionSubmission, { kind: 'soap' }>,
+  submission: Extract<AdminQuickActionSubmission, { kind: 'guest-note' }>,
   id: string,
   createdAt: string,
 ): StaffDashboard {
-  const note: StaffSoapNote = {
+  const note: GuestNote = {
     id,
     customerId: submission.customerId,
-    serviceName: submission.serviceName,
-    treatmentDate: submission.treatmentDate,
-    subjective: submission.subjective,
-    objective: submission.objective,
-    assessment: submission.assessment,
-    plan: submission.plan,
+    note: submission.note,
+    authorName: submission.guestName,
     createdAt,
   };
-  return { ...dashboard, soapNotes: [note, ...(dashboard.soapNotes ?? [])] };
+  return { ...dashboard, guestNotes: [note, ...(dashboard.guestNotes ?? [])] };
 }
 
-export function soapNotesForClient(dashboard: StaffDashboard, customerId: string): StaffSoapNote[] {
-  return (dashboard.soapNotes ?? []).filter((note) => note.customerId === customerId);
+export function notesForGuest(dashboard: StaffDashboard, customerId: string): GuestNote[] {
+  return (dashboard.guestNotes ?? []).filter((note) => note.customerId === customerId);
 }

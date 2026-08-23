@@ -3,25 +3,24 @@ import {
   fulfillmentDetail,
   fulfillmentLabel,
   type OrderFulfillment,
-} from '@/features/order/fulfillment';
-import type {
-  BookingAddOn,
-  BookingService,
+
+  OrderableAddOn,
+  OrderableItem,
   GiftCard,
-  IntakeProfile,
-  PortalAppointment,
+  GuestPreferences,
+  PortalOrder,
   PortalBundle,
   PortalMessage,
   PortalProfile,
   RewardCatalogItem,
-  AppRole,
-} from '@/types/domain';
+  AppRole} from '@platform/domain';
+import { taxCentsFor } from '@platform/domain';
 
-export type DemoBookingInput = {
+export type DemoOrderInput = {
   id: string;
-  service: BookingService;
-  addOns: BookingAddOn[];
-  startsAt: string;
+  item: OrderableItem;
+  addOns: OrderableAddOn[];
+  placedAt: string;
   fulfillment?: OrderFulfillment;
 };
 
@@ -82,51 +81,61 @@ export function demoSlotFor(date: string, timeLabel: string): string | null {
   return slot.toISOString();
 }
 
-export function addDemoBooking(portal: PortalBundle, input: DemoBookingInput): PortalBundle {
-  if (!isValidIsoSlot(input.startsAt)) throw new Error('Choose a valid appointment time.');
+export function addDemoOrder(portal: PortalBundle, input: DemoOrderInput): PortalBundle {
+  if (!isValidIsoSlot(input.placedAt)) throw new Error('Choose a valid pickup time.');
   const addOnCents = input.addOns.reduce((total, addOn) => total + addOn.priceCents, 0);
   const addOnMinutes = input.addOns.reduce((total, addOn) => total + addOn.durationMin, 0);
-  const subtotalCents = input.service.priceCents + addOnCents;
-  const appointment: PortalAppointment = {
+  const subtotalCents = input.item.priceCents + addOnCents;
+  const taxCents = taxCentsFor(subtotalCents);
+  const order: PortalOrder = {
     id: input.id,
-    serviceName: input.addOns.length
-      ? `${input.service.name} + ${input.addOns.map((addOn) => addOn.name).join(', ')}`
-      : input.service.name,
-    startsAt: input.startsAt,
-    endsAt: new Date(
-      new Date(input.startsAt).getTime() + (input.service.durationMin + addOnMinutes) * 60_000,
+    summary: input.addOns.length
+      ? `${input.item.name} + ${input.addOns.map((addOn) => addOn.name).join(', ')}`
+      : input.item.name,
+    lines: [
+      { name: input.item.name, quantity: 1, unitPriceCents: input.item.priceCents, options: [] },
+      ...input.addOns.map((addOn) => ({
+        name: addOn.name, quantity: 1, unitPriceCents: addOn.priceCents, options: [],
+      })),
+    ],
+    placedAt: input.placedAt,
+    // Prep time stands in for the pickup window in the demo plane.
+    scheduledFor: new Date(
+      new Date(input.placedAt).getTime() + (input.item.durationMin + addOnMinutes) * 60_000,
     ).toISOString(),
-    status: 'confirmed',
+    status: 'paid',
+    fulfillmentType: input.fulfillment?.mode ?? 'pickup',
     subtotalCents,
-    depositCents: input.service.depositCents,
-    balanceCents: subtotalCents - input.service.depositCents,
-    fulfillmentMode: input.fulfillment?.mode,
+    taxCents,
+    tipCents: 0,
+    totalCents: subtotalCents + taxCents,
+    note: '',
     locationLabel: input.fulfillment ? fulfillmentLabel(input.fulfillment) : undefined,
     locationDetail: input.fulfillment ? fulfillmentDetail(input.fulfillment) : undefined,
   };
-  return { ...portal, appointments: [appointment, ...portal.appointments] };
+  return { ...portal, orders: [order, ...portal.orders] };
 }
 
-export function cancelDemoAppointment(portal: PortalBundle, appointmentId: string): PortalBundle {
+export function cancelDemoOrder(portal: PortalBundle, orderId: string): PortalBundle {
   return {
     ...portal,
-    appointments: portal.appointments.map((appointment) => (
-      appointment.id === appointmentId ? { ...appointment, status: 'cancelled' } : appointment
+    orders: portal.orders.map((order) => (
+      order.id === orderId ? { ...order, status: 'cancelled' } : order
     )),
   };
 }
 
 /**
- * Records a post-visit review on a demo appointment.
+ * Records a post-order review on a demo order.
  *
  * Without this the demo branch of `saveVisitReview` persisted nothing while
  * still alerting "Review saved" -- the same fake-success shape already fixed for
  * staff block-time and SOAP notes. Rating is clamped to the 1-5 range the UI
  * offers so a caller cannot store an out-of-range score.
  */
-export function reviewDemoAppointment(
+export function reviewDemoOrder(
   portal: PortalBundle,
-  appointmentId: string,
+  orderId: string,
   rating: number,
   note: string,
   submittedAt: string,
@@ -134,30 +143,28 @@ export function reviewDemoAppointment(
   const clamped = Math.min(Math.max(Math.round(rating), 1), 5);
   return {
     ...portal,
-    appointments: portal.appointments.map((appointment) => (
-      appointment.id === appointmentId
-        ? { ...appointment, review: { rating: clamped, note: note.trim(), submittedAt } }
-        : appointment
+    orders: portal.orders.map((order) => (
+      order.id === orderId
+        ? { ...order, review: { rating: clamped, note: note.trim(), submittedAt } }
+        : order
     )),
   };
 }
 
-export function rescheduleDemoAppointment(
+export function rescheduleDemoOrder(
   portal: PortalBundle,
-  appointmentId: string,
-  startsAt: string,
+  orderId: string,
+  scheduledFor: string,
 ): PortalBundle {
-  if (!isValidIsoSlot(startsAt)) throw new Error('Choose a valid appointment time.');
+  if (!isValidIsoSlot(scheduledFor)) throw new Error('Choose a valid pickup time.');
   return {
     ...portal,
-    appointments: portal.appointments.map((appointment) => {
-      if (appointment.id !== appointmentId) return appointment;
-      const duration = new Date(appointment.endsAt).getTime() - new Date(appointment.startsAt).getTime();
+    orders: portal.orders.map((order) => {
+      if (order.id !== orderId) return order;
       return {
-        ...appointment,
-        startsAt,
-        endsAt: new Date(new Date(startsAt).getTime() + duration).toISOString(),
-        status: 'confirmed',
+        ...order,
+        scheduledFor,
+        status: 'paid',
       };
     }),
   };
@@ -237,8 +244,8 @@ export function updateDemoProfile(portal: PortalBundle, profile: PortalProfile):
   return { ...portal, profile: { ...profile, fullName: profile.fullName.trim(), email: profile.email.trim() } };
 }
 
-export function updateDemoIntake(portal: PortalBundle, intake: IntakeProfile): PortalBundle {
-  return { ...portal, intake };
+export function updateDemoIntake(portal: PortalBundle, preferences: GuestPreferences): PortalBundle {
+  return { ...portal, preferences };
 }
 
 export function addDemoMessage(portal: PortalBundle, message: PortalMessage): PortalBundle {

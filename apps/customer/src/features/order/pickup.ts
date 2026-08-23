@@ -6,7 +6,7 @@
  * helpers in `features/dates.ts` rather than on `toISOString().slice(0, 10)`,
  * which names tomorrow from late afternoon onward everywhere Colorado is.
  */
-import { addLocalDays, localIsoDate } from '@/features/dates';
+import { addLocalDays, localIsoDate } from '@platform/domain';
 
 /** Sunday-indexed opening hours, in minutes past local midnight. */
 type ShopDayHours = { openMinutes: number; closeMinutes: number };

@@ -1,9 +1,9 @@
-import type { AppRole, BookingSource, PortalAppointment, StaffClient } from '@/types/domain';
+import type { AppRole, OrderSource, PortalOrder, StaffClient } from '@platform/domain';
 
 // Moved to `features/money.ts` so the client menu and the register share one
 // formatter. Re-exported here because every staff call site already imports it
 // from this module.
-export { formatMoney } from '@/features/money';
+export { formatMoney } from '@platform/domain';
 
 /**
  * Surface a workspace renders on. The owner workspace sits on the darker plum
@@ -49,8 +49,9 @@ export function formatClockTime(iso: string): string {
     .replace(' PM', 'pm');
 }
 
-export function appointmentMinutes(appointment: PortalAppointment): number {
-  const span = new Date(appointment.endsAt).getTime() - new Date(appointment.startsAt).getTime();
+export function orderMinutes(order: PortalOrder): number {
+  const span = new Date(order.scheduledFor ?? order.placedAt).getTime()
+    - new Date(order.placedAt).getTime();
   return Math.max(0, Math.round(span / 60_000));
 }
 
@@ -64,44 +65,48 @@ export function initials(name: string): string {
 }
 
 /**
- * Minutes of daylight between one visit and the next.
+ * Minutes of daylight between one order and the next.
  *
  * Mirrors the web agenda: the strip under a row reads either the room-reset
- * buffer the visit carries or, when it has none, the plain open gap. Returns 0
- * when the visits touch or overlap, and for the last visit of the day.
+ * buffer the order carries or, when it has none, the plain open gap. Returns 0
+ * when the orders touch or overlap, and for the last order of the day.
  */
 export function openGapMinutes(
-  appointment: PortalAppointment,
-  next: PortalAppointment | undefined,
+  order: PortalOrder,
+  next: PortalOrder | undefined,
 ): number {
   if (!next) return 0;
-  const gap = (new Date(next.startsAt).getTime() - new Date(appointment.endsAt).getTime()) / 60_000;
+  const gap = (new Date(next.placedAt).getTime()
+    - new Date(order.scheduledFor ?? order.placedAt).getTime()) / 60_000;
   return gap > 0 ? Math.round(gap) : 0;
 }
 
+/**
+ * The strip drawn between two tickets on the floor.
+ *
+ * This used to have a 'recovery' variant carrying the room-reset buffer an
+ * appointment reserved after itself. A counter resets nothing between orders,
+ * so a strip is now only ever the open gap.
+ */
 export type ScheduleStrip =
-  | { kind: 'recovery'; minutes: number }
   | { kind: 'open'; minutes: number }
   | null;
 
 export function scheduleStrip(
-  appointment: PortalAppointment,
-  next: PortalAppointment | undefined,
+  order: PortalOrder,
+  next: PortalOrder | undefined,
 ): ScheduleStrip {
-  if (appointment.recoveryMinutes && appointment.recoveryMinutes > 0) {
-    return { kind: 'recovery', minutes: appointment.recoveryMinutes };
-  }
-  const gap = openGapMinutes(appointment, next);
+  const gap = openGapMinutes(order, next);
   return gap > 0 ? { kind: 'open', minutes: gap } : null;
 }
 
-export function sourceLabel(source: BookingSource | undefined): string | null {
+export function sourceLabel(source: OrderSource | undefined): string | null {
   if (!source) return null;
   if (source === 'staff') return 'Added by you';
   return source.charAt(0).toUpperCase() + source.slice(1);
 }
 
-export function statusLabel(status: PortalAppointment['status']): string {
+export function statusLabel(status: PortalOrder['status']): string {
   return status.replace('_', ' ');
 }
 
@@ -115,17 +120,17 @@ export function sameDay(iso: string, day: Date): boolean {
   return new Date(iso).toDateString() === day.toDateString();
 }
 
-export function appointmentsOn(
-  appointments: readonly PortalAppointment[],
+export function ordersOn(
+  orders: readonly PortalOrder[],
   day: Date,
-): PortalAppointment[] {
-  return appointments
-    .filter((appointment) => sameDay(appointment.startsAt, day))
-    .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
+): PortalOrder[] {
+  return orders
+    .filter((order) => sameDay(order.placedAt, day))
+    .sort((a, b) => a.placedAt.localeCompare(b.placedAt));
 }
 
-export function agendaTotalCents(appointments: readonly PortalAppointment[]): number {
-  return appointments.reduce((total, appointment) => total + appointment.subtotalCents, 0);
+export function agendaTotalCents(orders: readonly PortalOrder[]): number {
+  return orders.reduce((total, order) => total + order.subtotalCents, 0);
 }
 
 /** Search over name and email, then narrow by a single care tag. */

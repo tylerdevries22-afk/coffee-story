@@ -4,8 +4,7 @@ import { CollapsingScreen } from '@/components/collapsing-screen';
 import { MenuImage } from '@/components/menu-image';
 import { Body, Card, SectionTitle } from '@/components/ui';
 import { DEMO_ADD_ONS, MENU_ITEMS, type MenuItem } from '@/data/catalog';
-import { formatMoney } from '@/features/money';
-import { sizeLabelFor, sizePriceCents } from '@/features/order/sizes';
+import { formatMoney , sizeLabelFor, sizePriceCents } from '@platform/domain';
 import { colors, fonts, radius, spacing } from '@/theme/tokens';
 
 /**

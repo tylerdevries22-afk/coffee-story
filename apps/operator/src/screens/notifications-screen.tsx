@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Avatar } from '@/components/staff/workspace-ui';
 import { CollapsingScreen } from '@/components/collapsing-screen';
-import { groupNotifications, relativeAge, type NotificationItem } from '@/features/notifications/feed';
+import { groupNotifications, relativeAge, type NotificationItem } from '@platform/domain';
 import { colors, fonts, radius, spacing } from '@/theme/tokens';
 import { AppIcon } from '@/components/icon';
 

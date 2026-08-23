@@ -5,7 +5,7 @@ import { AppIcon } from '@/components/icon';
 import { cashEntries } from '@/features/rewards/cash-entries';
 import { formatRewardDate } from '@/features/rewards/presentation';
 import { colors } from '@/theme/tokens';
-import type { RewardAccount, RewardEntry } from '@/types/domain';
+import type { RewardAccount, RewardEntry } from '@platform/domain';
 
 import { styles } from '../styles';
 

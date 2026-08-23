@@ -2,7 +2,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { CollapsingScreen } from '@/components/collapsing-screen';
 import { Body, Card } from '@/components/ui';
-import { REWARD_TIERS, pointsForPurchase } from '@/features/rewards/rules';
+import { REWARD_TIERS, pointsForPurchase } from '@platform/domain';
 import { workspaceTone } from '@/features/staff/workspace';
 import { useAuth } from '@/state/auth-context';
 import { colors, fonts, spacing } from '@/theme/tokens';
@@ -20,7 +20,7 @@ import { colors, fonts, spacing } from '@/theme/tokens';
 
 // The same worked example the web admin shows, run through the same function.
 const EXAMPLE = {
-  servicesCents: 14_000,
+  itemsCents: 14_000,
   giftCardsCents: 0,
   deliveryCents: 0,
   tipsCents: 2_000,
@@ -36,7 +36,7 @@ const QUALIFYING: readonly { label: string; earns: boolean }[] = [
   { label: 'Delivery', earns: true },
   { label: 'Tips', earns: true },
   { label: 'Taxes', earns: false },
-  { label: 'Service fees', earns: false },
+  { label: 'MenuItem fees', earns: false },
 ];
 
 function Row({ label, value }: { label: string; value: string }) {

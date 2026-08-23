@@ -1,4 +1,4 @@
-import type { PortalBundle } from '@/types/domain';
+import type { PortalBundle } from '@platform/domain';
 import { createInitialDemoPortal, migrateDemoPortalState } from '@/state/demo-state';
 
 import {

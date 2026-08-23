@@ -1,48 +1,41 @@
-export type AdminQuickActionKey = 'book' | 'quick-book' | 'block-time' | 'soap';
+export type AdminQuickActionKey = 'order' | 'quick-order' | 'block-time' | 'guest-note';
 
 export type AdminQuickActionDraft = {
   customerId: string;
-  clientName: string;
-  serviceSlug: string;
-  serviceName: string;
+  guestName: string;
+  itemSlug: string;
+  itemName: string;
   startsAt: string;
   endsAt: string;
   reason: string;
-  treatmentDate: string;
   notes: string;
-  subjective: string;
-  objective: string;
-  assessment: string;
-  plan: string;
+  /** The whole of a guest note. Replaces a four-part clinical SOAP record. */
+  note: string;
 };
 
 export type AdminQuickActionSubmission =
-  | { kind: 'book'; customerId: string; clientName: string; serviceSlug: string; serviceName: string; startsAt: string; notes: string }
-  | { kind: 'quick-book'; customerId: string; clientName: string; serviceSlug: string; serviceName: string; startsAt: string; notes: string }
+  | { kind: 'order'; customerId: string; guestName: string; itemSlug: string; itemName: string; startsAt: string; notes: string }
+  | { kind: 'quick-order'; customerId: string; guestName: string; itemSlug: string; itemName: string; startsAt: string; notes: string }
   | { kind: 'block-time'; startsAt: string; endsAt: string; reason: string }
-  | { kind: 'soap'; customerId: string; clientName: string; serviceName: string; treatmentDate: string; subjective: string; objective: string; assessment: string; plan: string };
+  | { kind: 'guest-note'; customerId: string; guestName: string; note: string };
 
 export type AdminQuickActionHandlers = Partial<{
-  book: (submission: Extract<AdminQuickActionSubmission, { kind: 'book' }>) => Promise<void>;
-  'quick-book': (submission: Extract<AdminQuickActionSubmission, { kind: 'quick-book' }>) => Promise<void>;
+  book: (submission: Extract<AdminQuickActionSubmission, { kind: 'order' }>) => Promise<void>;
+  'quick-order': (submission: Extract<AdminQuickActionSubmission, { kind: 'quick-order' }>) => Promise<void>;
   'block-time': (submission: Extract<AdminQuickActionSubmission, { kind: 'block-time' }>) => Promise<void>;
-  soap: (submission: Extract<AdminQuickActionSubmission, { kind: 'soap' }>) => Promise<void>;
+  'guest-note': (submission: Extract<AdminQuickActionSubmission, { kind: 'guest-note' }>) => Promise<void>;
 }>;
 
 export const EMPTY_ADMIN_QUICK_ACTION_DRAFT: AdminQuickActionDraft = {
   customerId: '',
-  clientName: '',
-  serviceSlug: '',
-  serviceName: '',
+  guestName: '',
+  itemSlug: '',
+  itemName: '',
   startsAt: '',
   endsAt: '',
   reason: '',
-  treatmentDate: '',
   notes: '',
-  subjective: '',
-  objective: '',
-  assessment: '',
-  plan: '',
+  note: '',
 };
 
 export function buildAdminQuickActionSubmission(
@@ -50,26 +43,26 @@ export function buildAdminQuickActionSubmission(
   draft: AdminQuickActionDraft,
 ): { ok: true; value: AdminQuickActionSubmission } | { ok: false; error: string } {
   if (action === 'block-time') return buildBlockTimeSubmission(draft);
-  if (action === 'soap') return buildSoapSubmission(draft);
-  return buildBookingSubmission(action, draft);
+  if (action === 'guest-note') return buildGuestNoteSubmission(draft);
+  return buildOrderSubmission(action, draft);
 }
 
-function buildBookingSubmission(
-  kind: 'book' | 'quick-book',
+function buildOrderSubmission(
+  kind: 'order' | 'quick-order',
   draft: AdminQuickActionDraft,
 ): { ok: true; value: AdminQuickActionSubmission } | { ok: false; error: string } {
-  if (!draft.customerId.trim() || !draft.clientName.trim()) return { ok: false, error: 'Choose a client.' };
-  if (!draft.serviceSlug.trim() || !draft.serviceName.trim()) return { ok: false, error: 'Choose a service.' };
+  if (!draft.customerId.trim() || !draft.guestName.trim()) return { ok: false, error: 'Choose a client.' };
+  if (!draft.itemSlug.trim() || !draft.itemName.trim()) return { ok: false, error: 'Choose a service.' };
   const startsAt = new Date(draft.startsAt);
-  if (Number.isNaN(startsAt.getTime())) return { ok: false, error: 'Enter a valid ISO appointment time.' };
+  if (Number.isNaN(startsAt.getTime())) return { ok: false, error: 'Enter a valid ISO order time.' };
   return {
     ok: true,
     value: {
       kind,
       customerId: draft.customerId.trim(),
-      clientName: draft.clientName.trim(),
-      serviceSlug: draft.serviceSlug.trim(),
-      serviceName: draft.serviceName.trim(),
+      guestName: draft.guestName.trim(),
+      itemSlug: draft.itemSlug.trim(),
+      itemName: draft.itemName.trim(),
       startsAt: startsAt.toISOString(),
       notes: draft.notes.trim(),
     },
@@ -92,27 +85,18 @@ function buildBlockTimeSubmission(
   };
 }
 
-function buildSoapSubmission(
+function buildGuestNoteSubmission(
   draft: AdminQuickActionDraft,
 ): { ok: true; value: AdminQuickActionSubmission } | { ok: false; error: string } {
-  if (!draft.customerId.trim() || !draft.clientName.trim()) return { ok: false, error: 'Choose a client.' };
-  if (!draft.serviceName.trim()) return { ok: false, error: 'Enter the service name.' };
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(draft.treatmentDate)) return { ok: false, error: 'Enter the order date as YYYY-MM-DD.' };
-  if (![draft.subjective, draft.objective, draft.assessment, draft.plan].every((value) => value.trim())) {
-    return { ok: false, error: 'Fill in all four parts of the note.' };
-  }
+  if (!draft.customerId.trim() || !draft.guestName.trim()) return { ok: false, error: 'Choose a guest.' };
+  if (!draft.note.trim()) return { ok: false, error: 'Write the note.' };
   return {
     ok: true,
     value: {
-      kind: 'soap',
+      kind: 'guest-note',
       customerId: draft.customerId.trim(),
-      clientName: draft.clientName.trim(),
-      serviceName: draft.serviceName.trim(),
-      treatmentDate: draft.treatmentDate,
-      subjective: draft.subjective.trim(),
-      objective: draft.objective.trim(),
-      assessment: draft.assessment.trim(),
-      plan: draft.plan.trim(),
+      guestName: draft.guestName.trim(),
+      note: draft.note.trim(),
     },
   };
 }

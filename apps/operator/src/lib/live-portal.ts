@@ -7,7 +7,7 @@
 import { parseTenantClaims, type TenantClaims } from '@platform/schema';
 import type { Session, SupabaseClient } from '@supabase/supabase-js';
 
-import type { PortalBundle } from '@/types/domain';
+import type { PortalBundle } from '@platform/domain';
 
 export type StaffContext = {
   bundle: PortalBundle;
@@ -74,7 +74,6 @@ export async function loadStaffContext(
       avatarUrl: null,
     },
     role: claims.role === 'staff' ? 'staff' : 'admin',
-    appointments: [],
     orders: [],
     rewardAccount: {
       availablePoints: 0,

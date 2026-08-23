@@ -9,7 +9,7 @@ import { loadStaffContext } from '@/lib/live-portal';
 import { hasSupabaseConfig, supabase } from '@/lib/supabase';
 import { useDemo } from '@/state/demo-context';
 import { createRequestSequence } from '@/state/request-sequence';
-import type { AppRole, PortalBundle } from '@/types/domain';
+import type { AppRole, PortalBundle } from '@platform/domain';
 
 type AuthState = {
   session: Session | null;
@@ -38,7 +38,7 @@ const AuthContext = createContext<AuthState | null>(null);
 const EMPTY_PORTAL: PortalBundle = {
   profile: { id: '', fullName: '', email: '', phone: null, birthday: null, avatarUrl: null },
   role: 'staff',
-  appointments: [],
+  orders: [],
   rewardAccount: { availablePoints: 0, annualPoints: 0, cashCents: 0, annualPeriodStart: `${new Date().getFullYear()}-01-01` },
   rewardLedger: [],
   rewardActivities: [],
@@ -46,7 +46,7 @@ const EMPTY_PORTAL: PortalBundle = {
   giftCards: [],
   paymentMethods: [],
   messages: [],
-  intake: { completed: false, concerns: '', pressurePreference: 'medium', consentAccepted: false, updatedAt: null },
+  preferences: { completed: false, notes: '', strength: 'medium', updatedAt: null },
   membership: null,
 };
 

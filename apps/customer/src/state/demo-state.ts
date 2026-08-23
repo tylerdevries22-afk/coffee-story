@@ -3,9 +3,7 @@ import {
   fulfillmentDetail,
   fulfillmentLabel,
   type OrderFulfillment,
-} from '@/features/order/fulfillment';
-import { taxCentsFor } from '@/features/tax';
-import type {
+
   OrderableAddOn,
   OrderableItem,
   GiftCard,
@@ -15,8 +13,8 @@ import type {
   PortalMessage,
   PortalProfile,
   RewardCatalogItem,
-  AppRole,
-} from '@/types/domain';
+  AppRole} from '@platform/domain';
+import { taxCentsFor } from '@platform/domain';
 
 export type DemoOrderInput = {
   id: string;

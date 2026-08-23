@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { applyDemoBlockTime, applyDemoSoapNote, soapNotesForClient } from './dashboard';
+import { applyDemoBlockTime, applyDemoGuestNote, notesForGuest } from './dashboard';
 import { DEMO_STAFF } from '@/data/demo';
 
 describe('applyDemoBlockTime', () => {
@@ -13,12 +13,12 @@ describe('applyDemoBlockTime', () => {
       reason: 'Deep clean',
     }, 'demo-block-test');
 
-    const added = next.appointments[next.appointments.length - 1];
+    const added = next.orders[next.orders.length - 1];
     assert.equal(added.id, 'demo-block-test');
-    assert.equal(added.serviceName, 'Blocked · Deep clean');
+    assert.equal(added.summary, 'Blocked · Deep clean');
     assert.equal(added.subtotalCents, 0);
     assert.equal(next.openMinutes, DEMO_STAFF.openMinutes - 90);
-    assert.equal(next.appointments.length, DEMO_STAFF.appointments.length + 1);
+    assert.equal(next.orders.length, DEMO_STAFF.orders.length + 1);
   });
 
   it('never drives open minutes below zero', () => {
@@ -33,20 +33,18 @@ describe('applyDemoBlockTime', () => {
   });
 });
 
-describe('applyDemoSoapNote', () => {
+describe('applyDemoGuestNote', () => {
   it('prepends the note so care records show the newest first', () => {
-    const next = applyDemoSoapNote(DEMO_STAFF, {
-      kind: 'soap',
+    const next = applyDemoGuestNote(DEMO_STAFF, {
+      kind: 'guest-note',
+      note: 'Usual: pistachio latte, oat, half-sweet.',
       customerId: 'client-1',
-      clientName: 'Alex Rivera',
-      serviceName: 'Deep Tissue Massage',
-      treatmentDate: '2026-07-31',
-      subjective: 's', objective: 'o', assessment: 'a', plan: 'p',
+      guestName: 'Alex Rivera',
     }, 'demo-soap-test', '2026-07-31T18:00:00.000Z');
 
-    const notes = soapNotesForClient(next, 'client-1');
+    const notes = notesForGuest(next, 'client-1');
     assert.equal(notes[0]?.id, 'demo-soap-test');
-    assert.equal(notes.length, soapNotesForClient(DEMO_STAFF, 'client-1').length + 1);
-    assert.equal(soapNotesForClient(next, 'client-2').length, soapNotesForClient(DEMO_STAFF, 'client-2').length);
+    assert.equal(notes.length, notesForGuest(DEMO_STAFF, 'client-1').length + 1);
+    assert.equal(notesForGuest(next, 'client-2').length, notesForGuest(DEMO_STAFF, 'client-2').length);
   });
 });

@@ -4,9 +4,8 @@ import { Animated, Pressable, Text, View, useWindowDimensions } from 'react-nati
 import { AppIcon } from '@/components/icon';
 import { GlassCup } from '@/components/rewards/glass-cup';
 import { annualPeriodYear, POINTS_LABEL, rewardProgress } from '@/features/rewards/presentation';
-import { nextTier, REWARD_TIERS, rewardMilestoneStates, tierForAnnualPoints } from '@/features/rewards/rules';
-import type { RewardTierName } from '@/features/rewards/rules';
-import type { RewardAccount } from '@/types/domain';
+import { nextTier, REWARD_TIERS, rewardMilestoneStates, tierForAnnualPoints } from '@platform/domain';
+import type { RewardTierName , RewardAccount } from '@platform/domain';
 import { colors } from '@/theme/tokens';
 
 import { RewardMark } from '../reward-mark';

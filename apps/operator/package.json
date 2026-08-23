@@ -8,6 +8,7 @@
     "@expo/vector-icons": "^15.0.3",
     "@platform/api-client": "workspace:*",
     "@platform/data": "workspace:*",
+    "@platform/domain": "workspace:*",
     "@platform/schema": "workspace:*",
     "@platform/ui": "workspace:*",
     "@sentry/react-native": "^8.23.0",

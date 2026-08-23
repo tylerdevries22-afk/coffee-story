@@ -4,20 +4,20 @@
  * workspace screens still call these named methods.
  *
  * staffDashboard is served from the live plane (today's orders at the
- * claimed locations). The appointment-era surfaces (bookings, intake forms,
+ * claimed locations). The order-era surfaces (bookings, preferences forms,
  * staff checkout, avatars) have no live schema behind them yet: they throw a
  * 501 MobileApiError with an honest message instead of pretending, and their
- * screens catch it. The legacy appointments host is gone.
+ * screens catch it. The legacy orders host is gone.
  */
-import type { IntakeFormCatalogEntry } from '@/features/admin/intake-forms';
+import type { IntakeFormCatalogEntry } from '@/features/admin/preferences-forms';
 import { supabase } from '@/lib/supabase';
 import type {
-  BookingCatalog,
+  OrderableCatalog,
   PortalProfile,
   StaffDashboard,
   StaffSettings,
   StaffActionPayload,
-} from '@/types/domain';
+} from '@platform/domain';
 import { parseTenantClaims } from '@platform/schema';
 
 export class MobileApiError extends Error {
@@ -76,20 +76,20 @@ export const mobileApi = {
     const counted = rows.filter((row) => row.status !== 'cancelled' && row.status !== 'refunded');
     const todayRevenueCents = counted.reduce((sum, row) => sum + row.total_cents, 0);
     return {
-      appointments: [],
+      orders: [],
       clients: [],
       projectedCents: todayRevenueCents,
       openMinutes: 0,
       metrics: {
         todayRevenueCents,
-        appointmentCount: counted.length,
+        orderCount: counted.length,
         newClientCount: 0,
         rebookRatePct: 0,
       },
     };
   },
 
-  // ---- Appointment-era surfaces with no live schema behind them yet ----
+  // ---- Order-era surfaces with no live schema behind them yet ----
   // Typed to their legacy shapes so the screens keep compiling; the
   // implementations only ever throw, and the screens catch.
   staffSettings: async (): Promise<{ settings: StaffSettings }> => notAvailable('Workspace settings'),
@@ -97,15 +97,15 @@ export const mobileApi = {
     notAvailable('Workspace settings'),
   staffAction: async (_payload: StaffActionPayload): Promise<{ ok: true; targetId: string }> =>
     notAvailable('Booking actions'),
-  bookingCatalog: async (): Promise<BookingCatalog> => notAvailable('The booking catalog'),
-  createStaffCheckout: async (_payload: { appointmentId: string; tipCents: number; idempotencyKey: string }): Promise<{
+  bookingCatalog: async (): Promise<OrderableCatalog> => notAvailable('The booking catalog'),
+  createStaffCheckout: async (_payload: { orderId: string; tipCents: number; idempotencyKey: string }): Promise<{
     paymentIntent: string;
     ephemeralKey: string;
     customer: string;
   }> => notAvailable('Card checkout'),
-  intakeForms: async (): Promise<{ forms: IntakeFormCatalogEntry[] }> => notAvailable('Intake forms'),
+  intakeForms: async (): Promise<{ forms: IntakeFormCatalogEntry[] }> => notAvailable('Preferences forms'),
   updateIntakeForms: async (_forms: readonly IntakeFormCatalogEntry[]): Promise<{ forms: IntakeFormCatalogEntry[] }> =>
-    notAvailable('Intake forms'),
+    notAvailable('Preferences forms'),
   updateProfile: async (
     _payload: Pick<PortalProfile, 'fullName' | 'phone' | 'birthday'>,
     _key: string,

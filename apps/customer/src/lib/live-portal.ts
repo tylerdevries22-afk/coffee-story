@@ -25,7 +25,7 @@ import type {
   PortalOrderLine,
   RewardCatalogItem,
   RewardEntry,
-} from '@/types/domain';
+} from '@platform/domain';
 
 /** The brand row changes on deploys, not per guest; one fetch per app run. */
 let brandPromise: Promise<BrandSummary | null> | null = null;

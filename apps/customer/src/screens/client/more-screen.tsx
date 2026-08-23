@@ -14,17 +14,15 @@ import { MoreSearchTakeover } from '@/components/more-search-takeover';
 import { PortalProfileCard } from '@/components/portal-profile-card';
 import { BUSINESS } from '@/data/business';
 import { MENU_ITEMS } from '@/data/catalog';
-import { buildClientNotifications } from '@/features/notifications/feed';
-import { searchClientAccount, type ClientSearchResult } from '@/features/search/client-search';
+import { buildClientNotifications , projectFirstVariants } from '@platform/domain';
+import { searchClientAccount, type ClientSearchResult , OrderableItem } from '@platform/domain';
 import { summarizeGiftCardOwnership } from '@/features/gifts/ownership';
 import { useAppState, type MoreView } from '@/state/app-context';
 import { tenantFeature } from '@/tenant';
 import { useAuth } from '@/state/auth-context';
 import { useDemo } from '@/state/demo-context';
 import { colors } from '@/theme/tokens';
-import type { OrderableItem } from '@/types/domain';
 
-import { projectFirstVariants } from '@/features/menu/item-projections';
 
 import rewardsCup from '../../../assets/tabs/cup.png';
 

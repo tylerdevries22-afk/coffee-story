@@ -1,5 +1,21 @@
-import type { MenuItem } from '@/data/catalog';
-import type { OrderableItem } from '@/types/domain';
+import type { OrderableItem } from './domain';
+import type { CatalogSize } from './sizes';
+
+/**
+ * The shape a projection needs, structurally.
+ *
+ * Deliberately not the catalog's own MenuItem: the catalog is per-tenant
+ * content that lives in an app and carries asset imports, while projecting one
+ * into something orderable is the same everywhere. Anything with these fields
+ * projects, which is what lets both apps and the kiosk share this.
+ */
+export type ProjectableItem = {
+  id: string;
+  name: string;
+  description?: string;
+  category: string;
+  sizes: readonly CatalogSize[];
+};
 
 /** Default prep estimate for a made-to-order drink. */
 const PREP_MINUTES = 5;
@@ -12,7 +28,7 @@ export type MenuItemGroup = {
 };
 
 export function projectItem(
-  item: MenuItem,
+  item: ProjectableItem,
   size = item.sizes[0],
   depositCents = 0,
 ): OrderableItem {
@@ -35,7 +51,7 @@ export function projectItem(
 }
 
 export function projectItems(
-  items: readonly MenuItem[],
+  items: readonly ProjectableItem[],
   depositCents = 0,
 ): OrderableItem[] {
   return items.flatMap((item) => (
@@ -46,7 +62,7 @@ export function projectItems(
 }
 
 export function projectFirstVariants(
-  items: readonly MenuItem[],
+  items: readonly ProjectableItem[],
   depositCents = 0,
 ): OrderableItem[] {
   return items.map((item) => ({

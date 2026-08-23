@@ -1,6 +1,6 @@
 import type { OrderStatus } from '@platform/schema';
 
-import { taxCentsFor } from '@/features/tax';
+import { taxCentsFor } from '@platform/domain';
 import type {
   GiftCard,
   PortalOrder,
@@ -9,7 +9,7 @@ import type {
   RewardEntry,
   StaffClient,
   StaffDashboard,
-} from '@/types/domain';
+} from '@platform/domain';
 
 // Sanitized, production-scale demo dataset. All names/emails/phones are fictional
 // (example.com, 555 numbers). Every date is relative to portal creation so
@@ -362,44 +362,32 @@ export const DEMO_STAFF: StaffDashboard = {
   },
   reputation: { score: 4.9, reviewCount: 75 },
   recentPayments: [
-    { id: 'pay-1', clientName: 'Morgan Blake', itemName: 'Spanish Latte (16 oz)', method: 'card', amountCents: 700, paidAt: isoAt(0, 9) },
-    { id: 'pay-2', clientName: 'Reese Talbot', itemName: 'Mochi Donut Trio', method: 'gift_card', amountCents: 1000, paidAt: isoAt(-1, 15) },
-    { id: 'pay-3', clientName: 'Devin Park', itemName: 'Rooh Afza Boba (20 oz)', method: 'card', amountCents: 700, paidAt: isoAt(-1, 11) },
-    { id: 'pay-4', clientName: 'Jamie Lee', itemName: 'Honeycomb Cheese Bread', method: 'cash', amountCents: 700, paidAt: isoAt(-2, 16) },
-    { id: 'pay-5', clientName: 'Alex Rivera', itemName: 'Turkish Coffee (Double)', method: 'card', amountCents: 700, paidAt: isoAt(-3, 13) },
+    { id: 'pay-1', guestName: 'Morgan Blake', itemName: 'Spanish Latte (16 oz)', method: 'card', amountCents: 700, paidAt: isoAt(0, 9) },
+    { id: 'pay-2', guestName: 'Reese Talbot', itemName: 'Mochi Donut Trio', method: 'gift_card', amountCents: 1000, paidAt: isoAt(-1, 15) },
+    { id: 'pay-3', guestName: 'Devin Park', itemName: 'Rooh Afza Boba (20 oz)', method: 'card', amountCents: 700, paidAt: isoAt(-1, 11) },
+    { id: 'pay-4', guestName: 'Jamie Lee', itemName: 'Honeycomb Cheese Bread', method: 'cash', amountCents: 700, paidAt: isoAt(-2, 16) },
+    { id: 'pay-5', guestName: 'Alex Rivera', itemName: 'Turkish Coffee (Double)', method: 'card', amountCents: 700, paidAt: isoAt(-3, 13) },
   ],
-  soapNotes: [
+  guestNotes: [
     {
-      id: 'soap-1',
+      id: 'note-1',
       customerId: 'client-7',
-      summary: 'Pistachio Latte (16 oz)',
-      treatmentDate: isoAt(-4, 10),
-      subjective: 'Asked for half-sweet after finding the default too rich.',
-      objective: 'Usual order: pistachio latte, oat milk, half-sweet.',
-      assessment: 'Morning regular — comes in weekdays around 8:15.',
-      plan: 'Suggest the pistachio cold foam on top next order.',
+      note: 'Usual order: pistachio latte, oat milk, half-sweet. Asked for half-sweet after finding the default too rich.',
+      authorName: 'Mike A.',
       createdAt: isoAt(-4, 10),
     },
     {
-      id: 'soap-2',
+      id: 'note-2',
       customerId: 'client-1',
-      summary: 'Spanish Latte (16 oz)',
-      treatmentDate: isoAt(-9, 10),
-      subjective: 'Training for a half marathon; cuts caffeine after 2 PM.',
-      objective: 'Orders Spanish latte before noon only; decaf Americano otherwise.',
-      assessment: 'Prefers quick pickup — usually in and out in five minutes.',
-      plan: 'Offer the order-ahead shortcut for weekday mornings.',
+      note: 'Orders Spanish latte before noon only; decaf Americano otherwise. Training for a half marathon; cuts caffeine after 2 PM.',
+      authorName: 'Mike A.',
       createdAt: isoAt(-9, 10),
     },
     {
-      id: 'soap-3',
+      id: 'note-3',
       customerId: 'client-3',
-      summary: 'Brown Sugar Boba (20 oz)',
-      treatmentDate: isoAt(-16, 10),
-      subjective: 'Late-night study guest; stays until close on Fridays.',
-      objective: 'Boba with extra pearls; milk cake if fresh that day.',
-      assessment: 'High stress week mentioned; appreciates a quiet corner table.',
-      plan: 'Flag the midnight lychee refresher as a new recommendation.',
+      note: 'Boba with extra pearls; milk cake if fresh that day. Late-night study guest; stays until close on Fridays.',
+      authorName: 'Mike A.',
       createdAt: isoAt(-16, 10),
     },
   ],

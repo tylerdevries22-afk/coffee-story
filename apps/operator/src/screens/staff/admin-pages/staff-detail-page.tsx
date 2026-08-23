@@ -47,7 +47,7 @@ export function StaffDetailPage({
       />
     );
   }
-  if (path === '/admin/services') {
+  if (path === '/admin/items') {
     return <AdminServicesScreen onBack={onBack} />;
   }
   return <NativeAdminPage path={path} isDemo={isDemo} onBack={onBack} />;

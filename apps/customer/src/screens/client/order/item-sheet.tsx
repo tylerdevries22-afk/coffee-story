@@ -16,7 +16,7 @@ import { OptionGroupField, QuantityStepper, SizeSegmented } from '@/components/o
 import { ActionButton, useCoveringBottomInset } from '@/components/order/order-chrome';
 import { SheetModal } from '@/components/sheet-modal';
 import type { MenuItem } from '@/data/catalog';
-import { formatMoney } from '@/features/money';
+import { formatMoney , defaultSizeSlug, sizeLabelFor, sizePriceCents } from '@platform/domain';
 import { MAX_LINE_QUANTITY, buildOrderLine, type OrderLine } from '@/features/order/cart';
 import {
   defaultOptionSelection,
@@ -27,7 +27,6 @@ import {
   visibleOptionGroups,
   type OptionSelection,
 } from '@/features/order/menu-options';
-import { defaultSizeSlug, sizeLabelFor, sizePriceCents } from '@/features/order/sizes';
 import { colors, fonts, radius, spacing } from '@/theme/tokens';
 
 export function ItemSheet({

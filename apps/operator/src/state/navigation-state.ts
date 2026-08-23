@@ -17,7 +17,7 @@
 export type ClientTab = 'home' | 'book' | 'gift' | 'rewards' | 'more';
 export type StaffTab = 'orders' | 'today' | 'more';
 export type MoreView =
-  | 'menu' | 'services' | 'visits' | 'profile' | 'intake' | 'messages' | 'membership'
+  | 'menu' | 'services' | 'orders' | 'profile' | 'preferences' | 'messages' | 'membership'
   | 'payments' | 'gift-balance' | 'location' | 'resources' | 'faq' | 'care-policy'
   | 'privacy' | 'admin';
 
@@ -108,7 +108,7 @@ export function staffDetailPathFromPathname(pathname: string): string | null {
 }
 
 const MORE_VIEWS: readonly MoreView[] = [
-  'menu', 'services', 'visits', 'profile', 'intake', 'messages', 'membership',
+  'menu', 'services', 'orders', 'profile', 'preferences', 'messages', 'membership',
   'payments', 'gift-balance', 'location', 'resources', 'faq', 'care-policy',
   'privacy', 'admin',
 ];

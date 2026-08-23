@@ -6,9 +6,9 @@ import { GestureDetector } from 'react-native-gesture-handler';
 import { GlassCup, POUR_MS, pourFillAt, useLiquidDrag } from '@/components/rewards/glass-cup';
 import { POINTS_LABEL } from '@/features/rewards/presentation';
 import { nextRewardForBalance, rewardFillPercent, rewardIsLocked } from '@/features/rewards/redeem';
-import { tierForAnnualPoints } from '@/features/rewards/rules';
+import { tierForAnnualPoints } from '@platform/domain';
 import { colors } from '@/theme/tokens';
-import type { RewardAccount, RewardCatalogItem } from '@/types/domain';
+import type { RewardAccount, RewardCatalogItem } from '@platform/domain';
 import { AppIcon } from '@/components/icon';
 
 import { hapticSelection } from '../haptics';

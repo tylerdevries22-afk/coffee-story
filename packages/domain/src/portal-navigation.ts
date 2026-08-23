@@ -1,4 +1,4 @@
-import type { AppRole } from '@/types/domain';
+import type { AppRole } from './domain';
 
 export type WebDestination = {
   title: string;

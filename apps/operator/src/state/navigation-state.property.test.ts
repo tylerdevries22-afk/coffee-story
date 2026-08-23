@@ -21,7 +21,7 @@ import {
 } from './navigation-state';
 
 const MORE_VIEWS: readonly MoreView[] = [
-  'menu', 'services', 'visits', 'profile', 'intake', 'messages', 'membership',
+  'menu', 'services', 'orders', 'profile', 'preferences', 'messages', 'membership',
   'payments', 'gift-balance', 'location', 'resources', 'faq', 'care-policy',
   'privacy', 'admin',
 ];

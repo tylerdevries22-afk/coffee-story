@@ -4,20 +4,27 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Card } from '@/components/ui';
 import { deltaPercent, formatMoney, initials } from '@/features/staff/workspace';
 import { colors, fonts, radius, spacing } from '@/theme/tokens';
-import type { PortalAppointment } from '@/types/domain';
+import type { PortalOrder } from '@platform/domain';
 import { AppIcon } from '@/components/icon';
 import { toggleState } from '@/lib/a11y-state';
 
-/** Status → pill colour, matching the web portal's badge tones. */
-const STATUS_TONE: Record<PortalAppointment['status'], { fg: string; bg: string }> = {
-  confirmed: { fg: colors.success, bg: colors.successTint },
-  pending: { fg: colors.warning, bg: colors.gold50 },
-  completed: { fg: colors.brand600, bg: colors.brand50 },
+/**
+ * Status -> pill colour, one entry per state in rule 2's machine.
+ *
+ * Record<> rather than a partial map on purpose: adding a state to the enum
+ * should fail this file rather than render an undefined tone at runtime.
+ */
+const STATUS_TONE: Record<PortalOrder['status'], { fg: string; bg: string }> = {
+  created: { fg: colors.ink500, bg: colors.ink200 },
+  paid: { fg: colors.success, bg: colors.successTint },
+  in_progress: { fg: colors.warning, bg: colors.gold50 },
+  ready: { fg: colors.brand600, bg: colors.brand50 },
+  picked_up: { fg: colors.ink500, bg: colors.ink200 },
   cancelled: { fg: colors.ink500, bg: colors.ink200 },
-  no_show: { fg: colors.danger, bg: colors.dangerTint },
+  refunded: { fg: colors.danger, bg: colors.dangerTint },
 };
 
-export function StatusBadge({ status }: { status: PortalAppointment['status'] }) {
+export function StatusBadge({ status }: { status: PortalOrder['status'] }) {
   const tone = STATUS_TONE[status];
   return (
     <View style={[styles.badge, { backgroundColor: tone.bg }]}>

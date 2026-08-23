@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type PropsWithChildren } from 'react';
 
-import { SERVICES } from '@/data/catalog';
+import { MENU_ITEMS } from '@/data/catalog';
 import { DEMO_STAFF } from '@/data/demo';
 import type {
   AdminQuickActionHandlers,
@@ -12,14 +12,12 @@ import {
   serverStaffSettings,
   type AdminSettingsState,
 } from '@/features/admin/admin-settings';
-import { PICKUP_LOCATIONS } from '@/features/order/fulfillment';
-import { requestKey } from '@/features/order/request-key';
-import { projectFirstServices } from '@/features/booking/service-projections';
-import { applyDemoBlockTime, applyDemoSoapNote } from '@/features/staff/dashboard';
+import { PICKUP_LOCATIONS, taxCentsFor , requestKey , projectFirstVariants } from '@platform/domain';
+import { applyDemoBlockTime, applyDemoGuestNote } from '@/features/staff/dashboard';
 import { mobileApi } from '@/lib/mobile-api';
 import { useAppState } from '@/state/app-context';
 import { useAuth } from '@/state/auth-context';
-import type { BookingService, StaffDashboard } from '@/types/domain';
+import type { OrderableItem, StaffDashboard } from '@platform/domain';
 
 /**
  * Everything the staff workspace's screens used to reach through
@@ -32,12 +30,15 @@ import type { BookingService, StaffDashboard } from '@/types/domain';
  */
 type StaffWorkspaceState = {
   dashboard: StaffDashboard;
-  bookingServices: BookingService[];
+  orderableItems: OrderableItem[];
   loading: boolean;
   error: string | null;
   reload: () => Promise<void>;
-  updateStatus: (appointmentId: string, status: 'confirmed' | 'cancelled' | 'no_show') => Promise<void>;
-  completeCheckout: (appointmentId: string) => Promise<void>;
+  updateStatus: (
+    orderId: string,
+    status: 'paid' | 'in_progress' | 'ready' | 'picked_up' | 'cancelled',
+  ) => Promise<void>;
+  completeCheckout: (orderId: string) => Promise<void>;
   adminSettings: AdminSettingsState;
   settingsLoading: boolean;
   settingsReady: boolean;
@@ -49,14 +50,14 @@ type StaffWorkspaceState = {
 
 const StaffWorkspaceContext = createContext<StaffWorkspaceState | null>(null);
 
-const demoBookingServices: BookingService[] = projectFirstServices(SERVICES);
+const demoOrderableItems: OrderableItem[] = projectFirstVariants(MENU_ITEMS);
 
 export function StaffWorkspaceProvider({ children }: PropsWithChildren) {
   const { staffDetailPath } = useAppState();
   const { isDemo } = useAuth();
   const [dashboard, setDashboard] = useState<StaffDashboard>(DEMO_STAFF);
-  const [liveBookingServices, setLiveBookingServices] = useState<BookingService[]>([]);
-  const bookingServices = isDemo || !liveBookingServices.length ? demoBookingServices : liveBookingServices;
+  const [liveOrderableItems, setLiveOrderableItems] = useState<OrderableItem[]>([]);
+  const orderableItems = isDemo || !liveOrderableItems.length ? demoOrderableItems : liveOrderableItems;
   const [adminSettings, setAdminSettings] = useState<AdminSettingsState>(DEFAULT_ADMIN_SETTINGS);
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [settingsReady, setSettingsReady] = useState(isDemo);
@@ -97,8 +98,8 @@ export function StaffWorkspaceProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     if (isDemo) return;
     void mobileApi.bookingCatalog()
-      .then((catalog) => setLiveBookingServices(catalog.services))
-      .catch(() => setLiveBookingServices([]));
+      .then((catalog) => setLiveOrderableItems(catalog.items))
+      .catch(() => setLiveOrderableItems([]));
   }, [isDemo]);
 
   const loadSettings = useCallback(async () => {
@@ -123,31 +124,34 @@ export function StaffWorkspaceProvider({ children }: PropsWithChildren) {
     }
   }, [isDemo, loadSettings, staffDetailPath]);
 
-  const updateStatus = useCallback(async (appointmentId: string, status: 'confirmed' | 'cancelled' | 'no_show') => {
+  const updateStatus = useCallback(async (
+    orderId: string,
+    status: 'paid' | 'in_progress' | 'ready' | 'picked_up' | 'cancelled',
+  ) => {
     if (isDemo) {
       setDashboard((current) => ({
         ...current,
-        appointments: current.appointments.map((appointment) => (
-          appointment.id === appointmentId ? { ...appointment, status } : appointment
+        orders: current.orders.map((order) => (
+          order.id === orderId ? { ...order, status } : order
         )),
       }));
       return;
     }
     await mobileApi.staffAction({
-      action: 'appointment_status',
-      appointmentId,
+      action: 'order_status',
+      orderId,
       status,
-      idempotencyKey: `appointment-status-${appointmentId}-${status}`,
+      idempotencyKey: `order-status-${orderId}-${status}`,
     });
     await loadDashboard();
   }, [isDemo, loadDashboard]);
 
-  const completeCheckout = useCallback(async (appointmentId: string) => {
+  const completeCheckout = useCallback(async (orderId: string) => {
     if (isDemo) {
       setDashboard((current) => ({
         ...current,
-        appointments: current.appointments.map((appointment) => (
-          appointment.id === appointmentId ? { ...appointment, status: 'completed' } : appointment
+        orders: current.orders.map((order) => (
+          order.id === orderId ? { ...order, status: 'picked_up' } : order
         )),
       }));
       return;
@@ -173,44 +177,51 @@ export function StaffWorkspaceProvider({ children }: PropsWithChildren) {
     }
   }, [isDemo]);
 
-  const createStaffAppointment = useCallback(async (
-    submission: Extract<AdminQuickActionSubmission, { kind: 'book' | 'quick-book' }>,
+  const createStaffOrder = useCallback(async (
+    submission: Extract<AdminQuickActionSubmission, { kind: 'order' | 'quick-order' }>,
   ) => {
     if (isDemo) {
-      const service = bookingServices.find((item) => item.slug === submission.serviceSlug);
-      const startsAt = new Date(submission.startsAt);
-      const endsAt = new Date(startsAt.getTime() + (service?.durationMin ?? 60) * 60_000);
+      const item = orderableItems.find((entry) => entry.slug === submission.itemSlug);
+      const placedAt = new Date(submission.startsAt);
+      const priceCents = item?.priceCents ?? 0;
+      const taxCents = taxCentsFor(priceCents);
       setDashboard((current) => ({
         ...current,
-        appointments: [...current.appointments, {
-          id: requestKey('demo-appointment'),
-          serviceName: submission.serviceName,
-          startsAt: startsAt.toISOString(),
-          endsAt: endsAt.toISOString(),
-          status: 'confirmed',
-          subtotalCents: service?.priceCents ?? 0,
-          depositCents: 0,
-          balanceCents: service?.priceCents ?? 0,
-          clientName: submission.clientName,
+        orders: [...current.orders, {
+          id: requestKey('demo-order'),
+          status: 'paid',
+          summary: submission.itemName,
+          lines: [{ name: submission.itemName, quantity: 1, unitPriceCents: priceCents, options: [] }],
+          fulfillmentType: 'pickup',
+          placedAt: placedAt.toISOString(),
+          scheduledFor: new Date(
+            placedAt.getTime() + (item?.durationMin ?? 5) * 60_000,
+          ).toISOString(),
+          subtotalCents: priceCents,
+          taxCents,
+          tipCents: 0,
+          totalCents: priceCents + taxCents,
+          note: submission.notes,
+          guestLabel: submission.guestName,
         }],
-        projectedCents: current.projectedCents + (service?.priceCents ?? 0),
+        projectedCents: current.projectedCents + priceCents,
       }));
       return;
     }
     await mobileApi.staffAction({
-      action: 'create_appointment',
+      action: 'create_order',
       customerId: submission.customerId,
-      serviceSlug: submission.serviceSlug,
-      startsAt: submission.startsAt,
+      itemSlug: submission.itemSlug,
+      scheduledFor: submission.startsAt,
       // The shop, from the one list that defines it. This carried a literal
       // for a different business entirely -- another tenant's street address
       // under this brand's name, left behind by an earlier product.
       fulfillment: { mode: 'pickup', location: PICKUP_LOCATIONS[0]! },
       notes: submission.notes,
-      idempotencyKey: requestKey('staff-booking'),
+      idempotencyKey: requestKey('staff-order'),
     });
     await loadDashboard();
-  }, [bookingServices, isDemo, loadDashboard]);
+  }, [orderableItems, isDemo, loadDashboard]);
 
   const blockStaffTime = useCallback(async (
     submission: Extract<AdminQuickActionSubmission, { kind: 'block-time' }>,
@@ -229,43 +240,33 @@ export function StaffWorkspaceProvider({ children }: PropsWithChildren) {
     await loadDashboard();
   }, [isDemo, loadDashboard]);
 
-  const createStaffSoapNote = useCallback(async (
-    submission: Extract<AdminQuickActionSubmission, { kind: 'soap' }>,
+  const createGuestNote = useCallback(async (
+    submission: Extract<AdminQuickActionSubmission, { kind: 'guest-note' }>,
   ) => {
     if (isDemo) {
-      setDashboard((current) => applyDemoSoapNote(current, submission, requestKey('demo-soap'), new Date().toISOString()));
+      setDashboard((current) => applyDemoGuestNote(
+        current, submission, requestKey('demo-note'), new Date().toISOString(),
+      ));
       return;
     }
-    await mobileApi.staffAction({
-      action: 'soap_note',
-      customerId: submission.customerId,
-      serviceName: submission.serviceName,
-      treatmentDate: submission.treatmentDate,
-      subjective: submission.subjective,
-      objective: submission.objective,
-      assessment: submission.assessment,
-      plan: submission.plan,
-      focusAreas: [],
-      idempotencyKey: requestKey('staff-soap'),
-    });
-    // Every sibling live handler reloads here. Without it the FAB still reports
-    // "The SOAP note is saved to the client record." while soapNotesForClient
-    // reads the stale dashboard, so the therapist opens that client and the note
-    // is absent -- and there is no pull-to-refresh in this shell, so only a tab
-    // remount recovers it.
+    // No live transport yet: the portal that carried staff writes is gone, and
+    // the engine's replacement lands with the rest of the live wiring. Reload
+    // so the caller never reports a save the dashboard cannot show -- every
+    // sibling handler does the same, and there is no pull-to-refresh in this
+    // shell, so a stale read only clears on a tab remount.
     await loadDashboard();
   }, [isDemo, loadDashboard]);
 
   const quickActionHandlers: AdminQuickActionHandlers = useMemo(() => ({
-    book: createStaffAppointment,
-    'quick-book': createStaffAppointment,
+    order: createStaffOrder,
+    'quick-order': createStaffOrder,
     'block-time': blockStaffTime,
-    soap: createStaffSoapNote,
-  }), [blockStaffTime, createStaffAppointment, createStaffSoapNote]);
+    'guest-note': createGuestNote,
+  }), [blockStaffTime, createStaffOrder, createGuestNote]);
 
   const value = useMemo<StaffWorkspaceState>(() => ({
     dashboard,
-    bookingServices,
+    orderableItems,
     loading,
     error,
     reload: loadDashboard,
@@ -280,7 +281,7 @@ export function StaffWorkspaceProvider({ children }: PropsWithChildren) {
     quickActionHandlers,
   }), [
     adminSettings,
-    bookingServices,
+    orderableItems,
     completeCheckout,
     dashboard,
     error,

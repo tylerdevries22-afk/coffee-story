@@ -10,7 +10,7 @@ import {
   toggleListItem,
   withRoleSetup,
 } from '@/features/setup/setup';
-import type { PortalBundle, RoleSetup, ClientSetupAnswers } from '@/types/domain';
+import type { PortalBundle, RoleSetup, ClientSetupAnswers } from '@platform/domain';
 
 function bundleWith(setup?: unknown): PortalBundle {
   return {

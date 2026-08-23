@@ -1,5 +1,5 @@
 // Staged replacement for src/components/rewards/glass-heart-palettes.ts
-import type { RewardTierName } from '@/features/rewards/rules';
+import type { RewardTierName } from '@platform/domain';
 import { colors } from '@/theme/tokens';
 
 export type GlassCupPalette = {
