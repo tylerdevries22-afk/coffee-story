@@ -9,7 +9,7 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, type PropsWithChildren } from 'react';
 import { Platform, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -18,11 +18,13 @@ import { AppErrorBoundary } from '@/components/app-error-boundary';
 import { Button } from '@/components/ui';
 import { InstallPrompt } from '@/components/install-prompt';
 import { SetupFlowHost } from '@/components/setup/setup-flow';
+import { brandCache } from '@/lib/brand-cache';
 import { AppStateProvider } from '@/state/app-context';
-import { AuthProvider } from '@/state/auth-context';
+import { AuthProvider, useAuth } from '@/state/auth-context';
 import { DemoProvider, useDemo } from '@/state/demo-context';
 import { OrderProvider } from '@/state/order-context';
 import { colors } from '@/theme/tokens';
+import { ThemeProvider, useTokens } from '@platform/ui';
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
@@ -85,30 +87,64 @@ function ConfiguredApp({ config }: { config: MobileLiveConfig }) {
 
   return (
     <AuthProvider>
-      <AppStateProvider>
-        {/* The bag sits above the tab shell so a guest can leave the Order tab
-            mid-order -- to check their rewards balance, say -- and come back to
-            a bag that is still there. */}
-        <OrderProvider>
-          <StatusBar style="dark" />
-          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.surface } }}>
-            {/* Pushed from any tab in either shell (see app-context's
-                `openNotifications`) rather than nested under `client/` or
-                `staff/`: a route at this level pushes above the native tab bar
-                from wherever the user is, which a screen nested inside a
-                specific tab's own stack could not do. `slide_from_right` keeps
-                the direction the app used before this was a real route. */}
-            <Stack.Screen name="notifications" options={{ animation: 'slide_from_right' }} />
-          </Stack>
-          {/* Global chrome that used to live in `app/index.tsx` when it was the
-              entire app. Both now sit above the Stack so they survive
-              navigating into `/client` or `/staff` instead of unmounting the
-              moment the redirect fires. */}
-          <InstallPrompt />
-          <SetupFlowHost />
-        </OrderProvider>
-      </AppStateProvider>
+      <BrandedShell>
+        <AppStateProvider>
+          {/* The bag sits above the tab shell so a guest can leave the Order tab
+              mid-order -- to check their rewards balance, say -- and come back to
+              a bag that is still there. */}
+          <OrderProvider>
+            <StatusBar style="dark" />
+            <OperatorStack />
+            {/* Global chrome that used to live in `app/index.tsx` when it was the
+                entire app. Both now sit above the Stack so they survive
+                navigating into `/client` or `/staff` instead of unmounting the
+                moment the redirect fires. */}
+            <InstallPrompt />
+            <SetupFlowHost />
+          </OrderProvider>
+        </AppStateProvider>
+      </BrandedShell>
     </AuthProvider>
+  );
+}
+
+/**
+ * Rule 4, the operator half: tokens and copy hydrate from the tenant's brand
+ * config instead of a compiled-in palette.
+ *
+ * Inside `AuthProvider`, unlike the customer app, because the two binaries
+ * learn who the tenant is in different ways (rule 7). The guest binary is
+ * built for one brand, so its config is bundled and its provider can sit at
+ * the root. This one is a single listing serving every tenant, so the brand
+ * row only arrives with the session -- there is nothing to theme from until
+ * someone signs in. `brandCache` covers the gap: the last good config opens
+ * the app branded before the network answers, which for a staff device on a
+ * shop's patchy wifi is the normal case rather than the edge one.
+ */
+function BrandedShell({ children }: PropsWithChildren) {
+  const { brandConfig } = useAuth();
+  return (
+    <ThemeProvider brandConfig={brandConfig} storage={brandCache}>
+      {children}
+    </ThemeProvider>
+  );
+}
+
+function OperatorStack() {
+  // The page ground is the tenant's, not a constant. Everything else in this
+  // app still reads the compiled `theme/tokens`; this is the first consumer
+  // and the seam the rest move through.
+  const tokens = useTokens();
+  return (
+    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: tokens.surface } }}>
+      {/* Pushed from any tab in either shell (see app-context's
+          `openNotifications`) rather than nested under `client/` or
+          `staff/`: a route at this level pushes above the native tab bar
+          from wherever the user is, which a screen nested inside a
+          specific tab's own stack could not do. `slide_from_right` keeps
+          the direction the app used before this was a real route. */}
+      <Stack.Screen name="notifications" options={{ animation: 'slide_from_right' }} />
+    </Stack>
   );
 }
 

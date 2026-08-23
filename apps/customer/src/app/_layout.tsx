@@ -24,7 +24,7 @@ import { DemoProvider, useDemo } from '@/state/demo-context';
 import { OrderProvider } from '@/state/order-context';
 import { TENANT_BRAND_CONFIG } from '@/tenant';
 import { colors } from '@/theme/tokens';
-import { ThemeProvider, ToastProvider } from '@platform/ui';
+import { ThemeProvider, ToastProvider, useTokens } from '@platform/ui';
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
@@ -99,15 +99,7 @@ function ConfiguredApp({ config }: { config: MobileLiveConfig }) {
             a bag that is still there. */}
         <OrderProvider>
           <StatusBar style="dark" />
-          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.surface } }}>
-            {/* Pushed from any tab in either shell (see app-context's
-                `openNotifications`) rather than nested under `client/` or
-                `staff/`: a route at this level pushes above the native tab bar
-                from wherever the user is, which a screen nested inside a
-                specific tab's own stack could not do. `slide_from_right` keeps
-                the direction the app used before this was a real route. */}
-            <Stack.Screen name="notifications" options={{ animation: 'slide_from_right' }} />
-          </Stack>
+          <CustomerStack />
           {/* Global chrome that used to live in `app/index.tsx` when it was the
               entire app. It sits above the Stack so it survives navigating into
               `/client` or `/staff` instead of unmounting the moment the
@@ -116,6 +108,26 @@ function ConfiguredApp({ config }: { config: MobileLiveConfig }) {
         </OrderProvider>
       </AppStateProvider>
     </AuthProvider>
+  );
+}
+
+function CustomerStack() {
+  // The page ground is the tenant's, not a constant. `ThemeProvider` has been
+  // hydrating tokens from brand.json since it was mounted, but nothing read
+  // them -- every screen still imports the compiled `theme/tokens`, so a second
+  // tenant's palette reached the provider and stopped there. This is the first
+  // consumer and the seam the rest move through.
+  const tokens = useTokens();
+  return (
+    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: tokens.surface } }}>
+      {/* Pushed from any tab in either shell (see app-context's
+          `openNotifications`) rather than nested under `client/` or
+          `staff/`: a route at this level pushes above the native tab bar
+          from wherever the user is, which a screen nested inside a
+          specific tab's own stack could not do. `slide_from_right` keeps
+          the direction the app used before this was a real route. */}
+      <Stack.Screen name="notifications" options={{ animation: 'slide_from_right' }} />
+    </Stack>
   );
 }
 
