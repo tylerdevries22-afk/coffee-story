@@ -19,6 +19,12 @@ export const BUSINESS = {
   street: TENANT.location.address.street,
   cityLine: `${TENANT.location.address.city}, ${TENANT.location.address.region} ${TENANT.location.address.postal}`,
   website: TENANT.business.website,
+  /**
+   * The shop's own zone. A drop window is a fact about this address -- the
+   * morning it starts pouring -- so the board is dated here, not on whatever
+   * clock the guest's phone happens to carry.
+   */
+  timezone: TENANT.location.timezone,
   /** Prefix on every gift-card code the app issues. */
   giftCodePrefix: TENANT.business.giftCodePrefix,
 } as const;

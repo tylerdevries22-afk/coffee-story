@@ -7,5 +7,6 @@ export * from './menu-image';
 export * from './sheet';
 export * from './toast';
 export * from './drop-countdown-logic';
+export * from './drops';
 export * from './loyalty-logic';
 export * from './order-status-pill-logic';

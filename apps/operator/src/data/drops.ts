@@ -2,7 +2,7 @@
  * Demo drop calendar. Dates are relative to "today" so the demo always shows
  * a live drop with a running countdown, whatever day it is opened.
  */
-import type { Drop } from '@/features/drops';
+import type { Drop } from '@platform/ui';
 
 function daysFromNow(days: number, hour = 8): string {
   const date = new Date();

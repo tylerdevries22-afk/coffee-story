@@ -19,7 +19,7 @@ import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { demoDrops } from '@/data/drops';
-import { featuredDrop, dropStatus } from '@/features/drops';
+import { featuredDrop, dropStatus } from '@platform/ui';
 import { endOfDaySummary } from '@/features/operator/eod';
 import {
   boardColumns,

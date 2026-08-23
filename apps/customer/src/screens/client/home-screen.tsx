@@ -25,13 +25,13 @@ import { useAppState } from '@/state/app-context';
 import { useAuth } from '@/state/auth-context';
 import { openWebPath } from '@/lib/web-navigation';
 import { colors, fonts, radius, spacing } from '@/theme/tokens';
+import { BUSINESS } from '@/data/business';
 import { demoDrops } from '@/data/drops';
-import { dropStatus, dropWindowLabel, weeklyDrops, type Drop } from '@/features/drops';
 import { MenuImage } from '@/components/menu-image';
 import { SiriAssistant, type SiriCommand } from '@/components/siri/siri-assistant';
 import { useReducedMotion } from '@/hooks/use-reduced-motion';
 import { tenantFeature } from '@/tenant';
-import { DropCountdown } from '@platform/ui';
+import { DropCountdown, dropStatus, dropWindowLabel, weeklyDrops, type Drop } from '@platform/ui';
 
 import heroVideo from '../../../assets/hero/home-hero.mp4';
 import packagesMedia from '../../../assets/hero/stones.webp';
@@ -271,7 +271,7 @@ export function HomeScreen() {
               the same header + staggered-row grammar as the rest of the page,
               so a second drop in the window slots in without a new layout. */}
           <SectionHeader
-            pill={dropWindowLabel(weekly.map((entry) => entry.drop))}
+            pill={dropWindowLabel(weekly.map((entry) => entry.drop), BUSINESS.timezone)}
             title="Weekly Drops"
             body="New and returning pours land each week. Order them before they're gone."
           />
