@@ -100,6 +100,36 @@ what a *physical* device on the same Wi-Fi needs, and on a runner it binds
 Metro to a NAT'd virtual interface instead. If you are pointing a real iPhone
 at this, that is when you want `--host lan`.
 
+### Where it still stops (run 28)
+
+With the entry-point defect fixed, the job is green end to end and still does
+not put either app on screen. What run 28 established:
+
+- Metro compiles and serves both apps at the exact URL the manifest names:
+  13,585,562 bytes for the customer, 11,822,469 for the operator, and its own
+  log confirms the builds (`Bundled 71373ms apps/customer/index.js, 2135
+  modules`).
+- **Those builds were triggered by the job's own curl, not by a device.** Expo
+  Go was launched and accepted its deep link on both simulators, then produced
+  ZERO lines in the device system log over six minutes and never asked Metro
+  for anything.
+- Both screens show the same static centred dialog, identical across runs 25,
+  27 and 28 -- unchanged by the entry fix and by ninety seconds of settle time,
+  so it is not a loading state.
+
+So the gap is between `simctl openurl` returning 0 and Expo Go actually
+connecting. Note what the bundle check does and does not prove: it shows Metro
+will serve a bundle **to curl, on the address the device was given**. It says
+nothing about whether the device fetched it, and treating it as proof of the
+latter is what made several runs look further along than they were.
+
+The untested assumption underneath all of it is that an iOS simulator can reach
+the host's `127.0.0.1`. That is true on a developer Mac. It has never been
+verified on this runner, and it is the first thing to check next -- e.g. open
+`exp://127.0.0.1:8081` by hand on a booted device and watch Metro's log for an
+incoming request, or serve a trivial file and fetch it from inside the
+simulator.
+
 ### What CI can and cannot prove
 
 `.github/workflows/simulators.yml` runs the same sequence on a macOS runner,
