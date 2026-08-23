@@ -18,7 +18,7 @@ import {
   useStickyBarClearance,
 } from '@/components/order/order-chrome';
 import { Body } from '@/components/ui';
-import { fulfillmentDetail, fulfillmentLabel, type BookingFulfillment } from '@/features/booking/fulfillment';
+import { fulfillmentDetail, fulfillmentLabel, type OrderFulfillment } from '@/features/order/fulfillment';
 import { formatMoney } from '@/features/money';
 import {
   MAX_LINE_QUANTITY,
@@ -46,7 +46,7 @@ export function BagStep({
   onCheckout,
 }: {
   cart: OrderCart;
-  fulfillment: BookingFulfillment;
+  fulfillment: OrderFulfillment;
   windowValue: string | null;
   subtotalCents: number;
   pointsPerDollar: number;

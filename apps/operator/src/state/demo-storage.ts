@@ -91,7 +91,7 @@ function isAppointment(value: unknown): boolean {
     && isFiniteNumber(value.depositCents)
     && isFiniteNumber(value.balanceCents)
     && isOptionalString(value.clientName)
-    && (value.fulfillmentMode === undefined || isOneOf(value.fulfillmentMode, ['office', 'dispatch']))
+    && (value.fulfillmentMode === undefined || isOneOf(value.fulfillmentMode, ['pickup', 'delivery']))
     && isOptionalString(value.locationLabel)
     && isOptionalString(value.locationDetail)
     && isOptionalString(value.staffName)

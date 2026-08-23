@@ -5,7 +5,7 @@ import { Alert, Pressable, Text, View } from 'react-native';
 import { CollapsingScreen } from '@/components/collapsing-screen';
 import { Body, Button, Card, Segmented } from '@/components/ui';
 import { appointmentToBookingService } from '@/features/booking/appointment-to-booking-service';
-import { requestKey } from '@/features/booking/request-key';
+import { requestKey } from '@/features/order/request-key';
 import { formatMoney } from '@/features/money';
 import { trackingView } from '@/features/tracking';
 import { mobileApi } from '@/lib/mobile-api';

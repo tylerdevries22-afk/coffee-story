@@ -63,7 +63,7 @@ function appointment(seed: AppointmentSeed): PortalAppointment {
     depositCents: 0,
     balanceCents: done ? 0 : seed.priceCents,
     clientName: seed.client,
-    fulfillmentMode: seed.mobile ? 'dispatch' : 'office',
+    fulfillmentMode: seed.mobile ? 'delivery' : 'pickup',
     locationLabel: seed.mobile ? DELIVERY_LABEL : SHOP_LABEL,
     locationDetail: seed.mobile ? DELIVERY_DETAIL : undefined,
     bookingSource: seed.source,

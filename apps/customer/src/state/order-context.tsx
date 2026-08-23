@@ -11,7 +11,7 @@
  */
 import { createContext, useCallback, useContext, useMemo, useState, type PropsWithChildren } from 'react';
 
-import type { BookingFulfillment } from '@/features/booking/fulfillment';
+import type { OrderFulfillment } from '@/features/order/fulfillment';
 import {
   EMPTY_CART,
   addOrderLine,
@@ -36,7 +36,7 @@ export type OrderState = {
   /** 0 for pickup; the flat fee once a delivery address is chosen. */
   deliveryFeeCents: number;
 
-  fulfillment: BookingFulfillment | null;
+  fulfillment: OrderFulfillment | null;
   /** ISO instant of the chosen pickup/delivery window. */
   windowValue: string | null;
   /** Whose name the order is called out under. */
@@ -49,7 +49,7 @@ export type OrderState = {
   removeLine: (lineId: string) => void;
   setNote: (note: string) => void;
 
-  setFulfillment: (fulfillment: BookingFulfillment | null) => void;
+  setFulfillment: (fulfillment: OrderFulfillment | null) => void;
   setWindowValue: (value: string | null) => void;
   setGuestName: (name: string) => void;
   setTipCents: (cents: number) => void;
@@ -63,7 +63,7 @@ const OrderContext = createContext<OrderState | null>(null);
 
 export function OrderProvider({ children }: PropsWithChildren) {
   const [cart, setCart] = useState<OrderCart>(EMPTY_CART);
-  const [fulfillment, setFulfillmentState] = useState<BookingFulfillment | null>(null);
+  const [fulfillment, setFulfillmentState] = useState<OrderFulfillment | null>(null);
   const [windowValue, setWindowValue] = useState<string | null>(null);
   const [guestName, setGuestName] = useState('');
   const [tipCents, setTipCentsState] = useState(0);
@@ -83,7 +83,7 @@ export function OrderProvider({ children }: PropsWithChildren) {
   const setNote = useCallback((note: string) => setCart((current) => setOrderNote(current, note)), []);
   const clearBag = useCallback(() => setCart(clearOrderCart()), []);
 
-  const setFulfillment = useCallback((next: BookingFulfillment | null) => {
+  const setFulfillment = useCallback((next: OrderFulfillment | null) => {
     setFulfillmentState(next);
     // A pickup window belongs to the place it was chosen for. Switching from
     // the shop to a delivery address, or between shops, has to drop it rather
@@ -107,7 +107,7 @@ export function OrderProvider({ children }: PropsWithChildren) {
     itemCount: orderItemCount(cart),
     subtotalCents: orderSubtotalCents(cart),
     isEmpty: isCartEmpty(cart),
-    deliveryFeeCents: fulfillment?.mode === 'dispatch' ? DELIVERY_FEE_CENTS : 0,
+    deliveryFeeCents: fulfillment?.mode === 'delivery' ? DELIVERY_FEE_CENTS : 0,
     fulfillment,
     windowValue,
     guestName,

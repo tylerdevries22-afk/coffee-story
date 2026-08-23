@@ -2,14 +2,14 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  dispatchAddressLine,
+  deliveryAddressLine,
   fulfillmentDetail,
-  OFFICE_LOCATIONS,
-  validateDispatchAddress,
-  type DispatchAddress,
+  PICKUP_LOCATIONS,
+  validateDeliveryAddress,
+  type DeliveryAddress,
 } from './fulfillment';
 
-const address: DispatchAddress = {
+const address: DeliveryAddress = {
   street: '1240 Maple Avenue',
   unit: 'Unit 4',
   city: 'Greenwood Village',
@@ -19,29 +19,29 @@ const address: DispatchAddress = {
 };
 
 test('accepts a complete dispatch address', () => {
-  assert.equal(validateDispatchAddress(address), null);
+  assert.equal(validateDeliveryAddress(address), null);
 });
 
 test('rejects incomplete or malformed dispatch addresses', () => {
-  assert.match(validateDispatchAddress({ ...address, street: '' }) ?? '', /street/i);
-  assert.match(validateDispatchAddress({ ...address, state: 'Colorado' }) ?? '', /two-letter/i);
-  assert.match(validateDispatchAddress({ ...address, postalCode: '801' }) ?? '', /ZIP/i);
+  assert.match(validateDeliveryAddress({ ...address, street: '' }) ?? '', /street/i);
+  assert.match(validateDeliveryAddress({ ...address, state: 'Colorado' }) ?? '', /two-letter/i);
+  assert.match(validateDeliveryAddress({ ...address, postalCode: '801' }) ?? '', /ZIP/i);
 });
 
 test('formats optional units and normalizes the state', () => {
   assert.equal(
-    dispatchAddressLine(address),
+    deliveryAddressLine(address),
     '1240 Maple Avenue, Unit 4, Greenwood Village, CO 80111',
   );
   assert.equal(
-    dispatchAddressLine({ ...address, unit: '' }),
+    deliveryAddressLine({ ...address, unit: '' }),
     '1240 Maple Avenue, Greenwood Village, CO 80111',
   );
 });
 
 test('describes office fulfillment from the selected office', () => {
   assert.equal(
-    fulfillmentDetail({ mode: 'office', office: OFFICE_LOCATIONS[0] }),
+    fulfillmentDetail({ mode: 'pickup', location: PICKUP_LOCATIONS[0] }),
     '2222 S Havana St Unit A1, Aurora, CO 80014',
   );
 });

@@ -90,8 +90,8 @@ test('adds a demo booking with add-on totals and duration', () => {
     addOns: [addOn],
     startsAt: '2026-08-04T19:30:00.000Z',
     fulfillment: {
-      mode: 'office',
-      office: {
+      mode: 'pickup',
+      location: {
         id: 'greenwood-village',
         name: 'Greenwood Village',
         address: '5650 Greenwood Plaza Blvd, Suite 225-C',
@@ -104,7 +104,7 @@ test('adds a demo booking with add-on totals and duration', () => {
   assert.equal(appointment.id, 'appointment-new');
   assert.equal(appointment.subtotalCents, 12500);
   assert.equal(new Date(appointment.endsAt).getTime() - new Date(appointment.startsAt).getTime(), 65 * 60_000);
-  assert.equal(appointment.fulfillmentMode, 'office');
+  assert.equal(appointment.fulfillmentMode, 'pickup');
   assert.equal(appointment.locationLabel, 'Greenwood Village');
   assert.match(appointment.locationDetail ?? '', /5650 Greenwood Plaza/);
 });

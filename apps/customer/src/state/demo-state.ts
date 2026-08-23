@@ -2,8 +2,8 @@ import { DEMO_PORTAL } from '@/data/demo';
 import {
   fulfillmentDetail,
   fulfillmentLabel,
-  type BookingFulfillment,
-} from '@/features/booking/fulfillment';
+  type OrderFulfillment,
+} from '@/features/order/fulfillment';
 import type {
   BookingAddOn,
   BookingService,
@@ -22,7 +22,7 @@ export type DemoBookingInput = {
   service: BookingService;
   addOns: BookingAddOn[];
   startsAt: string;
-  fulfillment?: BookingFulfillment;
+  fulfillment?: OrderFulfillment;
 };
 
 export const DEMO_STATE_VERSION = 4;

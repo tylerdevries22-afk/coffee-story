@@ -23,15 +23,15 @@ import { AppIcon } from '@/components/icon';
 import { ActionButton, StickyActionBar, useStickyBarClearance } from '@/components/order/order-chrome';
 import { Body } from '@/components/ui';
 import {
-  EMPTY_DISPATCH_ADDRESS,
-  OFFICE_LOCATIONS,
-  dispatchAddressLine,
-  validateDispatchAddress,
-  type BookingFulfillment,
-  type DispatchAddress,
-  type OfficeLocation,
-  type VisitMode,
-} from '@/features/booking/fulfillment';
+  EMPTY_DELIVERY_ADDRESS,
+  PICKUP_LOCATIONS,
+  deliveryAddressLine,
+  validateDeliveryAddress,
+  type OrderFulfillment,
+  type DeliveryAddress,
+  type PickupLocation,
+  type FulfillmentMode,
+} from '@/features/order/fulfillment';
 import { formatMoney } from '@/features/money';
 import { pickupWindows, shopStatus, type PickupWindow } from '@/features/order/pickup';
 import { DELIVERY_FEE_CENTS } from '@/features/order/totals';
@@ -43,7 +43,7 @@ const WINDOW_COUNT = 12;
 /** A search field only earns its place once the list is long enough to hunt in. */
 const SEARCH_THRESHOLD = 4;
 
-const DEMO_ADDRESS: DispatchAddress = {
+const DEMO_ADDRESS: DeliveryAddress = {
   street: '1240 Dayton Street',
   unit: '',
   city: 'Aurora',
@@ -61,13 +61,13 @@ export function PlaceStep({
   onBack,
   onChoose,
 }: {
-  mode: VisitMode;
+  mode: FulfillmentMode;
   isDemo: boolean;
-  initialAddress?: DispatchAddress;
+  initialAddress?: DeliveryAddress;
   onBack: () => void;
-  onChoose: (fulfillment: BookingFulfillment) => void;
+  onChoose: (fulfillment: OrderFulfillment) => void;
 }) {
-  return mode === 'office'
+  return mode === 'pickup'
     ? <PickupLocationStep onBack={onBack} onChoose={onChoose} />
     : <DeliveryAddressStep isDemo={isDemo} initialAddress={initialAddress} onBack={onBack} onChoose={onChoose} />;
 }
@@ -77,14 +77,14 @@ function PickupLocationStep({
   onChoose,
 }: {
   onBack: () => void;
-  onChoose: (fulfillment: BookingFulfillment) => void;
+  onChoose: (fulfillment: OrderFulfillment) => void;
 }) {
   const [query, setQuery] = useState('');
-  const searchable = OFFICE_LOCATIONS.length >= SEARCH_THRESHOLD;
+  const searchable = PICKUP_LOCATIONS.length >= SEARCH_THRESHOLD;
   const matches = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    if (!needle) return OFFICE_LOCATIONS;
-    return OFFICE_LOCATIONS.filter((office) => (
+    if (!needle) return PICKUP_LOCATIONS;
+    return PICKUP_LOCATIONS.filter((office) => (
       `${office.name} ${office.address} ${office.cityLine}`.toLowerCase().includes(needle)
     ));
   }, [query]);
@@ -117,13 +117,13 @@ function PickupLocationStep({
       {matches.length === 0 ? (
         <Body muted>No Coffee Story shop matches “{query.trim()}”.</Body>
       ) : (
-        matches.map((office) => (
+        matches.map((location) => (
           <LocationCard
-            key={office.id}
-            office={office}
+            key={location.id}
+            location={location}
             onPress={() => {
               void Haptics.selectionAsync().catch(() => undefined);
-              onChoose({ mode: 'office', office });
+              onChoose({ mode: 'pickup', location });
             }}
           />
         ))
@@ -132,12 +132,12 @@ function PickupLocationStep({
   );
 }
 
-function LocationCard({ office, onPress }: { office: OfficeLocation; onPress: () => void }) {
+function LocationCard({ location, onPress }: { location: PickupLocation; onPress: () => void }) {
   const status = shopStatus(new Date());
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${office.name}, ${office.address}, ${office.cityLine}. ${status.label}.`}
+      accessibilityLabel={`${location.name}, ${location.address}, ${location.cityLine}. ${status.label}.`}
       onPress={onPress}
       style={({ pressed }) => [styles.locationCard, pressed && styles.pressed]}
     >
@@ -145,16 +145,16 @@ function LocationCard({ office, onPress }: { office: OfficeLocation; onPress: ()
         <AppIcon name="cup.and.saucer.fill" size={20} tintColor={colors.brand700} />
       </View>
       <View style={styles.locationCopy}>
-        <Text style={styles.locationName}>{office.name}</Text>
+        <Text style={styles.locationName}>{location.name}</Text>
         <View style={styles.locationBadges}>
           <View style={[styles.statusBadge, status.open ? styles.statusBadgeOpen : styles.statusBadgeShut]}>
             <Text style={[styles.statusText, status.open ? styles.statusTextOpen : styles.statusTextShut]}>
               {status.label}
             </Text>
           </View>
-          <Text style={styles.locationNote}>{office.note}</Text>
+          <Text style={styles.locationNote}>{location.note}</Text>
         </View>
-        <Text style={styles.locationAddress}>{office.address}, {office.cityLine}</Text>
+        <Text style={styles.locationAddress}>{location.address}, {location.cityLine}</Text>
       </View>
       <AppIcon name="chevron.right" size={18} tintColor={colors.ink400} />
     </Pressable>
@@ -168,27 +168,27 @@ function DeliveryAddressStep({
   onChoose,
 }: {
   isDemo: boolean;
-  initialAddress?: DispatchAddress;
+  initialAddress?: DeliveryAddress;
   onBack: () => void;
-  onChoose: (fulfillment: BookingFulfillment) => void;
+  onChoose: (fulfillment: OrderFulfillment) => void;
 }) {
-  const [address, setAddress] = useState<DispatchAddress>(initialAddress ?? EMPTY_DISPATCH_ADDRESS);
+  const [address, setAddress] = useState<DeliveryAddress>(initialAddress ?? EMPTY_DELIVERY_ADDRESS);
   const [error, setError] = useState<string | null>(null);
   const clearance = useStickyBarClearance();
-  const update = (field: keyof DispatchAddress, value: string) => {
+  const update = (field: keyof DeliveryAddress, value: string) => {
     setAddress((current) => ({ ...current, [field]: value }));
     setError(null);
   };
-  const summary = validateDispatchAddress(address) ? null : dispatchAddressLine(address);
+  const summary = validateDeliveryAddress(address) ? null : deliveryAddressLine(address);
 
   function confirm() {
-    const addressError = validateDispatchAddress(address);
+    const addressError = validateDeliveryAddress(address);
     if (addressError) {
       setError(addressError);
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => undefined);
       return;
     }
-    onChoose({ mode: 'dispatch', address: { ...address, state: address.state.toUpperCase() } });
+    onChoose({ mode: 'delivery', address: { ...address, state: address.state.toUpperCase() } });
   }
 
   return (
@@ -210,7 +210,7 @@ function DeliveryAddressStep({
         {isDemo ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`Use the demo home address, ${dispatchAddressLine(DEMO_ADDRESS)}`}
+            accessibilityLabel={`Use the demo home address, ${deliveryAddressLine(DEMO_ADDRESS)}`}
             onPress={() => {
               setAddress(DEMO_ADDRESS);
               setError(null);
@@ -221,7 +221,7 @@ function DeliveryAddressStep({
             <AppIcon name="house.fill" size={22} tintColor={colors.brand700} />
             <View style={styles.locationCopy}>
               <Text style={styles.locationName}>Use demo home address</Text>
-              <Text style={styles.locationAddress}>{dispatchAddressLine(DEMO_ADDRESS)}</Text>
+              <Text style={styles.locationAddress}>{deliveryAddressLine(DEMO_ADDRESS)}</Text>
             </View>
             <AppIcon name="arrow.down.to.line" size={18} tintColor={colors.ink500} />
           </Pressable>
@@ -261,7 +261,7 @@ export function DetailsStep({
   onChangeWindow,
   onDone,
 }: {
-  mode: VisitMode;
+  mode: FulfillmentMode;
   guestName: string;
   windowValue: string | null;
   now: Date;
@@ -273,7 +273,7 @@ export function DetailsStep({
   const clearance = useStickyBarClearance();
   const windows = useMemo(() => pickupWindows(now, WINDOW_COUNT), [now]);
   const [error, setError] = useState<string | null>(null);
-  const heading = mode === 'office' ? 'Pickup Options' : 'Delivery Options';
+  const heading = mode === 'pickup' ? 'Pickup Options' : 'Delivery Options';
 
   function confirm() {
     if (!guestName.trim()) {
@@ -282,7 +282,7 @@ export function DetailsStep({
       return;
     }
     if (!windowValue) {
-      setError(mode === 'office' ? 'Choose a pickup time.' : 'Choose a delivery time.');
+      setError(mode === 'pickup' ? 'Choose a pickup time.' : 'Choose a delivery time.');
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => undefined);
       return;
     }
@@ -315,7 +315,7 @@ export function DetailsStep({
         />
 
         <Text style={styles.sectionLabel}>
-          {mode === 'office' ? 'Pickup time' : 'Delivery time'}
+          {mode === 'pickup' ? 'Pickup time' : 'Delivery time'}
         </Text>
         {windows.length === 0 ? (
           <Body muted>The shop is closed for the next couple of days. Try again soon.</Body>

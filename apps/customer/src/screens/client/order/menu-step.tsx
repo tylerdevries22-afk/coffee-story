@@ -28,7 +28,7 @@ import { CartPill, Ribbon } from '@/components/order/order-chrome';
 import { disabledState } from '@/lib/a11y-state';
 import { useTabBarClearance } from '@/components/navigation/tab-screen';
 import type { Service } from '@/data/catalog';
-import { fulfillmentDetail, fulfillmentLabel, type BookingFulfillment } from '@/features/booking/fulfillment';
+import { fulfillmentDetail, fulfillmentLabel, type OrderFulfillment } from '@/features/order/fulfillment';
 import { describePickupWindow } from '@/features/order/pickup';
 import { menuPriceLabel } from '@/features/order/sizes';
 import { colors, fonts, radius, spacing } from '@/theme/tokens';
@@ -58,7 +58,7 @@ export function MenuStep({
   onSelectItem,
   onOpenBag,
 }: {
-  fulfillment: BookingFulfillment;
+  fulfillment: OrderFulfillment;
   windowValue: string | null;
   itemCount: number;
   subtotalCents: number;
@@ -89,7 +89,7 @@ export function MenuStep({
   const clearance = useTabBarClearance(spacing.xxl);
 
   const window = windowValue ? describePickupWindow(windowValue, new Date()) : null;
-  const isDelivery = fulfillment.mode === 'dispatch';
+  const isDelivery = fulfillment.mode === 'delivery';
 
   const measureSection = useCallback((id: string, event: LayoutChangeEvent) => {
     offsets.current[id] = event.nativeEvent.layout.y;

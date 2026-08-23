@@ -55,7 +55,7 @@ export type PortalAppointment = {
   depositCents: number;
   balanceCents: number;
   clientName?: string;
-  fulfillmentMode?: 'office' | 'dispatch';
+  fulfillmentMode?: 'pickup' | 'delivery';
   locationLabel?: string;
   locationDetail?: string;
   /**
@@ -361,8 +361,8 @@ export type StaffActionPayload =
     serviceSlug: string;
     startsAt: string;
     fulfillment: {
-      mode: 'office';
-      office: {
+      mode: 'pickup';
+      location: {
         id: string;
         name: string;
         address: string;
@@ -370,7 +370,7 @@ export type StaffActionPayload =
         note: string;
       };
     } | {
-      mode: 'dispatch';
+      mode: 'delivery';
       address: {
         street: string;
         unit: string;

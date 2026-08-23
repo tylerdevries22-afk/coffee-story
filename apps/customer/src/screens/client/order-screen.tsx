@@ -21,7 +21,7 @@ import { AppIcon } from '@/components/icon';
 import { PushFromRight } from '@/components/push-from-right';
 import { Body } from '@/components/ui';
 import type { Service } from '@/data/catalog';
-import type { BookingFulfillment, VisitMode } from '@/features/booking/fulfillment';
+import type { OrderFulfillment, FulfillmentMode } from '@/features/order/fulfillment';
 import { formatMoney } from '@/features/money';
 import { PICKUP_WINDOW_MINUTES, describePickupWindow, isWindowStillBookable } from '@/features/order/pickup';
 import { orderTotals, pointsForOrder } from '@/features/order/totals';
@@ -80,7 +80,7 @@ export function OrderScreen() {
   const order = useOrder();
   const { selectedServiceId, setBarCovered, setClientTab, openMore } = useAppState();
 
-  const [mode, setMode] = useState<VisitMode | null>(null);
+  const [mode, setMode] = useState<FulfillmentMode | null>(null);
   const [step, setStep] = useState<SetupStep>('hub');
   const [overlay, setOverlay] = useState<Overlay>('none');
   const [detailItem, setDetailItem] = useState<Service | null>(null);
@@ -158,7 +158,7 @@ export function OrderScreen() {
       ? { kind: 'card', method: savedCard }
       : null;
 
-  const startWith = useCallback((next: VisitMode) => {
+  const startWith = useCallback((next: FulfillmentMode) => {
     setMode(next);
     setStep('place');
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
@@ -173,7 +173,7 @@ export function OrderScreen() {
     }
   }, [order, portal.profile.fullName, step]);
 
-  const choosePlace = useCallback((fulfillment: BookingFulfillment) => {
+  const choosePlace = useCallback((fulfillment: OrderFulfillment) => {
     order.setFulfillment(fulfillment);
     setStep('details');
   }, [order]);
@@ -212,7 +212,7 @@ export function OrderScreen() {
       .join(', ');
 
     if (!isDemo) {
-      if (order.fulfillment.mode === 'dispatch') {
+      if (order.fulfillment.mode === 'delivery') {
         setPayError('Delivery ordering is coming to live accounts soon — pickup is ready now.');
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => undefined);
         return;
@@ -230,7 +230,7 @@ export function OrderScreen() {
           checkoutKey.current ??= newIdempotencyKey();
           const result = await platformApi.placeOrder({
             locationId: context.locationId,
-            fulfillmentType: fulfillment.mode === 'office' ? 'pickup' : 'delivery',
+            fulfillmentType: fulfillment.mode === 'pickup' ? 'pickup' : 'delivery',
             scheduledFor: order.windowValue,
             lines: order.cart.lines.map((line) => ({
               itemSlug: line.itemId,
@@ -405,7 +405,7 @@ export function OrderScreen() {
             totalCents={placed?.totalCents ?? 0}
             pointsEarned={placed?.points ?? 0}
             orderId={placed?.orderId ?? null}
-            isDelivery={order.fulfillment.mode === 'dispatch'}
+            isDelivery={order.fulfillment.mode === 'delivery'}
             onViewVisits={() => {
               editOrder();
               openMore('visits');
@@ -436,7 +436,7 @@ export function OrderScreen() {
             // Without this the form remounts empty every time it is reopened,
             // so editing a delivery order meant retyping the whole address --
             // an address the menu pill was displaying one tap earlier.
-            initialAddress={order.fulfillment?.mode === 'dispatch' ? order.fulfillment.address : undefined}
+            initialAddress={order.fulfillment?.mode === 'delivery' ? order.fulfillment.address : undefined}
             onBack={() => setStep('hub')}
             onChoose={choosePlace}
           />
@@ -471,8 +471,8 @@ function OrderHub({
   onOpenRewards,
   pointsPerDollar,
 }: {
-  mode: VisitMode | null;
-  onStart: (mode: VisitMode) => void;
+  mode: FulfillmentMode | null;
+  onStart: (mode: FulfillmentMode) => void;
   onOpenGift: () => void;
   onOpenCatering: () => void;
   onOpenRewards: () => void;
@@ -492,18 +492,18 @@ function OrderHub({
     >
       <View accessibilityRole="radiogroup" style={[styles.modeRow, compact && styles.modeRowCompact]}>
         <ModeCard
-          mode="dispatch"
+          mode="delivery"
           label="Delivery"
           compact={compact}
-          selected={mode === 'dispatch'}
-          onPress={() => onStart('dispatch')}
+          selected={mode === 'delivery'}
+          onPress={() => onStart('delivery')}
         />
         <ModeCard
-          mode="office"
+          mode="pickup"
           label="Pickup"
           compact={compact}
-          selected={mode === 'office'}
-          onPress={() => onStart('office')}
+          selected={mode === 'pickup'}
+          onPress={() => onStart('pickup')}
         />
       </View>
 
@@ -577,7 +577,7 @@ function HubRow({
 }
 
 type ModeCardProps = {
-  mode: VisitMode;
+  mode: FulfillmentMode;
   label: string;
   compact: boolean;
   selected: boolean;
@@ -598,7 +598,7 @@ function ModeCard({ mode, label, compact, selected, onPress }: ModeCardProps) {
         pressed && styles.cardPressed,
       ]}
     >
-      {mode === 'dispatch'
+      {mode === 'delivery'
         ? <DispatchIllustration active={selected} compact={compact} />
         : <ShopIllustration active={selected} compact={compact} />}
       <Text style={[styles.modeLabel, compact && styles.modeLabelCompact]}>{label}</Text>
