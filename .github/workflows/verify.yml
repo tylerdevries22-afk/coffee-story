@@ -8,6 +8,9 @@ on:
   push:
     branches: [main]
   pull_request:
+    # `labeled` is not a default type, and adding the `simulators` label is how
+    # the macOS job below is asked for. Everything else stays as it was.
+    types: [opened, synchronize, reopened, labeled]
   workflow_dispatch:
     inputs:
       publish:
@@ -16,6 +19,10 @@ on:
         default: false
       publish_operator:
         description: 'Also publish the operator app (creates its EAS project on first use)'
+        type: boolean
+        default: false
+      simulators:
+        description: 'Launch both apps on their own named iOS simulators (macOS runner)'
         type: boolean
         default: false
 
@@ -173,6 +180,147 @@ jobs:
           name: e2e-screenshots
           path: e2e-shots/
           if-no-files-found: ignore
+
+  # Both Expo apps, each on its OWN named iOS simulator, on a real macOS
+  # runner. This is the one thing a Linux box cannot check: simulators need
+  # the full Xcode app, so until now "the apps launch on a device" was only
+  # ever verified as a web export in a headless browser.
+  #
+  # Off unless asked for: macOS runners are ten times the cost of Linux ones
+  # (free here only because this repository is public), so the job runs when
+  # the `simulators` label is on the pull request, or on a manual dispatch
+  # with the input set. Never on an ordinary push.
+  simulators:
+    if: >-
+      (github.event_name == 'pull_request'
+        && contains(github.event.pull_request.labels.*.name, 'simulators'))
+      || (github.event_name == 'workflow_dispatch' && inputs.simulators)
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      CUSTOMER_SIM: coffee story cust
+      OPERATOR_SIM: coffee story ops
+      CUSTOMER_PORT: '8081'
+      OPERATOR_PORT: '8083'
+      EXPO_NO_TELEMETRY: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Create the two named simulators
+        run: |
+          set -euo pipefail
+          xcrun simctl list -j runtimes > /tmp/runtimes.json
+          xcrun simctl list -j devicetypes > /tmp/devicetypes.json
+          mapfile -t PICKED < <(python3 scripts/ci/simulator-devices.py /tmp/runtimes.json /tmp/devicetypes.json)
+          RUNTIME="${PICKED[0]}"; PHONE="${PICKED[1]}"; TABLET="${PICKED[2]}"
+          echo "runtime=$RUNTIME"; echo "phone=$PHONE"; echo "tablet=$TABLET"
+          CUSTOMER_UDID=$(xcrun simctl create "$CUSTOMER_SIM" "$PHONE" "$RUNTIME")
+          OPERATOR_UDID=$(xcrun simctl create "$OPERATOR_SIM" "$TABLET" "$RUNTIME")
+          echo "CUSTOMER_UDID=$CUSTOMER_UDID" >> "$GITHUB_ENV"
+          echo "OPERATOR_UDID=$OPERATOR_UDID" >> "$GITHUB_ENV"
+          xcrun simctl list devices available
+
+      - name: Boot both simulators before opening anything on them
+        run: |
+          set -euo pipefail
+          # The ordering the launcher script exists to enforce: opening a deep
+          # link on a device that is still booting is what times out.
+          xcrun simctl bootstatus "$CUSTOMER_UDID" -b
+          xcrun simctl bootstatus "$OPERATOR_UDID" -b
+
+      - name: Start both Metro servers
+        run: |
+          set -euo pipefail
+          cd apps/customer && nohup npx expo start --port "$CUSTOMER_PORT" > "$GITHUB_WORKSPACE/metro-customer.log" 2>&1 &
+          cd "$GITHUB_WORKSPACE/apps/operator" && nohup npx expo start --port "$OPERATOR_PORT" > "$GITHUB_WORKSPACE/metro-operator.log" 2>&1 &
+          cd "$GITHUB_WORKSPACE"
+          for port in "$CUSTOMER_PORT" "$OPERATOR_PORT"; do
+            for _ in $(seq 1 120); do
+              if curl -fs --max-time 2 "http://127.0.0.1:$port/status" >/dev/null 2>&1; then break; fi
+              sleep 2
+            done
+            if ! curl -fs --max-time 2 "http://127.0.0.1:$port/status" >/dev/null 2>&1; then
+              echo "Metro never answered on :$port"; cat "$GITHUB_WORKSPACE"/metro-*.log; exit 1
+            fi
+            echo "Metro is up on :$port"
+          done
+
+      - name: Put Expo Go on both devices
+        run: |
+          set -euo pipefail
+          # api.expo.dev names the client build for the SDK this repo pins, so
+          # Expo Go arrives without depending on @expo/cli internals -- and
+          # without the interactive `i` keypress that fetches it locally.
+          curl -fsSL https://api.expo.dev/v2/versions/latest -o /tmp/expo-versions.json
+          URL=$(python3 scripts/ci/expo-go-url.py /tmp/expo-versions.json 54.0.0)
+          echo "Expo Go: $URL"
+          curl -fsSL "$URL" -o /tmp/expo-go.tar.gz
+          mkdir -p /tmp/expo-go && tar -xzf /tmp/expo-go.tar.gz -C /tmp/expo-go
+          APP=$(find /tmp/expo-go -maxdepth 3 -name '*.app' | head -1)
+          echo "installing $APP"
+          xcrun simctl install "$CUSTOMER_UDID" "$APP"
+          xcrun simctl install "$OPERATOR_UDID" "$APP"
+
+      - name: Open each app on its own device
+        run: |
+          set -euo pipefail
+          open_app() {
+            udid="$1"; port="$2"; name="$3"
+            for try in 1 2 3; do
+              if xcrun simctl openurl "$udid" "exp://127.0.0.1:$port"; then
+                echo "$name opening (attempt $try)"; return 0
+              fi
+              sleep 5
+            done
+            echo "$name would not open"; return 1
+          }
+          open_app "$CUSTOMER_UDID" "$CUSTOMER_PORT" "Customer app"
+          open_app "$OPERATOR_UDID" "$OPERATOR_PORT" "Operator app"
+
+      - name: Wait for each app to actually load its JavaScript
+        run: |
+          set -euo pipefail
+          # Metro logs "Bundled" only when a real client fetched and ran the
+          # bundle, so this is the app running, not just the deep link firing.
+          for pair in "metro-customer.log|Customer" "metro-operator.log|Operator"; do
+            log="${pair%%|*}"; label="${pair##*|}"
+            for _ in $(seq 1 90); do
+              if grep -q "Bundled" "$GITHUB_WORKSPACE/$log"; then break; fi
+              sleep 5
+            done
+            if grep -q "Bundled" "$GITHUB_WORKSPACE/$log"; then
+              echo "$label bundled and running:"
+              grep -m3 "Bundled" "$GITHUB_WORKSPACE/$log"
+            else
+              echo "$label never bundled. Metro said:"; tail -60 "$GITHUB_WORKSPACE/$log"; exit 1
+            fi
+          done
+
+      - name: Screenshot both simulators
+        if: always()
+        run: |
+          mkdir -p sim-shots
+          sleep 20  # let the first frame settle after the bundle lands
+          xcrun simctl io "${CUSTOMER_UDID:-none}" screenshot "sim-shots/customer-coffee-story-cust.png" || true
+          xcrun simctl io "${OPERATOR_UDID:-none}" screenshot "sim-shots/operator-coffee-story-ops.png" || true
+          ls -la sim-shots
+
+      - name: Keep the screenshots and the Metro logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: simulator-screenshots
+          path: |
+            sim-shots/
+            metro-customer.log
+            metro-operator.log
+          if-no-files-found: warn
 
   audit:
     runs-on: ubuntu-latest
