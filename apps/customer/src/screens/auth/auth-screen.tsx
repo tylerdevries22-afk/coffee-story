@@ -4,7 +4,7 @@ import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-nativ
 import { Body, Button, Card, Eyebrow, Screen, Title } from '@/components/ui';
 import { BUSINESS } from '@/data/business';
 import { isValidOtpCode, normalizePhone } from '@/features/auth/phone';
-import { HEART_POINTS_LABEL } from '@/features/rewards/presentation';
+import { POINTS_LABEL } from '@/features/rewards/presentation';
 import { useAuth } from '@/state/auth-context';
 import { useDemo } from '@/state/demo-context';
 import { colors, fonts, radius, spacing } from '@/theme/tokens';
@@ -129,7 +129,7 @@ export function AuthScreen() {
             : view === 'email-code-verify' ? 'Enter the code we emailed.'
             : 'Welcome back.'}
         </Title>
-        <Body muted>Order ahead, gifts, {HEART_POINTS_LABEL} rewards, and your favorites in one place. {BUSINESS.tagline}.</Body>
+        <Body muted>Order ahead, gifts, {POINTS_LABEL} rewards, and your favorites in one place. {BUSINESS.tagline}.</Body>
       </View>
       <Card style={styles.form}>
         {view === 'create' ? <Field label="Full name" value={fullName} onChangeText={setFullName} autoComplete="name" /> : null}

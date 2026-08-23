@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
 
 import { GlassCup, POUR_MS, pourFillAt, useLiquidDrag } from '@/components/rewards/glass-cup';
-import { HEART_POINTS_LABEL } from '@/features/rewards/presentation';
+import { POINTS_LABEL } from '@/features/rewards/presentation';
 import { nextRewardForBalance, rewardFillPercent, rewardIsLocked } from '@/features/rewards/redeem';
 import { tierForAnnualPoints } from '@/features/rewards/rules';
 import { colors } from '@/theme/tokens';
@@ -71,7 +71,7 @@ export function RedeemTab({
             style={StyleSheet.absoluteFill}
           />
           <View style={styles.pointsCopy}>
-            <Text style={styles.pointsLabel}>My {HEART_POINTS_LABEL}</Text>
+            <Text style={styles.pointsLabel}>My {POINTS_LABEL}</Text>
             <Text style={styles.pointsNumber}>{displayPoints.toLocaleString()}</Text>
             <View style={styles.earnRatePill}>
               <RewardMark compact />
@@ -106,7 +106,7 @@ export function RedeemTab({
         ))}
       </View>
       <Text style={styles.footnote}>
-        {HEART_POINTS_LABEL} expire one year after they are earned. Eligible rewards apply automatically at checkout.
+        {POINTS_LABEL} expire one year after they are earned. Eligible rewards apply automatically at checkout.
       </Text>
     </>
   );
@@ -142,7 +142,7 @@ function RewardRow({
       <View style={styles.rewardCopy}>
         <Text style={[styles.rewardTitle, locked && styles.lockedText]}>{reward.name}</Text>
         <Text style={[styles.rewardCost, locked && styles.lockedText]}>
-          {loading ? 'Redeeming…' : `${reward.pointsCost.toLocaleString()} ${HEART_POINTS_LABEL}`}
+          {loading ? 'Redeeming…' : `${reward.pointsCost.toLocaleString()} ${POINTS_LABEL}`}
         </Text>
       </View>
       {locked ? (

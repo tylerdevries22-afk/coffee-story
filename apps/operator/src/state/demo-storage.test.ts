@@ -4,32 +4,6 @@ import test from 'node:test';
 import { createInitialDemoPortal } from './demo-state';
 import { parseStoredAppMode, parseStoredPortal } from './demo-storage';
 
-function legacyRewardsPayload(): string {
-  const portal = createInitialDemoPortal();
-  const legacy = JSON.parse(JSON.stringify(portal)) as Record<string, unknown>;
-  // A legacy rewards blob could already have been stamped v3 by the previous
-  // additive migration, so reward normalization must not trust the version.
-  legacy.demoStateVersion = 3;
-
-  const account = legacy.rewardAccount as Record<string, unknown>;
-  account.availableCrumbs = account.availablePoints;
-  account.annualCrumbs = account.annualPoints;
-  delete account.availablePoints;
-  delete account.annualPoints;
-
-  legacy.rewardLedger = (legacy.rewardLedger as Record<string, unknown>[]).map((entry) => {
-    const migrated: Record<string, unknown> = { ...entry, crumbs: entry.points };
-    delete migrated.points;
-    return migrated;
-  });
-  legacy.rewardCatalog = (legacy.rewardCatalog as Record<string, unknown>[]).map((item) => {
-    const migrated: Record<string, unknown> = { ...item, crumbsCost: item.pointsCost };
-    delete migrated.pointsCost;
-    return migrated;
-  });
-  return JSON.stringify(legacy);
-}
-
 test('parseStoredPortal returns null for missing or corrupt payloads', () => {
   assert.equal(parseStoredPortal(null), null);
   assert.equal(parseStoredPortal(''), null);
@@ -70,34 +44,6 @@ test('parseStoredPortal rejects a structurally incomplete portal instead of hydr
     ...portal,
     appointments: [{ ...portal.appointments[0], bookingSource: 'unknown' }],
   })), null);
-});
-
-test('parseStoredPortal migrates the complete pre-points reward schema', () => {
-  const migrated = parseStoredPortal(legacyRewardsPayload());
-  assert.ok(migrated);
-  assert.equal(migrated.demoStateVersion, 4);
-  assert.equal(migrated.autoPromptDismissed, false);
-  assert.equal(migrated.profile.avatarUrl, null);
-  assert.equal(migrated.rewardAccount.availablePoints, 1376);
-  assert.equal(migrated.rewardAccount.annualPoints, 1876);
-  assert.equal(migrated.rewardLedger[0]?.points, 91);
-  assert.equal(migrated.rewardLedger[4]?.points, -500);
-  assert.equal(migrated.rewardCatalog[0]?.pointsCost, 500);
-});
-
-test('parseStoredPortal prefers valid canonical reward values over stale aliases', () => {
-  const portal = createInitialDemoPortal();
-  const mixed = JSON.parse(JSON.stringify(portal)) as Record<string, unknown>;
-  const account = mixed.rewardAccount as Record<string, unknown>;
-  account.availablePoints = 0;
-  account.availableCrumbs = 9999;
-  const ledger = mixed.rewardLedger as Record<string, unknown>[];
-  ledger[0] = { ...ledger[0], points: -25, crumbs: 9999 };
-
-  const parsed = parseStoredPortal(JSON.stringify(mixed));
-  assert.ok(parsed);
-  assert.equal(parsed.rewardAccount.availablePoints, 0);
-  assert.equal(parsed.rewardLedger[0]?.points, -25);
 });
 
 test('parseStoredPortal round-trips a production-scale portal larger than the SecureStore limit', () => {

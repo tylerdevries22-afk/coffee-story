@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 
 import { Screen } from '@/components/ui';
-import { HEART_POINTS_LABEL } from '@/features/rewards/presentation';
+import { POINTS_LABEL } from '@/features/rewards/presentation';
 import { tierForAnnualPoints, REWARD_TIERS, type RewardTierName } from '@/features/rewards/rules';
 import { useReducedMotion } from '@/hooks/use-reduced-motion';
 import { mobileApi } from '@/lib/mobile-api';
@@ -131,7 +131,7 @@ export function RewardsScreen() {
         await refresh();
       }
       hapticSuccess();
-      Alert.alert(`${HEART_POINTS_LABEL} added`, 'Your balance and annual status are now up to date.');
+      Alert.alert(`${POINTS_LABEL} added`, 'Your balance and annual status are now up to date.');
     } catch (error) {
       hapticError();
       Alert.alert(

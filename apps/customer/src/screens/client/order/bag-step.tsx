@@ -28,7 +28,7 @@ import {
   type OrderLine,
 } from '@/features/order/cart';
 import { describePickupWindow } from '@/features/order/pickup';
-import { HEART_POINTS_LABEL } from '@/features/rewards/presentation';
+import { POINTS_LABEL } from '@/features/rewards/presentation';
 import { colors, fonts, radius, spacing } from '@/theme/tokens';
 import { menuImageFrame } from '@platform/ui';
 
@@ -105,7 +105,7 @@ export function BagStep({
             </View>
 
             <RewardsBanner
-              label={`Earn ${pointsPerDollar} ${HEART_POINTS_LABEL} per $1 on this order`}
+              label={`Earn ${pointsPerDollar} ${POINTS_LABEL} per $1 on this order`}
             />
 
             {cart.note ? (

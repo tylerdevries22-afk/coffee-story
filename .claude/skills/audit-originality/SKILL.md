@@ -14,18 +14,33 @@ list. Notes do not block; a person reads them and decides.
 
 ## Step 1 — the gate
 
-`grep -ri` the whole tree for any competitor name: code, comments, commit
-messages, copy, assets, listings, prompts, tests, fixtures. Include the
-screenshots' visible text.
+Grep the whole tree for any competitor name: code, comments, commit messages,
+copy, assets, listings, prompts, tests, fixtures. Include the screenshots'
+visible text.
+
+**Match on word boundaries, not substrings**, and exclude build output:
+
+```bash
+git ls-files | grep -vE '\.(png|jpg|jpeg|webp|mp4|ico)$' \
+  | xargs grep -iEn '\b<name>\b' 2>/dev/null
+```
 
 The count must be zero. Any hit is a **FAIL** that names the file and line. This
 is the only blocking check, because it is the only one that is unambiguous — a
 competitor's mark in a shipped binary or a store listing is a trademark problem
 regardless of how the screen looks.
 
-Watch for false positives: a substring can appear innocently inside an unrelated
-identifier. Report the line and let a person judge rather than rewriting code
-around a coincidence.
+The word boundary is not pedantry, it is what makes the gate usable. A plain
+`grep -ri` matches inside unrelated identifiers and the gate then fails forever
+on a coincidence: Sentry's minified `getBreadcrumbLogLevel` contains one
+competitor's name as the substring `…crumbL…`, which is what
+`docs/BUILD-REPORT.md` gap 9 records. Running over `git ls-files` rather than
+the working tree keeps `.next/`, `.metro-cache/`, and `node_modules/` out of it
+for the same reason.
+
+A boundary-matched hit is still worth a human read before you rewrite anything —
+a real word can appear innocently — but it should be rare enough to be worth
+reading.
 
 ## Step 2 — inventory the surface
 

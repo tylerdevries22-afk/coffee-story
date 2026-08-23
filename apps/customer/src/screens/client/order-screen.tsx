@@ -31,7 +31,7 @@ import {
   pointsForRedemption,
   splitPayment,
 } from '@/features/order/payment-split';
-import { HEART_POINTS_LABEL } from '@/features/rewards/presentation';
+import { POINTS_LABEL } from '@/features/rewards/presentation';
 import { simulateProgress, trackingView } from '@/features/tracking';
 import { sizeSuffix } from '@/data/menu-export';
 import { tenantFeature } from '@/tenant';
@@ -380,7 +380,7 @@ export function OrderScreen() {
               availableCents: redeemableCents,
               appliedCents: redeemCents,
               pointsCharged: pointsForRedemption(redeemCents),
-              pointsName: HEART_POINTS_LABEL,
+              pointsName: POINTS_LABEL,
               onToggle: () => setRedeemCents((current) => (current > 0 ? 0 : redeemableCents)),
             } : null}
             storedValue={giftBalanceCents > 0 ? {
@@ -522,14 +522,14 @@ function OrderHub({
 
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`Rewards. Earn ${pointsPerDollar} ${HEART_POINTS_LABEL} for every dollar on every order.`}
+        accessibilityLabel={`Rewards. Earn ${pointsPerDollar} ${POINTS_LABEL} for every dollar on every order.`}
         onPress={onOpenRewards}
         style={({ pressed }) => [styles.promo, pressed && styles.cardPressed]}
       >
         <View style={styles.promoCopy}>
           <Text style={styles.promoTitle}>Every cup counts</Text>
           <Text style={styles.promoDetail}>
-            Earn {pointsPerDollar} {HEART_POINTS_LABEL} for every $1 you spend, then trade them for the
+            Earn {pointsPerDollar} {POINTS_LABEL} for every $1 you spend, then trade them for the
             next one.
           </Text>
         </View>
@@ -761,7 +761,7 @@ function OrderPlaced({
           <Text style={styles.placedTotalValue}>{formatMoney(totalCents)}</Text>
         </View>
         <Text style={styles.placedNote}>
-          {pointsEarned} {HEART_POINTS_LABEL} land on your account once the shop confirms the order.
+          {pointsEarned} {POINTS_LABEL} land on your account once the shop confirms the order.
         </Text>
       </View>
 

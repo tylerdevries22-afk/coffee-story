@@ -3,7 +3,7 @@ import type { RewardEntry } from '@/types/domain';
 
 import { TENANT } from '@/tenant';
 
-export const HEART_POINTS_LABEL = TENANT.copy.pointsName ?? 'Points';
+export const POINTS_LABEL = TENANT.copy.pointsName ?? 'Points';
 
 export type RewardProgress = {
   currentFloor: number;

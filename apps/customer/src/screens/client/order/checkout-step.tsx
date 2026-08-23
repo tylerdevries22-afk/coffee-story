@@ -21,7 +21,7 @@ import {
 } from '@/components/order/order-chrome';
 import { formatMoney, formatRate } from '@/features/money';
 import { TIP_PRESETS_CENTS, type OrderTotals } from '@/features/order/totals';
-import { HEART_POINTS_LABEL } from '@/features/rewards/presentation';
+import { POINTS_LABEL } from '@/features/rewards/presentation';
 import { choiceState, toggleState } from '@/lib/a11y-state';
 import { colors, fonts, radius, spacing } from '@/theme/tokens';
 import type { PaymentMethod } from '@/types/domain';
@@ -279,7 +279,7 @@ export function CheckoutStep({
           </Text>
         </View>
 
-        <RewardsBanner label={`Earn ${pointsEarned} ${HEART_POINTS_LABEL} on this order`} />
+        <RewardsBanner label={`Earn ${pointsEarned} ${POINTS_LABEL} on this order`} />
 
         {payment?.kind === 'pay-at-pickup' ? (
           <Text style={styles.simulated}>

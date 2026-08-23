@@ -1,6 +1,6 @@
 import { Pressable, Text, View } from 'react-native';
 
-import { HEART_POINTS_LABEL } from '@/features/rewards/presentation';
+import { POINTS_LABEL } from '@/features/rewards/presentation';
 import { EARN_ACTIONS, earnActionState } from '@/features/rewards/earn-actions';
 import { disabledState } from '@/lib/a11y-state';
 
@@ -41,7 +41,7 @@ export function EarnTab({
 }) {
   return (
     <>
-      <Text style={styles.sectionTitle}>Earn {HEART_POINTS_LABEL}</Text>
+      <Text style={styles.sectionTitle}>Earn {POINTS_LABEL}</Text>
       <View style={styles.earnList}>
         {EARN_ACTIONS.map((action) => {
           const { complete, awaitingStudio, inert } = earnActionState(action, completed, isDemo);

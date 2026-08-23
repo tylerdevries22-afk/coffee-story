@@ -4,7 +4,7 @@ import { Alert, Pressable, ScrollView, Share, Text, View } from 'react-native';
 import { AppIcon } from '@/components/icon';
 import { SheetModal } from '@/components/sheet-modal';
 import { Button } from '@/components/ui';
-import { HEART_POINTS_LABEL, demoReferralCode, referralShareUrl } from '@/features/rewards/presentation';
+import { POINTS_LABEL, demoReferralCode, referralShareUrl } from '@/features/rewards/presentation';
 import { mobileApi } from '@/lib/mobile-api';
 import { TENANT } from '@/tenant';
 import { colors } from '@/theme/tokens';
@@ -75,7 +75,7 @@ export function RewardSheet({
         <View style={styles.sheetBadges}>
           <View style={styles.sheetTierBadge}>
             <Text style={styles.sheetTierText}>
-              {detail?.reward.pointsCost.toLocaleString()} {HEART_POINTS_LABEL}
+              {detail?.reward.pointsCost.toLocaleString()} {POINTS_LABEL}
             </Text>
           </View>
           {detail?.locked ? (
@@ -94,7 +94,7 @@ export function RewardSheet({
       {detail?.locked ? (
         <View style={styles.referralEmpty}>
           <Text style={styles.referralEmptyText}>
-            Keep earning {HEART_POINTS_LABEL} to unlock this reward.
+            Keep earning {POINTS_LABEL} to unlock this reward.
           </Text>
         </View>
       ) : null}
@@ -172,12 +172,12 @@ export function ReferralSheet({
       sheetStyle={styles.referralSheet}
     >
       <View style={styles.sheetTop}>
-        <View style={styles.referralPointsBadge}><Text style={styles.referralPointsText}>+20 {HEART_POINTS_LABEL}</Text></View>
+        <View style={styles.referralPointsBadge}><Text style={styles.referralPointsText}>+20 {POINTS_LABEL}</Text></View>
         <CloseButton onPress={onClose} />
       </View>
       <Text style={styles.referralTitle}>Refer a Friend</Text>
       <Text style={styles.referralBody}>
-        Share the invitation below. You’ll receive 20 {HEART_POINTS_LABEL} after your friend joins and places their first eligible order.
+        Share the invitation below. You’ll receive 20 {POINTS_LABEL} after your friend joins and places their first eligible order.
       </Text>
       <Pressable
         accessibilityRole="button"
@@ -227,7 +227,7 @@ export function HelpSheet({ open, onClose }: { open: boolean; onClose: () => voi
           </View>,
           <Text key="title" style={styles.sheetTitle}>Care that gives back.</Text>,
           <Text key="body" style={styles.sheetBody}>
-            Earn {HEART_POINTS_LABEL} on eligible purchases, unlock status perks, redeem drink rewards, and keep Brew Bucks ready for your next visit.
+            Earn {POINTS_LABEL} on eligible purchases, unlock status perks, redeem drink rewards, and keep Brew Bucks ready for your next visit.
           </Text>,
           <View key="earn" style={styles.helpRule}><Text style={styles.helpRuleTitle}>Earn</Text><Text style={styles.helpRuleBody}>10–13 points per eligible $1, based on status.</Text></View>,
           <View key="redeem" style={styles.helpRule}><Text style={styles.helpRuleTitle}>Redeem</Text><Text style={styles.helpRuleBody}>Choose unlocked rewards directly from the Redeem tab.</Text></View>,

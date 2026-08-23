@@ -203,41 +203,6 @@ function isStoredPortal(value: unknown): value is PortalBundle {
   return value.autoPromptDismissed === undefined || typeof value.autoPromptDismissed === 'boolean';
 }
 
-function renameLegacyNumber(
-  value: UnknownRecord,
-  currentKey: string,
-  legacyKey: string,
-): UnknownRecord {
-  const migrated = { ...value };
-  if (!isFiniteNumber(migrated[currentKey]) && isFiniteNumber(migrated[legacyKey])) {
-    migrated[currentKey] = migrated[legacyKey];
-  }
-  delete migrated[legacyKey];
-  return migrated;
-}
-
-function migrateLegacyRewardFields(value: unknown): unknown {
-  if (!isRecord(value)) return value;
-  const rewardAccount = isRecord(value.rewardAccount)
-    ? renameLegacyNumber(
-      renameLegacyNumber(value.rewardAccount, 'availablePoints', 'availableCrumbs'),
-      'annualPoints',
-      'annualCrumbs',
-    )
-    : value.rewardAccount;
-  const rewardLedger = Array.isArray(value.rewardLedger)
-    ? value.rewardLedger.map((entry) => (
-      isRecord(entry) ? renameLegacyNumber(entry, 'points', 'crumbs') : entry
-    ))
-    : value.rewardLedger;
-  const rewardCatalog = Array.isArray(value.rewardCatalog)
-    ? value.rewardCatalog.map((item) => (
-      isRecord(item) ? renameLegacyNumber(item, 'pointsCost', 'crumbsCost') : item
-    ))
-    : value.rewardCatalog;
-  return { ...value, rewardAccount, rewardLedger, rewardCatalog };
-}
-
 export {
   APP_MODE_STORAGE_KEY,
   DEMO_PORTAL_FILE_NAME,
@@ -257,9 +222,9 @@ export {
 export function parseStoredPortal(raw: string | null): PortalBundle | null {
   if (!raw) return null;
   try {
-    const migratedRewards = migrateLegacyRewardFields(JSON.parse(raw) as unknown);
-    if (!isRecord(migratedRewards) || !isRecord(migratedRewards.profile)) return null;
-    const migrated = migrateDemoPortalState(migratedRewards as PortalBundle);
+    const parsed = JSON.parse(raw) as unknown;
+    if (!isRecord(parsed) || !isRecord(parsed.profile)) return null;
+    const migrated = migrateDemoPortalState(parsed as PortalBundle);
     // Persisted preview files survive OTA updates. Validate every field that a
     // screen dereferences before hydration so a truncated or obsolete blob can
     // never strand the app inside the error boundary. Known historical reward

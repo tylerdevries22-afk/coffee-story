@@ -3,7 +3,7 @@ import { Animated, Pressable, Text, View, useWindowDimensions } from 'react-nati
 
 import { AppIcon } from '@/components/icon';
 import { GlassCup } from '@/components/rewards/glass-cup';
-import { annualPeriodYear, HEART_POINTS_LABEL, rewardProgress } from '@/features/rewards/presentation';
+import { annualPeriodYear, POINTS_LABEL, rewardProgress } from '@/features/rewards/presentation';
 import { nextTier, REWARD_TIERS, rewardMilestoneStates, tierForAnnualPoints } from '@/features/rewards/rules';
 import type { RewardTierName } from '@/features/rewards/rules';
 import type { RewardAccount } from '@/types/domain';
@@ -64,7 +64,7 @@ export function StatusTab({
         <Text style={styles.statusName}>{tier.name}</Text>
         <View style={styles.statusChip}>
           <Text style={styles.statusChipText}>
-            {account.annualPoints.toLocaleString()} {HEART_POINTS_LABEL} Earned in {periodYear}
+            {account.annualPoints.toLocaleString()} {POINTS_LABEL} Earned in {periodYear}
           </Text>
         </View>
         <Pressable
@@ -145,7 +145,7 @@ export function StatusTab({
             <View style={styles.nextTierCopy}>
               <Text style={styles.nextTierName}>{upcoming.name}</Text>
               <Text style={styles.nextTierThreshold}>
-                {upcoming.minimumAnnualPoints.toLocaleString()} {HEART_POINTS_LABEL} Earned in {periodYear}
+                {upcoming.minimumAnnualPoints.toLocaleString()} {POINTS_LABEL} Earned in {periodYear}
               </Text>
             </View>
             <AppIcon name="lock.fill" size={23} tintColor={colors.brand600} />
@@ -165,12 +165,12 @@ export function StatusTab({
               />
             ))}
             <PerkRow
-              label={`Earn ${upcoming.pointsPerDollar} ${HEART_POINTS_LABEL} for every $1 spent`}
+              label={`Earn ${upcoming.pointsPerDollar} ${POINTS_LABEL} for every $1 spent`}
               locked
               onPress={() => onPerk({
                 label: `Earn ${upcoming.pointsPerDollar} for every $1 spent`,
                 tier: `${upcoming.name} Perk`,
-                description: `Reach ${upcoming.minimumAnnualPoints.toLocaleString()} annual ${HEART_POINTS_LABEL} to unlock a faster earning rate on eligible purchases.`,
+                description: `Reach ${upcoming.minimumAnnualPoints.toLocaleString()} annual ${POINTS_LABEL} to unlock a faster earning rate on eligible purchases.`,
                 locked: true,
               })}
             />
