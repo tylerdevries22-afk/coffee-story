@@ -137,19 +137,42 @@ jobs:
 
           if [ -z "$APP" ]; then
             echo "--- route 2: let @expo/cli fetch it (expo start --ios)"
-            # --ios installs Expo Go on whichever device is booted, so the
-            # operator device stands down for the length of this fetch.
+            # This works -- the previous version of this step just did not wait
+            # long enough and then killed the fetch it was waiting for. The
+            # cache showed `Expo-Go-54.0.7.tar.app` arriving AFTER the step had
+            # already failed, with `host.exp.Exponent` installed on the device.
+            #
+            # So: poll the real success condition (Expo Go present on the
+            # customer device), give the download the time a cold macOS runner
+            # actually needs, and do not kill the CLI until it has delivered.
             xcrun simctl shutdown "$OPERATOR_UDID" || true
             ( cd apps/customer && nohup npx expo start --port 8099 --ios > "$GITHUB_WORKSPACE/expo-go-fetch.log" 2>&1 & )
-            for _ in $(seq 1 60); do
-              APP=$(ls -td "$HOME"/.expo/ios-simulator-app-cache/*.app 2>/dev/null | sed -n 1p)
-              [ -n "$APP" ] && break
+            for i in $(seq 1 90); do
+              if xcrun simctl get_app_container "$CUSTOMER_UDID" host.exp.Exponent >/dev/null 2>&1; then
+                echo "Expo Go landed on the customer device after ~$((i * 10))s"
+                break
+              fi
+              [ $((i % 6)) -eq 0 ] && echo "  still fetching (${i}0s)…"
               sleep 10
             done
+            tail -20 "$GITHUB_WORKSPACE/expo-go-fetch.log" || true
+            # The cached bundle is what the operator device gets installed from;
+            # @expo/cli names it `Expo-Go-<version>.tar.app`, which is a
+            # directory despite the `.tar` in the middle.
+            APP=$(ls -td "$HOME"/.expo/ios-simulator-app-cache/*.app 2>/dev/null | sed -n 1p)
             echo "cached: ${APP:-<nothing>}"
-            tail -30 "$GITHUB_WORKSPACE/expo-go-fetch.log" || true
             pkill -f "expo start --port 8099" || true
             xcrun simctl bootstatus "$OPERATOR_UDID" -b
+            # `--ios` already installed it on the customer device; only the
+            # operator device still needs it.
+            if [ -n "$APP" ]; then
+              xcrun simctl install "$OPERATOR_UDID" "$APP" && echo "installed on the operator device"
+            fi
+            if xcrun simctl get_app_container "$CUSTOMER_UDID" host.exp.Exponent >/dev/null 2>&1 \
+               && xcrun simctl get_app_container "$OPERATOR_UDID" host.exp.Exponent >/dev/null 2>&1; then
+              echo "Expo Go is on both devices."
+              exit 0
+            fi
           fi
 
           if [ -z "$APP" ]; then
