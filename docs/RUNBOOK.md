@@ -107,11 +107,36 @@ label-gated (`simulators`) so it never runs on a push. It reliably reaches:
 both named simulators created and booted, both Metro servers serving, Expo Go
 installed and launched on each device, and each app opened by deep link.
 
-It has **not** demonstrated the apps' JavaScript loading. Three independent
-approaches were tried -- reading Metro's log, requesting each bundle over HTTP,
-and reading each simulator's own system log for React Native startup traces --
-and none confirmed it. Read the failures in this order before concluding
-anything about the apps:
+What twenty-five runs of it eventually found was a real defect in this repo,
+not a runner problem: **the dev server could not serve a bundle to Expo Go at
+all**, so no app was ever going to render on a simulator, here or on a Mac.
+
+`.npmrc` sets `node-linker=hoisted` because Metro wants a flat `node_modules`,
+which puts every dependency at the workspace root and leaves
+`apps/<name>/node_modules` holding only the `@platform` links. `metro.config.js`
+then sets `EXPO_NO_METRO_WORKSPACE_ROOT=1` (it has to -- without it the web
+static-render pass dies with "Unexpectedly escaped traversal"), which pins
+Metro's server root to the app directory. Metro resolves the manifest `main` as
+a path relative to that root, so `"main": "expo-router/entry"` became
+`./node_modules/expo-router/entry` inside `apps/customer` -- which does not
+exist under a hoisted install. Every bundle request 404'd with an
+`UnableToResolveError` and Expo Go showed its error dialog.
+
+The fix is an `index.js` in each app that does `import 'expo-router/entry'`,
+with `"main": "index.js"`. A real file resolves from the server root, and the
+bare specifier inside it resolves the ordinary way, walking up to the hoisted
+copy. Reproduced and verified on Linux, where `expo start` behaves identically:
+
+    404, UnableToResolveError   ->   200, 23,503,498 bytes of JavaScript
+
+Both iOS and web exports still pass, so the flag stays where it is.
+
+Two diagnostics hid this for the whole run. The bundle probe tried three URLs
+and printed the LAST one's error against the FIRST one's url, and the last was
+always `/index.bundle`, which fails by design on an expo-router app. And the
+device-log probe called a helper defined in a different step, so it reported
+"no device log captured" for reasons unrelated to the device. Read the failures
+in this order before concluding anything about the apps:
 
 1. **CoreSimulator stops answering `simctl`.** Not a slow call -- `launch`,
    `get_app_container`, anything, never returns. The job reports this

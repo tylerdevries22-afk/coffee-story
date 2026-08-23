@@ -400,7 +400,7 @@ jobs:
           fi
 
       - name: Wait for each app to actually load its JavaScript
-        timeout-minutes: 8
+        timeout-minutes: 15
         run: |
           set -uo pipefail
           exec >> "$GITHUB_WORKSPACE/expo-go-diag.log" 2>&1
@@ -422,8 +422,20 @@ jobs:
           # guessing at bundle URLs can fake.
           device_says_running() {
             udid="$1"; name="$2"
-            bounded 90 sh -c "xcrun simctl spawn '$udid' log show --last 6m --style compact \
-              --predicate 'process == \"Exponent\"' > /tmp/device-$name.log 2>/dev/null"
+            # Bound it inline. `bounded` is defined in the step that opens the
+            # apps, and shell functions do not survive across GitHub steps --
+            # this called a command that did not exist here, so the device log
+            # was empty for reasons that had nothing to do with the device.
+            xcrun simctl spawn "$udid" log show --last 6m --style compact \
+              --predicate 'process == "Exponent"' > "/tmp/device-$name.log" 2>/dev/null &
+            pid=$!; waited=0
+            while kill -0 "$pid" 2>/dev/null && [ "$waited" -lt 90 ]; do
+              sleep 3; waited=$((waited + 3))
+            done
+            if kill -0 "$pid" 2>/dev/null; then
+              kill -9 "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true
+              echo "  $name: the device log never came back in ${waited}s"
+            fi
             if [ -s "/tmp/device-$name.log" ]; then
               echo "  $name device log: $(wc -l < /tmp/device-$name.log) lines from Expo Go"
               if grep -qiE "Running application|RCTJavaScript|JavaScript loaded|bridge did|expo-router|AppRegistry" "/tmp/device-$name.log"; then
@@ -445,32 +457,23 @@ jobs:
           ok=1
           for pair in "$CUSTOMER_PORT|Customer|metro-customer.log" "$OPERATOR_PORT|Operator|metro-operator.log"; do
             port="${pair%%|*}"; rest="${pair#*|}"; label="${rest%%|*}"; log="${rest##*|}"
-            # Ask for the entry these apps ACTUALLY have. Their package.json
-            # says `"main": "expo-router/entry"`, so there is no index.js, and
-            # /index.bundle made Metro answer:
+            # ONE url -- the virtual entry, which is what Expo Go actually
+            # requests on SDK 50+. Three candidates in a row was a mistake
+            # twice over: it burned the step's whole budget building the same
+            # 23MB bundle repeatedly, and it reported the LAST candidate's
+            # error against the FIRST candidate's url. `/index.bundle` fails
+            # by design on an expo-router app, so the message that got printed
+            # for 25 runs was always the least informative of the three, and it
+            # hid the real one (`./node_modules/expo-router/entry` unresolvable
+            # under a hoisted install) the whole time.
             #
-            #   UnableToResolveError: Unable to resolve module ./index
-            #
-            # which was my probe being wrong for the third time, not the app.
-            # `transform.routerRoot` is required too -- Metro names the value
-            # at startup, "Using src/app as the root directory for Expo Router".
-            # Candidates rather than one guess: the virtual entry Expo serves
-            # for SDK 50+, then the entry module by path.
+            # No retry loop either: curl blocks while Metro compiles, which IS
+            # the wait. `transform.routerRoot` is required -- Metro names the
+            # value at startup, "Using src/app as the root directory for Expo
+            # Router".
             q="platform=ios&dev=true&transform.routerRoot=src/app"
-            bytes=0; url=""
-            for candidate in \
-              "http://$HOST_IP:$port/.expo/.virtual-metro-entry.bundle?$q" \
-              "http://$HOST_IP:$port/node_modules/expo-router/entry.bundle?$q" \
-              "http://$HOST_IP:$port/index.bundle?$q"; do
-              for _ in $(seq 1 12); do
-                bytes=$(curl -s --max-time 90 -o /tmp/bundle.js -w '%{size_download}' "$candidate" || echo 0)
-                [ "${bytes:-0}" -gt 100000 ] && break
-                sleep 10
-              done
-              if [ "${bytes:-0}" -gt 100000 ]; then url="$candidate"; break; fi
-              echo "  (${bytes:-0} bytes from ${candidate##*/}, trying the next entry)"
-            done
-            [ -z "$url" ] && url="http://$HOST_IP:$port/.expo/.virtual-metro-entry.bundle?$q"
+            url="http://$HOST_IP:$port/.expo/.virtual-metro-entry.bundle?$q"
+            bytes=$(curl -s --max-time 300 -o /tmp/bundle.js -w '%{size_download}' "$url" || echo 0)
             if [ "${bytes:-0}" -gt 100000 ]; then
               echo "$label: Metro served $bytes bytes of JavaScript at $url"
               head -c 120 /tmp/bundle.js | tr -d '\0'; echo
