@@ -56,3 +56,8 @@ next-env.d.ts
 
 # per-app metro caches
 .metro-cache/
+# `supabase start` local state, not project config
+supabase/.branches/
+supabase/.temp/
+# stray bytecode from repo scripts
+__pycache__/
