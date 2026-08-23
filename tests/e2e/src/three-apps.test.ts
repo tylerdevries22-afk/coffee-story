@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { after, before, describe, it } from 'node:test';
 
 import { shortCodeOf } from '../../../apps/operator/src/features/operator/live-board.ts';
@@ -23,6 +24,18 @@ const DESKTOP = { width: 1440, height: 900 };
 function money(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
 }
+
+/**
+ * The pickup card names the tenant this stack was seeded with, so the step
+ * that selects it reads the same brand.json `pnpm onboard` did rather than a
+ * literal street. Pinning "Havana St" here would pass for the first tenant and
+ * quietly stop meaning anything for the second -- which is exactly how that
+ * address ended up hard-coded in the app in the first place.
+ */
+const TENANT_BRAND = JSON.parse(
+  readFileSync(new URL('../../../tenants/coffee-story/brand.json', import.meta.url), 'utf8'),
+) as { location: { address: { street: string } } };
+const PICKUP_STREET = TENANT_BRAND.location.address.street;
 
 /**
  * The board advances optimistically and inserts the event behind the tap, so
@@ -116,7 +129,7 @@ describe('three apps, one stack', { skip: skipUnlessConfigured }, () => {
       // ---- Builds a bag and places a pay-at-pickup order.
       await customer.page.goto(`${CUSTOMER_URL}/client/book`, { waitUntil: 'load' });
       await clickLabel(customer.page, 'Pickup order');
-      await clickLabel(customer.page, /Havana St/);
+      await clickLabel(customer.page, new RegExp(PICKUP_STREET.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
       await fillLabel(customer.page, 'Name for the order', 'E2E Guest');
       await clickLabel(customer.page, /^Today, /);
       await clickText(customer.page, 'See the menu');
