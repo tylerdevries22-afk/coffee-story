@@ -158,3 +158,20 @@ in Expo, never in this repository, never in `packages/data`.
   the developer account and connects a location (P8).
 - Campaign "send" records the transition with `delivered: 0` until a
   push/SMS provider is configured.
+- **Loyalty redemption rate reads 0% on every dashboard, and that number is
+  not measured.** The `location_daily_metrics` / `brand_daily_metrics` views
+  compute it from `orders.loyalty_redeemed_points`, and nothing writes that
+  column: redeeming a reward (`POST /api/loyalty/redeem`) spends points from
+  the catalog and is not attached to an order at all — the order API refuses
+  `loyaltyRedeemPoints` outright with "not live yet". So the figure on the HQ
+  analytics page, in the CSV export and in the weekly owner email is a
+  placeholder, not a measurement, and it will stay 0.0000 until order-level
+  redemption is built. Do not quote it to a brand owner.
+- **The rewards ladder the guest app shows is not the rate the engine pays.**
+  `apps/customer/src/features/rewards/rules.ts` advertises 10/11/12/13 points
+  per dollar across the four tiers, and the bag screen renders that number
+  against the guest's real lifetime points. `recordLoyaltyEarn` always credits
+  the flat `DEFAULT_EARN_RATE_PER_DOLLAR` of 10, so a "Coffee Legend" shown
+  260 points on a $20 order is credited 200. Whether the fix is to honour the
+  ladder in the engine or to stop advertising it is the owner's call: it
+  changes what the brand owes its regulars. Until then the app over-promises.

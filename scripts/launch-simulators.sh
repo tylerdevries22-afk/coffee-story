@@ -51,17 +51,27 @@ xcrun simctl list devices available >/dev/null 2>&1 \
 
 # 2. Resolve each simulator by name, ignoring spaces, hyphens and case.
 find_sim() {
-  xcrun simctl list -j devices available | /usr/bin/python3 -c '
+  xcrun simctl list -j devices available 2>/dev/null | /usr/bin/python3 -c '
 import json, re, sys
 def norm(value): return re.sub(r"[^a-z0-9]", "", value.lower())
 want = norm(sys.argv[1])
-for runtime, devices in json.load(sys.stdin)["devices"].items():
+try:
+    devices_by_runtime = json.load(sys.stdin)["devices"]
+except Exception:
+    # simctl produced nothing usable. Print no udid and let the caller say so
+    # in its own words; a traceback here reads as "no such simulator".
+    raise SystemExit
+for runtime, devices in devices_by_runtime.items():
     for device in devices:
         if device.get("isAvailable") and norm(device["name"]) == want:
             print(device["udid"])
             raise SystemExit
 ' "$1"
 }
+command -v /usr/bin/python3 >/dev/null 2>&1 \
+  || fail "/usr/bin/python3 is missing, so simulator names cannot be matched.
+   It ships with the Xcode command-line tools: xcode-select --install"
+
 CUSTOMER_UDID="$(find_sim "$CUSTOMER_SIM")"
 OPERATOR_UDID="$(find_sim "$OPERATOR_SIM")"
 if [ -z "$CUSTOMER_UDID" ] || [ -z "$OPERATOR_UDID" ]; then
@@ -77,16 +87,25 @@ fi
 say "✅ Customer → $CUSTOMER_SIM"
 say "✅ Operator → $OPERATOR_SIM"
 
-# 3. Free only our own ports; anything else you are running stays up.
-for port in "$CUSTOMER_PORT" "$OPERATOR_PORT"; do
-  pids="$(lsof -ti "tcp:$port" 2>/dev/null || true)"
-  if [ -n "$pids" ]; then
-    say "• Freeing port $port"
-    # shellcheck disable=SC2086 # deliberate word splitting: lsof returns a pid list
-    kill $pids 2>/dev/null || true
-    sleep 1
-  fi
-done
+# 3. Find two free ports. 8081 is the Expo DEFAULT, not ours -- on any machine
+#    with a second React Native project it is usually someone else's Metro, and
+#    the first version of this script killed whatever it found there. Stepping
+#    aside is both safer and faster than explaining what we just terminated.
+free_port() {
+  local port="$1" tries=0
+  while lsof -ti "tcp:$port" >/dev/null 2>&1; do
+    port=$((port + 1)); tries=$((tries + 1))
+    [ "$tries" -ge 20 ] && fail "No free port near $1. Close something, or set CUSTOMER_PORT/OPERATOR_PORT."
+  done
+  printf '%s' "$port"
+}
+ORIGINAL_CUSTOMER_PORT="$CUSTOMER_PORT"; ORIGINAL_OPERATOR_PORT="$OPERATOR_PORT"
+CUSTOMER_PORT="$(free_port "$CUSTOMER_PORT")"
+OPERATOR_PORT="$(free_port "$OPERATOR_PORT")"
+[ "$CUSTOMER_PORT" = "$ORIGINAL_CUSTOMER_PORT" ] \
+  || say "• Port $ORIGINAL_CUSTOMER_PORT is busy (left alone) — customer Metro on $CUSTOMER_PORT"
+[ "$OPERATOR_PORT" = "$ORIGINAL_OPERATOR_PORT" ] \
+  || say "• Port $ORIGINAL_OPERATOR_PORT is busy (left alone) — operator Metro on $OPERATOR_PORT"
 
 # 4. Dependencies. Cheap when they are already installed.
 cd "$REPO" || fail "Couldn't enter $REPO"
@@ -108,7 +127,17 @@ say "✅ Both simulators booted"
 #    stays readable.
 start_metro() {
   local dir="$1" port="$2" label="$3" waited=0
-  osascript -e "tell application \"Terminal\" to do script \"cd '$REPO/$dir' && npx expo start --port $port\"" >/dev/null
+  # Driving Terminal needs Automation permission, and the first run pops a
+  # prompt. Denied, osascript exits non-zero and nothing ever starts -- which
+  # used to surface four minutes later as "Metro never answered".
+  if ! osascript -e "tell application \"Terminal\" to do script \"cd '$REPO/$dir' && npx expo start --port $port\"" >/dev/null 2>&1; then
+    fail "Couldn't open a Terminal window for $label Metro.
+   macOS asks for Automation permission the first time; if you dismissed it,
+   allow it under System Settings → Privacy & Security → Automation, or start
+   the two servers yourself:
+     (cd '$REPO/apps/customer' && npx expo start --port $CUSTOMER_PORT)
+     (cd '$REPO/apps/operator' && npx expo start --port $OPERATOR_PORT)"
+  fi
   until curl -fs --max-time 2 "http://localhost:$port/status" >/dev/null 2>&1; do
     waited=$((waited + 2))
     [ "$waited" -ge 240 ] && fail "$label Metro never answered on port $port. Its Terminal window has the error."
@@ -119,15 +148,25 @@ start_metro() {
 start_metro apps/customer "$CUSTOMER_PORT" "Customer"
 start_metro apps/operator "$OPERATOR_PORT" "Operator"
 
-# 7. Expo Go onto each device, then open each app on its own device. The
-#    first run downloads Expo Go once; both devices then share that copy.
+# 7. Expo Go onto each device, then open each app on its own device.
+#
+#    Nothing here downloads Expo Go: @expo/cli fetches it when you press `i`
+#    or pass --ios, and `expo start` on its own never does. So the previous
+#    version of this loop sat for seven minutes waiting for a file that no
+#    one had asked for, then printed the fallback anyway. Check briefly, in
+#    case a Metro window is mid-download, then say what to do about it.
 GO_APP=""; waited=0
-while [ "$waited" -lt 420 ]; do
+while [ "$waited" -lt 30 ]; do
   GO_APP="$(ls -td "$HOME"/.expo/ios-simulator-app-cache/*.app 2>/dev/null | head -1)"
   [ -n "$GO_APP" ] && break
-  [ $((waited % 60)) -eq 0 ] && say "• Waiting for Expo Go to download…"
   sleep 5; waited=$((waited + 5))
 done
+if [ -z "$GO_APP" ]; then
+  say ""
+  say "• Expo Go isn't on this Mac yet, and only the Metro windows can fetch it."
+  say "  Press i in the Customer window once; when it lands, run this script"
+  say "  again and both apps will open on their own devices."
+fi
 
 open_app() {
   local udid="$1" port="$2" name="$3" try

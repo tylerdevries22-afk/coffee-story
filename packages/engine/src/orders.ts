@@ -34,6 +34,8 @@ import {
 } from './square/client';
 
 export type OrderTenderType = 'pay_at_pickup' | 'external' | 'square_link' | 'square_card';
+/** `app.order_channel`. Where the order was taken, not how it was paid. */
+export type OrderChannel = 'app' | 'web' | 'kiosk' | 'pos';
 
 /** Tenders that settle off-platform: the order is committed the moment it is placed. */
 const IMMEDIATE_TENDERS: ReadonlySet<OrderTenderType> = new Set(['pay_at_pickup', 'external']);
@@ -75,6 +77,13 @@ export type CreateOrderInput = {
   lines: readonly CreateOrderLine[];
   tipCents: number;
   tenderType: OrderTenderType;
+  /**
+   * Where the order came from. Derived server-side from who is calling, never
+   * from the body: the column existed with `default 'app'` and nothing ever
+   * wrote it, so `in_app_share` on the HQ dashboard and in the weekly owner
+   * email has been pinned at 100% for every brand since the view shipped.
+   */
+  channel: OrderChannel;
   /** The Idempotency-Key the client sent; persisted as orders.client_key. */
   clientKey: string | null;
   taxJurisdictions: readonly TaxJurisdiction[];
@@ -258,6 +267,7 @@ export async function createOrder(deps: CreateOrderDeps, input: CreateOrderInput
       tip_cents: input.tipCents,
       total_cents: totalCents,
       tender_type: input.tenderType,
+      channel: input.channel,
       client_key: input.clientKey,
     })
     .select('id, status, subtotal_cents, tax_cents, tip_cents, total_cents')
