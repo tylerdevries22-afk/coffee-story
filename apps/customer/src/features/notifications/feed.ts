@@ -1,17 +1,18 @@
-import type { PortalBundle, StaffDashboard } from '@/types/domain';
+import type { PortalBundle } from '@/types/domain';
 
 /**
  * What a notification points at when tapped, and what its trailing action does.
  * Kept as a small union rather than free-form callbacks so the feed stays pure
  * and testable; the screen maps each target onto real navigation.
+ *
+ * Every target names a guest surface. The workspace feed and the targets it
+ * needed (a calendar, a register, a visit to confirm) live in the Operator
+ * app, which keeps its own copy of this module.
  */
 export type NotificationTarget =
   | { kind: 'visits' }
   | { kind: 'rewards' }
-  | { kind: 'gift-balance' }
-  | { kind: 'staff-calendar' }
-  | { kind: 'staff-checkout' }
-  | { kind: 'confirm-visit'; appointmentId: string };
+  | { kind: 'gift-balance' };
 
 export type NotificationItem = {
   id: string;
@@ -145,41 +146,6 @@ export function buildClientNotifications(portal: PortalBundle, now: Date): Notif
       target: { kind: 'gift-balance' },
       action: 'Redeem',
     });
-  }
-
-  return items;
-}
-
-/** The workspace feed: visits awaiting confirmation, then ones ready to bill. */
-export function buildStaffNotifications(dashboard: StaffDashboard, now: Date): NotificationItem[] {
-  const items: NotificationItem[] = [];
-
-  for (const appointment of dashboard.appointments) {
-    const starts = new Date(appointment.startsAt);
-    if (appointment.status === 'pending' && starts.getTime() > now.getTime()) {
-      items.push({
-        id: `confirm-${appointment.id}`,
-        actor: appointment.clientName ?? 'Guest client',
-        title: 'needs confirmation',
-        detail: `${appointment.serviceName} · ${formatWhen(appointment.startsAt)}`,
-        at: new Date(starts.getTime() - DAY).toISOString(),
-        target: { kind: 'confirm-visit', appointmentId: appointment.id },
-        action: 'Confirm',
-      });
-    }
-    if (appointment.status === 'confirmed'
-      && starts.getTime() < now.getTime()
-      && appointment.balanceCents > 0) {
-      items.push({
-        id: `checkout-${appointment.id}`,
-        actor: appointment.clientName ?? 'Guest client',
-        title: 'is ready to check out',
-        detail: `${appointment.serviceName} · ${money(appointment.balanceCents)} due`,
-        at: appointment.endsAt,
-        target: { kind: 'staff-checkout' },
-        action: 'Check out',
-      });
-    }
   }
 
   return items;
