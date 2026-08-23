@@ -15,7 +15,7 @@
  */
 
 export type ClientTab = 'home' | 'book' | 'gift' | 'rewards' | 'more';
-export type StaffTab = 'orders' | 'today' | 'more';
+export type StaffTab = 'orders' | 'prep' | 'today' | 'more';
 export type MoreView =
   | 'menu' | 'services' | 'orders' | 'profile' | 'preferences' | 'messages' | 'membership'
   | 'payments' | 'gift-balance' | 'location' | 'resources' | 'faq' | 'care-policy'
@@ -37,9 +37,10 @@ export const CLIENT_TAB_LABELS: Readonly<Record<ClientTab, string>> = {
  * The board is first: this app is a KDS, and the tab a device lands on when it
  * wakes should be the one a barista is already looking at.
  */
-export const STAFF_TAB_ORDER: readonly StaffTab[] = ['orders', 'today', 'more'];
+export const STAFF_TAB_ORDER: readonly StaffTab[] = ['orders', 'prep', 'today', 'more'];
 export const STAFF_TAB_LABELS: Readonly<Record<StaffTab, string>> = {
   orders: 'Orders',
+  prep: 'Prep',
   today: 'Today',
   more: 'More',
 };

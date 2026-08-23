@@ -7,14 +7,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { tabState } from '@/lib/a11y-state';
 import { useAppState, type ClientTab, type StaffTab } from '@/state/app-context';
-import { CLIENT_TAB_LABELS } from '@/state/navigation-state';
+import { CLIENT_TAB_LABELS, STAFF_TAB_LABELS } from '@/state/navigation-state';
 import { colors, fonts, radius, shadow } from '@/theme/tokens';
 import { AppIcon } from '@/components/icon';
 
 /** SF Symbol names, plus the one mark the app draws itself. */
 type NavIcon =
   | 'house' | 'calendar' | 'gift' | 'ellipsis' | 'sun.max' | 'person.2' | 'creditcard'
-  | 'cup' | 'rectangle.grid.2x2';
+  | 'cup' | 'rectangle.grid.2x2' | 'flame';
 
 const CLIENT_ITEMS: readonly { key: ClientTab; label: string; icon: NavIcon }[] = [
   { key: 'home', label: CLIENT_TAB_LABELS.home, icon: 'house' },
@@ -24,10 +24,19 @@ const CLIENT_ITEMS: readonly { key: ClientTab; label: string; icon: NavIcon }[] 
   { key: 'more', label: CLIENT_TAB_LABELS.more, icon: 'ellipsis' },
 ];
 
+/**
+ * The web bar's own list.
+ *
+ * It has to be written out rather than derived, because each row carries an
+ * icon the native UITabBar declares at its own trigger. That duplication is
+ * exactly how this bar once shipped without an Orders tab at all
+ * (docs/BUILD-REPORT.md), so a test now pins it to STAFF_TAB_ORDER.
+ */
 const STAFF_ITEMS: readonly { key: StaffTab; label: string; icon: NavIcon }[] = [
-  { key: 'orders', label: 'Orders', icon: 'rectangle.grid.2x2' },
-  { key: 'today', label: 'Today', icon: 'sun.max' },
-  { key: 'more', label: 'More', icon: 'ellipsis' },
+  { key: 'orders', label: STAFF_TAB_LABELS.orders, icon: 'rectangle.grid.2x2' },
+  { key: 'prep', label: STAFF_TAB_LABELS.prep, icon: 'flame' },
+  { key: 'today', label: STAFF_TAB_LABELS.today, icon: 'sun.max' },
+  { key: 'more', label: STAFF_TAB_LABELS.more, icon: 'ellipsis' },
 ];
 
 export function BottomNav({

@@ -24,6 +24,19 @@
       ],
       "port": 4180,
       "autoPort": true
+    },
+    {
+      "name": "operator-web",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "serve",
+        "-s",
+        "apps/operator/dist",
+        "-l",
+        "4190"
+      ],
+      "port": 4190,
+      "autoPort": true
     }
   ]
 }

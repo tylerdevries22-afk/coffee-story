@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import {
   clientMoreHref,
@@ -37,9 +40,10 @@ test('an unrecognised More segment falls back to the menu rather than throwing',
 });
 
 test('the order board leads the bar', () => {
-  assert.deepEqual(STAFF_TAB_ORDER, ['orders', 'today', 'more']);
-  // Three triggers, well inside the five a UITabBar shows before it collapses
-  // the rest into a system More overflow. The board is first because that is
+  assert.deepEqual(STAFF_TAB_ORDER, ['orders', 'prep', 'today', 'more']);
+  // Four triggers, still inside the five a UITabBar shows before it collapses
+  // the rest into a system More overflow -- worth watching, because a fifth
+  // would push Profile into that overflow. The board is first because that is
   // the tab a mounted device should wake on.
   assert.equal(STAFF_TAB_ORDER[0], 'orders');
 });
@@ -64,3 +68,18 @@ test('the Website Proposal opens as a native More detail page', () => {
   assert.equal(staffDetailPathFromPathname(href), '/proposal');
 });
 
+
+test('the web bar shows every staff tab the native bar does', () => {
+  // The web bar writes its own list because each row carries an icon the
+  // native UITabBar declares at its trigger instead. That duplication once
+  // shipped a staff bar with no Orders tab at all (docs/BUILD-REPORT.md), so
+  // the two lists are pinned to each other here.
+  const source = readFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), '..', 'components', 'bottom-nav.tsx'),
+    'utf8',
+  );
+  const block = /const STAFF_ITEMS[\s\S]*?\n\];/.exec(source);
+  assert.ok(block, 'STAFF_ITEMS is not declared in bottom-nav.tsx');
+  const keys = [...block[0].matchAll(/key: '([a-z-]+)'/g)].map((m) => m[1]);
+  assert.deepEqual(keys, [...STAFF_TAB_ORDER]);
+});

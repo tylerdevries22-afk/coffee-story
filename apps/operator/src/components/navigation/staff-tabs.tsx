@@ -36,6 +36,11 @@ export function StaffTabs() {
         <TabLabel>{STAFF_TAB_LABELS.orders}</TabLabel>
       </NativeTabs.Trigger>
 
+      <NativeTabs.Trigger name="prep">
+        <TabIcon sf={{ default: 'flame', selected: 'flame.fill' }} />
+        <TabLabel>{STAFF_TAB_LABELS.prep}</TabLabel>
+      </NativeTabs.Trigger>
+
       <NativeTabs.Trigger name="today">
         <TabIcon sf={{ default: 'sun.max', selected: 'sun.max.fill' }} />
         <TabLabel>{STAFF_TAB_LABELS.today}</TabLabel>
