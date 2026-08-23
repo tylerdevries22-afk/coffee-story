@@ -217,8 +217,17 @@ jobs:
           set -euo pipefail
           xcrun simctl list -j runtimes > /tmp/runtimes.json
           xcrun simctl list -j devicetypes > /tmp/devicetypes.json
-          mapfile -t PICKED < <(python3 scripts/ci/simulator-devices.py /tmp/runtimes.json /tmp/devicetypes.json)
-          RUNTIME="${PICKED[0]}"; PHONE="${PICKED[1]}"; TABLET="${PICKED[2]}"
+          # No `mapfile`: GitHub runs macOS steps under /bin/bash, which is
+          # still bash 3.2, where that builtin does not exist -- it exits 127
+          # and takes the python it was reading from with it (a broken pipe).
+          python3 scripts/ci/simulator-devices.py /tmp/runtimes.json /tmp/devicetypes.json > /tmp/picked.txt
+          cat /tmp/picked.txt
+          RUNTIME=$(sed -n 1p /tmp/picked.txt)
+          PHONE=$(sed -n 2p /tmp/picked.txt)
+          TABLET=$(sed -n 3p /tmp/picked.txt)
+          if [ -z "$RUNTIME" ] || [ -z "$PHONE" ] || [ -z "$TABLET" ]; then
+            echo "Could not choose a runtime and two device types."; exit 1
+          fi
           echo "runtime=$RUNTIME"; echo "phone=$PHONE"; echo "tablet=$TABLET"
           CUSTOMER_UDID=$(xcrun simctl create "$CUSTOMER_SIM" "$PHONE" "$RUNTIME")
           OPERATOR_UDID=$(xcrun simctl create "$OPERATOR_SIM" "$TABLET" "$RUNTIME")
