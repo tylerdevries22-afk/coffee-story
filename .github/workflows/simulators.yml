@@ -283,17 +283,19 @@ jobs:
       - name: Replay the diagnostics at the end of the log
         if: failure()
         run: |
-          echo '================ expo-go step transcript ================'
-          cat "$GITHUB_WORKSPACE/expo-go-diag.log" 2>/dev/null || echo '(none)'
-          echo '================ customer metro (tail) =================='
-          tail -25 "$GITHUB_WORKSPACE/metro-customer.log" 2>/dev/null || echo '(none)'
-          echo '================ expo-go fetch (tail) ==================='
-          tail -25 "$GITHUB_WORKSPACE/expo-go-fetch.log" 2>/dev/null || echo '(none)'
-          echo '================ is Expo Go on the device? =============='
-          # `simctl listapps` walks every installed bundle and can sit there
-          # for minutes on a freshly booted device -- it hung this step for
-          # longer than the fetch it was reporting on. `get_app_container`
-          # answers the same question about one bundle id and returns at once.
-          xcrun simctl get_app_container "$CUSTOMER_UDID" host.exp.Exponent 2>/dev/null \
-            || echo '(Expo Go not installed on the customer device)'
-          ls -la "$HOME/.expo/ios-simulator-app-cache" 2>/dev/null || echo '(no expo app cache)'
+          # Ordered so the TRANSCRIPT IS LAST. The log API returns only a job's
+          # tail, and printing the transcript first put it back out of reach
+          # behind the sections that followed it -- the same mistake as putting
+          # this step before the artifact upload. Whatever matters most goes at
+          # the bottom.
+          echo '=========== is Expo Go on the device? ==========='
+          xcrun simctl get_app_container "$CUSTOMER_UDID" host.exp.Exponent >/dev/null 2>&1 \
+            && echo 'customer: yes' || echo 'customer: NO'
+          xcrun simctl get_app_container "$OPERATOR_UDID" host.exp.Exponent >/dev/null 2>&1 \
+            && echo 'operator: yes' || echo 'operator: NO'
+          echo '=========== metro (last lines each) ============='
+          tail -6 "$GITHUB_WORKSPACE/metro-customer.log" 2>/dev/null || echo '(none)'
+          echo '---'
+          tail -6 "$GITHUB_WORKSPACE/metro-operator.log" 2>/dev/null || echo '(none)'
+          echo '=========== step transcript (LAST) ============='
+          tail -45 "$GITHUB_WORKSPACE/expo-go-diag.log" 2>/dev/null || echo '(none)'
