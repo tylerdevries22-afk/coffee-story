@@ -83,10 +83,29 @@ export async function openApp(
     const text = await page
       .evaluate(() => document.body?.innerText ?? '')
       .catch(() => '(could not read the page)');
+    // innerText carries neither input VALUES nor which option is selected, and
+    // reading their absence as "the field was never filled" sent one
+    // investigation down a dead end. Both, explicitly.
+    const state = await page
+      .evaluate(() => {
+        const fields = [...document.querySelectorAll('input, textarea')]
+          .map((node) => {
+            const element = node as HTMLInputElement;
+            const label = element.getAttribute('aria-label') ?? element.name ?? element.type;
+            return element.value ? `${label}="${element.value}"` : `${label}=(empty)`;
+          });
+        const chosen = [...document.querySelectorAll('[aria-selected="true"], [aria-checked="true"]')]
+          .map((node) => node.getAttribute('aria-label') ?? (node as HTMLElement).innerText ?? '?')
+          .map((value) => value.replace(/\s+/g, ' ').trim().slice(0, 60));
+        return { fields, chosen };
+      })
+      .catch(() => ({ fields: [] as string[], chosen: [] as string[] }));
     const lines = [
       `----- ${name} -----`,
       `url: ${page.url()}`,
       `visible text: ${text.replace(/\s+/g, ' ').trim().slice(0, 900)}`,
+      state.fields.length ? `fields: ${state.fields.slice(0, 8).join(', ')}` : 'fields: none',
+      state.chosen.length ? `selected: ${state.chosen.slice(0, 6).join(' | ')}` : 'selected: nothing',
       errors.length ? `page errors: ${errors.slice(0, 3).join(' | ')}` : 'page errors: none',
       consoleErrors.length ? `console errors: ${consoleErrors.slice(0, 5).join(' | ')}` : 'console errors: none',
       failedCalls.length
