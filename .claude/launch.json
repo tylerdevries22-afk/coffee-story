@@ -48,6 +48,19 @@
       ],
       "port": 3200,
       "autoPort": true
+    },
+    {
+      "name": "customer-web",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "serve",
+        "-s",
+        "apps/customer/dist",
+        "-l",
+        "4170"
+      ],
+      "port": 4170,
+      "autoPort": true
     }
   ]
 }

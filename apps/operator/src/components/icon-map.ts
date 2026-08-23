@@ -68,6 +68,7 @@ export const IONICON: Record<string, keyof typeof Ionicons.glyphMap> = {
   paperplane: 'paper-plane-outline',
   pencil: 'pencil-outline',
   'person.2': 'people-outline',
+  'person.2.fill': 'people',
   'person.crop.circle': 'person-circle-outline',
   plus: 'add',
   qrcode: 'qr-code-outline',

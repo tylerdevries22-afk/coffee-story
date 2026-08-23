@@ -246,7 +246,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     enterStaff: () => {
       if (role === 'staff' || role === 'admin') {
         setModeOverride({ role, isStaffMode: true });
-        go(staffTabHref('today'), 'replace');
+        go(staffTabHref('orders'), 'replace');
       }
     },
     exitStaff: () => {
