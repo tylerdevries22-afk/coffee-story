@@ -53,6 +53,26 @@ export async function openApp(
   const page = await context.newPage();
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(String(error).slice(0, 300)));
+  // A failed API call is the most likely reason a step "clicks fine" and then
+  // nothing happens, and it leaves no trace in `pageerror`: the app catches it
+  // and shows a message that may be gone by the time the dump runs. The order
+  // POST failing this way cost two runs of guessing.
+  const failedCalls: string[] = [];
+  page.on('response', (response) => {
+    const status = response.status();
+    if (status < 400) return;
+    void response.text().then(
+      (body) => failedCalls.push(`${status} ${response.request().method()} ${response.url()} :: ${body.slice(0, 300)}`),
+      () => failedCalls.push(`${status} ${response.request().method()} ${response.url()}`),
+    );
+  });
+  page.on('requestfailed', (request) => {
+    failedCalls.push(`NETWORK ${request.method()} ${request.url()} :: ${request.failure()?.errorText ?? 'failed'}`);
+  });
+  const consoleErrors: string[] = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error') consoleErrors.push(message.text().slice(0, 300));
+  });
   await page.goto(url, { waitUntil: 'load', timeout: 60_000 });
   const shot = async (name: string) => {
     if (!stack.shotDir) return;
@@ -68,6 +88,10 @@ export async function openApp(
       `url: ${page.url()}`,
       `visible text: ${text.replace(/\s+/g, ' ').trim().slice(0, 900)}`,
       errors.length ? `page errors: ${errors.slice(0, 3).join(' | ')}` : 'page errors: none',
+      consoleErrors.length ? `console errors: ${consoleErrors.slice(0, 5).join(' | ')}` : 'console errors: none',
+      failedCalls.length
+        ? `failed calls:\n  ${failedCalls.slice(-6).join('\n  ')}`
+        : 'failed calls: none',
       '-'.repeat(20 + name.length),
     ];
     console.error(lines.join('\n'));
