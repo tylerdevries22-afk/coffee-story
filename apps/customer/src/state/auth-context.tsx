@@ -5,7 +5,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { Platform } from 'react-native';
 
 import { platformApi } from '@/lib/api';
-import { recoveryCodeFromUrl, recoveryRedirectUrl } from '@/lib/auth-links';
+import { recoveryCodeFromUrl, recoveryRedirectUrl } from '@platform/domain';
 import { loadLivePortal } from '@/lib/live-portal';
 import { registerForPush } from '@/lib/push';
 import { hasSupabaseConfig, supabase } from '@/lib/supabase';

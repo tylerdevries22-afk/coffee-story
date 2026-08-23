@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 
 import type { TenantClaims } from '@platform/schema';
 
-import { recoveryCodeFromUrl, recoveryRedirectUrl } from '@/lib/auth-links';
+import { recoveryCodeFromUrl, recoveryRedirectUrl } from '@platform/domain';
 import { loadStaffContext } from '@/lib/live-portal';
 import { hasSupabaseConfig, supabase } from '@/lib/supabase';
 import { useDemo } from '@/state/demo-context';
