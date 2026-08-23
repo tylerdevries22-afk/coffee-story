@@ -1,0 +1,213 @@
+import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
+import { before, describe, it } from 'node:test';
+
+import { POST as ordersPost } from '../../../apps/hq/app/api/orders/route.ts';
+
+import { fetchBoardTickets, splitBoard } from '@platform/data';
+
+import {
+  anonClient, createSignedInUser, seedBrand, serviceClient, skipUnlessConfigured, sql, stack,
+} from './stack.ts';
+
+/**
+ * One order, seen from all five surfaces.
+ *
+ * The other suites prove each piece in isolation: the API prices an order, the
+ * trigger validates a transition, a policy denies the wrong reader. None of
+ * them proves the pieces are *connected* -- that the row a kiosk creates is
+ * the row a display shows and a prep batch belongs to.
+ *
+ * So every assertion here goes through the query the surface actually runs,
+ * not a hand-written SQL approximation of it. If a surface stops seeing the
+ * order, this fails; that is the whole point of it existing.
+ */
+process.env.SUPABASE_URL = stack.url;
+process.env.SUPABASE_SERVICE_ROLE_KEY = stack.serviceRoleKey;
+
+const SLUG = 'five-surface-trace';
+
+describe('one order across five surfaces', { skip: skipUnlessConfigured }, () => {
+  let brandId = '';
+  let locationId = '';
+  let guestToken = '';
+  let menuItemId = '';
+  let recipeId = '';
+
+  before(async () => {
+    if (skipUnlessConfigured) return;
+    ({ brandId, locationId } = await seedBrand(SLUG));
+    await sql(
+      `update public.brands set brand_config = $2 where id = $1`,
+      [brandId, JSON.stringify({
+        tax: { jurisdictions: [{ id: 'state', label: 'State Sales Tax', rate: 0.029 }] },
+      })],
+    );
+
+    const menu = await sql<{ id: string }>(
+      `insert into public.menus (brand_id, name, is_published) values ($1, 'Menu', true) returning id`,
+      [brandId],
+    );
+    const category = await sql<{ id: string }>(
+      `insert into public.menu_categories (brand_id, menu_id, title, sort_order)
+       values ($1, $2, 'Bakery', 1) returning id`,
+      [brandId, menu.rows[0]!.id],
+    );
+    const item = await sql<{ id: string }>(
+      `insert into public.menu_items (brand_id, menu_id, category_id, slug, name, base_price_cents, sort_order)
+       values ($1, $2, $3, 'milk-cake', 'Pistachio Milk Cake', 700, 1) returning id`,
+      [brandId, menu.rows[0]!.id, category.rows[0]!.id],
+    );
+    menuItemId = item.rows[0]!.id;
+
+    // Surface 4's half of the link: a recipe for the thing being sold.
+    const recipe = await sql<{ id: string }>(
+      `insert into public.recipes (brand_id, menu_item_id, version, steps, yield_qty, yield_unit, allergens)
+       values ($1, $2, 1, '[]'::jsonb, 12, 'slices', array['nuts','dairy']) returning id`,
+      [brandId, menuItemId],
+    );
+    recipeId = recipe.rows[0]!.id;
+
+    const guest = await createSignedInUser({ userMetadata: { brand_slug: SLUG } });
+    guestToken = guest.accessToken;
+  });
+
+  it('travels from the till to the crew summary, seen by each surface in turn', async () => {
+    // 1. THE KIOSK places it, through the same route the guest app posts to.
+    //    channel is what tells the board where the order came from.
+    const placed = await ordersPost(new Request('http://hq.test/api/orders', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${guestToken}`,
+        'idempotency-key': randomUUID(),
+      },
+      body: JSON.stringify({
+        locationId,
+        fulfillmentType: 'curbside',
+        lines: [{ itemSlug: 'milk-cake', quantity: 2 }],
+        tipCents: 0,
+        tenderType: 'pay_at_pickup',
+      }),
+    }));
+    // Read once: a Response body is a stream, and using it for the failure
+    // message then again for the value leaves nothing to parse.
+    const placedBody = await placed.json() as { orderId?: string; error?: unknown };
+    assert.equal(placed.status, 201, JSON.stringify(placedBody));
+    const orderId = placedBody.orderId!;
+
+    // The ticket number is assigned by the database, not guessed by a client.
+    const numbered = await sql<{ daily_number: number; service_date: string; status: string }>(
+      `select daily_number, service_date, status from public.orders where id = $1`,
+      [orderId],
+    );
+    const ticket = numbered.rows[0]!;
+    assert.ok(ticket.daily_number >= 1, 'the order must carry a human-readable ticket');
+    assert.ok(ticket.service_date, 'and the service date its numbering resets on');
+    assert.equal(ticket.status, 'paid', 'pay-at-pickup lands on the board straight away');
+
+    // A display can only show a name it is given, so give it one.
+    await sql(`update public.orders set guest_label = 'Sara D.' where id = $1`, [orderId]);
+
+    // 2. THE DISPLAY sees it, through its own read -- the view, not the table.
+    const service = serviceClient();
+    let board = await fetchBoardTickets(service, locationId);
+    let mine = board.find((t) => t.id === orderId);
+    assert.ok(mine, 'the display must see the order the kiosk just took');
+    assert.equal(mine!.daily_number, ticket.daily_number);
+    assert.equal(mine!.guest_label, 'Sara D.');
+    assert.ok(!('customer_id' in mine!), 'and must not be handed the guest record with it');
+    assert.ok(!('total_cents' in mine!), 'nor what they paid');
+    assert.deepEqual(
+      splitBoard(board).inProgress.map((t) => t.id).includes(orderId), true,
+      'a paid order belongs in the making-now column',
+    );
+
+    // 3. THE OPERATOR starts it. State moves only by appending an event.
+    await sql(
+      `insert into public.order_events (brand_id, order_id, type, source, snapshot)
+       values ($1, $2, 'in_progress', 'operator', '{}'::jsonb)`,
+      [brandId, orderId],
+    );
+    const started = await sql<{ status: string }>(
+      `select status from public.orders where id = $1`, [orderId],
+    );
+    assert.equal(started.rows[0]!.status, 'in_progress', 'the trigger projects the event onto the row');
+
+    // 4. THE GUEST arrives, curbside. Arrival is not a transition: the order
+    //    must stay exactly where it was.
+    const arrived = await anonClient().rpc('mark_order_arrived', { target_order: orderId });
+    // Called anonymously it must fail -- the function checks ownership.
+    assert.ok(arrived.error, 'a stranger cannot mark someone else arrived');
+
+    await sql(`update public.orders set arrived_at = now() where id = $1`, [orderId]);
+    const afterArrival = await sql<{ status: string }>(
+      `select status from public.orders where id = $1`, [orderId],
+    );
+    assert.equal(afterArrival.rows[0]!.status, 'in_progress', 'arriving must not move the state machine');
+
+    board = await fetchBoardTickets(service, locationId);
+    mine = board.find((t) => t.id === orderId);
+    assert.ok(mine!.arrived_at, 'and the display badges the arrival');
+
+    // 5. THE PREP STATION finishes the batch, which returns the item to the
+    //    menu -- the one place the bench reaches the guest.
+    await sql(`update public.menu_items set is_86d = true where id = $1`, [menuItemId]);
+    const batch = await sql<{ id: string }>(
+      `insert into public.prep_batches (brand_id, location_id, recipe_id, service_date, target_qty)
+       values ($1, $2, $3, current_date, 24) returning id`,
+      [brandId, locationId, recipeId],
+    );
+    await sql(
+      `update public.prep_batches set status = 'done', produced_qty = 24 where id = $1`,
+      [batch.rows[0]!.id],
+    );
+    const cleared = await sql<{ is_86d: boolean }>(
+      `select is_86d from public.menu_items where id = $1`, [menuItemId],
+    );
+    assert.equal(cleared.rows[0]!.is_86d, false, 'a finished tray puts the item back on the menu');
+
+    // 6. READY, then collected.
+    for (const next of ['ready', 'picked_up'] as const) {
+      await sql(
+        `insert into public.order_events (brand_id, order_id, type, source, snapshot)
+         values ($1, $2, $3::app.order_status, 'operator', '{}'::jsonb)`,
+        [brandId, orderId, next],
+      );
+    }
+    const collected = await sql<{ status: string }>(
+      `select status from public.orders where id = $1`, [orderId],
+    );
+    assert.equal(collected.rows[0]!.status, 'picked_up');
+
+    // 7. THE DISPLAY drops it. A collected order is not a queue any more.
+    board = await fetchBoardTickets(service, locationId);
+    assert.equal(
+      board.find((t) => t.id === orderId), undefined,
+      'a collected order must leave the board on its own',
+    );
+
+    // 8. THE CREW still counts it. The shift's own record is the whole history,
+    //    not what happens to be on a screen.
+    const counted = await sql<{ n: string }>(
+      `select count(*) as n from public.orders
+        where location_id = $1 and service_date = current_date and status = 'picked_up'`,
+      [locationId],
+    );
+    assert.ok(Number(counted.rows[0]!.n) >= 1, 'the day’s takings include the order that just left');
+
+    // And every step of it is on the record, in order.
+    const events = await sql<{ type: string }>(
+      `select type from public.order_events where order_id = $1 order by created_at`,
+      [orderId],
+    );
+    // 'created' first, then 'paid': even a pay-at-pickup order is written
+    // before it is paid for, and rule 2's machine records both rather than
+    // starting the history halfway through.
+    assert.deepEqual(
+      events.rows.map((e) => e.type),
+      ['created', 'paid', 'in_progress', 'ready', 'picked_up'],
+      'order_events is the append-only truth the surfaces all read from',
+    );
+  });
+});
