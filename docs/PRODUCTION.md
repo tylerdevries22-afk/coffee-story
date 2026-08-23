@@ -187,6 +187,32 @@ in Expo, never in this repository, never in `packages/data`.
   rather than a union, and `paletteForTier` falls back by ladder position (then
   by a stable name hash) so a renamed tier still gets a deliberate, distinct
   glass. Only the data source is missing.
+- **The pickup picker can offer a window the placement guard refuses.** Both
+  read the same `PICKUP_LEAD_MINUTES` (15): the picker starts at
+  `roundUpToStep(now + 15min)` and `isWindowStillBookable` requires
+  `start >= now + 15min`. When the current minute lands on a 15-minute
+  boundary the earliest slot is offered at exactly the cutoff and goes stale
+  within a second, so a guest who taps the first time on the list and pays a
+  minute later is bounced back to Pickup Options with "That pickup time has
+  passed" -- for a window a quarter of an hour in the future. The e2e suite hit
+  this three runs running. Whether the fix is for the guard to stop
+  re-enforcing full lead time on a window the guest already chose, or only to
+  refuse one that has genuinely passed (which is all its comment claims to do),
+  changes what the shop promises its guests: an owner's call. Note also that
+  the board's `SCHEDULED_LANE_MINUTES` (30) means only that earliest slot lands
+  in the working New column at all -- slot two is already 30-45 minutes out and
+  goes to the Scheduled lane.
+- **The operator board fires live queries with a demo location id.**
+  `operator-store` initialises `location` to `DEMO_LOCATIONS[0]`
+  (`loc-havana`, a slug) and only corrects it to the signed-in account's real
+  location in a `useEffect` -- after the render that has already issued the
+  board fetch. Under live mode those first queries reach PostgREST as
+  `location_id=eq.loc-havana` against a uuid column and come back 400
+  `22P02 invalid input syntax for type uuid`, twice, on every sign-in. It
+  self-corrects once `liveLocations` arrives, so the board works; but if an
+  account ever has no locations the fallback keeps the demo roster and the
+  board queries stay malformed forever. Live mode should have no demo location
+  in it at all.
 - **Rule 4 is mounted but barely consumed.** ThemeProvider now runs in both
   Expo apps and both root Stacks take their page ground from `useTokens()`, so
   a tenant palette reaches the app -- and stops at the page ground. The other
