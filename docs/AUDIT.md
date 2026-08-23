@@ -249,3 +249,55 @@ left open with a reason.
   file, where it quotes the name to explain the substring pitfall. The gate as
   written can therefore never pass. Worth an exclusion for the skill's own
   prose, or a rephrasing that does not name it.
+
+## Follow-up — the board became one queue
+
+The two-column board ("Making now" / "Ready") is how the *kitchen* thinks. A
+guest does not care which of two stages their order is in; they care how many
+people are in front of them and whether it is their turn. The board is now one
+list: a place in line while you wait, a check when it is yours, and the row
+leaves when staff mark the order collected.
+
+Four things changed that are worth recording as decisions rather than diffs.
+
+- **The number is a position, not a ticket.** It was `orders.daily_number`,
+  which is stable by design and therefore never moves: a guest holding 43 sat
+  on 43 all morning while the queue emptied in front of them. `queuePositions`
+  counts only the people still waiting, so "3" becomes "2" as the bar works
+  and the number means what a number in a line means.
+- **The queue is a shared contract, not a display detail.** A barista asked
+  "what number am I?" has to give the number on the wall behind them, so
+  `queuePositions` lives in `@platform/domain` and both apps call it over
+  their own row types. The operator's KDS card now shows the same `#n`, and
+  `tests/consistency/src/board-sync.test.ts` pins the agreement — including
+  that `ready` is the last board state and that `picked_up` is not one, which
+  is what takes a guest's name off a public screen once they have their order.
+- **The linger is gone.** It existed because a ready ticket used to vanish
+  between blinks; the check now does that job openly, so holding a collected
+  order on screen would only leave a stranger's name up after they had left.
+- **The status badge is one asset, not two.** The board's badge is the
+  customer app's rewards chip: pill, a translucent tint of the tier's own
+  token role, the label, then the brand's mark. Both surfaces read that mark
+  from `rewardMark` in the copy dictionary, so a brand that changes it changes
+  both — `apps/customer`'s `RewardMark` no longer hard-codes the glyph.
+
+### One consequence that needs a product decision
+
+The wall no longer shows `orders.daily_number`. The kiosk receipt screen still
+intends to (`apps/kiosk/src/app/receipt.tsx` prints "Your order number" over a
+hard-coded `47`, a placeholder awaiting `placeOrder`), so once that is wired a
+guest will walk away holding "47" and then look for 47 on a board that shows
+"3". Nothing is broken today — the number on that screen is fake — but the two
+surfaces cannot both ship as they stand.
+
+Three ways out, none of them obviously right, all of them somebody's call:
+
+- The receipt stops printing a number and prints the **name** instead. The
+  board is name-first now, so the name is already the identifier; this is the
+  smallest change and the most consistent.
+- The board shows **both** — position large, ticket number small. Honest, but
+  it puts two numbers on a screen whose whole argument is one glance.
+- The receipt prints the guest's **position at the time of order**, which is
+  wrong within a minute and is the worst of the three.
+
+Recorded rather than decided.

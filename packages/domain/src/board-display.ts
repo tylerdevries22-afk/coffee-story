@@ -15,7 +15,9 @@
  *    channel is a provenance, never an account. Nothing here can widen that,
  *    because nothing here has anything wider to widen it with.
  */
-import type { BoardTicketRow, OrderChannel, FulfillmentType } from '@platform/schema';
+import type {
+  BoardTicketRow, FulfillmentType, OrderChannel, OrderStatus,
+} from '@platform/schema';
 
 import { REWARD_TIERS, sortedTiers, type RewardTier } from './rules';
 
@@ -107,10 +109,10 @@ export type BoardConfig = {
   /** Absolute https URL the QR panel points at, or null to hide the panel. */
   appUrl: string | null;
   /**
-   * How many tickets a column draws before it collapses the rest into a
-   * count. A board that silently clips is a board that lies about the queue.
+   * How many lines the board draws before it collapses the rest into a count.
+   * A board that silently clips is a board that lies about the queue.
    */
-  maxPerColumn: number;
+  maxLines: number;
 };
 
 export const DEFAULT_BOARD_CONFIG: BoardConfig = {
@@ -118,7 +120,7 @@ export const DEFAULT_BOARD_CONFIG: BoardConfig = {
   showChannel: true,
   ladder: DEFAULT_TIER_LADDER,
   appUrl: null,
-  maxPerColumn: 8,
+  maxLines: 8,
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -179,11 +181,11 @@ export function resolveBoardConfig(config: unknown): BoardConfig {
   if (typeof board.showGuestStatus === 'boolean') resolved.showGuestStatus = board.showGuestStatus;
   if (typeof board.showChannel === 'boolean') resolved.showChannel = board.showChannel;
   if (isDisplayableAppUrl(board.appUrl)) resolved.appUrl = board.appUrl;
-  if (typeof board.maxPerColumn === 'number'
-      && Number.isInteger(board.maxPerColumn)
-      && board.maxPerColumn > 0
-      && board.maxPerColumn <= 40) {
-    resolved.maxPerColumn = board.maxPerColumn;
+  if (typeof board.maxLines === 'number'
+      && Number.isInteger(board.maxLines)
+      && board.maxLines > 0
+      && board.maxLines <= 40) {
+    resolved.maxLines = board.maxLines;
   }
 
   if (Array.isArray(board.tiers)) {
@@ -259,27 +261,84 @@ export function provenanceLabel(
 }
 
 /**
- * What the board draws for one ticket: no row, no column, no colour --
- * only the decisions, so a test can assert them without a DOM.
+ * One line of the queue, as the room reads it.
+ *
+ * The board used to be two columns -- "Making now" and "Ready" -- which is how
+ * the *kitchen* thinks and not how the queue does. A guest does not want to
+ * know which of two stages their order is in; they want to know how many
+ * people are in front of them, and then to be told when to walk up. So there
+ * is one list: a position while you wait, a check when it is yours.
  */
 export type BoardEntry = {
   id: string;
-  /** The ticket number, or a dash: a board never invents a number. */
-  number: string;
+  /**
+   * Place in line, 1-based -- or null once the order is ready, where a check
+   * replaces the number. Numbering counts only the people still waiting, so
+   * "3" always means three, and never drifts because a ticket ahead was
+   * collected.
+   */
+  position: number | null;
+  /** True once the order is ready: the check, and the top of the list. */
+  ready: boolean;
   name: string;
   tier: BoardTier | null;
   provenance: string | null;
   arrived: boolean;
-  /** True while a collected order lingers, so it draws faded rather than gone. */
-  collected: boolean;
 };
+
+/**
+ * The queue position of every ticket, by id.
+ *
+ * Exported on its own, and taking the narrowest possible shape, because the
+ * operator app needs the same answer: a barista asked "what number am I?" has
+ * to say what the wall says, and two implementations of "the queue" would
+ * disagree the first time either changed. `apps/operator` reads this over its
+ * own `BoardOrder`; `apps/display` reads it over `BoardTicketRow`.
+ */
+export type QueueMember = {
+  id: string;
+  status: OrderStatus;
+  daily_number: number | null;
+  updated_at: string;
+};
+
+/** Ready first (longest-waiting at the top), then the line in ticket order. */
+function queueOrder(a: QueueMember, b: QueueMember): number {
+  const aReady = a.status === 'ready';
+  const bReady = b.status === 'ready';
+  if (aReady !== bReady) return aReady ? -1 : 1;
+  if (aReady && bReady) {
+    // Whoever has been ready longest is nearest the counter, and moving a
+    // finished ticket back down the list as newer ones land would take a
+    // guest's own line out from under them mid-walk.
+    const byWait = a.updated_at.localeCompare(b.updated_at);
+    if (byWait !== 0) return byWait;
+  }
+  return (a.daily_number ?? 0) - (b.daily_number ?? 0);
+}
+
+export function queuePositions(
+  members: readonly QueueMember[],
+): Map<string, number | null> {
+  const positions = new Map<string, number | null>();
+  let place = 0;
+  for (const member of [...members].sort(queueOrder)) {
+    if (member.status === 'ready') {
+      positions.set(member.id, null);
+      continue;
+    }
+    place += 1;
+    positions.set(member.id, place);
+  }
+  return positions;
+}
 
 /**
  * The guest's name, trimmed to what a wall can hold.
  *
  * A blank label is normal -- a till operator in a rush skips the name -- and
- * the number is the identifier anyway, so the fallback is silence rather than
- * "Guest", which reads like the guest's actual name from across a room.
+ * the position is the identifier anyway, so the fallback is silence rather
+ * than "Guest", which reads like the guest's actual name from across a room.
  */
 export function displayName(label: string | null | undefined, max = 18): string {
   const name = (label ?? '').trim();
@@ -290,102 +349,53 @@ export function displayName(label: string | null | undefined, max = 18): string 
 export function toEntry(
   ticket: BoardTicketRow,
   config: BoardConfig,
-  options: { collected?: boolean } = {},
+  position: number | null,
 ): BoardEntry {
   return {
     id: ticket.id,
-    number: ticket.daily_number === null ? '—' : String(ticket.daily_number),
+    position,
+    ready: ticket.status === 'ready',
     name: displayName(ticket.guest_label),
     tier: config.showGuestStatus ? tierBySlug(ticket.loyalty_tier, config.ladder) : null,
     provenance: config.showChannel
       ? provenanceLabel(ticket.channel, ticket.fulfillment_type)
       : null,
     arrived: ticket.arrived_at !== null,
-    collected: options.collected === true,
   };
 }
 
 /**
- * A column, capped.
+ * The list, capped.
  *
  * `.ticket-list { overflow: hidden }` used to be the whole of this: on a busy
  * Saturday the eleventh ticket simply left the screen, and the guest holding
  * it had no way to know the board had not forgotten them. A stated overflow
- * ("+7 more") is a smaller lie than a silent one.
+ * ("+7 more waiting") is a smaller lie than a silent one.
+ *
+ * A ready ticket is never what gets dropped. It is the one line on the board
+ * somebody is about to act on, and it is also the shortest-lived -- the row
+ * leaves the moment staff hand the order over.
  */
-export type BoardColumnView = {
+export type BoardQueue = {
   entries: BoardEntry[];
   overflow: number;
 };
 
-export function capColumn(entries: readonly BoardEntry[], max: number): BoardColumnView {
-  if (max <= 0 || entries.length <= max) return { entries: [...entries], overflow: 0 };
-  return { entries: entries.slice(0, max), overflow: entries.length - max };
-}
-
-/**
- * A ticket the board is still drawing, and whether the database has stopped
- * returning it. `goneSince` is null while the read still carries the row.
- */
-export type BoardSlot = {
-  ticket: BoardTicketRow;
-  goneSince: number | null;
-};
-
-/**
- * Folds a fresh read into what is already on screen.
- *
- * The reason this is not just "replace the array": `board_tickets` drops an
- * order the moment it is collected, so a number vanished between one blink
- * and the next -- including out from under the guest walking toward the
- * counter to answer it. They then have to ask, which is the exact interaction
- * a pickup board exists to remove.
- *
- * So a collected ticket lingers, faded, for `lingerMs`, and only then leaves.
- * Ordering is by ticket number rather than by update time, so a ticket never
- * jumps position for a reason nobody in the room can see.
- */
-export function reconcileBoard(
-  previous: readonly BoardSlot[],
-  incoming: readonly BoardTicketRow[],
-  now: number,
-  lingerMs: number,
-): BoardSlot[] {
-  const live = new Map(incoming.map((ticket) => [ticket.id, ticket]));
-  const slots: BoardSlot[] = incoming.map((ticket) => ({ ticket, goneSince: null }));
-
-  for (const slot of previous) {
-    if (live.has(slot.ticket.id)) continue;
-    const goneSince = slot.goneSince ?? now;
-    if (now - goneSince >= lingerMs) continue;
-    // Held at its last known state, which is 'ready' for anything collected
-    // from the board -- so it lingers in the column the guest last saw it in.
-    slots.push({ ticket: slot.ticket, goneSince });
-  }
-
-  return slots.sort((a, b) => (a.ticket.daily_number ?? 0) - (b.ticket.daily_number ?? 0));
-}
-
-/** Splits reconciled slots the way the board draws them, capped per column. */
-export function boardColumns(
-  slots: readonly BoardSlot[],
+export function boardQueue(
+  tickets: readonly BoardTicketRow[],
   config: BoardConfig,
-): { inProgress: BoardColumnView; ready: BoardColumnView } {
-  const pick = (match: (status: BoardTicketRow['status']) => boolean): BoardEntry[] =>
-    slots
-      .filter((slot) => match(slot.ticket.status))
-      // A ticket already collected is the one the room needs least, so it
-      // sorts behind the live queue and is therefore the first thing the cap
-      // drops. Without this, a lingering ghost could push a guest who is
-      // still waiting off the bottom of their own board.
-      .sort((a, b) => Number(a.goneSince !== null) - Number(b.goneSince !== null))
-      .map((slot) => toEntry(slot.ticket, config, { collected: slot.goneSince !== null }));
+): BoardQueue {
+  const positions = queuePositions(tickets);
+  const ordered = [...tickets].sort(queueOrder);
+  const entries = ordered.map((ticket) =>
+    toEntry(ticket, config, positions.get(ticket.id) ?? null));
 
-  return {
-    inProgress: capColumn(
-      pick((status) => status === 'paid' || status === 'in_progress'),
-      config.maxPerColumn,
-    ),
-    ready: capColumn(pick((status) => status === 'ready'), config.maxPerColumn),
-  };
+  if (config.maxLines <= 0 || entries.length <= config.maxLines) {
+    return { entries, overflow: 0 };
+  }
+  const readyCount = entries.filter((entry) => entry.ready).length;
+  // Never cut into the ready block, however long it gets: those are the people
+  // being called up right now.
+  const limit = Math.max(config.maxLines, readyCount);
+  return { entries: entries.slice(0, limit), overflow: entries.length - limit };
 }

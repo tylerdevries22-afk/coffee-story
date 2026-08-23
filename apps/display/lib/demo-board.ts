@@ -161,7 +161,7 @@ export const DEMO_BRAND_CONFIG = {
   board: {
     showGuestStatus: true,
     showChannel: true,
-    maxPerColumn: 8,
+    maxLines: 9,
     appUrl: 'https://coffeestoryco.com',
     tiers: [
       { slug: 'first-sip', label: 'First Sip', minLifetimePoints: 0, tone: 'muted' },

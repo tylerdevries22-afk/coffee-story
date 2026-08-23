@@ -118,7 +118,7 @@
     "$note": "The in-store pickup display (0030). showGuestStatus is opt-in per brand because a tier badge on a public wall tells the room roughly what someone spends. tiers mirror the REWARD_TIERS ladder's names, read against loyalty_accounts.lifetime_points; slug is the stable key the SQL projection emits, so renaming a label never orphans a badge. appUrl is what the QR panel encodes -- point it at the app-download landing page once the store listings are live.",
     "showGuestStatus": true,
     "showChannel": true,
-    "maxPerColumn": 8,
+    "maxLines": 9,
     "appUrl": "https://coffeestoryco.com",
     "tiers": [
       {

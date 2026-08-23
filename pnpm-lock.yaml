@@ -645,6 +645,13 @@ importers:
         version: 0.81.5(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0)
 
   tests/consistency:
+    dependencies:
+      '@platform/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
+      '@platform/schema':
+        specifier: workspace:*
+        version: link:../../packages/schema
     devDependencies:
       '@types/node':
         specifier: ~24.6.2

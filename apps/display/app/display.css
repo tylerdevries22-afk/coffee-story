@@ -54,27 +54,12 @@ html, body {
   border-bottom: 1px solid var(--board-line, #e7e5e4);
 }
 
-.board-heading { min-width: 0; }
-
 .board-title {
   font-family: var(--board-font-display, Georgia, serif);
   font-size: clamp(30px, 4.4vmin, 68px);
   line-height: 1.05;
   margin: 0;
   letter-spacing: 0.2px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Which shop. Present for the brand running two boards, quiet for the guest
-   already standing in one of them. */
-.board-place {
-  margin: 0.15em 0 0;
-  font-size: clamp(13px, 1.6vmin, 26px);
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--board-ink-muted, #57534e);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -116,113 +101,191 @@ html, body {
   background: var(--board-accent, #8a7350);
 }
 
-/* Columns ------------------------------------------------------------- */
+/* The queue ------------------------------------------------------------ */
 
-.board-columns {
-  flex: 1;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2.4vw;
-  padding: 1.8vh 2.6vw;
-  min-height: 0;
-}
-
-.board-column { display: flex; flex-direction: column; min-height: 0; }
-
-.board-column h2 {
-  font-family: var(--board-font-display, Georgia, serif);
-  font-size: clamp(18px, 2.4vmin, 36px);
-  font-weight: 400;
-  color: var(--board-ink-muted, #57534e);
-  margin: 0 0 1.1vh;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-}
-
-.board-column[data-column='ready'] h2 { color: var(--board-success, #2f6844); }
-
+/*
+ * One list, not two columns.
+ *
+ * "Making now" and "Ready" is how the *kitchen* thinks. A guest does not care
+ * which of two stages their order is in -- they care how many people are in
+ * front of them, and then whether it is their turn. So the stage becomes the
+ * mark at the head of the row and the columns go away, which also buys back
+ * the full width for the thing the room is actually reading: the name.
+ */
 .ticket-list {
+  flex: 1;
   list-style: none;
   margin: 0;
-  padding: 0;
+  padding: 1.2vh 2.6vw;
   display: flex;
   flex-direction: column;
-  gap: 1.1vh;
+  gap: 0.6vh;
   min-height: 0;
+  overflow: hidden;
 }
 
-/* Tickets ------------------------------------------------------------- */
-
 .ticket {
-  background: var(--board-raised, #fff);
-  border-radius: var(--board-radius, 22px);
-  padding: 1.4vh 1.6vw;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 1.4vw;
-  /* A uniform row, whatever is in it.
-     A ticket with no guest name has one line where its neighbours have two,
-     and left to size itself it came out visibly shorter -- which reads as a
-     rendering fault rather than as a missing name. The floor is the height of
-     a full name-plus-provenance row, so the column keeps its rhythm and the
-     eye can run down the numbers. */
-  min-height: clamp(64px, 9.2vmin, 156px);
-  box-shadow: 0 1px 3px rgb(0 0 0 / 8%);
+  column-gap: 2vw;
+  padding: 1.2vh 0.4vw;
+  border-bottom: 1px solid var(--board-line, #e7e5e4);
 }
 
-/*
- * A collected ticket, on its way out.
- *
- * It lingers rather than vanishing, because a number that disappears between
- * blinks takes it out from under the guest walking over to answer it. Faded
- * says "this is leaving" without asking the room to read anything new.
- */
-.ticket[data-collected='true'] {
-  opacity: 0.42;
-  box-shadow: none;
-}
+.ticket:last-child { border-bottom: none; }
+
+/* The mark ------------------------------------------------------------- */
 
 /*
- * The number: an index, not the headline.
+ * Place in line, or a check once it is yours.
  *
- * It was the largest thing on the screen by a wide margin, on the theory that
- * a ticket number is what a guest is looking for. Standing in front of it says
- * otherwise -- people scan for their *name*, and the display serif at 140px
- * ate the row, pushed the name and its provenance down into small print, and
- * left half the queue below the fold. Sized to be legible and countable, and
- * no larger; the width is fixed so the names line up in a column the eye can
- * run down rather than a ragged edge.
+ * Both live in the same fixed box and cross-fade, so the row never reflows as
+ * a ticket becomes ready -- a list that shuffles its own heights while people
+ * are reading it is the fastest way to lose the glance.
  *
- * vmin, not vw: a portrait-mounted screen is the common way a small shop hangs
- * one, and sizing off width alone shrank it on exactly that mount.
+ * Transitions, not keyframes. A transition settles at its end state; a
+ * keyframe animation holds its *start* state for as long as it is paused, and
+ * a browser pauses animations in a backgrounded tab. That is exactly how the
+ * arrival badge managed to render at opacity 0, and a check is not a detail
+ * that may quietly fail to appear.
  */
-.ticket-number {
+.ticket-mark {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: clamp(38px, 5vmin, 84px);
+  height: clamp(38px, 5vmin, 84px);
+}
+
+.ticket-position {
   font-family: var(--board-font-display, Georgia, serif);
-  font-size: clamp(26px, 3.6vmin, 62px);
+  font-size: clamp(24px, 3.2vmin, 56px);
   line-height: 1;
   font-variant-numeric: tabular-nums;
   color: var(--board-ink-muted, #57534e);
-  min-width: 2.2em;
-  text-align: right;
+  transition:
+    opacity var(--board-motion, 220ms) ease,
+    transform var(--board-motion, 220ms) ease;
 }
 
-.ticket-who {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1em;
-  min-width: 0;
+.ticket-check {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: var(--board-success, #2f6844);
+  stroke-width: 2.1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0;
+  transform: scale(0.6);
+  transition:
+    opacity var(--board-motion, 220ms) ease,
+    transform var(--board-motion, 220ms) cubic-bezier(0.2, 1.5, 0.4, 1);
 }
 
-/* The name is what the room is actually reading. */
+.ticket-check-ring { opacity: 0.28; }
+
+/*
+ * The tick draws itself on.
+ *
+ * `stroke-dashoffset` from the full path length to zero, driven by the same
+ * transition as the fade -- so the check is written rather than switched on,
+ * which is the one moment on this screen worth animating: it is the board
+ * telling somebody their order is theirs.
+ */
+.ticket-check-tick {
+  stroke-dasharray: 16;
+  stroke-dashoffset: 16;
+  transition: stroke-dashoffset calc(var(--board-motion, 220ms) * 1.6) ease-out;
+}
+
+.ticket-mark[data-ready='true'] .ticket-position {
+  opacity: 0;
+  transform: scale(0.7);
+}
+
+.ticket-mark[data-ready='true'] .ticket-check {
+  opacity: 1;
+  transform: none;
+}
+
+.ticket-mark[data-ready='true'] .ticket-check-tick { stroke-dashoffset: 0; }
+
+/* A ready row is the one somebody must act on, so it carries the weight. */
+.ticket[data-ready='true'] .ticket-name { color: var(--board-ink, #1c1917); }
+
+/* Name ----------------------------------------------------------------- */
+
+/* What the room is actually reading. */
 .ticket-name {
-  font-size: clamp(24px, 3.6vmin, 62px);
+  font-size: clamp(26px, 3.9vmin, 68px);
   font-weight: 600;
   line-height: 1.08;
   color: var(--board-ink, #1c1917);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* The right-hand stack ------------------------------------------------- */
+
+/*
+ * Status over provenance, right-aligned.
+ *
+ * Two facts about one order that belong to two different readers: the badge is
+ * for the guest it belongs to (and, quietly, for everyone else in the queue),
+ * the channel line is the "is that mine?" tiebreak. Stacking them off the
+ * right edge keeps both clear of the name, which owns the middle.
+ */
+.ticket-marks {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 0.25em;
+  flex: none;
+  text-align: right;
+}
+
+/*
+ * The status badge, matching the customer app's rewards chip.
+ *
+ * Same shape as `styles.tierChip` in apps/customer: a pill, a translucent tint
+ * of its own tone rather than a flat fill, the label, then the brand's reward
+ * mark. Same glyph too -- both surfaces read `rewardMark` from the copy
+ * dictionary, so a brand that changes its mark changes both and neither can
+ * drift. The tone comes from the tier's token role (rule 4), never a hex.
+ */
+.ticket-tier {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45em;
+  font-size: clamp(13px, 1.6vmin, 26px);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--tier-tone, var(--board-ink-muted, #57534e));
+  background: color-mix(in srgb, var(--tier-tone, currentcolor) 12%, transparent);
+  border-radius: var(--board-radius-pill, 999px);
+  padding: 0.35em 0.7em 0.35em 0.95em;
+  white-space: nowrap;
+}
+
+/* The mark rides in its own disc, as it does on the rewards chip. */
+.ticket-tier-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5em;
+  height: 1.5em;
+  border-radius: 50%;
+  font-style: normal;
+  font-size: 0.85em;
+  background: color-mix(in srgb, var(--tier-tone, currentcolor) 20%, transparent);
 }
 
 /*
@@ -234,82 +297,35 @@ html, body {
  * sized off vmin like everything else rather than left at caption size.
  */
 .ticket-provenance {
-  font-size: clamp(14px, 1.85vmin, 30px);
-  letter-spacing: 0.05em;
+  font-size: clamp(13px, 1.7vmin, 28px);
+  letter-spacing: 0.04em;
   color: var(--board-ink-muted, #57534e);
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.ticket-marks {
-  display: flex;
-  align-items: center;
-  gap: 0.8vw;
-  flex: none;
-}
-
-/*
- * Status, as a quiet tint rather than a filled block.
- *
- * A badge on a wall competes with the ticket number for the one glance the
- * board gets, and the number is what a guest is actually looking for. Tinted
- * text on the ground reads at distance and stays behind the number in the
- * hierarchy; a saturated pill does not.
- */
-.ticket-tier {
-  font-size: clamp(12px, 1.5vmin, 24px);
-  font-weight: 700;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  color: var(--tier-tone, var(--board-ink-muted, #57534e));
-  border: 1px solid color-mix(in srgb, var(--tier-tone, currentcolor) 40%, transparent);
-  background: color-mix(in srgb, var(--tier-tone, currentcolor) 8%, transparent);
-  border-radius: var(--board-radius-pill, 999px);
-  padding: 0.35em 0.9em;
-  white-space: nowrap;
-}
-
-/*
- * Arrival is the one urgent thing on an otherwise ambient screen, so it is the
- * one thing allowed to move -- once, on appearance, and then never again.
- *
- * The entrance animates transform only, never opacity. A badge whose sole
- * route to being visible is a running animation is invisible for as long as
- * that animation is paused, and a browser pauses animations in a backgrounded
- * tab -- which a shop tablet reaches by any number of ordinary routes. The
- * failure mode was silent and exactly inverted: "I'm here" would disappear
- * precisely while a curbside guest sat outside waiting for someone to read it.
- * Sliding a fully-opaque badge into place degrades to a badge that is merely
- * six pixels off, which nobody in the room will ever notice.
- */
+/* Curbside arrival: the one genuinely urgent thing on an ambient screen. */
 .ticket-arrived {
-  font-size: clamp(12px, 1.55vmin, 25px);
+  font-size: clamp(12px, 1.5vmin, 24px);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--board-accent, #8a7350);
   border: 2px solid var(--board-accent, #8a7350);
   border-radius: var(--board-radius-pill, 999px);
-  padding: 0.3em 0.8em;
+  padding: 0.25em 0.7em;
   white-space: nowrap;
-  animation: arrive var(--board-motion, 360ms) ease-out;
-}
-
-@keyframes arrive {
-  from { transform: translateY(-6px); }
-  to { transform: none; }
 }
 
 .board-empty {
   color: var(--board-ink-muted, #57534e);
   font-size: clamp(17px, 2vmin, 32px);
-  padding: 1.2vh 0;
+  padding: 2.4vh 2.6vw;
 }
 
 /* The queue that did not fit, counted rather than clipped. */
 .board-overflow {
-  margin: 1vh 0 0;
+  margin: 0;
+  padding: 0.6vh 2.6vw 1.4vh;
   font-size: clamp(15px, 1.8vmin, 28px);
   letter-spacing: 0.06em;
   color: var(--board-ink-muted, #57534e);
@@ -372,9 +388,19 @@ html, body {
   color: var(--board-ink-muted, #57534e);
 }
 
-/* A designed static state, not merely "no animation" (docs/DESIGN.md). */
+/*
+ * A designed static state, not merely "no animation" (docs/DESIGN.md).
+ *
+ * The check still appears and the number still goes; they simply swap in place
+ * with no fade, no scale and no drawn stroke. Nothing about *what* the board
+ * says depends on motion, which is the property that matters here -- someone
+ * who has turned animation off must still be told their order is ready.
+ */
 @media (prefers-reduced-motion: reduce) {
-  .ticket-arrived { animation: none; }
+  .ticket-position,
+  .ticket-check,
+  .ticket-check-tick { transition: none; }
+  .ticket-check-tick { stroke-dashoffset: 0; }
 }
 
 /*
@@ -386,17 +412,12 @@ html, body {
  * which is the order people are actually waiting in.
  */
 @media (orientation: portrait) {
-  .board-columns {
-    grid-template-columns: 1fr;
-    grid-auto-rows: min-content;
-    align-content: start;
-    gap: 3vh;
-    overflow: hidden;
-  }
-  /* Portrait has width to spare and height to save, so the row grows
-     sideways rather than taller: bigger name, same compact number. */
-  .ticket-name { font-size: clamp(26px, 4.2vmin, 70px); }
-  .ticket-provenance { font-size: clamp(15px, 2.1vmin, 34px); }
-  .ticket-number { font-size: clamp(28px, 4vmin, 68px); }
+  /* Portrait has width to spare and height to save, so the row grows sideways
+     rather than taller: a bigger name against the same compact mark. */
+  .ticket-name { font-size: clamp(28px, 4.4vmin, 76px); }
+  .ticket-provenance { font-size: clamp(14px, 2vmin, 32px); }
+  .ticket-tier { font-size: clamp(14px, 1.9vmin, 30px); }
+  .ticket-mark { width: clamp(42px, 5.6vmin, 92px); height: clamp(42px, 5.6vmin, 92px); }
+  .ticket-position { font-size: clamp(26px, 3.6vmin, 62px); }
   .board-invite { gap: 4vw; }
 }

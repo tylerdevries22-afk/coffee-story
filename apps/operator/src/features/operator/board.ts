@@ -11,6 +11,15 @@ export type BoardOrder = {
   guestName: string;
   status: OrderStatus;
   placedAt: string;           // ISO
+  /**
+   * The guest-facing ticket number and the last transition, carried so this
+   * board can compute the same queue position the wall display shows
+   * (`queuePositions`, @platform/domain). A barista asked "what number am I?"
+   * has to answer with the number on the screen behind them; before this the
+   * KDS had no way to know it and the honest answer was a guess.
+   */
+  dailyNumber: number | null;
+  updatedAt: string;          // ISO
   scheduledFor: string | null;
   lines: readonly { name: string; quantity: number; options: readonly string[] }[];
   totalCents: number;

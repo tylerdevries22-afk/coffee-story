@@ -4,9 +4,9 @@ import { describe, it } from 'node:test';
 import type { BoardTicketRow } from '@platform/schema';
 
 import {
-  boardColumns, boardLadderFrom, capColumn, DEFAULT_BOARD_CONFIG, DEFAULT_TIER_LADDER,
-  displayName, isDisplayableAppUrl, provenanceLabel, reconcileBoard, resolveBoardConfig,
-  tierBySlug, tierFor, tierSlug, toEntry, type BoardSlot,
+  boardLadderFrom, boardQueue, DEFAULT_BOARD_CONFIG, DEFAULT_TIER_LADDER,
+  displayName, isDisplayableAppUrl, provenanceLabel, queuePositions, resolveBoardConfig,
+  tierBySlug, tierFor, tierSlug, toEntry,
 } from './board-display';
 import { REWARD_TIERS } from './rules';
 
@@ -118,11 +118,11 @@ describe('resolveBoardConfig', () => {
 
   it('drops a bad field without discarding the rest', () => {
     const config = resolveBoardConfig({
-      board: { showGuestStatus: true, appUrl: 'javascript:alert(1)', maxPerColumn: 'lots' },
+      board: { showGuestStatus: true, appUrl: 'javascript:alert(1)', maxLines: 'lots' },
     });
     assert.equal(config.showGuestStatus, true, 'the good field survives');
     assert.equal(config.appUrl, null, 'the dangerous one does not');
-    assert.equal(config.maxPerColumn, DEFAULT_BOARD_CONFIG.maxPerColumn);
+    assert.equal(config.maxLines, DEFAULT_BOARD_CONFIG.maxLines);
   });
 
   it('keeps the default ladder when every configured rung is malformed', () => {
@@ -142,12 +142,12 @@ describe('resolveBoardConfig', () => {
     assert.deepEqual(config.ladder.map((t) => t.slug), ['base', 'gold']);
   });
 
-  it('bounds maxPerColumn so a typo cannot ask for a thousand rows', () => {
-    assert.equal(resolveBoardConfig({ board: { maxPerColumn: 1000 } }).maxPerColumn,
-      DEFAULT_BOARD_CONFIG.maxPerColumn);
-    assert.equal(resolveBoardConfig({ board: { maxPerColumn: 0 } }).maxPerColumn,
-      DEFAULT_BOARD_CONFIG.maxPerColumn);
-    assert.equal(resolveBoardConfig({ board: { maxPerColumn: 12 } }).maxPerColumn, 12);
+  it('bounds maxLines so a typo cannot ask for a thousand rows', () => {
+    assert.equal(resolveBoardConfig({ board: { maxLines: 1000 } }).maxLines,
+      DEFAULT_BOARD_CONFIG.maxLines);
+    assert.equal(resolveBoardConfig({ board: { maxLines: 0 } }).maxLines,
+      DEFAULT_BOARD_CONFIG.maxLines);
+    assert.equal(resolveBoardConfig({ board: { maxLines: 12 } }).maxLines, 12);
   });
 });
 
@@ -186,120 +186,141 @@ describe('displayName', () => {
 describe('toEntry', () => {
   const config = { ...DEFAULT_BOARD_CONFIG, showGuestStatus: true };
 
-  it('shows a dash for a ticket with no number rather than blank space', () => {
-    assert.equal(toEntry(ticket({ id: '1', daily_number: null }), config).number, '—');
-  });
-
   it('badges the tier the projection resolved', () => {
-    const entry = toEntry(ticket({ id: '1', loyalty_tier: 'house-regular' }), config);
+    const entry = toEntry(ticket({ id: '1', loyalty_tier: 'house-regular' }), config, 1);
     assert.equal(entry.tier?.label, 'House Regular');
   });
 
   it('withholds the badge entirely when the brand keeps status private', () => {
     const entry = toEntry(ticket({ id: '1', loyalty_tier: 'house-regular' }),
-      { ...config, showGuestStatus: false });
+      { ...config, showGuestStatus: false }, 1);
     assert.equal(entry.tier, null);
   });
 
   it('withholds provenance when the brand turns the channel line off', () => {
-    const entry = toEntry(ticket({ id: '1' }), { ...config, showChannel: false });
-    assert.equal(entry.provenance, null);
+    assert.equal(toEntry(ticket({ id: '1' }), { ...config, showChannel: false }, 1).provenance, null);
+  });
+
+  it('marks a ready ticket, which is what the board draws a check for', () => {
+    assert.equal(toEntry(ticket({ id: '1', status: 'ready' }), config, null).ready, true);
+    assert.equal(toEntry(ticket({ id: '1', status: 'paid' }), config, 1).ready, false);
   });
 });
 
-describe('capColumn', () => {
-  const entries = Array.from({ length: 10 }, (_, i) =>
-    toEntry(ticket({ id: `t${i}`, daily_number: i }), DEFAULT_BOARD_CONFIG));
+/**
+ * The queue is the contract between two apps.
+ *
+ * A guest asks a barista "what number am I?" and the answer has to be the one
+ * on the wall. `apps/operator` and `apps/display` both call this, over their
+ * own row types, so there is exactly one definition of the line.
+ */
+describe('queuePositions', () => {
+  const member = (id: string, status: BoardTicketRow['status'], n: number, at = '2026-08-23T10:00:00Z') =>
+    ({ id, status, daily_number: n, updated_at: at });
+
+  it('numbers the people still waiting, from one', () => {
+    const positions = queuePositions([
+      member('c', 'paid', 3),
+      member('a', 'paid', 1),
+      member('b', 'in_progress', 2),
+    ]);
+    assert.deepEqual([...positions.entries()].sort(), [['a', 1], ['b', 2], ['c', 3]]);
+  });
+
+  it('gives a ready order no number, because a check replaces it', () => {
+    const positions = queuePositions([
+      member('ready', 'ready', 1),
+      member('waiting', 'paid', 2),
+    ]);
+    assert.equal(positions.get('ready'), null);
+    assert.equal(positions.get('waiting'), 1, 'the line does not count people already served');
+  });
+
+  it('counts down as the orders ahead are finished', () => {
+    // The whole point of a position: "3" has to become "2". Numbering off the
+    // ticket number instead would have left a guest sitting on 3 all morning.
+    const before = queuePositions([
+      member('a', 'in_progress', 1), member('b', 'paid', 2), member('me', 'paid', 3),
+    ]);
+    assert.equal(before.get('me'), 3);
+    const after = queuePositions([
+      member('a', 'ready', 1), member('b', 'paid', 2), member('me', 'paid', 3),
+    ]);
+    assert.equal(after.get('me'), 2, 'the order ahead went ready, so the line got shorter');
+  });
+
+  it('is stable for one ticket regardless of what order the rows arrive in', () => {
+    const rows = [member('a', 'paid', 1), member('b', 'paid', 2), member('c', 'paid', 3)];
+    const forwards = queuePositions(rows);
+    const backwards = queuePositions([...rows].reverse());
+    assert.deepEqual([...forwards.entries()].sort(), [...backwards.entries()].sort());
+  });
+
+  it('is empty for an empty board rather than throwing', () => {
+    assert.equal(queuePositions([]).size, 0);
+  });
+});
+
+describe('boardQueue', () => {
+  const config = { ...DEFAULT_BOARD_CONFIG, showGuestStatus: true };
+
+  it('puts the ready orders at the top, where somebody is about to walk up', () => {
+    const queue = boardQueue([
+      ticket({ id: 'w1', status: 'paid', daily_number: 1 }),
+      ticket({ id: 'r1', status: 'ready', daily_number: 5 }),
+      ticket({ id: 'w2', status: 'in_progress', daily_number: 2 }),
+    ], config);
+    assert.deepEqual(queue.entries.map((e) => e.id), ['r1', 'w1', 'w2']);
+    assert.deepEqual(queue.entries.map((e) => e.position), [null, 1, 2]);
+  });
+
+  it('keeps the longest-ready order at the very top', () => {
+    // Re-sorting finished tickets as newer ones land would move a guest's own
+    // line while they are walking toward it.
+    const queue = boardQueue([
+      ticket({ id: 'new', status: 'ready', daily_number: 9, updated_at: '2026-08-23T10:05:00Z' }),
+      ticket({ id: 'old', status: 'ready', daily_number: 2, updated_at: '2026-08-23T10:01:00Z' }),
+    ], config);
+    assert.deepEqual(queue.entries.map((e) => e.id), ['old', 'new']);
+  });
+
+  it('draws no column for a state the guest cannot act on', () => {
+    const queue = boardQueue([
+      ticket({ id: '1', status: 'picked_up' }),
+      ticket({ id: '2', status: 'cancelled' }),
+    ], config);
+    // The view already excludes these; if one arrived it must not be numbered
+    // into the line ahead of somebody who is actually waiting.
+    assert.deepEqual(queue.entries.map((e) => e.position), [1, 2]);
+  });
 
   it('states the overflow rather than clipping it silently', () => {
-    const view = capColumn(entries, 4);
-    assert.equal(view.entries.length, 4);
-    assert.equal(view.overflow, 6);
+    const many = Array.from({ length: 14 }, (_, i) =>
+      ticket({ id: `t${i}`, status: 'paid', daily_number: i + 1 }));
+    const queue = boardQueue(many, { ...config, maxLines: 5 });
+    assert.equal(queue.entries.length, 5);
+    assert.equal(queue.overflow, 9);
   });
 
-  it('reports no overflow when everything fits', () => {
-    assert.equal(capColumn(entries, 10).overflow, 0);
-    assert.equal(capColumn(entries, 99).overflow, 0);
-  });
-});
-
-describe('reconcileBoard', () => {
-  const now = 1_000_000;
-  const linger = 90_000;
-
-  it('takes the fresh read as the truth', () => {
-    const slots = reconcileBoard([], [ticket({ id: 'a', daily_number: 2 }),
-      ticket({ id: 'b', daily_number: 1 })], now, linger);
-    assert.deepEqual(slots.map((s) => s.ticket.id), ['b', 'a'], 'ordered by ticket number');
-    assert.ok(slots.every((s) => s.goneSince === null));
-  });
-
-  it('holds a collected ticket on screen instead of vanishing it mid-walk', () => {
-    const before: BoardSlot[] = [{ ticket: ticket({ id: 'a', status: 'ready' }), goneSince: null }];
-    const after = reconcileBoard(before, [], now, linger);
-    assert.equal(after.length, 1);
-    assert.equal(after[0]?.goneSince, now, 'the clock starts at the read that lost it');
-  });
-
-  it('drops it once the linger is spent', () => {
-    const lingering: BoardSlot[] = [{ ticket: ticket({ id: 'a' }), goneSince: now - linger }];
-    assert.deepEqual(reconcileBoard(lingering, [], now, linger), []);
-  });
-
-  it('does not restart the linger clock on every reconcile', () => {
-    const started = now - 45_000;
-    const lingering: BoardSlot[] = [{ ticket: ticket({ id: 'a' }), goneSince: started }];
-    assert.equal(reconcileBoard(lingering, [], now, linger)[0]?.goneSince, started);
-  });
-
-  it('revives a ticket that comes back, e.g. a refund reversing a collection', () => {
-    const lingering: BoardSlot[] = [{ ticket: ticket({ id: 'a' }), goneSince: now - 1_000 }];
-    const after = reconcileBoard(lingering, [ticket({ id: 'a', status: 'ready' })], now, linger);
-    assert.equal(after[0]?.goneSince, null);
-  });
-
-  it('never duplicates a ticket that is both lingering and live', () => {
-    const lingering: BoardSlot[] = [{ ticket: ticket({ id: 'a' }), goneSince: now - 1_000 }];
-    assert.equal(reconcileBoard(lingering, [ticket({ id: 'a' })], now, linger).length, 1);
-  });
-});
-
-describe('boardColumns', () => {
-  it('puts paid and in-progress together, ready apart', () => {
-    const slots: BoardSlot[] = [
-      { ticket: ticket({ id: '1', status: 'paid', daily_number: 1 }), goneSince: null },
-      { ticket: ticket({ id: '2', status: 'in_progress', daily_number: 2 }), goneSince: null },
-      { ticket: ticket({ id: '3', status: 'ready', daily_number: 3 }), goneSince: null },
+  it('never cuts into the ready block, however long it runs', () => {
+    // Those are the people being called up right now. Dropping one to honour
+    // a line cap would hide the only row on the board somebody must act on.
+    const rows = [
+      ...Array.from({ length: 6 }, (_, i) =>
+        ticket({ id: `r${i}`, status: 'ready', daily_number: i + 1, updated_at: `2026-08-23T10:0${i}:00Z` })),
+      ...Array.from({ length: 6 }, (_, i) => ticket({ id: `w${i}`, status: 'paid', daily_number: 20 + i })),
     ];
-    const columns = boardColumns(slots, DEFAULT_BOARD_CONFIG);
-    assert.deepEqual(columns.inProgress.entries.map((e) => e.id), ['1', '2']);
-    assert.deepEqual(columns.ready.entries.map((e) => e.id), ['3']);
+    const queue = boardQueue(rows, { ...config, maxLines: 3 });
+    assert.equal(queue.entries.filter((e) => e.ready).length, 6, 'every ready row survives the cap');
+    assert.equal(queue.overflow, 6);
   });
 
-  it('drops a collected ghost before a guest who is still waiting', () => {
-    const slots: BoardSlot[] = [
-      { ticket: ticket({ id: 'ghost', status: 'ready', daily_number: 1 }), goneSince: 1 },
-      { ticket: ticket({ id: 'live', status: 'ready', daily_number: 2 }), goneSince: null },
-    ];
-    const columns = boardColumns(slots, { ...DEFAULT_BOARD_CONFIG, maxPerColumn: 1 });
-    assert.deepEqual(columns.ready.entries.map((e) => e.id), ['live']);
-    assert.equal(columns.ready.overflow, 1);
+  it('reports no overflow when the whole queue fits', () => {
+    const queue = boardQueue([ticket({ id: '1' })], { ...config, maxLines: 9 });
+    assert.equal(queue.overflow, 0);
   });
 
-  it('marks a lingering ticket so the view can fade it', () => {
-    const slots: BoardSlot[] = [
-      { ticket: ticket({ id: 'ghost', status: 'ready' }), goneSince: 1 },
-    ];
-    assert.equal(boardColumns(slots, DEFAULT_BOARD_CONFIG).ready.entries[0]?.collected, true);
-  });
-
-  it('invents no column for a state the guest cannot act on', () => {
-    const slots: BoardSlot[] = [
-      { ticket: ticket({ id: '1', status: 'picked_up' }), goneSince: null },
-      { ticket: ticket({ id: '2', status: 'cancelled' }), goneSince: null },
-    ];
-    const columns = boardColumns(slots, DEFAULT_BOARD_CONFIG);
-    assert.deepEqual(columns.inProgress.entries, []);
-    assert.deepEqual(columns.ready.entries, []);
+  it('is empty for an empty board', () => {
+    assert.deepEqual(boardQueue([], config), { entries: [], overflow: 0 });
   });
 });

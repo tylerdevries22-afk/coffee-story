@@ -29,7 +29,6 @@ export default async function BoardPage({ params }: { params: Promise<{ location
   return (
     <div className="display-root" style={board.theme.cssVariables}>
       <BoardView
-        locationName={board.locationName}
         initialTickets={board.tickets}
         config={board.config}
         copy={board.copy}

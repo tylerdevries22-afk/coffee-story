@@ -20,6 +20,12 @@ export const DEFAULT_COPY: BrandCopy = {
   dropEndsIn: 'Ends in {time}',
   dropStartsIn: 'Drops in {time}',
   memberFallback: 'Member',
+  /**
+   * The status mark. One glyph, shown beside a tier name wherever a tier name
+   * appears -- the customer app's rewards chip and the in-store board read the
+   * same key, so a brand that changes its mark changes both.
+   */
+  rewardMark: '✦',
   closedLabel: 'Closed',
   opensLabel: 'Opens {time}',
 
@@ -30,10 +36,10 @@ export const DEFAULT_COPY: BrandCopy = {
   // something else ("Order Up", "Collection") overrides this like any other
   // brand string rather than editing a component.
   boardTitle: 'Pickup Queue',
-  boardMakingNow: 'Making now',
   boardReady: 'Ready',
-  boardEmptyProgress: 'Nothing in the queue',
-  boardEmptyReady: 'Nothing waiting',
+  /** Read out by assistive tech in place of the bare digit. */
+  boardPosition: 'Number {position} in line',
+  boardEmpty: 'Nothing in the queue',
   boardArrived: 'Here',
   boardOverflow: '+{count} more waiting',
   boardLive: 'Live',

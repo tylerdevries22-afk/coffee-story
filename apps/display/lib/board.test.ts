@@ -173,7 +173,7 @@ describe('board fixtures', () => {
     const config = resolveBoardConfig(DEMO_BRAND_CONFIG);
     for (const ticket of demoBoardAt(0)) {
       if (ticket.loyalty_tier === null) continue;
-      assert.ok(toEntry(ticket, config).tier, `no ladder rung named ${ticket.loyalty_tier}`);
+      assert.ok(toEntry(ticket, config, 1).tier, `no ladder rung named ${ticket.loyalty_tier}`);
     }
   });
 });
