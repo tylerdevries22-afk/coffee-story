@@ -87,6 +87,19 @@ jobs:
         timeout-minutes: 10
         run: |
           set -euo pipefail
+          # EXPO_OFFLINE, or these servers die the moment a client connects.
+          # Both apps carry an `owner` and an EAS project id, so `expo start`
+          # tries to authenticate; with no EXPO_TOKEN and no TTY it exits with
+          #
+          #   CommandError: Input is required, but 'npx expo' is in
+          #   non-interactive mode.
+          #
+          # It answers /status first, so the readiness check passed and the
+          # server was already gone by the time an app asked for a bundle --
+          # which read exactly like a networking problem and was not one.
+          # Offline is right here anyway: nothing in this job needs the Expo
+          # account, only the bundler.
+          export EXPO_OFFLINE=1
           cd apps/customer && nohup npx expo start --port "$CUSTOMER_PORT" > "$GITHUB_WORKSPACE/metro-customer.log" 2>&1 &
           cd "$GITHUB_WORKSPACE/apps/operator" && nohup npx expo start --port "$OPERATOR_PORT" > "$GITHUB_WORKSPACE/metro-operator.log" 2>&1 &
           cd "$GITHUB_WORKSPACE"
@@ -109,6 +122,13 @@ jobs:
             [ "$up_customer" = 1 ] && [ "$up_operator" = 1 ] && break
             [ $((i % 20)) -eq 0 ] && echo "  waiting on Metro (~$((i * 3))s): customer=$up_customer operator=$up_operator"
             sleep 3
+          done
+          # Answering once is not the same as still running: the servers used
+          # to die seconds after their first /status. Re-check both.
+          sleep 10
+          for port in "$CUSTOMER_PORT" "$OPERATOR_PORT"; do
+            curl -fs --max-time 5 "http://127.0.0.1:$port/status" >/dev/null 2>&1 \
+              || { echo "Metro on :$port answered and then exited. Its log:"; cat "$GITHUB_WORKSPACE"/metro-*.log; exit 1; }
           done
           if [ "$up_customer" = 0 ] || [ "$up_operator" = 0 ]; then
             echo "Metro never answered (customer=$up_customer operator=$up_operator). Their logs:"
