@@ -383,7 +383,12 @@ jobs:
           ok=1
           for pair in "$CUSTOMER_PORT|Customer|metro-customer.log" "$OPERATOR_PORT|Operator|metro-operator.log"; do
             port="${pair%%|*}"; rest="${pair#*|}"; label="${rest%%|*}"; log="${rest##*|}"
-            url="http://$HOST_IP:$port/index.bundle?platform=ios&dev=true"
+            # `transform.routerRoot` is required for an expo-router project.
+            # Without it Metro answers with an error payload, not a bundle --
+            # 5180 bytes of it, which is what "would not serve a bundle" was
+            # actually reporting. Metro states the value itself at startup:
+            # "Using src/app as the root directory for Expo Router".
+            url="http://$HOST_IP:$port/index.bundle?platform=ios&dev=true&transform.routerRoot=src/app"
             bytes=0
             for _ in $(seq 1 40); do
               bytes=$(curl -s --max-time 60 -o /tmp/bundle.js -w '%{size_download}' "$url" || echo 0)
@@ -394,8 +399,14 @@ jobs:
               echo "$label: Metro served $bytes bytes of JavaScript at $url"
               head -c 120 /tmp/bundle.js | tr -d '\0'; echo
             else
-              echo "$label: Metro would not serve a bundle at $url (got ${bytes:-0} bytes). Its log:"
-              tail -40 "$GITHUB_WORKSPACE/$log"
+              echo "$label: Metro would not serve a bundle at $url (got ${bytes:-0} bytes)."
+              # The response body IS the diagnosis when Metro refuses: it
+              # carries the bundler's own error. Printing the server log
+              # instead threw that away.
+              echo "  --- what Metro actually returned ---"
+              head -c 600 /tmp/bundle.js | tr -d '\0'; echo
+              echo "  --- its log ---"
+              tail -25 "$GITHUB_WORKSPACE/$log"
               ok=0
             fi
           done
