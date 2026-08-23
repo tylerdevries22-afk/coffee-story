@@ -175,3 +175,20 @@ in Expo, never in this repository, never in `packages/data`.
   260 points on a $20 order is credited 200. Whether the fix is to honour the
   ladder in the engine or to stop advertising it is the owner's call: it
   changes what the brand owes its regulars. Until then the app over-promises.
+- **The rewards ladder is the last thing in the guest app that is not
+  tenant-derived.** `brand.json` carries `loyalty.rewards` (the redemption
+  catalog) but no tiers, so the four tier names, thresholds, rates, blurbs and
+  perks are compiled into `features/rewards/rules.ts`. Onboarding a brand that
+  wants a different ladder needs a code change today, which is the one thing
+  `tenants/<slug>/` exists to prevent. The fix is a promotion, not an edit:
+  that file is byte-identical in both Expo apps, so changing it in place fails
+  the drift guard by design. Everything downstream is already ready for it --
+  every function takes the ladder as a parameter, `RewardTierName` is free text
+  rather than a union, and `paletteForTier` falls back by ladder position (then
+  by a stable name hash) so a renamed tier still gets a deliberate, distinct
+  glass. Only the data source is missing.
+- **Rule 4 is mounted but barely consumed.** ThemeProvider now runs in both
+  Expo apps and both root Stacks take their page ground from `useTokens()`, so
+  a tenant palette reaches the app -- and stops at the page ground. The other
+  92 files still import the compiled `theme/tokens`, which is where the rest of
+  the sweep goes.
