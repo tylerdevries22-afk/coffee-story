@@ -5,7 +5,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { TenantClaims } from '@platform/schema';
 
 import { recoveryCodeFromUrl, recoveryRedirectUrl } from '@platform/domain';
-import { loadStaffContext } from '@/lib/live-portal';
+import { resolveBusiness, setCurrentBusiness } from '@/data/business';
+import { loadStaffContext, type StaffLocation } from '@/lib/live-portal';
 import { hasSupabaseConfig, supabase } from '@/lib/supabase';
 import { useDemo } from '@/state/demo-context';
 import { createRequestSequence } from '@/state/request-sequence';
@@ -19,8 +20,10 @@ type AuthState = {
   /** Hook-minted tenancy (live mode only): brand, role, claimed locations. */
   tenant: TenantClaims | null;
   /** The locations this account may work (live mode; demo uses its roster). */
-  liveLocations: { id: string; name: string }[];
+  liveLocations: StaffLocation[];
   brandName: string | null;
+  /** brand_config from the signed-in brand row: tokens, copy, business. */
+  brandConfig: unknown;
   isLoading: boolean;
   isAuthenticated: boolean;
   isDemo: boolean;
@@ -56,8 +59,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [session, setSession] = useState<Session | null>(null);
   const [livePortal, setLivePortal] = useState<PortalBundle>(EMPTY_PORTAL);
   const [tenant, setTenant] = useState<TenantClaims | null>(null);
-  const [liveLocations, setLiveLocations] = useState<{ id: string; name: string }[]>([]);
+  const [liveLocations, setLiveLocations] = useState<StaffLocation[]>([]);
   const [brandName, setBrandName] = useState<string | null>(null);
+  const [brandConfig, setBrandConfig] = useState<unknown>(null);
   const [isLoading, setIsLoading] = useState(demo.isHydrating || (!isDemo && hasSupabaseConfig));
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -92,12 +96,14 @@ export function AuthProvider({ children }: PropsWithChildren) {
       setTenant(context.claims);
       setLiveLocations(context.locations);
       setBrandName(context.brandName);
+      setBrandConfig(context.brandConfig);
     } catch (loadError) {
       if (!isCurrent()) return;
       setLivePortal(EMPTY_PORTAL);
       setTenant(null);
       setLiveLocations([]);
       setBrandName(null);
+      setBrandConfig(null);
       setError(loadError instanceof Error ? loadError.message : 'Your account could not be loaded.');
     } finally {
       if (isCurrent()) setIsLoading(false);
@@ -206,6 +212,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     tenant: isDemo ? null : tenant,
     liveLocations: isDemo ? [] : liveLocations,
     brandName: isDemo ? null : brandName,
+    brandConfig: isDemo ? null : brandConfig,
     isLoading: demo.isHydrating || (!isDemo && (
       isLoading || (Boolean(session) && !livePortal.profile.id && !error)
     )),
@@ -218,7 +225,19 @@ export function AuthProvider({ children }: PropsWithChildren) {
     updatePassword,
     signOut,
     refresh: () => loadPortal(session),
-  }), [brandName, demo.isHydrating, demo.portal, error, isDemo, isLoading, isPasswordRecovery, livePortal, liveLocations, loadPortal, requestPasswordReset, session, signIn, signOut, tenant, updatePassword]);
+  }), [brandConfig, brandName, demo.isHydrating, demo.portal, error, isDemo, isLoading, isPasswordRecovery, livePortal, liveLocations, loadPortal, requestPasswordReset, session, signIn, signOut, tenant, updatePassword]);
+
+  // Publish the resolved shop for the plain helpers that cannot hold a hook
+  // (openWebPath is called from module-level functions). Components read
+  // useBusiness() instead and re-render when this changes.
+  useEffect(() => {
+    setCurrentBusiness(resolveBusiness({
+      isDemo,
+      brandConfig: value.brandConfig,
+      brandName: value.brandName,
+      location: value.liveLocations[0] ?? null,
+    }));
+  }, [isDemo, value.brandConfig, value.brandName, value.liveLocations]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

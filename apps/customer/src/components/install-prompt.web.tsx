@@ -3,6 +3,7 @@ import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppIcon } from '@/components/icon';
+import { useBusiness } from '@/state/business';
 import { colors, fonts, radius, spacing } from '@/theme/tokens';
 
 /**
@@ -55,6 +56,7 @@ function wasDismissed(): boolean {
 }
 
 export function InstallPrompt() {
+  const business = useBusiness();
   const insets = useSafeAreaInsets();
   // Starts empty so the first render matches the statically rendered HTML; the
   // effect below fills it in afterwards. `'ios'` means "no programmatic install
@@ -119,7 +121,7 @@ export function InstallPrompt() {
         <AppIcon name="arrow.down.to.line" size={18} tintColor={colors.white} />
       </View>
       <View style={styles.copy}>
-        <Text style={styles.title}>Add Coffee Story to your home screen</Text>
+        <Text style={styles.title}>Add {business.name} to your home screen</Text>
         <Text style={styles.body}>
           {showIosHint
             ? 'Tap Share, then “Add to Home Screen”.'
