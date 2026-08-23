@@ -40,8 +40,6 @@ const DIVERGENT_BY_DESIGN = [
   'data/business.ts',
   'data/catalog.ts',
   'data/demo.ts',
-  'features/drops.test.ts',
-  'features/drops.ts',
   'features/rewards/presentation.ts',
   'features/setup/setup.ts',
   // The live planes are persona-different by design: the customer bundle is

@@ -12,7 +12,6 @@ import { MenuImage } from '@/components/menu-image';
 import { Body, Button, Card } from '@/components/ui';
 import { demoDrops } from '@/data/drops';
 import { BUSINESS } from '@/data/business';
-import { dropArchive, dropStatus, type Drop } from '@/features/drops';
 import { referralCodeFor, referralMessage } from '@/features/referrals';
 import { clearPendingReferralCode, readPendingReferralCode } from '@/state/pending-referral';
 import { findMenuItem } from '@/screens/client/order/menu-data';
@@ -20,7 +19,7 @@ import { useAuth } from '@/state/auth-context';
 import { useAppState } from '@/state/app-context';
 import { TENANT, tenantFeature } from '@/tenant';
 import { colors, fonts, radius, spacing } from '@/theme/tokens';
-import { DropCountdown } from '@platform/ui';
+import { DropCountdown, dropArchive, dropStatus, type Drop } from '@platform/ui';
 
 import { styles as pageStyles } from './information-page';
 
