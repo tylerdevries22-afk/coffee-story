@@ -465,11 +465,19 @@ jobs:
         timeout-minutes: 4
         if: always()
         run: |
+          set -uo pipefail
           mkdir -p sim-shots
-          sleep 20  # let the first frame settle after the bundle lands
-          xcrun simctl io "${CUSTOMER_UDID:-none}" screenshot "sim-shots/customer-coffee-story-cust.png" || true
-          xcrun simctl io "${OPERATOR_UDID:-none}" screenshot "sim-shots/operator-coffee-story-ops.png" || true
-          ls -la sim-shots
+          # PNG for a person, BMP for the log. `simctl io --type=bmp` writes it
+          # uncompressed, which a dozen lines of Python can sample without any
+          # image library -- and a brightness map printed into the log is the
+          # only way this environment can SEE these screens at all. The PNGs go
+          # to an artifact host that answers 403 to CONNECT through the proxy.
+          for pair in "$CUSTOMER_UDID|customer-coffee-story-cust" "$OPERATOR_UDID|operator-coffee-story-ops"; do
+            udid="${pair%%|*}"; name="${pair##*|}"
+            bounded 60 xcrun simctl io "$udid" screenshot "sim-shots/$name.png" || true
+            bounded 60 xcrun simctl io "$udid" screenshot --type=bmp "/tmp/$name.bmp" || true
+          done
+          ls -la sim-shots/ || true
 
       - name: Keep the screenshots and the Metro logs
         if: always()
@@ -517,5 +525,14 @@ jobs:
           tail -6 "$GITHUB_WORKSPACE/metro-customer.log" 2>/dev/null || echo '(none)'
           echo '---'
           tail -6 "$GITHUB_WORKSPACE/metro-operator.log" 2>/dev/null || echo '(none)'
-          echo '=========== step transcript (LAST) ============='
-          tail -45 "$GITHUB_WORKSPACE/expo-go-diag.log" 2>/dev/null || echo '(none)'
+          echo '=========== step transcript ==================='
+          tail -22 "$GITHUB_WORKSPACE/expo-go-diag.log" 2>/dev/null || echo '(none)'
+          echo '=========== what is ON the screens (LAST) ====='
+          for pair in "customer-coffee-story-cust|coffee story cust" "operator-coffee-story-ops|coffee story ops"; do
+            f="/tmp/${pair%%|*}.bmp"; label="${pair##*|}"
+            if [ -s "$f" ]; then
+              python3 scripts/ci/screen-to-text.py "$f" "$label" || echo "  ($label: could not render)"
+            else
+              echo "  ($label: no screenshot captured)"
+            fi
+          done
