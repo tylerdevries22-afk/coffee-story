@@ -168,6 +168,13 @@ if [ -z "$GO_APP" ]; then
   say "  again and both apps will open on their own devices."
 fi
 
+# The address the simulator should reach Metro on. `expo start` hands the
+# device the machine's LAN address rather than loopback, and matching that is
+# the difference between Expo Go opening and Expo Go opening onto nothing --
+# a CI run had both deep links accepted and neither app ever asked Metro for a
+# bundle. Falls back to loopback when there is no LAN address to find.
+HOST_IP="$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || echo 127.0.0.1)"
+
 open_app() {
   local udid="$1" port="$2" name="$3" try
   if [ -z "$GO_APP" ]; then
@@ -192,7 +199,7 @@ open_app() {
   # rather than a failure worth reading. macOS has no GNU `timeout`.
   local pid waited
   for try in 1 2 3; do
-    xcrun simctl openurl "$udid" "exp://127.0.0.1:$port" >/dev/null 2>&1 &
+    xcrun simctl openurl "$udid" "exp://$HOST_IP:$port" >/dev/null 2>&1 &
     pid=$!
     waited=0
     while kill -0 "$pid" 2>/dev/null && [ "$waited" -lt 45 ]; do

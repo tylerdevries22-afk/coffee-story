@@ -283,7 +283,7 @@ jobs:
           open_app() {
             udid="$1"; port="$2"; name="$3"
             for try in 1 2 3; do
-              xcrun simctl openurl "$udid" "exp://127.0.0.1:$port" &
+              xcrun simctl openurl "$udid" "exp://$HOST_IP:$port" &
               pid=$!
               waited=0
               while kill -0 "$pid" 2>/dev/null && [ "$waited" -lt 60 ]; do
@@ -303,6 +303,14 @@ jobs:
             echo "$name would not open"
             return 1
           }
+          # Open the LAN address, not 127.0.0.1. Both deep links were accepted
+          # and neither app ever asked Metro for a bundle -- the log shows
+          # startup and nothing after it. `expo start --ios` opened
+          # `exp://192.168.64.x:8099` a step earlier and that one worked, so
+          # match what Expo itself hands the simulator rather than assuming
+          # loopback reaches the host's Metro from inside the device.
+          HOST_IP=$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || echo 127.0.0.1)
+          echo "host address for the dev servers: $HOST_IP"
           warm_up "$CUSTOMER_UDID" "Customer app" || true
           warm_up "$OPERATOR_UDID" "Operator app" || true
           open_app "$CUSTOMER_UDID" "$CUSTOMER_PORT" "Customer app"
