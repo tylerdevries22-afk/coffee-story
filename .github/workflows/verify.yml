@@ -54,6 +54,18 @@ jobs:
       - name: Test all workspaces
         run: pnpm -r --workspace-concurrency=1 test
 
+      # The runner is UTC, and that hid a customer-facing bug for a whole
+      # release: the drop board formatted its date range through the device
+      # clock, so a window the shop advertised as opening the 20th read the
+      # 19th on every phone west of UTC -- every guest of the first tenant.
+      # Under UTC the two clocks agree and the suite stayed green. Running it
+      # a second time on the shop's own zone is what makes that class of bug
+      # fail here instead of on a guest's phone.
+      - name: Test all workspaces on a non-UTC clock
+        run: pnpm -r --workspace-concurrency=1 test
+        env:
+          TZ: America/Denver
+
       # Menu photographs are a design contract like tokens are, and nothing
       # enforced it before: 61 assets had drifted to a 5x spread in exposure
       # and were stored in a shape no render site actually used. This fails if
