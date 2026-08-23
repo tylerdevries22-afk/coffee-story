@@ -62,19 +62,6 @@ async function waitForOrderStatus(orderId: string, status: string, timeoutMs = 2
  * in the owner's numbers in HQ — through the actual database, the actual
  * API, the actual RLS, and the actual Realtime channels.
  */
-/**
- * Tap the menu's pickup-time pill and take the earliest slot again.
- *
- * A no-op when the pill is not offering a change, so a run whose original
- * window is still valid passes straight through.
- */
-async function reconfirmPickupWindow(page: import('playwright').Page): Promise<void> {
-  const pill = page.getByText('Change', { exact: true }).first();
-  if (!(await pill.isVisible({ timeout: 5_000 }).catch(() => false))) return;
-  await pill.click({ timeout: 10_000 });
-  await page.getByLabel(/^Today, /).first().click({ timeout: 10_000 }).catch(() => undefined);
-}
-
 describe('three apps, one stack', { skip: skipUnlessConfigured }, () => {
   const stops: (() => void)[] = [];
 
@@ -144,26 +131,10 @@ describe('three apps, one stack', { skip: skipUnlessConfigured }, () => {
       await clickLabel(customer.page, 'Pickup order');
       await clickLabel(customer.page, new RegExp(PICKUP_STREET.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
       await fillLabel(customer.page, 'Name for the order', 'E2E Guest');
-      // The FIRST slot, and only the first: the board's scheduled lane holds
-      // anything more than SCHEDULED_LANE_MINUTES (30) out, and the picker
-      // steps in 15s from `now + PICKUP_LEAD_MINUTES` (15), so slot two is
-      // already 30-45 minutes away and lands in Scheduled rather than New.
-      // Taking the last slot instead does place the order -- it just files it
-      // where there is no "Start order" button.
       await clickLabel(customer.page, /^Today, /);
       await clickText(customer.page, 'See the menu');
       await clickLabel(customer.page, /^Latte, /);
       await clickText(customer.page, 'Add to Bag');
-      // Re-confirm the window before checking out, which is what the app tells
-      // a guest to do ("Choose a new one from the time pill on the menu").
-      // The earliest slot can sit exactly on the bookable boundary -- picker
-      // and guard share the same 15-minute constant -- so a window chosen
-      // before browsing the menu may be refused by the time Place Order is
-      // pressed. Re-picking here shrinks the exposure to the few seconds
-      // between the bag and the button. Tolerant on purpose: if the window is
-      // still comfortably valid there may be nothing to re-pick, and that is
-      // the passing case, not a failure.
-      await reconfirmPickupWindow(customer.page);
       await clickLabel(customer.page, /^View bag, /);
       await clickText(customer.page, 'Checkout');
       await clickText(customer.page, 'Skip');
