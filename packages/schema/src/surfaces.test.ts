@@ -31,7 +31,7 @@ describe('device pairing', () => {
     const sql = allSql();
     const declared = /create type app\.device_role as enum \(([^)]+)\)/.exec(sql);
     assert.ok(declared, 'app.device_role is not declared');
-    const roles = [...declared[1].matchAll(/'([a-z_]+)'/g)].map((m) => m[1]).sort();
+    const roles = [...declared[1]!.matchAll(/'([a-z_]+)'/g)].map((m) => m[1]).sort();
     assert.deepEqual(roles, ['display', 'kiosk', 'pos', 'prep']);
     for (const role of roles) {
       assert.match(typesSource(), new RegExp(`DeviceRole =[^;]*'${role}'`, 's'),
@@ -66,7 +66,7 @@ describe('the pickup display read', () => {
     // Take the definition actually in force -- 0028 redefines the view.
     const views = [...sql.matchAll(/create or replace view public\.board_tickets[\s\S]*?;/g)];
     assert.ok(views.length > 0, 'board_tickets is not defined');
-    const inForce = views[views.length - 1][0];
+    const inForce = views[views.length - 1]![0];
     for (const forbidden of ['customer_id', 'totals', 'total_cents', 'square_payment_id', 'note']) {
       assert.ok(!inForce.includes(forbidden),
         `board_tickets must not expose ${forbidden}: a wall screen is not a private surface`);
@@ -81,7 +81,7 @@ describe('the lineup', () => {
     const sql = allSql();
     const constraints = [...sql.matchAll(/constraint drops_status_check[\s\S]*?check \(status in \(([^)]+)\)\)/g)];
     assert.ok(constraints.length > 0, 'drops_status_check is not declared');
-    const statuses = [...constraints[constraints.length - 1][1].matchAll(/'([a-z]+)'/g)]
+    const statuses = [...constraints[constraints.length - 1]![1]!.matchAll(/'([a-z]+)'/g)]
       .map((m) => m[1]).sort();
     assert.deepEqual(statuses, ['cancelled', 'draft', 'ended', 'live', 'revealed', 'scheduled']);
     for (const status of statuses) {
