@@ -1,3 +1,5 @@
+import { currentBusiness } from '@/data/business';
+
 /**
  * Mirrors the `intake_forms` catalog that the web app seeds and both admin
  * portals read.
@@ -62,7 +64,7 @@ export const INTAKE_FORM_CATALOG: readonly IntakeFormCatalogEntry[] = [
   {
     id: 'gift-card-terms',
     eyebrow: 'Purchase and redemption',
-    summary: 'Record the purchaser, intended recipient, delivery details, and the terms for using or transferring a Coffee Story gift card.',
+    summary: `Record the purchaser, intended recipient, delivery details, and the terms for using or transferring a ${currentBusiness().name} gift card.`,
     title: 'Gift Card Terms',
     stage: 'With purchase',
     version: 'GCT-2026.08',

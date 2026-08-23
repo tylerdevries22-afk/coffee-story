@@ -1,3 +1,5 @@
+import { currentBusiness } from '@/data/business';
+
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 
@@ -42,7 +44,7 @@ const ROLE_COPY: Record<AppRole, { title: string; subtitle: string; done: string
   },
   admin: {
     title: 'Studio setup',
-    subtitle: 'Get Coffee Story ready for clients',
+    subtitle: `Get ${currentBusiness().name} ready for clients`,
     done: 'The studio checklist now tracks these answers.',
   },
 };

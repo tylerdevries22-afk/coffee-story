@@ -33,6 +33,7 @@ describe('businessFromBrandConfig', () => {
     assert.equal(business.phone, '(303) 555-0143');
     assert.equal(business.website, 'https://demoroastery.example');
     assert.equal(business.monogram, 'DR');
+    assert.equal(business.pointsLabel, 'Beans');
     assert.equal(business.giftCodePrefix, 'DR');
     assert.equal(business.street, '100 Main St');
     assert.equal(business.cityLine, 'Denver, CO 80202');
@@ -72,7 +73,8 @@ describe('businessFromBrandConfig', () => {
     const unknown = businessFromBrandConfig(null, null, null);
     assert.deepEqual({ ...unknown, timezone: '' }, {
       name: '', legalName: '', tagline: '', email: '', phone: '',
-      street: '', cityLine: '', website: '', giftCodePrefix: '', monogram: '', timezone: '',
+      street: '', cityLine: '', website: '', giftCodePrefix: '', monogram: '',
+      pointsLabel: 'Points', timezone: '',
     });
     // A wrong wall-clock zone shifts every pickup window, so an unknown brand
     // falls back to the device's zone, never to the bundled shop's.

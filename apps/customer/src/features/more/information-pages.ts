@@ -59,7 +59,7 @@ export function informationPages(): Readonly<Record<InformationPageKey, Informat
     title: 'Frequently asked questions',
     summary: 'Tap a question to read the answer without leaving the app.',
     rows: [
-      { title: 'What does Coffee Story serve?', detail: 'Espresso and signature lattes, Turkish coffee, matcha, boba, cold brew, plus fresh pastries, desserts and sandwiches.' },
+      { title: `What does ${business.name} serve?`, detail: 'Espresso and signature lattes, Turkish coffee, matcha, boba, cold brew, plus fresh pastries, desserts and sandwiches.' },
       { title: 'Do you have non-coffee drinks?', detail: 'Yes — matcha lattes, boba (bubble tea), sparkling ades, smoothies and other cold drinks.' },
       { title: 'How do gift cards work?', detail: 'Gift cards never expire and can be claimed in the app or presented by a guest at the counter.' },
       { title: 'Can I use rewards with a gift card?', detail: 'Eligible rewards can be applied at checkout. Amounts paid with stored value do not earn additional Beans.' },
@@ -84,7 +84,7 @@ export function informationPages(): Readonly<Record<InformationPageKey, Informat
     title: 'Privacy & terms',
     summary: 'Your information is used only to operate your account, orders, payments, and rewards.',
     rows: [
-      { title: 'Account details', detail: 'Preferences and private messages are restricted to authorized members of the Coffee Story team.' },
+      { title: 'Account details', detail: `Preferences and private messages are restricted to authorized members of the ${business.name} team.` },
       { title: 'Payments', detail: 'Card details are handled by the payment provider and are not stored directly in the app.' },
       { title: 'Account control', detail: 'You can request a copy or deletion of eligible account information by contacting the shop.' },
     ],

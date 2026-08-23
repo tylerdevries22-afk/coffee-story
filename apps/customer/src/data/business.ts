@@ -42,6 +42,8 @@ export type BusinessDetails = {
   giftCodePrefix: string;
   monogram: string;
   timezone: string;
+  /** What this brand calls its loyalty points. */
+  pointsLabel: string;
 };
 
 /**
@@ -53,6 +55,7 @@ export type BusinessDetails = {
 export const BUSINESS_DETAILS: BusinessDetails = {
   ...BUSINESS,
   monogram: BUSINESS_MONOGRAM,
+  pointsLabel: TENANT.copy.pointsName ?? 'Points',
 };
 
 /**

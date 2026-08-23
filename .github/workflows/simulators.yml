@@ -95,6 +95,11 @@ jobs:
       - name: Put Expo Go on both devices
         run: |
           set -uo pipefail   # not -e: the first route is allowed to fail
+          # Everything this step prints is also kept, because the Actions log
+          # API only ever returns the END of a job -- a failure in the middle
+          # is invisible to anything reading it programmatically. The last
+          # step of this job replays this file when the job fails.
+          exec > >(tee -a "$GITHUB_WORKSPACE/expo-go-diag.log") 2>&1
           # Two ways to get Expo Go, because CI cannot press `i`.
           #
           # 1. api.expo.dev names a client build per SDK. Cheapest when it
@@ -198,6 +203,19 @@ jobs:
           xcrun simctl io "${OPERATOR_UDID:-none}" screenshot "sim-shots/operator-coffee-story-ops.png" || true
           ls -la sim-shots
 
+      - name: Replay the diagnostics at the end of the log
+        if: failure()
+        run: |
+          echo '================ expo-go step transcript ================'
+          cat "$GITHUB_WORKSPACE/expo-go-diag.log" 2>/dev/null || echo '(none)'
+          echo '================ customer metro (tail) =================='
+          tail -25 "$GITHUB_WORKSPACE/metro-customer.log" 2>/dev/null || echo '(none)'
+          echo '================ expo-go fetch (tail) ==================='
+          tail -25 "$GITHUB_WORKSPACE/expo-go-fetch.log" 2>/dev/null || echo '(none)'
+          echo '================ simulator app list ====================='
+          xcrun simctl listapps "$CUSTOMER_UDID" 2>/dev/null | grep -i -A1 exponent || echo '(Expo Go not installed)'
+          ls -la "$HOME/.expo/ios-simulator-app-cache" 2>/dev/null || echo '(no expo app cache)'
+
       - name: Keep the screenshots and the Metro logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -208,4 +226,5 @@ jobs:
             metro-customer.log
             metro-operator.log
             expo-go-fetch.log
+            expo-go-diag.log
           if-no-files-found: warn

@@ -125,7 +125,8 @@ export function buildClientNotifications(portal: PortalBundle, now: Date): Notif
     if (entry.points <= 0) continue;
     items.push({
       id: `reward-${entry.id}`,
-      actor: 'Beans',
+      // The brand's word for its points, not the first tenant's.
+      actor: currentBusiness().pointsLabel,
       title: `You earned ${entry.points} points`,
       detail: entry.description,
       at: entry.earnedAt,

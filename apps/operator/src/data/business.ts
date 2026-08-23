@@ -48,6 +48,8 @@ export type BusinessDetails = {
   giftCodePrefix: string;
   monogram: string;
   timezone: string;
+  /** What this brand calls its loyalty points. */
+  pointsLabel: string;
 };
 
 /** The location row the address and wall-clock zone come from (rule 1). */
@@ -59,6 +61,7 @@ export type BusinessLocationSource = {
 export const DEMO_BUSINESS: BusinessDetails = {
   ...BUSINESS,
   monogram: BUSINESS_MONOGRAM,
+  pointsLabel: 'Beans',
 };
 
 /**
@@ -105,6 +108,7 @@ export function businessFromBrandConfig(
   };
   const address = location?.address ?? null;
   const appName = config.copy?.appName;
+  const pointsName = config.copy?.pointsName;
   // Blank until the brand row lands: during that window, and after a failed
   // load, the app knows no shop -- and must not answer with the bundled one.
   const name = brandName?.trim() || (typeof appName === 'string' ? appName.trim() : '');
@@ -128,6 +132,9 @@ export function businessFromBrandConfig(
     monogram: text('monogram', monogramOf(name)),
     // A wrong zone silently shifts every pickup window and calendar entry, so
     // fall back to the device's rather than to another shop's.
+    // Generic rather than blank: a points balance with no word for it reads
+    // as broken, and "Points" is true of every brand.
+    pointsLabel: typeof pointsName === 'string' && pointsName.trim() ? pointsName : 'Points',
     timezone: location?.timezone?.trim()
       || Intl.DateTimeFormat().resolvedOptions().timeZone
       || BUSINESS.timezone,

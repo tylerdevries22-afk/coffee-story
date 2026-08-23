@@ -1,7 +1,11 @@
-// Staged replacement for src/features/rewards/presentation.ts
 import type { RewardEntry } from '@/types/domain';
 
-export const HEART_POINTS_LABEL = 'Beans';
+// No HEART_POINTS_LABEL here. The guest binary derives one from its baked
+// tenant; this app serves every tenant from one listing, and the copy came
+// from the split as the literal 'Beans' with no call sites -- dead code
+// holding one brand's word, waiting for someone to wire it up and ship it to
+// all of them. The staff surfaces that need a points label should read it
+// from the signed-in brand's config, the way useBusiness() reads the rest.
 
 export type RewardProgress = {
   currentFloor: number;
