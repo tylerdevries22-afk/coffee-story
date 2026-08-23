@@ -81,16 +81,31 @@ jobs:
           cd apps/customer && nohup npx expo start --port "$CUSTOMER_PORT" > "$GITHUB_WORKSPACE/metro-customer.log" 2>&1 &
           cd "$GITHUB_WORKSPACE/apps/operator" && nohup npx expo start --port "$OPERATOR_PORT" > "$GITHUB_WORKSPACE/metro-operator.log" 2>&1 &
           cd "$GITHUB_WORKSPACE"
-          for port in "$CUSTOMER_PORT" "$OPERATOR_PORT"; do
-            for _ in $(seq 1 120); do
-              if curl -fs --max-time 2 "http://127.0.0.1:$port/status" >/dev/null 2>&1; then break; fi
-              sleep 2
-            done
-            if ! curl -fs --max-time 2 "http://127.0.0.1:$port/status" >/dev/null 2>&1; then
-              echo "Metro never answered on :$port"; cat "$GITHUB_WORKSPACE"/metro-*.log; exit 1
-            fi
-            echo "Metro is up on :$port"
+          # Both ports in ONE loop, not one after the other. Polled
+          # sequentially, the first port could spend the whole budget before
+          # the second was looked at once -- and both servers are already
+          # starting, so waiting on them in series measures nothing.
+          #
+          # 450s, not 240s: a run failed here with the customer log sitting on
+          # "Waiting on http://localhost:8081" and no error at all. Metro was
+          # still starting. A cold macOS runner bringing up two dev servers
+          # over a monorepo this size genuinely takes minutes, and a ceiling
+          # that trips on a slow morning is a broken check, not a strict one.
+          up_customer=0; up_operator=0
+          for i in $(seq 1 150); do
+            [ "$up_customer" = 0 ] && curl -fs --max-time 2 "http://127.0.0.1:$CUSTOMER_PORT/status" >/dev/null 2>&1 \
+              && { up_customer=1; echo "Metro is up on :$CUSTOMER_PORT after ~$((i * 3))s"; }
+            [ "$up_operator" = 0 ] && curl -fs --max-time 2 "http://127.0.0.1:$OPERATOR_PORT/status" >/dev/null 2>&1 \
+              && { up_operator=1; echo "Metro is up on :$OPERATOR_PORT after ~$((i * 3))s"; }
+            [ "$up_customer" = 1 ] && [ "$up_operator" = 1 ] && break
+            [ $((i % 20)) -eq 0 ] && echo "  waiting on Metro (~$((i * 3))s): customer=$up_customer operator=$up_operator"
+            sleep 3
           done
+          if [ "$up_customer" = 0 ] || [ "$up_operator" = 0 ]; then
+            echo "Metro never answered (customer=$up_customer operator=$up_operator). Their logs:"
+            cat "$GITHUB_WORKSPACE"/metro-*.log
+            exit 1
+          fi
 
       - name: Put Expo Go on both devices
         run: |
