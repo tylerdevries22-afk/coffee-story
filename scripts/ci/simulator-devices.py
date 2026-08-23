@@ -73,7 +73,17 @@ def main() -> None:
     )
     print(runtime['identifier'])
     print(newest_device_type(device_types, 'iPhone', identifiers)['identifier'])
-    print(newest_device_type(device_types, 'iPad', identifiers)['identifier'])
+    # Prefer an iPad Air over an iPad Pro. The operator app is iPad-first and
+    # documented against an 11-inch Air, and the Pro's 2048x2732 framebuffer is
+    # the heaviest device the image offers -- on a shared runner already
+    # carrying a second booted device and two Metro bundlers, CoreSimulator
+    # stopped answering simctl entirely. Fall back to the newest iPad when no
+    # Air is offered.
+    try:
+        tablet = newest_device_type(device_types, 'iPad Air', identifiers)
+    except SystemExit:
+        tablet = newest_device_type(device_types, 'iPad', identifiers)
+    print(tablet['identifier'])
 
 
 if __name__ == '__main__':

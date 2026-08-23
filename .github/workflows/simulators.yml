@@ -78,6 +78,18 @@ jobs:
         timeout-minutes: 8
         run: |
           set -euo pipefail
+          # Shut down anything else this runner left booted. macos images ship
+          # with a simulator already running, and CoreSimulator stopped
+          # answering simctl at all on the last run -- three booted devices,
+          # one of them a 12.9-inch iPad, is more than the box wants to carry.
+          # Only our two devices should be up.
+          for udid in $(xcrun simctl list devices booted -j \
+            | python3 -c 'import json,sys; print(" ".join(d["udid"] for v in json.load(sys.stdin)["devices"].values() for d in v))'); do
+            case "$udid" in
+              "$CUSTOMER_UDID"|"$OPERATOR_UDID") ;;
+              *) echo "shutting down stray booted device $udid"; xcrun simctl shutdown "$udid" || true ;;
+            esac
+          done
           # The ordering the launcher script exists to enforce: opening a deep
           # link on a device that is still booting is what times out.
           xcrun simctl bootstatus "$CUSTOMER_UDID" -b
@@ -304,32 +316,42 @@ jobs:
             fi
             wait "$pid"
           }
+          # One cheap attempt, and never more. This is belt-and-braces -- the
+          # `openurl` below launches Expo Go by itself once the scheme is
+          # registered -- so it must not be able to spend the step's budget.
+          # It did exactly that: three 45s attempts per device is 300s of a
+          # 360s ceiling, so `open_app` never ran at all and neither device was
+          # ever handed its URL. A launch that has not returned in 20s is not
+          # going to.
           warm_up() {
             udid="$1"; name="$2"
-            for try in 1 2 3; do
-              bounded 45 xcrun simctl launch "$udid" host.exp.Exponent
-              rc=$?
-              if [ "$rc" -eq 0 ]; then
-                echo "$name: Expo Go launched (attempt $try)"
-                sleep 5
-                return 0
-              fi
-              if [ "$rc" -eq 124 ]; then
-                echo "$name: simctl launch never returned (attempt $try) -- device wedged?"
-              else
-                echo "$name: simctl launch exited $rc (attempt $try)"
-              fi
-              sleep 5
-            done
+            bounded 20 xcrun simctl launch "$udid" host.exp.Exponent
+            rc=$?
+            if [ "$rc" -eq 0 ]; then
+              echo "$name: Expo Go launched"
+              sleep 3
+              return 0
+            fi
+            if [ "$rc" -eq 124 ]; then
+              echo "$name: simctl launch never returned -- CoreSimulator not answering"
+              WEDGED=1
+            else
+              echo "$name: simctl launch exited $rc"
+            fi
             return 1
           }
+          # Two attempts, not three. The whole step has to fit under its
+          # ceiling: 2 devices x 2 attempts x (45s bound + 5s pause) is 200s,
+          # and the warm-ups above can add 46s. Three 60s attempts did not fit,
+          # which is how the step came to be killed before the second device
+          # was ever opened.
           open_app() {
             udid="$1"; port="$2"; name="$3"
-            for try in 1 2 3; do
+            for try in 1 2; do
               xcrun simctl openurl "$udid" "exp://$HOST_IP:$port" &
               pid=$!
               waited=0
-              while kill -0 "$pid" 2>/dev/null && [ "$waited" -lt 60 ]; do
+              while kill -0 "$pid" 2>/dev/null && [ "$waited" -lt 45 ]; do
                 sleep 2; waited=$((waited + 2))
               done
               if kill -0 "$pid" 2>/dev/null; then
@@ -346,31 +368,36 @@ jobs:
             echo "$name would not open"
             return 1
           }
-          # Open the LAN address, not 127.0.0.1. Both deep links were accepted
-          # and neither app ever asked Metro for a bundle -- the log shows
-          # startup and nothing after it. `expo start --ios` opened
-          # `exp://192.168.64.x:8099` a step earlier and that one worked, so
-          # match what Expo itself hands the simulator rather than assuming
-          # loopback reaches the host's Metro from inside the device.
-          # Loopback: the simulator shares this machine's network stack.
+          # Loopback, because an iOS simulator shares the host's network
+          # stack: 127.0.0.1 inside the device IS this machine's loopback.
+          # (A physical device on the same Wi-Fi is the case that needs the
+          # LAN address; a simulator is not that case.)
           HOST_IP=127.0.0.1
+          WEDGED=0
           echo "host address for the dev servers: $HOST_IP"
           echo "HOST_IP=$HOST_IP" >> "$GITHUB_ENV"
-          # Check the address BEFORE handing it to a device. Two runs were
+          # Report the address before handing it to a device. Two runs were
           # spent opening apps at an address nothing answered on, which looks
-          # identical to an app that opened and did nothing.
+          # identical to an app that opened and did nothing. There is nothing
+          # to fall back TO -- loopback is the only address a simulator can
+          # use -- so this reports, it does not switch.
           for port in "$CUSTOMER_PORT" "$OPERATOR_PORT"; do
             if curl -fs --max-time 5 "http://$HOST_IP:$port/status" >/dev/null 2>&1; then
               echo "  :$port is reachable at $HOST_IP"
             else
-              echo "  :$port is NOT reachable at $HOST_IP -- falling back to loopback"
-              HOST_IP=127.0.0.1
+              echo "  :$port is NOT reachable at $HOST_IP"
             fi
           done
           warm_up "$CUSTOMER_UDID" "Customer app" || true
           warm_up "$OPERATOR_UDID" "Operator app" || true
-          open_app "$CUSTOMER_UDID" "$CUSTOMER_PORT" "Customer app"
-          open_app "$OPERATOR_UDID" "$OPERATOR_PORT" "Operator app"
+          open_app "$CUSTOMER_UDID" "$CUSTOMER_PORT" "Customer app" || true
+          open_app "$OPERATOR_UDID" "$OPERATOR_PORT" "Operator app" || true
+          # Distinguish "the apps did not render" from "this runner's
+          # CoreSimulator stopped answering". They are different failures and
+          # only one of them is the repo's problem.
+          if [ "$WEDGED" -ne 0 ]; then
+            echo "CoreSimulator stopped answering simctl on this runner."
+          fi
 
       - name: Wait for each app to actually load its JavaScript
         timeout-minutes: 8
