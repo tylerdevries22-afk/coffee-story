@@ -36,7 +36,7 @@ import type { PerkDetail, RewardDetail } from './rewards/types';
 
 export function RewardsScreen() {
   const { portal, isDemo, refresh } = useAuth();
-  const { setClientTab, startBooking } = useAppState();
+  const { setClientTab, startOrder } = useAppState();
   const demo = useDemo();
   const [tab, setTab] = useState<RewardTab>('Redeem');
   const [redeeming, setRedeeming] = useState<string | null>(null);
@@ -225,7 +225,7 @@ export function RewardsScreen() {
               <CashTab
                 account={account}
                 ledger={portal.rewardLedger}
-                onUseCash={startBooking}
+                onUseCash={startOrder}
                 onSendGift={() => setClientTab('gift')}
               />
             ) : null}

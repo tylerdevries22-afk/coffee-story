@@ -6,8 +6,8 @@ import {
 } from '@/features/order/fulfillment';
 import { taxCentsFor } from '@/features/tax';
 import type {
-  BookingAddOn,
-  BookingService,
+  OrderableAddOn,
+  OrderableItem,
   GiftCard,
   IntakeProfile,
   PortalOrder,
@@ -20,8 +20,8 @@ import type {
 
 export type DemoOrderInput = {
   id: string;
-  service: BookingService;
-  addOns: BookingAddOn[];
+  service: OrderableItem;
+  addOns: OrderableAddOn[];
   placedAt: string;
   fulfillment?: OrderFulfillment;
 };

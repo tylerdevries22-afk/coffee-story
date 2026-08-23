@@ -26,7 +26,7 @@ export const REWARD_TIERS: readonly RewardTier[] = [
 ] as const;
 
 export type PurchaseBreakdown = {
-  servicesCents: number;
+  itemsCents: number;
   giftCardsCents: number;
   deliveryCents: number;
   tipsCents: number;
@@ -52,7 +52,7 @@ export function tierForAnnualPoints(annualPoints: number, tiers: readonly Reward
 }
 
 export function qualifyingSpendCents(purchase: PurchaseBreakdown): number {
-  const eligible = purchase.servicesCents + purchase.giftCardsCents + purchase.deliveryCents + purchase.tipsCents;
+  const eligible = purchase.itemsCents + purchase.giftCardsCents + purchase.deliveryCents + purchase.tipsCents;
   const excludedTender = purchase.paidWithGiftCardCents + purchase.paidWithRewardsCents;
   return Math.max(0, eligible - excludedTender);
 }

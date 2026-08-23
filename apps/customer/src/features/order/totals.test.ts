@@ -132,7 +132,7 @@ describe('orderPurchaseBreakdown', () => {
   it('splits the taxable base back into goods and delivery without losing a cent', () => {
     const totals = orderTotals({ subtotalCents: 1000, deliveryFeeCents: DELIVERY_FEE_CENTS, tipCents: 200 });
     const breakdown = orderPurchaseBreakdown(totals);
-    assert.equal(breakdown.servicesCents + breakdown.deliveryCents, totals.taxableCents);
+    assert.equal(breakdown.itemsCents + breakdown.deliveryCents, totals.taxableCents);
     assert.equal(breakdown.deliveryCents, DELIVERY_FEE_CENTS);
     assert.equal(breakdown.tipsCents, 200);
   });
@@ -140,7 +140,7 @@ describe('orderPurchaseBreakdown', () => {
   it('keeps both halves non-negative when a discount swallows the order', () => {
     const totals = orderTotals({ subtotalCents: 100, deliveryFeeCents: 399, discountCents: 9999 });
     const breakdown = orderPurchaseBreakdown(totals);
-    assert.equal(breakdown.servicesCents, 0);
+    assert.equal(breakdown.itemsCents, 0);
     assert.equal(breakdown.deliveryCents, 0);
   });
 

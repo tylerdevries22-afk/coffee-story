@@ -20,7 +20,7 @@ import { CollapsingScreen } from '@/components/collapsing-screen';
 import { AppIcon } from '@/components/icon';
 import { PushFromRight } from '@/components/push-from-right';
 import { Body } from '@/components/ui';
-import type { Service } from '@/data/catalog';
+import type { MenuItem } from '@/data/catalog';
 import type { OrderFulfillment, FulfillmentMode } from '@/features/order/fulfillment';
 import { formatMoney } from '@/features/money';
 import { PICKUP_WINDOW_MINUTES, describePickupWindow, isWindowStillBookable } from '@/features/order/pickup';
@@ -50,7 +50,7 @@ import { useDemo } from '@/state/demo-context';
 import { useOrder } from '@/state/order-context';
 import { useReducedMotion } from '@/hooks/use-reduced-motion';
 import { colors, fonts, radius, shadow, spacing } from '@/theme/tokens';
-import type { BookingService } from '@/types/domain';
+import type { OrderableItem } from '@/types/domain';
 
 import { BagStep, NoteStep } from './order/bag-step';
 import { CheckoutStep, type CheckoutPaymentMethod } from './order/checkout-step';
@@ -83,7 +83,7 @@ export function OrderScreen() {
   const [mode, setMode] = useState<FulfillmentMode | null>(null);
   const [step, setStep] = useState<SetupStep>('hub');
   const [overlay, setOverlay] = useState<Overlay>('none');
-  const [detailItem, setDetailItem] = useState<Service | null>(null);
+  const [detailItem, setDetailItem] = useState<MenuItem | null>(null);
   const [paying, setPaying] = useState(false);
   // `paying` is set and cleared inside one synchronous handler, so React
   // batches it and the button never actually renders disabled. The checkout
@@ -271,7 +271,7 @@ export function OrderScreen() {
     placing.current = true;
     setPaying(true);
     try {
-      const service: BookingService = {
+      const service: OrderableItem = {
         slug: `order-${order.windowValue}`,
         name: summary,
         category: 'specialty',

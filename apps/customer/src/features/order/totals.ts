@@ -101,7 +101,7 @@ export function orderPurchaseBreakdown(totals: OrderTotals): PurchaseBreakdown {
   // large enough to swallow the goods eats into delivery next, never below zero.
   const deliveryCents = Math.min(totals.deliveryFeeCents, totals.taxableCents);
   return {
-    servicesCents: totals.taxableCents - deliveryCents,
+    itemsCents: totals.taxableCents - deliveryCents,
     giftCardsCents: 0,
     deliveryCents,
     tipsCents: totals.tipCents,

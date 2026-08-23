@@ -40,7 +40,7 @@ export function GiftScreen({
   const [paymentMethodId, setPaymentMethodId] = useState<string | null>(null);
   const { isDemo, portal } = useAuth();
   const demo = useDemo();
-  const { startBooking } = useAppState();
+  const { startOrder } = useAppState();
   const paymentMethods = portal.paymentMethods ?? [];
   const selectedPaymentMethod = paymentMethods.find((method) => method.id === paymentMethodId)
     ?? paymentMethods.find((method) => method.isDefault)
@@ -184,8 +184,8 @@ export function GiftScreen({
     setSelectedGift(gift);
     setView('detail');
   }} onBuy={() => setView('purchase')} onBack={() => setView('gallery')} />;
-  if (view === 'recipient') return <RecipientExperience initialToken={claimToken} isDemo={isDemo} onBook={() => startBooking()} onBack={() => setView('gallery')} />;
-  if (view === 'detail' && selectedGift) return <GiftDetail gift={selectedGift} onBook={() => startBooking()} onBack={() => setView('gallery')} />;
+  if (view === 'recipient') return <RecipientExperience initialToken={claimToken} isDemo={isDemo} onBook={() => startOrder()} onBack={() => setView('gallery')} />;
+  if (view === 'detail' && selectedGift) return <GiftDetail gift={selectedGift} onBook={() => startOrder()} onBack={() => setView('gallery')} />;
   if (view === 'sent') return <SentScreen amount={amount} recipient={recipient} isDemo={isDemo} onReset={() => setView('gallery')} />;
 
   return (

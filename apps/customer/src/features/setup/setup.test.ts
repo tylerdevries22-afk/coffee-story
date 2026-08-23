@@ -43,7 +43,7 @@ test('portalSetup fills defaults when the bundle has no setup', () => {
 test('portalSetup sanitizes hostile stored values', () => {
   const setup = portalSetup(bundleWith({
     client: { status: 'root', step: 99, answers: { goals: ['Late-night hours', 'evil'], pressure: 'crushing', preferredTimes: 'no' } },
-    admin: { status: 'completed', step: 2, answers: { businessName: 42, openDays: ['Mon', 'Funday'], servicesConfirmed: 'yes' } },
+    admin: { status: 'completed', step: 2, answers: { businessName: 42, openDays: ['Mon', 'Funday'], menuConfirmed: 'yes' } },
   }));
   assert.equal(setup.client.status, 'not_started');
   assert.equal(setup.client.step, 2);
@@ -53,7 +53,7 @@ test('portalSetup sanitizes hostile stored values', () => {
   assert.equal(setup.admin.status, 'completed');
   assert.equal(setup.admin.answers.businessName, 'Coffee Story');
   assert.deepEqual(setup.admin.answers.openDays, ['Mon']);
-  assert.equal(setup.admin.answers.servicesConfirmed, false);
+  assert.equal(setup.admin.answers.menuConfirmed, false);
 });
 
 test('withRoleSetup persists one role and leaves the others intact', () => {

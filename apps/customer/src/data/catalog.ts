@@ -71,7 +71,7 @@ import { CATALOG_ITEMS, type CatalogItemData, type MenuCategoryId } from './cata
 export { MENU_CATEGORY_META } from './catalog-data';
 export type { MenuCategoryId } from './catalog-data';
 
-export type Service = CatalogItemData & {
+export type MenuItem = CatalogItemData & {
   image: number;
   category: MenuCategoryId;
 };
@@ -140,7 +140,7 @@ const ITEM_IMAGES: Readonly<Record<string, number>> = {
   'mochi-donut': mochiImg,
 };
 
-function withImage(item: CatalogItemData): Service {
+function withImage(item: CatalogItemData): MenuItem {
   const image = ITEM_IMAGES[item.id];
   if (image === undefined) {
     // A data item without a photo is a build mistake, not a runtime state.
@@ -149,7 +149,7 @@ function withImage(item: CatalogItemData): Service {
   return { ...item, image };
 }
 
-export const SERVICES: readonly Service[] = CATALOG_ITEMS.map(withImage);
+export const MENU_ITEMS: readonly MenuItem[] = CATALOG_ITEMS.map(withImage);
 
 export const AVAILABLE_DATES = ['Today', 'Tomorrow', 'Sat 1', 'Sun 2', 'Mon 3'] as const;
 export const AVAILABLE_TIMES = ['8:30 AM', '10:00 AM', '12:30 PM', '3:00 PM', '6:30 PM'] as const;

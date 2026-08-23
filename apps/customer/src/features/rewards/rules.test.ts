@@ -12,7 +12,7 @@ import {
 } from './rules';
 
 const purchase: PurchaseBreakdown = {
-  servicesCents: 10000,
+  itemsCents: 10000,
   giftCardsCents: 2500,
   deliveryCents: 500,
   tipsCents: 1500,

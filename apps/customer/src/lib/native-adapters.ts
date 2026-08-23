@@ -14,7 +14,7 @@ export function usesSimulatedNativeFlows(isDemo: boolean, appOwnership: string |
 
 /**
  * Takes the two fields it actually needs rather than a domain type: this used
- * to require a BookingService, which is why a calendar helper depended on the
+ * to require a OrderableItem, which is why a calendar helper depended on the
  * booking module at all.
  */
 export async function addOrderToCalendar(

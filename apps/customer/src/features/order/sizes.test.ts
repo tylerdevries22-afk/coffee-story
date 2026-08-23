@@ -9,7 +9,9 @@ import {
   type CatalogSize,
 } from './sizes';
 
-const size = (slug: string, minutes: number, price: number): CatalogSize => ({ slug, minutes, price });
+const size = (slug: string, ounces: number, dollars: number): CatalogSize => (
+  { slug, ounces, priceCents: dollars * 100 }
+);
 
 describe('sizeLabelFor', () => {
   it('reads ounces off a drink slug', () => {

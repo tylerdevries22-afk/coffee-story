@@ -36,7 +36,7 @@ export function menuCsv(): string {
   const titles = new Map(MENU_CATEGORY_META.map((category) => [category.id, category.title]));
   const lines = ['slug,name,category,description,base_price_cents,sizes'];
   for (const item of CATALOG_ITEMS) {
-    const suffixed = item.durations
+    const suffixed = item.sizes
       .map((size) => ({ suffix: sizeSuffix(item.id, size.slug), cents: sizePriceCents(size) }));
     const single = suffixed.length === 1 && suffixed[0]!.suffix === null;
     const baseCents = Math.min(...suffixed.map((size) => size.cents));

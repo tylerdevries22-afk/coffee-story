@@ -1,4 +1,5 @@
-import type { BookingService, GiftCard, PortalOrder, PortalBundle } from '@/types/domain';
+import { formatMoney } from '@/features/money';
+import type { OrderableItem, GiftCard, PortalOrder, PortalBundle } from '@/types/domain';
 
 /**
  * One row in the client search sheet.
@@ -13,7 +14,7 @@ export type ClientSearchResult = {
   title: string;
   detail: string;
   /** What the caller should open. */
-  target: { view: string } | { serviceId: string };
+  target: { view: string } | { itemId: string };
 };
 
 /**
@@ -80,15 +81,16 @@ function giftResult(gift: GiftCard): ClientSearchResult {
   };
 }
 
-function serviceResult(service: BookingService): ClientSearchResult {
-  const price = `$${Math.round(service.priceCents / 100)}`;
-  const description = service.description ? ` · ${service.description}` : '';
+function itemResult(item: OrderableItem): ClientSearchResult {
+  const description = item.description ? ` · ${item.description}` : '';
+  // Food has no volume, so the size is omitted rather than printed as a zero.
+  const size = item.ounces ? `${item.ounces} oz · ` : '';
   return {
-    id: `service-${service.slug}`,
+    id: `service-${item.slug}`,
     kind: 'service',
-    title: service.name,
-    detail: `${service.durationMin} min · ${price}${description}`,
-    target: { serviceId: service.slug },
+    title: item.name,
+    detail: `${size}${formatMoney(item.priceCents)}${description}`,
+    target: { itemId: item.slug },
   };
 }
 
@@ -104,7 +106,7 @@ function serviceResult(service: BookingService): ClientSearchResult {
 export function searchClientAccount(
   query: string,
   portal: PortalBundle,
-  services: readonly BookingService[],
+  services: readonly OrderableItem[],
 ): ClientSearchResult[] {
   const needle = query.trim().toLowerCase();
   if (!needle) return [];
@@ -128,7 +130,7 @@ export function searchClientAccount(
     .filter((result) => matches(needle, result.title, result.detail));
 
   const bookable = services
-    .map(serviceResult)
+    .map(itemResult)
     .filter((result) => matches(needle, result.title, result.detail));
 
   return [...pages, ...visits, ...gifts, ...bookable].slice(0, RESULT_LIMIT);

@@ -25,7 +25,7 @@ import type { PortalBundle } from '@/types/domain';
 const service = {
   slug: 'deep-tissue-60',
   name: 'Deep Tissue Massage',
-  category: 'therapeutic' as const,
+  category: 'specialty' as const,
   durationMin: 60,
   priceCents: 11000,
   depositCents: 2500,

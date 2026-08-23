@@ -13,7 +13,7 @@ import { HeaderIconButton } from '@/components/more-page-header';
 import { MoreSearchTakeover } from '@/components/more-search-takeover';
 import { PortalProfileCard } from '@/components/portal-profile-card';
 import { BUSINESS } from '@/data/business';
-import { SERVICES } from '@/data/catalog';
+import { MENU_ITEMS } from '@/data/catalog';
 import { buildClientNotifications } from '@/features/notifications/feed';
 import { searchClientAccount, type ClientSearchResult } from '@/features/search/client-search';
 import { summarizeGiftCardOwnership } from '@/features/gifts/ownership';
@@ -22,14 +22,14 @@ import { tenantFeature } from '@/tenant';
 import { useAuth } from '@/state/auth-context';
 import { useDemo } from '@/state/demo-context';
 import { colors } from '@/theme/tokens';
-import type { BookingService } from '@/types/domain';
+import type { OrderableItem } from '@/types/domain';
 
-import { projectFirstServices } from '@/features/booking/service-projections';
+import { projectFirstVariants } from '@/features/menu/item-projections';
 
 import rewardsCup from '../../../assets/tabs/cup.png';
 
 /** Catalog entries in the booking shape the account search expects. */
-const BOOKABLE_SERVICES: BookingService[] = projectFirstServices(SERVICES);
+const ORDERABLE_ITEMS: OrderableItem[] = projectFirstVariants(MENU_ITEMS);
 
 /** Result kind decides the row glyph, the way the web search groups results. */
 const SEARCH_SYMBOLS: Record<ClientSearchResult['kind'], 'doc.text' | 'clock.arrow.circlepath' | 'creditcard' | 'heart'> = {
@@ -54,7 +54,7 @@ export function MoreScreen() {
     readNotificationIds,
     openMore,
     setClientTab,
-    startBooking,
+    startOrder,
   } = useAppState();
   const { portal, isDemo, signOut } = useAuth();
   const demo = useDemo();
@@ -72,7 +72,7 @@ export function MoreScreen() {
   const completedVisits = isDemo
     ? portal.orders.filter((appointment) => appointment.status === 'picked_up').length
     : liveOrders.filter((entry) => entry.status === 'picked_up').length;
-  const searchResults = searchClientAccount(query, portal, BOOKABLE_SERVICES);
+  const searchResults = searchClientAccount(query, portal, ORDERABLE_ITEMS);
   const giftSummary = summarizeGiftCardOwnership(portal.giftCards);
   const giftBalanceCents = isDemo ? giftSummary.spendableBalanceCents : portal.rewardAccount.cashCents;
   const upcomingVisits = isDemo
@@ -89,8 +89,8 @@ export function MoreScreen() {
   function openResult(result: ClientSearchResult) {
     setSearchOpen(false);
     setQuery('');
-    if ('serviceId' in result.target) startBooking(result.target.serviceId);
-    else if (result.target.view === 'book') startBooking();
+    if ('itemId' in result.target) startOrder(result.target.itemId);
+    else if (result.target.view === 'book') startOrder();
     else openMore(result.target.view as MoreView);
   }
 

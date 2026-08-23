@@ -4,7 +4,7 @@
  * Pure by construction: no asset imports, and nothing here reaches into
  * `data/catalog.ts`, which imports .webp files and is therefore unreachable
  * from `node:test`. Callers hand this module an item id and a category, never
- * a `Service`. `data/add-ons.ts` follows the same rule and is the single
+ * a `MenuItem`. `data/add-ons.ts` follows the same rule and is the single
  * source of truth for extra pricing, so an extra shot costs the same here as
  * it does on the staff register.
  */

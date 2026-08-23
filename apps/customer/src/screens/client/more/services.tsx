@@ -3,7 +3,9 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { CollapsingScreen } from '@/components/collapsing-screen';
 import { MenuImage } from '@/components/menu-image';
 import { Body, Card, SectionTitle } from '@/components/ui';
-import { DEMO_ADD_ONS, SERVICES, type Service } from '@/data/catalog';
+import { DEMO_ADD_ONS, MENU_ITEMS, type MenuItem } from '@/data/catalog';
+import { formatMoney } from '@/features/money';
+import { sizeLabelFor, sizePriceCents } from '@/features/order/sizes';
 import { colors, fonts, radius, spacing } from '@/theme/tokens';
 
 /**
@@ -14,7 +16,7 @@ import { colors, fonts, radius, spacing } from '@/theme/tokens';
  * the site. Card language follows the client home screen deliberately: the two
  * screens show the same services and should not look like different studios.
  */
-export function ServicesPage({
+export function MenuPage({
   onBack,
   onBook,
 }: {
@@ -27,8 +29,8 @@ export function ServicesPage({
         Every session, every length. Prices are the same ones published on the website.
       </Body>
 
-      {SERVICES.map((service) => (
-        <ServiceCard key={service.id} service={service} onBook={() => onBook(service.id)} />
+      {MENU_ITEMS.map((item) => (
+        <ServiceCard key={item.id} item={item} onBook={() => onBook(item.id)} />
       ))}
 
       <SectionTitle>Enhancements</SectionTitle>
@@ -51,33 +53,33 @@ export function ServicesPage({
   );
 }
 
-function ServiceCard({ service, onBook }: { service: Service; onBook: () => void }) {
+function ServiceCard({ item, onBook }: { item: MenuItem; onBook: () => void }) {
   return (
     <Card style={styles.card}>
-      <MenuImage source={service.image} variant="hero" alt={service.name} style={styles.image} />
+      <MenuImage source={item.image} variant="hero" alt={item.name} style={styles.image} />
       <View style={styles.copy}>
-        <Text style={styles.name}>{service.name}</Text>
-        <Body muted>{service.description}</Body>
+        <Text style={styles.name}>{item.name}</Text>
+        <Body muted>{item.description}</Body>
       </View>
 
-      {/* Every length, rather than the "from" price the home screen shows --
-          this is the page a client opens to compare them. */}
-      <View style={styles.durations}>
-        {service.durations.map((duration) => (
-          <View key={duration.slug} style={styles.durationRow}>
-            <Text style={styles.durationLabel}>{duration.minutes} min</Text>
-            <Text style={styles.durationPrice}>${duration.price}</Text>
+      {/* Every size, rather than the "from" price the home screen shows --
+          this is the page a guest opens to compare them. */}
+      <View style={styles.sizes}>
+        {item.sizes.map((size) => (
+          <View key={size.slug} style={styles.durationRow}>
+            <Text style={styles.durationLabel}>{sizeLabelFor(size.slug)}</Text>
+            <Text style={styles.durationPrice}>{formatMoney(sizePriceCents(size))}</Text>
           </View>
         ))}
       </View>
 
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`Order ${service.name}`}
+        accessibilityLabel={`Order ${item.name}`}
         onPress={onBook}
         style={({ pressed }) => [styles.book, pressed && styles.pressed]}
       >
-        <Text style={styles.bookLabel}>Order {service.name}</Text>
+        <Text style={styles.bookLabel}>Order {item.name}</Text>
       </Pressable>
     </Card>
   );
@@ -88,7 +90,7 @@ const styles = StyleSheet.create({
   image: { borderRadius: radius.md },
   copy: { gap: 2 },
   name: { color: colors.ink900, fontFamily: fonts.display, fontSize: 20 },
-  durations: { gap: 0 },
+  sizes: { gap: 0 },
   durationRow: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -54,7 +54,7 @@ type AppState = {
   closeNotifications: () => void;
   setClientTab: (tab: ClientTab) => void;
   setStaffTab: (tab: StaffTab) => void;
-  startBooking: (serviceId?: string) => void;
+  startOrder: (itemId?: string) => void;
   consumeGiftClaimToken: () => void;
   openMore: (view: MoreView) => void;
   enterStaff: () => void;
@@ -143,9 +143,9 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     selectionFeedback();
     go(staffTabHref(tab));
   }, []);
-  const startBooking = useCallback((serviceId?: string) => {
+  const startOrder = useCallback((itemId?: string) => {
     selectionFeedback();
-    setSelectedServiceId(serviceId ?? null);
+    setSelectedServiceId(itemId ?? null);
     go(clientTabHref('book'));
   }, []);
   const openGiftClaim = useCallback((token: string) => {
@@ -172,14 +172,14 @@ export function AppStateProvider({ children }: PropsWithChildren) {
       }
       const destination = destinationForIntentUrl(url);
       if (!destination) return;
-      if (destination === 'book') startBooking();
+      if (destination === 'book') startOrder();
       else if (destination === 'visits') openMore('visits');
       else setClientTab(destination);
     };
     void Linking.getInitialURL().then(dispatch);
     const subscription = Linking.addEventListener('url', ({ url }) => dispatch(url));
     return () => subscription.remove();
-  }, [openGiftClaim, startBooking, openMore, setClientTab]);
+  }, [openGiftClaim, startOrder, openMore, setClientTab]);
 
   const openStaffDestination = useCallback((path: string) => {
     selectionFeedback();
@@ -206,7 +206,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     closeNotifications,
     setClientTab,
     setStaffTab,
-    startBooking,
+    startOrder,
     consumeGiftClaimToken,
     openMore,
     enterStaff: () => {
@@ -257,7 +257,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     setStaffTab,
     staffDetailPath,
     staffTab,
-    startBooking,
+    startOrder,
     unreadNotificationIds,
   ]);
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

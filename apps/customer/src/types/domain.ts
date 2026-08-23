@@ -18,7 +18,7 @@ export type StaffSetupAnswers = {
 export type AdminSetupAnswers = {
   businessName: string;
   openDays: string[];
-  servicesConfirmed: boolean;
+  menuConfirmed: boolean;
   teamConfirmed: boolean;
   onlineBooking: boolean;
 };
@@ -192,17 +192,20 @@ export type PortalBundle = {
   setup?: PortalSetupState;
 };
 
-export type BookingService = {
+export type OrderableItem = {
   slug: string;
   name: string;
-  category: 'signature' | 'therapeutic' | 'specialty';
+  category: 'signature' | 'specialty';
+  /** Drink size. Absent for anything not poured -- food has one size. */
+  ounces?: number;
+  /** Prep estimate, in minutes. Feeds the pickup window, not the price. */
   durationMin: number;
   priceCents: number;
   depositCents: number;
   description?: string;
 };
 
-export type BookingAddOn = {
+export type OrderableAddOn = {
   slug: string;
   name: string;
   priceCents: number;
@@ -210,9 +213,9 @@ export type BookingAddOn = {
   description: string;
 };
 
-export type BookingCatalog = {
-  services: BookingService[];
-  addOns: BookingAddOn[];
+export type OrderableCatalog = {
+  services: OrderableItem[];
+  addOns: OrderableAddOn[];
 };
 
 export type StaffClient = {

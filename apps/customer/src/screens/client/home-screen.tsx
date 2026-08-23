@@ -20,13 +20,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppIcon } from '@/components/icon';
 import { useTabBarClearance } from '@/components/navigation/tab-screen';
 import { Screen } from '@/components/ui';
-import { DEMO_ADD_ONS, MENU_CATEGORY_META, SERVICES, type MenuCategoryId, type Service } from '@/data/catalog';
+import { DEMO_ADD_ONS, MENU_CATEGORY_META, MENU_ITEMS, type MenuCategoryId, type MenuItem } from '@/data/catalog';
 import { useAppState } from '@/state/app-context';
 import { useAuth } from '@/state/auth-context';
 import { openWebPath } from '@/lib/web-navigation';
 import { colors, fonts, radius, spacing } from '@/theme/tokens';
 import { demoDrops } from '@/data/drops';
 import { dropStatus, dropWindowLabel, weeklyDrops, type Drop } from '@/features/drops';
+import { formatMoney } from '@/features/money';
 import { MenuImage } from '@/components/menu-image';
 import { SiriAssistant, type SiriCommand } from '@/components/siri/siri-assistant';
 import { useReducedMotion } from '@/hooks/use-reduced-motion';
@@ -59,7 +60,7 @@ const CATEGORY_PREVIEW_COUNT = 7;
  * menu, sectioned by category with a capped preview and a Show All reveal.
  */
 export function HomeScreen() {
-  const { openMore, setClientTab, startBooking } = useAppState();
+  const { openMore, setClientTab, startOrder } = useAppState();
   const { portal } = useAuth();
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -82,8 +83,8 @@ export function HomeScreen() {
     instance.play();
   });
 
-  const favorites = HOUSE_FAVORITE_IDS.map((id) => SERVICES.find((service) => service.id === id)).filter(
-    (service): service is Service => Boolean(service),
+  const favorites = HOUSE_FAVORITE_IDS.map((id) => MENU_ITEMS.find((service) => service.id === id)).filter(
+    (service): service is MenuItem => Boolean(service),
   );
 
   // The rotating-drop model's front door: this week's board — everything live
@@ -91,8 +92,8 @@ export function HomeScreen() {
   const weekly = useMemo(() => {
     if (!tenantFeature('drops')) return [];
     return weeklyDrops(demoDrops(), new Date())
-      .map((entry) => ({ drop: entry, item: SERVICES.find((service) => service.id === entry.itemId) ?? null }))
-      .filter((entry): entry is { drop: Drop; item: Service } => entry.item !== null);
+      .map((entry) => ({ drop: entry, item: MENU_ITEMS.find((service) => service.id === entry.itemId) ?? null }))
+      .filter((entry): entry is { drop: Drop; item: MenuItem } => entry.item !== null);
   }, []);
 
   const onScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -113,11 +114,11 @@ export function HomeScreen() {
   });
 
   const onBookNow = useCallback(() => {
-    startBooking('tiramisu-latte');
-  }, [startBooking]);
+    startOrder('tiramisu-latte');
+  }, [startOrder]);
 
   const siriCommands: readonly SiriCommand[] = [
-    { key: 'book', phrase: 'Order my usual', onRun: () => startBooking() },
+    { key: 'book', phrase: 'Order my usual', onRun: () => startOrder() },
     { key: 'next-visit', phrase: 'When is my next pickup?', onRun: () => openMore('visits') },
     { key: 'rewards', phrase: 'Check my rewards balance', onRun: () => setClientTab('rewards') },
     { key: 'gift', phrase: 'Send a gift card', onRun: () => setClientTab('gift') },
@@ -281,7 +282,7 @@ export function HomeScreen() {
               drop={entry.drop}
               item={entry.item}
               flip={index % 2 === 1}
-              onPress={() => startBooking(entry.item.id)}
+              onPress={() => startOrder(entry.item.id)}
             />
           ))}
           <Pressable
@@ -306,7 +307,7 @@ export function HomeScreen() {
           service={service}
           tag="Most Loved"
           flip={index % 2 === 1}
-          onPress={() => startBooking(service.id)}
+          onPress={() => startOrder(service.id)}
         />
       ))}
 
@@ -316,7 +317,7 @@ export function HomeScreen() {
         body="Every drink and bite we serve — tap anything to start an order."
       />
       {MENU_CATEGORY_META.map((category) => {
-        const items = SERVICES.filter((service) => service.category === category.id);
+        const items = MENU_ITEMS.filter((service) => service.category === category.id);
         const isExpanded = expanded.has(category.id);
         const visible = isExpanded ? items : items.slice(0, CATEGORY_PREVIEW_COUNT);
         return (
@@ -330,7 +331,7 @@ export function HomeScreen() {
             </View>
             <View style={styles.menuList}>
               {visible.map((item) => (
-                <MenuRow key={item.id} item={item} onPress={() => startBooking(item.id)} />
+                <MenuRow key={item.id} item={item} onPress={() => startOrder(item.id)} />
               ))}
             </View>
             {items.length > CATEGORY_PREVIEW_COUNT ? (
@@ -463,12 +464,12 @@ function FeatureRow({
   flip,
   onPress,
 }: {
-  service: Service;
+  service: MenuItem;
   tag: string;
   flip: boolean;
   onPress: () => void;
 }) {
-  const from = service.durations[0]?.price;
+  const from = service.sizes[0]?.priceCents;
   return (
     <View style={[styles.feature, flip && styles.featureFlip]}>
       <Image
@@ -480,7 +481,7 @@ function FeatureRow({
       <View style={styles.featureCopy}>
         <View style={styles.tag}><Text style={styles.tagText}>{tag}</Text></View>
         <Text style={styles.featureTitle}>{service.name}</Text>
-        {from ? <Text style={styles.featureFrom}>From ${from}</Text> : null}
+        {from ? <Text style={styles.featureFrom}>From {formatMoney(from)}</Text> : null}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`Order ${service.name}`}
@@ -501,7 +502,7 @@ function DropFeatureRow({
   onPress,
 }: {
   drop: Drop;
-  item: Service;
+  item: MenuItem;
   flip: boolean;
   onPress: () => void;
 }) {
@@ -531,8 +532,8 @@ function DropFeatureRow({
   );
 }
 
-function MenuRow({ item, onPress }: { item: Service; onPress: () => void }) {
-  const from = item.durations[0]?.price;
+function MenuRow({ item, onPress }: { item: MenuItem; onPress: () => void }) {
+  const from = item.sizes[0]?.priceCents;
   return (
     <Pressable
       accessibilityRole="button"
@@ -545,7 +546,7 @@ function MenuRow({ item, onPress }: { item: Service; onPress: () => void }) {
         <Text style={styles.menuRowName}>{item.name}</Text>
         <Text numberOfLines={1} style={styles.menuRowBody}>{item.description}</Text>
       </View>
-      {from ? <Text style={styles.menuRowPrice}>${from}</Text> : null}
+      {from ? <Text style={styles.menuRowPrice}>{formatMoney(from)}</Text> : null}
       <AppIcon name="chevron.right" size={13} tintColor={colors.ink400} />
     </Pressable>
   );

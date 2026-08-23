@@ -15,7 +15,7 @@ import { MenuImage } from '@/components/menu-image';
 import { OptionGroupField, QuantityStepper, SizeSegmented } from '@/components/order/option-controls';
 import { ActionButton, useCoveringBottomInset } from '@/components/order/order-chrome';
 import { SheetModal } from '@/components/sheet-modal';
-import type { Service } from '@/data/catalog';
+import type { MenuItem } from '@/data/catalog';
 import { formatMoney } from '@/features/money';
 import { MAX_LINE_QUANTITY, buildOrderLine, type OrderLine } from '@/features/order/cart';
 import {
@@ -35,7 +35,7 @@ export function ItemSheet({
   onClose,
   onAdd,
 }: {
-  item: Service | null;
+  item: MenuItem | null;
   onClose: () => void;
   onAdd: (line: OrderLine) => number;
 }) {
@@ -43,7 +43,7 @@ export function ItemSheet({
   // can play. Gating the children on the same `item` that gates `visible`
   // defeated that: the body unmounted on the first frame, the sheet collapsed
   // to zero height, and a full-strength scrim faded alone over the menu.
-  const lastItem = useRef<Service | null>(null);
+  const lastItem = useRef<MenuItem | null>(null);
   if (item) lastItem.current = item;
   const shown = item ?? lastItem.current;
 
@@ -63,25 +63,25 @@ function ItemSheetBody({
   onClose,
   onAdd,
 }: {
-  item: Service;
+  item: MenuItem;
   onClose: () => void;
   onAdd: (line: OrderLine) => number;
 }) {
   const bottom = useCoveringBottomInset();
   const groups = useMemo(() => optionGroupsFor(item.id, item.category), [item.id, item.category]);
-  const [sizeSlug, setSizeSlug] = useState(() => defaultSizeSlug(item.durations));
+  const [sizeSlug, setSizeSlug] = useState(() => defaultSizeSlug(item.sizes));
   const [selection, setSelection] = useState<OptionSelection>(() => defaultOptionSelection(groups));
   const [quantity, setQuantity] = useState(1);
   const [showRequired, setShowRequired] = useState(false);
   const [shortfall, setShortfall] = useState<number | null>(null);
 
-  const size = item.durations.find((entry) => entry.slug === sizeSlug) ?? item.durations[0];
+  const size = item.sizes.find((entry) => entry.slug === sizeSlug) ?? item.sizes[0];
   const basePriceCents = size ? sizePriceCents(size) : 0;
   const unitPriceCents = basePriceCents + optionDeltaCents(groups, selection);
   const missing = missingRequiredGroups(groups, selection);
   const visible = visibleOptionGroups(groups, selection);
 
-  const sizes = item.durations.map((entry) => ({
+  const sizes = item.sizes.map((entry) => ({
     slug: entry.slug,
     label: sizeLabelFor(entry.slug),
     priceCents: sizePriceCents(entry),

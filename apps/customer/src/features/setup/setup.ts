@@ -105,7 +105,7 @@ const INITIAL_ADMIN: RoleSetup<AdminSetupAnswers> = {
   answers: {
     businessName: 'Coffee Story',
     openDays: [],
-    servicesConfirmed: false,
+    menuConfirmed: false,
     teamConfirmed: false,
     onlineBooking: true,
   },
@@ -175,7 +175,7 @@ export function portalSetup(portal: PortalBundle): PortalSetupState {
           ? candidate.businessName.slice(0, 120)
           : INITIAL_ADMIN.answers.businessName,
         openDays: safeStrings(candidate.openDays, DAY_OPTIONS),
-        servicesConfirmed: candidate.servicesConfirmed === true,
+        menuConfirmed: candidate.menuConfirmed === true,
         teamConfirmed: candidate.teamConfirmed === true,
         onlineBooking: candidate.onlineBooking !== false,
       };

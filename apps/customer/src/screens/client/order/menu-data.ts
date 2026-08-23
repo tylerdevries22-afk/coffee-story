@@ -5,13 +5,13 @@
  * `data/catalog.ts`, which imports the item photography — the feature modules
  * stay free of asset imports so `node:test` can reach them.
  */
-import { MENU_CATEGORY_META, SERVICES, type MenuCategoryId, type Service } from '@/data/catalog';
+import { MENU_CATEGORY_META, MENU_ITEMS, type MenuCategoryId, type MenuItem } from '@/data/catalog';
 
 export type MenuSection = {
   id: MenuCategoryId;
   title: string;
   tagline: string;
-  items: readonly Service[];
+  items: readonly MenuItem[];
 };
 
 /** Categories in menu order, with the empty ones dropped. */
@@ -20,10 +20,10 @@ export function menuSections(): MenuSection[] {
     id: category.id,
     title: category.title,
     tagline: category.tagline,
-    items: SERVICES.filter((service) => service.category === category.id),
+    items: MENU_ITEMS.filter((service) => service.category === category.id),
   })).filter((section) => section.items.length > 0);
 }
 
-export function findMenuItem(itemId: string): Service | undefined {
-  return SERVICES.find((service) => service.id === itemId);
+export function findMenuItem(itemId: string): MenuItem | undefined {
+  return MENU_ITEMS.find((service) => service.id === itemId);
 }

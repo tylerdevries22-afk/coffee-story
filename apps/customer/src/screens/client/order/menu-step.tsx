@@ -27,7 +27,7 @@ import { CategoryStrip } from '@/components/order/category-strip';
 import { CartPill, Ribbon } from '@/components/order/order-chrome';
 import { disabledState } from '@/lib/a11y-state';
 import { useTabBarClearance } from '@/components/navigation/tab-screen';
-import type { Service } from '@/data/catalog';
+import type { MenuItem } from '@/data/catalog';
 import { fulfillmentDetail, fulfillmentLabel, type OrderFulfillment } from '@/features/order/fulfillment';
 import { describePickupWindow } from '@/features/order/pickup';
 import { menuPriceLabel } from '@/features/order/sizes';
@@ -71,7 +71,7 @@ export function MenuStep({
   highlightItemId?: string | null;
   onBack: () => void;
   onEdit: () => void;
-  onSelectItem: (item: Service) => void;
+  onSelectItem: (item: MenuItem) => void;
   onOpenBag: () => void;
 }) {
   const sections = useMemo(menuSections, []);
@@ -221,11 +221,11 @@ function MenuRow({
   highlighted,
   onPress,
 }: {
-  item: Service;
+  item: MenuItem;
   highlighted: boolean;
   onPress: () => void;
 }) {
-  const price = menuPriceLabel(item.durations);
+  const price = menuPriceLabel(item.sizes);
   const soldOut = Boolean(item.soldOutToday);
   return (
     <Pressable
