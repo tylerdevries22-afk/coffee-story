@@ -37,6 +37,17 @@
       ],
       "port": 4190,
       "autoPort": true
+    },
+    {
+      "name": "display",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@platform/display",
+        "dev"
+      ],
+      "port": 3200,
+      "autoPort": true
     }
   ]
 }
