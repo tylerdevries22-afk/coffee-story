@@ -113,11 +113,20 @@ jobs:
         timeout-minutes: 20
         run: |
           set -uo pipefail   # not -e: the first route is allowed to fail
-          # Everything this step prints is also kept, because the Actions log
+          # Appended straight to the file, NOT teed. `exec > >(tee -a ...)`
+          # is process substitution, and bash does not wait for those
+          # children when the shell exits -- a step that fails and returns
+          # immediately has its tee killed mid-buffer. That is exactly what
+          # happened: the transcript ended at this step's last line and the
+          # NEXT step, the one that failed, wrote nothing at all. The live
+          # output is no loss; it sits mid-job where the log API cannot
+          # reach it anyway, and the replay prints this file at the end.
+          #
+          # Everything this step prints is kept, because the Actions log
           # API only ever returns the END of a job -- a failure in the middle
           # is invisible to anything reading it programmatically. The last
           # step of this job replays this file when the job fails.
-          exec > >(tee -a "$GITHUB_WORKSPACE/expo-go-diag.log") 2>&1
+          exec >> "$GITHUB_WORKSPACE/expo-go-diag.log" 2>&1
           # Two ways to get Expo Go, because CI cannot press `i`.
           #
           # 1. api.expo.dev names a client build per SDK. Cheapest when it
@@ -209,7 +218,7 @@ jobs:
         timeout-minutes: 6
         run: |
           set -uo pipefail
-          exec > >(tee -a "$GITHUB_WORKSPACE/expo-go-diag.log") 2>&1
+          exec >> "$GITHUB_WORKSPACE/expo-go-diag.log" 2>&1
           # `simctl openurl` does not reliably fail fast. It is the call that
           # reports code 60 on a busy CoreSimulator -- the failure @expo/cli
           # treats as fatal and reports as "Expo crashed" -- and it can also
@@ -271,7 +280,7 @@ jobs:
         timeout-minutes: 8
         run: |
           set -euo pipefail
-          exec > >(tee -a "$GITHUB_WORKSPACE/expo-go-diag.log") 2>&1
+          exec >> "$GITHUB_WORKSPACE/expo-go-diag.log" 2>&1
           # Metro logs "Bundled" only when a real client fetched and ran the
           # bundle, so this is the app running, not just the deep link firing.
           for pair in "metro-customer.log|Customer" "metro-operator.log|Operator"; do
