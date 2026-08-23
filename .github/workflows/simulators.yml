@@ -457,22 +457,23 @@ jobs:
           ok=1
           for pair in "$CUSTOMER_PORT|Customer|metro-customer.log" "$OPERATOR_PORT|Operator|metro-operator.log"; do
             port="${pair%%|*}"; rest="${pair#*|}"; label="${rest%%|*}"; log="${rest##*|}"
-            # ONE url -- the virtual entry, which is what Expo Go actually
-            # requests on SDK 50+. Three candidates in a row was a mistake
-            # twice over: it burned the step's whole budget building the same
-            # 23MB bundle repeatedly, and it reported the LAST candidate's
-            # error against the FIRST candidate's url. `/index.bundle` fails
-            # by design on an expo-router app, so the message that got printed
-            # for 25 runs was always the least informative of the three, and it
-            # hid the real one (`./node_modules/expo-router/entry` unresolvable
-            # under a hoisted install) the whole time.
+            # Ask for the bundle Expo Go ACTUALLY loads, with the parameters
+            # it actually sends. Both were guesses before, and both were wrong.
             #
-            # No retry loop either: curl blocks while Metro compiles, which IS
-            # the wait. `transform.routerRoot` is required -- Metro names the
-            # value at startup, "Using src/app as the root directory for Expo
-            # Router".
-            q="platform=ios&dev=true&transform.routerRoot=src/app"
-            url="http://$HOST_IP:$port/.expo/.virtual-metro-entry.bundle?$q"
+            # The manifest names it: `curl -H 'Expo-Platform: ios' <server>/`
+            # returns a multipart manifest whose `launchAsset.url` is
+            # `/index.bundle?...&transform.engine=hermes&transform.bytecode=1
+            # &transform.routerRoot=src%2Fapp&unstable_transformProfile=...`.
+            # So `/index.bundle` was never "the wrong probe": the
+            # `UnableToResolveError: ./index` it returned for 25 runs was the
+            # real failure, printed in every log and dismissed each time
+            # because the virtual entry looked more plausible.
+            #
+            # No retry loop: curl blocks while Metro compiles, which IS the wait.
+            q="platform=ios&dev=true&hot=false&lazy=true&transform.engine=hermes"
+            q="$q&transform.bytecode=1&transform.routerRoot=src%2Fapp"
+            q="$q&transform.reactCompiler=true&unstable_transformProfile=hermes-stable"
+            url="http://$HOST_IP:$port/index.bundle?$q"
             bytes=$(curl -s --max-time 300 -o /tmp/bundle.js -w '%{size_download}' "$url" || echo 0)
             if [ "${bytes:-0}" -gt 100000 ]; then
               echo "$label: Metro served $bytes bytes of JavaScript at $url"
@@ -500,10 +501,20 @@ jobs:
           exit 1
 
       - name: Screenshot both simulators
-        timeout-minutes: 4
+        timeout-minutes: 6
         if: always()
         run: |
           set -uo pipefail
+          # Let the devices finish before photographing them. The launch asset
+          # is 13.5MB of Hermes bytecode per app, and it still has to reach the
+          # device, compile and mount a navigator after Metro has finished
+          # serving it. Shooting the instant the bundle request returned caught
+          # a light screen with one centred element on both devices, which I
+          # called an error dialog -- on no evidence, and it is at least as
+          # likely to have been Expo Go still loading. Ninety seconds costs a
+          # minute and a half and removes the ambiguity.
+          echo "letting both apps settle before the screenshots"
+          sleep 90
           mkdir -p sim-shots
           # PNG for a person, BMP for the log. `simctl io --type=bmp` writes it
           # uncompressed, which a dozen lines of Python can sample without any

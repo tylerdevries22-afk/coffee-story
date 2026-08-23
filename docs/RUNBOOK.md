@@ -129,6 +129,20 @@ copy. Reproduced and verified on Linux, where `expo start` behaves identically:
 
     404, UnableToResolveError   ->   200, 23,503,498 bytes of JavaScript
 
+**Ask the manifest which bundle to check, rather than guessing.** Three
+different bundle URLs were probed across those runs and the reasoning about
+which one mattered was wrong every time. The server will just tell you:
+
+    curl -s -H 'Accept: multipart/mixed' -H 'Expo-Platform: ios' \
+      -H 'expo-runtime-version: exposdk:54.0.0' http://127.0.0.1:8081/
+
+`launchAsset.url` in the returned manifest is the one Expo Go loads. For this
+project it is `/index.bundle` with `transform.engine=hermes`,
+`transform.bytecode=1`, `transform.routerRoot=src%2Fapp` and
+`unstable_transformProfile=hermes-stable` -- 13.5MB, and it is the URL whose
+`UnableToResolveError: ./index` was printed in every failing log and dismissed
+each time as "the wrong probe". It was not the wrong probe. It was the bug.
+
 Both iOS and web exports still pass, so the flag stays where it is.
 
 Two diagnostics hid this for the whole run. The bundle probe tried three URLs
