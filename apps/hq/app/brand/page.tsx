@@ -1,4 +1,6 @@
-import { BrandConfigEditor } from '@/components/brand-config-editor';
+import templateBrand from '../../../../tenants/_template/brand.json';
+
+import { BrandConfigEditor, type BrandConfigDefaults } from '@/components/brand-config-editor';
 import { currentSession, hasRole } from '@/lib/auth';
 
 // Reads the session, so it must never be prerendered (see onboarding/page.tsx).
@@ -20,7 +22,7 @@ export default async function BrandPage() {
     <>
       <h1>Brand config</h1>
       <p className="subtitle">Tokens, flags, and copy — hydrated into both apps on their next launch. The preview is live.</p>
-      <BrandConfigEditor />
+      <BrandConfigEditor defaults={templateBrand as BrandConfigDefaults} />
     </>
   );
 }

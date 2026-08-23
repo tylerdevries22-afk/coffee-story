@@ -94,17 +94,63 @@ jobs:
 
       - name: Put Expo Go on both devices
         run: |
-          set -euo pipefail
-          # api.expo.dev names the client build for the SDK this repo pins, so
-          # Expo Go arrives without depending on @expo/cli internals -- and
-          # without the interactive `i` keypress that fetches it locally.
-          curl -fsSL https://api.expo.dev/v2/versions/latest -o /tmp/expo-versions.json
-          URL=$(python3 scripts/ci/expo-go-url.py /tmp/expo-versions.json 54.0.0)
-          echo "Expo Go: $URL"
-          curl -fsSL "$URL" -o /tmp/expo-go.tar.gz
-          mkdir -p /tmp/expo-go && tar -xzf /tmp/expo-go.tar.gz -C /tmp/expo-go
-          APP=$(find /tmp/expo-go -maxdepth 3 -name '*.app' | head -1)
-          echo "installing $APP"
+          set -uo pipefail   # not -e: the first route is allowed to fail
+          # Two ways to get Expo Go, because CI cannot press `i`.
+          #
+          # 1. api.expo.dev names a client build per SDK. Cheapest when it
+          #    works, and it is the only route that needs no dev server.
+          # 2. `expo start --ios` makes @expo/cli fetch and install it the way
+          #    a developer does. Slower, and it targets whichever device is
+          #    booted, but it does not depend on the shape of that endpoint or
+          #    on the pinned SDK still being listed there.
+          #
+          # The first attempt is not allowed to end the step -- it prints why
+          # it failed and the second one runs. Only both failing is fatal.
+          APP=""
+
+          echo "--- route 1: api.expo.dev"
+          if curl -fsSL --max-time 60 https://api.expo.dev/v2/versions/latest -o /tmp/expo-versions.json; then
+            if URL=$(python3 scripts/ci/expo-go-url.py /tmp/expo-versions.json 54.0.0); then
+              echo "client url: $URL"
+              if curl -fsSL --max-time 300 "$URL" -o /tmp/expo-go.tar.gz; then
+                mkdir -p /tmp/expo-go
+                if tar -xzf /tmp/expo-go.tar.gz -C /tmp/expo-go; then
+                  APP=$(find /tmp/expo-go -maxdepth 4 -name '*.app' -print 2>/dev/null | sed -n 1p)
+                  echo "extracted: ${APP:-<no .app found>}"
+                else
+                  echo "tar failed; first bytes were:"; head -c 120 /tmp/expo-go.tar.gz | od -c | head -3
+                fi
+              else
+                echo "download failed"
+              fi
+            else
+              echo "no client listed for SDK 54.0.0 in that payload"
+            fi
+          else
+            echo "api.expo.dev unreachable"
+          fi
+
+          if [ -z "$APP" ]; then
+            echo "--- route 2: let @expo/cli fetch it (expo start --ios)"
+            # --ios installs Expo Go on whichever device is booted, so the
+            # operator device stands down for the length of this fetch.
+            xcrun simctl shutdown "$OPERATOR_UDID" || true
+            ( cd apps/customer && nohup npx expo start --port 8099 --ios > "$GITHUB_WORKSPACE/expo-go-fetch.log" 2>&1 & )
+            for _ in $(seq 1 60); do
+              APP=$(ls -td "$HOME"/.expo/ios-simulator-app-cache/*.app 2>/dev/null | sed -n 1p)
+              [ -n "$APP" ] && break
+              sleep 10
+            done
+            echo "cached: ${APP:-<nothing>}"
+            tail -30 "$GITHUB_WORKSPACE/expo-go-fetch.log" || true
+            pkill -f "expo start --port 8099" || true
+            xcrun simctl bootstatus "$OPERATOR_UDID" -b
+          fi
+
+          if [ -z "$APP" ]; then
+            echo "Could not obtain Expo Go by either route."; exit 1
+          fi
+          echo "installing $APP on both devices"
           xcrun simctl install "$CUSTOMER_UDID" "$APP"
           xcrun simctl install "$OPERATOR_UDID" "$APP"
 
@@ -161,4 +207,5 @@ jobs:
             sim-shots/
             metro-customer.log
             metro-operator.log
+            expo-go-fetch.log
           if-no-files-found: warn

@@ -16,42 +16,68 @@ type EditableTokens = {
   textMuted: string;
 };
 
-const DEFAULTS: EditableTokens = {
-  primary: '#2E211A',
-  surface: '#FAF5EF',
+/**
+ * Only a last resort. The real starting point is `tenants/_template/brand.json`,
+ * handed in by the page: this editor is where a platform admin configures ANY
+ * brand, and it used to open pre-filled with Coffee Story's palette, its name,
+ * its "Beans", and its feature flags. Setting up the second tenant therefore
+ * began by inheriting the first one's identity, one Save away from storing it.
+ */
+const FALLBACK: EditableTokens = {
+  primary: '#1C1917',
+  surface: '#FAFAF9',
   surfaceElevated: '#FFFFFF',
-  accent: '#B08D57',
-  textPrimary: '#241710',
-  textMuted: '#6B5B4E',
+  accent: '#8A7350',
+  textPrimary: '#1C1917',
+  textMuted: '#57534E',
 };
 
 const FLAGS = ['drops', 'catering', 'delivery', 'multi_location', 'sms', 'stored_value', 'referrals'] as const;
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
 
-export function BrandConfigEditor() {
-  const [tokens, setTokens] = useState<EditableTokens>(DEFAULTS);
-  const [appName, setAppName] = useState('Coffee Story');
-  const [pointsName, setPointsName] = useState('Beans');
-  const [flags, setFlags] = useState<Record<string, boolean>>({
-    drops: true, catering: true, delivery: true, multi_location: false, sms: false, stored_value: true, referrals: true,
-  });
+export type BrandConfigDefaults = {
+  tokens?: Partial<Record<keyof EditableTokens, unknown>>;
+  copy?: { appName?: unknown; pointsName?: unknown };
+  features?: Record<string, unknown>;
+};
+
+function tokensFrom(defaults: BrandConfigDefaults | undefined): EditableTokens {
+  const result = { ...FALLBACK };
+  for (const key of Object.keys(FALLBACK) as (keyof EditableTokens)[]) {
+    const value = defaults?.tokens?.[key];
+    if (typeof value === 'string' && HEX.test(value)) result[key] = value;
+  }
+  return result;
+}
+
+function textFrom(value: unknown, fallback: string): string {
+  return typeof value === 'string' && value.trim().length > 0 ? value : fallback;
+}
+
+export function BrandConfigEditor({ defaults }: { defaults?: BrandConfigDefaults }) {
+  const [tokens, setTokens] = useState<EditableTokens>(() => tokensFrom(defaults));
+  const [appName, setAppName] = useState(() => textFrom(defaults?.copy?.appName, 'Your Brand'));
+  const [pointsName, setPointsName] = useState(() => textFrom(defaults?.copy?.pointsName, 'Points'));
+  const [flags, setFlags] = useState<Record<string, boolean>>(() => Object.fromEntries(
+    FLAGS.map((flag) => [flag, Boolean(defaults?.features?.[flag])]),
+  ));
 
   // The device-side rule: a malformed value falls back, field by field.
   const applied = useMemo(() => {
-    const result = { ...DEFAULTS };
-    for (const key of Object.keys(DEFAULTS) as (keyof EditableTokens)[]) {
+    const result = tokensFrom(defaults);
+    for (const key of Object.keys(FALLBACK) as (keyof EditableTokens)[]) {
       if (HEX.test(tokens[key])) result[key] = tokens[key];
     }
     return result;
-  }, [tokens]);
+  }, [defaults, tokens]);
 
   return (
     <div className="grid-2">
       <div>
         <div className="card">
           <h2>Tokens</h2>
-          {(Object.keys(DEFAULTS) as (keyof EditableTokens)[]).map((key) => (
+          {(Object.keys(FALLBACK) as (keyof EditableTokens)[]).map((key) => (
             <label className="field" key={key}>
               {key}
               <input
@@ -103,8 +129,8 @@ export function BrandConfigEditor() {
             Earn {pointsName || 'Points'} on every order
           </div>
           <div style={{ background: applied.surfaceElevated, borderRadius: 16, padding: 16, marginBottom: 12 }}>
-            <div style={{ fontWeight: 700 }}>Honey Lavender Latte</div>
-            <div style={{ color: applied.textMuted, fontSize: 13 }}>Floral, golden, back for one week.</div>
+            <div style={{ fontWeight: 700 }}>This week&apos;s drop</div>
+            <div style={{ color: applied.textMuted, fontSize: 13 }}>However this brand describes it, in its own words.</div>
             <div style={{
               display: 'inline-block', marginTop: 8, padding: '3px 10px', borderRadius: 999,
               background: `${applied.accent}26`, color: applied.textPrimary, fontSize: 12, fontWeight: 700,
