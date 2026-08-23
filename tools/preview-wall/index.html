@@ -23,6 +23,7 @@
     --ink: #e8eaed;
     --muted: #868e9a;
     --live: #7ed492;
+    --down: #e0776f;
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; }
@@ -32,13 +33,13 @@
   }
 
   header {
-    display: flex; align-items: baseline; gap: 14px; height: 44px;
+    display: flex; align-items: center; gap: 14px; height: 44px;
     padding: 0 16px; border-bottom: 1px solid var(--hairline);
   }
-  h1 { margin: 0; font-size: 14px; font-weight: 600; align-self: center; }
-  header p { margin: 0; color: var(--muted); align-self: center; }
+  h1 { margin: 0; font-size: 14px; font-weight: 600; }
+  header p { margin: 0; color: var(--muted); }
   header button {
-    margin-left: auto; align-self: center;
+    margin-left: auto;
     background: var(--panel); color: var(--ink);
     border: 1px solid var(--hairline); border-radius: 999px;
     padding: 5px 13px; font: inherit; cursor: pointer;
@@ -77,6 +78,13 @@
   .stage { flex: 1; min-height: 0; position: relative; overflow: hidden; background: var(--stage); }
   .screen { position: absolute; transform-origin: 0 0; border: 0; background: #fff; }
 
+  .fault {
+    grid-column: span 6; align-self: start;
+    margin: 0; padding: 16px 18px; border-radius: 8px;
+    background: var(--panel); border: 1px solid var(--down); color: var(--ink);
+  }
+  .fault code { color: var(--muted); }
+
   /* Below the wall's design width there is no honest way to show five screens
      at once, so it becomes a scrolling column instead of five illegible tiles. */
   @media (max-width: 1024px), (max-height: 620px) {
@@ -96,24 +104,26 @@
 <div class="wall" id="wall"></div>
 
 <script>
-  // w/h are the device viewport each surface is designed for; span is how many
-  // of the six grid columns the cell claims.
-  const SURFACES = [
-    { name: 'Pickup display', note: 'wall TV · 1920×1080',
-      url: 'http://localhost:3200/board/demo', w: 1920, h: 1080, span: 3 },
-    { name: 'HQ console', note: 'desktop · 1440×900',
-      url: 'http://localhost:3300/', w: 1440, h: 900, span: 3 },
-    { name: 'Kiosk / POS', note: 'iPad landscape · 1180×820',
-      url: 'http://localhost:4180/', w: 1180, h: 820, span: 2 },
-    { name: 'Operator', note: 'iPad landscape · 1180×820',
-      url: 'http://localhost:4190/', w: 1180, h: 820, span: 2 },
-    { name: 'Customer', note: 'iPhone · 390×844',
-      url: 'http://localhost:4170/', w: 390, h: 844, span: 2 },
-  ];
-
+  /*
+   * The surface list is data, not markup: `pnpm preview` publishes this page
+   * and wall-surfaces.json together, and cross-checks every port in it against
+   * .claude/launch.json. Editing the list here would put the wall and the
+   * servers back out of step, which is the bug that file exists to prevent.
+   */
   const wall = document.getElementById('wall');
 
-  for (const s of SURFACES) {
+  function fault(message, detail) {
+    const p = document.createElement('p');
+    p.className = 'fault';
+    p.textContent = message + ' ';
+    const code = document.createElement('code');
+    code.textContent = detail;
+    p.appendChild(code);
+    wall.appendChild(p);
+  }
+
+  function mount(s) {
+    const url = 'http://localhost:' + s.port + s.path;
     const cell = document.createElement('figure');
     cell.className = 'cell';
     cell.dataset.span = String(s.span);
@@ -125,15 +135,15 @@
       </figcaption>
       <div class="stage"><iframe class="screen"></iframe></div>`;
     cell.querySelector('.name').textContent = s.name;
-    cell.querySelector('.note').textContent = s.note;
+    cell.querySelector('.note').textContent = s.device + ' · ' + s.width + '×' + s.height;
     const link = cell.querySelector('.meta a');
-    link.href = s.url;
-    link.textContent = ':' + new URL(s.url).port;
+    link.href = url;
+    link.textContent = ':' + s.port;
 
     const frame = cell.querySelector('iframe');
-    frame.width = s.w;
-    frame.height = s.h;
-    frame.src = s.url;
+    frame.width = s.width;
+    frame.height = s.height;
+    frame.src = url;
     // A frame that never loads leaves its dot grey, which is the whole signal.
     frame.addEventListener('load', () => cell.querySelector('.dot').classList.add('up'));
 
@@ -143,14 +153,19 @@
     const fit = () => {
       const bw = stage.clientWidth, bh = stage.clientHeight;
       if (!bw || !bh) return;
-      const scale = Math.min(bw / s.w, bh / s.h);
-      frame.style.left = Math.round((bw - s.w * scale) / 2) + 'px';
-      frame.style.top = Math.round((bh - s.h * scale) / 2) + 'px';
+      const scale = Math.min(bw / s.width, bh / s.height);
+      frame.style.left = Math.round((bw - s.width * scale) / 2) + 'px';
+      frame.style.top = Math.round((bh - s.height * scale) / 2) + 'px';
       frame.style.transform = 'scale(' + scale + ')';
     };
     new ResizeObserver(fit).observe(stage);
     fit();
   }
+
+  fetch('./wall-surfaces.json')
+    .then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))))
+    .then((data) => data.surfaces.forEach(mount))
+    .catch((err) => fault('Could not read the surface list — re-publish the wall with', 'pnpm preview --wall'));
 
   document.getElementById('reload').addEventListener('click', () => {
     for (const f of document.querySelectorAll('iframe.screen')) f.src = f.src;
