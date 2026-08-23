@@ -86,6 +86,13 @@ match loosely, so `coffee story ops` and `Coffee-Story-Ops` are the same
 device. Defaults to simulators named `coffee story cust` and
 `coffee story ops`; both apps open in Demo mode and need no backend.
 
+There is a CI equivalent for when you have no Mac to hand: label a pull
+request `simulators` and `.github/workflows/simulators.yml` does the same
+thing on a macOS runner, uploading a screenshot of each device. It is
+label-gated and never runs on a push -- macOS runners cost ten times what
+Linux ones do, and a twenty-minute run that boots two devices should not be
+cancelled by someone pushing a README fix.
+
 `.env` is gitignored. Every `EXPO_PUBLIC_*` value is inlined into the
 JavaScript bundle and publicly readable, so only publishable keys belong in it
 — never a Supabase `service_role` key or a Stripe secret key.
