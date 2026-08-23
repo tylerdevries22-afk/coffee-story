@@ -15,7 +15,7 @@
  */
 
 export type ClientTab = 'home' | 'book' | 'gift' | 'rewards' | 'more';
-export type StaffTab = 'orders' | 'today' | 'calendar' | 'quick-actions' | 'clients' | 'checkout' | 'more';
+export type StaffTab = 'orders' | 'today' | 'more';
 export type MoreView =
   | 'menu' | 'services' | 'visits' | 'profile' | 'intake' | 'messages' | 'membership'
   | 'payments' | 'gift-balance' | 'location' | 'resources' | 'faq' | 'care-policy'
@@ -34,28 +34,18 @@ export const CLIENT_TAB_LABELS: Readonly<Record<ClientTab, string>> = {
 /**
  * Left-to-right order of the staff tab bar.
  *
- * `checkout` is deliberately absent. Point of sale is reached from the More
- * stack, from a workspace alert and from the quick-action sheet, and adding it
- * here would make six items — one past the five UIKit shows before it collapses
- * the overflow into its own system "More" list, which would then sit beside the
- * app's own More tab.
+ * The board is first: this app is a KDS, and the tab a device lands on when it
+ * wakes should be the one a barista is already looking at.
  */
-export const STAFF_TAB_ORDER: readonly StaffTab[] = ['orders', 'today', 'calendar', 'quick-actions', 'clients', 'more'];
+export const STAFF_TAB_ORDER: readonly StaffTab[] = ['orders', 'today', 'more'];
 export const STAFF_TAB_LABELS: Readonly<Record<StaffTab, string>> = {
   orders: 'Orders',
   today: 'Today',
-  calendar: 'Calendar',
-  'quick-actions': 'Create',
-  clients: 'Guests',
-  checkout: 'Checkout',
   more: 'More',
 };
 
 const CLIENT_ROOT = '/client';
 const STAFF_ROOT = '/staff';
-
-/** Point of sale is a pushed page in the More stack, not a tab of its own. */
-export const STAFF_CHECKOUT_HREF = `${STAFF_ROOT}/more/checkout`;
 
 /**
  * Admin paths the web portal uses that land on a staff *tab* rather than on a
@@ -63,9 +53,6 @@ export const STAFF_CHECKOUT_HREF = `${STAFF_ROOT}/more/checkout`;
  */
 const STAFF_TAB_PATHS: Readonly<Record<string, StaffTab>> = {
   '/admin/dashboard': 'today',
-  '/admin/calendar': 'calendar',
-  '/admin/clients': 'clients',
-  '/admin/pos': 'checkout',
 };
 
 export function clientTabHref(tab: ClientTab): string {
@@ -77,7 +64,7 @@ export function clientMoreHref(view: MoreView): string {
 }
 
 export function staffTabHref(tab: StaffTab): string {
-  return tab === 'checkout' ? STAFF_CHECKOUT_HREF : `${STAFF_ROOT}/${tab}`;
+  return `${STAFF_ROOT}/${tab}`;
 }
 
 /**
@@ -106,9 +93,7 @@ export function clientMoreViewFromPathname(pathname: string): MoreView {
 }
 
 export function staffTabFromPathname(pathname: string): StaffTab {
-  const segments = segmentsOf(pathname, STAFF_ROOT);
-  const [first] = segments;
-  if (first === 'more' && segments[1] === 'checkout') return 'checkout';
+  const [first] = segmentsOf(pathname, STAFF_ROOT);
   return STAFF_TAB_ORDER.find((tab) => tab === first) ?? 'orders';
 }
 
@@ -119,7 +104,6 @@ export function staffTabFromPathname(pathname: string): StaffTab {
 export function staffDetailPathFromPathname(pathname: string): string | null {
   const segments = segmentsOf(pathname, STAFF_ROOT);
   if (segments[0] !== 'more' || segments.length < 2) return null;
-  if (segments[1] === 'checkout') return '/admin/pos';
   return `/${segments.slice(1).join('/')}`;
 }
 

@@ -25,10 +25,8 @@ const MORE_VIEWS: readonly MoreView[] = [
   'payments', 'gift-balance', 'location', 'resources', 'faq', 'care-policy',
   'privacy', 'admin',
 ];
-// STAFF_TAB_ORDER omits 'checkout' on purpose (see its comment); the fuzz still
-// covers it since it is a real StaffTab value with a working href.
-const STAFF_TABS: readonly StaffTab[] = [...STAFF_TAB_ORDER, 'checkout'];
-const ADMIN_PATHS_ON_A_TAB = ['/admin/dashboard', '/admin/calendar', '/admin/clients', '/admin/pos'];
+const STAFF_TABS: readonly StaffTab[] = [...STAFF_TAB_ORDER];
+const ADMIN_PATHS_ON_A_TAB = ['/admin/dashboard'];
 const ADMIN_DETAIL_PATHS = ['/admin/reviews', '/admin/staff', '/admin/talent-acquisition', '/proposal'];
 
 function pick<T>(items: readonly T[], random: () => number): T {
@@ -57,9 +55,9 @@ test('every staff tab href reports the same tab back', () => {
   forAll(0x57AFF, 500, (random) => pick(STAFF_TABS, random), (tab: StaffTab) => {
     const href = staffTabHref(tab);
     assert.equal(staffTabFromPathname(href), tab);
-    // A tab is never also a detail page, checkout included -- its href is a
-    // fixed route, not a captured admin path.
-    assert.equal(staffDetailPathFromPathname(href), tab === 'checkout' ? '/admin/pos' : null);
+    // A tab is never also a detail page -- its href is a fixed route, not a
+    // captured admin path.
+    assert.equal(staffDetailPathFromPathname(href), null);
   });
 });
 

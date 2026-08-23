@@ -5,7 +5,6 @@ import { CollapsingPageHeader } from '@/components/collapsing-page-header';
 import { StatTile, StatusBadge, WorkspaceCard } from '@/components/staff/workspace-ui';
 import { Body, Button, Card, Screen, SectionTitle } from '@/components/ui';
 import { appointmentMinutes, formatClockTime, formatMoney, sourceLabel } from '@/features/staff/workspace';
-import { useAppState } from '@/state/app-context';
 import { colors, fonts, radius, spacing } from '@/theme/tokens';
 import type { PortalAppointment, StaffDashboard, StaffPayment } from '@/types/domain';
 import { AppIcon } from '@/components/icon';
@@ -25,25 +24,20 @@ const PAYMENT_METHOD_LABEL: Record<StaffPayment['method'], string> = {
   gift_card: 'Gift card',
 };
 
-type AttentionRow = {
-  key: string;
-  title: string;
-  hint: string;
-  actionLabel: string;
-  onPress: () => void;
-};
-
 /**
- * Staff "Today" tab, at parity with the web admin dashboard: greeting, KPI
- * tiles with period-over-period deltas, an attention queue, the next visit,
- * income and booking-source charts, reputation, recent payments, and the
- * day's agenda.
+ * Staff "Today" tab: greeting, KPI tiles with period-over-period deltas, the
+ * next visit, income and booking-source charts, reputation, recent payments,
+ * and the day's agenda.
+ *
+ * Still shaped around the booking workspace it came from — it reads
+ * appointments, not orders. Rebuilding it around the order feed and the EOD
+ * summary is the next pass; the attention queue went already, because both of
+ * its rows pointed at the register and guest screens that are gone.
  */
 export function TodayScreen({ dashboard, onUpdateStatus }: {
   dashboard: StaffDashboard;
   onUpdateStatus: (id: string, status: 'confirmed' | 'cancelled' | 'no_show') => Promise<void>;
 }) {
-  const { setStaffTab } = useAppState();
   const [scrollY] = useState(() => new Animated.Value(0));
   const now = new Date();
   const today = now.toDateString();
@@ -57,7 +51,6 @@ export function TodayScreen({ dashboard, onUpdateStatus }: {
   const next = activeAppointments.find((appointment) => new Date(appointment.endsAt) > now) ?? activeAppointments[0];
 
   const metrics = dashboard.metrics;
-  const attention = attentionRows(dashboard, appointments, setStaffTab);
   const trend = metrics?.revenueTrend ?? [];
   const trendPeak = trend.reduce((peak, point) => Math.max(peak, point.cents), 0);
   const sources = metrics?.bookingSources ?? [];
@@ -104,25 +97,6 @@ export function TodayScreen({ dashboard, onUpdateStatus }: {
         )}
       </View>
 
-      {attention.length ? (
-        <WorkspaceCard title="Items needing your attention">
-          {attention.map((row) => (
-            <View key={row.key} style={styles.attentionRow}>
-              <View style={styles.attentionCopy}>
-                <Text style={styles.attentionTitle}>{row.title}</Text>
-                <Text style={styles.attentionHint}>{row.hint}</Text>
-              </View>
-              <Button
-                label="Do it"
-                variant="secondary"
-                accessibilityLabel={row.actionLabel}
-                style={styles.attentionButton}
-                onPress={row.onPress}
-              />
-            </View>
-          ))}
-        </WorkspaceCard>
-      ) : null}
 
       {next ? (
         <Card style={styles.nextCard}>
@@ -136,12 +110,6 @@ export function TodayScreen({ dashboard, onUpdateStatus }: {
               disabled={next.status === 'confirmed'}
               style={styles.actionButton}
               onPress={() => void runStatusUpdate(next.id, 'confirmed', onUpdateStatus)}
-            />
-            <Button
-              label="Open checkout"
-              variant="secondary"
-              style={styles.actionButton}
-              onPress={() => setStaffTab('checkout')}
             />
           </View>
         </Card>
@@ -271,42 +239,6 @@ function barPercent(value: number, peak: number): number {
  * dashboard rather than hard-coded, and a zero count drops its row entirely so
  * the card never claims work that does not exist.
  */
-function attentionRows(
-  dashboard: StaffDashboard,
-  todaysAppointments: readonly PortalAppointment[],
-  setStaffTab: (tab: 'checkout' | 'clients') => void,
-): AttentionRow[] {
-  const toCheckOut = todaysAppointments.filter((appointment) => (
-    appointment.status === 'confirmed' || appointment.status === 'pending'
-  )).length;
-
-  const clientIdByName = new Map(dashboard.clients.map((client) => [client.fullName, client.id]));
-  const documented = new Set((dashboard.soapNotes ?? []).map((note) => note.customerId));
-  const notesToWrite = todaysAppointments.filter((appointment) => {
-    if (appointment.status !== 'completed') return false;
-    const clientId = appointment.clientName ? clientIdByName.get(appointment.clientName) : undefined;
-    return clientId === undefined || !documented.has(clientId);
-  }).length;
-
-  const rows: (AttentionRow | null)[] = [
-    toCheckOut > 0 ? {
-      key: 'checkout',
-      title: `${toCheckOut} ${toCheckOut === 1 ? 'appointment' : 'appointments'} to check out`,
-      hint: 'Collect payment before end of day',
-      actionLabel: 'Open checkout',
-      onPress: () => setStaffTab('checkout'),
-    } : null,
-    notesToWrite > 0 ? {
-      key: 'soap',
-      title: `${notesToWrite} order ${notesToWrite === 1 ? 'note' : 'notes'} to write`,
-      hint: 'From the past 7 days',
-      actionLabel: 'Open guests to write order notes',
-      onPress: () => setStaffTab('clients'),
-    } : null,
-  ];
-  return rows.filter((row): row is AttentionRow => row !== null);
-}
-
 async function runStatusUpdate(
   appointmentId: string,
   status: 'confirmed' | 'cancelled' | 'no_show',
@@ -331,12 +263,6 @@ function promptAppointmentStatus(appointment: PortalAppointment, onUpdateStatus:
 const styles = StyleSheet.create({
   subtitle: { color: colors.ink500, fontFamily: fonts.sans, fontSize: 14, lineHeight: 20, marginTop: -spacing.xs },
   tiles: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-
-  attentionRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xs },
-  attentionCopy: { flex: 1, gap: 2 },
-  attentionTitle: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 15 },
-  attentionHint: { color: colors.ink500, fontFamily: fonts.sans, fontSize: 12 },
-  attentionButton: { minHeight: 40, paddingHorizontal: spacing.md },
 
   nextCard: { backgroundColor: colors.brand700, gap: spacing.sm },
   nextLabel: { color: colors.brand300, fontFamily: fonts.sansBold, fontSize: 11, letterSpacing: 1.2, textTransform: 'uppercase' },

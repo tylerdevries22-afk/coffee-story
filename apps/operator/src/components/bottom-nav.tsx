@@ -27,8 +27,6 @@ const CLIENT_ITEMS: readonly { key: ClientTab; label: string; icon: NavIcon }[] 
 const STAFF_ITEMS: readonly { key: StaffTab; label: string; icon: NavIcon }[] = [
   { key: 'orders', label: 'Orders', icon: 'rectangle.grid.2x2' },
   { key: 'today', label: 'Today', icon: 'sun.max' },
-  { key: 'calendar', label: 'Calendar', icon: 'calendar' },
-  { key: 'clients', label: 'Clients', icon: 'person.2' },
   { key: 'more', label: 'More', icon: 'ellipsis' },
 ];
 

@@ -11,7 +11,6 @@ import {
   staffDetailPathFromPathname,
   staffTabFromPathname,
   staffTabHref,
-  STAFF_CHECKOUT_HREF,
   STAFF_TAB_ORDER,
 } from './navigation-state';
 
@@ -37,18 +36,18 @@ test('an unrecognised More segment falls back to the menu rather than throwing',
   assert.equal(clientMoreViewFromPathname('/client/more/not-a-real-view'), 'menu');
 });
 
-test('the order board leads the bar, and checkout stays off it', () => {
-  assert.deepEqual(STAFF_TAB_ORDER, ['orders', 'today', 'calendar', 'quick-actions', 'clients', 'more']);
-  // Six triggers: fine on the iPad this app targets first; a phone-sized
-  // UITabBar folds the sixth into the system More overflow, which is the
-  // accepted cost of keeping the board as the first tab.
-  assert.equal(STAFF_TAB_ORDER.length, 6);
+test('the order board leads the bar', () => {
+  assert.deepEqual(STAFF_TAB_ORDER, ['orders', 'today', 'more']);
+  // Three triggers, well inside the five a UITabBar shows before it collapses
+  // the rest into a system More overflow. The board is first because that is
+  // the tab a mounted device should wake on.
+  assert.equal(STAFF_TAB_ORDER[0], 'orders');
 });
 
 test('primary admin paths route to their matching staff tab, not a detail page', () => {
-  const href = staffDestinationHref('/admin/calendar');
-  assert.equal(href, staffTabHref('calendar'));
-  assert.equal(staffTabFromPathname(href), 'calendar');
+  const href = staffDestinationHref('/admin/dashboard');
+  assert.equal(href, staffTabHref('today'));
+  assert.equal(staffTabFromPathname(href), 'today');
   assert.equal(staffDetailPathFromPathname(href), null);
 });
 
@@ -65,12 +64,3 @@ test('the Website Proposal opens as a native More detail page', () => {
   assert.equal(staffDetailPathFromPathname(href), '/proposal');
 });
 
-test('checkout is a pushed page under More, reachable by its own href and by /admin/pos', () => {
-  assert.equal(staffTabHref('checkout'), STAFF_CHECKOUT_HREF);
-  assert.equal(staffDestinationHref('/admin/pos'), STAFF_CHECKOUT_HREF);
-  assert.equal(staffTabFromPathname(STAFF_CHECKOUT_HREF), 'checkout');
-  // The one detail path that doesn't reconstruct byte-for-byte from its own
-  // segments (the route is named `checkout`, not `admin/pos`) -- pinned
-  // explicitly since the round-trip property test below excludes it.
-  assert.equal(staffDetailPathFromPathname(STAFF_CHECKOUT_HREF), '/admin/pos');
-});

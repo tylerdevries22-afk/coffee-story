@@ -26,7 +26,10 @@ export default function NotificationsRoute() {
       });
       return;
     }
-    setStaffTab(item.target.kind === 'staff-checkout' ? 'checkout' : 'calendar');
+    // The feed still speaks the booking workspace's vocabulary (`staff-checkout`,
+    // `confirm-visit`); the register and calendar those targets opened are gone.
+    // Land on the board until the feed is rebuilt around order events.
+    setStaffTab('orders');
   }
 
   return (
