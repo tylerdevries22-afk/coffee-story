@@ -48,23 +48,26 @@ export function groupNotifications(
   unreadIds: ReadonlySet<string> = new Set(),
 ): NotificationSection[] {
   const sorted = [...items].sort((a, b) => b.at.localeCompare(a.at));
-  const buckets: NotificationSection[] = [
-    { title: 'New', items: [] },
-    { title: 'Today', items: [] },
-    { title: 'This week', items: [] },
-    { title: 'This month', items: [] },
-    { title: 'Earlier', items: [] },
-  ];
+  // Named rather than indexed. Indexing a literal array is safe and the
+  // compiler cannot see it, so every push needed a `!` or a `?.` that said
+  // nothing about the code -- naming the buckets removes the question.
+  const unread: NotificationSection = { title: 'New', items: [] };
+  const today: NotificationSection = { title: 'Today', items: [] };
+  const week: NotificationSection = { title: 'This week', items: [] };
+  const month: NotificationSection = { title: 'This month', items: [] };
+  const earlier: NotificationSection = { title: 'Earlier', items: [] };
+  const buckets = [unread, today, week, month, earlier];
+
   for (const item of sorted) {
     const age = now.getTime() - new Date(item.at).getTime();
     if (unreadIds.has(item.id)) {
-      buckets[0].items.push(item);
+      unread.items.push(item);
       continue;
     }
-    if (age < DAY) buckets[1].items.push(item);
-    else if (age < 7 * DAY) buckets[2].items.push(item);
-    else if (age < 30 * DAY) buckets[3].items.push(item);
-    else buckets[4].items.push(item);
+    if (age < DAY) today.items.push(item);
+    else if (age < 7 * DAY) week.items.push(item);
+    else if (age < 30 * DAY) month.items.push(item);
+    else earlier.items.push(item);
   }
   return buckets.filter((bucket) => bucket.items.length > 0);
 }

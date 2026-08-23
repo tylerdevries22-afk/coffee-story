@@ -105,3 +105,147 @@ from the customer app.
 2. `runtimeVersion: exposdk:54.0.0` shared by all EAS channels — business decision pending
 3. Tax rates, Vercel host, and `hello@coffeestoryco.com` unconfirmed with the client
 4. Web register (`pos-totals.ts` in the external portal) still on flat 8% tax
+
+---
+
+# The pickup display, audited — 2026-08-23
+
+A second pass, scoped to `apps/display` and everything it reads. The surface
+had shipped and worked; what follows is what it did *not* do, found by reading
+the read path end to end rather than the screen. Nineteen items closed, seven
+left open with a reason.
+
+## Closed
+
+### Privacy and access
+
+1. **`board_tickets` was a convention, not a boundary.** 0023 introduced the
+   view so a wall screen would never be one query away from `customer_id` or
+   the cart — then shipped it `security_invoker = true` alongside
+   `orders_display_select`, a policy granting a display device SELECT on
+   `orders` itself. 0014 grants *every column of every public table* to
+   `authenticated`. The narrow projection was therefore advisory: the token on
+   a tablet in a public room could read `totals`, `note`, `square_payment_id`
+   and `customer_id` for every active order at its location. **0030** drops the
+   policy and makes the view security definer with `app.can_read_board` as its
+   own gate, so the projection *is* the privilege. `surfaces.test.ts` now pins
+   both halves.
+2. **The reconcile route was an open proxy.** `GET /board/<id>/tickets` had no
+   auth. On a deployment with `DISPLAY_DEVICE_TOKEN` set, anyone who could
+   reach the host could enumerate location ids and read out every board's queue
+   of guest names. Now same-origin gated and id-validated.
+3. **A non-uuid location 500'd the wall.** The path segment went straight into
+   `.eq('location_id', …)`; Postgres answered 22P02, and a screen bolted to a
+   wall showed a Next error page. `isLocationId` turns it into a 404 — and only
+   when a database is configured, so the fixture slugs stay demoable.
+
+### Resilience
+
+4. **One failed read took the whole surface down.** `loadBoard` now cannot
+   throw; a failure degrades to an honest header state. Nobody is watching this
+   screen for a stack trace.
+5. **The freshness chip lied on fixtures.** With no database the reconcile
+   effect returned early, so `updatedAt` never advanced and the chip flipped to
+   "Reconnecting…" ninety seconds in and stayed there — announcing the failure
+   of a connection that was never meant to exist. Three states now: live,
+   stale, sample.
+6. **Realtime was documented and never wired.** The comments described
+   reconciling "whatever Realtime is doing"; nothing subscribed. Wiring it as
+   written would have been worse than not: `orders` is published with
+   `replica identity full`, so a socket on it delivers whole rows to the
+   browser. The board now polls its own server route on a stated interval, and
+   the comment says why.
+7. **`LINGER_MS` was exported and never used.** The constant described a
+   collected ticket lingering so a guest walking up still sees it; nothing
+   implemented it, and numbers vanished between blinks. `reconcileBoard` now
+   does it, with tests.
+8. **A busy board clipped silently.** `.ticket-list { overflow: hidden }` meant
+   the eleventh ticket simply left the screen. Columns now cap and state the
+   remainder.
+
+### Tenancy and rule 4
+
+9. **`display.css` hard-coded one tenant's palette.** `--surface: #faf5ef`,
+   `--brass: #b08d57` — Coffee Story's `brand.json`, pasted into a stylesheet
+   on a multi-tenant surface. The second brand to hang a screen would have got
+   the first brand's colours. Hydrated per brand now; a test asserts every
+   variable the CSS reads is one the theme provides.
+10. **Board copy was hard-coded English.** "Making now", "Ready", "Here" and
+    the rest, in components. Words are tokens too; they are copy-dictionary
+    keys now, and every read goes through `formatCopy`.
+11. **The column split existed twice** — `splitColumns` in `board-view.tsx` and
+    a never-consumed `splitBoard` in `@platform/data`. One implementation, in
+    `@platform/domain`.
+
+### Features the schema already supported and nothing used
+
+12. **`orders.channel` had existed since 0005 and no surface read it.** The
+    board now says where an order came from.
+13. **There was no tier concept anywhere.** Added as brand config plus
+    `app.loyalty_tier_for`, deliberately coarse: a bucket slug, never a
+    balance, opt-in per brand.
+
+### Toolchain
+
+14. **The display's lint gate could not fail.** `next lint --max-warnings=0 ||
+    echo 'next lint unavailable'` — the `||` swallowed every failure, so
+    `pnpm lint` reported success on files it never checked. Real flat config
+    now, verified to fail on a planted error.
+15. **Three packages compiled looser than the apps consuming them.**
+    `@platform/domain`, `@platform/data` and `@platform/api-client` hand-rolled
+    their `tsconfig` instead of extending `tsconfig.base.json`, so they missed
+    `noUncheckedIndexedAccess`. 25 latent errors surfaced the moment a strict
+    app imported them. All three extend the base; the errors are fixed rather
+    than suppressed.
+16. **`@platform/schema` typecheck was already failing on main** — four
+    `noUncheckedIndexedAccess` errors in `surfaces.test.ts`, meaning
+    `pnpm typecheck` at the root was red before this pass began. Fixed.
+
+### Tests that were not testing
+
+17. **`board.test.ts` pinned migration 0028 by filename** — the exact mistake
+    `surfaces.test.ts` documents avoiding. It would have kept checking a view
+    that no longer existed. It scans all migrations now.
+18. **The column-safety check substring-matched the whole view text.** That
+    misses a forbidden column smuggled in under an alias, and false-positives
+    on an argument passed to a definer function. Both tests parse the select
+    list.
+19. **The demo was a frozen array.** In a repo with no component renderer, the
+    fixtures path is the *only* place the poll, the reconcile and the linger
+    ever execute before a shop depends on them — and a static board exercised
+    none of it. `demoBoardAt` is a pure function of the clock that walks the
+    queue on a fixed cycle, so the demo now runs the real loop.
+
+## Open, with reasons
+
+- **`REWARD_TIERS` hard-codes one tenant's ladder inside a shared package.**
+  `packages/domain/src/rules.ts` carries "First Sip" … "Coffee Legend" and the
+  literal string "make Coffee Story part of their day". That is rule 4 in a
+  platform package, and it is the source the board's default ladder derives
+  from. Moving it to `brand_config` touches the customer app's rewards screens;
+  it wants its own change, not a rider on this one.
+- **The earn ladder is keyed on annual points the database does not store.**
+  `tierForAnnualPoints` takes a rolling-year figure; `loyalty_accounts` holds
+  only `points_balance` and `lifetime_points`. No server-side projection can
+  compute an annual rung today, which is why the board reads lifetime and says
+  so. Fixing it means either a rolling window (a materialised sum over
+  `loyalty_events`) or restating the ladder in lifetime terms. The second is
+  cheaper and probably right.
+- **`orders_kiosk_select` is the same shape as the policy dropped in 0030.** A
+  paired kiosk or POS device can read whole `orders` rows created in the last
+  hour at its location — all columns, including the cart and the customer id —
+  and a lobby kiosk is as public as a wall. Same class as item 1, different
+  surface. Out of scope here because the kiosk's receipt screen reads through
+  it and would need its own narrow projection first.
+- **`apps/hq` carries the same `|| echo` lint escape hatch** the display just
+  lost. Its `pnpm lint` cannot fail either.
+- **The display has no instrumentation.** HQ has `instrumentation.ts` and a
+  DSN-gated Sentry init; the display has none, so a wall that goes dark or
+  starts degrading reports nothing to anyone. It also has no `vercel.json`.
+- **The display has no deploy target defined.** It builds and runs; where it
+  runs is not written down anywhere (`docs/RUNBOOK.md` predates the app).
+- **The originality gate fails on its own documentation.** The command in
+  `.claude/skills/audit-originality/SKILL.md` returns exactly one hit, in that
+  file, where it quotes the name to explain the substring pitfall. The gate as
+  written can therefore never pass. Worth an exclusion for the skill's own
+  prose, or a rephrasing that does not name it.

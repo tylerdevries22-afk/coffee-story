@@ -31,7 +31,7 @@ describe('device pairing', () => {
     const sql = allSql();
     const declared = /create type app\.device_role as enum \(([^)]+)\)/.exec(sql);
     assert.ok(declared, 'app.device_role is not declared');
-    const roles = [...declared[1].matchAll(/'([a-z_]+)'/g)].map((m) => m[1]).sort();
+    const roles = [...(declared[1] ?? '').matchAll(/'([a-z_]+)'/g)].map((m) => m[1]).sort();
     assert.deepEqual(roles, ['display', 'kiosk', 'pos', 'prep']);
     for (const role of roles) {
       assert.match(typesSource(), new RegExp(`DeviceRole =[^;]*'${role}'`, 's'),
@@ -60,19 +60,84 @@ describe('device pairing', () => {
   });
 });
 
+/**
+ * The view's output columns, by the name a caller would see.
+ *
+ * Substring-matching the whole definition was the obvious check and it is
+ * wrong in both directions: it misses a column smuggled in under an alias, and
+ * since 0030 it false-positives on `app.loyalty_tier_for(o.customer_id, ...)`
+ * -- an argument handed to a definer function, which is the opposite of an
+ * exposed column. What a bystander can read is the select list, so that is
+ * what gets checked.
+ */
+function projectedColumns(view: string): string[] {
+  const body = /\bas\s+select\b([\s\S]*?)\bfrom\b/i.exec(view);
+  if (!body) return [];
+  const columns: string[] = [];
+  let depth = 0;
+  let current = '';
+  for (const character of body[1] ?? '') {
+    if (character === '(') depth += 1;
+    if (character === ')') depth -= 1;
+    if (character === ',' && depth === 0) {
+      columns.push(current);
+      current = '';
+      continue;
+    }
+    current += character;
+  }
+  columns.push(current);
+  return columns.map((column) => {
+    const trimmed = column.trim();
+    const aliased = /\bas\s+([a-z_][a-z0-9_]*)$/i.exec(trimmed);
+    if (aliased) return (aliased[1] ?? '').toLowerCase();
+    return (trimmed.split('.').pop() ?? trimmed).toLowerCase();
+  }).filter(Boolean);
+}
+
+function boardTicketsInForce(): string {
+  // Take the definition actually in force -- 0028 and then 0030 redefine it.
+  const views = [...allSql().matchAll(/create (?:or replace )?view public\.board_tickets[\s\S]*?;/g)];
+  assert.ok(views.length > 0, 'board_tickets is not defined');
+  return views[views.length - 1]?.[0] ?? '';
+}
+
 describe('the pickup display read', () => {
   it('exposes no customer or money columns', () => {
-    const sql = allSql();
-    // Take the definition actually in force -- 0028 redefines the view.
-    const views = [...sql.matchAll(/create or replace view public\.board_tickets[\s\S]*?;/g)];
-    assert.ok(views.length > 0, 'board_tickets is not defined');
-    const inForce = views[views.length - 1][0];
-    for (const forbidden of ['customer_id', 'totals', 'total_cents', 'square_payment_id', 'note']) {
-      assert.ok(!inForce.includes(forbidden),
+    const columns = projectedColumns(boardTicketsInForce());
+    for (const forbidden of [
+      'customer_id', 'totals', 'total_cents', 'subtotal_cents', 'tax_cents',
+      'tip_cents', 'square_payment_id', 'square_order_id', 'note',
+      'points_balance', 'lifetime_points',
+    ]) {
+      assert.ok(!columns.includes(forbidden),
         `board_tickets must not expose ${forbidden}: a wall screen is not a private surface`);
     }
-    assert.match(inForce, /daily_number/);
-    assert.match(inForce, /guest_label/);
+    assert.ok(columns.includes('daily_number'));
+    assert.ok(columns.includes('guest_label'));
+  });
+
+  it('carries its own authorization rather than leaning on a policy', () => {
+    // 0023 shipped this view as security_invoker alongside a SELECT policy on
+    // `orders` itself -- and 0014 grants every column of every table to
+    // `authenticated`, so the narrow projection was advisory. A wall tablet's
+    // token could read the cart. The gate has to be inside the view.
+    const inForce = boardTicketsInForce();
+    assert.match(inForce, /app\.can_read_board/,
+      'board_tickets must gate itself');
+    assert.doesNotMatch(inForce, /security_invoker\s*=\s*true/,
+      'an invoker view cannot reach loyalty_accounts to compute a tier');
+    assert.match(allSql(), /drop policy if exists orders_display_select on public\.orders/,
+      'a display device must have no direct read on orders');
+  });
+
+  it('lets a tier through as a bucket and never as a balance', () => {
+    const fn = /create or replace function app\.loyalty_tier_for[\s\S]*?\$\$;/.exec(allSql());
+    assert.ok(fn, 'app.loyalty_tier_for is not defined');
+    assert.match(fn[0], /security definer/, 'a display device cannot read loyalty_accounts');
+    assert.match(fn[0], /showGuestStatus/,
+      'a tier badge on a public wall must be opt-in per brand');
+    assert.match(fn[0], /returns text/, 'only the slug may leave this function');
   });
 });
 
@@ -81,7 +146,7 @@ describe('the lineup', () => {
     const sql = allSql();
     const constraints = [...sql.matchAll(/constraint drops_status_check[\s\S]*?check \(status in \(([^)]+)\)\)/g)];
     assert.ok(constraints.length > 0, 'drops_status_check is not declared');
-    const statuses = [...constraints[constraints.length - 1][1].matchAll(/'([a-z]+)'/g)]
+    const statuses = [...(constraints[constraints.length - 1]?.[1] ?? '').matchAll(/'([a-z]+)'/g)]
       .map((m) => m[1]).sort();
     assert.deepEqual(statuses, ['cancelled', 'draft', 'ended', 'live', 'revealed', 'scheduled']);
     for (const status of statuses) {

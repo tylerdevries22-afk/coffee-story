@@ -23,3 +23,5 @@ export * from './item-projections';
 export * from './add-ons';
 export * from './menu-options';
 export * from './cart';
+export * from './board-display';
+export * from './qr';

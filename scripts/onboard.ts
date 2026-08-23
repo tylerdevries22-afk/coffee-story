@@ -33,6 +33,11 @@ type BrandFile = {
   tax?: { jurisdictions: { id: string; label: string; rate: number }[] };
   /** What points buy, served by /api/loyalty/redeem. */
   loyalty?: { rewards: { slug: string; name: string; points_cost: number }[] };
+  /**
+   * How the in-store pickup display reads (0030). Optional, and the defaults
+   * are the private ones: absent means no status badge on a public wall.
+   */
+  board?: Record<string, unknown>;
   location: {
     name: string;
     address: Record<string, string>;
@@ -130,6 +135,10 @@ async function run() {
             business: brand.business,
             ...(brand.tax ? { tax: brand.tax } : {}),
             ...(brand.loyalty ? { loyalty: brand.loyalty } : {}),
+            // app.loyalty_tier_for reads board.tiers and board.showGuestStatus
+            // straight out of this column, so onboarding is the only place a
+            // tier ladder is ever written.
+            ...(brand.board ? { board: brand.board } : {}),
           },
         },
         { onConflict: 'slug' },

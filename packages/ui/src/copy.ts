@@ -22,6 +22,25 @@ export const DEFAULT_COPY: BrandCopy = {
   memberFallback: 'Member',
   closedLabel: 'Closed',
   opensLabel: 'Opens {time}',
+
+  // The pickup display. Its own block because a wall screen is read across a
+  // room in under two seconds: these are the shortest words that still say the
+  // thing, and a tenant lengthening one has to see the rest to know what fits.
+  // The board's own name, above the location. A tenant that calls it
+  // something else ("Order Up", "Collection") overrides this like any other
+  // brand string rather than editing a component.
+  boardTitle: 'Pickup Queue',
+  boardMakingNow: 'Making now',
+  boardReady: 'Ready',
+  boardEmptyProgress: 'Nothing in the queue',
+  boardEmptyReady: 'Nothing waiting',
+  boardArrived: 'Here',
+  boardOverflow: '+{count} more waiting',
+  boardLive: 'Live',
+  boardStale: 'Reconnecting',
+  boardOffline: 'Sample board',
+  boardQrTitle: 'Perks, status and rewards',
+  boardQrBody: 'Scan to get {appName} and start earning {pointsName}.',
 };
 
 export function resolveCopy(config: unknown): BrandCopy {

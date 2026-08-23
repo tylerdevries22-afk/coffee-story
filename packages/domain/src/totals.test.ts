@@ -104,8 +104,8 @@ describe('orderTotals', () => {
 
   it('rounds fractional cents rather than truncating them', () => {
     // 1c at 2.90% is 0.029c, which rounds to zero; 1000c is 29c exactly.
-    assert.equal(orderTotals({ subtotalCents: 1 }).taxRows[0].amountCents, 0);
-    assert.equal(orderTotals({ subtotalCents: 1000 }).taxRows[0].amountCents, 29);
+    assert.equal(orderTotals({ subtotalCents: 1 }).taxRows[0]?.amountCents, 0);
+    assert.equal(orderTotals({ subtotalCents: 1000 }).taxRows[0]?.amountCents, 29);
   });
 
   it('prices the reference order — $4.67 of goods plus a $3 tip — at $8.05', () => {

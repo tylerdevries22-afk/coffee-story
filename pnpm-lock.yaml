@@ -209,9 +209,15 @@ importers:
       '@platform/data':
         specifier: workspace:*
         version: link:../../packages/data
+      '@platform/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
       '@platform/schema':
         specifier: workspace:*
         version: link:../../packages/schema
+      '@platform/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       '@supabase/supabase-js':
         specifier: ^2.111.0
         version: 2.112.3(@opentelemetry/api@1.9.1)
@@ -590,10 +596,16 @@ importers:
       '@platform/schema':
         specifier: workspace:*
         version: link:../schema
+      qrcode-generator:
+        specifier: ^1.5.2
+        version: 1.5.2
     devDependencies:
       '@types/node':
         specifier: ~24.6.2
         version: 24.6.2
+      jsqr:
+        specifier: ^1.4.0
+        version: 1.4.0
       tsx:
         specifier: ^4.20.6
         version: 4.23.12
@@ -5048,6 +5060,9 @@ packages:
     engines: {node: '>=6'}
     hasBin: true
 
+  jsqr@1.4.0:
+    resolution: {integrity: sha512-dxLob7q65Xg2DvstYkRpkYtmKm2sPJ9oFhrhmudT1dZvNFFTlroai3AWSpLey/w5vMcLBXRgOJsbXpdN9HzU/A==}
+
   jsx-ast-utils@3.3.5:
     resolution: {integrity: sha512-ZZow9HBI5O6EPgSJLUb8n2NKgmVWTwCvHGwFuJlMjvLFqlGG6pjirPhtdsseaLZjSibD8eegzmYpUZwoIlj2cQ==}
     engines: {node: '>=4.0'}
@@ -5887,6 +5902,9 @@ packages:
   punycode@2.3.1:
     resolution: {integrity: sha512-vYt7UD1U9Wg6138shLtLOvdAu+8DsC/ilFtEVHcH+wydcSpNE20AfSOduf6MkRFahL5FY7X1oU7nKVZFtfq8Fg==}
     engines: {node: '>=6'}
+
+  qrcode-generator@1.5.2:
+    resolution: {integrity: sha512-pItrW0Z9HnDBnFmgiNrY1uxRdri32Uh9EjNYLPVC2zZ3ZRIIEqBoDgm4DkvDwNNDHTK7FNkmr8zAa77BYc9xNw==}
 
   qrcode-terminal@0.11.0:
     resolution: {integrity: sha512-Uu7ii+FQy4Qf82G4xu7ShHhjhGahEpCWc3x8UavY3CTcWV+ufmmCtwkr7ZKsX42jdL0kr1B5FKUeqJvAn51jzQ==}
@@ -11906,6 +11924,8 @@ snapshots:
 
   json5@2.2.3: {}
 
+  jsqr@1.4.0: {}
+
   jsx-ast-utils@3.3.5:
     dependencies:
       array-includes: 3.1.9
@@ -12813,6 +12833,8 @@ snapshots:
   proxy-from-env@2.1.0: {}
 
   punycode@2.3.1: {}
+
+  qrcode-generator@1.5.2: {}
 
   qrcode-terminal@0.11.0: {}
 

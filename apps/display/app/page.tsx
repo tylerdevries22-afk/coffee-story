@@ -7,7 +7,7 @@
  */
 export default function DisplayIndex() {
   return (
-    <main style={{ padding: '6vh 6vw' }}>
+    <main className="display-root display-signpost">
       <h1 className="board-title">Pickup display</h1>
       <p className="board-empty">
         Open this screen at <code>/board/&lt;location&gt;</code> to show that
