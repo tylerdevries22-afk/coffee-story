@@ -72,3 +72,43 @@ from that commit); clients pick it up on next launch.
 
 **Kill switch:** Menu control → Pause ordering (per location) stops new
 orders while the board keeps serving what's already paid.
+
+## Launching both apps on iOS simulators
+
+`./scripts/launch-simulators.sh` (macOS only) boots a simulator per app and
+opens each app on its own device. Four bugs were found in it by running the
+same sequence on a GitHub macOS runner, and all four are fixed:
+
+- **`simctl openurl` blocks rather than failing.** It is documented as
+  returning code 60 on a busy CoreSimulator -- the failure @expo/cli reports as
+  "Expo crashed" -- but it can also simply never return, and a retry loop
+  around a call that never returns is a hang, not a retry. Each attempt is now
+  bounded by hand (macOS has no GNU `timeout`).
+- **Expo Go must be launched by bundle id before any URL is opened on it.**
+  LaunchServices registers an app's URL schemes asynchronously after install,
+  so a freshly installed Expo Go can be present while nothing yet owns
+  `exp://`.
+- **The device needs the host's LAN address, not `127.0.0.1`.** That is what
+  `expo start` itself hands the simulator.
+- **Metro binds localhost only** without `--host lan`, so the LAN address the
+  device was given had nothing listening on it.
+
+### What CI can and cannot prove
+
+`.github/workflows/simulators.yml` runs the same sequence on a macOS runner,
+label-gated (`simulators`) so it never runs on a push. It reliably reaches:
+both named simulators created and booted, both Metro servers serving, Expo Go
+installed and launched on each device, and each app opened by deep link.
+
+It has **not** been able to demonstrate the apps' JavaScript loading. Three
+independent approaches were tried -- reading Metro's log, requesting each
+bundle over HTTP, and reading each simulator's own system log for React Native
+startup traces -- and none confirmed it. The runner environment fights this in
+ways a developer Mac does not: the iPad simulator wedges `simctl` calls (the
+job retries through it), `expo start` exits on an auth prompt with no TTY
+(hence `EXPO_OFFLINE=1`), and Metro's CI mode suppresses bundle logging while
+turning it off crashes @expo/cli's file watcher.
+
+The screenshots the job uploads are the honest proof, and a person has to look
+at them: the artifact hosts are unreachable from an agent sandbox behind a
+filtering proxy.
