@@ -1,3 +1,5 @@
+import { currentBusiness } from '@/data/business';
+
 import type {
   AdminSetupAnswers,
   AppRole,
@@ -90,7 +92,7 @@ const INITIAL_ADMIN: RoleSetup<AdminSetupAnswers> = {
   status: 'not_started',
   step: 0,
   answers: {
-    businessName: 'Coffee Story',
+    businessName: currentBusiness().name,
     openDays: [],
     servicesConfirmed: false,
     teamConfirmed: false,

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Alert, Text, View } from 'react-native';
 
+import { BUSINESS } from '@/data/business';
 import { CollapsingScreen } from '@/components/collapsing-screen';
 import { Body, Button } from '@/components/ui';
 import { mobileApi } from '@/lib/mobile-api';
@@ -39,7 +40,7 @@ export function Messages({ onBack }: { onBack: () => void }) {
     <CollapsingScreen title="Messages" eyebrow="Private conversation" onBack={onBack} keyboardShouldPersistTaps="handled">
       {(portal.messages ?? []).map((message) => (
         <View key={message.id} style={[styles.message, message.sender === 'client' && styles.myMessage]}>
-          <Text style={styles.messageSender}>{message.sender === 'client' ? 'You' : 'Coffee Story'}</Text>
+          <Text style={styles.messageSender}>{message.sender === 'client' ? 'You' : BUSINESS.name}</Text>
           <Body>{message.body}</Body>
         </View>
       ))}

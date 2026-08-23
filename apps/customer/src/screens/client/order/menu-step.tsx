@@ -20,6 +20,7 @@ import {
   type NativeSyntheticEvent,
 } from 'react-native';
 
+import { BUSINESS } from '@/data/business';
 import { CollapsingPageHeader } from '@/components/collapsing-page-header';
 import { AppIcon } from '@/components/icon';
 import { MenuImage } from '@/components/menu-image';
@@ -124,7 +125,7 @@ export function MenuStep({
     <View style={styles.shell}>
       <CollapsingPageHeader
         title={isDelivery ? 'Delivery' : 'Pickup'}
-        eyebrow="Coffee Story menu"
+        eyebrow={`${BUSINESS.name} menu`}
         onBack={onBack}
         backLabel="Order"
         scrollY={scrollY}

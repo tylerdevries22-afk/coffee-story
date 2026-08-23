@@ -18,6 +18,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 
+import { currentBusiness } from '@/data/business';
 import { CollapsingScreen } from '@/components/collapsing-screen';
 import { AppIcon } from '@/components/icon';
 import { ActionButton, StickyActionBar, useStickyBarClearance } from '@/components/order/order-chrome';
@@ -116,7 +117,7 @@ function PickupLocationStep({
       ) : null}
 
       {matches.length === 0 ? (
-        <Body muted>No Coffee Story shop matches “{query.trim()}”.</Body>
+        <Body muted>No {currentBusiness().name} shop matches “{query.trim()}”.</Body>
       ) : (
         matches.map((office) => (
           <LocationCard

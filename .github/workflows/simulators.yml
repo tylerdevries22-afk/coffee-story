@@ -203,19 +203,6 @@ jobs:
           xcrun simctl io "${OPERATOR_UDID:-none}" screenshot "sim-shots/operator-coffee-story-ops.png" || true
           ls -la sim-shots
 
-      - name: Replay the diagnostics at the end of the log
-        if: failure()
-        run: |
-          echo '================ expo-go step transcript ================'
-          cat "$GITHUB_WORKSPACE/expo-go-diag.log" 2>/dev/null || echo '(none)'
-          echo '================ customer metro (tail) =================='
-          tail -25 "$GITHUB_WORKSPACE/metro-customer.log" 2>/dev/null || echo '(none)'
-          echo '================ expo-go fetch (tail) ==================='
-          tail -25 "$GITHUB_WORKSPACE/expo-go-fetch.log" 2>/dev/null || echo '(none)'
-          echo '================ simulator app list ====================='
-          xcrun simctl listapps "$CUSTOMER_UDID" 2>/dev/null | grep -i -A1 exponent || echo '(Expo Go not installed)'
-          ls -la "$HOME/.expo/ios-simulator-app-cache" 2>/dev/null || echo '(no expo app cache)'
-
       - name: Keep the screenshots and the Metro logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -228,3 +215,16 @@ jobs:
             expo-go-fetch.log
             expo-go-diag.log
           if-no-files-found: warn
+
+      - name: Replay the diagnostics at the end of the log
+        if: failure()
+        run: |
+          echo '================ expo-go step transcript ================'
+          cat "$GITHUB_WORKSPACE/expo-go-diag.log" 2>/dev/null || echo '(none)'
+          echo '================ customer metro (tail) =================='
+          tail -25 "$GITHUB_WORKSPACE/metro-customer.log" 2>/dev/null || echo '(none)'
+          echo '================ expo-go fetch (tail) ==================='
+          tail -25 "$GITHUB_WORKSPACE/expo-go-fetch.log" 2>/dev/null || echo '(none)'
+          echo '================ simulator app list ====================='
+          xcrun simctl listapps "$CUSTOMER_UDID" 2>/dev/null | grep -i -A1 exponent || echo '(Expo Go not installed)'
+          ls -la "$HOME/.expo/ios-simulator-app-cache" 2>/dev/null || echo '(no expo app cache)'

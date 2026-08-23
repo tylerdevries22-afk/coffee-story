@@ -17,7 +17,7 @@
  *   5. With --apply: copy brand.json into apps/customer/src/tenant/ so the
  *      next build ships this tenant (the drift test pins the copy).
  */
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { parseMenuCsv } from '@platform/schema';
@@ -283,6 +283,13 @@ own colors, type, and photography (docs/DO-NOT-RESEMBLE.md).
   // 5. Apply to the customer app -------------------------------------------
   if (apply) {
     copyFileSync(brandPath, join(process.cwd(), 'apps', 'customer', 'src', 'tenant', 'brand.json'));
+    // Metro caches the app config as a GENERATED module, so it does not
+    // invalidate when the tenant file behind it changes -- and the config is
+    // what carries the app's name, slug and scheme into the binary. The cache
+    // is keyed by TENANT (see metro.config.js), which covers a tenant switch;
+    // this covers the other case, the same tenant re-applied with edited
+    // values. Cheap: the next build repopulates it.
+    rmSync(join(process.cwd(), 'apps', 'customer', '.metro-cache'), { recursive: true, force: true });
     // The web shell reads the bundled brand.json for its title, description and
     // colours, but `public/manifest.webmanifest` is a static file Metro copies
     // verbatim -- so it has to be written here or every tenant's installed web

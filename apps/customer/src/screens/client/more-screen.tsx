@@ -252,7 +252,7 @@ export function MoreScreen() {
       <MoreFooter
         onPrivacy={() => openMore('privacy')}
         onTerms={() => openMore('privacy')}
-        version="Coffee Story 1.0"
+        version={`${BUSINESS.name} 1.0`}
         caption={isDemo ? 'Explicit Demo mode · changes are saved on this device' : 'Connected securely to live services'}
         iconSrc={rewardsCup}
       />

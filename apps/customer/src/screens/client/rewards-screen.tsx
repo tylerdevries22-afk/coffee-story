@@ -14,6 +14,7 @@ import {
   type NativeSyntheticEvent,
 } from 'react-native';
 
+import { BUSINESS } from '@/data/business';
 import { Screen } from '@/components/ui';
 import { HEART_POINTS_LABEL } from '@/features/rewards/presentation';
 import { tierForAnnualPoints, REWARD_TIERS, type RewardTierName } from '@/features/rewards/rules';
@@ -155,7 +156,7 @@ export function RewardsScreen() {
       <Screen
         style={styles.screen}
         contentContainerStyle={styles.screenContent}
-        accessibilityLabel="Coffee Story rewards"
+        accessibilityLabel={`${BUSINESS.name} rewards`}
         stickyHeaderIndices={[0]}
         onScroll={onScroll}
         scrollEventThrottle={16}
