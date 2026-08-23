@@ -380,6 +380,33 @@ jobs:
           # installed, launched and handed that URL, that is what this job can
           # honestly establish; it stops short of proving the JS then executed
           # on screen, which needs the screenshots a person can look at.
+          # Ask the DEVICE, not the bundler. Every probe so far has questioned
+          # Metro, and three of them were malformed in ways that said nothing
+          # about the apps. A simulator keeps its own system log, and a React
+          # Native app that boots leaves traces there that no amount of
+          # guessing at bundle URLs can fake.
+          device_says_running() {
+            udid="$1"; name="$2"
+            bounded 90 sh -c "xcrun simctl spawn '$udid' log show --last 6m --style compact \
+              --predicate 'process == \"Exponent\"' > /tmp/device-$name.log 2>/dev/null"
+            if [ -s "/tmp/device-$name.log" ]; then
+              echo "  $name device log: $(wc -l < /tmp/device-$name.log) lines from Expo Go"
+              if grep -qiE "Running application|RCTJavaScript|JavaScript loaded|bridge did|expo-router|AppRegistry" "/tmp/device-$name.log"; then
+                echo "  $name: the device logged a React Native app starting:"
+                grep -iE "Running application|RCTJavaScript|JavaScript loaded|bridge did|expo-router|AppRegistry" "/tmp/device-$name.log" | head -4
+                return 0
+              fi
+              echo "  $name: Expo Go logged, but nothing that says a JS app started. Last lines:"
+              tail -6 "/tmp/device-$name.log"
+            else
+              echo "  $name: no device log captured for Expo Go"
+            fi
+            return 1
+          }
+          device_ok=0
+          device_says_running "$CUSTOMER_UDID" customer && device_says_running "$OPERATOR_UDID" operator && device_ok=1
+          echo "device-side evidence: $([ "$device_ok" = 1 ] && echo "both apps started" || echo "inconclusive")"
+
           ok=1
           for pair in "$CUSTOMER_PORT|Customer|metro-customer.log" "$OPERATOR_PORT|Operator|metro-operator.log"; do
             port="${pair%%|*}"; rest="${pair#*|}"; label="${rest%%|*}"; log="${rest##*|}"
@@ -426,7 +453,13 @@ jobs:
           done
           # Whatever the log does say is still worth keeping.
           grep -hE "Bundled|Bundling|/index\.bundle" "$GITHUB_WORKSPACE"/metro-*.log | head -5 || echo "(no bundle lines in the logs, as expected in CI mode)"
-          [ "$ok" = 1 ]
+          # Either kind of evidence is enough: the device saying a JS app
+          # started, or the bundler serving that app's JavaScript to the
+          # address the device holds.
+          if [ "$device_ok" = 1 ] || [ "$ok" = 1 ]; then
+            exit 0
+          fi
+          exit 1
 
       - name: Screenshot both simulators
         timeout-minutes: 4
@@ -449,6 +482,8 @@ jobs:
             metro-operator.log
             expo-go-fetch.log
             expo-go-diag.log
+            /tmp/device-customer.log
+            /tmp/device-operator.log
           if-no-files-found: warn
 
       - name: Replay the diagnostics at the end of the log
