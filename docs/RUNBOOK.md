@@ -76,22 +76,29 @@ orders while the board keeps serving what's already paid.
 ## Launching both apps on iOS simulators
 
 `./scripts/launch-simulators.sh` (macOS only) boots a simulator per app and
-opens each app on its own device. Four bugs were found in it by running the
-same sequence on a GitHub macOS runner, and all four are fixed:
+opens each app on its own device. Three bugs were found in it by running the
+same sequence on a GitHub macOS runner, and all three are fixed:
 
+- **Boot before opening.** Opening a deep link on a device that is still
+  booting is what makes `expo start --ios` report "Expo crashed". The script
+  waits on `simctl bootstatus` for both devices first.
 - **`simctl openurl` blocks rather than failing.** It is documented as
   returning code 60 on a busy CoreSimulator -- the failure @expo/cli reports as
   "Expo crashed" -- but it can also simply never return, and a retry loop
   around a call that never returns is a hang, not a retry. Each attempt is now
-  bounded by hand (macOS has no GNU `timeout`).
+  bounded by hand (macOS has no GNU `timeout`); verified against a stub that
+  never exits, 152s instead of 600s+.
 - **Expo Go must be launched by bundle id before any URL is opened on it.**
   LaunchServices registers an app's URL schemes asynchronously after install,
   so a freshly installed Expo Go can be present while nothing yet owns
   `exp://`.
-- **The device needs the host's LAN address, not `127.0.0.1`.** That is what
-  `expo start` itself hands the simulator.
-- **Metro binds localhost only** without `--host lan`, so the LAN address the
-  device was given had nothing listening on it.
+
+The address is `127.0.0.1`. An iOS simulator shares the host's network stack,
+so loopback inside the device *is* the host's loopback, and Metro's default
+binding is right. A LAN address plus `--host lan` was tried and reverted: it is
+what a *physical* device on the same Wi-Fi needs, and on a runner it binds
+Metro to a NAT'd virtual interface instead. If you are pointing a real iPhone
+at this, that is when you want `--host lan`.
 
 ### What CI can and cannot prove
 
@@ -100,15 +107,30 @@ label-gated (`simulators`) so it never runs on a push. It reliably reaches:
 both named simulators created and booted, both Metro servers serving, Expo Go
 installed and launched on each device, and each app opened by deep link.
 
-It has **not** been able to demonstrate the apps' JavaScript loading. Three
-independent approaches were tried -- reading Metro's log, requesting each
-bundle over HTTP, and reading each simulator's own system log for React Native
-startup traces -- and none confirmed it. The runner environment fights this in
-ways a developer Mac does not: the iPad simulator wedges `simctl` calls (the
-job retries through it), `expo start` exits on an auth prompt with no TTY
-(hence `EXPO_OFFLINE=1`), and Metro's CI mode suppresses bundle logging while
-turning it off crashes @expo/cli's file watcher.
+It has **not** demonstrated the apps' JavaScript loading. Three independent
+approaches were tried -- reading Metro's log, requesting each bundle over HTTP,
+and reading each simulator's own system log for React Native startup traces --
+and none confirmed it. Read the failures in this order before concluding
+anything about the apps:
+
+1. **CoreSimulator stops answering `simctl`.** Not a slow call -- `launch`,
+   `get_app_container`, anything, never returns. The job reports this
+   explicitly now, because it looks identical to an app that failed to render
+   and it is not the repo's problem. Mitigated by shutting down whatever device
+   the runner image left booted and by preferring an iPad Air to the 12.9-inch
+   Pro, but two booted devices plus two Metro bundlers is near what a shared
+   runner will carry.
+2. **A step's own retries can eat its budget.** Six 45-second warm-up attempts
+   is 300s of a 360s ceiling, so the step that opens the apps was killed before
+   it opened either one -- and the screenshots then showed Expo Go's own screen
+   because that is all anything ever put on those devices. Every bound in this
+   workflow has to be sized against the step ceiling, not chosen for comfort.
+3. `expo start` exits on an auth prompt with no TTY (hence `EXPO_OFFLINE=1`),
+   and a readiness check will happily pass against the corpse.
+4. Metro's CI mode suppresses bundle logging, and unsetting `CI` to get it back
+   crashes @expo/cli's file watcher.
 
 The screenshots the job uploads are the honest proof, and a person has to look
 at them: the artifact hosts are unreachable from an agent sandbox behind a
-filtering proxy.
+filtering proxy. `scripts/ci/screen-to-text.py` renders each one as a 56x20
+brightness map into the job log for when nobody can.
