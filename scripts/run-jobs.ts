@@ -1,5 +1,5 @@
 /**
- * The scheduled tick: flips drops live/ended on their windows and hands due
+ * The scheduled tick: flips drops revealed/live/ended on their windows and hands due
  * campaigns to the notification service. Run from cron (or a Vercel cron
  * hitting a thin route) every minute or five.
  *
@@ -24,10 +24,18 @@ async function run() {
   const now = new Date();
 
   const { data: drops, error: dropsError } = await db
-    .from('drops').select('id, status, starts_at, ends_at').in('status', ['scheduled', 'live']);
+    .from('drops')
+    .select('id, status, reveal_at, starts_at, ends_at')
+    .in('status', ['scheduled', 'revealed', 'live']);
   if (dropsError) throw dropsError;
   const transitions = dueDropTransitions(
-    (drops ?? []).map((drop) => ({ id: drop.id, status: drop.status, startsAt: drop.starts_at, endsAt: drop.ends_at })),
+    (drops ?? []).map((drop) => ({
+      id: drop.id,
+      status: drop.status,
+      revealAt: drop.reveal_at,
+      startsAt: drop.starts_at,
+      endsAt: drop.ends_at,
+    })),
     now,
   );
   for (const transition of transitions) {
