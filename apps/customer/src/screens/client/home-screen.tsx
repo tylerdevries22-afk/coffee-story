@@ -83,8 +83,8 @@ export function HomeScreen() {
     instance.play();
   });
 
-  const favorites = HOUSE_FAVORITE_IDS.map((id) => MENU_ITEMS.find((service) => service.id === id)).filter(
-    (service): service is MenuItem => Boolean(service),
+  const favorites = HOUSE_FAVORITE_IDS.map((id) => MENU_ITEMS.find((item) => item.id === id)).filter(
+    (item): item is MenuItem => Boolean(item),
   );
 
   // The rotating-drop model's front door: this week's board — everything live
@@ -92,7 +92,7 @@ export function HomeScreen() {
   const weekly = useMemo(() => {
     if (!tenantFeature('drops')) return [];
     return weeklyDrops(demoDrops(), new Date())
-      .map((entry) => ({ drop: entry, item: MENU_ITEMS.find((service) => service.id === entry.itemId) ?? null }))
+      .map((entry) => ({ drop: entry, item: MENU_ITEMS.find((item) => item.id === entry.itemId) ?? null }))
       .filter((entry): entry is { drop: Drop; item: MenuItem } => entry.item !== null);
   }, []);
 
@@ -301,13 +301,13 @@ export function HomeScreen() {
         title="House Favorites"
         body="The drinks Aurora keeps coming back for — handcrafted on Corvus Coffee."
       />
-      {favorites.map((service, index) => (
+      {favorites.map((item, index) => (
         <FeatureRow
-          key={service.id}
-          service={service}
+          key={item.id}
+          item={item}
           tag="Most Loved"
           flip={index % 2 === 1}
-          onPress={() => startOrder(service.id)}
+          onPress={() => startOrder(item.id)}
         />
       ))}
 
@@ -317,7 +317,7 @@ export function HomeScreen() {
         body="Every drink and bite we serve — tap anything to start an order."
       />
       {MENU_CATEGORY_META.map((category) => {
-        const items = MENU_ITEMS.filter((service) => service.category === category.id);
+        const items = MENU_ITEMS.filter((item) => item.category === category.id);
         const isExpanded = expanded.has(category.id);
         const visible = isExpanded ? items : items.slice(0, CATEGORY_PREVIEW_COUNT);
         return (
@@ -459,32 +459,32 @@ function SectionHeader({ pill, title, body }: { pill: string; title: string; bod
 }
 
 function FeatureRow({
-  service,
+  item,
   tag,
   flip,
   onPress,
 }: {
-  service: MenuItem;
+  item: MenuItem;
   tag: string;
   flip: boolean;
   onPress: () => void;
 }) {
-  const from = service.sizes[0]?.priceCents;
+  const from = item.sizes[0]?.priceCents;
   return (
     <View style={[styles.feature, flip && styles.featureFlip]}>
       <Image
-        source={service.image}
+        source={item.image}
         style={[styles.featureImage, flip ? styles.featureImageRight : styles.featureImageLeft]}
         contentFit="cover"
-        alt={service.name}
+        alt={item.name}
       />
       <View style={styles.featureCopy}>
         <View style={styles.tag}><Text style={styles.tagText}>{tag}</Text></View>
-        <Text style={styles.featureTitle}>{service.name}</Text>
+        <Text style={styles.featureTitle}>{item.name}</Text>
         {from ? <Text style={styles.featureFrom}>From {formatMoney(from)}</Text> : null}
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Order ${service.name}`}
+          accessibilityLabel={`Order ${item.name}`}
           onPress={onPress}
         >
           <Text style={styles.learnMore}>Order Now  ›</Text>

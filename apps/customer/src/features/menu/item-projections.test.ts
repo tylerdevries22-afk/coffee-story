@@ -30,9 +30,9 @@ test('the account and staff projections keep one item-level slug', () => {
   assert.deepEqual(projectFirstVariants([source]).map((item) => item.slug), ['latte']);
 });
 
-test('grouping preserves service order and uses the first session image', () => {
-  const services = projectItems([source]);
-  const groups = groupOrderableItems(services, (slug) => slug.endsWith('12') ? 7 : 9);
+test('grouping preserves item order and uses the first session image', () => {
+  const items = projectItems([source]);
+  const groups = groupOrderableItems(items, (slug) => slug.endsWith('12') ? 7 : 9);
   assert.equal(groups.length, 1);
   assert.equal(groups[0]?.image, 7);
   assert.deepEqual(groups[0]?.variants.map((item) => item.slug), ['latte-12', 'latte-16']);

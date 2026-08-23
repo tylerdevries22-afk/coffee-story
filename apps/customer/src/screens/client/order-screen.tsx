@@ -271,7 +271,7 @@ export function OrderScreen() {
     placing.current = true;
     setPaying(true);
     try {
-      const service: OrderableItem = {
+      const item: OrderableItem = {
         slug: `order-${order.windowValue}`,
         name: summary,
         category: 'specialty',
@@ -281,7 +281,7 @@ export function OrderScreen() {
         depositCents: totals.totalCents,
         description: order.cart.note || undefined,
       };
-      demo.book({ service, addOns: [], placedAt: order.windowValue, fulfillment: order.fulfillment });
+      demo.book({ item, addOns: [], placedAt: order.windowValue, fulfillment: order.fulfillment });
       setPlaced({ summary, totalCents: totals.totalCents, points: pointsEarned });
       order.clearBag();
       order.setTipCents(0);

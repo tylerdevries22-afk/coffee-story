@@ -36,13 +36,13 @@ const SEARCH_SYMBOLS: Record<ClientSearchResult['kind'], 'doc.text' | 'clock.arr
   page: 'doc.text',
   order: 'clock.arrow.circlepath',
   gift: 'creditcard',
-  service: 'heart',
+  item: 'heart',
 };
 
 /**
  * The More tab's root screen -- the menu only.
  *
- * The eleven destinations this used to branch into (services, orders,
+ * The eleven destinations this used to branch into (items, orders,
  * profile, ...) are now their own pushed routes under `app/client/more/`,
  * each a thin wrapper around the same component this file used to render
  * inline. See that directory for the mapping; `MoreView` (still exported from
@@ -70,15 +70,15 @@ export function MoreScreen() {
 
   const liveOrders = portal.orders ?? [];
   const completedOrders = isDemo
-    ? portal.orders.filter((appointment) => appointment.status === 'picked_up').length
+    ? portal.orders.filter((order) => order.status === 'picked_up').length
     : liveOrders.filter((entry) => entry.status === 'picked_up').length;
   const searchResults = searchClientAccount(query, portal, ORDERABLE_ITEMS);
   const giftSummary = summarizeGiftCardOwnership(portal.giftCards);
   const giftBalanceCents = isDemo ? giftSummary.spendableBalanceCents : portal.rewardAccount.cashCents;
   const upcomingVisits = isDemo
-    ? portal.orders.filter((appointment) => (
-      (appointment.status === 'paid' || appointment.status === 'created')
-      && new Date(appointment.placedAt).getTime() > now.getTime()
+    ? portal.orders.filter((order) => (
+      (order.status === 'paid' || order.status === 'created')
+      && new Date(order.placedAt).getTime() > now.getTime()
     )).length
     : liveOrders.filter((entry) => ['created', 'paid', 'in_progress', 'ready'].includes(entry.status)).length;
   const clientMetrics = [
@@ -253,7 +253,7 @@ export function MoreScreen() {
         onPrivacy={() => openMore('privacy')}
         onTerms={() => openMore('privacy')}
         version="Coffee Story 1.0"
-        caption={isDemo ? 'Explicit Demo mode · changes are saved on this device' : 'Connected securely to live services'}
+        caption={isDemo ? 'Explicit Demo mode · changes are saved on this device' : 'Connected securely to live items'}
         iconSrc={rewardsCup}
       />
     </Screen>

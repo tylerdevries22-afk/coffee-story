@@ -3,7 +3,7 @@
  *
  * Before this existed, six screens each reached for `expo-image` with their own
  * geometry -- 56/76/64/72 squares, a full-width 260pt hero, a full-width 132pt
- * services card -- and cover-cropped the same 600x682 portrait source into all
+ * items card -- and cover-cropped the same 600x682 portrait source into all
  * of them. A drink shown in the bag looked like a different photograph from the
  * same drink in the menu, because it was: a different slice of it.
  *

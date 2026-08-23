@@ -20,7 +20,7 @@ export type AdminSetupAnswers = {
   openDays: string[];
   menuConfirmed: boolean;
   teamConfirmed: boolean;
-  onlineBooking: boolean;
+  onlineOrdering: boolean;
 };
 
 export type RoleSetup<Answers> = {
@@ -45,7 +45,7 @@ export type PortalProfile = {
   avatarUrl: string | null;
 };
 
-export type BookingSource = 'website' | 'directory' | 'campaign' | 'staff';
+export type OrderSource = 'website' | 'directory' | 'campaign' | 'staff';
 
 export type PortalOrderLine = {
   name: string;
@@ -158,7 +158,7 @@ export type PortalMessage = {
 /**
  * How a guest takes their coffee, saved for next time.
  *
- * This was an appointment intake form with a consent gate and a draft/submit
+ * This was an order intake form with a consent gate and a draft/submit
  * workflow. A coffee preference needs neither: there is nothing to consent to
  * and nothing to submit, so it saves in one action.
  */
@@ -221,7 +221,7 @@ export type OrderableAddOn = {
 };
 
 export type OrderableCatalog = {
-  services: OrderableItem[];
+  items: OrderableItem[];
   addOns: OrderableAddOn[];
 };
 
@@ -291,8 +291,8 @@ export type StaffWorkspaceMetrics = {
   };
   /** Trailing seven days of completed revenue, oldest first. */
   revenueTrend?: { label: string; cents: number }[];
-  /** Booking counts grouped by where the order came from. */
-  bookingSources?: { source: BookingSource; count: number }[];
+  /** Order counts grouped by where the order came from. */
+  orderSources?: { source: OrderSource; count: number }[];
 };
 
 export type StaffPayment = {
@@ -319,7 +319,7 @@ export type StaffAvailabilityDay = {
 
 export type StaffSettings = {
   availability: StaffAvailabilityDay[];
-  onlineBookingEnabled: boolean;
+  onlineOrderingEnabled: boolean;
   requireAccountToBook: boolean;
   waitlistEnabled: boolean;
   leadTimeMinutes: number;

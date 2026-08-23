@@ -35,7 +35,7 @@ test('the UTC shortcut disagrees in the evening, which is the bug', () => {
   }
 });
 
-test('a booking chip labelled Today carries today', () => {
+test('a pickup chip labelled Today carries today', () => {
   // The user-visible failure: after ~5pm Denver the "Today" chip sent
   // tomorrow's date to the availability API and to demoSlotFor.
   const evening = new Date(2026, 6, 15, 21, 0);

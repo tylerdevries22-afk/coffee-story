@@ -40,7 +40,7 @@ export function Orders({ onBack, onBook }: { onBack: () => void; onBook: () => v
     return (
       <CollapsingScreen title="Orders" eyebrow="My account" onBack={onBack}>
         <Segmented options={['Upcoming', 'Past'] as const} value={tab} onChange={setTab} />
-        {shown.map((entry) => <OrderCard key={entry.id} order={entry} />)}
+        {shown.map((entry) => <OrderTrackingCard key={entry.id} order={entry} />)}
         {!shown.length ? (
           <Card><Body muted>{tab === 'Upcoming' ? 'No orders in progress.' : 'No past orders yet.'}</Body></Card>
         ) : null}
@@ -51,23 +51,23 @@ export function Orders({ onBack, onBook }: { onBack: () => void; onBook: () => v
   const orders = portal.orders.filter((order) => (
     tab === 'Upcoming'
       ? new Date(order.placedAt).getTime() >= referenceTime && order.status !== 'cancelled'
-      : new Date(order.placedAt).getTime() < referenceTime || ['picked_up', 'cancelled', 'cancelled'].includes(order.status)
+      : new Date(order.placedAt).getTime() < referenceTime || ['picked_up', 'cancelled', 'refunded'].includes(order.status)
   ));
 
   return (
     <CollapsingScreen title="Orders" eyebrow="My account" onBack={onBack}>
       <Segmented options={['Upcoming', 'Past'] as const} value={tab} onChange={setTab} />
       {orders.map((order) => (
-        <AppointmentCard
+        <UpcomingOrderCard
           key={order.id}
           order={order}
           isDemo={isDemo}
           upcoming={new Date(order.placedAt).getTime() >= referenceTime
             && order.status !== 'cancelled'}
           onCancel={async () => {
-            if (isDemo) demo.cancelAppointment(order.id);
+            if (isDemo) demo.cancelOrder(order.id);
             else {
-              await mobileApi.cancelAppointment(order.id, requestKey('order-cancel'));
+              await mobileApi.cancelOrder(order.id, requestKey('order-cancel'));
               await refresh();
             }
           }}
@@ -75,9 +75,9 @@ export function Orders({ onBack, onBook }: { onBack: () => void; onBook: () => v
             const next = new Date(order.placedAt);
             next.setDate(next.getDate() + 7);
             if (isDemo) {
-              demo.rescheduleAppointment(order.id, next.toISOString());
+              demo.rescheduleOrder(order.id, next.toISOString());
             } else {
-              await mobileApi.rescheduleAppointment(order.id, next.toISOString(), requestKey('order-reschedule'));
+              await mobileApi.rescheduleOrder(order.id, next.toISOString(), requestKey('order-reschedule'));
               await refresh();
             }
           }}
@@ -90,7 +90,7 @@ export function Orders({ onBack, onBook }: { onBack: () => void; onBook: () => v
   );
 }
 
-function AppointmentCard({
+function UpcomingOrderCard({
   order,
   isDemo,
   upcoming,
@@ -135,7 +135,7 @@ function AppointmentCard({
                 ))}
               </View>
               <Field label="Review note" value={note} multiline onChangeText={setNote} />
-              <Button label="Save review" loading={busy === 'review'} onPress={() => void saveVisitReview(order.id, rating, note, isDemo, setBusy, onReviewed, demo.reviewAppointment)} />
+              <Button label="Save review" loading={busy === 'review'} onPress={() => void saveVisitReview(order.id, rating, note, isDemo, setBusy, onReviewed, demo.reviewOrder)} />
             </View>
           ) : null}
         </>
@@ -145,7 +145,7 @@ function AppointmentCard({
 }
 
 /** One live order: what it was, where it stands, what it cost. */
-function OrderCard({ order }: { order: PortalOrder }) {
+function OrderTrackingCard({ order }: { order: PortalOrder }) {
   const tracking = trackingView(order.status);
   const active = tracking.activeIndex >= 0 && order.status !== 'picked_up';
   const statusLine = tracking.failed
@@ -208,13 +208,13 @@ async function addOrderReminder(order: PortalOrder, isDemo: boolean) {
 }
 
 async function saveVisitReview(
-  appointmentId: string,
+  orderId: string,
   rating: number,
   note: string,
   isDemo: boolean,
   setBusy: (value: string | null) => void,
   onReviewed: () => Promise<void>,
-  saveDemoReview: (appointmentId: string, rating: number, note: string) => void,
+  saveDemoReview: (orderId: string, rating: number, note: string) => void,
 ) {
   setBusy('review');
   try {
@@ -222,9 +222,9 @@ async function saveVisitReview(
       // Previously the demo branch persisted nothing and fell straight through to
       // the success alert, so a preview user rated a order, was told "Review
       // saved", and found the form blank again on return.
-      saveDemoReview(appointmentId, rating, note);
+      saveDemoReview(orderId, rating, note);
     } else {
-      await mobileApi.reviewAppointment(appointmentId, rating, note, requestKey('order-review'));
+      await mobileApi.reviewOrder(orderId, rating, note, requestKey('order-review'));
       await onReviewed();
     }
     Alert.alert('Review saved', 'Thank you for sharing your experience.');

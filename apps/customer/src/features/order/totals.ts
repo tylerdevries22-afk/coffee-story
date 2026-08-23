@@ -7,7 +7,7 @@
  * rounding that representation exists to avoid.
  *
  * The two registers stay separate on purpose. The staff one settles an
- * appointment balance against a percentage tip and a flat discount code; this
+ * order balance against a percentage tip and a flat discount code; this
  * one prices a bag of goods against a fixed-dollar tip and an itemised tax
  * breakdown the guest can read line by line.
  */

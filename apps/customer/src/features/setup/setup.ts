@@ -107,7 +107,7 @@ const INITIAL_ADMIN: RoleSetup<AdminSetupAnswers> = {
     openDays: [],
     menuConfirmed: false,
     teamConfirmed: false,
-    onlineBooking: true,
+    onlineOrdering: true,
   },
 };
 
@@ -177,7 +177,7 @@ export function portalSetup(portal: PortalBundle): PortalSetupState {
         openDays: safeStrings(candidate.openDays, DAY_OPTIONS),
         menuConfirmed: candidate.menuConfirmed === true,
         teamConfirmed: candidate.teamConfirmed === true,
-        onlineBooking: candidate.onlineBooking !== false,
+        onlineOrdering: candidate.onlineOrdering !== false,
       };
     }),
   };
@@ -232,7 +232,7 @@ export function setupSummary(role: AppRole, setup: PortalSetupState): { label: s
   return [
     { label: 'Studio', value: answers.businessName || '—' },
     { label: 'Open days', value: answers.openDays.length ? `${answers.openDays.length} of 7` : '—' },
-    { label: 'Online booking', value: answers.onlineBooking ? 'On' : 'Off' },
+    { label: 'Online ordering', value: answers.onlineOrdering ? 'On' : 'Off' },
   ];
 }
 

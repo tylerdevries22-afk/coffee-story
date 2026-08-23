@@ -22,7 +22,7 @@ import {
 } from './demo-state';
 import type { PortalBundle } from '@/types/domain';
 
-const service = {
+const item = {
   slug: 'deep-tissue-60',
   name: 'Deep Tissue Massage',
   category: 'specialty' as const,
@@ -85,8 +85,8 @@ test('validates ISO slots and converts demo labels into ISO values', () => {
 
 test('adds a demo booking with add-on totals and duration', () => {
   const portal = addDemoOrder(createInitialDemoPortal(), {
-    id: 'appointment-new',
-    service,
+    id: 'order-new',
+    item,
     addOns: [addOn],
     placedAt: '2026-08-04T19:30:00.000Z',
     fulfillment: {
@@ -101,7 +101,7 @@ test('adds a demo booking with add-on totals and duration', () => {
     },
   });
   const order = portal.orders[0];
-  assert.equal(order.id, 'appointment-new');
+  assert.equal(order.id, 'order-new');
   assert.equal(order.subtotalCents, 12500);
   // Prep time stands in for the pickup window: scheduledFor sits that far
   // past placedAt.
@@ -119,7 +119,7 @@ test('adds a demo booking with add-on totals and duration', () => {
 test('rejects a demo order without a valid ISO slot', () => {
   assert.throws(() => addDemoOrder(createInitialDemoPortal(), {
     id: 'bad',
-    service,
+    item,
     addOns: [],
     placedAt: '11:30 AM',
   }));

@@ -38,7 +38,7 @@ const DELIVERY_DETAIL = '123 Dayton St, Aurora, CO 80010';
 type OrderSeed = {
   id: string;
   /** One line's name; the demo carries single-line orders. */
-  service: string;
+  item: string;
   days: number;
   hour: number;
   minute?: number;
@@ -64,8 +64,8 @@ function order(seed: OrderSeed): PortalOrder {
   return {
     id: seed.id,
     status: seed.status,
-    summary: seed.service,
-    lines: [{ name: seed.service, quantity: 1, unitPriceCents: seed.priceCents, options: [] }],
+    summary: seed.item,
+    lines: [{ name: seed.item, quantity: 1, unitPriceCents: seed.priceCents, options: [] }],
     fulfillmentType: seed.mobile ? 'delivery' : 'pickup',
     scheduledFor: addMinutes(placedAt, seed.durationMin ?? 15),
     placedAt,
@@ -84,27 +84,27 @@ function order(seed: OrderSeed): PortalOrder {
 // --- Client portal -----------------------------------------------------------
 
 const pastOrders: PortalOrder[] = [
-  order({ id: 'past-01', service: 'Spanish Latte (16 oz)', days: -235, hour: 10, priceCents: 700, status: 'picked_up' }),
-  order({ id: 'past-02', service: 'Pistachio Latte (16 oz)', days: -210, hour: 14, priceCents: 700, status: 'picked_up' }),
-  order({ id: 'past-03', service: 'Turkish Coffee (Double)', days: -182, hour: 11, priceCents: 700, status: 'picked_up' }),
-  order({ id: 'past-04', service: 'Spanish Latte (12 oz)', days: -160, hour: 9, priceCents: 600, status: 'picked_up' }),
-  order({ id: 'past-05', service: 'Sunset Sparkling Ade (20 oz)', days: -135, hour: 16, priceCents: 600, status: 'picked_up' }),
-  order({ id: 'past-06', service: 'Rooh Afza Boba (20 oz)', days: -112, hour: 13, priceCents: 700, status: 'picked_up' }),
-  order({ id: 'past-07', service: 'Adeni Chai (16 oz)', days: -90, hour: 10, priceCents: 600, status: 'picked_up' }),
-  order({ id: 'past-08', service: 'Midnight Lychee Refresher (20 oz)', days: -78, hour: 21, priceCents: 700, status: 'cancelled' }),
-  order({ id: 'past-09', service: 'Spanish Latte (16 oz)', days: -74, hour: 11, priceCents: 700, status: 'picked_up' }),
-  order({ id: 'past-10', service: 'Brown Sugar Boba (20 oz)', days: -60, hour: 14, priceCents: 700, status: 'picked_up', mobile: true }),
-  order({ id: 'past-11', service: 'Pistachio Milk Cake', days: -45, hour: 20, priceCents: 700, status: 'picked_up' }),
-  order({ id: 'past-12', service: 'Mochi Donut Trio', days: -32, hour: 13, priceCents: 1000, status: 'picked_up' }),
-  order({ id: 'past-13', service: 'Spanish Latte (20 oz)', days: -21, hour: 9, priceCents: 800, status: 'picked_up' }),
-  order({ id: 'past-14', service: 'Pistachio Latte (16 oz)', days: -14, hour: 11, priceCents: 700, status: 'picked_up' }),
-  order({ id: 'past-15', service: 'Honeycomb Cheese Bread', days: -6, hour: 19, priceCents: 700, status: 'picked_up' }),
+  order({ id: 'past-01', item: 'Spanish Latte (16 oz)', days: -235, hour: 10, priceCents: 700, status: 'picked_up' }),
+  order({ id: 'past-02', item: 'Pistachio Latte (16 oz)', days: -210, hour: 14, priceCents: 700, status: 'picked_up' }),
+  order({ id: 'past-03', item: 'Turkish Coffee (Double)', days: -182, hour: 11, priceCents: 700, status: 'picked_up' }),
+  order({ id: 'past-04', item: 'Spanish Latte (12 oz)', days: -160, hour: 9, priceCents: 600, status: 'picked_up' }),
+  order({ id: 'past-05', item: 'Sunset Sparkling Ade (20 oz)', days: -135, hour: 16, priceCents: 600, status: 'picked_up' }),
+  order({ id: 'past-06', item: 'Rooh Afza Boba (20 oz)', days: -112, hour: 13, priceCents: 700, status: 'picked_up' }),
+  order({ id: 'past-07', item: 'Adeni Chai (16 oz)', days: -90, hour: 10, priceCents: 600, status: 'picked_up' }),
+  order({ id: 'past-08', item: 'Midnight Lychee Refresher (20 oz)', days: -78, hour: 21, priceCents: 700, status: 'cancelled' }),
+  order({ id: 'past-09', item: 'Spanish Latte (16 oz)', days: -74, hour: 11, priceCents: 700, status: 'picked_up' }),
+  order({ id: 'past-10', item: 'Brown Sugar Boba (20 oz)', days: -60, hour: 14, priceCents: 700, status: 'picked_up', mobile: true }),
+  order({ id: 'past-11', item: 'Pistachio Milk Cake', days: -45, hour: 20, priceCents: 700, status: 'picked_up' }),
+  order({ id: 'past-12', item: 'Mochi Donut Trio', days: -32, hour: 13, priceCents: 1000, status: 'picked_up' }),
+  order({ id: 'past-13', item: 'Spanish Latte (20 oz)', days: -21, hour: 9, priceCents: 800, status: 'picked_up' }),
+  order({ id: 'past-14', item: 'Pistachio Latte (16 oz)', days: -14, hour: 11, priceCents: 700, status: 'picked_up' }),
+  order({ id: 'past-15', item: 'Honeycomb Cheese Bread', days: -6, hour: 19, priceCents: 700, status: 'picked_up' }),
 ];
 
 const upcomingOrders: PortalOrder[] = [
-  order({ id: 'demo-order', service: 'Spanish Latte (16 oz)', days: 0, hour: 17, minute: 30, priceCents: 700, status: 'paid' }),
-  order({ id: 'upcoming-02', service: 'Strawberry Nutella Croissant', days: 1, hour: 12, priceCents: 600, status: 'created' }),
-  order({ id: 'upcoming-03', service: 'Adeni Chai (16 oz)', days: 2, hour: 8, minute: 30, priceCents: 600, status: 'paid', mobile: true }),
+  order({ id: 'demo-order', item: 'Spanish Latte (16 oz)', days: 0, hour: 17, minute: 30, priceCents: 700, status: 'paid' }),
+  order({ id: 'upcoming-02', item: 'Strawberry Nutella Croissant', days: 1, hour: 12, priceCents: 600, status: 'created' }),
+  order({ id: 'upcoming-03', item: 'Adeni Chai (16 oz)', days: 2, hour: 8, minute: 30, priceCents: 600, status: 'paid', mobile: true }),
 ];
 
 // Account totals are authoritative (the server returns them alongside a recent
@@ -304,27 +304,27 @@ const staffClients: StaffClient[] = [
 
 const staffOrders: PortalOrder[] = [
   // Today: one done, two confirmed (checkout-eligible), one pending (badge).
-  order({ id: 'staff-t0-1', service: 'Spanish Latte (16 oz)', days: 0, hour: 8, priceCents: 700, status: 'picked_up', client: 'Morgan Blake' }),
-  order({ id: 'staff-t0-2', service: 'Pistachio Latte (16 oz)', days: 0, hour: 13, priceCents: 700, status: 'paid', client: 'Alex Rivera' }),
-  order({ id: 'staff-t0-3', service: 'Mochi Donut Trio', days: 0, hour: 15, minute: 30, priceCents: 1000, status: 'paid', client: 'Jamie Lee' }),
-  order({ id: 'staff-t0-4', service: 'Sunset Sparkling Ade (20 oz)', days: 0, hour: 17, priceCents: 600, status: 'created', client: 'Reese Talbot' }),
-  order({ id: 'staff-t1-1', service: 'Rooh Afza Boba (20 oz)', days: 1, hour: 10, priceCents: 700, status: 'paid', client: 'Devin Park' }),
-  order({ id: 'staff-t1-2', service: 'Spanish Latte (12 oz)', days: 1, hour: 13, minute: 30, priceCents: 600, status: 'created', client: 'Harper Ellis' }),
-  order({ id: 'staff-t2-1', service: 'Adeni Chai (16 oz)', days: 2, hour: 8, minute: 30, priceCents: 600, status: 'paid', client: 'Alex Rivera' }),
-  order({ id: 'staff-t3-1', service: 'Turkish Coffee (Double)', days: 3, hour: 9, priceCents: 700, status: 'paid', client: 'Quinn Nakamura' }),
-  order({ id: 'staff-t3-2', service: 'Brown Sugar Boba (20 oz)', days: 3, hour: 14, priceCents: 700, status: 'paid', client: 'Sam Whitfield', mobile: true }),
-  order({ id: 'staff-t4-1', service: 'Saffron Milk Cake', days: 4, hour: 20, priceCents: 700, status: 'created', client: 'Casey Morgan' }),
-  order({ id: 'staff-t5-1', service: 'Strawberry Nutella Croissant', days: 5, hour: 12, minute: 30, priceCents: 600, status: 'paid', client: 'Morgan Blake' }),
-  order({ id: 'staff-t5-2', service: 'Spanish Latte (16 oz)', days: 5, hour: 13, priceCents: 700, status: 'paid', client: 'Taylor Quinn' }),
-  order({ id: 'staff-t6-1', service: 'Midnight Lychee Refresher (20 oz)', days: 6, hour: 21, priceCents: 700, status: 'paid', client: 'Jordan Avery' }),
-  order({ id: 'staff-t7-1', service: 'Pistachio Latte (20 oz)', days: 7, hour: 9, minute: 30, priceCents: 800, status: 'paid', client: 'Riley Chen' }),
-  order({ id: 'staff-t8-1', service: 'Honeycomb Cheese Bread', days: 8, hour: 19, priceCents: 700, status: 'paid', client: 'Reese Talbot', mobile: true }),
-  order({ id: 'staff-t9-1', service: 'Spanish Latte (16 oz)', days: 9, hour: 14, priceCents: 700, status: 'paid', client: 'Jamie Lee' }),
-  order({ id: 'staff-t9-2', service: 'Sunset Sparkling Ade (16 oz)', days: 9, hour: 16, priceCents: 600, status: 'paid', client: 'Morgan Blake' }),
-  order({ id: 'staff-t10-1', service: 'Adeni Chai (12 oz)', days: 10, hour: 11, priceCents: 500, status: 'paid', client: 'Alex Rivera' }),
-  order({ id: 'staff-t11-1', service: 'Turkish Coffee (Single)', days: 11, hour: 13, priceCents: 500, status: 'paid', client: 'Quinn Nakamura' }),
-  order({ id: 'staff-t12-1', service: 'Rooh Afza Matcha (20 oz)', days: 12, hour: 10, priceCents: 800, status: 'paid', client: 'Devin Park', mobile: true }),
-  order({ id: 'staff-t13-1', service: 'Spanish Latte (16 oz)', days: 13, hour: 15, priceCents: 700, status: 'paid', client: 'Casey Morgan' }),
+  order({ id: 'staff-t0-1', item: 'Spanish Latte (16 oz)', days: 0, hour: 8, priceCents: 700, status: 'picked_up', client: 'Morgan Blake' }),
+  order({ id: 'staff-t0-2', item: 'Pistachio Latte (16 oz)', days: 0, hour: 13, priceCents: 700, status: 'paid', client: 'Alex Rivera' }),
+  order({ id: 'staff-t0-3', item: 'Mochi Donut Trio', days: 0, hour: 15, minute: 30, priceCents: 1000, status: 'paid', client: 'Jamie Lee' }),
+  order({ id: 'staff-t0-4', item: 'Sunset Sparkling Ade (20 oz)', days: 0, hour: 17, priceCents: 600, status: 'created', client: 'Reese Talbot' }),
+  order({ id: 'staff-t1-1', item: 'Rooh Afza Boba (20 oz)', days: 1, hour: 10, priceCents: 700, status: 'paid', client: 'Devin Park' }),
+  order({ id: 'staff-t1-2', item: 'Spanish Latte (12 oz)', days: 1, hour: 13, minute: 30, priceCents: 600, status: 'created', client: 'Harper Ellis' }),
+  order({ id: 'staff-t2-1', item: 'Adeni Chai (16 oz)', days: 2, hour: 8, minute: 30, priceCents: 600, status: 'paid', client: 'Alex Rivera' }),
+  order({ id: 'staff-t3-1', item: 'Turkish Coffee (Double)', days: 3, hour: 9, priceCents: 700, status: 'paid', client: 'Quinn Nakamura' }),
+  order({ id: 'staff-t3-2', item: 'Brown Sugar Boba (20 oz)', days: 3, hour: 14, priceCents: 700, status: 'paid', client: 'Sam Whitfield', mobile: true }),
+  order({ id: 'staff-t4-1', item: 'Saffron Milk Cake', days: 4, hour: 20, priceCents: 700, status: 'created', client: 'Casey Morgan' }),
+  order({ id: 'staff-t5-1', item: 'Strawberry Nutella Croissant', days: 5, hour: 12, minute: 30, priceCents: 600, status: 'paid', client: 'Morgan Blake' }),
+  order({ id: 'staff-t5-2', item: 'Spanish Latte (16 oz)', days: 5, hour: 13, priceCents: 700, status: 'paid', client: 'Taylor Quinn' }),
+  order({ id: 'staff-t6-1', item: 'Midnight Lychee Refresher (20 oz)', days: 6, hour: 21, priceCents: 700, status: 'paid', client: 'Jordan Avery' }),
+  order({ id: 'staff-t7-1', item: 'Pistachio Latte (20 oz)', days: 7, hour: 9, minute: 30, priceCents: 800, status: 'paid', client: 'Riley Chen' }),
+  order({ id: 'staff-t8-1', item: 'Honeycomb Cheese Bread', days: 8, hour: 19, priceCents: 700, status: 'paid', client: 'Reese Talbot', mobile: true }),
+  order({ id: 'staff-t9-1', item: 'Spanish Latte (16 oz)', days: 9, hour: 14, priceCents: 700, status: 'paid', client: 'Jamie Lee' }),
+  order({ id: 'staff-t9-2', item: 'Sunset Sparkling Ade (16 oz)', days: 9, hour: 16, priceCents: 600, status: 'paid', client: 'Morgan Blake' }),
+  order({ id: 'staff-t10-1', item: 'Adeni Chai (12 oz)', days: 10, hour: 11, priceCents: 500, status: 'paid', client: 'Alex Rivera' }),
+  order({ id: 'staff-t11-1', item: 'Turkish Coffee (Single)', days: 11, hour: 13, priceCents: 500, status: 'paid', client: 'Quinn Nakamura' }),
+  order({ id: 'staff-t12-1', item: 'Rooh Afza Matcha (20 oz)', days: 12, hour: 10, priceCents: 800, status: 'paid', client: 'Devin Park', mobile: true }),
+  order({ id: 'staff-t13-1', item: 'Spanish Latte (16 oz)', days: 13, hour: 15, priceCents: 700, status: 'paid', client: 'Casey Morgan' }),
 ];
 
 export const DEMO_STAFF: StaffDashboard = {
@@ -353,7 +353,7 @@ export const DEMO_STAFF: StaffDashboard = {
       { label: 'Sat', cents: 85500 },
       { label: 'Sun', cents: 0 },
     ],
-    bookingSources: [
+    orderSources: [
       { source: 'website', count: 18 },
       { source: 'directory', count: 6 },
       { source: 'campaign', count: 3 },

@@ -31,7 +31,7 @@ test('assigns each annual tier at its exact threshold', () => {
   ]);
 });
 
-test('excludes taxes, service fees, and covered tender from qualifying spend', () => {
+test('excludes taxes, item fees, and covered tender from qualifying spend', () => {
   assert.equal(qualifyingSpendCents(purchase), 12500);
 });
 

@@ -26,7 +26,7 @@ export function addLocalDays(date: Date, offset: number): Date {
   return next;
 }
 
-/** Days offered in the booking date row. */
+/** Days offered in the pickup date row. */
 export const SELECTABLE_DAYS = 7;
 
 export type UpcomingDate = { value: string; label: string };

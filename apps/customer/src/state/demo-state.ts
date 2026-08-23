@@ -20,7 +20,7 @@ import type {
 
 export type DemoOrderInput = {
   id: string;
-  service: OrderableItem;
+  item: OrderableItem;
   addOns: OrderableAddOn[];
   placedAt: string;
   fulfillment?: OrderFulfillment;
@@ -87,15 +87,15 @@ export function addDemoOrder(portal: PortalBundle, input: DemoOrderInput): Porta
   if (!isValidIsoSlot(input.placedAt)) throw new Error('Choose a valid pickup time.');
   const addOnCents = input.addOns.reduce((total, addOn) => total + addOn.priceCents, 0);
   const addOnMinutes = input.addOns.reduce((total, addOn) => total + addOn.durationMin, 0);
-  const subtotalCents = input.service.priceCents + addOnCents;
+  const subtotalCents = input.item.priceCents + addOnCents;
   const taxCents = taxCentsFor(subtotalCents);
   const order: PortalOrder = {
     id: input.id,
     summary: input.addOns.length
-      ? `${input.service.name} + ${input.addOns.map((addOn) => addOn.name).join(', ')}`
-      : input.service.name,
+      ? `${input.item.name} + ${input.addOns.map((addOn) => addOn.name).join(', ')}`
+      : input.item.name,
     lines: [
-      { name: input.service.name, quantity: 1, unitPriceCents: input.service.priceCents, options: [] },
+      { name: input.item.name, quantity: 1, unitPriceCents: input.item.priceCents, options: [] },
       ...input.addOns.map((addOn) => ({
         name: addOn.name, quantity: 1, unitPriceCents: addOn.priceCents, options: [],
       })),
@@ -103,7 +103,7 @@ export function addDemoOrder(portal: PortalBundle, input: DemoOrderInput): Porta
     placedAt: input.placedAt,
     // Prep time stands in for the pickup window in the demo plane.
     scheduledFor: new Date(
-      new Date(input.placedAt).getTime() + (input.service.durationMin + addOnMinutes) * 60_000,
+      new Date(input.placedAt).getTime() + (input.item.durationMin + addOnMinutes) * 60_000,
     ).toISOString(),
     status: 'paid',
     fulfillmentType: input.fulfillment?.mode ?? 'pickup',

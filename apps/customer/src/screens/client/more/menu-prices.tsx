@@ -14,7 +14,7 @@ import { colors, fonts, radius, spacing } from '@/theme/tokens';
  * The More row used to jump straight into the booking flow, so there was
  * nothing on the phone a client could browse and nothing to compare against
  * the site. Card language follows the client home screen deliberately: the two
- * screens show the same services and should not look like different studios.
+ * screens show the same items and should not look like different studios.
  */
 export function MenuPage({
   onBack,
@@ -24,13 +24,13 @@ export function MenuPage({
   onBook: (serviceId: string) => void;
 }) {
   return (
-    <CollapsingScreen title="Services & pricing" eyebrow="Our menu" onBack={onBack}>
+    <CollapsingScreen title="Items & pricing" eyebrow="Our menu" onBack={onBack}>
       <Body muted>
         Every session, every length. Prices are the same ones published on the website.
       </Body>
 
       {MENU_ITEMS.map((item) => (
-        <ServiceCard key={item.id} item={item} onBook={() => onBook(item.id)} />
+        <MenuItemCard key={item.id} item={item} onBook={() => onBook(item.id)} />
       ))}
 
       <SectionTitle>Enhancements</SectionTitle>
@@ -53,7 +53,7 @@ export function MenuPage({
   );
 }
 
-function ServiceCard({ item, onBook }: { item: MenuItem; onBook: () => void }) {
+function MenuItemCard({ item, onBook }: { item: MenuItem; onBook: () => void }) {
   return (
     <Card style={styles.card}>
       <MenuImage source={item.image} variant="hero" alt={item.name} style={styles.image} />

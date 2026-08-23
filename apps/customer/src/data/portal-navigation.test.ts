@@ -40,7 +40,7 @@ test('staff navigation excludes owner-only administration pages', () => {
     '/admin/calendar',
     '/admin/clients',
     '/admin/pos',
-    '/admin/services',
+    '/admin/items',
     '/admin/rewards',
     '/admin/reviews',
   ]);

@@ -5,12 +5,12 @@ import type { OrderableItem, GiftCard, PortalOrder, PortalBundle } from '@/types
  * One row in the client search sheet.
  *
  * `target` is the only thing the caller acts on: a More destination it should
- * open (`view`, the `MoreView` key or `book` for the booking flow), or a
- * bookable service slug it should start a booking for.
+ * open (`view`, the `MoreView` key or `book` for the order flow), or a
+ * menu item slug it should start an order for.
  */
 export type ClientSearchResult = {
   id: string;
-  kind: 'page' | 'order' | 'gift' | 'service';
+  kind: 'page' | 'order' | 'gift' | 'item';
   title: string;
   detail: string;
   /** What the caller should open. */
@@ -23,8 +23,8 @@ export type ClientSearchResult = {
  * `src/screens/client/more-screen.tsx` so a member searching for the words
  * they can see on that page finds the page.
  *
- * `book` is not a `MoreView`: the More page opens Services & pricing through
- * the booking flow rather than a sub-page, and the caller routes it the same
+ * `book` is not a `MoreView`: the More page opens Items & pricing through
+ * the order flow rather than a sub-page, and the caller routes it the same
  * way.
  */
 const PAGES: readonly { view: string; title: string; detail: string }[] = [
@@ -86,8 +86,8 @@ function itemResult(item: OrderableItem): ClientSearchResult {
   // Food has no volume, so the size is omitted rather than printed as a zero.
   const size = item.ounces ? `${item.ounces} oz · ` : '';
   return {
-    id: `service-${item.slug}`,
-    kind: 'service',
+    id: `item-${item.slug}`,
+    kind: 'item',
     title: item.name,
     detail: `${size}${formatMoney(item.priceCents)}${description}`,
     target: { itemId: item.slug },
@@ -96,17 +96,17 @@ function itemResult(item: OrderableItem): ClientSearchResult {
 
 /**
  * Case-insensitive substring search across a client's own account: the More
- * destinations, their orders, their gift cards, and the bookable services.
+ * destinations, their orders, their gift cards, and the bookable items.
  *
  * An empty or whitespace-only query returns nothing rather than everything —
  * the search sheet opens blank, and dumping the whole account into it would
  * read as a result set the member never asked for. Results are grouped pages,
- * orders, gifts, services and capped at twelve.
+ * orders, gifts, items and capped at twelve.
  */
 export function searchClientAccount(
   query: string,
   portal: PortalBundle,
-  services: readonly OrderableItem[],
+  items: readonly OrderableItem[],
 ): ClientSearchResult[] {
   const needle = query.trim().toLowerCase();
   if (!needle) return [];
@@ -129,7 +129,7 @@ export function searchClientAccount(
     .map(giftResult)
     .filter((result) => matches(needle, result.title, result.detail));
 
-  const bookable = services
+  const bookable = items
     .map(itemResult)
     .filter((result) => matches(needle, result.title, result.detail));
 

@@ -35,7 +35,7 @@ function bundleWith(setup?: unknown): PortalBundle {
 test('portalSetup fills defaults when the bundle has no setup', () => {
   const setup = portalSetup(bundleWith(undefined));
   assert.equal(setup.client.status, 'not_started');
-  assert.equal(setup.admin.answers.onlineBooking, true);
+  assert.equal(setup.admin.answers.onlineOrdering, true);
   assert.deepEqual(setup.staff.answers.specialties, []);
 });
 

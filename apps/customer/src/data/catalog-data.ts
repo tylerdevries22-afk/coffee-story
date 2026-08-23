@@ -24,7 +24,7 @@ export type MenuCategoryId =
  *
  * `ounces` is optional because not everything is poured -- a sandwich or a
  * mochi donut has one size and no volume. It previously read `minutes`,
- * inherited from the appointment app this catalog was forked from, which the
+ * inherited from the order app this catalog was forked from, which the
  * menu screen rendered literally as "12 min" beside a 12 oz latte.
  *
  * Money is integer cents (CLAUDE.md), so this is `priceCents`. The authoring

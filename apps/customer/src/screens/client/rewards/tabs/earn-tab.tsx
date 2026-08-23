@@ -84,7 +84,7 @@ export function EarnTab({
       <View style={styles.explainerCard}>
         <Text style={styles.explainerTitle}>How earning works</Text>
         <Text style={styles.explainerBody}>
-          Eligible services, gift cards, dispatch fees, and gratuity earn points. Taxes, service fees, and amounts paid with rewards do not.
+          Eligible items, gift cards, dispatch fees, and gratuity earn points. Taxes, item fees, and amounts paid with rewards do not.
         </Text>
       </View>
     </>

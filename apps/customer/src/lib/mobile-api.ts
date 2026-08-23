@@ -80,11 +80,11 @@ export const mobileApi = {
   // implementations only ever throw.
   completeRewardActivity: async (_activityKey: string): Promise<{ availablePoints: number; annualPoints: number }> =>
     notAvailable('Earning activities'),
-  cancelAppointment: async (_id: string, _key: string): Promise<{ status: 'cancelled' }> =>
+  cancelOrder: async (_id: string, _key: string): Promise<{ status: 'cancelled' }> =>
     notAvailable('Cancelling an order'),
-  rescheduleAppointment: async (_id: string, _startsAt: string, _key: string): Promise<{ placedAt: string }> =>
+  rescheduleOrder: async (_id: string, _startsAt: string, _key: string): Promise<{ placedAt: string }> =>
     notAvailable('Rescheduling'),
-  reviewAppointment: async (_id: string, _rating: number, _note: string, _key: string): Promise<{ ok: true }> =>
+  reviewOrder: async (_id: string, _rating: number, _note: string, _key: string): Promise<{ ok: true }> =>
     notAvailable('Reviews'),
   uploadProfileAvatar: async (_photo: Blob, _mimeType: string, _key: string): Promise<{ profile: PortalProfile }> =>
     notAvailable('Profile photos'),

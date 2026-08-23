@@ -180,7 +180,7 @@ describe('searchClientAccount matching', () => {
     // "spanish" reaches both the past order and the menu item it was, which
     // is the grouping working, not a miss.
     const results = searchClientAccount('spanish', portal(), MENU_ITEMS);
-    assert.deepEqual(results.map((result) => result.kind), ['order', 'service']);
+    assert.deepEqual(results.map((result) => result.kind), ['order', 'item']);
     assert.equal(results[0]?.title, 'Spanish Latte (16 oz)');
     assert.deepEqual(results[0]?.target, { view: 'orders' });
   });
@@ -205,7 +205,7 @@ describe('searchClientAccount matching', () => {
 
   it('matches a menu item and reports its slug', () => {
     const results = searchClientAccount('yemeni', portal(), MENU_ITEMS);
-    assert.deepEqual(results.map((result) => result.kind), ['service']);
+    assert.deepEqual(results.map((result) => result.kind), ['item']);
     assert.deepEqual(results[0]?.target, { itemId: 'adeni-chai' });
     assert.equal(results[0]?.detail, '16 oz · $6 · Spiced Yemeni tea, brewed with milk.');
   });
@@ -222,7 +222,7 @@ describe('searchClientAccount ordering and cap', () => {
     const results = searchClientAccount('latte', portal(), MENU_ITEMS);
     assert.deepEqual(
       results.map((result) => result.kind),
-      ['page', 'order', 'gift', 'service'],
+      ['page', 'order', 'gift', 'item'],
     );
     assert.deepEqual(
       results.map((result) => result.title),

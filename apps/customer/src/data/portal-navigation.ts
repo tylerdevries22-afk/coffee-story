@@ -15,7 +15,7 @@ export const ADMIN_DESTINATIONS: readonly WebDestination[] = [
   { title: 'Calendar', path: '/admin/calendar', roles: STAFF_AND_ADMIN },
   { title: 'Guests', path: '/admin/clients', roles: STAFF_AND_ADMIN },
   { title: 'Point of sale', path: '/admin/pos', roles: STAFF_AND_ADMIN },
-  { title: 'Menu & pricing', path: '/admin/services', roles: STAFF_AND_ADMIN },
+  { title: 'Menu & pricing', path: '/admin/items', roles: STAFF_AND_ADMIN },
   { title: 'Staff', path: '/admin/staff', roles: ADMIN_ONLY },
   { title: 'Reports', path: '/admin/reports', roles: ADMIN_ONLY },
   { title: 'Settings', path: '/admin/settings', roles: ADMIN_ONLY },

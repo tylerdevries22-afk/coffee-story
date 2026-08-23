@@ -49,7 +49,7 @@ test('derives cash value only from cash-credit redemptions', () => {
     id: 'entry',
     entryType: 'purchase',
     points: 100,
-    description: 'Massage',
+    description: 'Spanish Latte',
     earnedAt: '2026-07-29T12:00:00Z',
     expiresAt: null,
   }), null);

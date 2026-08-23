@@ -4,7 +4,7 @@
  *
  * The three clinical forms this list inherited from the massage business --
  * a health history, a massage consent and a cancellation policy for reserved
- * appointment time -- are gone. A coffee shop does not take a health history,
+ * order time -- are gone. A coffee shop does not take a health history,
  * and an admin opening Settings should not be offered one. The wording below
  * still needs counsel's review before it is put in front of a guest; see
  * PRODUCTION_SETUP.md.

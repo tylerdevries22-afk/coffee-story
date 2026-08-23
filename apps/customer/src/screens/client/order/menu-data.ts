@@ -20,10 +20,10 @@ export function menuSections(): MenuSection[] {
     id: category.id,
     title: category.title,
     tagline: category.tagline,
-    items: MENU_ITEMS.filter((service) => service.category === category.id),
+    items: MENU_ITEMS.filter((item) => item.category === category.id),
   })).filter((section) => section.items.length > 0);
 }
 
 export function findMenuItem(itemId: string): MenuItem | undefined {
-  return MENU_ITEMS.find((service) => service.id === itemId);
+  return MENU_ITEMS.find((item) => item.id === itemId);
 }

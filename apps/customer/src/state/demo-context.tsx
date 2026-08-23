@@ -65,9 +65,9 @@ type DemoState = {
   resetDemo: () => Promise<void>;
   setRole: (role: AppRole) => void;
   book: (input: Omit<DemoOrderInput, 'id'>) => void;
-  cancelAppointment: (appointmentId: string) => void;
-  rescheduleAppointment: (appointmentId: string, placedAt: string) => void;
-  reviewAppointment: (appointmentId: string, rating: number, note: string) => void;
+  cancelOrder: (orderId: string) => void;
+  rescheduleOrder: (orderId: string, placedAt: string) => void;
+  reviewOrder: (orderId: string, rating: number, note: string) => void;
   redeemReward: (reward: RewardCatalogItem) => void;
   completeActivity: (activityKey: string) => void;
   addGift: (gift: Omit<GiftCard, 'id' | 'createdAt'>) => void;
@@ -147,10 +147,10 @@ export function DemoProvider({ children }: PropsWithChildren) {
     canGoLive,
     resetDemo,
     setRole: (role) => savePortal((current) => setDemoRole(current, role)),
-    book: (input) => savePortal((current) => addDemoOrder(current, { ...input, id: uniqueId('appointment') })),
-    cancelAppointment: (appointmentId) => savePortal((current) => cancelDemoOrder(current, appointmentId)),
-    rescheduleAppointment: (appointmentId, startsAt) => savePortal((current) => (
-      rescheduleDemoOrder(current, appointmentId, startsAt)
+    book: (input) => savePortal((current) => addDemoOrder(current, { ...input, id: uniqueId('order') })),
+    cancelOrder: (orderId) => savePortal((current) => cancelDemoOrder(current, orderId)),
+    rescheduleOrder: (orderId, startsAt) => savePortal((current) => (
+      rescheduleDemoOrder(current, orderId, startsAt)
     )),
     redeemReward: (reward) => savePortal((current) => redeemDemoReward(current, reward, uniqueId('ledger'), new Date().toISOString())),
     completeActivity: (activityKey) => savePortal((current) => completeDemoRewardActivity(current, activityKey, uniqueId('ledger'), new Date().toISOString())),
@@ -159,8 +159,8 @@ export function DemoProvider({ children }: PropsWithChildren) {
       id: uniqueId('gift'),
       createdAt: new Date().toISOString(),
     })),
-    reviewAppointment: (appointmentId, rating, note) => savePortal((current) => (
-      reviewDemoOrder(current, appointmentId, rating, note, new Date().toISOString())
+    reviewOrder: (orderId, rating, note) => savePortal((current) => (
+      reviewDemoOrder(current, orderId, rating, note, new Date().toISOString())
     )),
     updateProfile: (profile) => savePortal((current) => updateDemoProfile(current, profile)),
     updatePreferences: (preferences) => savePortal((current) => updateDemoIntake(current, preferences)),

@@ -8,7 +8,7 @@
  * (`catering`, `delivery`) and slot in here without renaming anything.
  *
  * This module previously lived under features/booking with an 'office' |
- * 'dispatch' vocabulary inherited from the appointment app this tree was
+ * 'dispatch' vocabulary inherited from the order app this tree was
  * forked from. The content was already coffee; only the names were not.
  */
 export type FulfillmentMode = 'pickup' | 'delivery';
