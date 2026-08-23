@@ -426,8 +426,14 @@ jobs:
             # apps, and shell functions do not survive across GitHub steps --
             # this called a command that did not exist here, so the device log
             # was empty for reasons that had nothing to do with the device.
+            # CONTAINS, not ==. "zero lines from Expo Go" was reported as if it
+            # meant the app never started, when `process == "Exponent"` may
+            # simply not be what the process is called -- Expo Go ships as
+            # "Expo Go" in recent builds. A predicate that matches nothing and
+            # a device that logs nothing look identical.
             xcrun simctl spawn "$udid" log show --last 6m --style compact \
-              --predicate 'process == "Exponent"' > "/tmp/device-$name.log" 2>/dev/null &
+              --predicate 'process CONTAINS[c] "expo" OR process CONTAINS[c] "exponent"' \
+              > "/tmp/device-$name.log" 2>/dev/null &
             pid=$!; waited=0
             while kill -0 "$pid" 2>/dev/null && [ "$waited" -lt 90 ]; do
               sleep 3; waited=$((waited + 3))
@@ -499,6 +505,37 @@ jobs:
             exit 0
           fi
           exit 1
+
+      # Does a device on this runner reach the host at all? Everything rests
+      # on it and nothing has tested it. Metro logged exactly ONE bundle build
+      # per app -- the one this job's own curl triggered -- so no device ever
+      # asked it for anything, while `simctl openurl` reported success both
+      # times. Opening Metro's own status URL puts Safari on the device against
+      # the same host and port Expo Go was handed: if the page renders
+      # "packager-status:running" the network is fine and Expo Go is the
+      # problem, and if it does not, the address is.
+      - name: Can a device reach the dev server at all?
+        timeout-minutes: 5
+        if: always()
+        run: |
+          set -uo pipefail
+          exec >> "$GITHUB_WORKSPACE/expo-go-diag.log" 2>&1
+          echo "=== opening Metro's status page in each device's Safari ==="
+          for pair in "$CUSTOMER_UDID|$CUSTOMER_PORT|safari-customer" "$OPERATOR_UDID|$OPERATOR_PORT|safari-operator"; do
+            udid="${pair%%|*}"; rest="${pair#*|}"; port="${rest%%|*}"; name="${rest##*|}"
+            xcrun simctl openurl "$udid" "http://127.0.0.1:$port/status" &
+            pid=$!; waited=0
+            while kill -0 "$pid" 2>/dev/null && [ "$waited" -lt 30 ]; do sleep 2; waited=$((waited + 2)); done
+            kill -9 "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true
+            echo "  $name: asked Safari for http://127.0.0.1:$port/status"
+          done
+          # Safari needs a moment to load and paint.
+          sleep 20
+          for pair in "$CUSTOMER_UDID|safari-customer" "$OPERATOR_UDID|safari-operator"; do
+            udid="${pair%%|*}"; name="${pair##*|}"
+            xcrun simctl io "$udid" screenshot --type=bmp "/tmp/$name.bmp" || true
+          done
+          ls -la /tmp/safari-*.bmp || true
 
       - name: Screenshot both simulators
         timeout-minutes: 6
@@ -587,6 +624,15 @@ jobs:
           tail -6 "$GITHUB_WORKSPACE/metro-operator.log" 2>/dev/null || echo '(none)'
           echo '=========== step transcript ==================='
           tail -22 "$GITHUB_WORKSPACE/expo-go-diag.log" 2>/dev/null || echo '(none)'
+          echo '=========== can a device reach the dev server? ==='
+          for pair in "safari-customer|customer Safari at :8081/status" "safari-operator|operator Safari at :8083/status"; do
+            f="/tmp/${pair%%|*}.bmp"; label="${pair##*|}"
+            if [ -s "$f" ]; then
+              python3 scripts/ci/screen-to-text.py "$f" "$label" || echo "  ($label: could not render)"
+            else
+              echo "  ($label: no screenshot captured)"
+            fi
+          done
           echo '=========== what is ON the screens (LAST) ====='
           for pair in "customer-coffee-story-cust|coffee story cust" "operator-coffee-story-ops|coffee story ops"; do
             f="/tmp/${pair%%|*}.bmp"; label="${pair##*|}"
