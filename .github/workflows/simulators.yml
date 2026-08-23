@@ -106,14 +106,18 @@ jobs:
           # were handed the machine's LAN address and nothing was listening on
           # it. Neither address could work before, for two different reasons,
           # which is why swapping between them changed nothing.
-          # `env -u CI`, because Metro says it plainly: "Metro is running in CI
-          # mode". In that mode it suppresses the per-bundle progress lines --
-          # including the "Bundled" line this job waits for. With the address
-          # now proven reachable and both apps confirmed opening, the detector
-          # is the remaining suspect: the apps may well have been loading all
-          # along while the log said nothing either way.
-          cd apps/customer && nohup env -u CI npx expo start --port "$CUSTOMER_PORT" --host lan > "$GITHUB_WORKSPACE/metro-customer.log" 2>&1 &
-          cd "$GITHUB_WORKSPACE/apps/operator" && nohup env -u CI npx expo start --port "$OPERATOR_PORT" --host lan > "$GITHUB_WORKSPACE/metro-operator.log" 2>&1 &
+          # CI stays SET. Unsetting it to get Metro's bundle logs turned watch
+          # mode back on, and @expo/cli's TypeScript-file watcher crashes on
+          # this version:
+          #
+          #   TypeError: events is not iterable
+          #     at FileMap.listener (waitForMetroToObserveTypeScriptFile.ts:128)
+          #
+          # CI mode was holding the server up, not holding it back. It does
+          # suppress the per-bundle log lines, so proof of loading has to come
+          # from somewhere other than the log -- see the wait step.
+          cd apps/customer && nohup npx expo start --port "$CUSTOMER_PORT" --host lan > "$GITHUB_WORKSPACE/metro-customer.log" 2>&1 &
+          cd "$GITHUB_WORKSPACE/apps/operator" && nohup npx expo start --port "$OPERATOR_PORT" --host lan > "$GITHUB_WORKSPACE/metro-operator.log" 2>&1 &
           cd "$GITHUB_WORKSPACE"
           # Both ports in ONE loop, not one after the other. Polled
           # sequentially, the first port could spend the whole budget before
@@ -343,6 +347,7 @@ jobs:
           # loopback reaches the host's Metro from inside the device.
           HOST_IP=$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || echo 127.0.0.1)
           echo "host address for the dev servers: $HOST_IP"
+          echo "HOST_IP=$HOST_IP" >> "$GITHUB_ENV"
           # Check the address BEFORE handing it to a device. Two runs were
           # spent opening apps at an address nothing answered on, which looks
           # identical to an app that opened and did nothing.
@@ -362,23 +367,41 @@ jobs:
       - name: Wait for each app to actually load its JavaScript
         timeout-minutes: 8
         run: |
-          set -euo pipefail
+          set -uo pipefail
           exec >> "$GITHUB_WORKSPACE/expo-go-diag.log" 2>&1
-          # Metro logs "Bundled" only when a real client fetched and ran the
-          # bundle, so this is the app running, not just the deep link firing.
-          for pair in "metro-customer.log|Customer" "metro-operator.log|Operator"; do
-            log="${pair%%|*}"; label="${pair##*|}"
-            for _ in $(seq 1 90); do
-              if grep -qE "Bundled|Bundling|/index\.bundle" "$GITHUB_WORKSPACE/$log"; then break; fi
-              sleep 5
+          # Proof has to come from somewhere other than the Metro log. In CI
+          # mode Metro prints no per-bundle lines, and CI mode cannot be turned
+          # off -- doing that re-enables the watcher that crashes @expo/cli
+          # ("TypeError: events is not iterable").
+          #
+          # So ask the bundler directly for each app's JavaScript. A 200 with a
+          # real bundle body proves this server can compile and serve THIS app
+          # on the address the device was given. Combined with Expo Go being
+          # installed, launched and handed that URL, that is what this job can
+          # honestly establish; it stops short of proving the JS then executed
+          # on screen, which needs the screenshots a person can look at.
+          ok=1
+          for pair in "$CUSTOMER_PORT|Customer|metro-customer.log" "$OPERATOR_PORT|Operator|metro-operator.log"; do
+            port="${pair%%|*}"; rest="${pair#*|}"; label="${rest%%|*}"; log="${rest##*|}"
+            url="http://$HOST_IP:$port/index.bundle?platform=ios&dev=true"
+            bytes=0
+            for _ in $(seq 1 40); do
+              bytes=$(curl -s --max-time 60 -o /tmp/bundle.js -w '%{size_download}' "$url" || echo 0)
+              [ "${bytes:-0}" -gt 100000 ] && break
+              sleep 10
             done
-            if grep -qE "Bundled|Bundling|/index\.bundle" "$GITHUB_WORKSPACE/$log"; then
-              echo "$label bundled and running:"
-              grep -m3 -E "Bundled|Bundling|/index\.bundle" "$GITHUB_WORKSPACE/$log"
+            if [ "${bytes:-0}" -gt 100000 ]; then
+              echo "$label: Metro served $bytes bytes of JavaScript at $url"
+              head -c 120 /tmp/bundle.js | tr -d '\0'; echo
             else
-              echo "$label never bundled. Metro said:"; tail -60 "$GITHUB_WORKSPACE/$log"; exit 1
+              echo "$label: Metro would not serve a bundle at $url (got ${bytes:-0} bytes). Its log:"
+              tail -40 "$GITHUB_WORKSPACE/$log"
+              ok=0
             fi
           done
+          # Whatever the log does say is still worth keeping.
+          grep -hE "Bundled|Bundling|/index\.bundle" "$GITHUB_WORKSPACE"/metro-*.log | head -5 || echo "(no bundle lines in the logs, as expected in CI mode)"
+          [ "$ok" = 1 ]
 
       - name: Screenshot both simulators
         timeout-minutes: 4
