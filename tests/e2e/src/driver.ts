@@ -112,6 +112,22 @@ export async function clickLabel(page: Page, label: string | RegExp, timeout = 2
   await page.getByLabel(label).first().click({ timeout });
 }
 
+/**
+ * The LAST match, where `clickLabel` takes the first.
+ *
+ * Needed for the pickup window. The earliest slot on offer is the one closest
+ * to the shop's lead time, and this suite then spends the better part of a
+ * minute browsing the menu, bagging an item and checking out -- so by the time
+ * it presses Place Order that window has lapsed, and `order-screen` correctly
+ * refuses it and sends the guest back to pick another. That is right for a
+ * real guest who takes their time over a sixty-item menu, and wrong for a test
+ * that wants to reach checkout: taking the furthest slot removes the race
+ * without pretending the behaviour under it is a defect.
+ */
+export async function clickLastLabel(page: Page, label: string | RegExp, timeout = 20_000): Promise<void> {
+  await page.getByLabel(label).last().click({ timeout });
+}
+
 /** Fill the input the given accessibility label names. */
 export async function fillLabel(page: Page, label: string | RegExp, value: string): Promise<void> {
   await page.getByLabel(label).first().fill(value, { timeout: 20_000 });

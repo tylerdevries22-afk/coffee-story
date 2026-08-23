@@ -4,7 +4,7 @@ import { after, before, describe, it } from 'node:test';
 
 import { shortCodeOf } from '../../../apps/operator/src/features/operator/live-board.ts';
 
-import { clickLabel, clickText, closeBrowser, fillLabel, openApp, waitText } from './driver.ts';
+import { clickLabel, clickLastLabel, clickText, closeBrowser, fillLabel, openApp, waitText } from './driver.ts';
 import { latestOtpFor } from './mailpit.ts';
 import { createStaffAccount, onboardedBrand, seedRivalBrandOrder, type SeededBrand } from './seed.ts';
 import { skipUnlessConfigured, sql, stack, uniqueEmail } from './stack.ts';
@@ -131,7 +131,12 @@ describe('three apps, one stack', { skip: skipUnlessConfigured }, () => {
       await clickLabel(customer.page, 'Pickup order');
       await clickLabel(customer.page, new RegExp(PICKUP_STREET.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
       await fillLabel(customer.page, 'Name for the order', 'E2E Guest');
-      await clickLabel(customer.page, /^Today, /);
+      // The LAST slot, not the first. The earliest one is nearest the shop's
+      // lead time, and everything below -- menu, item sheet, bag, checkout --
+      // takes long enough that it lapses before Place Order. `order-screen`
+      // then correctly refuses the stale window and returns to this step, which
+      // is what two runs of "waitText('Order placed') timed out" actually were.
+      await clickLastLabel(customer.page, /^Today, /);
       await clickText(customer.page, 'See the menu');
       await clickLabel(customer.page, /^Latte, /);
       await clickText(customer.page, 'Add to Bag');
