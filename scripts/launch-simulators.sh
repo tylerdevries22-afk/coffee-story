@@ -176,10 +176,30 @@ open_app() {
   fi
   xcrun simctl install "$udid" "$GO_APP" >/dev/null 2>&1 || true
   sleep 2
+  # Each attempt is bounded by hand. `simctl openurl` is the call that reports
+  # code 60 on a busy CoreSimulator -- the failure @expo/cli surfaces as "Expo
+  # crashed" -- but it does not always report anything: on a GitHub macOS
+  # runner it blocked for seven minutes with no output, which is why the CI
+  # version of this grew the same bound. Retrying a call that never returns is
+  # not retrying, it is hanging, and a hang here looks like a stuck terminal
+  # rather than a failure worth reading. macOS has no GNU `timeout`.
+  local pid waited
   for try in 1 2 3; do
-    if xcrun simctl openurl "$udid" "exp://127.0.0.1:$port" >/dev/null 2>&1; then
-      say "✅ $name opening"
-      return
+    xcrun simctl openurl "$udid" "exp://127.0.0.1:$port" >/dev/null 2>&1 &
+    pid=$!
+    waited=0
+    while kill -0 "$pid" 2>/dev/null && [ "$waited" -lt 45 ]; do
+      sleep 2; waited=$((waited + 2))
+    done
+    if kill -0 "$pid" 2>/dev/null; then
+      say "• $name: the open call is stuck (${waited}s) — retrying"
+      kill -9 "$pid" 2>/dev/null || true
+      wait "$pid" 2>/dev/null || true
+    else
+      if wait "$pid"; then
+        say "✅ $name opening"
+        return
+      fi
     fi
     sleep 4
   done
