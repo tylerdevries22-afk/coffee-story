@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { currentBusiness } from '@/data/business';
+
 import {
   dispatchAddressLine,
   fulfillmentDetail,
-  OFFICE_LOCATIONS,
+  officeLocations,
   validateDispatchAddress,
   type DispatchAddress,
 } from './fulfillment';
@@ -40,8 +42,19 @@ test('formats optional units and normalizes the state', () => {
 });
 
 test('describes office fulfillment from the selected office', () => {
+  // Against the tenant, not a literal street: pinning Coffee Story's address
+  // here is what let the pickup card ship to every other brand's guests.
+  const business = currentBusiness();
   assert.equal(
-    fulfillmentDetail({ mode: 'office', office: OFFICE_LOCATIONS[0] }),
-    '2222 S Havana St Unit A1, Aurora, CO 80014',
+    fulfillmentDetail({ mode: 'office', office: officeLocations()[0]! }),
+    `${business.street}, ${business.cityLine}`,
   );
+});
+
+test('the pickup location is the tenant it was built for', () => {
+  const office = officeLocations()[0]!;
+  const business = currentBusiness();
+  assert.equal(office.name, business.name);
+  assert.equal(office.address, business.street);
+  assert.equal(office.cityLine, business.cityLine);
 });

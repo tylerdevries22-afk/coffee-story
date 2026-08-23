@@ -24,8 +24,8 @@ import { ActionButton, StickyActionBar, useStickyBarClearance } from '@/componen
 import { Body } from '@/components/ui';
 import {
   EMPTY_DISPATCH_ADDRESS,
-  OFFICE_LOCATIONS,
   dispatchAddressLine,
+  officeLocations,
   validateDispatchAddress,
   type BookingFulfillment,
   type DispatchAddress,
@@ -80,14 +80,15 @@ function PickupLocationStep({
   onChoose: (fulfillment: BookingFulfillment) => void;
 }) {
   const [query, setQuery] = useState('');
-  const searchable = OFFICE_LOCATIONS.length >= SEARCH_THRESHOLD;
+  const offices = officeLocations();
+  const searchable = offices.length >= SEARCH_THRESHOLD;
   const matches = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    if (!needle) return OFFICE_LOCATIONS;
-    return OFFICE_LOCATIONS.filter((office) => (
+    if (!needle) return offices;
+    return offices.filter((office) => (
       `${office.name} ${office.address} ${office.cityLine}`.toLowerCase().includes(needle)
     ));
-  }, [query]);
+  }, [offices, query]);
 
   return (
     <CollapsingScreen

@@ -1,3 +1,5 @@
+import { currentBusiness } from '@/data/business';
+
 export type InformationPageKey = 'location' | 'resources' | 'faq' | 'care-policy' | 'privacy';
 
 export type InformationPageConfig = {
@@ -9,13 +11,31 @@ export type InformationPageConfig = {
   action?: string;
 };
 
-export const INFORMATION_PAGES: Readonly<Record<InformationPageKey, InformationPageConfig>> = {
+/**
+ * The More-stack information pages.
+ *
+ * The identity facts here -- which shop, where, what number -- come from the
+ * tenant: they were spelled out as Coffee Story's Aurora address and phone, so
+ * every other brand's guests read someone else's contact details on the page
+ * that exists to tell them where to go.
+ *
+ * The editorial copy below is still Coffee Story's own words (the roaster it
+ * serves, the prayer room, the tagline). That belongs in `brand.json` beside
+ * the copy dictionary rather than in app source, and moving it needs a tenant
+ * copy channel the staff app can read too -- it has no bundled tenant. Until
+ * then a new tenant overwrites these strings by hand, which is honest work
+ * rather than a silent wrong answer.
+ */
+export function informationPages(): Readonly<Record<InformationPageKey, InformationPageConfig>> {
+  const business = currentBusiness();
+  const where = [business.street, business.cityLine].filter(Boolean).join(', ');
+  return {
   location: {
-    eyebrow: 'A blessing in every cup',
+    eyebrow: business.tagline || 'Where to find us',
     title: 'Shop location & hours',
-    summary: 'Coffee Story is a specialty coffee shop in Aurora, Colorado, serving the greater Denver metro.',
+    summary: `${business.name} is a specialty coffee shop${business.cityLine ? ` in ${business.cityLine}` : ''}.`,
     rows: [
-      { title: 'Where we are', detail: '2222 S Havana St Unit A1, Aurora CO 80014 · (720) 609-2971' },
+      { title: 'Where we are', detail: [where, business.phone].filter(Boolean).join(' · ') },
       { title: 'Opening hours', detail: 'Open daily 8am–11pm Sunday through Thursday, and 8am–12am Friday and Saturday.' },
       { title: 'Good to know', detail: 'Free parking, reliable Wi-Fi, comfortable seating, and a dedicated prayer room for guests.' },
     ],
@@ -71,4 +91,5 @@ export const INFORMATION_PAGES: Readonly<Record<InformationPageKey, InformationP
     webPath: '/privacy',
     action: 'Read the complete privacy notice',
   },
-};
+  };
+}

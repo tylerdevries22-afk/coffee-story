@@ -1,3 +1,5 @@
+import { currentBusiness } from '@/data/business';
+
 export type VisitMode = 'office' | 'dispatch';
 
 export type OfficeLocation = {
@@ -21,18 +23,30 @@ export type BookingFulfillment =
   | { mode: 'office'; office: OfficeLocation }
   | { mode: 'dispatch'; address: DispatchAddress };
 
-export const OFFICE_LOCATIONS: readonly OfficeLocation[] = [
-  {
-    id: 'coffee-story-havana',
-    name: 'Coffee Story — Havana St',
-    address: '2222 S Havana St Unit A1',
-    cityLine: 'Aurora, CO 80014',
-    // Must agree with SHOP_HOURS in features/order/pickup.ts. It said
-    // "Open daily 8am-11pm", which on a Friday at 11:30pm sat next to a
-    // computed "Now brewing" badge -- one card contradicting itself.
-    note: 'Sun–Thu to 11pm, Fri–Sat to midnight · free parking',
-  },
-] as const;
+/**
+ * The shop you collect from, which is the tenant's own -- it was spelled out
+ * here as "Coffee Story — Havana St, 2222 S Havana St, Aurora CO", so every
+ * other brand's guests were sent to a coffee shop in Colorado.
+ *
+ * A getter rather than a const: `currentBusiness()` is fixed for the lifetime
+ * of a guest binary but resolves per signed-in brand in the staff app, and a
+ * module-level array would freeze whichever answer came first.
+ */
+export function officeLocations(): readonly OfficeLocation[] {
+  const business = currentBusiness();
+  return [
+    {
+      id: 'pickup-primary',
+      name: business.name,
+      address: business.street,
+      cityLine: business.cityLine,
+      // Must agree with SHOP_HOURS in features/order/pickup.ts. It said
+      // "Open daily 8am-11pm", which on a Friday at 11:30pm sat next to a
+      // computed "Now brewing" badge -- one card contradicting itself.
+      note: 'Sun–Thu to 11pm, Fri–Sat to midnight · free parking',
+    },
+  ];
+}
 
 export const EMPTY_DISPATCH_ADDRESS: DispatchAddress = {
   street: '',

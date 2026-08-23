@@ -13,7 +13,7 @@ import {
   withBusinessIdentity,
   type AdminSettingsState,
 } from '@/features/admin/admin-settings';
-import { OFFICE_LOCATIONS } from '@/features/booking/fulfillment';
+import { officeLocations } from '@/features/booking/fulfillment';
 import { requestKey } from '@/features/booking/request-key';
 import { projectFirstServices } from '@/features/booking/service-projections';
 import { applyDemoBlockTime, applyDemoSoapNote } from '@/features/staff/dashboard';
@@ -215,7 +215,7 @@ export function StaffWorkspaceProvider({ children }: PropsWithChildren) {
       // The shop, from the one list that defines it. This carried a literal
       // for a different business entirely -- another tenant's street address
       // under this brand's name, left behind by an earlier product.
-      fulfillment: { mode: 'office', office: OFFICE_LOCATIONS[0]! },
+      fulfillment: { mode: 'office', office: officeLocations()[0]! },
       notes: submission.notes,
       idempotencyKey: requestKey('staff-booking'),
     });

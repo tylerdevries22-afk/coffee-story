@@ -1,3 +1,4 @@
+import { currentBusiness } from '@/data/business';
 import type { BookingService } from '@/types/domain';
 
 export type NativeFlowResult = {
@@ -28,13 +29,17 @@ export async function addAppointmentToCalendar(
   const permission = await Calendar.requestCalendarPermissionsAsync();
   if (!permission.granted) throw new Error('Allow calendar access in Settings to add this visit.');
   const calendar = await Calendar.getDefaultCalendarAsync();
+  // The shop, not a shop: one binary per brand on the guest side and the
+  // signed-in brand on the staff side. `America/Denver` was hard-coded here,
+  // so a tenant in another zone had every pickup written to the wrong hour.
+  const business = currentBusiness();
   await Calendar.createEventAsync(calendar.id, {
-    title: `${service.name} at Coffee Story`,
+    title: `${service.name} at ${business.name}`,
     startDate: date,
     endDate: new Date(date.getTime() + service.durationMin * 60_000),
-    timeZone: 'America/Denver',
-    location: 'Coffee Story',
-    notes: 'Your Coffee Story order is confirmed. See you at the bar.',
+    timeZone: business.timezone,
+    location: business.name,
+    notes: `Your ${business.name} order is confirmed. See you at the bar.`,
     alarms: [{ relativeOffset: -60 }],
   });
   return { simulated: false, message: 'Your visit is saved with a one-hour reminder.' };

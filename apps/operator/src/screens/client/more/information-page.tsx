@@ -3,7 +3,7 @@ import { Alert, StyleSheet, Text } from 'react-native';
 
 import { CollapsingScreen } from '@/components/collapsing-screen';
 import { Body, Button, Card, PillRow } from '@/components/ui';
-import { INFORMATION_PAGES, type InformationPageKey } from '@/features/more/information-pages';
+import { informationPages, type InformationPageKey } from '@/features/more/information-pages';
 import { openWebPath } from '@/lib/web-navigation';
 import { colors, fonts, radius, spacing } from '@/theme/tokens';
 
@@ -48,7 +48,7 @@ export function openWithFeedback(path: string) {
 }
 
 export function InformationPage({ page, onBack }: { page: InformationPageKey; onBack: () => void }) {
-  const config = INFORMATION_PAGES[page];
+  const config = informationPages()[page];
   const webPath = config.webPath;
   const action = config.action;
   const [selected, setSelected] = useState(config.rows[0]?.title ?? '');
