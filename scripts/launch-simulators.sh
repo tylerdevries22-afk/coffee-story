@@ -130,7 +130,7 @@ start_metro() {
   # Driving Terminal needs Automation permission, and the first run pops a
   # prompt. Denied, osascript exits non-zero and nothing ever starts -- which
   # used to surface four minutes later as "Metro never answered".
-  if ! osascript -e "tell application \"Terminal\" to do script \"cd '$REPO/$dir' && npx expo start --port $port\"" >/dev/null 2>&1; then
+  if ! osascript -e "tell application \"Terminal\" to do script \"cd '$REPO/$dir' && npx expo start --port $port --host lan\"" >/dev/null 2>&1; then
     fail "Couldn't open a Terminal window for $label Metro.
    macOS asks for Automation permission the first time; if you dismissed it,
    allow it under System Settings → Privacy & Security → Automation, or start

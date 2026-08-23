@@ -100,8 +100,14 @@ jobs:
           # Offline is right here anyway: nothing in this job needs the Expo
           # account, only the bundler.
           export EXPO_OFFLINE=1
-          cd apps/customer && nohup npx expo start --port "$CUSTOMER_PORT" > "$GITHUB_WORKSPACE/metro-customer.log" 2>&1 &
-          cd "$GITHUB_WORKSPACE/apps/operator" && nohup npx expo start --port "$OPERATOR_PORT" > "$GITHUB_WORKSPACE/metro-operator.log" 2>&1 &
+          # `--host lan`, because the default binds LOCALHOST ONLY. The log
+          # says so plainly -- "Waiting on http://localhost:8081" -- and with
+          # the servers finally staying alive, that is what is left: the apps
+          # were handed the machine's LAN address and nothing was listening on
+          # it. Neither address could work before, for two different reasons,
+          # which is why swapping between them changed nothing.
+          cd apps/customer && nohup npx expo start --port "$CUSTOMER_PORT" --host lan > "$GITHUB_WORKSPACE/metro-customer.log" 2>&1 &
+          cd "$GITHUB_WORKSPACE/apps/operator" && nohup npx expo start --port "$OPERATOR_PORT" --host lan > "$GITHUB_WORKSPACE/metro-operator.log" 2>&1 &
           cd "$GITHUB_WORKSPACE"
           # Both ports in ONE loop, not one after the other. Polled
           # sequentially, the first port could spend the whole budget before
@@ -331,6 +337,17 @@ jobs:
           # loopback reaches the host's Metro from inside the device.
           HOST_IP=$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || echo 127.0.0.1)
           echo "host address for the dev servers: $HOST_IP"
+          # Check the address BEFORE handing it to a device. Two runs were
+          # spent opening apps at an address nothing answered on, which looks
+          # identical to an app that opened and did nothing.
+          for port in "$CUSTOMER_PORT" "$OPERATOR_PORT"; do
+            if curl -fs --max-time 5 "http://$HOST_IP:$port/status" >/dev/null 2>&1; then
+              echo "  :$port is reachable at $HOST_IP"
+            else
+              echo "  :$port is NOT reachable at $HOST_IP -- falling back to loopback"
+              HOST_IP=127.0.0.1
+            fi
+          done
           warm_up "$CUSTOMER_UDID" "Customer app" || true
           warm_up "$OPERATOR_UDID" "Operator app" || true
           open_app "$CUSTOMER_UDID" "$CUSTOMER_PORT" "Customer app"
