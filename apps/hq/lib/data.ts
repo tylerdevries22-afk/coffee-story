@@ -6,7 +6,10 @@
  * tables for everything else. Each page changed exactly one import to move
  * from fixtures to this.
  */
+import type { BoardTicketRow } from '@platform/schema';
+
 import {
+  demoBoardTickets,
   DEMO_CAMPAIGNS,
   DEMO_CUSTOMERS,
   DEMO_DROPS,
@@ -181,4 +184,27 @@ export async function loadFees(): Promise<FeeRow[]> {
   ]);
   if (rows.error) throw new Error(`platform_fees: ${rows.error.message}`);
   return feeRowsOf(rows.data ?? [], names);
+}
+
+/**
+ * The pickup display's board, for one location.
+ *
+ * Reads the `board_tickets` view rather than `orders`: RLS is row-level and
+ * cannot hide a column, so a screen the whole room can see must not be one
+ * query away from customer_id or the cart. The view does not select them.
+ *
+ * Falls back to fixtures like every other loader here, which is what lets the
+ * display be reviewed on a deployment with no database at all.
+ */
+export async function loadBoardTickets(locationId: string): Promise<BoardTicketRow[]> {
+  const client = await serverClient();
+  if (!client) return demoBoardTickets(locationId);
+  const rows = await client
+    .from('board_tickets')
+    .select('*')
+    .eq('location_id', locationId)
+    .order('daily_number', { ascending: true })
+    .returns<BoardTicketRow[]>();
+  if (rows.error) throw new Error(`board_tickets: ${rows.error.message}`);
+  return rows.data ?? [];
 }

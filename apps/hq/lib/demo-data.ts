@@ -1,3 +1,5 @@
+import type { BoardTicketRow, BrandRole } from '@platform/schema';
+
 /**
  * The fixtures the console renders when no Supabase environment is present,
  * so `next build`, previews, and development all work with zero
@@ -5,7 +7,6 @@
  * unconfigured and real rows when configured -- pages cannot tell the
  * difference, which is the point.
  */
-import type { BrandRole } from '@platform/schema';
 
 export type KpiDay = {
   day: string;
@@ -149,3 +150,33 @@ export const DEMO_FEES: FeeRow[] = [
   { month: '2026-08', locationId: 'loc-uptown', locationName: 'Uptown', grossCents: 1_534_200, feeCents: 46_000, payments: 1385 },
   { month: '2026-07', locationId: 'loc-downtown', locationName: 'Downtown', grossCents: 2_401_100, feeCents: 68_100, payments: 2105 },
 ];
+
+/**
+ * A board mid-shift: a few tickets being made, a couple ready, one guest
+ * already outside. Enough shape that the display can be judged -- long name,
+ * short name, a curbside arrival -- without a database.
+ */
+export function demoBoardTickets(locationId: string): BoardTicketRow[] {
+  const base = {
+    brand_id: 'brand-coffee-story',
+    location_id: locationId,
+    fulfillment_type: 'pickup' as const,
+    arrived_at: null,
+    updated_at: '2026-08-23T15:04:00.000Z',
+  };
+  return [
+    { ...base, id: 'tkt-41', daily_number: 41, guest_label: 'Devin P.', status: 'in_progress' },
+    { ...base, id: 'tkt-42', daily_number: 42, guest_label: 'Alex Rivera', status: 'in_progress' },
+    { ...base, id: 'tkt-43', daily_number: 43, guest_label: 'Sam', status: 'paid' },
+    { ...base, id: 'tkt-39', daily_number: 39, guest_label: 'Harper E.', status: 'ready' },
+    {
+      ...base,
+      id: 'tkt-40',
+      daily_number: 40,
+      guest_label: 'Quinn N.',
+      status: 'ready',
+      fulfillment_type: 'curbside' as const,
+      arrived_at: '2026-08-23T15:03:10.000Z',
+    },
+  ];
+}
