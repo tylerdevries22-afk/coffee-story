@@ -309,7 +309,15 @@ export async function createOrder(deps: CreateOrderDeps, input: CreateOrderInput
 /**
  * The earn on a paid order: subtotal qualifies, tax and tip never. Creates
  * the loyalty account on first earn so a brand-new guest's first coffee
- * counts. Returns the points granted.
+ * counts. Returns the points granted, or 0 if this order has already earned.
+ *
+ * Idempotent per ORDER, not per delivery. The webhook decides a delivery is
+ * new from its `square_event_id`, and Square will send two `payment.updated`
+ * events with different ids for the same COMPLETED payment; the order trigger
+ * records the second as an idempotent re-assertion and moves nothing, so the
+ * route saw "new" and earned again. `loyalty_events_one_earn_per_order`
+ * (migration 0022) makes "once" true even when two deliveries race, the same
+ * way the reversal has worked since 0018.
  */
 export async function recordLoyaltyEarn(
   db: SupabaseClient,
@@ -325,6 +333,9 @@ export async function recordLoyaltyEarn(
     type: 'earn',
     points: earned,
   });
+  // Already earned: a second delivery for the same payment, or two racing.
+  // The balance was moved by whoever got there first.
+  if (earnEvent.error?.code === '23505') return 0;
   if (earnEvent.error) throw earnEvent.error;
   // Relative, in one statement: an absolute write computed from a read taken
   // moments earlier silently discards any movement that happened in between.
@@ -431,11 +442,19 @@ async function loyaltyAccountFor(
  * Both callers need this to be idempotent for different reasons: Square
  * retries a refund delivery (the event id is deduplicated, but everything
  * after it used to run again), and a guest can cancel an order that a refund
- * already reversed. The unique index on (order_id) where type = 'reverse'
- * makes "once" true even when two callers race.
+ * already reversed.
  *
- * `refundedCents` is what actually went back, so a partial refund takes back
- * a proportional share rather than the whole earn.
+ * `causeKey` is what makes "once" mean once per REFUND rather than once per
+ * order. It used to be the latter -- one reversal row per order, ever -- which
+ * is right for a retry and wrong for a second refund: a $50 order earning 500
+ * points, refunded $10 and then the remaining $40, reversed 100 and then hit
+ * the constraint and reversed nothing, leaving the guest 400 points on a fully
+ * refunded order. Now a retry carries the same key and is refused, a different
+ * refund carries a different one and is allowed, and the running total is
+ * capped at what was earned so the two paths agree about the same money.
+ *
+ * `refundedCents` is what went back on THIS refund, so a partial refund takes
+ * back a proportional share rather than the whole earn.
  */
 export async function reverseLoyaltyEarn(
   db: SupabaseClient,
@@ -445,6 +464,8 @@ export async function reverseLoyaltyEarn(
     orderId: string;
     orderTotalCents: number;
     refundedCents: number;
+    /** What caused this reversal: a Square event id, or `cancel:<order id>`. */
+    causeKey: string;
   },
 ): Promise<number> {
   if (!input.customerId) return 0;
@@ -457,7 +478,20 @@ export async function reverseLoyaltyEarn(
   if (earn.error) throw earn.error;
   if (!earn.data) return 0;
 
-  const points = pointsToReverse(earn.data.points, input.orderTotalCents, input.refundedCents);
+  // Points are only ever reversed down to zero: the sum of every reversal on
+  // an order can never exceed its earn, however the refunds were split.
+  const priorReversals = await db
+    .from('loyalty_events')
+    .select('points')
+    .eq('order_id', input.orderId)
+    .eq('type', 'reverse')
+    .returns<{ points: number }[]>();
+  if (priorReversals.error) throw priorReversals.error;
+  const alreadyReversed = (priorReversals.data ?? []).reduce((sum, row) => sum + Math.abs(row.points), 0);
+  const remaining = Math.max(0, earn.data.points - alreadyReversed);
+
+  const share = pointsToReverse(earn.data.points, input.orderTotalCents, input.refundedCents);
+  const points = Math.min(share, remaining);
   if (points <= 0) return 0;
 
   const event = await db.from('loyalty_events').insert({
@@ -466,9 +500,10 @@ export async function reverseLoyaltyEarn(
     order_id: input.orderId,
     type: 'reverse',
     points: -points,
+    note: input.causeKey,
   });
-  // Already reversed: the unique index caught a retry, and the balance was
-  // moved by whoever got there first.
+  // Already reversed for this cause: the unique index caught a retry, and the
+  // balance was moved by whoever got there first.
   if (event.error) {
     if (event.error.code === '23505') return 0;
     throw event.error;
@@ -855,6 +890,7 @@ export async function cancelOrder(
     orderId: order.id,
     orderTotalCents: order.total_cents,
     refundedCents: order.total_cents,
+    causeKey: `cancel:${order.id}`,
   });
   return { orderId: order.id, status: 'cancelled', alreadyCancelled: false };
 }
