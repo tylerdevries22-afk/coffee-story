@@ -474,8 +474,13 @@ jobs:
           # to an artifact host that answers 403 to CONNECT through the proxy.
           for pair in "$CUSTOMER_UDID|customer-coffee-story-cust" "$OPERATOR_UDID|operator-coffee-story-ops"; do
             udid="${pair%%|*}"; name="${pair##*|}"
-            bounded 60 xcrun simctl io "$udid" screenshot "sim-shots/$name.png" || true
-            bounded 60 xcrun simctl io "$udid" screenshot --type=bmp "/tmp/$name.bmp" || true
+            # NOT the `bounded` helper: shell functions do not survive across
+            # GitHub steps, so calling it here silently did nothing and `|| true`
+            # swallowed the error -- which is how a working screenshot step
+            # started reporting "no screenshot captured". This step's own
+            # timeout-minutes is the guard.
+            xcrun simctl io "$udid" screenshot "sim-shots/$name.png" || true
+            xcrun simctl io "$udid" screenshot --type=bmp "/tmp/$name.bmp" || true
           done
           ls -la sim-shots/ || true
 
