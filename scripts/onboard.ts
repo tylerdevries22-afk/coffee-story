@@ -283,7 +283,35 @@ own colors, type, and photography (docs/DO-NOT-RESEMBLE.md).
   // 5. Apply to the customer app -------------------------------------------
   if (apply) {
     copyFileSync(brandPath, join(process.cwd(), 'apps', 'customer', 'src', 'tenant', 'brand.json'));
-    console.log(`5. applied: apps/customer now bundles ${slug} (build with TENANT=${slug})`);
+    // The web shell reads the bundled brand.json for its title, description and
+    // colours, but `public/manifest.webmanifest` is a static file Metro copies
+    // verbatim -- so it has to be written here or every tenant's installed web
+    // app is named after the first one.
+    const hex = (value: unknown, fallback: string) =>
+      (typeof value === 'string' && /^#[0-9a-fA-F]{6}$/.test(value) ? value : fallback);
+    // City and region only: "in Aurora, CO" reads as a place, "in Aurora, CO
+    // 80014" reads as a mailing label.
+    const where = [brand.location.address.city, brand.location.address.region].filter(Boolean).join(', ');
+    writeFileSync(
+      join(process.cwd(), 'apps', 'customer', 'public', 'manifest.webmanifest'),
+      `${JSON.stringify({
+        name: brand.identity.name,
+        short_name: brand.identity.name,
+        description: `Order ahead, send a gift card, and earn ${brand.copy.pointsName ?? 'points'}`
+          + ` at ${brand.identity.name}${where ? ` in ${where}` : ''}.`,
+        start_url: '/',
+        scope: '/',
+        display: 'standalone',
+        orientation: 'portrait',
+        background_color: hex(brand.tokens.surface, '#FAF5EF'),
+        theme_color: hex(brand.tokens.primary, '#241710'),
+        icons: [
+          { src: '/icon.png', sizes: '1024x1024', type: 'image/png', purpose: 'any' },
+          { src: '/icon.png', sizes: '1024x1024', type: 'image/png', purpose: 'maskable' },
+        ],
+      }, null, 2)}\n`,
+    );
+    console.log(`5. applied: apps/customer now bundles ${slug} + its web manifest (build with TENANT=${slug})`);
   } else {
     console.log(`5. not applied: pass --apply to point apps/customer at this tenant`);
   }

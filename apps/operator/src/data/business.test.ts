@@ -19,7 +19,10 @@ const ROASTERY_CONFIG = {
   },
 };
 
-const DOWNTOWN = { street: '100 Main St', city: 'Denver', region: 'CO', postal: '80202' };
+const DOWNTOWN = {
+  address: { street: '100 Main St', city: 'Denver', region: 'CO', postal: '80202' },
+  timezone: 'America/Denver',
+};
 
 describe('businessFromBrandConfig', () => {
   it('resolves the signed-in brand, not the bundled one', () => {
@@ -33,6 +36,7 @@ describe('businessFromBrandConfig', () => {
     assert.equal(business.giftCodePrefix, 'DR');
     assert.equal(business.street, '100 Main St');
     assert.equal(business.cityLine, 'Denver, CO 80202');
+    assert.equal(business.timezone, 'America/Denver');
   });
 
   it('never leaks the bundled tenant into another brand', () => {
@@ -66,10 +70,13 @@ describe('businessFromBrandConfig', () => {
     // The window between sign-in and loadStaffContext resolving, and the state
     // after a failed load. Answering "Coffee Story" there is the same leak.
     const unknown = businessFromBrandConfig(null, null, null);
-    assert.deepEqual(unknown, {
+    assert.deepEqual({ ...unknown, timezone: '' }, {
       name: '', legalName: '', tagline: '', email: '', phone: '',
-      street: '', cityLine: '', website: '', giftCodePrefix: '', monogram: '',
+      street: '', cityLine: '', website: '', giftCodePrefix: '', monogram: '', timezone: '',
     });
+    // A wrong wall-clock zone shifts every pickup window, so an unknown brand
+    // falls back to the device's zone, never to the bundled shop's.
+    assert.ok(unknown.timezone.length > 0);
   });
 
   it('survives a null, malformed, or hostile brand_config', () => {
@@ -81,17 +88,17 @@ describe('businessFromBrandConfig', () => {
   });
 
   it('builds a city line from whatever parts the location posted', () => {
-    assert.equal(businessFromBrandConfig({}, 'S', { city: 'Denver', region: 'CO' }).cityLine, 'Denver, CO');
-    assert.equal(businessFromBrandConfig({}, 'S', { city: 'Denver' }).cityLine, 'Denver');
-    assert.equal(businessFromBrandConfig({}, 'S', { postal: '80202' }).cityLine, '80202');
-    assert.equal(businessFromBrandConfig({}, 'S', {}).cityLine, '');
+    assert.equal(businessFromBrandConfig({}, 'S', { address: { city: 'Denver', region: 'CO' } }).cityLine, 'Denver, CO');
+    assert.equal(businessFromBrandConfig({}, 'S', { address: { city: 'Denver' } }).cityLine, 'Denver');
+    assert.equal(businessFromBrandConfig({}, 'S', { address: { postal: '80202' } }).cityLine, '80202');
+    assert.equal(businessFromBrandConfig({}, 'S', { address: {} }).cityLine, '');
   });
 });
 
 describe('resolveBusiness', () => {
   it('keeps the bundled shop in demo mode, which is Coffee Story', () => {
     const business = resolveBusiness({
-      isDemo: true, brandConfig: ROASTERY_CONFIG, brandName: 'Demo Roastery', address: DOWNTOWN,
+      isDemo: true, brandConfig: ROASTERY_CONFIG, brandName: 'Demo Roastery', location: DOWNTOWN,
     });
     assert.deepEqual(business, DEMO_BUSINESS);
     assert.equal(business.name, 'Coffee Story');
@@ -99,7 +106,7 @@ describe('resolveBusiness', () => {
 
   it('resolves the brand row in live mode', () => {
     const business = resolveBusiness({
-      isDemo: false, brandConfig: ROASTERY_CONFIG, brandName: 'Demo Roastery', address: DOWNTOWN,
+      isDemo: false, brandConfig: ROASTERY_CONFIG, brandName: 'Demo Roastery', location: DOWNTOWN,
     });
     assert.equal(business.name, 'Demo Roastery');
     assert.equal(business.website, 'https://demoroastery.example');

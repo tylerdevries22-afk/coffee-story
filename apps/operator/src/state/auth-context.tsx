@@ -235,7 +235,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       isDemo,
       brandConfig: value.brandConfig,
       brandName: value.brandName,
-      address: value.liveLocations[0]?.address ?? null,
+      location: value.liveLocations[0] ?? null,
     }));
   }, [isDemo, value.brandConfig, value.brandName, value.liveLocations]);
 

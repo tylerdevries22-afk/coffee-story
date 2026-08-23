@@ -14,12 +14,12 @@ import { useAuth } from '@/state/auth-context';
  */
 export function useBusiness(): BusinessDetails {
   const { isDemo, brandConfig, brandName, liveLocations } = useAuth();
-  // The posted address belongs to the location, not the brand. A shift lead
-  // sees the address of the location they are claimed to; a manager over
+  // The posted address and the wall-clock zone belong to the location, not the
+  // brand. A shift lead sees the location they are claimed to; a manager over
   // several sees the first, which is the one a single-location brand has.
-  const address = liveLocations[0]?.address ?? null;
+  const location = liveLocations[0] ?? null;
   return useMemo(
-    () => resolveBusiness({ isDemo, brandConfig, brandName, address }),
-    [address, brandConfig, brandName, isDemo],
+    () => resolveBusiness({ isDemo, brandConfig, brandName, location }),
+    [brandConfig, brandName, isDemo, location],
   );
 }

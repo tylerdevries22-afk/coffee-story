@@ -21,6 +21,8 @@ export const BUSINESS = {
   website: TENANT.business.website,
   /** Prefix on every gift-card code the app issues. */
   giftCodePrefix: TENANT.business.giftCodePrefix,
+  /** The shop's wall-clock zone: pickup windows, calendar events, hours. */
+  timezone: TENANT.location.timezone,
 } as const;
 
 export const BUSINESS_ADDRESS = `${BUSINESS.street}, ${BUSINESS.cityLine}`;
@@ -39,6 +41,7 @@ export type BusinessDetails = {
   website: string;
   giftCodePrefix: string;
   monogram: string;
+  timezone: string;
 };
 
 /**
@@ -51,3 +54,12 @@ export const BUSINESS_DETAILS: BusinessDetails = {
   ...BUSINESS,
   monogram: BUSINESS_MONOGRAM,
 };
+
+/**
+ * Mirrors the staff app's runtime resolver so the modules both apps share can
+ * ask one question and each get the right answer. Here it never changes: one
+ * binary per brand.
+ */
+export function currentBusiness(): BusinessDetails {
+  return BUSINESS_DETAILS;
+}

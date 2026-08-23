@@ -1,6 +1,9 @@
 import { ScrollViewStyleReset } from 'expo-router/html';
 import type { PropsWithChildren } from 'react';
 
+import { BUSINESS } from '@/data/business';
+import { TENANT } from '@/tenant';
+
 /**
  * HTML shell for the web build only. Native is unaffected.
  *
@@ -27,11 +30,8 @@ export default function Root({ children }: PropsWithChildren) {
           content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no"
         />
 
-        <title>Coffee Story</title>
-        <meta
-          name="description"
-          content="Order ahead, send a gift card, and earn Beans at Coffee Story in Aurora, Colorado."
-        />
+        <title>{BUSINESS.name}</title>
+        <meta name="description" content={DESCRIPTION} />
 
         {/* Installable: launches standalone from the home screen. */}
         {/* Served from `public/`, which Expo copies to the web root. The
@@ -39,25 +39,24 @@ export default function Root({ children }: PropsWithChildren) {
             exist anywhere in the tree -- so it 404'd and `InstallPrompt` was
             offering an install the browser could never complete. */}
         <link rel="manifest" href="/manifest.webmanifest" />
-        {/* colors.brand900. This was #46304E, the plum of the business this
-            app was rebranded from. */}
-        <meta name="theme-color" content="#241710" />
+        <meta name="theme-color" content={THEME_COLOR} />
 
         {/* iOS has never read the manifest for these; it needs its own tags. */}
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="Coffee Story" />
+        <meta name="apple-mobile-web-app-title" content={BUSINESS.name} />
         {/* 180px is exactly what iOS asks for; handing it the 512 just makes
             Safari downscale a file 4x larger on every add-to-home-screen. */}
         <link rel="apple-touch-icon" sizes="180x180" href="/icon-180.png" />
 
-        {/* coffeestoryco.com is the shop's site; this build is the app. */}
+        {/* The brand's own site is the thing search should find; this build
+            is the app. */}
         <meta name="robots" content="noindex" />
 
         {/* Expo's reset: makes body scrolling behave like a native ScrollView. */}
         <ScrollViewStyleReset />
 
-        <style dangerouslySetInnerHTML={{ __html: SHELL_CSS }} />
+        <style dangerouslySetInnerHTML={{ __html: shellCss() }} />
       </head>
       <body>{children}</body>
     </html>
@@ -65,15 +64,38 @@ export default function Root({ children }: PropsWithChildren) {
 }
 
 /**
+ * The head used to name Coffee Story four times over -- title, description,
+ * home-screen title, theme colour -- so a `TENANT=<other>` web build shipped
+ * 28 pages titled "Coffee Story". These read the tenant instead. `public/
+ * manifest.webmanifest` is a static file Metro cannot template, so `pnpm
+ * onboard --apply` writes it from the same brand.json.
+ */
+const HEX = /^#[0-9a-fA-F]{6}$/;
+
+/** A token, or the bundled default when the tenant's value is malformed --
+ * the same field-by-field fallback packages/ui applies on device. */
+function token(name: 'primary' | 'surface', fallback: string): string {
+  const value = TENANT.tokens?.[name];
+  return typeof value === 'string' && HEX.test(value) ? value : fallback;
+}
+
+const THEME_COLOR = token('primary', '#241710');
+// City and region only, matching the manifest onboarding writes: "in Aurora,
+// CO" reads as a place, "in Aurora, CO 80014" reads as a mailing label.
+const WHERE = [TENANT.location.address.city, TENANT.location.address.region].filter(Boolean).join(', ');
+const DESCRIPTION = `Order ahead, send a gift card, and earn ${TENANT.copy.pointsName ?? 'points'}`
+  + ` at ${BUSINESS.name}${WHERE ? ` in ${WHERE}` : ''}.`;
+
+/**
  * `overscroll-behavior: none` kills the rubber-band bounce that reveals the
  * browser underneath, and the tap-highlight reset removes the grey flash
  * Android draws on every press.
  */
-const SHELL_CSS = `
+function shellCss(): string {
+  return `
   html, body, #root {
     height: 100%;
-    /* colors.surface. This was #FFFCFE, the old plum-tinted white. */
-    background-color: #FFFDF8;
+    background-color: ${token('surface', '#FFFDF8')};
   }
   body {
     overscroll-behavior: none;
@@ -81,3 +103,4 @@ const SHELL_CSS = `
   }
   * { -webkit-touch-callout: none; }
 `;
+}

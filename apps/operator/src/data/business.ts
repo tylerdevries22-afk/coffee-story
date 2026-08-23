@@ -27,6 +27,8 @@ export const BUSINESS = {
   website: 'https://coffeestoryco.com',
   /** Prefix on every gift-card code the app issues. */
   giftCodePrefix: 'CS',
+  /** The shop's wall-clock zone: pickup windows, calendar events, hours. */
+  timezone: 'America/Denver',
 } as const;
 
 export const BUSINESS_ADDRESS = `${BUSINESS.street}, ${BUSINESS.cityLine}`;
@@ -45,13 +47,13 @@ export type BusinessDetails = {
   website: string;
   giftCodePrefix: string;
   monogram: string;
+  timezone: string;
 };
 
-export type BusinessAddressSource = {
-  street?: string;
-  city?: string;
-  region?: string;
-  postal?: string;
+/** The location row the address and wall-clock zone come from (rule 1). */
+export type BusinessLocationSource = {
+  address?: { street?: string; city?: string; region?: string; postal?: string } | null;
+  timezone?: string | null;
 } | null;
 
 export const DEMO_BUSINESS: BusinessDetails = {
@@ -90,7 +92,7 @@ function monogramOf(name: string): string {
 export function businessFromBrandConfig(
   brandConfig: unknown,
   brandName?: string | null,
-  address?: BusinessAddressSource,
+  location?: BusinessLocationSource,
 ): BusinessDetails {
   const config = (brandConfig ?? {}) as {
     business?: Record<string, unknown>;
@@ -101,6 +103,7 @@ export function businessFromBrandConfig(
     const value = configured[key];
     return typeof value === 'string' && value.trim().length > 0 ? value : fallback;
   };
+  const address = location?.address ?? null;
   const appName = config.copy?.appName;
   // Blank until the brand row lands: during that window, and after a failed
   // load, the app knows no shop -- and must not answer with the bundled one.
@@ -123,6 +126,11 @@ export function businessFromBrandConfig(
     website: text('website', ''),
     giftCodePrefix: text('giftCodePrefix', monogramOf(name)),
     monogram: text('monogram', monogramOf(name)),
+    // A wrong zone silently shifts every pickup window and calendar entry, so
+    // fall back to the device's rather than to another shop's.
+    timezone: location?.timezone?.trim()
+      || Intl.DateTimeFormat().resolvedOptions().timeZone
+      || BUSINESS.timezone,
   };
 }
 
@@ -131,11 +139,11 @@ export function resolveBusiness(input: {
   isDemo: boolean;
   brandConfig: unknown;
   brandName: string | null;
-  address: BusinessAddressSource;
+  location: BusinessLocationSource;
 }): BusinessDetails {
   return input.isDemo
     ? DEMO_BUSINESS
-    : businessFromBrandConfig(input.brandConfig, input.brandName, input.address);
+    : businessFromBrandConfig(input.brandConfig, input.brandName, input.location);
 }
 
 /**
