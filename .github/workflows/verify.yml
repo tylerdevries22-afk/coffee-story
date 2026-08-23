@@ -97,6 +97,14 @@ jobs:
       - uses: supabase/setup-cli@v1
         with:
           version: latest
+        env:
+          # `version: latest` resolves through the GitHub API, and an
+          # unauthenticated call shares a 60/hour budget per runner IP -- with
+          # e2e and integration both resolving it concurrently, a run died
+          # with "Failed to resolve latest Supabase CLI release: rate limit
+          # exceeded" before a single test executed. A token raises that to
+          # 1000/hour for this repo and costs nothing.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Start the Supabase stack (applies supabase/migrations)
         run: supabase start
       - name: Run integration tests against the stack
@@ -127,6 +135,14 @@ jobs:
       - uses: supabase/setup-cli@v1
         with:
           version: latest
+        env:
+          # `version: latest` resolves through the GitHub API, and an
+          # unauthenticated call shares a 60/hour budget per runner IP -- with
+          # e2e and integration both resolving it concurrently, a run died
+          # with "Failed to resolve latest Supabase CLI release: rate limit
+          # exceeded" before a single test executed. A token raises that to
+          # 1000/hour for this repo and costs nothing.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Start the Supabase stack (applies supabase/migrations)
         run: supabase start
       - name: Install the Playwright browser
