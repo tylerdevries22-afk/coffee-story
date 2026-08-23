@@ -187,21 +187,37 @@ in Expo, never in this repository, never in `packages/data`.
   rather than a union, and `paletteForTier` falls back by ladder position (then
   by a stable name hash) so a renamed tier still gets a deliberate, distinct
   glass. Only the data source is missing.
-- **The pickup picker can offer a window the placement guard refuses.** Both
-  read the same `PICKUP_LEAD_MINUTES` (15): the picker starts at
-  `roundUpToStep(now + 15min)` and `isWindowStillBookable` requires
-  `start >= now + 15min`. When the current minute lands on a 15-minute
-  boundary the earliest slot is offered at exactly the cutoff and goes stale
-  within a second, so a guest who taps the first time on the list and pays a
-  minute later is bounced back to Pickup Options with "That pickup time has
-  passed" -- for a window a quarter of an hour in the future. The e2e suite hit
-  this three runs running. Whether the fix is for the guard to stop
-  re-enforcing full lead time on a window the guest already chose, or only to
-  refuse one that has genuinely passed (which is all its comment claims to do),
-  changes what the shop promises its guests: an owner's call. Note also that
-  the board's `SCHEDULED_LANE_MINUTES` (30) means only that earliest slot lands
-  in the working New column at all -- slot two is already 30-45 minutes out and
-  goes to the Scheduled lane.
+- **`tests/e2e` "full loop" fails intermittently and the cause is NOT known.**
+  It times out on `waitText('Order placed')` after Place Order, with the
+  customer back on the Pickup Options step, no failed API calls and no console
+  errors. The same commit's app code has passed this scenario and failed it, so
+  it is not a regression in the code under test; it reproduces only in CI
+  (`tests/e2e` needs Docker for the Supabase stack, so it cannot be run from an
+  agent sandbox).
+
+  Landing on Pickup Options points at one branch -- `order-screen.tsx` refusing
+  a lapsed pickup window via `isWindowStillBookable` and calling
+  `setStep('details')`, the only path there from `placeOrder`. But the evidence
+  does not support it: in the last failure the picker was still offering
+  `12:45 - 1:15 PM` while the driver's pinned clock read about 12:26, so the
+  chosen window was ~19 minutes out against a 15-minute guard. Two "fixes"
+  written on that assumption both made the suite worse (booking a slot far
+  enough out puts the order in the board's Scheduled lane, where there is no
+  Start button; re-picking from the menu's time pill leaves the sheet covering
+  View bag) and were reverted.
+
+  What would settle it: the dump records `document.body.innerText`, which omits
+  input values and had not captured `payError`. Rendering the `payError` string
+  into the failure dump would say in one line whether the window guard fired,
+  and if so with what message.
+
+  Worth knowing while looking: the picker and the guard share
+  `PICKUP_LEAD_MINUTES` (15), and the picker starts at
+  `roundUpToStep(now + 15min)`, so the earliest slot CAN be offered exactly on
+  the bookable boundary. That is a genuine sharp edge for a real guest even
+  though it does not explain these failures. Note too that the board holds
+  anything past `SCHEDULED_LANE_MINUTES` (30) in a separate lane, so the
+  earliest slot is the only one this scenario can use.
 - **The operator board fires live queries with a demo location id.**
   `operator-store` initialises `location` to `DEMO_LOCATIONS[0]`
   (`loc-havana`, a slug) and only corrects it to the signed-in account's real
