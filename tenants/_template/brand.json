@@ -2,7 +2,7 @@
   "$docs": {
     "identity": "slug is the tenant key everywhere (folder name, brands.slug, onboarding); bundleId/scheme feed the per-brand Expo config; easProjectId comes from `eas init` for this brand's binary.",
     "tokens": "Hydrated into packages/ui's ThemeProvider and stored on brands.brand_config. Colors are #RRGGBB. Fonts are family names the app loads (expo-google-fonts). Derive the palette from the brand's own assets -- never from any other product's look (docs/DO-NOT-RESEMBLE.md).",
-    "copy": "Every user-facing brand string. Keys the apps read are listed in packages/ui/src/copy.ts (DEFAULT_COPY); unknown keys are allowed and ignored. {placeholders} survive until formatted.",
+    "copy": "The brand strings the apps resolve at runtime. Keys are listed in packages/ui/src/copy.ts (DEFAULT_COPY); unknown keys are allowed and ignored, and {placeholders} survive until formatted. NOT yet everything a guest reads: the About/FAQ prose, the reward tier names and the gift-card copy still live in app source as the first tenant wrote them, and a new brand overwrites those by hand. Identity -- the shop name, address, phone, website, mark, points word and time zone -- IS resolved from this file and from the location row, so it never needs editing in code.",
     "features": "Rule 5 flags, mirrored to the brands row by onboarding.",
     "fees": "Rule 3: platform take in basis points; above tierThresholdCents of gross in a calendar month (per location) later payments use feeBpsTier2. Confirm per contract before onboarding.",
     "location": "The first location, created by onboarding. hours uses 24h HH:MM in the location's timezone; a day maps to a list of open/close spans, [] = closed.",
