@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { DEMO_ADD_ONS } from './add-ons';
+import { DEMO_ADD_ONS } from '@platform/domain';
 
 // Contract for the Coffee Story drink customization list.
 describe('DEMO_ADD_ONS', () => {

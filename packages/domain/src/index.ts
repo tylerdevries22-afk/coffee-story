@@ -20,3 +20,6 @@ export * from './feed';
 export * from './intent-links';
 export * from './portal-navigation';
 export * from './item-projections';
+export * from './add-ons';
+export * from './menu-options';
+export * from './cart';

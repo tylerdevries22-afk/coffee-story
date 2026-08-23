@@ -15,7 +15,7 @@ import { Pressable } from 'react-native';
 
 import { AppIcon } from '@/components/icon';
 import { formatMoney, formatPriceDelta } from '@platform/domain';
-import type { OptionChoice, OptionGroup, OptionSelection } from '@/features/order/menu-options';
+import type { OptionChoice, OptionGroup, OptionSelection } from '@platform/domain';
 import { choiceState, disabledState } from '@/lib/a11y-state';
 import { colors, fonts, radius, shadow, spacing } from '@/theme/tokens';
 

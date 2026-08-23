@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "Coffee Story Kiosk",
+    "slug": "coffee-story-kiosk",
+    "version": "1.0.0",
+    "orientation": "landscape",
+    "icon": "./assets/images/icon.png",
+    "scheme": "coffee-kiosk",
+    "runtimeVersion": "exposdk:54.0.0",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "bundleIdentifier": "com.coffeestory.kiosk",
+      "supportsTablet": true,
+      "requireFullScreen": true,
+      "config": { "usesNonExemptEncryption": false }
+    },
+    "android": {
+      "package": "com.coffeestory.kiosk",
+      "predictiveBackGestureEnabled": false
+    },
+    "web": { "output": "static" },
+    "plugins": ["expo-router"],
+    "experiments": { "typedRoutes": true }
+  }
+}

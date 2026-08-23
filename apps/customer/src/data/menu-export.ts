@@ -15,9 +15,8 @@
  * sizes. The order flow applies the same rule in reverse when it builds a
  * PlaceOrderRequest.
  */
-import type { OptionGroup } from '@/features/order/menu-options';
-import { optionGroupsFor } from '@/features/order/menu-options';
-import { sizePriceCents } from '@platform/domain';
+import type { OptionGroup } from '@platform/domain';
+import { optionGroupsFor , sizePriceCents } from '@platform/domain';
 
 import { CATALOG_ITEMS, MENU_CATEGORY_META } from './catalog-data';
 

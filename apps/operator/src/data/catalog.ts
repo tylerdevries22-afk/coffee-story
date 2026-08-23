@@ -219,7 +219,7 @@ export const AVAILABLE_TIMES = ['8:30 AM', '10:00 AM', '12:30 PM', '3:00 PM', '6
 
 // Menu extras (drink customizations); the data lives in ./add-ons (pure
 // module) so the contract stays unit-testable.
-export { DEMO_ADD_ONS } from './add-ons';
+export { DEMO_ADD_ONS } from '@platform/domain';
 
 export const REDEMPTIONS = [
   { id: 'r1', name: '$5 drink credit', points: 500 },

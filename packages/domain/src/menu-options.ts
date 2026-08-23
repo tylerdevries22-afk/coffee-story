@@ -8,8 +8,18 @@
  * source of truth for extra pricing, so an extra shot costs the same here as
  * it does on the staff register.
  */
-import { DEMO_ADD_ONS } from '@/data/add-ons';
-import type { MenuCategoryId } from '@/data/catalog';
+import { DEMO_ADD_ONS } from './add-ons';
+
+/**
+ * The menu's category vocabulary.
+ *
+ * Lives here rather than beside a tenant's catalog: which categories take
+ * drink options is a property of the option model, not of one shop's menu, and
+ * the kiosk needs it without importing an app's asset-laden catalog.
+ */
+export type MenuCategoryId =
+  | 'coffee' | 'signature' | 'tea-matcha' | 'boba'
+  | 'ades-smoothies' | 'sandwiches' | 'sweets';
 
 export type OptionSelect = 'single' | 'multi';
 

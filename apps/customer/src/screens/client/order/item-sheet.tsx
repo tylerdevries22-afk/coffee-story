@@ -17,8 +17,7 @@ import { ActionButton, useCoveringBottomInset } from '@/components/order/order-c
 import { SheetModal } from '@/components/sheet-modal';
 import type { MenuItem } from '@/data/catalog';
 import { formatMoney , defaultSizeSlug, sizeLabelFor, sizePriceCents } from '@platform/domain';
-import { MAX_LINE_QUANTITY, buildOrderLine, type OrderLine } from '@/features/order/cart';
-import {
+import { MAX_LINE_QUANTITY, buildOrderLine, type OrderLine ,
   defaultOptionSelection,
   missingRequiredGroups,
   optionDeltaCents,
@@ -26,7 +25,7 @@ import {
   toggleOptionChoice,
   visibleOptionGroups,
   type OptionSelection,
-} from '@/features/order/menu-options';
+} from '@platform/domain';
 import { colors, fonts, radius, spacing } from '@/theme/tokens';
 
 export function ItemSheet({

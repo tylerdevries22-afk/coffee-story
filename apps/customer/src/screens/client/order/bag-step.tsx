@@ -18,15 +18,14 @@ import {
   useStickyBarClearance,
 } from '@/components/order/order-chrome';
 import { Body } from '@/components/ui';
-import { fulfillmentDetail, fulfillmentLabel, type OrderFulfillment } from '@platform/domain';
-import { formatMoney } from '@platform/domain';
-import {
+import { fulfillmentDetail, fulfillmentLabel, type OrderFulfillment ,
   MAX_LINE_QUANTITY,
   MAX_ORDER_NOTE_LENGTH,
   orderLineTotalCents,
   type OrderCart,
   type OrderLine,
-} from '@/features/order/cart';
+} from '@platform/domain';
+import { formatMoney } from '@platform/domain';
 import { describePickupWindow } from '@/features/order/pickup';
 import { POINTS_LABEL } from '@/features/rewards/presentation';
 import { colors, fonts, radius, spacing } from '@/theme/tokens';
