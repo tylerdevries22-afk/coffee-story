@@ -111,3 +111,33 @@ export async function seedBrand(slug: string): Promise<{ brandId: string; locati
     ?? (await sql<{ id: string }>(`select id from public.locations where brand_id = $1 and name = 'Main'`, [brandId])).rows[0]!.id;
   return { brandId, locationId };
 }
+
+/**
+ * Runs statements as a signed-in principal, the way PostgREST does: role
+ * `authenticated` with request.jwt.claims set for the transaction.
+ *
+ * One client for the whole transaction, because `set local` only lasts as long
+ * as the transaction that set it -- and the per-call client in `sql()` opens a
+ * new connection each time, which silently drops the claims. Always rolled
+ * back, so an assertion never leaves rows behind for the next one.
+ */
+export async function asPrincipal<T extends pg.QueryResultRow = pg.QueryResultRow>(
+  claims: Record<string, unknown>,
+  statement: string,
+  params: unknown[] = [],
+): Promise<pg.QueryResult<T>> {
+  const client = new pg.Client({ connectionString: stack.dbUrl });
+  await client.connect();
+  try {
+    await client.query('begin');
+    await client.query('set local role authenticated');
+    await client.query('select set_config($1, $2, true)', [
+      'request.jwt.claims',
+      JSON.stringify({ role: 'authenticated', ...claims }),
+    ]);
+    return await client.query<T>(statement, params);
+  } finally {
+    await client.query('rollback').catch(() => undefined);
+    await client.end();
+  }
+}

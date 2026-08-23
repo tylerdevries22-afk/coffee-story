@@ -69,6 +69,16 @@ revoke execute on function public.mark_order_arrived from anon;
 grant execute on function public.mark_order_arrived to authenticated;
 
 -- The board view carries arrival so a display can badge it without a join.
+--
+-- Appended after updated_at, not inserted before it. CREATE OR REPLACE VIEW
+-- may only ADD columns to the end: inserting one mid-list reads to Postgres as
+-- renaming every column after it, and 0023 already ended this view on
+-- updated_at. That failed as
+--
+--   cannot change name of view column "updated_at" to "arrived_at"
+--
+-- the first time these migrations were actually run, which is the difference
+-- between SQL that parses and SQL that applies.
 create or replace view public.board_tickets
 with (security_invoker = true) as
   select o.id,
@@ -78,8 +88,8 @@ with (security_invoker = true) as
          o.guest_label,
          o.status,
          o.fulfillment_type,
-         o.arrived_at,
-         o.updated_at
+         o.updated_at,
+         o.arrived_at
     from public.orders o
    where o.status in ('paid', 'in_progress', 'ready');
 

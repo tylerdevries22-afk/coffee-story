@@ -6,12 +6,12 @@
 project_id = "coffee-story-platform"
 
 [db]
-port = 54322
+port = 54422
 major_version = 17
 
 [api]
 enabled = true
-port = 54321
+port = 54421
 schemas = ["public", "storage"]
 # app is intentionally NOT exposed over PostgREST: its helpers are for RLS
 # policies and the auth hook, not the REST surface.
@@ -42,7 +42,7 @@ uri = "pg-functions://postgres/app/custom_access_token"
 # Local mail catcher (Mailpit): integration/E2E tests fetch OTP codes from
 # its API instead of bypassing the real email flow.
 enabled = true
-port = 54324
+port = 54424
 
 [storage]
 enabled = true
