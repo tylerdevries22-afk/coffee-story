@@ -212,6 +212,29 @@ jobs:
           # simply block, which it did here for seven minutes before this
           # bound existed. macOS ships no GNU `timeout`, so each attempt is
           # backgrounded and reaped by hand.
+          # Launch Expo Go by bundle id BEFORE opening a URL on it.
+          #
+          # `expo start --ios` opened `exp://127.0.0.1:8099` on this same device
+          # a step earlier and it worked, so the device does accept exp:// --
+          # what differs here is timing. LaunchServices registers an app's URL
+          # schemes asynchronously after `simctl install`, so a freshly
+          # installed Expo Go can be present (get_app_container finds it) while
+          # nothing yet owns `exp://`, and openurl is refused. Launching by
+          # bundle id needs no scheme at all, and forces the registration the
+          # deep link then depends on.
+          warm_up() {
+            udid="$1"; name="$2"
+            for try in 1 2 3; do
+              if xcrun simctl launch "$udid" host.exp.Exponent >/dev/null 2>&1; then
+                echo "$name: Expo Go launched (attempt $try)"
+                sleep 5
+                return 0
+              fi
+              echo "$name: could not launch Expo Go (attempt $try)"
+              sleep 5
+            done
+            return 1
+          }
           open_app() {
             udid="$1"; port="$2"; name="$3"
             for try in 1 2 3; do
@@ -235,6 +258,8 @@ jobs:
             echo "$name would not open"
             return 1
           }
+          warm_up "$CUSTOMER_UDID" "Customer app" || true
+          warm_up "$OPERATOR_UDID" "Operator app" || true
           open_app "$CUSTOMER_UDID" "$CUSTOMER_PORT" "Customer app"
           open_app "$OPERATOR_UDID" "$OPERATOR_PORT" "Operator app"
 

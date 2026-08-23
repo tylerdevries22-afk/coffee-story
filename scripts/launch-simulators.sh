@@ -176,6 +176,13 @@ open_app() {
   fi
   xcrun simctl install "$udid" "$GO_APP" >/dev/null 2>&1 || true
   sleep 2
+  # Launch Expo Go by bundle id first. LaunchServices registers an app's URL
+  # schemes asynchronously after an install, so a freshly installed Expo Go can
+  # be on the device while nothing yet owns `exp://` -- and then the deep link
+  # below is refused for a reason that has nothing to do with the link. This
+  # needs no scheme, and forces the registration the deep link depends on.
+  xcrun simctl launch "$udid" host.exp.Exponent >/dev/null 2>&1 || true
+  sleep 3
   # Each attempt is bounded by hand. `simctl openurl` is the call that reports
   # code 60 on a busy CoreSimulator -- the failure @expo/cli surfaces as "Expo
   # crashed" -- but it does not always report anything: on a GitHub macOS
