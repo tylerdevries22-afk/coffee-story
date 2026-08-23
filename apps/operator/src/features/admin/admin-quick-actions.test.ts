@@ -52,16 +52,3 @@ test('rejects an invalid schedule block and normalizes a valid one', () => {
   assert.equal(result.ok, true);
   if (result.ok) assert.equal(result.value.kind, 'block-time');
 });
-
-test('requires every part of an order note before saving', () => {
-  assert.deepEqual(
-    buildAdminQuickActionSubmission('soap', draft({
-      customerId: 'client-2',
-      clientName: 'Jamie Lee',
-      serviceName: 'Pistachio Latte (16 oz)',
-      treatmentDate: '2026-08-02',
-      subjective: 'Asked for half-sweet.',
-    })),
-    { ok: false, error: 'Fill in all four parts of the note.' },
-  );
-});

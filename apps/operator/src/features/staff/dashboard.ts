@@ -1,5 +1,5 @@
 import type { AdminQuickActionSubmission } from '@/features/admin/admin-quick-actions';
-import type { StaffDashboard, StaffSoapNote } from '@/types/domain';
+import type { StaffDashboard } from '@/types/domain';
 
 /**
  * Demo-mode reducers for staff quick actions. The demo workspace must behave
@@ -29,28 +29,4 @@ export function applyDemoBlockTime(
     }],
     openMinutes: Math.max(0, dashboard.openMinutes - blockedMinutes),
   };
-}
-
-export function applyDemoSoapNote(
-  dashboard: StaffDashboard,
-  submission: Extract<AdminQuickActionSubmission, { kind: 'soap' }>,
-  id: string,
-  createdAt: string,
-): StaffDashboard {
-  const note: StaffSoapNote = {
-    id,
-    customerId: submission.customerId,
-    serviceName: submission.serviceName,
-    treatmentDate: submission.treatmentDate,
-    subjective: submission.subjective,
-    objective: submission.objective,
-    assessment: submission.assessment,
-    plan: submission.plan,
-    createdAt,
-  };
-  return { ...dashboard, soapNotes: [note, ...(dashboard.soapNotes ?? [])] };
-}
-
-export function soapNotesForClient(dashboard: StaffDashboard, customerId: string): StaffSoapNote[] {
-  return (dashboard.soapNotes ?? []).filter((note) => note.customerId === customerId);
 }

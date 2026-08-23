@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { applyDemoBlockTime, applyDemoSoapNote, soapNotesForClient } from './dashboard';
+import { applyDemoBlockTime } from './dashboard';
 import { DEMO_STAFF } from '@/data/demo';
 
 describe('applyDemoBlockTime', () => {
@@ -30,23 +30,5 @@ describe('applyDemoBlockTime', () => {
       reason: 'Errand',
     }, 'demo-block-test-2');
     assert.equal(next.openMinutes, 0);
-  });
-});
-
-describe('applyDemoSoapNote', () => {
-  it('prepends the note so care records show the newest first', () => {
-    const next = applyDemoSoapNote(DEMO_STAFF, {
-      kind: 'soap',
-      customerId: 'client-1',
-      clientName: 'Alex Rivera',
-      serviceName: 'Deep Tissue Massage',
-      treatmentDate: '2026-07-31',
-      subjective: 's', objective: 'o', assessment: 'a', plan: 'p',
-    }, 'demo-soap-test', '2026-07-31T18:00:00.000Z');
-
-    const notes = soapNotesForClient(next, 'client-1');
-    assert.equal(notes[0]?.id, 'demo-soap-test');
-    assert.equal(notes.length, soapNotesForClient(DEMO_STAFF, 'client-1').length + 1);
-    assert.equal(soapNotesForClient(next, 'client-2').length, soapNotesForClient(DEMO_STAFF, 'client-2').length);
   });
 });

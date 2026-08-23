@@ -250,33 +250,12 @@ export type StaffClient = {
   lastVisitAt?: string | null;
 };
 
-/**
- * A note the bar keeps against a regular's order.
- *
- * The name and the four field names are the portal API's, inherited from the
- * clinical SOAP record this app was rebranded from. The server still speaks
- * them, so they stay; every label a person reads says "order note" instead --
- * see `screens/staff/clients-screen.tsx`.
- */
-export type StaffSoapNote = {
-  id: string;
-  customerId: string;
-  serviceName: string;
-  treatmentDate: string;
-  subjective: string;
-  objective: string;
-  assessment: string;
-  plan: string;
-  createdAt: string;
-};
-
 export type StaffDashboard = {
   appointments: PortalAppointment[];
   clients: StaffClient[];
   projectedCents: number;
   openMinutes: number;
   promptForTip?: boolean;
-  soapNotes?: StaffSoapNote[];
   /**
    * Workspace headline figures. Optional so a server that predates the
    * staff-parity release simply renders fewer tiles instead of zeroes.
@@ -381,18 +360,5 @@ export type StaffActionPayload =
       };
     };
     notes: string;
-    idempotencyKey: string;
-  }
-  | {
-    action: 'soap_note';
-    customerId: string;
-    appointmentId?: string;
-    serviceName: string;
-    treatmentDate: string;
-    subjective: string;
-    objective: string;
-    assessment: string;
-    plan: string;
-    focusAreas: string[];
     idempotencyKey: string;
   };

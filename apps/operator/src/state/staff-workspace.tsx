@@ -15,7 +15,7 @@ import {
 import { OFFICE_LOCATIONS } from '@/features/booking/fulfillment';
 import { requestKey } from '@/features/booking/request-key';
 import { projectFirstServices } from '@/features/booking/service-projections';
-import { applyDemoBlockTime, applyDemoSoapNote } from '@/features/staff/dashboard';
+import { applyDemoBlockTime } from '@/features/staff/dashboard';
 import { mobileApi } from '@/lib/mobile-api';
 import { useAppState } from '@/state/app-context';
 import { useAuth } from '@/state/auth-context';
@@ -229,39 +229,11 @@ export function StaffWorkspaceProvider({ children }: PropsWithChildren) {
     await loadDashboard();
   }, [isDemo, loadDashboard]);
 
-  const createStaffSoapNote = useCallback(async (
-    submission: Extract<AdminQuickActionSubmission, { kind: 'soap' }>,
-  ) => {
-    if (isDemo) {
-      setDashboard((current) => applyDemoSoapNote(current, submission, requestKey('demo-soap'), new Date().toISOString()));
-      return;
-    }
-    await mobileApi.staffAction({
-      action: 'soap_note',
-      customerId: submission.customerId,
-      serviceName: submission.serviceName,
-      treatmentDate: submission.treatmentDate,
-      subjective: submission.subjective,
-      objective: submission.objective,
-      assessment: submission.assessment,
-      plan: submission.plan,
-      focusAreas: [],
-      idempotencyKey: requestKey('staff-soap'),
-    });
-    // Every sibling live handler reloads here. Without it the FAB still reports
-    // "The SOAP note is saved to the client record." while soapNotesForClient
-    // reads the stale dashboard, so the therapist opens that client and the note
-    // is absent -- and there is no pull-to-refresh in this shell, so only a tab
-    // remount recovers it.
-    await loadDashboard();
-  }, [isDemo, loadDashboard]);
-
   const quickActionHandlers: AdminQuickActionHandlers = useMemo(() => ({
     book: createStaffAppointment,
     'quick-book': createStaffAppointment,
     'block-time': blockStaffTime,
-    soap: createStaffSoapNote,
-  }), [blockStaffTime, createStaffAppointment, createStaffSoapNote]);
+  }), [blockStaffTime, createStaffAppointment]);
 
   const value = useMemo<StaffWorkspaceState>(() => ({
     dashboard,

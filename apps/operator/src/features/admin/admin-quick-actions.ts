@@ -1,4 +1,4 @@
-export type AdminQuickActionKey = 'book' | 'quick-book' | 'block-time' | 'soap';
+export type AdminQuickActionKey = 'book' | 'quick-book' | 'block-time';
 
 export type AdminQuickActionDraft = {
   customerId: string;
@@ -8,25 +8,18 @@ export type AdminQuickActionDraft = {
   startsAt: string;
   endsAt: string;
   reason: string;
-  treatmentDate: string;
   notes: string;
-  subjective: string;
-  objective: string;
-  assessment: string;
-  plan: string;
 };
 
 export type AdminQuickActionSubmission =
   | { kind: 'book'; customerId: string; clientName: string; serviceSlug: string; serviceName: string; startsAt: string; notes: string }
   | { kind: 'quick-book'; customerId: string; clientName: string; serviceSlug: string; serviceName: string; startsAt: string; notes: string }
-  | { kind: 'block-time'; startsAt: string; endsAt: string; reason: string }
-  | { kind: 'soap'; customerId: string; clientName: string; serviceName: string; treatmentDate: string; subjective: string; objective: string; assessment: string; plan: string };
+  | { kind: 'block-time'; startsAt: string; endsAt: string; reason: string };
 
 export type AdminQuickActionHandlers = Partial<{
   book: (submission: Extract<AdminQuickActionSubmission, { kind: 'book' }>) => Promise<void>;
   'quick-book': (submission: Extract<AdminQuickActionSubmission, { kind: 'quick-book' }>) => Promise<void>;
   'block-time': (submission: Extract<AdminQuickActionSubmission, { kind: 'block-time' }>) => Promise<void>;
-  soap: (submission: Extract<AdminQuickActionSubmission, { kind: 'soap' }>) => Promise<void>;
 }>;
 
 export const EMPTY_ADMIN_QUICK_ACTION_DRAFT: AdminQuickActionDraft = {
@@ -37,12 +30,7 @@ export const EMPTY_ADMIN_QUICK_ACTION_DRAFT: AdminQuickActionDraft = {
   startsAt: '',
   endsAt: '',
   reason: '',
-  treatmentDate: '',
   notes: '',
-  subjective: '',
-  objective: '',
-  assessment: '',
-  plan: '',
 };
 
 export function buildAdminQuickActionSubmission(
@@ -50,7 +38,6 @@ export function buildAdminQuickActionSubmission(
   draft: AdminQuickActionDraft,
 ): { ok: true; value: AdminQuickActionSubmission } | { ok: false; error: string } {
   if (action === 'block-time') return buildBlockTimeSubmission(draft);
-  if (action === 'soap') return buildSoapSubmission(draft);
   return buildBookingSubmission(action, draft);
 }
 
@@ -89,30 +76,5 @@ function buildBlockTimeSubmission(
   return {
     ok: true,
     value: { kind: 'block-time', startsAt: startsAt.toISOString(), endsAt: endsAt.toISOString(), reason: draft.reason.trim() },
-  };
-}
-
-function buildSoapSubmission(
-  draft: AdminQuickActionDraft,
-): { ok: true; value: AdminQuickActionSubmission } | { ok: false; error: string } {
-  if (!draft.customerId.trim() || !draft.clientName.trim()) return { ok: false, error: 'Choose a client.' };
-  if (!draft.serviceName.trim()) return { ok: false, error: 'Enter the service name.' };
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(draft.treatmentDate)) return { ok: false, error: 'Enter the order date as YYYY-MM-DD.' };
-  if (![draft.subjective, draft.objective, draft.assessment, draft.plan].every((value) => value.trim())) {
-    return { ok: false, error: 'Fill in all four parts of the note.' };
-  }
-  return {
-    ok: true,
-    value: {
-      kind: 'soap',
-      customerId: draft.customerId.trim(),
-      clientName: draft.clientName.trim(),
-      serviceName: draft.serviceName.trim(),
-      treatmentDate: draft.treatmentDate,
-      subjective: draft.subjective.trim(),
-      objective: draft.objective.trim(),
-      assessment: draft.assessment.trim(),
-      plan: draft.plan.trim(),
-    },
   };
 }
