@@ -7,22 +7,22 @@ import { searchClientAccount } from './client-search';
 
 const SERVICES: readonly BookingService[] = [
   {
-    slug: 'deep-tissue',
-    name: 'Deep Tissue Massage',
-    category: 'therapeutic',
-    durationMin: 45,
-    priceCents: 10000,
-    depositCents: 2500,
-    description: 'Slow, focused session work for chronic tension.',
+    slug: 'spanish-latte',
+    name: 'Spanish Latte',
+    category: 'signature',
+    durationMin: 5,
+    priceCents: 700,
+    depositCents: 0,
+    description: 'Espresso with sweetened condensed milk.',
   },
   {
-    slug: 'prenatal',
-    name: 'Prenatal Massage',
+    slug: 'adeni-chai',
+    name: 'Adeni Chai',
     category: 'specialty',
-    durationMin: 60,
-    priceCents: 11000,
-    depositCents: 2500,
-    description: 'Safe, nurturing support for every trimester.',
+    durationMin: 5,
+    priceCents: 600,
+    depositCents: 0,
+    description: 'Spiced Yemeni tea, brewed with milk.',
   },
 ];
 
@@ -37,28 +37,36 @@ function portal(overrides: Partial<PortalBundle> = {}): PortalBundle {
       avatarUrl: null,
     },
     role: 'client',
-    appointments: [
+    orders: [
       {
-        id: 'visit-1',
-        serviceName: 'Signature Session',
+        id: 'order-1',
+        summary: 'Spanish Latte (16 oz)',
+        lines: [],
+        fulfillmentType: 'pickup',
         // Mid-month, mid-day UTC so the formatted month stays "Jul" whatever
         // zone the test runner sits in.
-        startsAt: '2026-07-15T18:00:00.000Z',
-        endsAt: '2026-07-15T19:30:00.000Z',
-        status: 'confirmed',
-        subtotalCents: 17000,
-        depositCents: 2500,
-        balanceCents: 14500,
+        placedAt: '2026-07-15T18:00:00.000Z',
+        scheduledFor: '2026-07-15T18:15:00.000Z',
+        status: 'paid',
+        subtotalCents: 700,
+        taxCents: 58,
+        tipCents: 0,
+        totalCents: 758,
+        note: '',
       },
       {
-        id: 'visit-2',
-        serviceName: 'Swedish Massage',
-        startsAt: '2026-02-10T18:00:00.000Z',
-        endsAt: '2026-02-10T19:00:00.000Z',
-        status: 'completed',
-        subtotalCents: 10500,
-        depositCents: 0,
-        balanceCents: 0,
+        id: 'order-2',
+        summary: 'Adeni Chai (16 oz)',
+        lines: [],
+        fulfillmentType: 'pickup',
+        placedAt: '2026-02-10T18:00:00.000Z',
+        scheduledFor: '2026-02-10T19:00:00.000Z',
+        status: 'picked_up',
+        subtotalCents: 600,
+        taxCents: 50,
+        tipCents: 0,
+        totalCents: 650,
+        note: '',
       },
     ],
     rewardAccount: {
@@ -87,7 +95,7 @@ function portal(overrides: Partial<PortalBundle> = {}): PortalBundle {
       },
       {
         id: 'gift-2',
-        code: 'SESSION-2026',
+        code: 'LATTE-2026',
         initialCents: 15000,
         balanceCents: 15000,
         recipientEmail: 'friend@example.com',
@@ -121,10 +129,10 @@ describe('searchClientAccount empty input', () => {
 
 describe('searchClientAccount matching', () => {
   it('is case-insensitive and ignores surrounding whitespace', () => {
-    const lower = searchClientAccount('prenatal', portal(), SERVICES);
-    const upper = searchClientAccount('  PRENATAL  ', portal(), SERVICES);
+    const lower = searchClientAccount('yemeni', portal(), SERVICES);
+    const upper = searchClientAccount('  YEMENI  ', portal(), SERVICES);
     assert.deepEqual(upper, lower);
-    assert.deepEqual(lower.map((result) => result.title), ['Prenatal Massage']);
+    assert.deepEqual(lower.map((result) => result.title), ['Adeni Chai']);
   });
 
   it('matches a More destination and reports the view to open', () => {
@@ -141,9 +149,9 @@ describe('searchClientAccount matching', () => {
 
   it('covers every More destination the client page lists', () => {
     const views = new Set<string>();
-    for (const term of ['gift card balance', 'services & pricing', 'studio location',
-      'wellness resources', 'frequently asked', 'cancellation policy', 'privacy & terms',
-      'visit history', 'account settings', 'intake & consent', 'messages', 'membership',
+    for (const term of ['gift card balance', 'menu & prices', 'shop location',
+      'brewing guides', 'frequently asked', 'refund policy', 'privacy & terms',
+      'pickup history', 'account settings', 'my usual', 'messages', 'membership',
       'payment methods']) {
       for (const result of searchClientAccount(term, portal(), SERVICES)) {
         if (result.kind === 'page' && 'view' in result.target) views.add(result.target.view);
@@ -166,16 +174,18 @@ describe('searchClientAccount matching', () => {
     ]);
   });
 
-  it('matches a visit by its service name', () => {
-    const results = searchClientAccount('signature', portal(), SERVICES);
-    assert.deepEqual(results.map((result) => result.kind), ['visit']);
-    assert.equal(results[0]?.title, 'Signature Session');
+  it('matches an order by its summary', () => {
+    // "spanish" reaches both the past order and the menu item it was, which
+    // is the grouping working, not a miss.
+    const results = searchClientAccount('spanish', portal(), SERVICES);
+    assert.deepEqual(results.map((result) => result.kind), ['visit', 'service']);
+    assert.equal(results[0]?.title, 'Spanish Latte (16 oz)');
     assert.deepEqual(results[0]?.target, { view: 'visits' });
   });
 
-  it('matches a visit by its formatted date', () => {
+  it('matches an order by its formatted date', () => {
     const results = searchClientAccount('jul', portal(), SERVICES);
-    assert.deepEqual(results.map((result) => result.id), ['visit-visit-1']);
+    assert.deepEqual(results.map((result) => result.id), ['visit-order-1']);
     assert.match(results[0]?.detail ?? '', /Jul/);
   });
 
@@ -191,37 +201,30 @@ describe('searchClientAccount matching', () => {
     assert.deepEqual(results.map((result) => result.id), ['gift-gift-1']);
   });
 
-  it('matches a bookable service and reports its slug', () => {
-    const results = searchClientAccount('deep tissue', portal(), SERVICES);
+  it('matches a menu item and reports its slug', () => {
+    const results = searchClientAccount('yemeni', portal(), SERVICES);
     assert.deepEqual(results.map((result) => result.kind), ['service']);
-    assert.deepEqual(results[0]?.target, { serviceId: 'deep-tissue' });
-    assert.equal(results[0]?.detail, '45 min · $100 · Slow, focused session work for chronic tension.');
+    assert.deepEqual(results[0]?.target, { serviceId: 'adeni-chai' });
+    assert.equal(results[0]?.detail, '5 min · $6 · Spiced Yemeni tea, brewed with milk.');
   });
 
-  it('tolerates an account with no visits, gifts, or services', () => {
-    const bare = portal({ appointments: [], giftCards: [] });
-    assert.deepEqual(searchClientAccount('signature', bare, []), []);
+  it('tolerates an account with no orders, gifts, or menu items', () => {
+    const bare = portal({ orders: [], giftCards: [] });
+    assert.deepEqual(searchClientAccount('espresso', bare, []), []);
     assert.deepEqual(searchClientAccount('privacy', bare, []).map((result) => result.kind), ['page']);
   });
 });
 
 describe('searchClientAccount ordering and cap', () => {
-  it('groups results pages, then visits, then gifts, then services', () => {
-    const results = searchClientAccount('session', portal(), SERVICES);
+  it('groups results pages, then orders, then gifts, then menu items', () => {
+    const results = searchClientAccount('latte', portal(), SERVICES);
     assert.deepEqual(
       results.map((result) => result.kind),
-      ['page', 'page', 'page', 'visit', 'gift', 'service'],
+      ['page', 'visit', 'gift', 'service'],
     );
     assert.deepEqual(
       results.map((result) => result.title),
-      [
-        'Services & pricing',
-        'Wellness resources',
-        'Frequently asked questions',
-        'Signature Session',
-        'SESSION-2026',
-        'Deep Tissue Massage',
-      ],
+      ['Menu & prices', 'Spanish Latte (16 oz)', 'LATTE-2026', 'Spanish Latte'],
     );
   });
 

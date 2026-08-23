@@ -1,6 +1,9 @@
+import type { OrderStatus } from '@platform/schema';
+
+import { taxCentsFor } from '@/features/tax';
 import type {
   GiftCard,
-  PortalAppointment,
+  PortalOrder,
   PortalBundle,
   PortalMessage,
   RewardEntry,
@@ -32,73 +35,76 @@ const SHOP_LABEL = 'Coffee Story · 2222 S Havana St';
 const DELIVERY_LABEL = 'Delivery';
 const DELIVERY_DETAIL = '123 Dayton St, Aurora, CO 80010';
 
-type AppointmentSeed = {
+type OrderSeed = {
   id: string;
+  /** One line's name; the demo carries single-line orders. */
   service: string;
   days: number;
   hour: number;
   minute?: number;
   durationMin?: number;
   priceCents: number;
-  status: PortalAppointment['status'];
+  status: OrderStatus;
+  /** Display-safe guest name; becomes the order's guestLabel. */
   client?: string;
   mobile?: boolean;
-  source?: PortalAppointment['bookingSource'];
-  recoveryMin?: number;
-  newClient?: boolean;
-  staff?: string;
 };
 
-// Orders are pay-at-pickup: no deposit, the full balance is due at the counter.
-function appointment(seed: AppointmentSeed): PortalAppointment {
-  const startsAt = isoAt(seed.days, seed.hour, seed.minute);
-  const done = seed.status === 'completed' || seed.status === 'cancelled' || seed.status === 'no_show';
+/**
+ * Orders are pay-at-pickup, so the demo carries no deposit and no tip.
+ *
+ * Tax comes from the real jurisdiction table rather than a flat guess: the
+ * demo bundle feeds the same history and receipt surfaces as the live plane,
+ * and a total that does not equal subtotal + tax is the kind of thing that
+ * only ever surfaces in a screenshot.
+ */
+function order(seed: OrderSeed): PortalOrder {
+  const placedAt = isoAt(seed.days, seed.hour, seed.minute);
+  const taxCents = taxCentsFor(seed.priceCents);
   return {
     id: seed.id,
-    serviceName: seed.service,
-    startsAt,
-    endsAt: addMinutes(startsAt, seed.durationMin ?? 15),
     status: seed.status,
+    summary: seed.service,
+    lines: [{ name: seed.service, quantity: 1, unitPriceCents: seed.priceCents, options: [] }],
+    fulfillmentType: seed.mobile ? 'delivery' : 'pickup',
+    scheduledFor: addMinutes(placedAt, seed.durationMin ?? 15),
+    placedAt,
     subtotalCents: seed.priceCents,
-    depositCents: 0,
-    balanceCents: done ? 0 : seed.priceCents,
-    clientName: seed.client,
-    fulfillmentMode: seed.mobile ? 'delivery' : 'pickup',
+    taxCents,
+    tipCents: 0,
+    totalCents: seed.priceCents + taxCents,
+    note: '',
+    guestLabel: seed.client,
     locationLabel: seed.mobile ? DELIVERY_LABEL : SHOP_LABEL,
     locationDetail: seed.mobile ? DELIVERY_DETAIL : undefined,
-    bookingSource: seed.source,
-    recoveryMinutes: seed.recoveryMin ?? 0,
-    isNewClient: seed.newClient ?? false,
-    staffName: seed.staff ?? PRIMARY_BARISTA,
   };
 }
 
-const PRIMARY_BARISTA = 'Mike A.';
 
 // --- Client portal -----------------------------------------------------------
 
-const pastAppointments: PortalAppointment[] = [
-  appointment({ id: 'past-01', service: 'Spanish Latte (16 oz)', days: -235, hour: 10, priceCents: 700, status: 'completed' }),
-  appointment({ id: 'past-02', service: 'Pistachio Latte (16 oz)', days: -210, hour: 14, priceCents: 700, status: 'completed' }),
-  appointment({ id: 'past-03', service: 'Turkish Coffee (Double)', days: -182, hour: 11, priceCents: 700, status: 'completed' }),
-  appointment({ id: 'past-04', service: 'Spanish Latte (12 oz)', days: -160, hour: 9, priceCents: 600, status: 'completed' }),
-  appointment({ id: 'past-05', service: 'Sunset Sparkling Ade (20 oz)', days: -135, hour: 16, priceCents: 600, status: 'completed' }),
-  appointment({ id: 'past-06', service: 'Rooh Afza Boba (20 oz)', days: -112, hour: 13, priceCents: 700, status: 'completed' }),
-  appointment({ id: 'past-07', service: 'Adeni Chai (16 oz)', days: -90, hour: 10, priceCents: 600, status: 'completed' }),
-  appointment({ id: 'past-08', service: 'Midnight Lychee Refresher (20 oz)', days: -78, hour: 21, priceCents: 700, status: 'cancelled' }),
-  appointment({ id: 'past-09', service: 'Spanish Latte (16 oz)', days: -74, hour: 11, priceCents: 700, status: 'completed' }),
-  appointment({ id: 'past-10', service: 'Brown Sugar Boba (20 oz)', days: -60, hour: 14, priceCents: 700, status: 'completed', mobile: true }),
-  appointment({ id: 'past-11', service: 'Pistachio Milk Cake', days: -45, hour: 20, priceCents: 700, status: 'completed' }),
-  appointment({ id: 'past-12', service: 'Mochi Donut Trio', days: -32, hour: 13, priceCents: 1000, status: 'completed' }),
-  appointment({ id: 'past-13', service: 'Spanish Latte (20 oz)', days: -21, hour: 9, priceCents: 800, status: 'completed' }),
-  appointment({ id: 'past-14', service: 'Pistachio Latte (16 oz)', days: -14, hour: 11, priceCents: 700, status: 'completed' }),
-  appointment({ id: 'past-15', service: 'Honeycomb Cheese Bread', days: -6, hour: 19, priceCents: 700, status: 'completed' }),
+const pastOrders: PortalOrder[] = [
+  order({ id: 'past-01', service: 'Spanish Latte (16 oz)', days: -235, hour: 10, priceCents: 700, status: 'picked_up' }),
+  order({ id: 'past-02', service: 'Pistachio Latte (16 oz)', days: -210, hour: 14, priceCents: 700, status: 'picked_up' }),
+  order({ id: 'past-03', service: 'Turkish Coffee (Double)', days: -182, hour: 11, priceCents: 700, status: 'picked_up' }),
+  order({ id: 'past-04', service: 'Spanish Latte (12 oz)', days: -160, hour: 9, priceCents: 600, status: 'picked_up' }),
+  order({ id: 'past-05', service: 'Sunset Sparkling Ade (20 oz)', days: -135, hour: 16, priceCents: 600, status: 'picked_up' }),
+  order({ id: 'past-06', service: 'Rooh Afza Boba (20 oz)', days: -112, hour: 13, priceCents: 700, status: 'picked_up' }),
+  order({ id: 'past-07', service: 'Adeni Chai (16 oz)', days: -90, hour: 10, priceCents: 600, status: 'picked_up' }),
+  order({ id: 'past-08', service: 'Midnight Lychee Refresher (20 oz)', days: -78, hour: 21, priceCents: 700, status: 'cancelled' }),
+  order({ id: 'past-09', service: 'Spanish Latte (16 oz)', days: -74, hour: 11, priceCents: 700, status: 'picked_up' }),
+  order({ id: 'past-10', service: 'Brown Sugar Boba (20 oz)', days: -60, hour: 14, priceCents: 700, status: 'picked_up', mobile: true }),
+  order({ id: 'past-11', service: 'Pistachio Milk Cake', days: -45, hour: 20, priceCents: 700, status: 'picked_up' }),
+  order({ id: 'past-12', service: 'Mochi Donut Trio', days: -32, hour: 13, priceCents: 1000, status: 'picked_up' }),
+  order({ id: 'past-13', service: 'Spanish Latte (20 oz)', days: -21, hour: 9, priceCents: 800, status: 'picked_up' }),
+  order({ id: 'past-14', service: 'Pistachio Latte (16 oz)', days: -14, hour: 11, priceCents: 700, status: 'picked_up' }),
+  order({ id: 'past-15', service: 'Honeycomb Cheese Bread', days: -6, hour: 19, priceCents: 700, status: 'picked_up' }),
 ];
 
-const upcomingAppointments: PortalAppointment[] = [
-  appointment({ id: 'demo-appointment', service: 'Spanish Latte (16 oz)', days: 0, hour: 17, minute: 30, priceCents: 700, status: 'confirmed' }),
-  appointment({ id: 'upcoming-02', service: 'Strawberry Nutella Croissant', days: 1, hour: 12, priceCents: 600, status: 'pending' }),
-  appointment({ id: 'upcoming-03', service: 'Adeni Chai (16 oz)', days: 2, hour: 8, minute: 30, priceCents: 600, status: 'confirmed', mobile: true }),
+const upcomingOrders: PortalOrder[] = [
+  order({ id: 'demo-order', service: 'Spanish Latte (16 oz)', days: 0, hour: 17, minute: 30, priceCents: 700, status: 'paid' }),
+  order({ id: 'upcoming-02', service: 'Strawberry Nutella Croissant', days: 1, hour: 12, priceCents: 600, status: 'created' }),
+  order({ id: 'upcoming-03', service: 'Adeni Chai (16 oz)', days: 2, hour: 8, minute: 30, priceCents: 600, status: 'paid', mobile: true }),
 ];
 
 // Account totals are authoritative (the server returns them alongside a recent
@@ -237,7 +243,7 @@ export const DEMO_PORTAL: PortalBundle = {
     avatarUrl: null,
   },
   role: 'client',
-  appointments: [...upcomingAppointments, ...pastAppointments],
+  orders: [...upcomingOrders, ...pastOrders],
   rewardAccount: {
     availablePoints: 1376,
     annualPoints: 1876,
@@ -297,45 +303,45 @@ const staffClients: StaffClient[] = [
   { id: 'client-12', fullName: 'Reese Talbot', email: 'reese.talbot@example.com', phone: '(303) 555-0144', completedVisits: 10, tags: ['VIP', 'Spanish latte'], lifetimeSpendCents: 14600, lastVisitAt: daysAgo(2) },
 ];
 
-const staffAppointments: PortalAppointment[] = [
+const staffOrders: PortalOrder[] = [
   // Today: one done, two confirmed (checkout-eligible), one pending (badge).
-  appointment({ id: 'staff-t0-1', service: 'Spanish Latte (16 oz)', days: 0, hour: 8, priceCents: 700, status: 'completed', client: 'Morgan Blake' }),
-  appointment({ id: 'staff-t0-2', service: 'Pistachio Latte (16 oz)', days: 0, hour: 13, priceCents: 700, status: 'confirmed', client: 'Alex Rivera', source: 'website', recoveryMin: 5 }),
-  appointment({ id: 'staff-t0-3', service: 'Mochi Donut Trio', days: 0, hour: 15, minute: 30, priceCents: 1000, status: 'confirmed', client: 'Jamie Lee', source: 'directory' }),
-  appointment({ id: 'staff-t0-4', service: 'Sunset Sparkling Ade (20 oz)', days: 0, hour: 17, priceCents: 600, status: 'pending', client: 'Reese Talbot', source: 'campaign', newClient: true }),
-  appointment({ id: 'staff-t1-1', service: 'Rooh Afza Boba (20 oz)', days: 1, hour: 10, priceCents: 700, status: 'confirmed', client: 'Devin Park', source: 'website', recoveryMin: 5 }),
-  appointment({ id: 'staff-t1-2', service: 'Spanish Latte (12 oz)', days: 1, hour: 13, minute: 30, priceCents: 600, status: 'pending', client: 'Harper Ellis', source: 'directory' }),
-  appointment({ id: 'staff-t2-1', service: 'Adeni Chai (16 oz)', days: 2, hour: 8, minute: 30, priceCents: 600, status: 'confirmed', client: 'Alex Rivera', source: 'website' }),
-  appointment({ id: 'staff-t3-1', service: 'Turkish Coffee (Double)', days: 3, hour: 9, priceCents: 700, status: 'confirmed', client: 'Quinn Nakamura' }),
-  appointment({ id: 'staff-t3-2', service: 'Brown Sugar Boba (20 oz)', days: 3, hour: 14, priceCents: 700, status: 'confirmed', client: 'Sam Whitfield', mobile: true }),
-  appointment({ id: 'staff-t4-1', service: 'Saffron Milk Cake', days: 4, hour: 20, priceCents: 700, status: 'pending', client: 'Casey Morgan' }),
-  appointment({ id: 'staff-t5-1', service: 'Strawberry Nutella Croissant', days: 5, hour: 12, minute: 30, priceCents: 600, status: 'confirmed', client: 'Morgan Blake' }),
-  appointment({ id: 'staff-t5-2', service: 'Spanish Latte (16 oz)', days: 5, hour: 13, priceCents: 700, status: 'confirmed', client: 'Taylor Quinn' }),
-  appointment({ id: 'staff-t6-1', service: 'Midnight Lychee Refresher (20 oz)', days: 6, hour: 21, priceCents: 700, status: 'confirmed', client: 'Jordan Avery' }),
-  appointment({ id: 'staff-t7-1', service: 'Pistachio Latte (20 oz)', days: 7, hour: 9, minute: 30, priceCents: 800, status: 'confirmed', client: 'Riley Chen' }),
-  appointment({ id: 'staff-t8-1', service: 'Honeycomb Cheese Bread', days: 8, hour: 19, priceCents: 700, status: 'confirmed', client: 'Reese Talbot', mobile: true }),
-  appointment({ id: 'staff-t9-1', service: 'Spanish Latte (16 oz)', days: 9, hour: 14, priceCents: 700, status: 'confirmed', client: 'Jamie Lee' }),
-  appointment({ id: 'staff-t9-2', service: 'Sunset Sparkling Ade (16 oz)', days: 9, hour: 16, priceCents: 600, status: 'confirmed', client: 'Morgan Blake' }),
-  appointment({ id: 'staff-t10-1', service: 'Adeni Chai (12 oz)', days: 10, hour: 11, priceCents: 500, status: 'confirmed', client: 'Alex Rivera' }),
-  appointment({ id: 'staff-t11-1', service: 'Turkish Coffee (Single)', days: 11, hour: 13, priceCents: 500, status: 'confirmed', client: 'Quinn Nakamura' }),
-  appointment({ id: 'staff-t12-1', service: 'Rooh Afza Matcha (20 oz)', days: 12, hour: 10, priceCents: 800, status: 'confirmed', client: 'Devin Park', mobile: true }),
-  appointment({ id: 'staff-t13-1', service: 'Spanish Latte (16 oz)', days: 13, hour: 15, priceCents: 700, status: 'confirmed', client: 'Casey Morgan' }),
+  order({ id: 'staff-t0-1', service: 'Spanish Latte (16 oz)', days: 0, hour: 8, priceCents: 700, status: 'picked_up', client: 'Morgan Blake' }),
+  order({ id: 'staff-t0-2', service: 'Pistachio Latte (16 oz)', days: 0, hour: 13, priceCents: 700, status: 'paid', client: 'Alex Rivera' }),
+  order({ id: 'staff-t0-3', service: 'Mochi Donut Trio', days: 0, hour: 15, minute: 30, priceCents: 1000, status: 'paid', client: 'Jamie Lee' }),
+  order({ id: 'staff-t0-4', service: 'Sunset Sparkling Ade (20 oz)', days: 0, hour: 17, priceCents: 600, status: 'created', client: 'Reese Talbot' }),
+  order({ id: 'staff-t1-1', service: 'Rooh Afza Boba (20 oz)', days: 1, hour: 10, priceCents: 700, status: 'paid', client: 'Devin Park' }),
+  order({ id: 'staff-t1-2', service: 'Spanish Latte (12 oz)', days: 1, hour: 13, minute: 30, priceCents: 600, status: 'created', client: 'Harper Ellis' }),
+  order({ id: 'staff-t2-1', service: 'Adeni Chai (16 oz)', days: 2, hour: 8, minute: 30, priceCents: 600, status: 'paid', client: 'Alex Rivera' }),
+  order({ id: 'staff-t3-1', service: 'Turkish Coffee (Double)', days: 3, hour: 9, priceCents: 700, status: 'paid', client: 'Quinn Nakamura' }),
+  order({ id: 'staff-t3-2', service: 'Brown Sugar Boba (20 oz)', days: 3, hour: 14, priceCents: 700, status: 'paid', client: 'Sam Whitfield', mobile: true }),
+  order({ id: 'staff-t4-1', service: 'Saffron Milk Cake', days: 4, hour: 20, priceCents: 700, status: 'created', client: 'Casey Morgan' }),
+  order({ id: 'staff-t5-1', service: 'Strawberry Nutella Croissant', days: 5, hour: 12, minute: 30, priceCents: 600, status: 'paid', client: 'Morgan Blake' }),
+  order({ id: 'staff-t5-2', service: 'Spanish Latte (16 oz)', days: 5, hour: 13, priceCents: 700, status: 'paid', client: 'Taylor Quinn' }),
+  order({ id: 'staff-t6-1', service: 'Midnight Lychee Refresher (20 oz)', days: 6, hour: 21, priceCents: 700, status: 'paid', client: 'Jordan Avery' }),
+  order({ id: 'staff-t7-1', service: 'Pistachio Latte (20 oz)', days: 7, hour: 9, minute: 30, priceCents: 800, status: 'paid', client: 'Riley Chen' }),
+  order({ id: 'staff-t8-1', service: 'Honeycomb Cheese Bread', days: 8, hour: 19, priceCents: 700, status: 'paid', client: 'Reese Talbot', mobile: true }),
+  order({ id: 'staff-t9-1', service: 'Spanish Latte (16 oz)', days: 9, hour: 14, priceCents: 700, status: 'paid', client: 'Jamie Lee' }),
+  order({ id: 'staff-t9-2', service: 'Sunset Sparkling Ade (16 oz)', days: 9, hour: 16, priceCents: 600, status: 'paid', client: 'Morgan Blake' }),
+  order({ id: 'staff-t10-1', service: 'Adeni Chai (12 oz)', days: 10, hour: 11, priceCents: 500, status: 'paid', client: 'Alex Rivera' }),
+  order({ id: 'staff-t11-1', service: 'Turkish Coffee (Single)', days: 11, hour: 13, priceCents: 500, status: 'paid', client: 'Quinn Nakamura' }),
+  order({ id: 'staff-t12-1', service: 'Rooh Afza Matcha (20 oz)', days: 12, hour: 10, priceCents: 800, status: 'paid', client: 'Devin Park', mobile: true }),
+  order({ id: 'staff-t13-1', service: 'Spanish Latte (16 oz)', days: 13, hour: 15, priceCents: 700, status: 'paid', client: 'Casey Morgan' }),
 ];
 
 export const DEMO_STAFF: StaffDashboard = {
   projectedCents: 3850,
   openMinutes: 120,
   promptForTip: true,
-  appointments: staffAppointments,
+  orders: staffOrders,
   clients: staffClients,
   metrics: {
     todayRevenueCents: 6400,
-    appointmentCount: 42,
+    orderCount: 42,
     newClientCount: 3,
     rebookRatePct: 82,
     previous: {
       todayRevenueCents: 5710,
-      appointmentCount: 38,
+      orderCount: 38,
       newClientCount: 2,
       rebookRatePct: 78,
     },
@@ -367,7 +373,7 @@ export const DEMO_STAFF: StaffDashboard = {
     {
       id: 'soap-1',
       customerId: 'client-7',
-      serviceName: 'Pistachio Latte (16 oz)',
+      summary: 'Pistachio Latte (16 oz)',
       treatmentDate: isoAt(-4, 10),
       subjective: 'Asked for half-sweet after finding the default too rich.',
       objective: 'Usual order: pistachio latte, oat milk, half-sweet.',
@@ -378,7 +384,7 @@ export const DEMO_STAFF: StaffDashboard = {
     {
       id: 'soap-2',
       customerId: 'client-1',
-      serviceName: 'Spanish Latte (16 oz)',
+      summary: 'Spanish Latte (16 oz)',
       treatmentDate: isoAt(-9, 10),
       subjective: 'Training for a half marathon; cuts caffeine after 2 PM.',
       objective: 'Orders Spanish latte before noon only; decaf Americano otherwise.',
@@ -389,7 +395,7 @@ export const DEMO_STAFF: StaffDashboard = {
     {
       id: 'soap-3',
       customerId: 'client-3',
-      serviceName: 'Brown Sugar Boba (20 oz)',
+      summary: 'Brown Sugar Boba (20 oz)',
       treatmentDate: isoAt(-16, 10),
       subjective: 'Late-night study guest; stays until close on Fridays.',
       objective: 'Boba with extra pearls; milk cake if fresh that day.',

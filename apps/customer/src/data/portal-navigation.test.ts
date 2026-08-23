@@ -10,7 +10,7 @@ import {
 test('client navigation preserves every web portal destination', () => {
   assert.deepEqual(CLIENT_WEB_DESTINATIONS.map((destination) => destination.path), [
     '/account',
-    '/account/appointments',
+    '/account/orders',
     '/account/book',
     '/account/gift-cards',
     '/account/gift',

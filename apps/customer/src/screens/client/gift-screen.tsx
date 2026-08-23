@@ -88,7 +88,7 @@ export function GiftScreen({
           recipientName: recipientName.trim() || null,
           designKey,
           deliveryAt,
-          status: deliveryAt ? 'pending' : 'delivered',
+          status: deliveryAt ? 'created' : 'delivered',
           claimedByCurrentUser: false,
           purchasedByCurrentUser: true,
         });

@@ -1,4 +1,4 @@
-import type { BookingService, GiftCard, PortalAppointment, PortalBundle } from '@/types/domain';
+import type { BookingService, GiftCard, PortalOrder, PortalBundle } from '@/types/domain';
 
 /**
  * One row in the client search sheet.
@@ -28,16 +28,16 @@ export type ClientSearchResult = {
  */
 const PAGES: readonly { view: string; title: string; detail: string }[] = [
   { view: 'gift-balance', title: 'Gift card balance', detail: 'Stored value, claimed cards, and gifts you sent' },
-  { view: 'book', title: 'Services & pricing', detail: 'Book a session and compare durations and prices' },
-  { view: 'location', title: 'Studio location', detail: 'Greenwood Village, Colorado, with arrival and parking notes' },
-  { view: 'resources', title: 'Wellness resources', detail: 'Before your session, aftercare, and when to reschedule' },
-  { view: 'faq', title: 'Frequently asked questions', detail: 'Answers about sessions, gift cards, and rewards' },
-  { view: 'care-policy', title: 'Cancellation policy', detail: 'Changes, late arrival, and emergency exceptions' },
-  { view: 'privacy', title: 'Privacy & terms', detail: 'Care records, payments, and account control' },
-  { view: 'visits', title: 'Appointments & visit history', detail: 'Upcoming and past visits' },
+  { view: 'book', title: 'Menu & prices', detail: 'Browse signature lattes and the full menu, with sizes and prices' },
+  { view: 'location', title: 'Shop location & hours', detail: 'Aurora, Colorado, with parking, Wi-Fi, and late-night hours' },
+  { view: 'resources', title: 'Our story & brewing guides', detail: 'Our roaster, the halal-friendly menu, and staying a while' },
+  { view: 'faq', title: 'Frequently asked questions', detail: 'Answers about the coffee menu, gift cards, and rewards' },
+  { view: 'care-policy', title: 'Order & refund policy', detail: 'Changes, late pickup, and refund exceptions' },
+  { view: 'privacy', title: 'Privacy & terms', detail: 'Order records, payments, and account control' },
+  { view: 'visits', title: 'Orders & pickup history', detail: 'Current and past coffee orders' },
   { view: 'profile', title: 'Account settings', detail: 'Name, email, phone, and birthday' },
-  { view: 'intake', title: 'Intake & consent', detail: 'Concerns, pressure preference, and consent' },
-  { view: 'messages', title: 'Messages', detail: 'Private conversation with the studio' },
+  { view: 'intake', title: 'My usual & preferences', detail: 'Favourite drink, strength, and milk preference' },
+  { view: 'messages', title: 'Messages', detail: 'Private conversation with the shop' },
   { view: 'membership', title: 'Membership', detail: 'Plan status, credits, and renewal date' },
   { view: 'payments', title: 'Payment methods', detail: 'Saved cards for secure checkout' },
 ];
@@ -57,12 +57,12 @@ function matches(needle: string, title: string, detail: string): boolean {
   return `${title} ${detail}`.toLowerCase().includes(needle);
 }
 
-function visitResult(appointment: PortalAppointment): ClientSearchResult {
+function orderResult(order: PortalOrder): ClientSearchResult {
   return {
-    id: `visit-${appointment.id}`,
+    id: `visit-${order.id}`,
     kind: 'visit',
-    title: appointment.serviceName,
-    detail: `${formatVisitDate(appointment.startsAt)} · ${appointment.status.replace('_', ' ')}`,
+    title: order.summary,
+    detail: `${formatVisitDate(order.placedAt)} · ${order.status.replace('_', ' ')}`,
     target: { view: 'visits' },
   };
 }
@@ -119,8 +119,8 @@ export function searchClientAccount(
       target: { view: page.view },
     }));
 
-  const visits = portal.appointments
-    .map(visitResult)
+  const visits = portal.orders
+    .map(orderResult)
     .filter((result) => matches(needle, result.title, result.detail));
 
   const gifts = portal.giftCards

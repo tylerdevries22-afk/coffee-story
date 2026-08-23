@@ -281,7 +281,7 @@ export function OrderScreen() {
         depositCents: totals.totalCents,
         description: order.cart.note || undefined,
       };
-      demo.book({ service, addOns: [], startsAt: order.windowValue, fulfillment: order.fulfillment });
+      demo.book({ service, addOns: [], placedAt: order.windowValue, fulfillment: order.fulfillment });
       setPlaced({ summary, totalCents: totals.totalCents, points: pointsEarned });
       order.clearBag();
       order.setTipCents(0);

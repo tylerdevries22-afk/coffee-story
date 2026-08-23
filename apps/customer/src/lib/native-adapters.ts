@@ -1,4 +1,3 @@
-import type { BookingService } from '@/types/domain';
 
 export type NativeFlowResult = {
   simulated: boolean;
@@ -13,29 +12,34 @@ export function usesSimulatedNativeFlows(isDemo: boolean, appOwnership: string |
   return shouldSimulateNativeFlow(isDemo, appOwnership);
 }
 
-export async function addAppointmentToCalendar(
-  service: BookingService,
-  startsAt: string,
+/**
+ * Takes the two fields it actually needs rather than a domain type: this used
+ * to require a BookingService, which is why a calendar helper depended on the
+ * booking module at all.
+ */
+export async function addOrderToCalendar(
+  order: { summary: string; durationMin: number },
+  pickupAt: string,
   isDemo: boolean,
   appOwnership: string | null,
 ): Promise<NativeFlowResult> {
-  const date = new Date(startsAt);
-  if (Number.isNaN(date.getTime())) throw new Error('This appointment has an invalid start time.');
+  const date = new Date(pickupAt);
+  if (Number.isNaN(date.getTime())) throw new Error('This order has an invalid pickup time.');
   if (usesSimulatedNativeFlows(isDemo, appOwnership)) {
     return { simulated: true, message: 'Calendar preview completed. No device calendar was changed.' };
   }
   const Calendar = await import('expo-calendar');
   const permission = await Calendar.requestCalendarPermissionsAsync();
-  if (!permission.granted) throw new Error('Allow calendar access in Settings to add this visit.');
+  if (!permission.granted) throw new Error('Allow calendar access in Settings to add this order.');
   const calendar = await Calendar.getDefaultCalendarAsync();
   await Calendar.createEventAsync(calendar.id, {
-    title: `${service.name} at Coffee Story`,
+    title: `${order.summary} at Coffee Story`,
     startDate: date,
-    endDate: new Date(date.getTime() + service.durationMin * 60_000),
+    endDate: new Date(date.getTime() + order.durationMin * 60_000),
     timeZone: 'America/Denver',
     location: 'Coffee Story',
     notes: 'Your Coffee Story order is confirmed. See you at the bar.',
     alarms: [{ relativeOffset: -60 }],
   });
-  return { simulated: false, message: 'Your visit is saved with a one-hour reminder.' };
+  return { simulated: false, message: 'Your order is saved with a one-hour reminder.' };
 }

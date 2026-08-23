@@ -1,7 +1,7 @@
 /**
  * The live-mode write seam the screens call. Everything here rides the
  * platform API (@platform/api-client → the HQ deployment) with the guest's
- * own access token; the legacy appointments host is gone.
+ * own access token; the legacy orders host is gone.
  *
  * Methods whose domain the live schema does not serve yet throw a 501
  * MobileApiError instead of pretending — their entry points are hidden in
@@ -82,7 +82,7 @@ export const mobileApi = {
     notAvailable('Earning activities'),
   cancelAppointment: async (_id: string, _key: string): Promise<{ status: 'cancelled' }> =>
     notAvailable('Cancelling an order'),
-  rescheduleAppointment: async (_id: string, _startsAt: string, _key: string): Promise<{ startsAt: string }> =>
+  rescheduleAppointment: async (_id: string, _startsAt: string, _key: string): Promise<{ placedAt: string }> =>
     notAvailable('Rescheduling'),
   reviewAppointment: async (_id: string, _rating: number, _note: string, _key: string): Promise<{ ok: true }> =>
     notAvailable('Reviews'),

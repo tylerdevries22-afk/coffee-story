@@ -70,15 +70,15 @@ export function MoreScreen() {
 
   const liveOrders = portal.orders ?? [];
   const completedVisits = isDemo
-    ? portal.appointments.filter((appointment) => appointment.status === 'completed').length
+    ? portal.orders.filter((appointment) => appointment.status === 'picked_up').length
     : liveOrders.filter((entry) => entry.status === 'picked_up').length;
   const searchResults = searchClientAccount(query, portal, BOOKABLE_SERVICES);
   const giftSummary = summarizeGiftCardOwnership(portal.giftCards);
   const giftBalanceCents = isDemo ? giftSummary.spendableBalanceCents : portal.rewardAccount.cashCents;
   const upcomingVisits = isDemo
-    ? portal.appointments.filter((appointment) => (
-      (appointment.status === 'confirmed' || appointment.status === 'pending')
-      && new Date(appointment.startsAt).getTime() > now.getTime()
+    ? portal.orders.filter((appointment) => (
+      (appointment.status === 'paid' || appointment.status === 'created')
+      && new Date(appointment.placedAt).getTime() > now.getTime()
     )).length
     : liveOrders.filter((entry) => ['created', 'paid', 'in_progress', 'ready'].includes(entry.status)).length;
   const clientMetrics = [

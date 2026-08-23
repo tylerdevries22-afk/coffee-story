@@ -29,7 +29,7 @@ export const ADMIN_DESTINATIONS: readonly WebDestination[] = [
 
 export const CLIENT_WEB_DESTINATIONS: readonly Omit<WebDestination, 'roles'>[] = [
   { title: 'Portal overview', path: '/account' },
-  { title: 'Orders', path: '/account/appointments' },
+  { title: 'Orders', path: '/account/orders' },
   { title: 'Order ahead', path: '/account/book' },
   { title: 'Gift cards', path: '/account/gift-cards' },
   { title: 'Send a gift', path: '/account/gift' },

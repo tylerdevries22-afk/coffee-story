@@ -4,15 +4,14 @@ import { Alert, Pressable, Text, View } from 'react-native';
 
 import { CollapsingScreen } from '@/components/collapsing-screen';
 import { Body, Button, Card, Segmented } from '@/components/ui';
-import { appointmentToBookingService } from '@/features/booking/appointment-to-booking-service';
 import { requestKey } from '@/features/order/request-key';
 import { formatMoney } from '@/features/money';
 import { trackingView } from '@/features/tracking';
 import { mobileApi } from '@/lib/mobile-api';
-import { addAppointmentToCalendar } from '@/lib/native-adapters';
+import { addOrderToCalendar } from '@/lib/native-adapters';
 import { useAuth } from '@/state/auth-context';
 import { useDemo } from '@/state/demo-context';
-import type { PortalAppointment, PortalOrder } from '@/types/domain';
+import type { PortalOrder } from '@/types/domain';
 import { choiceState } from '@/lib/a11y-state';
 
 import { styles } from './information-page';
@@ -49,36 +48,36 @@ export function Visits({ onBack, onBook }: { onBack: () => void; onBook: () => v
       </CollapsingScreen>
     );
   }
-  const visits = portal.appointments.filter((appointment) => (
+  const visits = portal.orders.filter((order) => (
     tab === 'Upcoming'
-      ? new Date(appointment.startsAt).getTime() >= referenceTime && appointment.status !== 'cancelled'
-      : new Date(appointment.startsAt).getTime() < referenceTime || ['completed', 'cancelled', 'no_show'].includes(appointment.status)
+      ? new Date(order.placedAt).getTime() >= referenceTime && order.status !== 'cancelled'
+      : new Date(order.placedAt).getTime() < referenceTime || ['picked_up', 'cancelled', 'cancelled'].includes(order.status)
   ));
 
   return (
     <CollapsingScreen title="Orders" eyebrow="My account" onBack={onBack}>
       <Segmented options={['Upcoming', 'Past'] as const} value={tab} onChange={setTab} />
-      {visits.map((appointment) => (
+      {visits.map((order) => (
         <AppointmentCard
-          key={appointment.id}
-          appointment={appointment}
+          key={order.id}
+          order={order}
           isDemo={isDemo}
-          upcoming={new Date(appointment.startsAt).getTime() >= referenceTime
-            && appointment.status !== 'cancelled'}
+          upcoming={new Date(order.placedAt).getTime() >= referenceTime
+            && order.status !== 'cancelled'}
           onCancel={async () => {
-            if (isDemo) demo.cancelAppointment(appointment.id);
+            if (isDemo) demo.cancelAppointment(order.id);
             else {
-              await mobileApi.cancelAppointment(appointment.id, requestKey('appointment-cancel'));
+              await mobileApi.cancelAppointment(order.id, requestKey('order-cancel'));
               await refresh();
             }
           }}
           onReschedule={async () => {
-            const next = new Date(appointment.startsAt);
+            const next = new Date(order.placedAt);
             next.setDate(next.getDate() + 7);
             if (isDemo) {
-              demo.rescheduleAppointment(appointment.id, next.toISOString());
+              demo.rescheduleAppointment(order.id, next.toISOString());
             } else {
-              await mobileApi.rescheduleAppointment(appointment.id, next.toISOString(), requestKey('appointment-reschedule'));
+              await mobileApi.rescheduleAppointment(order.id, next.toISOString(), requestKey('order-reschedule'));
               await refresh();
             }
           }}
@@ -92,14 +91,14 @@ export function Visits({ onBack, onBook }: { onBack: () => void; onBook: () => v
 }
 
 function AppointmentCard({
-  appointment,
+  order,
   isDemo,
   upcoming,
   onCancel,
   onReschedule,
   onReviewed,
 }: {
-  appointment: PortalAppointment;
+  order: PortalOrder;
   isDemo: boolean;
   upcoming: boolean;
   onCancel: () => Promise<void>;
@@ -113,17 +112,17 @@ function AppointmentCard({
   const [busy, setBusy] = useState<string | null>(null);
   return (
     <Card style={styles.detailCard}>
-      <Text style={styles.detailTitle}>{appointment.serviceName}</Text>
-      <Body muted>{formatVisitDate(appointment.startsAt)}</Body>
-      {appointment.locationLabel ? <Body>{appointment.locationLabel} · {appointment.locationDetail}</Body> : null}
-      <Body>{appointment.status.replace('_', ' ')} · ${(appointment.balanceCents / 100).toFixed(2)} remaining</Body>
-      <Button label="Add to calendar" variant="secondary" onPress={() => void addVisitToCalendar(appointment, isDemo)} />
+      <Text style={styles.detailTitle}>{order.summary}</Text>
+      <Body muted>{formatVisitDate(order.placedAt)}</Body>
+      {order.locationLabel ? <Body>{order.locationLabel} · {order.locationDetail}</Body> : null}
+      <Body>{order.status.replace("_", " ")} · ${(order.totalCents / 100).toFixed(2)}</Body>
+      <Button label="Add to calendar" variant="secondary" onPress={() => void addOrderReminder(order, isDemo)} />
       {upcoming ? (
         <View style={styles.visitActions}>
           <Button label="Reschedule one week" variant="secondary" loading={busy === 'reschedule'} style={styles.visitAction} onPress={() => void runVisitAction('reschedule', setBusy, onReschedule)} />
           <Button label="Cancel" variant="secondary" loading={busy === 'cancel'} style={styles.visitAction} onPress={() => confirmCancellation(setBusy, onCancel)} />
         </View>
-      ) : appointment.status === 'completed' ? (
+      ) : order.status === 'picked_up' ? (
         <>
           <Button label={reviewing ? 'Close review' : 'Rate this visit'} variant="secondary" onPress={() => setReviewing((current) => !current)} />
           {reviewing ? (
@@ -136,7 +135,7 @@ function AppointmentCard({
                 ))}
               </View>
               <Field label="Review note" value={note} multiline onChangeText={setNote} />
-              <Button label="Save review" loading={busy === 'review'} onPress={() => void saveVisitReview(appointment.id, rating, note, isDemo, setBusy, onReviewed, demo.reviewAppointment)} />
+              <Button label="Save review" loading={busy === 'review'} onPress={() => void saveVisitReview(order.id, rating, note, isDemo, setBusy, onReviewed, demo.reviewAppointment)} />
             </View>
           ) : null}
         </>
@@ -194,10 +193,14 @@ function confirmCancellation(setBusy: (value: string | null) => void, onCancel: 
   ]);
 }
 
-async function addVisitToCalendar(appointment: PortalAppointment, isDemo: boolean) {
-  const service = appointmentToBookingService(appointment);
+async function addOrderReminder(order: PortalOrder, isDemo: boolean) {
   try {
-    const result = await addAppointmentToCalendar(service, appointment.startsAt, isDemo, Constants.appOwnership);
+    const result = await addOrderToCalendar(
+      { summary: order.summary, durationMin: 15 },
+      order.scheduledFor ?? order.placedAt,
+      isDemo,
+      Constants.appOwnership,
+    );
     Alert.alert(result.simulated ? 'Calendar preview' : 'Added to calendar', result.message);
   } catch (error) {
     Alert.alert('Calendar unavailable', error instanceof Error ? error.message : 'Try again later.');
@@ -221,7 +224,7 @@ async function saveVisitReview(
       // saved", and found the form blank again on return.
       saveDemoReview(appointmentId, rating, note);
     } else {
-      await mobileApi.reviewAppointment(appointmentId, rating, note, requestKey('appointment-review'));
+      await mobileApi.reviewAppointment(appointmentId, rating, note, requestKey('order-review'));
       await onReviewed();
     }
     Alert.alert('Review saved', 'Thank you for sharing your experience.');

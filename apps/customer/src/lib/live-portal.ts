@@ -135,7 +135,6 @@ export async function loadLivePortal(
       avatarUrl: null,
     },
     role: 'client',
-    appointments: [],
     orders: [...orders.active, ...orders.past].map(portalOrderOf),
     rewardAccount: {
       availablePoints: loyalty.account?.points_balance ?? 0,

@@ -16,7 +16,7 @@ function bundleWith(setup?: unknown): PortalBundle {
   return {
     profile: { id: 'p1', fullName: 'Alex Rivera', email: 'alex@email.com', phone: null, birthday: null, avatarUrl: null },
     role: 'client',
-    appointments: [],
+    orders: [],
     rewardAccount: { availablePoints: 0, annualPoints: 0, cashCents: 0, tier: 'Warm Heart' },
     rewardLedger: [],
     rewardActivities: [],

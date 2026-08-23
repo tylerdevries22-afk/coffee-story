@@ -45,39 +45,6 @@ export type PortalProfile = {
   avatarUrl: string | null;
 };
 
-export type PortalAppointment = {
-  id: string;
-  serviceName: string;
-  startsAt: string;
-  endsAt: string;
-  status: 'pending' | 'confirmed' | 'cancelled' | 'completed' | 'no_show';
-  subtotalCents: number;
-  depositCents: number;
-  balanceCents: number;
-  clientName?: string;
-  fulfillmentMode?: 'pickup' | 'delivery';
-  locationLabel?: string;
-  locationDetail?: string;
-  /**
-   * Client's post-visit review. Optional because the live portal only populates
-   * it once a review exists; the demo reducer mirrors the same shape so preview
-   * mode can show a saved review instead of silently discarding it.
-   */
-  review?: { rating: number; note: string; submittedAt: string };
-  /**
-   * Workspace provenance. Optional throughout because a server that predates
-   * the staff-parity migration omits them and every surface hides the badge
-   * rather than inventing a value.
-   */
-  bookingSource?: BookingSource;
-  /** Room reset minutes reserved after the visit. */
-  recoveryMinutes?: number;
-  /** True when this is the client's first visit on record. */
-  isNewClient?: boolean;
-  /** Barista the order is assigned to. */
-  staffName?: string;
-};
-
 export type BookingSource = 'website' | 'directory' | 'campaign' | 'staff';
 
 export type PortalOrderLine = {
@@ -88,10 +55,9 @@ export type PortalOrderLine = {
 };
 
 /**
- * A real order from the live plane (orders + order_events under RLS),
- * carrying rule 2's status. The live bundle populates `PortalBundle.orders`
- * with these; the demo plane still speaks PortalAppointment until its
- * screens migrate.
+ * An order, carrying rule 2's status. Both planes speak this now -- the demo
+ * reducer and the live plane (orders + order_events under RLS) produce the
+ * same shape, so a screen cannot tell them apart.
  */
 export type PortalOrder = {
   id: string;
@@ -108,6 +74,21 @@ export type PortalOrder = {
   tipCents: number;
   totalCents: number;
   note: string;
+  /**
+   * Display-safe guest name ("Sara D."), never the full record. This is the
+   * shape `orders.guest_label` carries server-side, and it is what a pickup
+   * board is allowed to show.
+   */
+  guestLabel?: string;
+  /** "Coffee Story — Havana St" or "Delivery". What a history row shows. */
+  locationLabel?: string;
+  /** Street line under the label; absent for pickup, where the label suffices. */
+  locationDetail?: string;
+  /**
+   * The guest's review of a collected order. Optional because it only exists
+   * once written; every surface hides the affordance rather than inventing one.
+   */
+  review?: { rating: number; note: string; submittedAt: string };
 };
 
 export type RewardAccount = {
@@ -151,7 +132,7 @@ export type GiftCard = {
   recipientName: string | null;
   designKey: string;
   deliveryAt: string | null;
-  status: 'pending' | 'funded' | 'delivered' | 'claimed' | 'depleted' | 'void';
+  status: 'created' | 'funded' | 'delivered' | 'claimed' | 'depleted' | 'void';
   createdAt: string;
   claimedByCurrentUser: boolean;
   purchasedByCurrentUser: boolean;
@@ -198,9 +179,7 @@ export type PortalBundle = {
   autoPromptDismissed?: boolean;
   profile: PortalProfile;
   role: AppRole;
-  appointments: PortalAppointment[];
-  /** Live-plane orders. Absent in the demo bundle (appointments carry demo state). */
-  orders?: PortalOrder[];
+  orders: PortalOrder[];
   rewardAccount: RewardAccount;
   rewardLedger: RewardEntry[];
   rewardActivities: string[];
@@ -261,7 +240,7 @@ export type StaffClient = {
 export type StaffSoapNote = {
   id: string;
   customerId: string;
-  serviceName: string;
+  summary: string;
   treatmentDate: string;
   subjective: string;
   objective: string;
@@ -271,7 +250,7 @@ export type StaffSoapNote = {
 };
 
 export type StaffDashboard = {
-  appointments: PortalAppointment[];
+  orders: PortalOrder[];
   clients: StaffClient[];
   projectedCents: number;
   openMinutes: number;
@@ -288,7 +267,7 @@ export type StaffDashboard = {
 
 export type StaffWorkspaceMetrics = {
   todayRevenueCents: number;
-  appointmentCount: number;
+  orderCount: number;
   /** Clients whose first visit landed inside the trailing week. */
   newClientCount: number;
   /** Share of clients with more than one completed visit, 0-100. */
@@ -296,7 +275,7 @@ export type StaffWorkspaceMetrics = {
   /** Same four figures a week earlier, for the delta chips. */
   previous?: {
     todayRevenueCents: number;
-    appointmentCount: number;
+    orderCount: number;
     newClientCount: number;
     rebookRatePct: number;
   };
@@ -341,58 +320,3 @@ export type StaffSettings = {
   reviewRequestEnabled: boolean;
 };
 
-export type StaffActionPayload =
-  | {
-    action: 'appointment_status';
-    appointmentId: string;
-    status: 'confirmed' | 'cancelled' | 'no_show';
-    idempotencyKey: string;
-  }
-  | {
-    action: 'block_time';
-    startsAt: string;
-    endsAt: string;
-    reason: string;
-    idempotencyKey: string;
-  }
-  | {
-    action: 'create_appointment';
-    customerId: string;
-    serviceSlug: string;
-    startsAt: string;
-    fulfillment: {
-      mode: 'pickup';
-      location: {
-        id: string;
-        name: string;
-        address: string;
-        cityLine: string;
-        note: string;
-      };
-    } | {
-      mode: 'delivery';
-      address: {
-        street: string;
-        unit: string;
-        city: string;
-        state: string;
-        postalCode: string;
-        instructions: string;
-      };
-    };
-    notes: string;
-    idempotencyKey: string;
-  }
-  | {
-    action: 'soap_note';
-    customerId: string;
-    appointmentId?: string;
-    serviceName: string;
-    treatmentDate: string;
-    subjective: string;
-    objective: string;
-    assessment: string;
-    plan: string;
-    focusAreas: string[];
-    idempotencyKey: string;
-  };

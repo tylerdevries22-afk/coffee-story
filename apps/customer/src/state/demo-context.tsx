@@ -13,22 +13,22 @@ import Constants from 'expo-constants';
 
 import { hasCompleteLiveConfig } from '@/lib/runtime-config';
 import {
-  addDemoBooking,
+  addDemoOrder,
   addDemoGift,
   addDemoMessage,
-  cancelDemoAppointment,
+  cancelDemoOrder,
   completeDemoRewardActivity,
   createInitialDemoPortal,
   dismissDemoSetupAutoPrompt,
   redeemDemoReward,
   removeDemoPaymentMethod,
-  rescheduleDemoAppointment,
-  reviewDemoAppointment,
+  rescheduleDemoOrder,
+  reviewDemoOrder,
   setDemoRole,
   setDemoMembershipStatus,
   updateDemoIntake,
   updateDemoProfile,
-  type DemoBookingInput,
+  type DemoOrderInput,
 } from '@/state/demo-state';
 import {
   loadStoredAppMode,
@@ -64,9 +64,9 @@ type DemoState = {
   canGoLive: boolean;
   resetDemo: () => Promise<void>;
   setRole: (role: AppRole) => void;
-  book: (input: Omit<DemoBookingInput, 'id'>) => void;
+  book: (input: Omit<DemoOrderInput, 'id'>) => void;
   cancelAppointment: (appointmentId: string) => void;
-  rescheduleAppointment: (appointmentId: string, startsAt: string) => void;
+  rescheduleAppointment: (appointmentId: string, placedAt: string) => void;
   reviewAppointment: (appointmentId: string, rating: number, note: string) => void;
   redeemReward: (reward: RewardCatalogItem) => void;
   completeActivity: (activityKey: string) => void;
@@ -147,10 +147,10 @@ export function DemoProvider({ children }: PropsWithChildren) {
     canGoLive,
     resetDemo,
     setRole: (role) => savePortal((current) => setDemoRole(current, role)),
-    book: (input) => savePortal((current) => addDemoBooking(current, { ...input, id: uniqueId('appointment') })),
-    cancelAppointment: (appointmentId) => savePortal((current) => cancelDemoAppointment(current, appointmentId)),
+    book: (input) => savePortal((current) => addDemoOrder(current, { ...input, id: uniqueId('appointment') })),
+    cancelAppointment: (appointmentId) => savePortal((current) => cancelDemoOrder(current, appointmentId)),
     rescheduleAppointment: (appointmentId, startsAt) => savePortal((current) => (
-      rescheduleDemoAppointment(current, appointmentId, startsAt)
+      rescheduleDemoOrder(current, appointmentId, startsAt)
     )),
     redeemReward: (reward) => savePortal((current) => redeemDemoReward(current, reward, uniqueId('ledger'), new Date().toISOString())),
     completeActivity: (activityKey) => savePortal((current) => completeDemoRewardActivity(current, activityKey, uniqueId('ledger'), new Date().toISOString())),
@@ -160,7 +160,7 @@ export function DemoProvider({ children }: PropsWithChildren) {
       createdAt: new Date().toISOString(),
     })),
     reviewAppointment: (appointmentId, rating, note) => savePortal((current) => (
-      reviewDemoAppointment(current, appointmentId, rating, note, new Date().toISOString())
+      reviewDemoOrder(current, appointmentId, rating, note, new Date().toISOString())
     )),
     updateProfile: (profile) => savePortal((current) => updateDemoProfile(current, profile)),
     updateIntake: (intake) => savePortal((current) => updateDemoIntake(current, intake)),

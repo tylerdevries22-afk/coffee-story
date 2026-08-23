@@ -19,9 +19,10 @@ import {
 type UnknownRecord = Record<string, unknown>;
 
 const ROLES = ['client', 'staff', 'admin'] as const;
-const APPOINTMENT_STATUSES = ['pending', 'confirmed', 'cancelled', 'completed', 'no_show'] as const;
+const ORDER_STATUSES = ['created', 'paid', 'in_progress', 'ready', 'picked_up', 'cancelled', 'refunded'] as const;
+const FULFILLMENT_TYPES = ['pickup', 'curbside', 'catering', 'delivery'] as const;
 const REWARD_ENTRY_TYPES = ['purchase', 'activity', 'redemption', 'adjustment', 'expiration'] as const;
-const GIFT_CARD_STATUSES = ['pending', 'funded', 'delivered', 'claimed', 'depleted', 'void'] as const;
+const GIFT_CARD_STATUSES = ['created', 'funded', 'delivered', 'claimed', 'depleted', 'void'] as const;
 
 function isRecord(value: unknown): value is UnknownRecord {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -55,14 +56,6 @@ function isOptionalString(value: unknown): value is string | undefined {
   return value === undefined || typeof value === 'string';
 }
 
-function isOptionalNumber(value: unknown): value is number | undefined {
-  return value === undefined || isFiniteNumber(value);
-}
-
-function isOptionalBoolean(value: unknown): value is boolean | undefined {
-  return value === undefined || typeof value === 'boolean';
-}
-
 function isProfile(value: unknown): boolean {
   return isRecord(value)
     && typeof value.id === 'string'
@@ -73,7 +66,16 @@ function isProfile(value: unknown): boolean {
     && isNullableString(value.avatarUrl);
 }
 
-function isAppointment(value: unknown): boolean {
+function isOrderLine(value: unknown): boolean {
+  return isRecord(value)
+    && typeof value.name === 'string'
+    && isFiniteNumber(value.quantity)
+    && isFiniteNumber(value.unitPriceCents)
+    && Array.isArray(value.options)
+    && value.options.every((option) => typeof option === 'string');
+}
+
+function isOrder(value: unknown): boolean {
   if (!isRecord(value)) return false;
   const review = value.review;
   const reviewIsValid = review === undefined || (
@@ -83,22 +85,22 @@ function isAppointment(value: unknown): boolean {
     && isDateString(review.submittedAt)
   );
   return typeof value.id === 'string'
-    && typeof value.serviceName === 'string'
-    && isDateString(value.startsAt)
-    && isDateString(value.endsAt)
-    && isOneOf(value.status, APPOINTMENT_STATUSES)
+    && typeof value.summary === 'string'
+    && Array.isArray(value.lines)
+    && value.lines.every(isOrderLine)
+    && isDateString(value.placedAt)
+    // null is meaningful here: an asap order has no pickup window.
+    && (value.scheduledFor === null || isDateString(value.scheduledFor))
+    && isOneOf(value.status, ORDER_STATUSES)
+    && isOneOf(value.fulfillmentType, FULFILLMENT_TYPES)
     && isFiniteNumber(value.subtotalCents)
-    && isFiniteNumber(value.depositCents)
-    && isFiniteNumber(value.balanceCents)
-    && isOptionalString(value.clientName)
-    && (value.fulfillmentMode === undefined || isOneOf(value.fulfillmentMode, ['pickup', 'delivery']))
+    && isFiniteNumber(value.taxCents)
+    && isFiniteNumber(value.tipCents)
+    && isFiniteNumber(value.totalCents)
+    && typeof value.note === 'string'
+    && isOptionalString(value.guestLabel)
     && isOptionalString(value.locationLabel)
     && isOptionalString(value.locationDetail)
-    && isOptionalString(value.staffName)
-    && (value.bookingSource === undefined
-      || isOneOf(value.bookingSource, ['website', 'directory', 'campaign', 'staff']))
-    && isOptionalNumber(value.recoveryMinutes)
-    && isOptionalBoolean(value.isNewClient)
     && reviewIsValid;
 }
 
@@ -186,7 +188,7 @@ function isMembership(value: unknown): boolean {
 function isStoredPortal(value: unknown): value is PortalBundle {
   if (!isRecord(value)) return false;
   if (!isOneOf(value.role, ROLES) || !isProfile(value.profile)) return false;
-  if (!Array.isArray(value.appointments) || !value.appointments.every(isAppointment)) return false;
+  if (!Array.isArray(value.orders) || !value.orders.every(isOrder)) return false;
   if (!isRewardAccount(value.rewardAccount)) return false;
   if (!Array.isArray(value.rewardLedger) || !value.rewardLedger.every(isRewardEntry)) return false;
   if (!isStringArray(value.rewardActivities)) return false;

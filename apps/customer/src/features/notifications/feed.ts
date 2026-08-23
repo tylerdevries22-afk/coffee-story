@@ -11,7 +11,7 @@ export type NotificationTarget =
   | { kind: 'gift-balance' }
   | { kind: 'staff-calendar' }
   | { kind: 'staff-checkout' }
-  | { kind: 'confirm-visit'; appointmentId: string };
+  | { kind: 'confirm-order'; orderId: string };
 
 export type NotificationItem = {
   id: string;
@@ -90,29 +90,31 @@ function money(cents: number): string {
 export function buildClientNotifications(portal: PortalBundle, now: Date): NotificationItem[] {
   const items: NotificationItem[] = [];
 
-  for (const appointment of portal.appointments) {
-    const starts = new Date(appointment.startsAt);
-    const ahead = starts.getTime() - now.getTime();
-    if (appointment.status === 'confirmed' && ahead > 0 && ahead < 3 * DAY) {
+  for (const order of portal.orders) {
+    // An order's moment is when it is due at the counter, not when it was
+    // placed; an asap order falls back to its placed time.
+    const dueAt = new Date(order.scheduledFor ?? order.placedAt);
+    const ahead = dueAt.getTime() - now.getTime();
+    if (order.status === 'paid' && ahead > 0 && ahead < 3 * DAY) {
       items.push({
-        id: `visit-soon-${appointment.id}`,
+        id: `order-soon-${order.id}`,
         actor: 'Coffee Story',
-        title: 'Your visit is coming up',
-        detail: `${appointment.serviceName} · ${formatWhen(appointment.startsAt)}`,
-        at: new Date(starts.getTime() - 2 * DAY).toISOString(),
+        title: 'Your order is coming up',
+        detail: `${order.summary} · ${formatWhen(order.scheduledFor ?? order.placedAt)}`,
+        at: new Date(dueAt.getTime() - 2 * DAY).toISOString(),
         target: { kind: 'visits' },
         action: 'View',
       });
     }
-    if (appointment.status === 'completed' && now.getTime() - starts.getTime() < 30 * DAY) {
+    if (order.status === 'picked_up' && now.getTime() - dueAt.getTime() < 30 * DAY) {
       items.push({
-        id: `visit-done-${appointment.id}`,
+        id: `order-done-${order.id}`,
         actor: 'Coffee Story',
-        title: 'Thanks for visiting',
-        detail: `${appointment.serviceName} · ${formatWhen(appointment.startsAt)}`,
-        at: appointment.endsAt,
+        title: 'Thanks for stopping by',
+        detail: `${order.summary} · ${formatWhen(order.placedAt)}`,
+        at: order.scheduledFor ?? order.placedAt,
         target: { kind: 'visits' },
-        action: 'Book again',
+        action: 'Order again',
       });
     }
   }
@@ -150,32 +152,30 @@ export function buildClientNotifications(portal: PortalBundle, now: Date): Notif
   return items;
 }
 
-/** The workspace feed: visits awaiting confirmation, then ones ready to bill. */
+/** The workspace feed: orders awaiting confirmation, then ones ready to bill. */
 export function buildStaffNotifications(dashboard: StaffDashboard, now: Date): NotificationItem[] {
   const items: NotificationItem[] = [];
 
-  for (const appointment of dashboard.appointments) {
-    const starts = new Date(appointment.startsAt);
-    if (appointment.status === 'pending' && starts.getTime() > now.getTime()) {
+  for (const order of dashboard.orders) {
+    const dueAt = new Date(order.scheduledFor ?? order.placedAt);
+    if (order.status === 'created' && dueAt.getTime() > now.getTime()) {
       items.push({
-        id: `confirm-${appointment.id}`,
-        actor: appointment.clientName ?? 'Guest client',
+        id: `confirm-${order.id}`,
+        actor: order.guestLabel ?? 'Guest',
         title: 'needs confirmation',
-        detail: `${appointment.serviceName} · ${formatWhen(appointment.startsAt)}`,
-        at: new Date(starts.getTime() - DAY).toISOString(),
-        target: { kind: 'confirm-visit', appointmentId: appointment.id },
+        detail: `${order.summary} · ${formatWhen(order.scheduledFor ?? order.placedAt)}`,
+        at: new Date(dueAt.getTime() - DAY).toISOString(),
+        target: { kind: 'confirm-order', orderId: order.id },
         action: 'Confirm',
       });
     }
-    if (appointment.status === 'confirmed'
-      && starts.getTime() < now.getTime()
-      && appointment.balanceCents > 0) {
+    if (order.status === 'paid' && dueAt.getTime() < now.getTime() && order.totalCents > 0) {
       items.push({
-        id: `checkout-${appointment.id}`,
-        actor: appointment.clientName ?? 'Guest client',
+        id: `checkout-${order.id}`,
+        actor: order.guestLabel ?? 'Guest',
         title: 'is ready to check out',
-        detail: `${appointment.serviceName} · ${money(appointment.balanceCents)} due`,
-        at: appointment.endsAt,
+        detail: `${order.summary} · ${money(order.totalCents)} due`,
+        at: order.scheduledFor ?? order.placedAt,
         target: { kind: 'staff-checkout' },
         action: 'Check out',
       });
