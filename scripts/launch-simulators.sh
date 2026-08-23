@@ -130,7 +130,7 @@ start_metro() {
   # Driving Terminal needs Automation permission, and the first run pops a
   # prompt. Denied, osascript exits non-zero and nothing ever starts -- which
   # used to surface four minutes later as "Metro never answered".
-  if ! osascript -e "tell application \"Terminal\" to do script \"cd '$REPO/$dir' && npx expo start --port $port --host lan\"" >/dev/null 2>&1; then
+  if ! osascript -e "tell application \"Terminal\" to do script \"cd '$REPO/$dir' && npx expo start --port $port\"" >/dev/null 2>&1; then
     fail "Couldn't open a Terminal window for $label Metro.
    macOS asks for Automation permission the first time; if you dismissed it,
    allow it under System Settings → Privacy & Security → Automation, or start
@@ -168,12 +168,14 @@ if [ -z "$GO_APP" ]; then
   say "  again and both apps will open on their own devices."
 fi
 
-# The address the simulator should reach Metro on. `expo start` hands the
-# device the machine's LAN address rather than loopback, and matching that is
-# the difference between Expo Go opening and Expo Go opening onto nothing --
-# a CI run had both deep links accepted and neither app ever asked Metro for a
-# bundle. Falls back to loopback when there is no LAN address to find.
-HOST_IP="$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || echo 127.0.0.1)"
+# Loopback, because an iOS simulator shares this machine's network stack:
+# 127.0.0.1 inside the device is this Mac's loopback, which is where `expo
+# start` is listening by default. (An earlier revision used the LAN address
+# here after a CI run showed apps opening onto nothing -- that run's real
+# problem was the dev server exiting, and pointing the device at a LAN
+# interface was the wrong correction. A physical device on the same Wi-Fi is
+# the case that needs the LAN address, not a simulator.)
+HOST_IP="127.0.0.1"
 
 open_app() {
   local udid="$1" port="$2" name="$3" try

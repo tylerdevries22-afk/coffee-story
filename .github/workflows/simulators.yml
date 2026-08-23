@@ -100,12 +100,19 @@ jobs:
           # Offline is right here anyway: nothing in this job needs the Expo
           # account, only the bundler.
           export EXPO_OFFLINE=1
-          # `--host lan`, because the default binds LOCALHOST ONLY. The log
-          # says so plainly -- "Waiting on http://localhost:8081" -- and with
-          # the servers finally staying alive, that is what is left: the apps
-          # were handed the machine's LAN address and nothing was listening on
-          # it. Neither address could work before, for two different reasons,
-          # which is why swapping between them changed nothing.
+          # Default binding (localhost), NOT --host lan. An iOS simulator
+          # shares the host's network stack, so 127.0.0.1 inside the device IS
+          # this machine's loopback -- which is exactly how this works on a
+          # developer's Mac. --host lan binds Metro to the runner's NAT'd
+          # virtual interface instead, which the device may not route to.
+          #
+          # Worth being explicit about the sequencing, because it hid this:
+          # while the deep links used loopback, the servers were dying on an
+          # auth prompt, so nothing could have worked whatever the address. By
+          # the time EXPO_OFFLINE fixed that, the address had already been
+          # switched to LAN. Live server + loopback is the one combination
+          # never actually run, and the screens now show why it matters --
+          # Expo Go is sitting on its own screen, i.e. it never reached Metro.
           # CI stays SET. Unsetting it to get Metro's bundle logs turned watch
           # mode back on, and @expo/cli's TypeScript-file watcher crashes on
           # this version:
@@ -116,8 +123,8 @@ jobs:
           # CI mode was holding the server up, not holding it back. It does
           # suppress the per-bundle log lines, so proof of loading has to come
           # from somewhere other than the log -- see the wait step.
-          cd apps/customer && nohup npx expo start --port "$CUSTOMER_PORT" --host lan > "$GITHUB_WORKSPACE/metro-customer.log" 2>&1 &
-          cd "$GITHUB_WORKSPACE/apps/operator" && nohup npx expo start --port "$OPERATOR_PORT" --host lan > "$GITHUB_WORKSPACE/metro-operator.log" 2>&1 &
+          cd apps/customer && nohup npx expo start --port "$CUSTOMER_PORT" > "$GITHUB_WORKSPACE/metro-customer.log" 2>&1 &
+          cd "$GITHUB_WORKSPACE/apps/operator" && nohup npx expo start --port "$OPERATOR_PORT" > "$GITHUB_WORKSPACE/metro-operator.log" 2>&1 &
           cd "$GITHUB_WORKSPACE"
           # Both ports in ONE loop, not one after the other. Polled
           # sequentially, the first port could spend the whole budget before
@@ -345,7 +352,8 @@ jobs:
           # `exp://192.168.64.x:8099` a step earlier and that one worked, so
           # match what Expo itself hands the simulator rather than assuming
           # loopback reaches the host's Metro from inside the device.
-          HOST_IP=$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || echo 127.0.0.1)
+          # Loopback: the simulator shares this machine's network stack.
+          HOST_IP=127.0.0.1
           echo "host address for the dev servers: $HOST_IP"
           echo "HOST_IP=$HOST_IP" >> "$GITHUB_ENV"
           # Check the address BEFORE handing it to a device. Two runs were
