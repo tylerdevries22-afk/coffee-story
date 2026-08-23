@@ -313,11 +313,24 @@ jobs:
           # behind the sections that followed it -- the same mistake as putting
           # this step before the artifact upload. Whatever matters most goes at
           # the bottom.
+          # Every simctl call in here is bounded. CoreSimulator can be left
+          # wedged by the very failure this step reports on -- a run spent 19
+          # minutes stuck inside these two checks, holding the queue behind it
+          # -- and a diagnostic that hangs is worse than no diagnostic at all.
+          probe() {
+            xcrun simctl get_app_container "$1" host.exp.Exponent >/dev/null 2>&1 &
+            pid=$!; waited=0
+            while kill -0 "$pid" 2>/dev/null && [ "$waited" -lt 20 ]; do sleep 2; waited=$((waited + 2)); done
+            if kill -0 "$pid" 2>/dev/null; then
+              kill -9 "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true
+              echo "$2: simctl did not answer in ${waited}s (CoreSimulator wedged?)"
+            elif wait "$pid"; then echo "$2: yes"
+            else echo "$2: NO"
+            fi
+          }
           echo '=========== is Expo Go on the device? ==========='
-          xcrun simctl get_app_container "$CUSTOMER_UDID" host.exp.Exponent >/dev/null 2>&1 \
-            && echo 'customer: yes' || echo 'customer: NO'
-          xcrun simctl get_app_container "$OPERATOR_UDID" host.exp.Exponent >/dev/null 2>&1 \
-            && echo 'operator: yes' || echo 'operator: NO'
+          probe "$CUSTOMER_UDID" customer
+          probe "$OPERATOR_UDID" operator
           echo '=========== metro (last lines each) ============='
           tail -6 "$GITHUB_WORKSPACE/metro-customer.log" 2>/dev/null || echo '(none)'
           echo '---'
