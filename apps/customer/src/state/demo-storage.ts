@@ -169,9 +169,8 @@ function isMessage(value: unknown): boolean {
 function isIntake(value: unknown): boolean {
   return isRecord(value)
     && typeof value.completed === 'boolean'
-    && typeof value.concerns === 'string'
-    && isOneOf(value.pressurePreference, ['light', 'medium', 'firm'])
-    && typeof value.consentAccepted === 'boolean'
+    && typeof value.notes === 'string'
+    && isOneOf(value.strength, ['light', 'medium', 'bold'])
     && isNullableDateString(value.updatedAt);
 }
 
@@ -198,7 +197,7 @@ function isStoredPortal(value: unknown): value is PortalBundle {
     && (!Array.isArray(value.paymentMethods) || !value.paymentMethods.every(isPaymentMethod))) return false;
   if (value.messages !== undefined
     && (!Array.isArray(value.messages) || !value.messages.every(isMessage))) return false;
-  if (value.intake !== undefined && !isIntake(value.intake)) return false;
+  if (value.preferences !== undefined && !isIntake(value.preferences)) return false;
   if (value.membership !== undefined && value.membership !== null && !isMembership(value.membership)) return false;
   return value.autoPromptDismissed === undefined || typeof value.autoPromptDismissed === 'boolean';
 }

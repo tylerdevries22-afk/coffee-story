@@ -21,8 +21,8 @@ import {
 } from './navigation-state';
 
 const MORE_VIEWS: readonly MoreView[] = [
-  'menu', 'services', 'visits', 'profile', 'intake', 'messages', 'membership',
-  'payments', 'gift-balance', 'location', 'resources', 'faq', 'care-policy',
+  'menu', 'menu-prices', 'orders', 'profile', 'preferences', 'messages', 'membership',
+  'payments', 'gift-balance', 'location', 'resources', 'faq', 'order-policy',
   'privacy', 'admin',
 ];
 // STAFF_TAB_ORDER omits 'checkout' on purpose (see its comment); the fuzz still

@@ -41,7 +41,7 @@ import {
 import type {
   GiftCard,
   AppRole,
-  IntakeProfile,
+  GuestPreferences,
   PortalBundle,
   PortalProfile,
   RewardCatalogItem,
@@ -72,7 +72,7 @@ type DemoState = {
   completeActivity: (activityKey: string) => void;
   addGift: (gift: Omit<GiftCard, 'id' | 'createdAt'>) => void;
   updateProfile: (profile: PortalProfile) => void;
-  updateIntake: (intake: IntakeProfile) => void;
+  updatePreferences: (preferences: GuestPreferences) => void;
   sendMessage: (body: string) => void;
   removePaymentMethod: (methodId: string) => void;
   setMembershipStatus: (status: 'active' | 'paused' | 'cancelled') => void;
@@ -163,7 +163,7 @@ export function DemoProvider({ children }: PropsWithChildren) {
       reviewDemoOrder(current, appointmentId, rating, note, new Date().toISOString())
     )),
     updateProfile: (profile) => savePortal((current) => updateDemoProfile(current, profile)),
-    updateIntake: (intake) => savePortal((current) => updateDemoIntake(current, intake)),
+    updatePreferences: (preferences) => savePortal((current) => updateDemoIntake(current, preferences)),
     sendMessage: (body) => savePortal((current) => addDemoMessage(current, {
       id: uniqueId('message'),
       sender: 'client',

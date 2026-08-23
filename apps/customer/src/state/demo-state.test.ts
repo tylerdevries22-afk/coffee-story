@@ -173,10 +173,10 @@ test('normalizes profile name and email', () => {
   assert.equal(next.profile.email, 'alex@example.com');
 });
 
-test('updates intake state', () => {
+test('updates preferences state', () => {
   const initial = createInitialDemoPortal();
-  const intake = { completed: true, concerns: 'Shoulders', pressurePreference: 'medium' as const, consentAccepted: true, updatedAt: '2026-08-01T00:00:00.000Z' };
-  assert.deepEqual(updateDemoIntake(initial, intake).intake, intake);
+  const preferences = { completed: true, notes: 'Shoulders', strength: 'medium' as const, updatedAt: '2026-08-01T00:00:00.000Z' };
+  assert.deepEqual(updateDemoIntake(initial, preferences).preferences, preferences);
 });
 
 test('adds a message after existing conversation', () => {

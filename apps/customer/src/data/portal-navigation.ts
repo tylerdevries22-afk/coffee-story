@@ -33,7 +33,7 @@ export const CLIENT_WEB_DESTINATIONS: readonly Omit<WebDestination, 'roles'>[] =
   { title: 'Order ahead', path: '/account/book' },
   { title: 'Gift cards', path: '/account/gift-cards' },
   { title: 'Send a gift', path: '/account/gift' },
-  { title: 'My usual', path: '/account/intake' },
+  { title: 'My usual', path: '/account/preferences' },
   { title: 'Memberships', path: '/account/memberships' },
   { title: 'Messages', path: '/account/messages' },
   { title: 'More', path: '/account/more' },

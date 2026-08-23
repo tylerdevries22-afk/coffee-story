@@ -161,18 +161,18 @@ describe('searchClientAccount matching', () => {
     }
     assert.deepEqual([...views].sort(), [
       'book',
-      'care-policy',
       'faq',
       'gift-balance',
-      'intake',
       'location',
       'membership',
       'messages',
+      'order-policy',
+      'orders',
       'payments',
+      'preferences',
       'privacy',
       'profile',
       'resources',
-      'visits',
     ]);
   });
 
@@ -180,14 +180,14 @@ describe('searchClientAccount matching', () => {
     // "spanish" reaches both the past order and the menu item it was, which
     // is the grouping working, not a miss.
     const results = searchClientAccount('spanish', portal(), MENU_ITEMS);
-    assert.deepEqual(results.map((result) => result.kind), ['visit', 'service']);
+    assert.deepEqual(results.map((result) => result.kind), ['order', 'service']);
     assert.equal(results[0]?.title, 'Spanish Latte (16 oz)');
-    assert.deepEqual(results[0]?.target, { view: 'visits' });
+    assert.deepEqual(results[0]?.target, { view: 'orders' });
   });
 
   it('matches an order by its formatted date', () => {
     const results = searchClientAccount('jul', portal(), MENU_ITEMS);
-    assert.deepEqual(results.map((result) => result.id), ['visit-order-1']);
+    assert.deepEqual(results.map((result) => result.id), ['order-order-1']);
     assert.match(results[0]?.detail ?? '', /Jul/);
   });
 
@@ -222,7 +222,7 @@ describe('searchClientAccount ordering and cap', () => {
     const results = searchClientAccount('latte', portal(), MENU_ITEMS);
     assert.deepEqual(
       results.map((result) => result.kind),
-      ['page', 'visit', 'gift', 'service'],
+      ['page', 'order', 'gift', 'service'],
     );
     assert.deepEqual(
       results.map((result) => result.title),

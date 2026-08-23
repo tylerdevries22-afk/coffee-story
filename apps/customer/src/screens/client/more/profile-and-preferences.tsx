@@ -6,11 +6,12 @@ import { ProfileAvatar } from '@/components/profile-avatar';
 import { CollapsingScreen } from '@/components/collapsing-screen';
 import { Body, Button, Card, SectionTitle } from '@/components/ui';
 import { mobileApi } from '@/lib/mobile-api';
-import { strengthLabel } from '@/features/setup/setup';
+import { requestKey } from '@/features/order/request-key';
+import { STRENGTH_OPTIONS, strengthLabel } from '@/features/setup/setup';
 import { useAuth } from '@/state/auth-context';
 import { useDemo } from '@/state/demo-context';
 import { colors, fonts, spacing } from '@/theme/tokens';
-import type { IntakeProfile, PortalProfile } from '@/types/domain';
+import type { GuestPreferences, PortalProfile } from '@/types/domain';
 
 import { styles } from './information-page';
 
@@ -199,67 +200,60 @@ export function Profile({
   );
 }
 
-export function Intake({ onBack }: { onBack: () => void }) {
+export function Preferences({ onBack }: { onBack: () => void }) {
   const { portal, isDemo, refresh } = useAuth();
   const demo = useDemo();
-  const initial: IntakeProfile = portal.intake ?? { completed: false, concerns: '', pressurePreference: 'medium', consentAccepted: false, updatedAt: null };
-  const [intake, setIntake] = useState(initial);
-  const [saving, setSaving] = useState<'draft' | 'submit' | null>(null);
-  async function persistIntake(submit: boolean) {
-    if (submit && !intake.consentAccepted) {
-      Alert.alert('Consent required', 'Review and accept the care consent before submitting.');
-      return;
-    }
-    setSaving(submit ? 'submit' : 'draft');
+  const initial: GuestPreferences = portal.preferences
+    ?? { completed: false, notes: '', strength: 'medium', updatedAt: null };
+  const [preferences, setPreferences] = useState(initial);
+  const [saving, setSaving] = useState(false);
+
+  async function persist() {
+    setSaving(true);
     try {
-      const next = {
-        ...intake,
-        completed: submit ? true : intake.completed,
-        updatedAt: new Date().toISOString(),
-      };
+      const next = { ...preferences, completed: true, updatedAt: new Date().toISOString() };
       if (isDemo) {
-        demo.updateIntake(next);
+        demo.updatePreferences(next);
       } else {
-        const idempotencyKey = `intake-${submit ? 'submit' : 'draft'}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-        // Send ONLY the three fields the server contract accepts. /api/mobile/intake
-        // parses with a `.strict()` zod schema, so posting `next` verbatim -- which
-        // also carries the local-only `completed` and `updatedAt` -- was rejected
-        // with 400 every time, making live intake impossible to save or submit.
-        // The `Pick<>` on mobileApi.submitIntake does not protect against this:
-        // it is erased at runtime and TypeScript skips excess-property checking
-        // for a variable, so the extra keys reached JSON.stringify unnoticed.
-        const contractPayload = {
-          concerns: next.concerns,
-          pressurePreference: next.pressurePreference,
-          consentAccepted: next.consentAccepted,
-        };
-        if (submit) await mobileApi.submitIntake(contractPayload, idempotencyKey);
-        else await mobileApi.updateIntake(contractPayload, idempotencyKey);
+        const idempotencyKey = requestKey('preferences');
+        // Only the fields the server accepts. The previous shape posted the
+        // local-only `completed` and `updatedAt` too and was rejected 400 every
+        // time; a Pick<> does not prevent that, because it is erased at runtime
+        // and TypeScript skips excess-property checks on a variable.
+        await mobileApi.updatePreferences({ notes: next.notes, strength: next.strength }, idempotencyKey);
         await refresh();
       }
-      Alert.alert(submit ? 'Intake submitted' : 'Draft saved', submit
-        ? 'The bar can now see how you take your coffee.'
-        : 'Your private answers were saved.');
+      setPreferences(next);
+      Alert.alert('Saved', 'The bar can see how you take your coffee.');
     } catch (error) {
-      Alert.alert('Intake not saved', error instanceof Error ? error.message : 'Try again later.');
+      Alert.alert('Not saved', error instanceof Error ? error.message : 'Try again later.');
     } finally {
-      setSaving(null);
+      setSaving(false);
     }
   }
+
   return (
-    <CollapsingScreen title="Intake & consent" eyebrow="Private care profile" onBack={onBack} keyboardShouldPersistTaps="handled">
-      <Field label="What should the bar know?" value={intake.concerns} multiline onChangeText={(concerns) => setIntake({ ...intake, concerns })} />
+    <CollapsingScreen title="My usual" eyebrow="Saved for next time" onBack={onBack} keyboardShouldPersistTaps="handled">
+      <Field
+        label="What should the bar know?"
+        value={preferences.notes}
+        multiline
+        onChangeText={(notes) => setPreferences({ ...preferences, notes })}
+      />
       <SectionTitle>Coffee strength</SectionTitle>
-      <View style={styles.options}>{(['light', 'medium', 'firm'] as const).map((pressure) => (
-        <Button key={pressure} label={strengthLabel(pressure)} variant={intake.pressurePreference === pressure ? 'primary' : 'secondary'} style={styles.option} onPress={() => setIntake({ ...intake, pressurePreference: pressure })} />
+      <View style={styles.options}>{STRENGTH_OPTIONS.map((strength) => (
+        <Button
+          key={strength}
+          label={strengthLabel(strength)}
+          variant={preferences.strength === strength ? 'primary' : 'secondary'}
+          style={styles.option}
+          onPress={() => setPreferences({ ...preferences, strength })}
+        />
       ))}</View>
-      <Button label={intake.consentAccepted ? 'Consent accepted' : 'Review and accept consent'} variant="secondary" onPress={() => setIntake({ ...intake, consentAccepted: true })} />
-      <Button label="Save draft" variant="secondary" loading={saving === 'draft'} disabled={saving !== null} onPress={() => void persistIntake(false)} />
-      <Button label="Submit intake" loading={saving === 'submit'} disabled={saving !== null} onPress={() => void persistIntake(true)} />
+      <Button label="Save" loading={saving} disabled={saving} onPress={() => void persist()} />
     </CollapsingScreen>
   );
 }
-
 export function Field({ label, ...props }: React.ComponentProps<typeof TextInput> & { label: string }) {
   return (
     <View style={styles.field}>

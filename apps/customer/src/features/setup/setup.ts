@@ -51,16 +51,16 @@ export const CLIENT_GOAL_OPTIONS = [
 
 /**
  * How strong a guest takes their coffee. The field name and wire values are
- * the portal API's (`pressurePreference: light|medium|firm`); every label a
+ * the portal API's (`strength: light|medium|firm`); every label a
  * person reads comes from `strengthLabel`.
  */
-export const PRESSURE_OPTIONS = ['light', 'medium', 'firm'] as const;
+export const STRENGTH_OPTIONS = ['light', 'medium', 'bold'] as const;
 
 export function strengthLabel(value: string): string {
   switch (value) {
     case 'light': return 'Light';
     case 'medium': return 'Medium';
-    case 'firm': return 'Bold';
+    case 'bold': return 'Bold';
     default: return value;
   }
 }
@@ -155,7 +155,7 @@ export function portalSetup(portal: PortalBundle): PortalSetupState {
       const candidate = (answers ?? {}) as Partial<ClientSetupAnswers>;
       return {
         goals: safeStrings(candidate.goals, CLIENT_GOAL_OPTIONS),
-        pressure: PRESSURE_OPTIONS.includes(candidate.pressure as never)
+        pressure: STRENGTH_OPTIONS.includes(candidate.pressure as never)
           ? (candidate.pressure as ClientSetupAnswers['pressure'])
           : 'medium',
         preferredTimes: safeStrings(candidate.preferredTimes, PREFERRED_TIME_OPTIONS),
@@ -190,7 +190,7 @@ export type AnyRoleSetup =
 
 /**
  * Persist one role's setup onto the bundle. Completing the client wizard also
- * writes the pressure preference into the intake profile, the same way the web
+ * writes the pressure preference into the preferences profile, the same way the web
  * wizard feeds the portal profile.
  */
 export function withRoleSetup(
@@ -202,10 +202,10 @@ export function withRoleSetup(
     ...portal,
     setup: { ...portalSetup(portal), [role]: setup },
   };
-  if (role === 'client' && setup.status === 'completed' && portal.intake) {
-    next.intake = {
-      ...portal.intake,
-      pressurePreference: (setup as RoleSetup<ClientSetupAnswers>).answers.pressure,
+  if (role === 'client' && setup.status === 'completed' && portal.preferences) {
+    next.preferences = {
+      ...portal.preferences,
+      strength: (setup as RoleSetup<ClientSetupAnswers>).answers.pressure,
     };
   }
   return next;

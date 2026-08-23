@@ -1,7 +1,7 @@
 import { InformationPage } from '@/screens/client/more/information-page';
 import { useAppState } from '@/state/app-context';
 
-export default function ClientMoreCarePolicyRoute() {
+export default function ClientMoreOrderPolicyRoute() {
   const { openMore } = useAppState();
-  return <InformationPage page="care-policy" onBack={() => openMore('menu')} />;
+  return <InformationPage page="order-policy" onBack={() => openMore('menu')} />;
 }

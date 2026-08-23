@@ -6,7 +6,7 @@ import { destinationForIntentUrl, giftTokenFromUrl } from './intent-links';
 describe('destinationForIntentUrl', () => {
   it('maps each Siri intent host to its destination', () => {
     assert.equal(destinationForIntentUrl('coffeestory://book'), 'book');
-    assert.equal(destinationForIntentUrl('coffeestory://visits'), 'visits');
+    assert.equal(destinationForIntentUrl('coffeestory://orders'), 'orders');
     assert.equal(destinationForIntentUrl('coffeestory://rewards'), 'rewards');
     assert.equal(destinationForIntentUrl('coffeestory://gift'), 'gift');
   });
@@ -27,7 +27,9 @@ describe('destinationForIntentUrl', () => {
 
   it('tolerates trailing slashes and casing', () => {
     assert.equal(destinationForIntentUrl('coffeestory://Book/'), 'book');
-    assert.equal(destinationForIntentUrl('coffeestory://VISITS'), 'visits');
+    assert.equal(destinationForIntentUrl('coffeestory://ORDERS'), 'orders');
+    // The pre-rename host stays alive: published links must not go dead.
+    assert.equal(destinationForIntentUrl('coffeestory://VISITS'), 'orders');
   });
 });
 

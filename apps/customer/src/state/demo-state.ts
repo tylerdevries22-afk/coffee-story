@@ -9,7 +9,7 @@ import type {
   OrderableAddOn,
   OrderableItem,
   GiftCard,
-  IntakeProfile,
+  GuestPreferences,
   PortalOrder,
   PortalBundle,
   PortalMessage,
@@ -128,7 +128,7 @@ export function cancelDemoOrder(portal: PortalBundle, orderId: string): PortalBu
 }
 
 /**
- * Records a post-visit review on a demo order.
+ * Records a post-order review on a demo order.
  *
  * Without this the demo branch of `saveVisitReview` persisted nothing while
  * still alerting "Review saved" -- the same fake-success shape already fixed for
@@ -246,8 +246,8 @@ export function updateDemoProfile(portal: PortalBundle, profile: PortalProfile):
   return { ...portal, profile: { ...profile, fullName: profile.fullName.trim(), email: profile.email.trim() } };
 }
 
-export function updateDemoIntake(portal: PortalBundle, intake: IntakeProfile): PortalBundle {
-  return { ...portal, intake };
+export function updateDemoIntake(portal: PortalBundle, preferences: GuestPreferences): PortalBundle {
+  return { ...portal, preferences };
 }
 
 export function addDemoMessage(portal: PortalBundle, message: PortalMessage): PortalBundle {

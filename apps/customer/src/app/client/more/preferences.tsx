@@ -1,7 +1,7 @@
-import { Intake } from '@/screens/client/more/profile-and-intake';
+import { Preferences } from '@/screens/client/more/profile-and-preferences';
 import { useAppState } from '@/state/app-context';
 
 export default function ClientMoreIntakeRoute() {
   const { openMore } = useAppState();
-  return <Intake onBack={() => openMore('menu')} />;
+  return <Preferences onBack={() => openMore('menu')} />;
 }

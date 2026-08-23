@@ -36,7 +36,7 @@ type AppState = {
   readNotificationIds: ReadonlySet<string>;
   /**
    * What was still unread the moment the page opened. Instagram keeps those
-   * rows highlighted for the duration of the visit even though the badge
+   * rows highlighted for the duration of the order even though the badge
    * clears immediately, so the highlight reads from this snapshot rather than
    * from the live read set.
    */
@@ -162,7 +162,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     else go(clientMoreHref(view), 'push');
   }, []);
 
-  // Siri / App Intents deep links (coffeestory://book|visits|rewards|gift).
+  // Siri / App Intents deep links (coffeestory://book|orders|rewards|gift).
   useEffect(() => {
     const dispatch = (url: string | null) => {
       const giftToken = giftTokenFromUrl(url);
@@ -173,7 +173,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
       const destination = destinationForIntentUrl(url);
       if (!destination) return;
       if (destination === 'book') startOrder();
-      else if (destination === 'visits') openMore('visits');
+      else if (destination === 'orders') openMore('orders');
       else setClientTab(destination);
     };
     void Linking.getInitialURL().then(dispatch);

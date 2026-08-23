@@ -40,7 +40,7 @@ import {
 } from './liquid-physics';
 import { useLiquidMotion } from './use-liquid-motion';
 
-import NEBULA from '../../../assets/rewards/heart-nebula.webp';
+import NEBULA from '../../../assets/rewards/liquid-nebula.webp';
 
 import { POUR_MS, type LiquidDrag } from './liquid-drag';
 

@@ -6,7 +6,7 @@ import type { PortalBundle, StaffDashboard } from '@/types/domain';
  * and testable; the screen maps each target onto real navigation.
  */
 export type NotificationTarget =
-  | { kind: 'visits' }
+  | { kind: 'orders' }
   | { kind: 'rewards' }
   | { kind: 'gift-balance' }
   | { kind: 'staff-calendar' }
@@ -85,7 +85,7 @@ function money(cents: number): string {
 
 /**
  * The client's feed, assembled from data the app already holds: upcoming and
- * just-finished visits, reward movement, and gift cards received.
+ * just-finished orders, reward movement, and gift cards received.
  */
 export function buildClientNotifications(portal: PortalBundle, now: Date): NotificationItem[] {
   const items: NotificationItem[] = [];
@@ -102,7 +102,7 @@ export function buildClientNotifications(portal: PortalBundle, now: Date): Notif
         title: 'Your order is coming up',
         detail: `${order.summary} · ${formatWhen(order.scheduledFor ?? order.placedAt)}`,
         at: new Date(dueAt.getTime() - 2 * DAY).toISOString(),
-        target: { kind: 'visits' },
+        target: { kind: 'orders' },
         action: 'View',
       });
     }
@@ -113,7 +113,7 @@ export function buildClientNotifications(portal: PortalBundle, now: Date): Notif
         title: 'Thanks for stopping by',
         detail: `${order.summary} · ${formatWhen(order.placedAt)}`,
         at: order.scheduledFor ?? order.placedAt,
-        target: { kind: 'visits' },
+        target: { kind: 'orders' },
         action: 'Order again',
       });
     }

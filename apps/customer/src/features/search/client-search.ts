@@ -10,7 +10,7 @@ import type { OrderableItem, GiftCard, PortalOrder, PortalBundle } from '@/types
  */
 export type ClientSearchResult = {
   id: string;
-  kind: 'page' | 'visit' | 'gift' | 'service';
+  kind: 'page' | 'order' | 'gift' | 'service';
   title: string;
   detail: string;
   /** What the caller should open. */
@@ -33,11 +33,11 @@ const PAGES: readonly { view: string; title: string; detail: string }[] = [
   { view: 'location', title: 'Shop location & hours', detail: 'Aurora, Colorado, with parking, Wi-Fi, and late-night hours' },
   { view: 'resources', title: 'Our story & brewing guides', detail: 'Our roaster, the halal-friendly menu, and staying a while' },
   { view: 'faq', title: 'Frequently asked questions', detail: 'Answers about the coffee menu, gift cards, and rewards' },
-  { view: 'care-policy', title: 'Order & refund policy', detail: 'Changes, late pickup, and refund exceptions' },
+  { view: 'order-policy', title: 'Order & refund policy', detail: 'Changes, late pickup, and refund exceptions' },
   { view: 'privacy', title: 'Privacy & terms', detail: 'Order records, payments, and account control' },
-  { view: 'visits', title: 'Orders & pickup history', detail: 'Current and past coffee orders' },
+  { view: 'orders', title: 'Orders & pickup history', detail: 'Current and past coffee orders' },
   { view: 'profile', title: 'Account settings', detail: 'Name, email, phone, and birthday' },
-  { view: 'intake', title: 'My usual & preferences', detail: 'Favourite drink, strength, and milk preference' },
+  { view: 'preferences', title: 'My usual & preferences', detail: 'Favourite drink, strength, and milk preference' },
   { view: 'messages', title: 'Messages', detail: 'Private conversation with the shop' },
   { view: 'membership', title: 'Membership', detail: 'Plan status, credits, and renewal date' },
   { view: 'payments', title: 'Payment methods', detail: 'Saved cards for secure checkout' },
@@ -46,7 +46,7 @@ const PAGES: readonly { view: string; title: string; detail: string }[] = [
 /** Result ceiling, so the sheet stays a shortlist rather than a directory. */
 const RESULT_LIMIT = 12;
 
-function formatVisitDate(iso: string): string {
+function formatOrderDate(iso: string): string {
   return new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(new Date(iso));
 }
 
@@ -60,11 +60,11 @@ function matches(needle: string, title: string, detail: string): boolean {
 
 function orderResult(order: PortalOrder): ClientSearchResult {
   return {
-    id: `visit-${order.id}`,
-    kind: 'visit',
+    id: `order-${order.id}`,
+    kind: 'order',
     title: order.summary,
-    detail: `${formatVisitDate(order.placedAt)} · ${order.status.replace('_', ' ')}`,
-    target: { view: 'visits' },
+    detail: `${formatOrderDate(order.placedAt)} · ${order.status.replace('_', ' ')}`,
+    target: { view: 'orders' },
   };
 }
 
@@ -96,12 +96,12 @@ function itemResult(item: OrderableItem): ClientSearchResult {
 
 /**
  * Case-insensitive substring search across a client's own account: the More
- * destinations, their visits, their gift cards, and the bookable services.
+ * destinations, their orders, their gift cards, and the bookable services.
  *
  * An empty or whitespace-only query returns nothing rather than everything —
  * the search sheet opens blank, and dumping the whole account into it would
  * read as a result set the member never asked for. Results are grouped pages,
- * visits, gifts, services and capped at twelve.
+ * orders, gifts, services and capped at twelve.
  */
 export function searchClientAccount(
   query: string,
@@ -121,7 +121,7 @@ export function searchClientAccount(
       target: { view: page.view },
     }));
 
-  const visits = portal.orders
+  const orders = portal.orders
     .map(orderResult)
     .filter((result) => matches(needle, result.title, result.detail));
 
@@ -133,5 +133,5 @@ export function searchClientAccount(
     .map(itemResult)
     .filter((result) => matches(needle, result.title, result.detail));
 
-  return [...pages, ...visits, ...gifts, ...bookable].slice(0, RESULT_LIMIT);
+  return [...pages, ...orders, ...gifts, ...bookable].slice(0, RESULT_LIMIT);
 }

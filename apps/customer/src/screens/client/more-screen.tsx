@@ -34,7 +34,7 @@ const ORDERABLE_ITEMS: OrderableItem[] = projectFirstVariants(MENU_ITEMS);
 /** Result kind decides the row glyph, the way the web search groups results. */
 const SEARCH_SYMBOLS: Record<ClientSearchResult['kind'], 'doc.text' | 'clock.arrow.circlepath' | 'creditcard' | 'heart'> = {
   page: 'doc.text',
-  visit: 'clock.arrow.circlepath',
+  order: 'clock.arrow.circlepath',
   gift: 'creditcard',
   service: 'heart',
 };
@@ -42,7 +42,7 @@ const SEARCH_SYMBOLS: Record<ClientSearchResult['kind'], 'doc.text' | 'clock.arr
 /**
  * The More tab's root screen -- the menu only.
  *
- * The eleven destinations this used to branch into (services, visits,
+ * The eleven destinations this used to branch into (services, orders,
  * profile, ...) are now their own pushed routes under `app/client/more/`,
  * each a thin wrapper around the same component this file used to render
  * inline. See that directory for the mapping; `MoreView` (still exported from
@@ -69,7 +69,7 @@ export function MoreScreen() {
   const unreadCount = notifications.filter((item) => !readNotificationIds.has(item.id)).length;
 
   const liveOrders = portal.orders ?? [];
-  const completedVisits = isDemo
+  const completedOrders = isDemo
     ? portal.orders.filter((appointment) => appointment.status === 'picked_up').length
     : liveOrders.filter((entry) => entry.status === 'picked_up').length;
   const searchResults = searchClientAccount(query, portal, ORDERABLE_ITEMS);
@@ -163,7 +163,7 @@ export function MoreScreen() {
         title="Menu & pricing"
         subtitle="Every drink, size, and extra"
         symbol="heart"
-        onPress={() => openMore('services')}
+        onPress={() => openMore('menu-prices')}
       />
       <PillRow title="Shop location & hours" subtitle={`${BUSINESS.street}, ${BUSINESS.cityLine}`} symbol="calendar" onPress={() => openMore('location')} />
       <PillRow title="Our story & brewing guides" symbol="doc.text" onPress={() => openMore('resources')} />
@@ -179,8 +179,8 @@ export function MoreScreen() {
       {/* Domains the live plane does not serve yet stay demo-only: the live
           bundle omits their keys, so these rows only render with data behind
           them. */}
-      {portal.intake !== undefined ? (
-        <PillRow title="My usual & preferences" subtitle={portal.intake?.completed ? 'Saved' : 'Needs attention'} symbol="doc.text" onPress={() => openMore('intake')} />
+      {portal.preferences !== undefined ? (
+        <PillRow title="My usual & preferences" subtitle={portal.preferences?.completed ? 'Saved' : 'Needs attention'} symbol="doc.text" onPress={() => openMore('preferences')} />
       ) : null}
       {portal.membership !== undefined ? (
         <PillRow title="Membership" subtitle={portal.membership?.name ?? 'Explore plans'} symbol="heart" onPress={() => openMore('membership')} />
@@ -202,7 +202,7 @@ export function MoreScreen() {
           onPress={() => openMore('gift-balance')}
         />
       ) : null}
-      <PillRow title="Orders & pickup history" subtitle={`${completedVisits} completed orders`} symbol="clock.arrow.circlepath" onPress={() => openMore('visits')} />
+      <PillRow title="Orders & pickup history" subtitle={`${completedOrders} completed orders`} symbol="clock.arrow.circlepath" onPress={() => openMore('orders')} />
       {portal.paymentMethods !== undefined ? (
         <PillRow title="Payment methods" subtitle={`${portal.paymentMethods.length} saved`} symbol="creditcard" onPress={() => openMore('payments')} />
       ) : null}
@@ -212,7 +212,7 @@ export function MoreScreen() {
 
       <SectionTitle>Support</SectionTitle>
       <PillRow title="Frequently asked questions" onPress={() => openMore('faq')} />
-      <PillRow title="Order & refund policy" onPress={() => openMore('care-policy')} />
+      <PillRow title="Order & refund policy" onPress={() => openMore('order-policy')} />
 
       {isDemo ? (
         <>

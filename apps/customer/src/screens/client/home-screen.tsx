@@ -119,7 +119,7 @@ export function HomeScreen() {
 
   const siriCommands: readonly SiriCommand[] = [
     { key: 'book', phrase: 'Order my usual', onRun: () => startOrder() },
-    { key: 'next-visit', phrase: 'When is my next pickup?', onRun: () => openMore('visits') },
+    { key: 'next-order', phrase: 'When is my next pickup?', onRun: () => openMore('orders') },
     { key: 'rewards', phrase: 'Check my rewards balance', onRun: () => setClientTab('rewards') },
     { key: 'gift', phrase: 'Send a gift card', onRun: () => setClientTab('gift') },
   ];

@@ -6,7 +6,7 @@ export type SetupStatus = 'not_started' | 'in_progress' | 'completed';
 
 export type ClientSetupAnswers = {
   goals: string[];
-  pressure: 'light' | 'medium' | 'firm';
+  pressure: 'light' | 'medium' | 'bold';
   preferredTimes: string[];
 };
 
@@ -155,11 +155,18 @@ export type PortalMessage = {
   read: boolean;
 };
 
-export type IntakeProfile = {
+/**
+ * How a guest takes their coffee, saved for next time.
+ *
+ * This was an appointment intake form with a consent gate and a draft/submit
+ * workflow. A coffee preference needs neither: there is nothing to consent to
+ * and nothing to submit, so it saves in one action.
+ */
+export type GuestPreferences = {
   completed: boolean;
-  concerns: string;
-  pressurePreference: 'light' | 'medium' | 'firm';
-  consentAccepted: boolean;
+  /** Free text for the bar -- milk, sweetness, anything worth remembering. */
+  notes: string;
+  strength: 'light' | 'medium' | 'bold';
   updatedAt: string | null;
 };
 
@@ -187,7 +194,7 @@ export type PortalBundle = {
   giftCards: GiftCard[];
   paymentMethods?: PaymentMethod[];
   messages?: PortalMessage[];
-  intake?: IntakeProfile;
+  preferences?: GuestPreferences;
   membership?: Membership | null;
   setup?: PortalSetupState;
 };
@@ -223,13 +230,13 @@ export type StaffClient = {
   fullName: string;
   email: string;
   phone: string | null;
-  completedVisits: number;
+  completedOrders: number;
   /** Care segments used by the workspace filter chips. */
   tags?: string[];
   /** Lifetime completed spend, in cents. */
   lifetimeSpendCents?: number;
-  /** ISO timestamp of the most recent completed visit. */
-  lastVisitAt?: string | null;
+  /** ISO timestamp of the most recent completed order. */
+  lastOrderAt?: string | null;
 };
 
 /**
@@ -271,9 +278,9 @@ export type StaffDashboard = {
 export type StaffWorkspaceMetrics = {
   todayRevenueCents: number;
   orderCount: number;
-  /** Clients whose first visit landed inside the trailing week. */
+  /** Clients whose first order landed inside the trailing week. */
   newClientCount: number;
-  /** Share of clients with more than one completed visit, 0-100. */
+  /** Share of clients with more than one completed order, 0-100. */
   rebookRatePct: number;
   /** Same four figures a week earlier, for the delta chips. */
   previous?: {
@@ -284,7 +291,7 @@ export type StaffWorkspaceMetrics = {
   };
   /** Trailing seven days of completed revenue, oldest first. */
   revenueTrend?: { label: string; cents: number }[];
-  /** Booking counts grouped by where the visit came from. */
+  /** Booking counts grouped by where the order came from. */
   bookingSources?: { source: BookingSource; count: number }[];
 };
 

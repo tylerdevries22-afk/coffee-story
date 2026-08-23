@@ -3,7 +3,7 @@
  * shaped into the same bundle the demo plane feeds the screens — the seam
  * auth-context already branches on `isDemo`, so no screen changes shape.
  *
- * Domains the live schema does not serve yet (messages, intake, membership,
+ * Domains the live schema does not serve yet (messages, preferences, membership,
  * payment methods, gift cards) are left ABSENT rather than faked; the
  * screens hide their entry points when the key is undefined.
  */
@@ -153,7 +153,7 @@ export async function loadLivePortal(
     rewardActivities: [],
     rewardCatalog: rewardCatalogOf(brand.brand.brand_config),
     giftCards: [],
-    // messages / intake / membership / paymentMethods stay absent: the live
+    // messages / preferences / membership / paymentMethods stay absent: the live
     // schema has no rows behind them yet, and their screens hide accordingly.
   };
 }

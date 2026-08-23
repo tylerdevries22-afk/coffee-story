@@ -22,12 +22,11 @@ function bundleWith(setup?: unknown): PortalBundle {
     rewardActivities: [],
     rewardCatalog: [],
     giftCards: [],
-    intake: {
+    preferences: {
       completed: true,
-      concerns: '',
-      pressurePreference: 'medium',
-      consentAccepted: true,
-      updatedAt: null,
+      notes: '',
+      strength: 'medium',
+            updatedAt: null,
     },
     setup: setup as PortalBundle['setup'],
   } as unknown as PortalBundle;
@@ -68,14 +67,14 @@ test('withRoleSetup persists one role and leaves the others intact', () => {
   assert.equal(portalSetup(next).client.status, 'not_started');
 });
 
-test('completing the client setup writes the intake pressure preference', () => {
+test('completing the client setup writes the preferences pressure preference', () => {
   const completed: RoleSetup<ClientSetupAnswers> = {
     status: 'completed',
     step: 2,
-    answers: { goals: ['Improve sleep'], pressure: 'firm', preferredTimes: ['Saturday'] },
+    answers: { goals: ['Improve sleep'], pressure: 'bold', preferredTimes: ['Saturday'] },
   };
   const next = withRoleSetup(bundleWith(undefined), 'client', completed);
-  assert.equal(next.intake?.pressurePreference, 'firm');
+  assert.equal(next.preferences?.strength, 'bold');
 });
 
 test('setupSummary reports role-appropriate facts', () => {

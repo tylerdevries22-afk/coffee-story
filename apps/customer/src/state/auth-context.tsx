@@ -51,7 +51,7 @@ const EMPTY_PORTAL: PortalBundle = {
   giftCards: [],
   paymentMethods: [],
   messages: [],
-  intake: { completed: false, concerns: '', pressurePreference: 'medium', consentAccepted: false, updatedAt: null },
+  preferences: { completed: false, notes: '', strength: 'medium', updatedAt: null },
   membership: null,
 };
 

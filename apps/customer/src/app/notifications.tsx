@@ -22,7 +22,7 @@ export default function NotificationsRoute() {
     closeNotifications();
     if (item.target.kind === 'rewards') setClientTab('rewards');
     else if (item.target.kind === 'gift-balance') openMore('gift-balance');
-    else openMore('visits');
+    else openMore('orders');
   }
 
   return (

@@ -35,8 +35,8 @@ test('navigable client pages use the sticky header contract', () => {
   const files = [
     ['screens', 'client', 'more', 'account-pages.tsx'],
     ['screens', 'client', 'more', 'information-page.tsx'],
-    ['screens', 'client', 'more', 'profile-and-intake.tsx'],
-    ['screens', 'client', 'more', 'visits.tsx'],
+    ['screens', 'client', 'more', 'profile-and-preferences.tsx'],
+    ['screens', 'client', 'more', 'orders.tsx'],
     ['screens', 'client', 'gift-screen.tsx'],
     ['screens', 'client', 'order-screen.tsx'],
     ['screens', 'notifications-screen.tsx'],

@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import { INFORMATION_PAGES } from './information-pages';
 
 test('information pages preserve every More destination', () => {
-  assert.deepEqual(Object.keys(INFORMATION_PAGES), ['location', 'resources', 'faq', 'care-policy', 'privacy']);
+  assert.deepEqual(Object.keys(INFORMATION_PAGES), ['location', 'resources', 'faq', 'order-policy', 'privacy']);
 });
 
 test('every information page has display copy, rows, and a web destination', () => {

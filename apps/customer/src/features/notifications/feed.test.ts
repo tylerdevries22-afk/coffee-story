@@ -13,7 +13,7 @@ function item(id: string, at: string): NotificationItem {
     title: 'Something happened',
     detail: 'Detail line',
     at,
-    target: { kind: 'visits' },
+    target: { kind: 'orders' },
   };
 }
 

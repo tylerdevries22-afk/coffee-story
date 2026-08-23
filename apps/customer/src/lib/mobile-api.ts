@@ -88,8 +88,8 @@ export const mobileApi = {
     notAvailable('Reviews'),
   uploadProfileAvatar: async (_photo: Blob, _mimeType: string, _key: string): Promise<{ profile: PortalProfile }> =>
     notAvailable('Profile photos'),
-  updateIntake: async (_payload: unknown, _key: string): Promise<{ ok: true }> => notAvailable('Preferences'),
-  submitIntake: async (_payload: unknown, _key: string): Promise<{ ok: true }> => notAvailable('Preferences'),
+  updatePreferences: async (_payload: unknown, _key: string): Promise<{ ok: true }> => notAvailable('Preferences'),
+  submitPreferences: async (_payload: unknown, _key: string): Promise<{ ok: true }> => notAvailable('Preferences'),
   sendMessage: async (_body: string, _key: string): Promise<{ ok: true }> => notAvailable('Messages'),
   createGiftPayment: async (_payload: unknown): Promise<{ paymentIntent: string }> => notAvailable('Gift cards'),
   claimGift: async (_token: string, _key: string): Promise<{ code: string; balanceCents: number; status: string }> =>

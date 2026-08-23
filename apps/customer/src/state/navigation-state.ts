@@ -17,8 +17,8 @@
 export type ClientTab = 'home' | 'book' | 'gift' | 'rewards' | 'more';
 export type StaffTab = 'today' | 'calendar' | 'quick-actions' | 'clients' | 'checkout' | 'more';
 export type MoreView =
-  | 'menu' | 'services' | 'visits' | 'profile' | 'intake' | 'messages' | 'membership'
-  | 'payments' | 'gift-balance' | 'location' | 'resources' | 'faq' | 'care-policy'
+  | 'menu' | 'menu-prices' | 'orders' | 'profile' | 'preferences' | 'messages' | 'membership'
+  | 'payments' | 'gift-balance' | 'location' | 'resources' | 'faq' | 'order-policy'
   | 'privacy' | 'admin' | 'drops' | 'catering' | 'referrals';
 
 /** Left-to-right order of the client tab bar. */
@@ -125,9 +125,9 @@ export function staffDetailPathFromPathname(pathname: string): string | null {
 }
 
 const MORE_VIEWS: readonly MoreView[] = [
-  'menu', 'services', 'visits', 'profile', 'intake', 'messages', 'membership',
+  'menu', 'menu-prices', 'orders', 'profile', 'preferences', 'messages', 'membership',
   'drops', 'catering', 'referrals',
-  'payments', 'gift-balance', 'location', 'resources', 'faq', 'care-policy',
+  'payments', 'gift-balance', 'location', 'resources', 'faq', 'order-policy',
   'privacy', 'admin',
 ];
 

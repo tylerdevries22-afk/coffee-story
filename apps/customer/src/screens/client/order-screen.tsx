@@ -127,7 +127,7 @@ export function OrderScreen() {
     if (redeemCents > 0 && redeemCents > redeemableCents) setRedeemCents(0);
   }, [redeemCents, redeemableCents]);
 
-  // The idempotency key identifies one CART, not one visit to this screen.
+  // The idempotency key identifies one CART, not one order to this screen.
   // It used to be released only on success, so after a request that timed
   // out server-side -- the order written, the response lost -- a guest who
   // added a croissant and pressed Place Order again sent the same key. The
@@ -408,7 +408,7 @@ export function OrderScreen() {
             isDelivery={order.fulfillment.mode === 'delivery'}
             onViewVisits={() => {
               editOrder();
-              openMore('visits');
+              openMore('orders');
             }}
             onDone={editOrder}
           />

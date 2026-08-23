@@ -1,4 +1,4 @@
-export type InformationPageKey = 'location' | 'resources' | 'faq' | 'care-policy' | 'privacy';
+export type InformationPageKey = 'location' | 'resources' | 'faq' | 'order-policy' | 'privacy';
 
 export type InformationPageConfig = {
   eyebrow: string;
@@ -47,7 +47,7 @@ export const INFORMATION_PAGES: Readonly<Record<InformationPageKey, InformationP
     webPath: '/faq',
     action: 'Read every FAQ',
   },
-  'care-policy': {
+  'order-policy': {
     eyebrow: 'Good to know',
     title: 'Order & refund policy',
     summary: 'Every drink is made to order, just for you.',

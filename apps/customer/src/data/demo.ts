@@ -225,7 +225,7 @@ const messages: PortalMessage[] = [
   { id: 'demo-message-2', sender: 'client', body: 'Thank you! Quick question — can I add oat milk to my usual?', sentAt: isoAt(-21, 10, 15), read: true },
   { id: 'demo-message-3', sender: 'studio', body: 'Already on your profile, so just order as usual and we will make it with oat milk.', sentAt: isoAt(-21, 10, 40), read: true },
   { id: 'demo-message-4', sender: 'client', body: 'Perfect. The pistachio cold foam last week was incredible.', sentAt: isoAt(-14, 18), read: true },
-  { id: 'demo-message-5', sender: 'studio', body: 'Great to hear. Mike saved the pistachio cream recipe card for your next visit.', sentAt: isoAt(-14, 18, 30), read: true },
+  { id: 'demo-message-5', sender: 'studio', body: 'Great to hear. Mike saved the pistachio cream recipe card for your next order.', sentAt: isoAt(-14, 18, 30), read: true },
   { id: 'demo-message-6', sender: 'client', body: 'Could I get my Spanish latte half-sweet this time?', sentAt: isoAt(-3, 8), read: true },
   { id: 'demo-message-7', sender: 'studio', body: 'Noted on your order — half-sweet Spanish latte, oat milk.', sentAt: isoAt(-3, 9), read: true },
   { id: 'demo-message-8', sender: 'studio', body: 'Reminder: your Spanish Latte pickup is today at 5:30 PM. Reply here if anything changes.', sentAt: isoAt(0, 8), read: false },
@@ -264,12 +264,11 @@ export const DEMO_PORTAL: PortalBundle = {
     { id: 'demo-payment-2', brand: 'Mastercard', last4: '5544', expirationMonth: 8, expirationYear: now.getFullYear() + 1, isDefault: false },
   ],
   messages,
-  intake: {
+  preferences: {
     completed: true,
-    concerns: 'Oat milk preferred, half-sweet on the signature lattes. Pistachio anything is a yes.',
-    pressurePreference: 'medium',
-    consentAccepted: true,
-    updatedAt: isoAt(-20, 9),
+    notes: 'Oat milk preferred, half-sweet on the signature lattes. Pistachio anything is a yes.',
+    strength: 'medium',
+        updatedAt: isoAt(-20, 9),
   },
   membership: {
     id: 'demo-membership',
@@ -283,24 +282,24 @@ export const DEMO_PORTAL: PortalBundle = {
 
 // --- Staff dashboard ---------------------------------------------------------
 
-/** Days since the guest's last completed visit, for the demo rollups. */
+/** Days since the guest's last completed order, for the demo rollups. */
 function daysAgo(days: number): string {
   return isoAt(-days, 11);
 }
 
 const staffClients: StaffClient[] = [
-  { id: 'client-1', fullName: 'Alex Rivera', email: 'alex@example.com', phone: '(720) 555-0144', completedVisits: 11, tags: ['Regular', 'Spanish latte'], lifetimeSpendCents: 18400, lastVisitAt: daysAgo(6) },
-  { id: 'client-2', fullName: 'Jamie Lee', email: 'jamie.lee@example.com', phone: null, completedVisits: 4, tags: ['Regular'], lifetimeSpendCents: 5900, lastVisitAt: daysAgo(21) },
-  { id: 'client-3', fullName: 'Jordan Avery', email: 'jordan.avery@example.com', phone: '(303) 555-0167', completedVisits: 9, tags: ['Brew Club', 'Boba'], lifetimeSpendCents: 10850, lastVisitAt: daysAgo(9) },
-  { id: 'client-4', fullName: 'Riley Chen', email: 'riley.chen@example.com', phone: '(720) 555-0181', completedVisits: 7, tags: ['Matcha'], lifetimeSpendCents: 8200, lastVisitAt: daysAgo(14) },
-  { id: 'client-5', fullName: 'Casey Morgan', email: 'casey.morgan@example.com', phone: '(303) 555-0129', completedVisits: 6, tags: ['Regular', 'Cold brew'], lifetimeSpendCents: 6850, lastVisitAt: daysAgo(30) },
-  { id: 'client-6', fullName: 'Taylor Quinn', email: 'taylor.quinn@example.com', phone: null, completedVisits: 3, tags: ['New'], lifetimeSpendCents: 3150, lastVisitAt: daysAgo(4) },
-  { id: 'client-7', fullName: 'Morgan Blake', email: 'morgan.blake@example.com', phone: '(720) 555-0152', completedVisits: 14, tags: ['VIP', 'Brew Club'], lifetimeSpendCents: 24800, lastVisitAt: daysAgo(1) },
-  { id: 'client-8', fullName: 'Sam Whitfield', email: 'sam.whitfield@example.com', phone: '(303) 555-0193', completedVisits: 2, tags: ['New', 'Turkish coffee'], lifetimeSpendCents: 2100, lastVisitAt: daysAgo(11) },
-  { id: 'client-9', fullName: 'Devin Park', email: 'devin.park@example.com', phone: '(720) 555-0176', completedVisits: 8, tags: ['Matcha', 'Brew Club'], lifetimeSpendCents: 9800, lastVisitAt: daysAgo(8) },
-  { id: 'client-10', fullName: 'Harper Ellis', email: 'harper.ellis@example.com', phone: '(303) 555-0118', completedVisits: 5, tags: ['Regular'], lifetimeSpendCents: 4750, lastVisitAt: daysAgo(17) },
-  { id: 'client-11', fullName: 'Quinn Nakamura', email: 'quinn.nakamura@example.com', phone: '(720) 555-0135', completedVisits: 1, tags: ['New'], lifetimeSpendCents: 1200, lastVisitAt: daysAgo(3) },
-  { id: 'client-12', fullName: 'Reese Talbot', email: 'reese.talbot@example.com', phone: '(303) 555-0144', completedVisits: 10, tags: ['VIP', 'Spanish latte'], lifetimeSpendCents: 14600, lastVisitAt: daysAgo(2) },
+  { id: 'client-1', fullName: 'Alex Rivera', email: 'alex@example.com', phone: '(720) 555-0144', completedOrders: 11, tags: ['Regular', 'Spanish latte'], lifetimeSpendCents: 18400, lastOrderAt: daysAgo(6) },
+  { id: 'client-2', fullName: 'Jamie Lee', email: 'jamie.lee@example.com', phone: null, completedOrders: 4, tags: ['Regular'], lifetimeSpendCents: 5900, lastOrderAt: daysAgo(21) },
+  { id: 'client-3', fullName: 'Jordan Avery', email: 'jordan.avery@example.com', phone: '(303) 555-0167', completedOrders: 9, tags: ['Brew Club', 'Boba'], lifetimeSpendCents: 10850, lastOrderAt: daysAgo(9) },
+  { id: 'client-4', fullName: 'Riley Chen', email: 'riley.chen@example.com', phone: '(720) 555-0181', completedOrders: 7, tags: ['Matcha'], lifetimeSpendCents: 8200, lastOrderAt: daysAgo(14) },
+  { id: 'client-5', fullName: 'Casey Morgan', email: 'casey.morgan@example.com', phone: '(303) 555-0129', completedOrders: 6, tags: ['Regular', 'Cold brew'], lifetimeSpendCents: 6850, lastOrderAt: daysAgo(30) },
+  { id: 'client-6', fullName: 'Taylor Quinn', email: 'taylor.quinn@example.com', phone: null, completedOrders: 3, tags: ['New'], lifetimeSpendCents: 3150, lastOrderAt: daysAgo(4) },
+  { id: 'client-7', fullName: 'Morgan Blake', email: 'morgan.blake@example.com', phone: '(720) 555-0152', completedOrders: 14, tags: ['VIP', 'Brew Club'], lifetimeSpendCents: 24800, lastOrderAt: daysAgo(1) },
+  { id: 'client-8', fullName: 'Sam Whitfield', email: 'sam.whitfield@example.com', phone: '(303) 555-0193', completedOrders: 2, tags: ['New', 'Turkish coffee'], lifetimeSpendCents: 2100, lastOrderAt: daysAgo(11) },
+  { id: 'client-9', fullName: 'Devin Park', email: 'devin.park@example.com', phone: '(720) 555-0176', completedOrders: 8, tags: ['Matcha', 'Brew Club'], lifetimeSpendCents: 9800, lastOrderAt: daysAgo(8) },
+  { id: 'client-10', fullName: 'Harper Ellis', email: 'harper.ellis@example.com', phone: '(303) 555-0118', completedOrders: 5, tags: ['Regular'], lifetimeSpendCents: 4750, lastOrderAt: daysAgo(17) },
+  { id: 'client-11', fullName: 'Quinn Nakamura', email: 'quinn.nakamura@example.com', phone: '(720) 555-0135', completedOrders: 1, tags: ['New'], lifetimeSpendCents: 1200, lastOrderAt: daysAgo(3) },
+  { id: 'client-12', fullName: 'Reese Talbot', email: 'reese.talbot@example.com', phone: '(303) 555-0144', completedOrders: 10, tags: ['VIP', 'Spanish latte'], lifetimeSpendCents: 14600, lastOrderAt: daysAgo(2) },
 ];
 
 const staffOrders: PortalOrder[] = [
@@ -378,7 +377,7 @@ export const DEMO_STAFF: StaffDashboard = {
       subjective: 'Asked for half-sweet after finding the default too rich.',
       objective: 'Usual order: pistachio latte, oat milk, half-sweet.',
       assessment: 'Morning regular — comes in weekdays around 8:15.',
-      plan: 'Suggest the pistachio cold foam on top next visit.',
+      plan: 'Suggest the pistachio cold foam on top next order.',
       createdAt: isoAt(-4, 10),
     },
     {

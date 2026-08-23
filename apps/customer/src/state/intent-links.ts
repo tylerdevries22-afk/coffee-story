@@ -1,6 +1,16 @@
-export type IntentDestination = 'book' | 'visits' | 'rewards' | 'gift';
+export type IntentDestination = 'book' | 'orders' | 'rewards' | 'gift';
 
-const INTENT_HOSTS: readonly IntentDestination[] = ['book', 'visits', 'rewards', 'gift'];
+const INTENT_HOSTS: readonly IntentDestination[] = ['book', 'orders', 'rewards', 'gift'];
+
+/**
+ * Hosts that used to be canonical and still resolve. A deep link is a
+ * published contract: `coffeestory://visits` is in Siri shortcuts and shared
+ * links that predate the rename, and silently returning null would make those
+ * dead rather than redirected.
+ */
+const LEGACY_INTENT_HOSTS: Readonly<Record<string, IntentDestination>> = {
+  visits: 'orders',
+};
 
 /**
  * Maps Siri/App Intents deep links (coffeestory://<host>) to portal destinations.
@@ -17,7 +27,8 @@ export function destinationForIntentUrl(url: string | null | undefined): IntentD
   // "token=", which also matched unrelated params like `?promo_token=…` and left
   // those links dead: refused here AND rejected by giftTokenFromUrl.
   if (host === 'gift' && giftTokenFromUrl(url)) return null;
-  return (INTENT_HOSTS as readonly string[]).includes(host) ? (host as IntentDestination) : null;
+  if ((INTENT_HOSTS as readonly string[]).includes(host)) return host as IntentDestination;
+  return LEGACY_INTENT_HOSTS[host] ?? null;
 }
 
 /**

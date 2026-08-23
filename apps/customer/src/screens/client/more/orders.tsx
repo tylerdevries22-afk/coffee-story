@@ -15,11 +15,11 @@ import type { PortalOrder } from '@/types/domain';
 import { choiceState } from '@/lib/a11y-state';
 
 import { styles } from './information-page';
-import { Field } from './profile-and-intake';
+import { Field } from './profile-and-preferences';
 
 const ACTIVE_ORDER_STATUSES = new Set(['created', 'paid', 'in_progress', 'ready']);
 
-export function Visits({ onBack, onBook }: { onBack: () => void; onBook: () => void }) {
+export function Orders({ onBack, onBook }: { onBack: () => void; onBook: () => void }) {
   const { portal, isDemo, refresh } = useAuth();
   const demo = useDemo();
   const [tab, setTab] = useState<'Upcoming' | 'Past'>('Upcoming');
@@ -48,7 +48,7 @@ export function Visits({ onBack, onBook }: { onBack: () => void; onBook: () => v
       </CollapsingScreen>
     );
   }
-  const visits = portal.orders.filter((order) => (
+  const orders = portal.orders.filter((order) => (
     tab === 'Upcoming'
       ? new Date(order.placedAt).getTime() >= referenceTime && order.status !== 'cancelled'
       : new Date(order.placedAt).getTime() < referenceTime || ['picked_up', 'cancelled', 'cancelled'].includes(order.status)
@@ -57,7 +57,7 @@ export function Visits({ onBack, onBook }: { onBack: () => void; onBook: () => v
   return (
     <CollapsingScreen title="Orders" eyebrow="My account" onBack={onBack}>
       <Segmented options={['Upcoming', 'Past'] as const} value={tab} onChange={setTab} />
-      {visits.map((order) => (
+      {orders.map((order) => (
         <AppointmentCard
           key={order.id}
           order={order}
@@ -84,8 +84,8 @@ export function Visits({ onBack, onBook }: { onBack: () => void; onBook: () => v
           onReviewed={refresh}
         />
       ))}
-      {!visits.length ? <Card><Body muted>No {tab.toLowerCase()} visits.</Body></Card> : null}
-      <Button label="Book a visit" onPress={onBook} />
+      {!orders.length ? <Card><Body muted>No {tab.toLowerCase()} orders.</Body></Card> : null}
+      <Button label="Book a order" onPress={onBook} />
     </CollapsingScreen>
   );
 }
@@ -113,18 +113,18 @@ function AppointmentCard({
   return (
     <Card style={styles.detailCard}>
       <Text style={styles.detailTitle}>{order.summary}</Text>
-      <Body muted>{formatVisitDate(order.placedAt)}</Body>
+      <Body muted>{formatOrderDate(order.placedAt)}</Body>
       {order.locationLabel ? <Body>{order.locationLabel} · {order.locationDetail}</Body> : null}
       <Body>{order.status.replace("_", " ")} · ${(order.totalCents / 100).toFixed(2)}</Body>
       <Button label="Add to calendar" variant="secondary" onPress={() => void addOrderReminder(order, isDemo)} />
       {upcoming ? (
-        <View style={styles.visitActions}>
-          <Button label="Reschedule one week" variant="secondary" loading={busy === 'reschedule'} style={styles.visitAction} onPress={() => void runVisitAction('reschedule', setBusy, onReschedule)} />
-          <Button label="Cancel" variant="secondary" loading={busy === 'cancel'} style={styles.visitAction} onPress={() => confirmCancellation(setBusy, onCancel)} />
+        <View style={styles.orderActions}>
+          <Button label="Reschedule one week" variant="secondary" loading={busy === 'reschedule'} style={styles.orderAction} onPress={() => void runOrderAction('reschedule', setBusy, onReschedule)} />
+          <Button label="Cancel" variant="secondary" loading={busy === 'cancel'} style={styles.orderAction} onPress={() => confirmCancellation(setBusy, onCancel)} />
         </View>
       ) : order.status === 'picked_up' ? (
         <>
-          <Button label={reviewing ? 'Close review' : 'Rate this visit'} variant="secondary" onPress={() => setReviewing((current) => !current)} />
+          <Button label={reviewing ? 'Close review' : 'Rate this order'} variant="secondary" onPress={() => setReviewing((current) => !current)} />
           {reviewing ? (
             <View style={styles.reviewForm}>
               <View accessibilityRole="radiogroup" style={styles.ratingRow}>
@@ -154,7 +154,7 @@ function OrderCard({ order }: { order: PortalOrder }) {
   return (
     <Card style={styles.detailCard}>
       <Text style={styles.detailTitle}>{order.summary}</Text>
-      <Body muted>{formatVisitDate(order.scheduledFor ?? order.placedAt)}</Body>
+      <Body muted>{formatOrderDate(order.scheduledFor ?? order.placedAt)}</Body>
       <Body>{statusLine} · {formatMoney(order.totalCents)}</Body>
       {active ? (
         <Body muted>
@@ -166,11 +166,11 @@ function OrderCard({ order }: { order: PortalOrder }) {
   );
 }
 
-function formatVisitDate(value: string) {
+function formatOrderDate(value: string) {
   return new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
 }
 
-async function runVisitAction(
+async function runOrderAction(
   action: string,
   setBusy: (value: string | null) => void,
   run: () => Promise<void>,
@@ -178,18 +178,18 @@ async function runVisitAction(
   setBusy(action);
   try {
     await run();
-    Alert.alert('Visit updated', action === 'cancel' ? 'Your visit was cancelled.' : 'Your new time is confirmed.');
+    Alert.alert('Order updated', action === 'cancel' ? 'Your order was cancelled.' : 'Your new time is confirmed.');
   } catch (error) {
-    Alert.alert('Visit not updated', error instanceof Error ? error.message : 'Try again later.');
+    Alert.alert('Order not updated', error instanceof Error ? error.message : 'Try again later.');
   } finally {
     setBusy(null);
   }
 }
 
 function confirmCancellation(setBusy: (value: string | null) => void, onCancel: () => Promise<void>) {
-  Alert.alert('Cancel this visit?', 'Your cancellation policy may still apply.', [
-    { text: 'Keep visit', style: 'cancel' },
-    { text: 'Cancel visit', style: 'destructive', onPress: () => void runVisitAction('cancel', setBusy, onCancel) },
+  Alert.alert('Cancel this order?', 'Your cancellation policy may still apply.', [
+    { text: 'Keep order', style: 'cancel' },
+    { text: 'Cancel order', style: 'destructive', onPress: () => void runOrderAction('cancel', setBusy, onCancel) },
   ]);
 }
 
@@ -220,7 +220,7 @@ async function saveVisitReview(
   try {
     if (isDemo) {
       // Previously the demo branch persisted nothing and fell straight through to
-      // the success alert, so a preview user rated a visit, was told "Review
+      // the success alert, so a preview user rated a order, was told "Review
       // saved", and found the form blank again on return.
       saveDemoReview(appointmentId, rating, note);
     } else {

@@ -227,7 +227,7 @@ export function HelpSheet({ open, onClose }: { open: boolean; onClose: () => voi
           </View>,
           <Text key="title" style={styles.sheetTitle}>Care that gives back.</Text>,
           <Text key="body" style={styles.sheetBody}>
-            Earn {POINTS_LABEL} on eligible purchases, unlock status perks, redeem drink rewards, and keep Brew Bucks ready for your next visit.
+            Earn {POINTS_LABEL} on eligible purchases, unlock status perks, redeem drink rewards, and keep Brew Bucks ready for your next order.
           </Text>,
           <View key="earn" style={styles.helpRule}><Text style={styles.helpRuleTitle}>Earn</Text><Text style={styles.helpRuleBody}>10–13 points per eligible $1, based on status.</Text></View>,
           <View key="redeem" style={styles.helpRule}><Text style={styles.helpRuleTitle}>Redeem</Text><Text style={styles.helpRuleBody}>Choose unlocked rewards directly from the Redeem tab.</Text></View>,

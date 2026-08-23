@@ -14,7 +14,7 @@ test('client navigation preserves every web portal destination', () => {
     '/account/book',
     '/account/gift-cards',
     '/account/gift',
-    '/account/intake',
+    '/account/preferences',
     '/account/memberships',
     '/account/messages',
     '/account/more',
