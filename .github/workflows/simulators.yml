@@ -184,16 +184,35 @@ jobs:
 
       - name: Open each app on its own device
         run: |
-          set -euo pipefail
+          set -uo pipefail
+          # `simctl openurl` does not reliably fail fast. It is the call that
+          # reports code 60 on a busy CoreSimulator -- the failure @expo/cli
+          # treats as fatal and reports as "Expo crashed" -- and it can also
+          # simply block, which it did here for seven minutes before this
+          # bound existed. macOS ships no GNU `timeout`, so each attempt is
+          # backgrounded and reaped by hand.
           open_app() {
             udid="$1"; port="$2"; name="$3"
             for try in 1 2 3; do
-              if xcrun simctl openurl "$udid" "exp://127.0.0.1:$port"; then
-                echo "$name opening (attempt $try)"; return 0
+              xcrun simctl openurl "$udid" "exp://127.0.0.1:$port" &
+              pid=$!
+              waited=0
+              while kill -0 "$pid" 2>/dev/null && [ "$waited" -lt 60 ]; do
+                sleep 2; waited=$((waited + 2))
+              done
+              if kill -0 "$pid" 2>/dev/null; then
+                echo "$name: openurl still blocked after ${waited}s (attempt $try) -- killing it"
+                kill -9 "$pid" 2>/dev/null || true
+                wait "$pid" 2>/dev/null || true
+              else
+                wait "$pid"; rc=$?
+                if [ "$rc" -eq 0 ]; then echo "$name opening (attempt $try)"; return 0; fi
+                echo "$name: openurl exited $rc (attempt $try)"
               fi
               sleep 5
             done
-            echo "$name would not open"; return 1
+            echo "$name would not open"
+            return 1
           }
           open_app "$CUSTOMER_UDID" "$CUSTOMER_PORT" "Customer app"
           open_app "$OPERATOR_UDID" "$OPERATOR_PORT" "Operator app"
