@@ -1,3 +1,5 @@
+import { currentBusiness } from '@/data/business';
+
 import birthdayCake from '../../assets/gift/birthday-cake.webp';
 import birthdayConfetti from '../../assets/gift/birthday-confetti.webp';
 import congratsBloom from '../../assets/gift/congrats-bloom.webp';
@@ -73,7 +75,7 @@ export type GiftFaq = { question: string; answer: string };
 
 export const GIFT_FAQS: readonly GiftFaq[] = [
   {
-    question: 'Do Coffee Story gift cards expire?',
+    question: `Do ${currentBusiness().name} gift cards expire?`,
     answer:
       'No. Digital gift cards hold their balance indefinitely and never lose value over time.',
   },

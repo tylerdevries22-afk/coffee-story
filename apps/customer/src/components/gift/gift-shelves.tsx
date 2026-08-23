@@ -1,3 +1,5 @@
+import { currentBusiness } from '@/data/business';
+
 import { Image } from 'expo-image';
 import { useCallback, useState } from 'react';
 import {
@@ -319,7 +321,11 @@ function Stepper({
   );
 }
 
-const HOW_IT_WORKS: readonly { symbol: AppIconName; title: string; body: string }[] = [
+// A function, not a const: the staff app learns which brand it is at
+// sign-in, and a module-level array would freeze whichever answer the
+// import happened to see -- in demo mode, always the bundled one.
+function howItWorks(): readonly { symbol: AppIconName; title: string; body: string }[] {
+  return [
   {
     symbol: 'creditcard',
     title: 'Buy a Digital Gift Card',
@@ -333,9 +339,10 @@ const HOW_IT_WORKS: readonly { symbol: AppIconName; title: string; body: string 
   {
     symbol: 'paperplane',
     title: 'Send as a Gift',
-    body: 'Share with anyone by link — they can redeem it as a guest or add it to their Coffee Story account.',
+    body: `Share with anyone by link — they can redeem it as a guest or add it to their ${currentBusiness().name} account.`,
   },
-];
+  ];
+}
 
 /** The sheet behind the header's info button. */
 export function GiftInfoSheet({ onClose }: { onClose: () => void }) {
@@ -353,7 +360,7 @@ export function GiftInfoSheet({ onClose }: { onClose: () => void }) {
       </View>
 
       <ChipHeading>How it works</ChipHeading>
-      {HOW_IT_WORKS.map((step) => (
+      {howItWorks().map((step) => (
         <View key={step.title} style={styles.step}>
           <AppIcon name={step.symbol} size={24} tintColor={colors.ink900} />
           <View style={styles.stepCopy}>

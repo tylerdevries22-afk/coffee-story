@@ -1,3 +1,5 @@
+import { currentBusiness } from '@/data/business';
+
 import type { PortalBundle, StaffDashboard } from '@/types/domain';
 
 /**
@@ -96,7 +98,7 @@ export function buildClientNotifications(portal: PortalBundle, now: Date): Notif
     if (appointment.status === 'confirmed' && ahead > 0 && ahead < 3 * DAY) {
       items.push({
         id: `visit-soon-${appointment.id}`,
-        actor: 'Coffee Story',
+        actor: currentBusiness().name,
         title: 'Your visit is coming up',
         detail: `${appointment.serviceName} · ${formatWhen(appointment.startsAt)}`,
         at: new Date(starts.getTime() - 2 * DAY).toISOString(),
@@ -107,7 +109,7 @@ export function buildClientNotifications(portal: PortalBundle, now: Date): Notif
     if (appointment.status === 'completed' && now.getTime() - starts.getTime() < 30 * DAY) {
       items.push({
         id: `visit-done-${appointment.id}`,
-        actor: 'Coffee Story',
+        actor: currentBusiness().name,
         title: 'Thanks for visiting',
         detail: `${appointment.serviceName} · ${formatWhen(appointment.startsAt)}`,
         at: appointment.endsAt,

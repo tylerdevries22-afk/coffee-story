@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppIcon } from '@/components/icon';
 import { useTabBarClearance } from '@/components/navigation/tab-screen';
 import { Screen } from '@/components/ui';
+import { BUSINESS } from '@/data/business';
 import { DEMO_ADD_ONS, MENU_CATEGORY_META, SERVICES, type MenuCategoryId, type Service } from '@/data/catalog';
 import { useAppState } from '@/state/app-context';
 import { useAuth } from '@/state/auth-context';
@@ -187,14 +188,14 @@ export function HomeScreen() {
                       style={StyleSheet.absoluteFill}
                       contentFit="cover"
                       nativeControls={false}
-                      accessibilityLabel="Inside the Coffee Story café on Havana Street"
+                      accessibilityLabel={`Inside the ${BUSINESS.name} café`}
                     />
                   ) : (
                     <Image
                       source={slide === 'packages' ? packagesMedia : giftingMedia}
                       style={StyleSheet.absoluteFill}
                       contentFit="cover"
-                      alt={slide === 'packages' ? 'Coffee beans and bundles ready for pickup' : 'A Coffee Story gift card design'}
+                      alt={slide === 'packages' ? 'Coffee beans and bundles ready for pickup' : `A ${BUSINESS.name} gift card design`}
                     />
                   )}
                 </Animated.View>
@@ -244,7 +245,7 @@ export function HomeScreen() {
                     <Text style={styles.storyBody}>Digital gift cards arrive beautifully and never expire.</Text>
                     <Pressable
                       accessibilityRole="button"
-                      accessibilityLabel="Send a Coffee Story gift card"
+                      accessibilityLabel={`Send a ${BUSINESS.name} gift card`}
                       onPress={() => setClientTab('gift')}
                       style={({ pressed }) => [styles.storyButton, pressed && styles.pressed]}
                     >

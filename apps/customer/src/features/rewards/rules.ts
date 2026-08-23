@@ -1,6 +1,8 @@
+import { currentBusiness } from '@/data/business';
+
 // Staged replacement for src/features/rewards/rules.ts
 //
-// Coffee Story loyalty ladder. Tier names are owner-editable, so this is free
+// The loyalty ladder. Tier names are owner-editable, so this is free
 // text rather than a union. Anything switching on a specific name carries a
 // fallback.
 export type RewardTierName = string;
@@ -21,7 +23,7 @@ export type RewardTier = {
 export const REWARD_TIERS: readonly RewardTier[] = [
   { name: 'First Sip', minimumAnnualPoints: 0, pointsPerDollar: 10, description: 'Where every coffee story begins.', perks: ['Member-only drink offers'] },
   { name: 'Daily Ritual', minimumAnnualPoints: 500, pointsPerDollar: 11, description: 'For guests settling into a daily rhythm.', perks: ['Birthday drink on us'] },
-  { name: 'House Regular', minimumAnnualPoints: 1500, pointsPerDollar: 12, description: 'For guests who make Coffee Story part of their day.', perks: ['Free size upgrade'] },
+  { name: 'House Regular', minimumAnnualPoints: 1500, pointsPerDollar: 12, description: `For guests who make ${currentBusiness().name} part of their day.`, perks: ['Free size upgrade'] },
   { name: 'Coffee Legend', minimumAnnualPoints: 2500, pointsPerDollar: 13, description: 'Our most dedicated regulars.', perks: ['5% off + priority pickup'] },
 ] as const;
 

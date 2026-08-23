@@ -1,3 +1,5 @@
+import { BUSINESS } from '@/data/business';
+
 import { Animated, Pressable, Text, View } from 'react-native';
 
 import { CollapsingPageHeader } from '@/components/collapsing-page-header';
@@ -34,7 +36,7 @@ export function RewardsHeader({
           </View>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="How Coffee Story rewards work"
+            accessibilityLabel={`How ${BUSINESS.name} rewards work`}
             hitSlop={8}
             onPress={onHelp}
             style={({ pressed }) => [styles.helpButton, compact && styles.helpButtonCompact, pressed && styles.pressed]}

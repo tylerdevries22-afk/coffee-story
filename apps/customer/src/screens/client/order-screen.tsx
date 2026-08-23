@@ -538,7 +538,7 @@ function OrderHub({
         </View>
       </Pressable>
 
-      <Body muted>Pickup at the shop on Havana St, or delivery to your door.</Body>
+      <Body muted>Pickup at the shop, or delivery to your door.</Body>
     </CollapsingScreen>
   );
 }
