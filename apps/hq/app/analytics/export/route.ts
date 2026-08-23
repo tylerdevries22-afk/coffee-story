@@ -1,11 +1,21 @@
 import { buildCsv } from '@/lib/csv';
-import { DEMO_KPIS } from '@/lib/demo-data';
+import { loadKpis } from '@/lib/data';
 
-/** GET /analytics/export — the store-vs-store dataset as a CSV download. */
-export function GET(): Response {
+/**
+ * GET /analytics/export — the store-vs-store dataset as a CSV download.
+ *
+ * This imported DEMO_KPIS directly, so a configured deployment handed a brand
+ * owner a file of invented revenue for two fictitious Denver locations, named
+ * as their own. `loadKpis` is what the page beside this button already reads,
+ * and it falls back to the fixtures only when there is no Supabase to read.
+ */
+export const dynamic = 'force-dynamic';
+
+export async function GET(): Promise<Response> {
+  const rows = await loadKpis();
   const csv = buildCsv(
     ['day', 'location', 'orders', 'revenue_cents', 'aov_cents', 'in_app_share', 'loyalty_redemption_rate'],
-    DEMO_KPIS.map((row) => [
+    rows.map((row) => [
       row.day,
       row.locationName,
       row.ordersCount,

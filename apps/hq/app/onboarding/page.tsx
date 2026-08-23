@@ -1,5 +1,10 @@
 import { currentSession, hasRole } from '@/lib/auth';
 
+// Reads the session, so it must never be prerendered: a static build bakes in
+// whichever branch the BUILD saw. Unconfigured, currentSession() is the demo
+// platform admin, which would ship the admin panel to every signed-in role.
+export const dynamic = 'force-dynamic';
+
 export default async function OnboardingPage() {
   const session = await currentSession();
   const admin = hasRole(session, 'platform_admin');
