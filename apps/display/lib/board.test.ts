@@ -3,14 +3,14 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
 
-import { demoBoardTickets } from './demo-data';
+import { DEMO_BOARD } from './demo-board';
 
 /**
  * The pickup display is the only surface here a whole room can read at once,
  * so what it is *allowed* to know matters more than what it shows.
  */
 describe('board fixtures', () => {
-  const tickets = demoBoardTickets('loc-downtown');
+  const tickets = DEMO_BOARD;
 
   it('carries no column a bystander should not see', () => {
     // The server route returns these rows verbatim. If a fixture ever grows a
