@@ -7,6 +7,7 @@
 import { parseTenantClaims, type BrandRole } from '@platform/schema';
 
 import { DEMO_SESSION, type SessionInfo } from './demo-data';
+import { brandNameFromMetadata, tokenAppMetadata } from './token-claims';
 
 export function isConfigured(): boolean {
   return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
@@ -30,14 +31,23 @@ export async function currentSession(): Promise<SessionInfo | null> {
       },
     },
   );
+  // getUser verifies the token with GoTrue; the claims themselves have to come
+  // out of the token's own payload. The hook mints them into the token it
+  // issues and never onto the user row, so reading `data.user.app_metadata`
+  // returned nothing every time -- and `hasRole` then answered false for
+  // every role, hiding the platform operator's own pages from them.
   const { data } = await client.auth.getUser();
   if (!data.user) return null;
-  const claims = parseTenantClaims(data.user.app_metadata);
+  const { data: sessionData } = await client.auth.getSession();
+  const accessToken = sessionData.session?.access_token;
+  if (!accessToken) return null;
+  const metadata = tokenAppMetadata(accessToken);
+  const claims = parseTenantClaims(metadata);
   if (!claims?.role) return null;
   return {
     email: data.user.email ?? '',
     role: claims.role,
-    brandName: (data.user.app_metadata as { brand_name?: string }).brand_name ?? 'Your brand',
+    brandName: brandNameFromMetadata(metadata) ?? 'Your brand',
   };
 }
 
