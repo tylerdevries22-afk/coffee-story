@@ -106,8 +106,14 @@ jobs:
           # were handed the machine's LAN address and nothing was listening on
           # it. Neither address could work before, for two different reasons,
           # which is why swapping between them changed nothing.
-          cd apps/customer && nohup npx expo start --port "$CUSTOMER_PORT" --host lan > "$GITHUB_WORKSPACE/metro-customer.log" 2>&1 &
-          cd "$GITHUB_WORKSPACE/apps/operator" && nohup npx expo start --port "$OPERATOR_PORT" --host lan > "$GITHUB_WORKSPACE/metro-operator.log" 2>&1 &
+          # `env -u CI`, because Metro says it plainly: "Metro is running in CI
+          # mode". In that mode it suppresses the per-bundle progress lines --
+          # including the "Bundled" line this job waits for. With the address
+          # now proven reachable and both apps confirmed opening, the detector
+          # is the remaining suspect: the apps may well have been loading all
+          # along while the log said nothing either way.
+          cd apps/customer && nohup env -u CI npx expo start --port "$CUSTOMER_PORT" --host lan > "$GITHUB_WORKSPACE/metro-customer.log" 2>&1 &
+          cd "$GITHUB_WORKSPACE/apps/operator" && nohup env -u CI npx expo start --port "$OPERATOR_PORT" --host lan > "$GITHUB_WORKSPACE/metro-operator.log" 2>&1 &
           cd "$GITHUB_WORKSPACE"
           # Both ports in ONE loop, not one after the other. Polled
           # sequentially, the first port could spend the whole budget before
@@ -363,12 +369,12 @@ jobs:
           for pair in "metro-customer.log|Customer" "metro-operator.log|Operator"; do
             log="${pair%%|*}"; label="${pair##*|}"
             for _ in $(seq 1 90); do
-              if grep -q "Bundled" "$GITHUB_WORKSPACE/$log"; then break; fi
+              if grep -qE "Bundled|Bundling|/index\.bundle" "$GITHUB_WORKSPACE/$log"; then break; fi
               sleep 5
             done
-            if grep -q "Bundled" "$GITHUB_WORKSPACE/$log"; then
+            if grep -qE "Bundled|Bundling|/index\.bundle" "$GITHUB_WORKSPACE/$log"; then
               echo "$label bundled and running:"
-              grep -m3 "Bundled" "$GITHUB_WORKSPACE/$log"
+              grep -m3 -E "Bundled|Bundling|/index\.bundle" "$GITHUB_WORKSPACE/$log"
             else
               echo "$label never bundled. Metro said:"; tail -60 "$GITHUB_WORKSPACE/$log"; exit 1
             fi
