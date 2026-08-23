@@ -81,3 +81,48 @@ test('refuses to mint a callback pointing at a host that is not ours', () => {
     'exp://192.168.1.42:8081/--/reset-password',
   );
 });
+
+test('works for the staff app and for a second tenant, not just coffeestory', () => {
+  // The regression this package exists for: the staff binary registers
+  // `coffee-operator`, so Linking.createURL('reset-password') hands us
+  // coffee-operator://reset-password. Pinning `coffeestory:` threw here, which
+  // meant password recovery was dead in a staff store build; and every tenant
+  // after the first would have hit the same wall in the guest binary.
+  for (const scheme of ['coffee-operator', 'yourbrand', 'demoroastery']) {
+    assert.equal(
+      recoveryRedirectUrl(() => `${scheme}://reset-password`),
+      `${scheme}://reset-password`,
+      scheme,
+    );
+    assert.equal(
+      recoveryCodeFromUrl(`${scheme}://reset-password?code=${HOST_TEST_CODE}`),
+      HOST_TEST_CODE,
+      scheme,
+    );
+    assert.equal(recoveryCodeFromUrl(`${scheme}://gift?code=${HOST_TEST_CODE}`), null, scheme);
+  }
+});
+
+test('opening the scheme up does not open up the web or the scriptable ones', () => {
+  for (const url of [
+    `https://attacker.example/reset-password?code=${HOST_TEST_CODE}`,
+    `http://reset-password/?code=${HOST_TEST_CODE}`,
+    `javascript://reset-password?code=${HOST_TEST_CODE}`,
+    `data://reset-password?code=${HOST_TEST_CODE}`,
+    `file://reset-password/?code=${HOST_TEST_CODE}`,
+    `intent://reset-password?code=${HOST_TEST_CODE}`,
+    `content://reset-password?code=${HOST_TEST_CODE}`,
+    `blob://reset-password?code=${HOST_TEST_CODE}`,
+    `ws://reset-password/?code=${HOST_TEST_CODE}`,
+  ]) {
+    assert.equal(recoveryCodeFromUrl(url), null, url);
+    assert.throws(() => recoveryRedirectUrl(() => url), /not configured/, url);
+  }
+});
+
+test('a custom-scheme host is matched case-insensitively, as hosts are', () => {
+  assert.equal(
+    recoveryCodeFromUrl(`coffee-operator://Reset-Password?code=${HOST_TEST_CODE}`),
+    HOST_TEST_CODE,
+  );
+});

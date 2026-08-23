@@ -1,4 +1,5 @@
-const RECOVERY_SCHEME = 'coffeestory:';
+import { isOwnAppScheme } from './scheme';
+
 const RECOVERY_HOST = 'reset-password';
 const EXPO_SCHEME = 'exp:';
 const EXPO_RECOVERY_PATH = '/--/reset-password';
@@ -6,10 +7,10 @@ const EXPO_RECOVERY_PATH = '/--/reset-password';
 /**
  * Which `exp://` hosts may carry a recovery code.
  *
- * A store build only ever accepts `coffeestory://reset-password`, which is
- * ours by definition. Expo Go has no custom scheme, so the link points at
- * whatever machine is serving the bundle — and the check used to be the
- * scheme and the path alone. `exp://anywhere.example.com/--/reset-password
+ * A store build only ever accepts its own custom scheme, which is ours by
+ * construction (see `scheme.ts`). Expo Go has no custom scheme, so the link
+ * points at whatever machine is serving the bundle — and the check used to be
+ * the scheme and the path alone. `exp://anywhere.example.com/--/reset-password
  * ?code=...` was therefore accepted, which is enough for a crafted link to
  * hand the app someone else's recovery code and fix it onto their session.
  *
@@ -32,7 +33,8 @@ function isExpoDevHost(hostname: string): boolean {
 export function recoveryRedirectUrl(createUrl: (path: string) => string): string {
   const redirectUrl = createUrl(RECOVERY_HOST);
   const parsed = new URL(redirectUrl);
-  const isNativeBuild = parsed.protocol === RECOVERY_SCHEME && parsed.hostname === RECOVERY_HOST;
+  const isNativeBuild = isOwnAppScheme(parsed.protocol)
+    && parsed.hostname.toLowerCase() === RECOVERY_HOST;
   const isExpoGo = parsed.protocol === EXPO_SCHEME
     && parsed.pathname.replace(/\/$/, '') === EXPO_RECOVERY_PATH
     && isExpoDevHost(parsed.hostname);
@@ -45,8 +47,8 @@ export function recoveryRedirectUrl(createUrl: (path: string) => string): string
 export function recoveryCodeFromUrl(rawUrl: string): string | null {
   try {
     const url = new URL(rawUrl);
-    const isNativeBuild = url.protocol === RECOVERY_SCHEME
-      && url.hostname === RECOVERY_HOST
+    const isNativeBuild = isOwnAppScheme(url.protocol)
+      && url.hostname.toLowerCase() === RECOVERY_HOST
       && (url.pathname === '' || url.pathname === '/');
     const isExpoGo = url.protocol === EXPO_SCHEME
       && url.pathname.replace(/\/$/, '') === EXPO_RECOVERY_PATH
