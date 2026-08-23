@@ -383,18 +383,32 @@ jobs:
           ok=1
           for pair in "$CUSTOMER_PORT|Customer|metro-customer.log" "$OPERATOR_PORT|Operator|metro-operator.log"; do
             port="${pair%%|*}"; rest="${pair#*|}"; label="${rest%%|*}"; log="${rest##*|}"
-            # `transform.routerRoot` is required for an expo-router project.
-            # Without it Metro answers with an error payload, not a bundle --
-            # 5180 bytes of it, which is what "would not serve a bundle" was
-            # actually reporting. Metro states the value itself at startup:
-            # "Using src/app as the root directory for Expo Router".
-            url="http://$HOST_IP:$port/index.bundle?platform=ios&dev=true&transform.routerRoot=src/app"
-            bytes=0
-            for _ in $(seq 1 40); do
-              bytes=$(curl -s --max-time 60 -o /tmp/bundle.js -w '%{size_download}' "$url" || echo 0)
-              [ "${bytes:-0}" -gt 100000 ] && break
-              sleep 10
+            # Ask for the entry these apps ACTUALLY have. Their package.json
+            # says `"main": "expo-router/entry"`, so there is no index.js, and
+            # /index.bundle made Metro answer:
+            #
+            #   UnableToResolveError: Unable to resolve module ./index
+            #
+            # which was my probe being wrong for the third time, not the app.
+            # `transform.routerRoot` is required too -- Metro names the value
+            # at startup, "Using src/app as the root directory for Expo Router".
+            # Candidates rather than one guess: the virtual entry Expo serves
+            # for SDK 50+, then the entry module by path.
+            q="platform=ios&dev=true&transform.routerRoot=src/app"
+            bytes=0; url=""
+            for candidate in \
+              "http://$HOST_IP:$port/.expo/.virtual-metro-entry.bundle?$q" \
+              "http://$HOST_IP:$port/node_modules/expo-router/entry.bundle?$q" \
+              "http://$HOST_IP:$port/index.bundle?$q"; do
+              for _ in $(seq 1 12); do
+                bytes=$(curl -s --max-time 90 -o /tmp/bundle.js -w '%{size_download}' "$candidate" || echo 0)
+                [ "${bytes:-0}" -gt 100000 ] && break
+                sleep 10
+              done
+              if [ "${bytes:-0}" -gt 100000 ]; then url="$candidate"; break; fi
+              echo "  (${bytes:-0} bytes from ${candidate##*/}, trying the next entry)"
             done
+            [ -z "$url" ] && url="http://$HOST_IP:$port/.expo/.virtual-metro-entry.bundle?$q"
             if [ "${bytes:-0}" -gt 100000 ]; then
               echo "$label: Metro served $bytes bytes of JavaScript at $url"
               head -c 120 /tmp/bundle.js | tr -d '\0'; echo
