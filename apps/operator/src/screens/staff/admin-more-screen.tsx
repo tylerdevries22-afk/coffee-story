@@ -37,7 +37,6 @@ export function AdminMoreScreen({ dashboard }: { dashboard: StaffDashboard }) {
     queueSetupPrompt,
     readNotificationIds,
     selectRole,
-    setStaffTab,
   } = useAppState();
   const { isDemo, portal, role, signOut } = useAuth();
   const [surface, setSurface] = useState<HeaderSurface>(null);
@@ -103,8 +102,7 @@ export function AdminMoreScreen({ dashboard }: { dashboard: StaffDashboard }) {
           onResult={(result) => {
             setSearchOpen(false);
             setQuery('');
-            if (result.kind === 'client') setStaffTab('clients');
-            else openDestination(result.path);
+            openDestination(result.path);
           }}
         />
       )}
@@ -167,12 +165,6 @@ export function AdminMoreScreen({ dashboard }: { dashboard: StaffDashboard }) {
           subtitle={portal.profile.fullName}
           symbol="person.crop.circle"
           onPress={() => toggleSurface('profile')}
-        />
-        <PillRow
-          title="My schedule"
-          subtitle="Your day, week, and availability"
-          symbol="calendar"
-          onPress={() => setStaffTab('calendar')}
         />
         <PillRow
           title="Messages"

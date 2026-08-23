@@ -15,8 +15,10 @@ and confirmation that they can complete Square OAuth for each location.
    palette from their logo and photography (their Instagram grid is the best
    corpus): one deep primary, one warm surface, one accent with real contrast.
    Pick a type pairing that matches their voice (a display face + a workhorse
-   body). Never derive anything from another product's app — read
-   `docs/DO-NOT-RESEMBLE.md` before this step, every time.
+   body). Deriving the identity from the tenant's own material is the point —
+   it is what makes the app look like *them*, and it is a better result than
+   borrowing, not just a safer one. `docs/DO-NOT-RESEMBLE.md` has the guidance
+   if a judgement call comes up.
 2. **Write the tenant folder.** Copy `tenants/_template/` to
    `tenants/<slug>/`. Fill `brand.json`: identity (slug, name, reverse-DNS
    bundleId, scheme), the tokens from step 1 (every color must pass AA against

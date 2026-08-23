@@ -17,11 +17,9 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppErrorBoundary } from '@/components/app-error-boundary';
 import { Button } from '@/components/ui';
 import { InstallPrompt } from '@/components/install-prompt';
-import { SetupFlowHost } from '@/components/setup/setup-flow';
 import { AppStateProvider } from '@/state/app-context';
 import { AuthProvider } from '@/state/auth-context';
 import { DemoProvider, useDemo } from '@/state/demo-context';
-import { OrderProvider } from '@/state/order-context';
 import { colors } from '@/theme/tokens';
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
@@ -86,27 +84,18 @@ function ConfiguredApp({ config }: { config: MobileLiveConfig }) {
   return (
     <AuthProvider>
       <AppStateProvider>
-        {/* The bag sits above the tab shell so a guest can leave the Order tab
-            mid-order -- to check their rewards balance, say -- and come back to
-            a bag that is still there. */}
-        <OrderProvider>
-          <StatusBar style="dark" />
-          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.surface } }}>
-            {/* Pushed from any tab in either shell (see app-context's
-                `openNotifications`) rather than nested under `client/` or
-                `staff/`: a route at this level pushes above the native tab bar
-                from wherever the user is, which a screen nested inside a
-                specific tab's own stack could not do. `slide_from_right` keeps
-                the direction the app used before this was a real route. */}
-            <Stack.Screen name="notifications" options={{ animation: 'slide_from_right' }} />
-          </Stack>
-          {/* Global chrome that used to live in `app/index.tsx` when it was the
-              entire app. Both now sit above the Stack so they survive
-              navigating into `/client` or `/staff` instead of unmounting the
-              moment the redirect fires. */}
-          <InstallPrompt />
-          <SetupFlowHost />
-        </OrderProvider>
+        <StatusBar style="dark" />
+        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.surface } }}>
+          {/* Pushed from any tab (see app-context's `openNotifications`) rather
+              than nested under `staff/`: a route at this level pushes above the
+              native tab bar from wherever the user is, which a screen nested
+              inside a specific tab's own stack could not do. `slide_from_right`
+              keeps the direction the app used before this was a real route. */}
+          <Stack.Screen name="notifications" options={{ animation: 'slide_from_right' }} />
+        </Stack>
+        {/* Sits above the Stack so it survives navigating into `/staff` instead
+            of unmounting the moment the redirect fires. */}
+        <InstallPrompt />
       </AppStateProvider>
     </AuthProvider>
   );

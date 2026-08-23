@@ -1,0 +1,136 @@
+diff --git a/build/src/start/server/metro/metroWatchTypeScriptFiles.js b/build/src/start/server/metro/metroWatchTypeScriptFiles.js
+index 3c4e29a3518d0600ab4f9b280aa3d196aa4468a6..40bd0273375b550cf5cc36b4e142d4dc61f9975f 100644
+--- a/build/src/start/server/metro/metroWatchTypeScriptFiles.js
++++ b/build/src/start/server/metro/metroWatchTypeScriptFiles.js
+@@ -28,7 +28,8 @@ function metroWatchTypeScriptFiles({ metro, server, projectRoot, callback, tscon
+ ] }) {
+     const watcher = metro.getBundler().getBundler().getWatcher();
+     const tsconfigPath = _path().default.join(projectRoot, 'tsconfig.json');
+-    const listener = ({ eventsQueue })=>{
++    const listener = (__evt)=>{
++        const eventsQueue = __expoNormalizeChangeEvent(__evt);
+         for (const event of eventsQueue){
+             var _event_metadata;
+             if (eventTypes.includes(event.type) && ((_event_metadata = event.metadata) == null ? void 0 : _event_metadata.type) !== 'd' && // We need to ignore node_modules because Metro will add all of the files in node_modules to the watcher.
+@@ -60,3 +61,43 @@ function metroWatchTypeScriptFiles({ metro, server, projectRoot, callback, tscon
+ }
+ 
+ //# sourceMappingURL=metroWatchTypeScriptFiles.js.map
++// --- expo-cli local patch: metro-file-map >=0.83.8 change-event adapter ------
++// metro-file-map 0.83.3 emitted { eventsQueue: Array<{type,filePath,metadata}> }.
++// 0.83.8 emits { changes: { addedFiles, modifiedFiles, removedFiles,
++// addedDirectories, removedDirectories }, logger, rootDir }, where the *Files
++// members are iterables of [path, {isSymlink, modifiedTime}]. The workspace
++// pins metro 0.83.8 to clear the image-size advisories, so normalise the new
++// payload back to the queue shape this file was written against.
++function __expoNormalizeChangeEvent(evt) {
++    if (evt && evt.eventsQueue) return evt.eventsQueue;
++    const changes = evt && evt.changes;
++    if (!changes) return [];
++    const queue = [];
++    const addFiles = (type, iterable) => {
++        if (!iterable) return;
++        for (const entry of iterable) {
++            const filePath = Array.isArray(entry) ? entry[0] : entry;
++            const md = Array.isArray(entry) ? entry[1] : null;
++            queue.push({
++                type,
++                filePath,
++                metadata: {
++                    type: md && md.isSymlink ? "l" : "f",
++                    modifiedTime: md ? md.modifiedTime : null
++                }
++            });
++        }
++    };
++    const addDirs = (type, iterable) => {
++        if (!iterable) return;
++        for (const dirPath of iterable) {
++            queue.push({ type, filePath: dirPath, metadata: { type: "d" } });
++        }
++    };
++    addFiles("add", changes.addedFiles);
++    addFiles("change", changes.modifiedFiles);
++    addFiles("delete", changes.removedFiles);
++    addDirs("add", changes.addedDirectories);
++    addDirs("delete", changes.removedDirectories);
++    return queue;
++}
+diff --git a/build/src/start/server/metro/waitForMetroToObserveTypeScriptFile.js b/build/src/start/server/metro/waitForMetroToObserveTypeScriptFile.js
+index 87cdf53ef15d6f4d72f4e310aea0a90bfaeda3c4..5d336eee091589488cedfe821f25be444764eea5 100644
+--- a/build/src/start/server/metro/waitForMetroToObserveTypeScriptFile.js
++++ b/build/src/start/server/metro/waitForMetroToObserveTypeScriptFile.js
+@@ -35,7 +35,8 @@ const debug = require('debug')('expo:start:server:metro:waitForTypescript');
+ function waitForMetroToObserveTypeScriptFile(projectRoot, runner, callback) {
+     const watcher = runner.metro.getBundler().getBundler().getWatcher();
+     const tsconfigPath = _path().default.join(projectRoot, 'tsconfig.json');
+-    const listener = ({ eventsQueue })=>{
++    const listener = (__evt)=>{
++        const eventsQueue = __expoNormalizeChangeEvent(__evt);
+         for (const event of eventsQueue){
+             var _event_metadata;
+             if (event.type === 'add' && ((_event_metadata = event.metadata) == null ? void 0 : _event_metadata.type) !== 'd' && // We need to ignore node_modules because Metro will add all of the files in node_modules to the watcher.
+@@ -63,7 +64,8 @@ function waitForMetroToObserveTypeScriptFile(projectRoot, runner, callback) {
+ }
+ function observeFileChanges(runner, files, callback) {
+     const watcher = runner.metro.getBundler().getBundler().getWatcher();
+-    const listener = ({ eventsQueue })=>{
++    const listener = (__evt)=>{
++        const eventsQueue = __expoNormalizeChangeEvent(__evt);
+         for (const event of eventsQueue){
+             var // event.type === 'add' &&
+             _event_metadata;
+@@ -89,7 +91,8 @@ function observeFileChanges(runner, files, callback) {
+ }
+ function observeAnyFileChanges(runner, callback) {
+     const watcher = runner.metro.getBundler().getBundler().getWatcher();
+-    const listener = ({ eventsQueue })=>{
++    const listener = (__evt)=>{
++        const eventsQueue = __expoNormalizeChangeEvent(__evt);
+         callback(eventsQueue);
+     };
+     watcher.addListener('change', listener);
+@@ -101,3 +104,43 @@ function observeAnyFileChanges(runner, callback) {
+ }
+ 
+ //# sourceMappingURL=waitForMetroToObserveTypeScriptFile.js.map
++// --- expo-cli local patch: metro-file-map >=0.83.8 change-event adapter ------
++// metro-file-map 0.83.3 emitted { eventsQueue: Array<{type,filePath,metadata}> }.
++// 0.83.8 emits { changes: { addedFiles, modifiedFiles, removedFiles,
++// addedDirectories, removedDirectories }, logger, rootDir }, where the *Files
++// members are iterables of [path, {isSymlink, modifiedTime}]. The workspace
++// pins metro 0.83.8 to clear the image-size advisories, so normalise the new
++// payload back to the queue shape this file was written against.
++function __expoNormalizeChangeEvent(evt) {
++    if (evt && evt.eventsQueue) return evt.eventsQueue;
++    const changes = evt && evt.changes;
++    if (!changes) return [];
++    const queue = [];
++    const addFiles = (type, iterable) => {
++        if (!iterable) return;
++        for (const entry of iterable) {
++            const filePath = Array.isArray(entry) ? entry[0] : entry;
++            const md = Array.isArray(entry) ? entry[1] : null;
++            queue.push({
++                type,
++                filePath,
++                metadata: {
++                    type: md && md.isSymlink ? "l" : "f",
++                    modifiedTime: md ? md.modifiedTime : null
++                }
++            });
++        }
++    };
++    const addDirs = (type, iterable) => {
++        if (!iterable) return;
++        for (const dirPath of iterable) {
++            queue.push({ type, filePath: dirPath, metadata: { type: "d" } });
++        }
++    };
++    addFiles("add", changes.addedFiles);
++    addFiles("change", changes.modifiedFiles);
++    addFiles("delete", changes.removedFiles);
++    addDirs("add", changes.addedDirectories);
++    addDirs("delete", changes.removedDirectories);
++    return queue;
++}

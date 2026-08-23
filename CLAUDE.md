@@ -22,11 +22,13 @@ tenant. These rules are binding for every change.
    tenant's brand config (`packages/ui`).
 5. **Feature flags** live on the brand row: `drops`, `catering`, `delivery`,
    `multi_location`, `sms`, `stored_value`, `referrals`.
-6. **Originality.** The name of any competitor never appears anywhere — code,
-   comments, copy, assets, listings. The category is called the
-   **"rotating-drop model."** Never ingest any competitor's assets, CSS, JS,
-   or screenshots as a spec. The design system is original. See
-   `docs/DO-NOT-RESEMBLE.md`.
+6. **Originality.** One hard rule: no competitor's name appears anywhere —
+   code, comments, commit messages, copy, assets, listings, prompts, tests.
+   The category is the **"rotating-drop model."** That rule is a release gate;
+   `docs/DO-NOT-RESEMBLE.md` holds the rest as guidance, including what is
+   explicitly fine (studying the market, competing on the model itself,
+   conventional flows) and where the real risk sits (shipping their actual
+   files, reproducing what identifies their brand).
 7. **Three front ends.** `apps/customer` (white-label, one binary per brand
    via tenant config), `apps/operator` (one listing, tenant by login,
    iPad/KDS-first, landscape), `apps/hq` (Next.js web). Operator/admin

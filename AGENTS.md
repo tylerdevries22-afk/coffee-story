@@ -30,3 +30,32 @@ This is a pnpm monorepo (`node-linker=hoisted` — Metro needs a flat
 `node_modules`). Dependency version overrides live at the root `package.json`
 under `pnpm.overrides`; app-level `overrides` fields are ignored by pnpm, so
 never add one there. See the root `CLAUDE.md` for the architecture rules.
+
+## The metro 0.83.8 pin and its two dependents
+
+`pnpm.overrides` pins `metro` (and `metro-config`, `metro-transform-worker`) to
+`0.83.8`. That is a security pin: every metro at or below `0.83.7` pulls a
+vulnerable `image-size` (GHSA-w3rx-r6r6-pgpr, GHSA-5p2g-fcmc-qvqq), which has no
+fixed release, so the only remedy is a metro outside the range. Upgrading to
+Expo 57 would also have cleared it and was rejected — the SDK 54 pin above wins.
+Commit `9b10b0b` has the full rationale.
+
+Two things exist only to make that pin survivable. Both come out together if the
+pin is ever lifted:
+
+1. **`patches/@expo__cli@54.0.27.patch`** (root `pnpm.patchedDependencies`).
+   `metro-file-map` 0.83.3 emitted `{ eventsQueue: [...] }`; 0.83.8 emits
+   `{ changes: { addedFiles, modifiedFiles, … } }`, where the `*Files` members
+   are iterables of `[path, metadata]`. The patch inserts a normalizer into four
+   watcher listeners across two `@expo/cli` files. The lockfile records the patch
+   hash and CI runs `--frozen-lockfile`, so `patches/`, root `package.json`, and
+   `pnpm-lock.yaml` must always be committed together.
+2. **`apps/*/index.js`** — each app's `main` points at a local `index.js` that
+   does nothing but `import 'expo-router/entry'`. Metro 0.83.8 parses request
+   URLs with WHATWG `new URL()`. With `EXPO_NO_METRO_WORKSPACE_ROOT=1` (set in
+   both `metro.config.js`) the server root is the app directory, so a `main` of
+   `expo-router/entry` resolved to the hoisted copy two levels up and produced a
+   `/../../node_modules/…` bundle URL — which `new URL()` normalizes away before
+   Metro can resolve it, failing with "Unable to resolve module
+   ./node_modules/expo-router/entry". Keeping the entry inside the server root
+   avoids the escape entirely.

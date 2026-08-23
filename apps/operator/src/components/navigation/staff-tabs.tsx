@@ -41,29 +41,9 @@ export function StaffTabs() {
         <TabLabel>{STAFF_TAB_LABELS.today}</TabLabel>
       </NativeTabs.Trigger>
 
-      <NativeTabs.Trigger name="calendar">
-        <TabIcon sf="calendar" />
-        <TabLabel>{STAFF_TAB_LABELS.calendar}</TabLabel>
-      </NativeTabs.Trigger>
-
-      {/* Tinted brand even when unselected: this is the workspace's primary
-          action, and a muted plus reads as just another destination. */}
-      <NativeTabs.Trigger name="quick-actions" disablePopToTop>
-        <TabIcon
-          sf={{ default: 'plus.circle.fill', selected: 'plus.circle.fill' }}
-          selectedColor={colors.brand700}
-        />
-        <TabLabel>{STAFF_TAB_LABELS['quick-actions']}</TabLabel>
-      </NativeTabs.Trigger>
-
-      <NativeTabs.Trigger name="clients">
-        <TabIcon sf={{ default: 'person.2', selected: 'person.2.fill' }} />
-        <TabLabel>{STAFF_TAB_LABELS.clients}</TabLabel>
-      </NativeTabs.Trigger>
-
       {/* The user's own photo once they've picked one (circle-cropped by
           useTabAvatar, rendered original so it keeps its colours), otherwise
-          the monogram ring — template-tinted like the four symbols. The
+          the monogram ring — template-tinted like the two symbols. The
           "Profile" label sits below either way. */}
       <NativeTabs.Trigger name="more">
         <TabIcon src={avatar.source} renderingMode={avatar.isPhoto ? 'original' : 'template'} />

@@ -19,8 +19,8 @@ whether announcement sends are wanted (push/SMS per the brand's flags).
    hand-set `live`.
 3. **Hero asset.** Draft an image prompt from the brand's own photography
    style (lighting, surface, props the shop actually uses). The asset lands on
-   `drops.hero_asset_url`. No other product's imagery, framing, or trade
-   dress — `docs/DO-NOT-RESEMBLE.md` applies to prompts too.
+   `drops.hero_asset_url`. Keep another product's name out of the prompt —
+   that is the one hard rule; see `docs/DO-NOT-RESEMBLE.md` for the rest.
 4. **Countdown config is automatic**: the customer app renders the chip from
    the window ("Drops in 2d 4h" → "Ends in 4h 12m"). Sanity-check the window
    against shop hours — a drop that starts when the shop is shut reads as

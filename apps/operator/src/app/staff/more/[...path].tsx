@@ -7,8 +7,8 @@ import { staffDetailPathFromPathname } from '@/state/navigation-state';
 import { useStaffWorkspace } from '@/state/staff-workspace';
 
 /**
- * Every admin destination that isn't the menu itself or Checkout, as one
- * catch-all route rather than one file per destination.
+ * Every admin destination that isn't the menu itself, as one catch-all route
+ * rather than one file per destination.
  *
  * `StaffDetailPage` already multiplexes an open-ended, config-driven set of
  * web-portal paths (`/admin/reviews`, `/admin/staff`, `/admin/talent-acquisition`,

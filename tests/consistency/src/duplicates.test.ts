@@ -42,7 +42,6 @@ const DIVERGENT_BY_DESIGN = [
   'data/demo.ts',
   'features/drops.test.ts',
   'features/drops.ts',
-  'features/rewards/presentation.ts',
   'features/setup/setup.ts',
   // The live planes are persona-different by design: the customer bundle is
   // a guest's world through the platform API, the operator's is staff claims
@@ -58,6 +57,10 @@ const DIVERGENT_BY_DESIGN = [
   'state/app-context.tsx',
   'state/auth-context.tsx',
   'state/demo-state.test.ts',
+  // The operator's staff bar lost calendar/quick-actions/clients/checkout with
+  // the booking workspace, so its route vocabulary is genuinely smaller than the
+  // customer copy's. Promoting the module to packages/* retires all three.
+  'state/navigation-state.property.test.ts',
   'state/navigation-state.test.ts',
   'state/navigation-state.ts',
   'theme/tokens.ts',

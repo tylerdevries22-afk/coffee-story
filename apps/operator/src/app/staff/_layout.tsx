@@ -2,13 +2,12 @@ import { Redirect } from 'expo-router';
 import { View, StyleSheet } from 'react-native';
 
 import { StaffTabs } from '@/components/navigation/staff-tabs';
-import { ErrorState, LoadingState } from '@/components/ui';
 import { useAppState } from '@/state/app-context';
 import { useAuth } from '@/state/auth-context';
 import { OperatorProvider } from '@/state/operator-store';
-import { StaffWorkspaceProvider, useStaffWorkspace } from '@/state/staff-workspace';
+import { StaffWorkspaceProvider } from '@/state/staff-workspace';
 
-/** See `client/_layout.tsx`'s equivalent guard for why this redirect exists. */
+/** See the auth gate in `app/index.tsx` for why these redirects exist. */
 export default function StaffLayout() {
   const { isStaffMode } = useAppState();
   const { isAuthenticated, isLoading } = useAuth();
@@ -19,23 +18,19 @@ export default function StaffLayout() {
   if (isLoading) return <View style={styles.shell}><LoadingState label="Loading the staff workspace…" /></View>;
   if (!isAuthenticated) return <Redirect href="/" />;
   if (!isStaffMode) return <Redirect href="/" />;
+  // OperatorProvider sits outside the workspace provider on purpose: the board
+  // is this app's reason to exist and reads Supabase directly under staff RLS,
+  // so it must not inherit the workspace's failure modes. The tab shell renders
+  // unconditionally for the same reason -- screens that need the workspace wrap
+  // themselves in `StaffWorkspaceGate` instead.
   return (
-    <StaffWorkspaceProvider>
-      <OperatorProvider>
-        <StaffLayoutBody />
-      </OperatorProvider>
-    </StaffWorkspaceProvider>
-  );
-}
-
-function StaffLayoutBody() {
-  const { error, loading, reload } = useStaffWorkspace();
-  if (loading) return <View style={styles.shell}><LoadingState label="Loading the staff workspace…" /></View>;
-  if (error) return <View style={styles.shell}><ErrorState message={error} onRetry={() => void reload()} /></View>;
-  return (
-    <View style={styles.shell}>
-      <StaffTabs />
-    </View>
+    <OperatorProvider>
+      <StaffWorkspaceProvider>
+        <View style={styles.shell}>
+          <StaffTabs />
+        </View>
+      </StaffWorkspaceProvider>
+    </OperatorProvider>
   );
 }
 
