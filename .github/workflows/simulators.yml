@@ -61,6 +61,13 @@ jobs:
             echo "Could not choose a runtime and two device types."; exit 1
           fi
           echo "runtime=$RUNTIME"; echo "phone=$PHONE"; echo "tablet=$TABLET"
+          # Kept for the failure replay: if one device misbehaves, which device
+          # type it was is the first thing worth knowing.
+          {
+            echo "runtime=$RUNTIME"
+            echo "phone (customer)=$PHONE"
+            echo "tablet (operator)=$TABLET"
+          } >> "$GITHUB_WORKSPACE/expo-go-diag.log"
           CUSTOMER_UDID=$(xcrun simctl create "$CUSTOMER_SIM" "$PHONE" "$RUNTIME")
           OPERATOR_UDID=$(xcrun simctl create "$OPERATOR_SIM" "$TABLET" "$RUNTIME")
           echo "CUSTOMER_UDID=$CUSTOMER_UDID" >> "$GITHUB_ENV"
@@ -235,15 +242,40 @@ jobs:
           # nothing yet owns `exp://`, and openurl is refused. Launching by
           # bundle id needs no scheme at all, and forces the registration the
           # deep link then depends on.
+          # Run a simctl command with a hard bound. EVERY simctl call in this
+          # step needs one: `openurl` was bounded and `launch` was not, so when
+          # the iPad hung on launch the step sat there until its ceiling killed
+          # it -- and the transcript stopped mid-sentence, one line after the
+          # iPhone succeeded. Returns 124 for "never came back", like timeout(1).
+          bounded() {
+            local seconds="$1"; shift
+            "$@" >/dev/null 2>&1 &
+            local pid=$! waited=0
+            while kill -0 "$pid" 2>/dev/null && [ "$waited" -lt "$seconds" ]; do
+              sleep 2; waited=$((waited + 2))
+            done
+            if kill -0 "$pid" 2>/dev/null; then
+              kill -9 "$pid" 2>/dev/null || true
+              wait "$pid" 2>/dev/null || true
+              return 124
+            fi
+            wait "$pid"
+          }
           warm_up() {
             udid="$1"; name="$2"
             for try in 1 2 3; do
-              if xcrun simctl launch "$udid" host.exp.Exponent >/dev/null 2>&1; then
+              bounded 45 xcrun simctl launch "$udid" host.exp.Exponent
+              rc=$?
+              if [ "$rc" -eq 0 ]; then
                 echo "$name: Expo Go launched (attempt $try)"
                 sleep 5
                 return 0
               fi
-              echo "$name: could not launch Expo Go (attempt $try)"
+              if [ "$rc" -eq 124 ]; then
+                echo "$name: simctl launch never returned (attempt $try) -- device wedged?"
+              else
+                echo "$name: simctl launch exited $rc (attempt $try)"
+              fi
               sleep 5
             done
             return 1
