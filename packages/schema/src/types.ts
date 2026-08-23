@@ -12,8 +12,14 @@ import type { BrandRole } from './claims';
 
 export type FulfillmentType = 'pickup' | 'curbside' | 'catering' | 'delivery';
 export type OrderChannel = 'app' | 'web' | 'kiosk' | 'pos';
+export type DeviceRole = 'kiosk' | 'pos' | 'display' | 'prep';
+export type PrepStatus = 'pending' | 'in_progress' | 'done' | 'abandoned';
+export type TaskRecurrence = 'opening' | 'closing' | 'daily' | 'weekly';
+export type ItemRotation = 'permanent' | 'rotating' | 'day_specific';
+/** What a guest may do with a drop right now (app.drop_visibility). */
+export type DropVisibility = 'hidden' | 'revealed' | 'orderable' | 'ended';
 export type CampaignChannel = 'push' | 'sms' | 'email';
-export type DropStatus = 'draft' | 'scheduled' | 'live' | 'ended' | 'cancelled';
+export type DropStatus = 'draft' | 'scheduled' | 'revealed' | 'live' | 'ended' | 'cancelled';
 export type CampaignStatus = 'draft' | 'scheduled' | 'sending' | 'sent' | 'cancelled';
 
 export type Json = string | number | boolean | null | { [key: string]: Json } | Json[];
@@ -126,6 +132,13 @@ export type MenuItemRow = {
   is_86d: boolean;
   is_listed: boolean;
   sort_order: number;
+  rotation: ItemRotation;
+  /** ISO weekday, 1 = Monday. Non-null exactly when rotation is day_specific. */
+  weekday: number | null;
+  /** Null means this is not a pack. */
+  pack_size: number | null;
+  choice_source: 'lineup' | 'static' | null;
+  single_item_id: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -134,6 +147,8 @@ export type DropRow = {
   id: string;
   brand_id: string;
   item_id: string;
+  /** Visible as a teaser from here; null = no separate reveal. */
+  reveal_at: string | null;
   starts_at: string;
   ends_at: string;
   status: DropStatus;
@@ -216,6 +231,13 @@ export type OrderRow = {
   loyalty_redeemed_points: number;
   stored_value_applied_cents: number;
   note: string;
+  /** Service date in the location's timezone; ticket numbers reset on it. */
+  service_date: string | null;
+  daily_number: number | null;
+  /** Display-safe name for a pickup board. Never the full record. */
+  guest_label: string | null;
+  /** Curbside check-in. Not a status: an order can arrive mid-preparation. */
+  arrived_at: string | null;
   square_order_id: string | null;
   square_payment_id: string | null;
   created_at: string;
@@ -266,3 +288,98 @@ export type CampaignRow = {
 export type InsertOf<Row extends { id: string; created_at: string }> =
   Omit<Row, 'id' | 'created_at' | 'updated_at'> &
   Partial<Pick<Row, Extract<'id' | 'created_at' | 'updated_at', keyof Row>>>;
+
+export type DeviceRow = {
+  id: string;
+  brand_id: string;
+  location_id: string;
+  role: DeviceRole;
+  label: string;
+  pairing_code: string | null;
+  pairing_expires_at: string | null;
+  paired_at: string | null;
+  revoked_at: string | null;
+  last_seen_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type RecipeRow = {
+  id: string;
+  brand_id: string;
+  menu_item_id: string;
+  version: number;
+  /** [{ n, text, minutes? }] -- steps carry their own timing. */
+  steps: Json;
+  yield_qty: number;
+  yield_unit: string;
+  allergens: string[];
+  notes: string;
+  active_from: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PrepBatchRow = {
+  id: string;
+  brand_id: string;
+  location_id: string;
+  recipe_id: string;
+  service_date: string;
+  target_qty: number;
+  produced_qty: number;
+  status: PrepStatus;
+  assigned_to: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ShiftRow = {
+  id: string;
+  brand_id: string;
+  location_id: string;
+  brand_user_id: string;
+  starts_at: string;
+  ends_at: string;
+  note: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CrewTaskRow = {
+  id: string;
+  brand_id: string;
+  location_id: string | null;
+  title: string;
+  detail: string;
+  recurrence: TaskRecurrence;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CrewTaskCompletionRow = {
+  id: string;
+  brand_id: string;
+  location_id: string;
+  task_id: string;
+  service_date: string;
+  completed_by: string | null;
+  completed_at: string;
+};
+
+/** public.board_tickets -- the pickup display's PII-narrow projection. */
+export type BoardTicketRow = {
+  id: string;
+  brand_id: string;
+  location_id: string;
+  daily_number: number | null;
+  guest_label: string | null;
+  status: OrderStatus;
+  fulfillment_type: FulfillmentType;
+  arrived_at: string | null;
+  updated_at: string;
+};
