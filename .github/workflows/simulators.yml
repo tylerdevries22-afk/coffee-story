@@ -539,7 +539,13 @@ jobs:
 
       - name: Replay the diagnostics at the end of the log
         timeout-minutes: 3
-        if: failure()
+        # always(), not failure(). The brightness maps exist so that someone
+        # who cannot reach the artifact host can still SEE the two devices --
+        # and a green run is exactly when you want to look, because "Metro
+        # served the bundle" and "the app is on screen" are not the same
+        # claim. Skipping this on success meant the one run that passed
+        # printed no screens at all.
+        if: always()
         run: |
           # Ordered so the TRANSCRIPT IS LAST. The log API returns only a job's
           # tail, and printing the transcript first put it back out of reach
