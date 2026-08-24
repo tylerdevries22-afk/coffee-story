@@ -23,6 +23,31 @@ describe('bundled tenant config', () => {
     assert.equal(typeof TENANT.features.drops, 'boolean');
     assert.ok(TENANT.location.timezone.includes('/'));
   });
+
+  it('ships the tenant-owned customer media byte for byte', () => {
+    const assetGroups = [
+      { name: 'menu', extensions: ['.webp', '.normalized.json'] },
+      { name: 'gift', extensions: ['.webp', '.png'] },
+      { name: 'hero', extensions: ['.webp', '.png', '.mp4'] },
+      { name: 'rewards', extensions: ['.webp', '.png'] },
+    ];
+    for (const group of assetGroups) {
+      const tenantAssets = join(__dirname, `../../../../tenants/${TENANT.identity.slug}/assets/${group.name}`);
+      const bundledAssets = join(__dirname, `../../assets/${group.name}`);
+      const files = readdirSync(tenantAssets)
+        .filter((file) => group.extensions.some((extension) => file.endsWith(extension)))
+        .sort();
+      const bundledFiles = readdirSync(bundledAssets)
+        .filter((file) => group.extensions.some((extension) => file.endsWith(extension)))
+        .sort();
+      assert.deepEqual(bundledFiles, files, `${group.name} contains stale or missing tenant media`);
+      for (const file of files) {
+        const source = readFileSync(join(tenantAssets, file));
+        const bundled = readFileSync(join(bundledAssets, file));
+        assert.ok(bundled.equals(source), `${group.name}/${file} has drifted from the tenant folder`);
+      }
+    }
+  });
 });
 
 describe('bundled product cut-outs', () => {
@@ -44,6 +69,14 @@ describe('bundled product cut-outs', () => {
     // either ships one brand's glassware in another brand's binary, or names an
     // asset that is not there -- which fails the bundle, not the tests.
     assert.deepEqual(mapped, seated);
+  });
+
+  it('ships no stale cut-outs from another tenant', () => {
+    const bundled = readdirSync(productsDir)
+      .filter((file) => file.endsWith('.webp'))
+      .map((file) => file.replace(/\.webp$/, ''))
+      .sort();
+    assert.deepEqual(bundled, seated);
   });
 
   it('matches the tenant folder byte for byte', () => {

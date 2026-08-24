@@ -15,18 +15,26 @@
 import { EMPTY_PRODUCT_MEDIA, type ProductMediaCatalog } from '@platform/domain';
 
 import adeniChai from '../../assets/products/adeni-chai.webp';
+import chaiLatte from '../../assets/products/chai-latte.webp';
 import honeyLavenderMatcha from '../../assets/products/honey-lavender-matcha.webp';
 import londonFog from '../../assets/products/london-fog.webp';
+import looseLeafTea from '../../assets/products/loose-leaf-tea.webp';
 import matchaLatte from '../../assets/products/matcha-latte.webp';
+import orangeBlossomMatcha from '../../assets/products/orange-blossom-matcha.webp';
+import spanishMatcha from '../../assets/products/spanish-matcha.webp';
 import strawberryMatcha from '../../assets/products/strawberry-matcha.webp';
 import ubeMatcha from '../../assets/products/ube-matcha.webp';
 
 /** slug -> Metro module id. The one place a cut-out asset is named. */
 export const BUNDLED_CUTOUTS: Readonly<Record<string, number>> = {
   'adeni-chai': adeniChai,
+  'chai-latte': chaiLatte,
   'honey-lavender-matcha': honeyLavenderMatcha,
   'london-fog': londonFog,
+  'loose-leaf-tea': looseLeafTea,
   'matcha-latte': matchaLatte,
+  'orange-blossom-matcha': orangeBlossomMatcha,
+  'spanish-matcha': spanishMatcha,
   'strawberry-matcha': strawberryMatcha,
   'ube-matcha': ubeMatcha,
 };
