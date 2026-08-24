@@ -1,5 +1,5 @@
 /** KPI aggregation for the dashboard. Pure and tested; integer cents. */
-import type { KpiDay } from './demo-data';
+import type { ChannelRevenueCents, KpiDay } from './demo-data';
 
 export type KpiTotals = {
   revenueCents: number;
@@ -7,12 +7,19 @@ export type KpiTotals = {
   aovCents: number;
   inAppShare: number;
   loyaltyRedemptionRate: number;
+  channelRevenueCents: ChannelRevenueCents;
 };
 
 /** Revenue-weighted rollup across locations and days. */
 export function rollupKpis(days: readonly KpiDay[]): KpiTotals {
   const revenueCents = days.reduce((sum, day) => sum + day.revenueCents, 0);
   const ordersCount = days.reduce((sum, day) => sum + day.ordersCount, 0);
+  const channelRevenueCents = days.reduce<ChannelRevenueCents>((total, day) => ({
+    app: total.app + day.channelRevenueCents.app,
+    web: total.web + day.channelRevenueCents.web,
+    kiosk: total.kiosk + day.channelRevenueCents.kiosk,
+    pos: total.pos + day.channelRevenueCents.pos,
+  }), { app: 0, web: 0, kiosk: 0, pos: 0 });
   const weighted = (pick: (day: KpiDay) => number, weight: (day: KpiDay) => number) => {
     const total = days.reduce((sum, day) => sum + weight(day), 0);
     if (total === 0) return 0;
@@ -24,6 +31,7 @@ export function rollupKpis(days: readonly KpiDay[]): KpiTotals {
     aovCents: ordersCount === 0 ? 0 : Math.round(revenueCents / ordersCount),
     inAppShare: weighted((day) => day.inAppShare, (day) => day.revenueCents),
     loyaltyRedemptionRate: weighted((day) => day.loyaltyRedemptionRate, (day) => day.ordersCount),
+    channelRevenueCents,
   };
 }
 

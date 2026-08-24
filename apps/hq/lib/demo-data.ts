@@ -17,7 +17,10 @@ export type KpiDay = {
   aovCents: number;
   inAppShare: number;
   loyaltyRedemptionRate: number;
+  channelRevenueCents: ChannelRevenueCents;
 };
+
+export type ChannelRevenueCents = { app: number; web: number; kiosk: number; pos: number };
 
 export type LocationSummary = {
   id: string;
@@ -108,6 +111,7 @@ export const DEMO_KPIS: KpiDay[] = DAYS.flatMap((day, index) => [
     aovCents: 1100 + index * 12,
     inAppShare: 0.58 + index * 0.01,
     loyaltyRedemptionRate: 0.22 + index * 0.005,
+    channelRevenueCents: { app: 38_000 + index * 3_000, web: 11_000 + index * 1_000, kiosk: 9_000 + index * 1_000, pos: 34_400 + index * 2_800 },
   },
   {
     day,
@@ -118,6 +122,7 @@ export const DEMO_KPIS: KpiDay[] = DAYS.flatMap((day, index) => [
     aovCents: 1080 + index * 9,
     inAppShare: 0.44 + index * 0.012,
     loyaltyRedemptionRate: 0.17 + index * 0.004,
+    channelRevenueCents: { app: 16_000 + index * 1_500, web: 5_000 + index * 500, kiosk: 4_000 + index * 500, pos: 31_100 + index * 2_600 },
   },
 ]);
 
