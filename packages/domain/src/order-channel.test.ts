@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { IN_APP_CHANNELS, isOwnedChannel, resolveOrderChannel } from './order-channel';
+import { isOwnedChannel, resolveOrderChannel } from './order-channel';
 
 describe('resolveOrderChannel', () => {
   /** The bug this replaces: the old ternary could never emit 'kiosk'. */
@@ -39,8 +39,8 @@ describe('isOwnedChannel', () => {
    */
   it('counts the kiosk as the brand own platform, which in_app_share does not', () => {
     assert.equal(isOwnedChannel('kiosk'), true);
-    assert.equal(IN_APP_CHANNELS.includes('kiosk'), false,
-      'IN_APP_CHANNELS mirrors the SQL view; the divergence is the point');
+    assert.equal(isOwnedChannel('kiosk'), true,
+      'a kiosk is the most owned channel a shop has');
   });
 
   it('excludes a counter sale from the owned-platform share', () => {

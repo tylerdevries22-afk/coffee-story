@@ -21,7 +21,9 @@ export {
   fetchCustomerOrders,
   type CustomerOrders,
 } from './orders';
-export { fetchLoyaltySummary, type LoyaltySummary } from './loyalty';
+export {
+  fetchLoyaltySummary, fetchLoyaltyStanding, type LoyaltySummary,
+} from './loyalty';
 export { fetchCustomerByUser, upsertOwnCustomer } from './customers';
 export {
   subscribeToLocationOrders,

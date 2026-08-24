@@ -385,6 +385,22 @@ export type CrewTaskCompletionRow = {
 };
 
 /**
+ * public.loyalty_standing -- annual and lifetime, named separately (0035).
+ *
+ * Two different promises. `annual_points` is the trailing twelve months and
+ * can fall; it sets the earn rate, which is an entitlement. `lifetime_points`
+ * only ever rises; it sets the in-store badge, which is recognition. Neither
+ * is derivable from the other, which is why both are here.
+ */
+export type LoyaltyStandingRow = {
+  customer_id: string;
+  brand_id: string;
+  points_balance: number;
+  lifetime_points: number;
+  annual_points: number;
+};
+
+/**
  * public.board_tickets -- the pickup display's PII-narrow projection.
  *
  * Every field here is readable by a whole room, so the list is a privacy
