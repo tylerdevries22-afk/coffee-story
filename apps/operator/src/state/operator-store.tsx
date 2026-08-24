@@ -49,12 +49,12 @@ import { platformApi } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/state/auth-context';
 
-export type OperatorLocation = { id: string; name: string };
+export type OperatorLocation = { id: string; name: string; timezone: string };
 
 /** Multi-location demo roster; a single-location brand just never shows the picker. */
 export const DEMO_LOCATIONS: readonly OperatorLocation[] = [
-  { id: 'loc-havana', name: 'Havana St' },
-  { id: 'loc-downtown', name: 'Downtown' },
+  { id: 'loc-havana', name: 'Havana St', timezone: 'America/Denver' },
+  { id: 'loc-downtown', name: 'Downtown', timezone: 'America/Denver' },
 ];
 
 /** How often the live board re-fetches to catch missed realtime messages
@@ -80,6 +80,8 @@ type OperatorState = {
   setLocation: (location: OperatorLocation) => void;
   /** The roster the picker shows: claims-scoped live, the demo pair otherwise. */
   locations: readonly OperatorLocation[];
+  /** False while a live account is still resolving its claims-scoped roster. */
+  locationReady: boolean;
 
   settings: OperatorSettings;
   updateSettings: (patch: Partial<OperatorSettings>) => void;
@@ -122,9 +124,14 @@ export function OperatorProvider({ children }: PropsWithChildren) {
     ordersRef.current = orders;
   }, [orders]);
 
-  const locations: readonly OperatorLocation[] = live && liveLocations.length > 0
-    ? liveLocations
-    : DEMO_LOCATIONS;
+  const locations = useMemo<readonly OperatorLocation[]>(() => live
+    ? liveLocations.map((entry) => ({
+      id: entry.id,
+      name: entry.name,
+      timezone: entry.timezone?.trim() || 'UTC',
+    }))
+    : DEMO_LOCATIONS, [live, liveLocations]);
+  const locationReady = !live || locations.some((entry) => entry.id === location.id);
 
   // Keep the working location inside the roster the account may work.
   useEffect(() => {
@@ -144,10 +151,10 @@ export function OperatorProvider({ children }: PropsWithChildren) {
 
   /** Live board fetch, mapped once by the shared KDS projection. */
   const fetchLiveBoard = useCallback(async (): Promise<BoardOrder[] | null> => {
-    if (!supabase || !tenant) return null;
+    if (!supabase || !tenant || !locationReady) return null;
     const rows = await fetchActiveLocationOrders(supabase, location.id);
     return rows.map(orderBoardEntryFromRow);
-  }, [location.id, tenant]);
+  }, [location.id, locationReady, tenant]);
 
   /**
    * Flush the queue against the given server statuses, inserting the
@@ -219,6 +226,7 @@ export function OperatorProvider({ children }: PropsWithChildren) {
     setOrders([]);
     seenRef.current = new Set();
     queueRef.current = [];
+    if (!locationReady) return undefined;
     let active = true;
     void loadTransitionQueue(AsyncStorage, location.id).then((stored) => {
       if (!active) return;
@@ -243,11 +251,11 @@ export function OperatorProvider({ children }: PropsWithChildren) {
       unsubscribe();
       clearInterval(timer);
     };
-  }, [live, location.id, reconcileLive, trackFresh]);
+  }, [live, location.id, locationReady, reconcileLive, trackFresh]);
 
   // Live menu control state: 86'd slugs and the location's pause flag.
   useEffect(() => {
-    if (!live || !supabase || !tenant) return undefined;
+    if (!live || !locationReady || !supabase || !tenant) return undefined;
     let active = true;
     const database = supabase;
     const readMenu = () => {
@@ -280,7 +288,7 @@ export function OperatorProvider({ children }: PropsWithChildren) {
       unsubscribeMenu();
       unsubscribeLocation();
     };
-  }, [live, location.id, tenant]);
+  }, [live, location.id, locationReady, tenant]);
 
   // The demo shop stays busy: a new order lands every couple of minutes.
   useEffect(() => {
@@ -309,7 +317,7 @@ export function OperatorProvider({ children }: PropsWithChildren) {
       to,
       queuedAt: new Date().toISOString(),
     });
-    if (live) {
+    if (live && locationReady) {
       void saveTransitionQueue(AsyncStorage, location.id, queueRef.current);
       const serverStatus = new Map(ordersRef.current.map((order) => [order.id, order.status] as const));
       setOrders((current) => current.map((order) => (
@@ -343,7 +351,7 @@ export function OperatorProvider({ children }: PropsWithChildren) {
           : order;
       });
     });
-  }, [flushQueue, live, location.id]);
+  }, [flushQueue, live, location.id, locationReady]);
 
   const advance = useCallback((orderId: string, to: OrderStatus) => {
     applyTransition(orderId, to);
@@ -422,7 +430,7 @@ export function OperatorProvider({ children }: PropsWithChildren) {
 
   const setOrderingPaused = useCallback((paused: boolean) => {
     setOrderingPausedState(paused);
-    if (live && supabase && tenant) {
+    if (live && locationReady && supabase && tenant) {
       void supabase
         .from('locations')
         .update({ ordering_paused: paused })
@@ -431,7 +439,7 @@ export function OperatorProvider({ children }: PropsWithChildren) {
           if (result.error) setOrderingPausedState(!paused);
         });
     }
-  }, [live, location.id, tenant]);
+  }, [live, location.id, locationReady, tenant]);
 
   const value = useMemo<OperatorState>(() => ({
     orders,
@@ -443,6 +451,7 @@ export function OperatorProvider({ children }: PropsWithChildren) {
     location,
     setLocation,
     locations,
+    locationReady,
     settings,
     updateSettings,
     eightySixed,
@@ -452,7 +461,7 @@ export function OperatorProvider({ children }: PropsWithChildren) {
     hoursOverride,
     setHoursOverride,
     conflicts,
-  }), [advance, cancel, conflicts, eightySixed, hoursOverride, location, locations, markSeen, orders, orderingPaused, refund, setOrderingPaused, settings, toggleEightySix, unseenIds, updateSettings]);
+  }), [advance, cancel, conflicts, eightySixed, hoursOverride, location, locationReady, locations, markSeen, orders, orderingPaused, refund, setOrderingPaused, settings, toggleEightySix, unseenIds, updateSettings]);
 
   return <OperatorContext.Provider value={value}>{children}</OperatorContext.Provider>;
 }

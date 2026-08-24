@@ -5,7 +5,7 @@ import {
   fetchChecklist, fetchShiftRoster, type ChecklistItem as DataChecklistItem,
   type RosterEntry,
 } from '@platform/data';
-import { localIsoDate } from '@platform/domain';
+import { isoDateInTimeZone } from '@platform/domain';
 
 import { CollapsingScreen } from '@/components/collapsing-screen';
 import { Body, Card, SectionTitle } from '@/components/ui';
@@ -45,14 +45,22 @@ export function CrewScreen() {
     ended: tokens.textMuted,
   } as const;
   const { isDemo, portal, tenant, user } = useAuth();
-  const { location } = useOperator();
+  const { location, locationReady } = useOperator();
   const [checklist, setChecklist] = useState<readonly ChecklistItem[]>(() => isDemo ? DEMO_CHECKLIST : []);
   const [shifts, setShifts] = useState<readonly Shift[]>(() => isDemo ? DEMO_SHIFTS : []);
-  // One clock for the whole render, so the roster and the "leaving soon" cue
-  // can never disagree about what time it is.
-  const now = useMemo(() => new Date(), []);
+  // One clock for the whole render, advanced once a minute so the roster,
+  // leaving-soon cue, and location calendar day cannot drift apart.
+  const [now, setNow] = useState(() => new Date());
 
-  const serviceDate = useMemo(() => localIsoDate(now), [now]);
+  useEffect(() => {
+    const heartbeat = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(heartbeat);
+  }, []);
+
+  const serviceDate = useMemo(
+    () => isoDateInTimeZone(now, location.timezone),
+    [location.timezone, now],
+  );
   const roster = useMemo(() => sortRoster(shifts, now), [now, shifts]);
   const soon = useMemo(() => leavingSoon(shifts, now), [now, shifts]);
   const outstanding = useMemo(() => outstandingAtClose(checklist), [checklist]);
@@ -64,7 +72,7 @@ export function CrewScreen() {
       setShifts(DEMO_SHIFTS);
       return undefined;
     }
-    if (!supabase || !user) return undefined;
+    if (!supabase || !user || !locationReady) return undefined;
     const database = supabase;
     let active = true;
     const load = async () => {
@@ -89,14 +97,14 @@ export function CrewScreen() {
       active = false;
       clearInterval(heartbeat);
     };
-  }, [isDemo, location.id, portal.profile.fullName, serviceDate, user]);
+  }, [isDemo, location.id, locationReady, portal.profile.fullName, serviceDate, user]);
 
   function tick(id: string) {
     const previous = checklist.find((item) => item.id === id);
     if (!previous) return;
     const crewMember = isDemo ? DEMO_CREW_MEMBER : portal.profile.fullName || 'Team member';
     setChecklist((current) => toggleItem(current, id, crewMember, new Date().toISOString()));
-    if (isDemo || !supabase || !tenant || !user) return;
+    if (isDemo || !locationReady || !supabase || !tenant || !user) return;
     const request = previous.completedAt === null
       ? supabase.from('crew_task_completions').insert({
         brand_id: tenant.brand_id,

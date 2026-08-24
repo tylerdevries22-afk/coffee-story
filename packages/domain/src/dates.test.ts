@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { addLocalDays, localIsoDate, localIsoTime, replaceLocalDateTime, upcomingDates } from './dates';
+import {
+  addLocalDays,
+  isoDateInTimeZone,
+  localIsoDate,
+  localIsoTime,
+  replaceLocalDateTime,
+  upcomingDates,
+} from './dates';
 
 /** The local Y-M-D of an instant, built independently of the module under test. */
 function localParts(date: Date): string {
@@ -92,6 +99,17 @@ test('a non-positive count yields nothing rather than throwing', () => {
 
 test('an invalid date is rejected rather than yielding "NaN-NaN-NaN"', () => {
   assert.throws(() => localIsoDate(new Date('nope')), RangeError);
+});
+
+test('a named timezone determines the service date independently of the device', () => {
+  const instant = new Date('2026-08-25T00:30:00.000Z');
+  assert.equal(isoDateInTimeZone(instant, 'America/Denver'), '2026-08-24');
+  assert.equal(isoDateInTimeZone(instant, 'Asia/Tokyo'), '2026-08-25');
+});
+
+test('timezone service dates reject invalid inputs', () => {
+  assert.throws(() => isoDateInTimeZone(new Date('nope'), 'America/Denver'), RangeError);
+  assert.throws(() => isoDateInTimeZone(new Date(), 'Not/A_Timezone'), RangeError);
 });
 
 test('localIsoTime preserves the local clock shown to a picker', () => {

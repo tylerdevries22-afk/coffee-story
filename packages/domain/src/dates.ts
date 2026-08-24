@@ -19,6 +19,25 @@ export function localIsoDate(date: Date): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
+/** `YYYY-MM-DD` for an instant in a named IANA timezone. */
+export function isoDateInTimeZone(date: Date, timeZone: string): string {
+  if (Number.isNaN(date.getTime())) throw new RangeError('a valid date is required');
+  const parts = new Intl.DateTimeFormat('en-US', {
+    calendar: 'gregory',
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const value = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value;
+  const year = value('year');
+  const month = value('month');
+  const day = value('day');
+  if (!year || !month || !day) throw new RangeError('the calendar date could not be formatted');
+  return `${year}-${month}-${day}`;
+}
+
 /** The same local calendar day, `offset` days later. */
 export function addLocalDays(date: Date, offset: number): Date {
   const next = new Date(date.getTime());

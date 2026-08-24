@@ -6,7 +6,7 @@ import { Body, Card, SectionTitle } from '@/components/ui';
 import {
   batchScale, fetchPrepBoard, subscribeToPrepBatches, type PrepBoardEntry,
 } from '@platform/data';
-import { localIsoDate } from '@platform/domain';
+import { isoDateInTimeZone } from '@platform/domain';
 
 import { DEMO_BAKE_LIST } from '@/data/prep-demo';
 import {
@@ -43,7 +43,7 @@ export function PrepScreen() {
     abandoned: tokens.danger,
   } as const;
   const { isDemo } = useAuth();
-  const { location } = useOperator();
+  const { location, locationReady } = useOperator();
   const [batches, setBatches] = useState<readonly PrepBoardEntry[]>(() => isDemo ? DEMO_BAKE_LIST : []);
   const [openId, setOpenId] = useState<string | null>(null);
 
@@ -52,12 +52,12 @@ export function PrepScreen() {
       setBatches(DEMO_BAKE_LIST);
       return undefined;
     }
-    if (!supabase) return undefined;
+    if (!supabase || !locationReady) return undefined;
     const database = supabase;
     let active = true;
-    const serviceDate = localIsoDate(new Date());
     const load = async () => {
       try {
+        const serviceDate = isoDateInTimeZone(new Date(), location.timezone);
         const rows = await fetchPrepBoard(database, location.id, serviceDate);
         if (active) setBatches(rows);
       } catch {
@@ -72,7 +72,7 @@ export function PrepScreen() {
       unsubscribe();
       clearInterval(heartbeat);
     };
-  }, [isDemo, location.id]);
+  }, [isDemo, location.id, location.timezone, locationReady]);
 
   const sorted = useMemo(() => sortBakeList(batches), [batches]);
   const progress = useMemo(() => bakeProgress(batches), [batches]);
