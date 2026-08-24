@@ -3,15 +3,10 @@
  * Pure, so the mapping (and the short-code rule the barista calls out) is
  * unit-tested without a database.
  */
+import { readSnapshotLines } from '@platform/domain';
 import type { OrderRow } from '@platform/schema';
 
 import type { BoardOrder } from './board';
-
-type SnapshotLine = {
-  name?: string;
-  quantity?: number;
-  options?: string[];
-};
 
 /**
  * "A17": stable per order id, so every screen (and the guest's confirmation,
@@ -30,7 +25,6 @@ export function shortCodeOf(orderId: string): string {
 }
 
 export function boardOrderFromRow(row: OrderRow, guestName: string): BoardOrder {
-  const totals = (row.totals ?? {}) as { lines?: SnapshotLine[] };
   return {
     id: row.id,
     shortCode: shortCodeOf(row.id),
@@ -40,10 +34,12 @@ export function boardOrderFromRow(row: OrderRow, guestName: string): BoardOrder 
     dailyNumber: row.daily_number,
     updatedAt: row.updated_at,
     scheduledFor: row.scheduled_for,
-    lines: (totals.lines ?? []).map((line) => ({
-      name: line.name ?? 'Item',
-      quantity: line.quantity ?? 1,
-      options: line.options ?? [],
+    // No unit price: the KDS drops prices on purpose (docs/DESIGN.md), so the
+    // shared read is narrowed here rather than the board widened.
+    lines: readSnapshotLines(row.totals).map((line) => ({
+      name: line.name,
+      quantity: line.quantity,
+      options: line.options,
     })),
     totalCents: row.total_cents,
     note: row.note,

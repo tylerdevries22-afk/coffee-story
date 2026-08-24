@@ -15,6 +15,7 @@ import {
   upsertOwnCustomer,
   type BrandSummary,
 } from '@platform/data';
+import { readSnapshotLines } from '@platform/domain';
 import type { OrderRow } from '@platform/schema';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -48,20 +49,12 @@ export async function liveOrderContext(
   return { brandId: brand.brand.id, locationId: location.id };
 }
 
-type SnapshotLine = {
-  name?: string;
-  quantity?: number;
-  unit_price_cents?: number;
-  options?: string[];
-};
-
 function portalOrderOf(row: OrderRow): PortalOrder {
-  const totals = (row.totals ?? {}) as { lines?: SnapshotLine[] };
-  const lines: PortalOrderLine[] = (totals.lines ?? []).map((line) => ({
-    name: line.name ?? 'Item',
-    quantity: line.quantity ?? 1,
-    unitPriceCents: line.unit_price_cents ?? 0,
-    options: line.options ?? [],
+  const lines: PortalOrderLine[] = readSnapshotLines(row.totals).map((line) => ({
+    name: line.name,
+    quantity: line.quantity,
+    unitPriceCents: line.unitPriceCents,
+    options: line.options,
   }));
   const summary = lines
     .map((line) => (line.quantity > 1 ? `${line.quantity}× ${line.name}` : line.name))

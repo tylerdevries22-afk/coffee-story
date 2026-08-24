@@ -11,6 +11,7 @@
     "verify": "pnpm typecheck && pnpm test"
   },
   "dependencies": {
+    "@platform/domain": "workspace:*",
     "@platform/schema": "workspace:*",
     "@supabase/supabase-js": "^2.111.0"
   }

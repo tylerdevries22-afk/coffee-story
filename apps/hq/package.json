@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@platform/api-client": "workspace:*",
+    "@platform/domain": "workspace:*",
     "@platform/engine": "workspace:*",
     "@platform/schema": "workspace:*",
     "@sentry/nextjs": "^10.70.0",

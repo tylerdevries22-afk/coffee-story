@@ -8,9 +8,10 @@
  * Idempotency-Key header; POST /orders additionally persists it as
  * orders.client_key so a retry returns the same order.
  */
-import type { FulfillmentType, OrderStatus } from '@platform/schema';
+import type { FulfillmentType, OrderStatus, OrderTenderType } from '@platform/schema';
 
-export type TenderType = 'pay_at_pickup' | 'external' | 'square_link' | 'square_card';
+/** The wire name for `@platform/schema`'s `OrderTenderType`; one definition. */
+export type TenderType = OrderTenderType;
 
 export type PlaceOrderLine = {
   itemSlug: string;
@@ -33,6 +34,13 @@ export type PlaceOrderRequest = {
   note?: string;
   tenderType: TenderType;
   /**
+   * A display-safe name for the ticket ("Sara D."), written to
+   * `orders.guest_label`. Validated server-side with `parseGuestLabel` from
+   * `@platform/domain` -- the pickup board is granted to `anon` and hangs
+   * where a whole room can read it, so this field is a broadcast channel.
+   */
+  guestLabel?: string;
+  /**
    * square_link only: where Square returns the guest after paying — the app's
    * own deep link back to the order. Ignored for every other tender.
    */
@@ -49,6 +57,12 @@ export type PlaceOrderResponse = {
   totalCents: number;
   /** Present when tenderType is square_link: the hosted checkout to open. */
   checkoutUrl?: string;
+  /**
+   * The human ticket the shop calls out, assigned by `app.assign_daily_number`
+   * and restarting per location per service date. Returned because a kiosk
+   * cannot print a uuid and, without this, its receipt had to invent one.
+   */
+  dailyNumber?: number | null;
 };
 
 export type RedeemRewardRequest = {

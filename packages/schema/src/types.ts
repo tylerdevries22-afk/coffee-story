@@ -12,6 +12,19 @@ import type { BrandRole } from './claims';
 
 export type FulfillmentType = 'pickup' | 'curbside' | 'catering' | 'delivery';
 export type OrderChannel = 'app' | 'web' | 'kiosk' | 'pos';
+/**
+ * How the money settles (`orders.tender_type`, CHECK in 0012).
+ *
+ * Declared here because the CHECK constraint is its source of truth, and it was
+ * previously declared twice -- in `packages/engine` and `packages/api-client` --
+ * with nothing keeping the two in step with each other or with the SQL.
+ *
+ * This is NOT the same axis as the button a guest presses. A kiosk offers
+ * "card" or "gift card"; those are `KioskTender` in `packages/domain` and map
+ * onto these. Conflating the two is how a kiosk ends up posting a value the
+ * CHECK rejects.
+ */
+export type OrderTenderType = 'pay_at_pickup' | 'external' | 'square_link' | 'square_card';
 export type DeviceRole = 'kiosk' | 'pos' | 'display' | 'prep';
 export type PrepStatus = 'pending' | 'in_progress' | 'done' | 'abandoned';
 export type TaskRecurrence = 'opening' | 'closing' | 'daily' | 'weekly';

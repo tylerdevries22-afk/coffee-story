@@ -20,6 +20,9 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import type { OrderSnapshotLine } from '@platform/domain';
+import type { OrderTenderType } from '@platform/schema';
+
 import { computeAppFeeCents, feeMonthRange, type FeeConfig } from './fees';
 import { pointsEarnedFor, pointsToReverse } from './loyalty';
 import { priceLine, MenuPricingError, type MenuItemPricing } from './menu-pricing';
@@ -33,7 +36,7 @@ import {
   type SquareOrderLine,
 } from './square/client';
 
-export type OrderTenderType = 'pay_at_pickup' | 'external' | 'square_link' | 'square_card';
+export type { OrderTenderType };
 /** `app.order_channel`. Where the order was taken, not how it was paid. */
 export type OrderChannel = 'app' | 'web' | 'kiosk' | 'pos';
 
@@ -84,6 +87,13 @@ export type CreateOrderInput = {
    * email has been pinned at 100% for every brand since the view shipped.
    */
   channel: OrderChannel;
+  /**
+   * A display-safe guest name for the ticket, already validated by the caller
+   * with `parseGuestLabel`. Null when the guest gave none -- the column stays
+   * null rather than holding an empty string, because the board renders it
+   * directly.
+   */
+  guestLabel: string | null;
   /** The Idempotency-Key the client sent; persisted as orders.client_key. */
   clientKey: string | null;
   taxJurisdictions: readonly TaxJurisdiction[];
@@ -96,6 +106,12 @@ export type CreateOrderResult = {
   taxCents: number;
   tipCents: number;
   totalCents: number;
+  /**
+   * The ticket the shop calls out. Assigned by a trigger, so it comes back with
+   * the row rather than being computed here -- a surface that invents its own
+   * number is how a barista and a pickup board end up disagreeing.
+   */
+  dailyNumber: number | null;
   /** True when client_key matched an existing order and nothing was written. */
   replayed: boolean;
 };
@@ -117,6 +133,8 @@ type ExistingOrder = {
   tax_cents: number;
   tip_cents: number;
   total_cents: number;
+  /** Assigned by the app.assign_daily_number trigger, so it is only ever read. */
+  daily_number: number | null;
 };
 
 function asResult(row: ExistingOrder, replayed: boolean): CreateOrderResult {
@@ -127,6 +145,7 @@ function asResult(row: ExistingOrder, replayed: boolean): CreateOrderResult {
     taxCents: row.tax_cents,
     tipCents: row.tip_cents,
     totalCents: row.total_cents,
+    dailyNumber: row.daily_number,
     replayed,
   };
 }
@@ -138,7 +157,7 @@ async function findByClientKey(
 ): Promise<ExistingOrder | null> {
   const { data, error } = await db
     .from('orders')
-    .select('id, status, subtotal_cents, tax_cents, tip_cents, total_cents')
+    .select('id, status, subtotal_cents, tax_cents, tip_cents, total_cents, daily_number')
     .eq('brand_id', brandId)
     .eq('client_key', clientKey)
     .maybeSingle<ExistingOrder>();
@@ -218,7 +237,10 @@ export async function createOrder(deps: CreateOrderDeps, input: CreateOrderInput
   );
 
   let subtotalCents = 0;
-  const snapshotLines = input.lines.map((line) => {
+  // Typed against the contract in @platform/domain rather than against itself,
+  // so a renamed key fails here instead of quietly rendering "Item x1" on
+  // every surface that reads the snapshot back.
+  const snapshotLines: OrderSnapshotLine[] = input.lines.map((line) => {
     const item = bySlug.get(line.itemSlug);
     if (!item) throw new OrderError('item_unavailable', `"${line.itemSlug}" is not available right now.`);
     let priced;
@@ -268,9 +290,10 @@ export async function createOrder(deps: CreateOrderDeps, input: CreateOrderInput
       total_cents: totalCents,
       tender_type: input.tenderType,
       channel: input.channel,
+      guest_label: input.guestLabel,
       client_key: input.clientKey,
     })
-    .select('id, status, subtotal_cents, tax_cents, tip_cents, total_cents')
+    .select('id, status, subtotal_cents, tax_cents, tip_cents, total_cents, daily_number')
     .single<ExistingOrder>();
   if (inserted.error) {
     // Two rings of the same client_key raced: the UNIQUE lost this insert,

@@ -40,7 +40,7 @@ const SECURITY_HEADERS = [
 
 const config: NextConfig = {
   // Workspace packages ship TypeScript source; Next compiles them in place.
-  transpilePackages: ['@platform/schema', '@platform/engine', '@platform/api-client'],
+  transpilePackages: ['@platform/schema', '@platform/domain', '@platform/engine', '@platform/api-client'],
   headers: async () => [
     {
       source: '/((?!api/).*)',

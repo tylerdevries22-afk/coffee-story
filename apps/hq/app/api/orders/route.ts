@@ -8,6 +8,8 @@ import {
   type OrderTenderType,
 } from '@platform/engine';
 
+import { parseGuestLabel, resolveOrderChannel } from '@platform/domain';
+
 import { squareRuntimeFor, type BrandFeeRow } from '../../../lib/square-runtime';
 import { isTenantRedirect, tenantSchemeOf } from '../../../lib/tenant-redirect';
 
@@ -104,6 +106,18 @@ export async function POST(request: Request): Promise<Response> {
   if (body.note !== undefined && typeof body.note !== 'string') {
     return jsonError(400, 'invalid_request', 'note must be a string.');
   }
+  // Enforced here rather than trusted from the client: `board_tickets` is
+  // granted to `anon` and the pickup display hangs where a whole room reads it,
+  // so this column is a broadcast channel and the server is the only thing
+  // standing in front of it.
+  const parsedGuestLabel = parseGuestLabel(body.guestLabel);
+  if (parsedGuestLabel.kind === 'rejected') {
+    return jsonError(400, 'invalid_request',
+      parsedGuestLabel.reason === 'too-long'
+        ? 'guestLabel must be 24 characters or fewer.'
+        : 'guestLabel may only contain letters, numbers, spaces and simple punctuation.');
+  }
+  const guestLabel = parsedGuestLabel.kind === 'ok' ? parsedGuestLabel.label : null;
   const clientKey = idempotencyKeyOf(request);
   if (clientKey === false) {
     return jsonError(400, 'invalid_request', 'Idempotency-Key must be a UUID.');
@@ -169,11 +183,13 @@ export async function POST(request: Request): Promise<Response> {
       lines: body.lines,
       tipCents: body.tipCents,
       tenderType: body.tenderType,
-      // From the caller's claims, not the body: a staff token placing an order
-      // is someone at the counter, a guest token is the app. Deriving it here
-      // means a client cannot dress a web order up as in-app to flatter the
-      // brand's own dashboard.
-      channel: auth.claims.role ? 'pos' : 'app',
+      // From the caller, never from the body: a client that could name its own
+      // channel could dress a web order up as in-app and flatter the brand's
+      // dashboard. `resolveOrderChannel` is tested and takes a device role, so
+      // a paired kiosk attributes correctly the moment pairing lands -- the
+      // ternary this replaces could not emit 'kiosk' at all.
+      channel: resolveOrderChannel({ staffRole: auth.claims.role }),
+      guestLabel,
       clientKey,
       taxJurisdictions,
     });
@@ -184,6 +200,7 @@ export async function POST(request: Request): Promise<Response> {
       taxCents: result.taxCents,
       tipCents: result.tipCents,
       totalCents: result.totalCents,
+      dailyNumber: result.dailyNumber,
     };
 
     if (square) {

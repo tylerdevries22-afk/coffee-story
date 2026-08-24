@@ -1,6 +1,11 @@
 /**
  * The name a guest puts on an order.
  *
+ * Promoted out of the kiosk because the SERVER is the one that has to enforce
+ * it: any client can post a `guestLabel`, and the rule below is what stands
+ * between that and a wall board. The kiosk keeps using it to validate as the
+ * guest types.
+ *
  * This lands in `orders.guest_label`, which 0023 describes as "display-safe"
  * and which the pickup board reads. `board_tickets` is granted to `anon`, and
  * the board hangs on a wall the whole room can see -- so this field is a

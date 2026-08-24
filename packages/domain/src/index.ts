@@ -28,5 +28,8 @@ export * from './add-ons';
 export * from './menu-options';
 export * from './cart';
 export * from './kiosk-flow';
+export * from './guest-label';
+export * from './order-channel';
+export * from './order-snapshot';
 export * from './board-display';
 export * from './qr';

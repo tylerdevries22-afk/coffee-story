@@ -9,6 +9,8 @@ import {
   inspectKioskFlow,
   normalizeForSave,
   resolveKioskFlow,
+  settlementFor,
+  wireTendersFor,
   type KioskEntryNode,
 } from './kiosk-flow';
 
@@ -366,5 +368,45 @@ describe('inspectKioskFlow', () => {
     };
     assert.equal(inspectKioskFlow(config, CONTEXT).length, 0);
     assert.equal(resolveKioskFlow(config, CONTEXT).entry.nodes.length, 2);
+  });
+});
+
+describe('tender settlement', () => {
+  /**
+   * The two enums had zero overlapping values before this existed: not one
+   * value the kiosk could emit was accepted by the DB CHECK on
+   * `orders.tender_type`.
+   */
+  it('maps every kiosk tender, and only to values the orders CHECK accepts', () => {
+    const postable = ['pay_at_pickup', 'external', 'square_link', 'square_card'];
+    for (const tender of ['card', 'cash', 'stored_value', 'gift_card'] as const) {
+      const settlement = settlementFor(tender);
+      assert.ok(settlement, `${tender} has no settlement`);
+      if (settlement.kind === 'wire') {
+        assert.ok(postable.includes(settlement.tender), `${tender} -> ${settlement.tender} is not postable`);
+      }
+    }
+  });
+
+  it('treats a balance as reducing what is due, not as settling the order', () => {
+    // stored_value and gift_card ride alongside a wire tender via
+    // orders.stored_value_applied_cents; posting one as tender_type is wrong.
+    assert.deepEqual(settlementFor('stored_value'), { kind: 'balance' });
+    assert.deepEqual(settlementFor('gift_card'), { kind: 'balance' });
+  });
+
+  it('gives a card-and-balance flow exactly one wire tender to post', () => {
+    const flow = resolveKioskFlow(
+      { tenders: ['card', 'stored_value'] },
+      { menu: MENU, features: { stored_value: true } },
+    );
+    assert.deepEqual(wireTendersFor(flow), ['square_card']);
+  });
+
+  it('never leaves a flow with no way to settle', () => {
+    for (const config of [{}, { tenders: [] }, { tenders: ['stored_value'] }]) {
+      const flow = resolveKioskFlow(config, { menu: MENU, features: { stored_value: true } });
+      assert.ok(wireTendersFor(flow).length > 0, JSON.stringify(config));
+    }
   });
 });
