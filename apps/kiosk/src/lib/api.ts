@@ -6,9 +6,34 @@
  */
 import { createApiClient, type ApiClient } from '@platform/api-client';
 
+export type KioskApiConfig = { baseUrl: string; allowedHost?: string };
+
+/** Validate the public API pair before a bearer token can reach it. */
+export function kioskApiConfig(
+  apiUrl: unknown,
+  allowedApiHost: unknown,
+): KioskApiConfig | null {
+  if (typeof apiUrl !== 'string' || apiUrl.length === 0) return null;
+  try {
+    const url = new URL(apiUrl);
+    const local = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+    if (url.protocol !== 'https:' && !(local && url.protocol === 'http:')) return null;
+    if (!local && (typeof allowedApiHost !== 'string'
+      || url.hostname !== allowedApiHost.toLowerCase())) return null;
+    return {
+      baseUrl: apiUrl.replace(/\/$/, ''),
+      ...(local ? {} : { allowedHost: allowedApiHost as string }),
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function apiBaseUrl(): string | null {
-  const url = process.env.EXPO_PUBLIC_API_URL;
-  return typeof url === 'string' && url.length > 0 ? url.replace(/\/$/, '') : null;
+  return kioskApiConfig(
+    process.env.EXPO_PUBLIC_API_URL,
+    process.env.EXPO_PUBLIC_ALLOWED_API_HOST,
+  )?.baseUrl ?? null;
 }
 
 /**
@@ -19,10 +44,15 @@ export function apiBaseUrl(): string | null {
  * re-read storage on every request could use one the provider has retired.
  */
 export function deviceApiClient(accessToken: string): ApiClient | null {
-  const base = apiBaseUrl();
-  if (!base) return null;
+  const config = kioskApiConfig(
+    process.env.EXPO_PUBLIC_API_URL,
+    process.env.EXPO_PUBLIC_ALLOWED_API_HOST,
+  );
+  if (!config) return null;
   return createApiClient({
-    baseUrl: base,
+    ...config,
+    // The shared guard permits plain HTTP only for loopback development.
+    developmentMode: true,
     getAccessToken: async () => accessToken,
   });
 }
