@@ -22,6 +22,22 @@ tenants/<slug>     brand config, menu, assets, app-store listing material
 Run everything from the root: `pnpm install`, then `pnpm verify` (lint,
 typecheck, tests, and both app bundles per workspace).
 
+## Running all five surfaces locally
+
+```bash
+pnpm preview
+```
+
+That builds the web export each Expo surface is served from and publishes the
+preview wall. Then start the servers — `.claude/launch.json` has one entry each
+(`customer-web`, `kiosk-web`, `operator-web`, `display`, `hq`) — and open
+**http://localhost:4170/wall**, which frames all five at once, each at the
+viewport its real device has.
+
+`pnpm preview --wall` re-publishes the wall alone when only it changed. Details,
+including why the console needed a development-only framing header, are in
+[`tools/preview-wall/README.md`](tools/preview-wall/README.md).
+
 ## The customer app (`apps/customer`)
 
 Expo SDK 54, React Native 0.81, expo-router v6. What a guest sees today:
