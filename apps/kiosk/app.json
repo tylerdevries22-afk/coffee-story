@@ -7,19 +7,37 @@
     "icon": "./assets/images/icon.png",
     "scheme": "coffee-kiosk",
     "runtimeVersion": "exposdk:54.0.0",
+    "updates": {
+      "url": "https://u.expo.dev/965cd044-8020-41d0-b719-337f6c9f6f72"
+    },
     "userInterfaceStyle": "light",
     "ios": {
       "bundleIdentifier": "com.coffeestory.kiosk",
       "supportsTablet": true,
       "requireFullScreen": true,
-      "config": { "usesNonExemptEncryption": false }
+      "config": {
+        "usesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.coffeestory.kiosk",
       "predictiveBackGestureEnabled": false
     },
-    "web": { "output": "static" },
-    "plugins": ["expo-router"],
-    "experiments": { "typedRoutes": true }
+    "web": {
+      "output": "static"
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "965cd044-8020-41d0-b719-337f6c9f6f72"
+      }
+    },
+    "owner": "tylerdevries222"
   }
 }

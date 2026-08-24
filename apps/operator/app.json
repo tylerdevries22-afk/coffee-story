@@ -7,6 +7,9 @@
     "icon": "./assets/images/operator-icon.png",
     "scheme": "platform-operator",
     "runtimeVersion": "exposdk:54.0.0",
+    "updates": {
+      "url": "https://u.expo.dev/d7cc284c-df13-47fd-b040-75b90417019f"
+    },
     "userInterfaceStyle": "light",
     "ios": {
       "bundleIdentifier": "com.devries.platform.operator",
@@ -39,7 +42,10 @@
       "reactCompiler": true
     },
     "extra": {
-      "router": {}
+      "router": {},
+      "eas": {
+        "projectId": "d7cc284c-df13-47fd-b040-75b90417019f"
+      }
     },
     "owner": "tylerdevries222"
   }

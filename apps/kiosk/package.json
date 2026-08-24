@@ -52,6 +52,12 @@
   },
   "scripts": {
     "start": "expo start",
+    "eas:login": "npx eas-cli@21.4.0 login --browser",
+    "publish:preview": "npx eas-cli@21.4.0 update --channel preview --platform ios",
+    "publish:production": "npx eas-cli@21.4.0 update --channel production --platform ios",
+    "build:preview:ios": "npx eas-cli@21.4.0 build --platform ios --profile preview",
+    "build:production:ios": "npx eas-cli@21.4.0 build --platform ios --profile production",
+    "submit:production:ios": "npx eas-cli@21.4.0 submit --platform ios --profile production",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
