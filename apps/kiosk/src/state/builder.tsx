@@ -8,6 +8,7 @@ import {
   type OptionSelection, type OrderLine,
 } from '@platform/domain';
 
+import { optionCategoryIdFor } from '@/data/menu-source';
 import { EMPTY_FILL, allocate, isComplete, packSummary, release, remaining, type PackFill } from '@/features/pack-fill';
 
 /**
@@ -77,7 +78,8 @@ function reducer(state: BuilderState, event: BuilderEvent): BuilderState {
 }
 
 function groupsOf(item: MenuItem): OptionGroup[] {
-  return optionGroupsFor(item.id, item.categoryId as MenuCategoryId);
+  const categoryId = optionCategoryIdFor(item);
+  return categoryId === null ? [] : optionGroupsFor(item.id, categoryId as MenuCategoryId);
 }
 
 type BuilderValue = {

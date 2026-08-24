@@ -14,7 +14,18 @@
  */
 import { kioskMenuFromRows, type KioskMenu, type KioskMenuItem } from '@platform/domain';
 
-import { MENU_CATEGORY_META, MENU_ITEMS } from '@/data/catalog';
+import { MENU_CATEGORY_META, MENU_ITEMS, type MenuCategoryId } from '@/data/catalog';
+
+const OPTION_CATEGORY_BY_TITLE = new Map(
+  MENU_CATEGORY_META.map((category) => [category.title, category.id] as const),
+);
+
+/** Resolve the stable option-engine key from the database-backed title. */
+export function optionCategoryIdFor(
+  item: Pick<KioskMenuItem, 'categoryId'>,
+): MenuCategoryId | null {
+  return OPTION_CATEGORY_BY_TITLE.get(item.categoryId) ?? null;
+}
 
 /** The bundled catalog in the shape live rows map to. */
 export function demoMenu(): KioskMenu {

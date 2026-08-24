@@ -8,6 +8,7 @@ import { useTokens } from '@platform/ui';
 import { StepHeading } from '@/components/chrome/step-heading';
 import { CircleTile } from '@/components/circle/circle-tile';
 import { useKioskMenu } from '@/data/menu-store';
+import { optionCategoryIdFor } from '@/data/menu-source';
 import { useBuilder } from '@/state/builder';
 import { useFlow } from '@/state/flow';
 import TENANT from '@/tenant/brand.json';
@@ -50,7 +51,11 @@ export default function ItemStep() {
                 // item -- a latte has size, milk and ice; a mochi donut has
                 // none -- so it is carried INTO the advance rather than set
                 // beside it, or the step is decided from stale facts.
-                goNext({ hasOptions: optionGroupsFor(item.id, item.categoryId as MenuCategoryId).length > 0 });
+                const categoryId = optionCategoryIdFor(item);
+                goNext({
+                  hasOptions: categoryId !== null
+                    && optionGroupsFor(item.id, categoryId as MenuCategoryId).length > 0,
+                });
               }}
             />
           );
