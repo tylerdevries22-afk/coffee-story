@@ -98,7 +98,6 @@ describe('refundOrder', () => {
     assert.equal(observedKey, '11111111-1111-4111-8111-111111111111');
   });
 });
-
 describe('submitTrainingQuiz', () => {
   it('reuses the caller-owned attempt id in the header and body', async () => {
     const originalFetch = globalThis.fetch;
