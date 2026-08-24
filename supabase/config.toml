@@ -6,12 +6,17 @@
 project_id = "coffee-story-platform"
 
 [db]
-port = 54322
+port = 57322
 major_version = 17
+
+[db.seed]
+# Tenant onboarding is the seed path. A generic seed.sql would silently create
+# the wrong tenant when this platform is used for another brand.
+enabled = false
 
 [api]
 enabled = true
-port = 54321
+port = 57321
 schemas = ["public", "storage"]
 # app is intentionally NOT exposed over PostgREST: its helpers are for RLS
 # policies and the auth hook, not the REST surface.
@@ -20,7 +25,13 @@ max_rows = 1000
 
 [auth]
 enabled = true
-site_url = "http://127.0.0.1:3000"
+site_url = "https://coffeestoryco.com"
+additional_redirect_urls = [
+  "coffeestory://**",
+  "coffeestory-kiosk://**",
+  "http://127.0.0.1:3000/**",
+  "http://localhost:3000/**",
+]
 # Guests sign in with email OTP (owner decision); staff/HQ use email+password.
 # Phone OTP stays dormant until Twilio is configured on the hosted project.
 enable_signup = true
@@ -31,6 +42,11 @@ enable_confirmations = false
 # OTP, not magic links, so the same code path works in Expo Go and web.
 otp_length = 6
 otp_expiry = 3600
+max_frequency = "60s"
+
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true
 
 # The claim minter (0009). On the hosted project this is registered under
 # Authentication -> Hooks -> Customize Access Token.
@@ -42,7 +58,7 @@ uri = "pg-functions://postgres/app/custom_access_token"
 # Local mail catcher (Mailpit): integration/E2E tests fetch OTP codes from
 # its API instead of bypassing the real email flow.
 enabled = true
-port = 54324
+port = 57324
 
 [storage]
 enabled = true

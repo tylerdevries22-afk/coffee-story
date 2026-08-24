@@ -120,5 +120,23 @@ describe('priceLine', () => {
   it('rejects a malformed catalog row as a unit', () => {
     assert.equal(code(() => priceLine({ ...COOKIE, sizes: 'bad' }, { quantity: 1 })), 'catalog_invalid');
     assert.equal(code(() => priceLine({ ...COOKIE, modifiers: [{ id: 1 }] }, { quantity: 1 })), 'catalog_invalid');
+    assert.equal(code(() => priceLine({ ...COOKIE, base_price_cents: -1 }, { quantity: 1 })), 'catalog_invalid');
+    assert.equal(code(() => priceLine({
+      ...COOKIE,
+      modifiers: [
+        { id: 'first', name: 'First', select: 'single', required: false, maxChoices: 1,
+          choices: [{ id: 'same', name: 'One', priceDeltaCents: 0 }] },
+        { id: 'second', name: 'Second', select: 'single', required: false, maxChoices: 1,
+          choices: [{ id: 'same', name: 'Two', priceDeltaCents: 100 }] },
+      ],
+    }, { quantity: 1 })), 'catalog_invalid');
+    assert.equal(code(() => priceLine({
+      ...COOKIE,
+      modifiers: [{
+        id: 'child', name: 'Child', select: 'single', required: false, maxChoices: 1,
+        dependsOn: { groupId: 'missing', choiceIds: ['nope'] },
+        choices: [{ id: 'choice', name: 'Choice', priceDeltaCents: 0 }],
+      }],
+    }, { quantity: 1 })), 'catalog_invalid');
   });
 });

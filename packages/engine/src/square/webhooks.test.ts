@@ -34,7 +34,7 @@ describe('mapSquareEvent', () => {
     });
     assert.deepEqual(mapped, {
       squareEventId: 'e-pay', orderStatus: 'paid', squareOrderId: 'SQORD1', squarePaymentId: 'PAY1',
-      refundedCents: null, kind: 'payment',
+      squareRefundId: null, refundedCents: null, kind: 'payment',
     });
   });
 
@@ -60,10 +60,12 @@ describe('mapSquareEvent', () => {
   it('carries what a refund actually returned, so a partial refund stays partial', () => {
     // Dropping this was why a $2 courtesy refund reversed a $50 order's
     // whole loyalty earn: the route had no figure but the order total.
-    assert.equal(mapSquareEvent({
+    const partial = mapSquareEvent({
       event_id: 'e-part', type: 'refund.updated',
       data: { object: { refund: { id: 'R2', status: 'COMPLETED', payment_id: 'PAY1', amount_money: { amount: 200, currency: 'USD' } } } },
-    })?.refundedCents, 200);
+    });
+    assert.equal(partial?.refundedCents, 200);
+    assert.equal(partial?.squareRefundId, 'R2');
     // Square omits it on some deliveries; null means "unknown", not zero.
     assert.equal(mapSquareEvent({
       event_id: 'e-ref', type: 'refund.updated',

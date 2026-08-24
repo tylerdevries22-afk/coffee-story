@@ -3,8 +3,8 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { CollapsingScreen } from '@/components/collapsing-screen';
 import { MenuImage } from '@/components/menu-image';
 import { Body, Card, SectionTitle } from '@/components/ui';
-import { DEMO_ADD_ONS, MENU_ITEMS, type MenuItem } from '@/data/catalog';
-import { formatMoney , sizeLabelFor, sizePriceCents } from '@platform/domain';
+import { MENU_ADD_ONS, MENU_ITEMS, type MenuItem } from '@/data/catalog';
+import { formatMoney, sizeLabelFor, sizePriceCents } from '@platform/domain';
 import { colors, fonts, radius, spacing } from '@/theme/tokens';
 
 /**
@@ -32,18 +32,22 @@ export function MenuPage({
         <MenuItemCard key={item.id} item={item} onBook={() => onBook(item.id)} />
       ))}
 
-      <SectionTitle>Enhancements</SectionTitle>
-      <Card style={styles.addOnCard}>
-        {DEMO_ADD_ONS.map((addOn) => (
-          <View key={addOn.slug} style={styles.addOnRow}>
-            <View style={styles.addOnCopy}>
-              <Text style={styles.addOnName}>{addOn.name}</Text>
-              <Body muted>{addOn.description}</Body>
-            </View>
-            <Text style={styles.addOnPrice}>${(addOn.priceCents / 100).toFixed(0)}</Text>
-          </View>
-        ))}
-      </Card>
+      {MENU_ADD_ONS.length > 0 ? (
+        <>
+          <SectionTitle>Enhancements</SectionTitle>
+          <Card style={styles.addOnCard}>
+            {MENU_ADD_ONS.map((addOn) => (
+              <View key={addOn.slug} style={styles.addOnRow}>
+                <View style={styles.addOnCopy}>
+                  <Text style={styles.addOnName}>{addOn.name}</Text>
+                  <Body muted>{addOn.description}</Body>
+                </View>
+                <Text style={styles.addOnPrice}>${(addOn.priceCents / 100).toFixed(0)}</Text>
+              </View>
+            ))}
+          </Card>
+        </>
+      ) : null}
 
       <Body muted>
         Order ahead from the Order tab and pick it up at the bar, or have it delivered.

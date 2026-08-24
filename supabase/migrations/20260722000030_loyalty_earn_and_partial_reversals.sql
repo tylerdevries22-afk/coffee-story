@@ -32,6 +32,34 @@ create unique index if not exists loyalty_events_one_reverse_per_cause
   on public.loyalty_events (order_id, note)
   where type = 'reverse';
 
+-- Repair rows created before earn idempotency existed. Removing only the
+-- duplicate ledger rows would leave their points in the projection forever,
+-- so reconcile both balances before adding the constraint.
+create temporary table loyalty_earn_duplicates on commit drop as
+select id, account_id, points
+from (
+  select id, account_id, points,
+         row_number() over (partition by order_id order by created_at, id) as ordinal
+  from public.loyalty_events
+  where type = 'earn' and order_id is not null
+) ranked
+where ordinal > 1;
+
+update public.loyalty_accounts account
+set points_balance = greatest(0, account.points_balance - duplicate.points),
+    lifetime_points = greatest(0, account.lifetime_points - duplicate.points),
+    updated_at = now()
+from (
+  select account_id, sum(points) as points
+  from loyalty_earn_duplicates
+  group by account_id
+) duplicate
+where account.id = duplicate.account_id;
+
+delete from public.loyalty_events event
+using loyalty_earn_duplicates duplicate
+where event.id = duplicate.id;
+
 create unique index if not exists loyalty_events_one_earn_per_order
   on public.loyalty_events (order_id)
   where type = 'earn';

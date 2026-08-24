@@ -2,11 +2,28 @@ import {
   mapSquareEvent,
   recordLoyaltyEarn,
   recordPlatformFee,
-  reverseLoyaltyEarn,
   verifySquareSignature,
   type SquareEvent,
 } from '@platform/engine';
 import { createClient } from '@supabase/supabase-js';
+
+const DATABASE_TIMEOUT_MS = 8_000;
+
+async function resilientFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const timeout = AbortSignal.timeout(DATABASE_TIMEOUT_MS);
+    const signal = init?.signal ? AbortSignal.any([init.signal, timeout]) : timeout;
+    try {
+      const response = await fetch(input, { ...init, signal });
+      if (response.status < 500 && response.status !== 429) return response;
+      lastError = new Error(`Supabase returned ${response.status}`);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error('Supabase request failed');
+}
 
 /**
  * POST /api/webhooks/square -- payment.updated, refund.updated,
@@ -39,62 +56,72 @@ export async function POST(request: Request): Promise<Response> {
   }
   const mapped = mapSquareEvent(event);
   if (!mapped) return new Response('No event id', { status: 400 });
-  // 200 for events that move nothing: Square retries anything else forever.
-  if (mapped.orderStatus === null) return new Response('Recorded, no transition', { status: 200 });
 
-  const db = createClient(serviceUrl, serviceKey, { auth: { persistSession: false } });
+  const db = createClient(serviceUrl, serviceKey, {
+    auth: { persistSession: false },
+    global: { fetch: resilientFetch },
+  });
 
   // The delivery log migration 0011 describes ("the webhook route writes a
   // row per delivery") was never actually written by this route — only the
   // trigger's stale-transition branch added rows, so the durable record of
   // what Square sent did not exist. It does now, before anything is acted
   // on, so a delivery that later fails still left a trace of arriving.
-  await db.from('webhook_events').insert({
-    provider: 'square',
-    event_id: mapped.squareEventId,
+  const logged = await db.from('webhook_events').upsert({
+    provider: 'square', event_id: mapped.squareEventId,
     payload: event as unknown as Record<string, unknown>,
-  }).select('id');
+  }, { onConflict: 'event_id', ignoreDuplicates: true });
+  if (logged.error) return new Response('Could not record delivery', { status: 503 });
+  const delivery = await db.from('webhook_events')
+    .select('processed_at').eq('event_id', mapped.squareEventId)
+    .single<{ processed_at: string | null }>();
+  if (delivery.error) return new Response('Could not read delivery state', { status: 503 });
+  if (delivery.data.processed_at) return new Response('Already handled', { status: 200 });
+
+  // Non-terminal Square updates are still part of the durable delivery log.
+  // Mark them complete so a retry is harmless and observability stays honest.
+  if (mapped.orderStatus === null) {
+    const stamped = await db.from('webhook_events')
+      .update({ processed_at: new Date().toISOString(), error: null })
+      .eq('event_id', mapped.squareEventId);
+    if (stamped.error) return new Response('Delivery stamp failed', { status: 503 });
+    return new Response('Recorded, no transition', { status: 200 });
+  }
 
   const orderQuery = mapped.squareOrderId
     ? db.from('orders').select('id, brand_id, location_id, customer_id, status, total_cents, subtotal_cents, stored_value_applied_cents').eq('square_order_id', mapped.squareOrderId)
     : db.from('orders').select('id, brand_id, location_id, customer_id, status, total_cents, subtotal_cents, stored_value_applied_cents').eq('square_payment_id', mapped.squarePaymentId ?? '');
-  const { data: order } = await orderQuery.maybeSingle();
+  const { data: order, error: orderError } = await orderQuery.maybeSingle();
+  if (orderError) return new Response('Could not resolve order', { status: 503 });
   if (!order) return new Response('Order not known (yet); Square will retry', { status: 404 });
 
-  // A partial refund is not a refunded order. `mapSquareEvent` reports any
-  // COMPLETED refund as `refunded`, which is terminal: a $2 courtesy refund on
-  // a $22 order took it off the operator board with the guest still waiting
-  // for the drink and no legal move left. refundOrderPayment already gets this
-  // right on the operator's own path -- it re-asserts the current status and
-  // keeps the refund in the snapshot -- and this is the same decision for the
-  // deliveries Square sends. Only the last refund that closes out the charge
-  // moves the order.
-  let eventType = mapped.orderStatus;
-  if (mapped.orderStatus === 'refunded' && mapped.refundedCents !== null) {
-    const chargeCents = Math.max(0, order.total_cents - order.stored_value_applied_cents);
-    const priorEvents = await db
-      .from('order_events')
-      .select('snapshot')
-      .eq('order_id', order.id)
-      .returns<{ snapshot: { refunded_cents?: unknown } | null }[]>();
-    const refundedBefore = (priorEvents.data ?? []).reduce((sum, row) => {
-      const cents = row.snapshot?.refunded_cents;
-      return sum + (typeof cents === 'number' && cents > 0 ? cents : 0);
-    }, 0);
-    if (refundedBefore + mapped.refundedCents < chargeCents) {
-      eventType = order.status as typeof mapped.orderStatus;
+  if (mapped.orderStatus === 'refunded') {
+    if (!mapped.squareRefundId || mapped.refundedCents === null || mapped.refundedCents <= 0) {
+      return new Response('Completed refund is missing its id or amount', { status: 422 });
     }
+    const processed = await db.rpc('process_square_refund', {
+      target_order: order.id,
+      square_event: mapped.squareEventId,
+      square_refund: mapped.squareRefundId,
+      refunded_cents: mapped.refundedCents,
+      square_event_type: event.type ?? 'refund.updated',
+    });
+    if (processed.error) return new Response('Refund processing failed', { status: 409 });
+    const stamped = await db.from('webhook_events')
+      .update({ processed_at: new Date().toISOString(), error: null })
+      .eq('event_id', mapped.squareEventId);
+    if (stamped.error) return new Response('Refund processed; delivery stamp failed', { status: 503 });
+    return new Response(processed.data ? 'OK' : 'Already handled', { status: 200 });
   }
 
-  // `.select()` is what tells a first delivery from a retry: with
-  // ignoreDuplicates a replay succeeds and returns no rows. Everything after
-  // this point moves money or points, so it must run once per event, not
-  // once per delivery — Square retries the same event id freely.
+  // The order-event insert is idempotent. If an earlier attempt wrote it but
+  // failed before its side effects, the unstamped delivery continues below;
+  // the fee and loyalty operations have their own database constraints.
   const { data: written, error: insertError } = await db.from('order_events').upsert(
     {
       brand_id: order.brand_id,
       order_id: order.id,
-      type: eventType,
+      type: mapped.orderStatus,
       snapshot: {
         square_event: event.type,
         square_event_id: mapped.squareEventId,
@@ -105,9 +132,8 @@ export async function POST(request: Request): Promise<Response> {
     },
     { onConflict: 'square_event_id', ignoreDuplicates: true },
   ).select('id');
-  if (insertError) return new Response(`Event rejected: ${insertError.message}`, { status: 409 });
+  if (insertError) return new Response('Event rejected', { status: 409 });
   const isNewDelivery = (written?.length ?? 0) > 0;
-  if (!isNewDelivery) return new Response('Already handled', { status: 200 });
 
   // A hosted-checkout order earns nothing until the money actually lands:
   // createSquareCheckoutLink deliberately leaves the order 'created', so this
@@ -115,45 +141,38 @@ export async function POST(request: Request): Promise<Response> {
   // row are ever written. Without it a card order earned no points at all,
   // and platform_fees stayed empty — which also meant the volume tier could
   // never trip, so the brand paid tier-1 forever (rule 3).
-  if (mapped.orderStatus === 'paid') {
-    if (order.customer_id) {
-      await recordLoyaltyEarn(db, {
-        brandId: order.brand_id,
-        customerId: order.customer_id,
-        orderId: order.id,
-        subtotalCents: order.subtotal_cents,
-      });
+  try {
+    if (mapped.orderStatus === 'paid') {
+      if (order.customer_id) {
+        await recordLoyaltyEarn(db, {
+          brandId: order.brand_id,
+          customerId: order.customer_id,
+          orderId: order.id,
+          subtotalCents: order.subtotal_cents,
+        });
+      }
+      if (mapped.squarePaymentId) {
+        await recordPlatformFee(db, {
+          brandId: order.brand_id,
+          locationId: order.location_id,
+          orderId: order.id,
+          squarePaymentId: mapped.squarePaymentId,
+          grossCents: order.total_cents - order.stored_value_applied_cents,
+        });
+      }
     }
-    if (mapped.squarePaymentId) {
-      await recordPlatformFee(db, {
-        brandId: order.brand_id,
-        locationId: order.location_id,
-        orderId: order.id,
-        squarePaymentId: mapped.squarePaymentId,
-        grossCents: order.total_cents - order.stored_value_applied_cents,
-      });
-    }
-  }
-
-  if (mapped.orderStatus === 'refunded') {
-    // What Square says came back, not the whole order: a partial refund takes
-    // back a proportional share of the earn. Keyed on the event, so a retry of
-    // this refund reverses nothing and a second, different refund still can.
-    await reverseLoyaltyEarn(db, {
-      brandId: order.brand_id,
-      customerId: order.customer_id,
-      orderId: order.id,
-      orderTotalCents: order.total_cents,
-      refundedCents: mapped.refundedCents ?? order.total_cents,
-      causeKey: mapped.squareEventId,
-    });
+  } catch (error) {
+    const detail = error instanceof Error ? error.message.slice(0, 500) : 'Unknown processing failure';
+    await db.from('webhook_events').update({ error: detail }).eq('event_id', mapped.squareEventId);
+    return new Response('Event processing failed', { status: 503 });
   }
 
   // Stamped only once the money and points work above has actually run, so
   // an unstamped row is a delivery that arrived and did not finish.
-  await db.from('webhook_events')
-    .update({ processed_at: new Date().toISOString() })
+  const stamped = await db.from('webhook_events')
+    .update({ processed_at: new Date().toISOString(), error: null })
     .eq('event_id', mapped.squareEventId);
+  if (stamped.error) return new Response('Event handled; delivery stamp failed', { status: 503 });
 
-  return new Response('OK', { status: 200 });
+  return new Response(isNewDelivery ? 'OK' : 'Recovered', { status: 200 });
 }

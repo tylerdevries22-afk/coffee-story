@@ -22,7 +22,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppIcon } from '@/components/icon';
 import { useTabBarClearance } from '@/components/navigation/tab-screen';
 import { Screen } from '@/components/ui';
-import { DEMO_ADD_ONS, MENU_CATEGORY_META, MENU_ITEMS, type MenuCategoryId, type MenuItem } from '@/data/catalog';
+import { MENU_ADD_ONS, MENU_CATEGORY_META, MENU_ITEMS, type MenuCategoryId, type MenuItem } from '@/data/catalog';
 import { useAppState } from '@/state/app-context';
 import { useAuth } from '@/state/auth-context';
 import { openWebPath } from '@/lib/web-navigation';
@@ -81,7 +81,6 @@ const HOME_PACKAGES = [
 const HERO_SLIDES = ['opening', 'packages', 'gifting'] as const;
 
 /** Tiramisu Latte leads, per the house. */
-const HOUSE_FAVORITE_IDS = ['tiramisu-latte', 'spanish-latte'] as const;
 
 /** Rows shown per category before its Show All button. */
 const CATEGORY_PREVIEW_COUNT = 7;
@@ -119,9 +118,7 @@ export function HomeScreen() {
     instance.play();
   });
 
-  const favorites = HOUSE_FAVORITE_IDS.map((id) => MENU_ITEMS.find((item) => item.id === id)).filter(
-    (item): item is MenuItem => Boolean(item),
-  );
+  const favorites = MENU_ITEMS.slice(0, 2);
 
   // The rotating-drop model's front door: this week's board — everything live
   // plus what's about to land, each row mapped onto its catalog item.
@@ -185,7 +182,7 @@ export function HomeScreen() {
   });
 
   const onBookNow = useCallback(() => {
-    startOrder('tiramisu-latte');
+    startOrder(MENU_ITEMS[0]?.id);
   }, [startOrder]);
 
   const siriCommands: readonly SiriCommand[] = [
@@ -480,22 +477,26 @@ export function HomeScreen() {
         );
       })}
 
-      <SectionHeader
-        pill="Make It Yours"
-        title="Add-Ons"
-        body="Small additions that make a cup feel like your own."
-      />
-      <View style={styles.addOns}>
-        {DEMO_ADD_ONS.map((addOn) => (
-          <View key={addOn.slug} style={styles.addOnRow}>
-            <View style={styles.addOnCopy}>
-              <Text style={styles.addOnName}>{addOn.name}</Text>
-              <Text style={styles.addOnBody}>{addOn.description}</Text>
-            </View>
-            <Text style={styles.addOnPrice}>${(addOn.priceCents / 100).toFixed(2).replace(/\.00$/, '')}</Text>
+      {MENU_ADD_ONS.length > 0 ? (
+        <>
+          <SectionHeader
+            pill="Make It Yours"
+            title="Add-Ons"
+            body="Small additions that make a cup feel like your own."
+          />
+          <View style={styles.addOns}>
+            {MENU_ADD_ONS.map((addOn) => (
+              <View key={addOn.slug} style={styles.addOnRow}>
+                <View style={styles.addOnCopy}>
+                  <Text style={styles.addOnName}>{addOn.name}</Text>
+                  <Text style={styles.addOnBody}>{addOn.description}</Text>
+                </View>
+                <Text style={styles.addOnPrice}>${(addOn.priceCents / 100).toFixed(2).replace(/\.00$/, '')}</Text>
+              </View>
+            ))}
           </View>
-        ))}
-      </View>
+        </>
+      ) : null}
 
       {showAssistant ? (
         <View style={styles.siriWrap}>

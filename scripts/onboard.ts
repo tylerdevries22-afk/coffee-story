@@ -29,6 +29,24 @@ import {
 import { APP_COLOR_KEYS } from '@platform/ui/app-tokens';
 import { isRegisteredFont } from '@platform/ui/font-registry';
 
+const DATABASE_TIMEOUT_MS = 10_000;
+
+async function resilientFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const timeout = AbortSignal.timeout(DATABASE_TIMEOUT_MS);
+    const signal = init?.signal ? AbortSignal.any([init.signal, timeout]) : timeout;
+    try {
+      const response = await fetch(input, { ...init, signal });
+      if (response.status < 500 && response.status !== 429) return response;
+      lastError = new Error(`Supabase returned ${response.status}`);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error('Supabase request failed');
+}
+
 type BrandFile = {
   identity: {
     slug: string;
@@ -163,7 +181,10 @@ async function run() {
   }
   if (supabaseUrl && serviceKey) {
     const { createClient } = await import('@supabase/supabase-js');
-    const db = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
+    const db = createClient(supabaseUrl, serviceKey, {
+      auth: { persistSession: false },
+      global: { fetch: resilientFetch },
+    });
     const { data: brandRow, error: brandError } = await db
       .from('brands')
       .upsert(
@@ -197,53 +218,55 @@ async function run() {
       .single();
     if (brandError) throw brandError;
 
-    const { data: existingLocation } = await db
-      .from('locations').select('id').eq('brand_id', brandRow.id).eq('name', brand.location.name).maybeSingle();
-    let locationId = existingLocation?.id as string | undefined;
-    if (!locationId) {
-      const { data: created, error } = await db
-        .from('locations')
-        .insert({
-          brand_id: brandRow.id,
-          name: brand.location.name,
-          address: brand.location.address,
-          hours: brand.location.hours,
-          timezone: brand.location.timezone,
-        })
-        .select('id')
-        .single();
-      if (error) throw error;
-      locationId = created.id;
-    }
+    const { data: location, error: locationError } = await db
+      .from('locations')
+      .upsert({
+        brand_id: brandRow.id,
+        name: brand.location.name,
+        address: brand.location.address,
+        hours: brand.location.hours,
+        timezone: brand.location.timezone,
+      }, { onConflict: 'brand_id,name' })
+      .select('id')
+      .single();
+    if (locationError) throw locationError;
+    const locationId = location.id;
 
     if (menu.rows.length > 0) {
-      const { data: existingMenu } = await db.from('menus').select('id').eq('brand_id', brandRow.id).limit(1).maybeSingle();
-      let menuId = existingMenu?.id as string | undefined;
-      if (!menuId) {
-        const { data: created, error } = await db
-          .from('menus').insert({ brand_id: brandRow.id, name: 'Menu', is_published: true }).select('id').single();
-        if (error) throw error;
-        menuId = created.id;
-      }
-      const categories = [...new Set(menu.rows.map((row) => row.category))];
+      const { data: savedMenu, error: menuError } = await db
+        .from('menus')
+        .upsert(
+          { brand_id: brandRow.id, name: 'Menu', is_published: true },
+          { onConflict: 'brand_id,name' },
+        )
+        .select('id')
+        .single();
+      if (menuError) throw menuError;
+      const menuId = savedMenu.id;
       const categoryIds = new Map<string, string>();
-      for (const [index, title] of categories.entries()) {
-        const { data: existing } = await db
-          .from('menu_categories').select('id').eq('menu_id', menuId).eq('title', title).maybeSingle();
-        if (existing) { categoryIds.set(title, existing.id); continue; }
-        const { data: created, error } = await db
+      for (const [index, category] of compiled.menu.categories.entries()) {
+        const { data: saved, error } = await db
           .from('menu_categories')
-          .insert({ brand_id: brandRow.id, menu_id: menuId, title, sort_order: index })
+          .upsert(
+            {
+              brand_id: brandRow.id,
+              menu_id: menuId,
+              title: category.title,
+              tagline: category.tagline,
+              sort_order: index,
+            },
+            { onConflict: 'menu_id,title' },
+          )
           .select('id').single();
         if (error) throw error;
-        categoryIds.set(title, created.id);
+        categoryIds.set(category.title, saved.id);
       }
       for (const [index, row] of menu.rows.entries()) {
         const { error } = await db.from('menu_items').upsert(
           {
             brand_id: brandRow.id,
             menu_id: menuId,
-            category_id: categoryIds.get(row.category)!,
+            category_id: requiredCategoryId(categoryIds, row.category),
             slug: row.slug,
             name: row.name,
             description: row.description,
@@ -257,7 +280,7 @@ async function run() {
         if (error) throw error;
       }
     }
-    console.log(`2. database: brand + location + ${menu.rows.length} menu items upserted`);
+    console.log(`2. database: brand + location ${locationId} + ${menu.rows.length} menu items upserted`);
   } else {
     console.log('2. database: skipped (set SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY to seed rows)');
   }
@@ -291,6 +314,7 @@ async function run() {
     await sharp({ create: { width: 1024, height: 1024, channels: 4, background: primary } })
       .png().toFile(join(generatedDir, 'android-background.png'));
     await sharp(join(generatedDir, 'icon.png')).resize(48, 48).png().toFile(join(generatedDir, 'favicon.png'));
+    await sharp(join(generatedDir, 'icon.png')).resize(180, 180).png().toFile(join(generatedDir, 'icon-180.png'));
     console.log(`3. artwork: icon, splash logo, adaptive art -> tenants/${slug}/app-store/generated/`);
   } else {
     console.log(`3. artwork: skipped (add tenants/${slug}/assets/logo.svg or logo.png to generate icons and splash)`);
@@ -401,6 +425,12 @@ function validateTokens(tokens: BrandFile['tokens'], problems: string[]): void {
   }
 }
 
+function requiredCategoryId(categoryIds: ReadonlyMap<string, string>, title: string): string {
+  const categoryId = categoryIds.get(title);
+  if (!categoryId) throw new Error(`No database category was created for "${title}".`);
+  return categoryId;
+}
+
 function objectRecord(value: unknown): Record<string, unknown> | null {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
     ? value as Record<string, unknown>
@@ -438,6 +468,7 @@ function validateModifierGroupShape(itemSlug: string, value: unknown, problems: 
 
 function validateModifierGroups(itemSlug: string, groups: unknown[], problems: string[]): void {
   const choicesByGroup = new Map<string, Set<string>>();
+  const allChoiceIds = new Set<string>();
   const validGroups: Record<string, unknown>[] = [];
   for (const value of groups) {
     const group = validateModifierGroupShape(itemSlug, value, problems);
@@ -446,8 +477,11 @@ function validateModifierGroups(itemSlug: string, groups: unknown[], problems: s
     const choiceIds = new Set<string>();
     for (const choice of group.choices) {
       const choiceId = validateModifierChoice(itemSlug, group.id, choice, problems);
-      if (choiceId && choiceIds.has(choiceId)) problems.push(`modifiers.json: "${itemSlug}" repeats choice id "${choiceId}".`);
-      if (choiceId) choiceIds.add(choiceId);
+      if (choiceId && allChoiceIds.has(choiceId)) problems.push(`modifiers.json: "${itemSlug}" repeats choice id "${choiceId}".`);
+      if (choiceId) {
+        choiceIds.add(choiceId);
+        allChoiceIds.add(choiceId);
+      }
     }
     choicesByGroup.set(group.id, choiceIds);
     validGroups.push(group);
@@ -541,6 +575,10 @@ function applyCustomerBundle(dir: string, brand: BrandFile, menu: BundledTenantM
   const root = join(process.cwd(), 'apps', 'customer');
   const tenantTarget = join(root, 'src', 'tenant');
   writeFileSync(join(tenantTarget, 'menu.json'), `${JSON.stringify(menu, null, 2)}\n`);
+  writeFileSync(
+    join(process.cwd(), 'apps', 'kiosk', 'src', 'tenant', 'menu.json'),
+    `${JSON.stringify(menu, null, 2)}\n`,
+  );
   writeFileSync(join(tenantTarget, 'menu-media.ts'), renderMenuMedia(menu.items.map((item) => item.id)));
   const assets = join(dir, 'assets');
   syncDirectory(join(assets, 'menu'), join(root, 'assets', 'menu'), ['.webp', '.normalized.json']);
@@ -557,6 +595,7 @@ function applyCustomerBundle(dir: string, brand: BrandFile, menu: BundledTenantM
   copyFileSync(join(generated, 'android-foreground.png'), join(root, 'assets', 'expo.icon', 'Assets', 'mark.png'));
   writeExpoIconConfig(brand.tokens.surface, join(root, 'assets', 'expo.icon', 'icon.json'));
   copyFileSync(join(generated, 'icon.png'), join(root, 'public', 'icon.png'));
+  copyFileSync(join(generated, 'icon-180.png'), join(root, 'public', 'icon-180.png'));
   writeWebManifest(brand, join(root, 'public', 'manifest.webmanifest'));
   applyKioskArtwork(generated);
 }

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { randomBytes, randomUUID } from 'node:crypto';
+import { createHmac, randomBytes, randomUUID } from 'node:crypto';
 import http from 'node:http';
 import { after, before, describe, it } from 'node:test';
 
@@ -28,6 +28,11 @@ process.env.SQUARE_TOKEN_KEY = TOKEN_KEY.toString('base64');
 const SLUG = 'square-tender';
 const MERCHANT_TOKEN = 'sq0atp-test-merchant-token';
 const SQUARE_LOCATION_ID = 'SQ-LOC-1';
+const WEBHOOK_KEY = 'square-webhook-test-key';
+const WEBHOOK_URL = 'http://hq.test/api/webhooks/square';
+
+process.env.SQUARE_WEBHOOK_SIGNATURE_KEY = WEBHOOK_KEY;
+process.env.SQUARE_WEBHOOK_URL = WEBHOOK_URL;
 
 type Captured = { path: string; body: Record<string, unknown>; authorization: string | undefined };
 
@@ -94,6 +99,18 @@ function post(handler: (request: Request) => Promise<Response>, path: string, op
   }));
 }
 
+function postSquareWebhook(
+  handler: (request: Request) => Promise<Response>,
+  payload: Record<string, unknown>,
+): Promise<Response> {
+  const body = JSON.stringify(payload);
+  const signature = createHmac('sha256', WEBHOOK_KEY).update(WEBHOOK_URL + body).digest('base64');
+  return handler(new Request(WEBHOOK_URL, {
+    method: 'POST', body,
+    headers: { 'content-type': 'application/json', 'x-square-hmacsha256-signature': signature },
+  }));
+}
+
 describe('square_link tender and refunds', { skip: skipUnlessConfigured }, () => {
   let brandId = '';
   let locationId = '';
@@ -101,6 +118,7 @@ describe('square_link tender and refunds', { skip: skipUnlessConfigured }, () =>
   let staffToken = '';
   let ordersPost: (request: Request) => Promise<Response>;
   let refundPost: (request: Request) => Promise<Response>;
+  let webhookPost: (request: Request) => Promise<Response>;
 
   before(async function setup() {
     if (skipUnlessConfigured) return;
@@ -109,6 +127,7 @@ describe('square_link tender and refunds', { skip: skipUnlessConfigured }, () =>
     // engine's config helpers are happier with the values already in place.
     ({ POST: ordersPost } = await import('../../../apps/hq/app/api/orders/route.ts'));
     ({ POST: refundPost } = await import('../../../apps/hq/app/api/orders/refund/route.ts'));
+    ({ POST: webhookPost } = await import('../../../apps/hq/app/api/webhooks/square/route.ts'));
 
     ({ brandId, locationId } = await seedBrand(SLUG));
     await sql(
@@ -313,6 +332,57 @@ describe('square_link tender and refunds', { skip: skipUnlessConfigured }, () =>
     const body = await response.json() as { error: { code: string; message: string } };
     assert.equal(body.error.code, 'refund_unavailable');
     assert.match(body.error.message, /register/);
+  });
+
+  it('serializes concurrent Square refunds and reverses loyalty exactly once per refund', async () => {
+    const customer = await sql<{ id: string }>(
+      `insert into public.customers (brand_id, full_name) values ($1, 'Refund Race') returning id`,
+      [brandId],
+    );
+    const order = await sql<{ id: string }>(
+      `insert into public.orders
+         (brand_id, location_id, customer_id, status, tender_type, subtotal_cents, total_cents, square_payment_id)
+       values ($1, $2, $3, 'paid', 'square_link', 500, 500, 'SQ-PAYMENT-RACE') returning id`,
+      [brandId, locationId, customer.rows[0]!.id],
+    );
+    await sql(
+      `select public.loyalty_record_earn($1, $2, $3, 50)`,
+      [brandId, customer.rows[0]!.id, order.rows[0]!.id],
+    );
+
+    const refund = (eventId: string, refundId: string) => postSquareWebhook(webhookPost, {
+      event_id: eventId,
+      type: 'refund.updated',
+      data: { object: { refund: {
+        id: refundId, status: 'COMPLETED', payment_id: 'SQ-PAYMENT-RACE',
+        amount_money: { amount: 250, currency: 'USD' },
+      } } },
+    });
+    const [first, second] = await Promise.all([
+      refund('evt-refund-race-1', 'refund-race-1'),
+      refund('evt-refund-race-2', 'refund-race-2'),
+    ]);
+    assert.equal(first.status, 200);
+    assert.equal(second.status, 200);
+    assert.equal((await refund('evt-refund-race-1-retry', 'refund-race-1')).status, 200);
+
+    const result = await sql<{
+      status: string; points_balance: string; earns: string; reversals: string; net_points: string;
+    }>(
+      `select target.status, account.points_balance::text,
+              count(event.id) filter (where event.type = 'earn')::text as earns,
+              count(event.id) filter (where event.type = 'reverse')::text as reversals,
+              sum(event.points)::text as net_points
+       from public.orders target
+       join public.loyalty_accounts account on account.customer_id = target.customer_id
+       join public.loyalty_events event on event.account_id = account.id
+       where target.id = $1
+       group by target.status, account.points_balance`,
+      [order.rows[0]!.id],
+    );
+    assert.deepEqual(result.rows[0], {
+      status: 'refunded', points_balance: '0', earns: '1', reversals: '2', net_points: '0',
+    });
   });
 
   it('never lets a guest refund an order', async () => {

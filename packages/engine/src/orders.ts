@@ -24,7 +24,7 @@ import type { OrderSnapshotLine } from '@platform/domain';
 import type { OrderTenderType } from '@platform/schema';
 
 import { computeAppFeeCents, feeMonthRange, type FeeConfig } from './fees';
-import { pointsEarnedFor, pointsToReverse } from './loyalty';
+import { pointsEarnedFor } from './loyalty';
 import { priceLine, MenuPricingError, type MenuItemPricing } from './menu-pricing';
 import { taxCentsFor, taxRowsFor, type TaxJurisdiction } from './tax';
 import {
@@ -365,23 +365,14 @@ export async function recordLoyaltyEarn(
 ): Promise<number> {
   const earned = pointsEarnedFor(input.subtotalCents);
   if (earned <= 0) return 0;
-  const account = await loyaltyAccountFor(db, input);
-  const earnEvent = await db.from('loyalty_events').insert({
-    brand_id: input.brandId,
-    account_id: account.id,
-    order_id: input.orderId,
-    type: 'earn',
-    points: earned,
+  const { data, error } = await db.rpc('loyalty_record_earn', {
+    target_brand: input.brandId,
+    target_customer: input.customerId,
+    target_order: input.orderId,
+    earned_points: earned,
   });
-  // Already earned: a second delivery for the same payment, or two racing.
-  // The balance was moved by whoever got there first.
-  if (earnEvent.error?.code === '23505') return 0;
-  if (earnEvent.error) throw earnEvent.error;
-  // Relative, in one statement: an absolute write computed from a read taken
-  // moments earlier silently discards any movement that happened in between.
-  const { error } = await db.rpc('loyalty_adjust', { account: account.id, delta: earned });
   if (error) throw error;
-  return earned;
+  return Number(data ?? 0);
 }
 
 /**
@@ -441,41 +432,6 @@ export async function recordPlatformFee(
   if (error && error.code !== '23505') throw error;
 }
 
-/** The guest's account, created on first contact so a first coffee counts. */
-async function loyaltyAccountFor(
-  db: SupabaseClient,
-  input: { brandId: string; customerId: string },
-): Promise<{ id: string }> {
-  const found = await db
-    .from('loyalty_accounts')
-    .select('id')
-    .eq('customer_id', input.customerId)
-    .maybeSingle<{ id: string }>();
-  // Checked, not discarded: a swallowed read error used to look like "no
-  // account", and the insert that followed hit unique (customer_id).
-  if (found.error) throw found.error;
-  if (found.data) return found.data;
-  const created = await db
-    .from('loyalty_accounts')
-    .insert({ brand_id: input.brandId, customer_id: input.customerId })
-    .select('id')
-    .single<{ id: string }>();
-  if (created.error) {
-    // Two first orders at once: the loser reads the winner's row.
-    if (created.error.code === '23505') {
-      const winner = await db
-        .from('loyalty_accounts')
-        .select('id')
-        .eq('customer_id', input.customerId)
-        .single<{ id: string }>();
-      if (winner.error) throw winner.error;
-      return winner.data;
-    }
-    throw created.error;
-  }
-  return created.data;
-}
-
 /**
  * Takes back the points an order earned, once and only once.
  *
@@ -509,48 +465,16 @@ export async function reverseLoyaltyEarn(
   },
 ): Promise<number> {
   if (!input.customerId) return 0;
-  const earn = await db
-    .from('loyalty_events')
-    .select('points, account_id')
-    .eq('order_id', input.orderId)
-    .eq('type', 'earn')
-    .maybeSingle<{ points: number; account_id: string }>();
-  if (earn.error) throw earn.error;
-  if (!earn.data) return 0;
-
-  // Points are only ever reversed down to zero: the sum of every reversal on
-  // an order can never exceed its earn, however the refunds were split.
-  const priorReversals = await db
-    .from('loyalty_events')
-    .select('points')
-    .eq('order_id', input.orderId)
-    .eq('type', 'reverse')
-    .returns<{ points: number }[]>();
-  if (priorReversals.error) throw priorReversals.error;
-  const alreadyReversed = (priorReversals.data ?? []).reduce((sum, row) => sum + Math.abs(row.points), 0);
-  const remaining = Math.max(0, earn.data.points - alreadyReversed);
-
-  const share = pointsToReverse(earn.data.points, input.orderTotalCents, input.refundedCents);
-  const points = Math.min(share, remaining);
-  if (points <= 0) return 0;
-
-  const event = await db.from('loyalty_events').insert({
-    brand_id: input.brandId,
-    account_id: earn.data.account_id,
-    order_id: input.orderId,
-    type: 'reverse',
-    points: -points,
-    note: input.causeKey,
+  const { data, error } = await db.rpc('loyalty_reverse_earn', {
+    target_brand: input.brandId,
+    target_customer: input.customerId,
+    target_order: input.orderId,
+    order_total_cents: input.orderTotalCents,
+    refunded_cents: input.refundedCents,
+    cause_key: input.causeKey,
   });
-  // Already reversed for this cause: the unique index caught a retry, and the
-  // balance was moved by whoever got there first.
-  if (event.error) {
-    if (event.error.code === '23505') return 0;
-    throw event.error;
-  }
-  const { error } = await db.rpc('loyalty_adjust', { account: earn.data.account_id, delta: -points });
   if (error) throw error;
-  return points;
+  return Number(data ?? 0);
 }
 
 /** The cart lines in Square's shape. Pure; covered by orders.test.ts. */

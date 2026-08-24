@@ -33,7 +33,7 @@ function addMinutes(startsAt: string, minutes: number): string {
 
 const SHOP_LABEL = `${TENANT.identity.name} · ${TENANT.location.address.street}`;
 const DELIVERY_LABEL = 'Delivery';
-const DELIVERY_DETAIL = '123 Dayton St, Aurora, CO 80010';
+const DELIVERY_DETAIL = `Demo delivery · ${TENANT.location.address.city}, ${TENANT.location.address.region}`;
 
 type OrderSeed = {
   id: string;

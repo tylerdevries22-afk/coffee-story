@@ -24,6 +24,12 @@ describe('bundled tenant config', () => {
     assert.deepEqual(bundled, source, 'run `pnpm onboard --tenant <slug> --apply` to refresh the bundled copies');
   });
 
+  it('bundles the same generated tenant menu as the customer app', () => {
+    const kioskMenu = JSON.parse(readFileSync(join(__dirname, 'menu.json'), 'utf8'));
+    const customerMenu = JSON.parse(readFileSync(join(__dirname, '../../../customer/src/tenant/menu.json'), 'utf8'));
+    assert.deepEqual(kioskMenu, customerMenu, 'run onboarding with --apply to refresh both offline catalogs');
+  });
+
   it('carries everything the kiosk dereferences', () => {
     assert.ok(TENANT.identity.slug);
     assert.ok(TENANT.business.monogram.length >= 1 && TENANT.business.monogram.length <= 3);

@@ -122,15 +122,21 @@ describe('the pickup display read', () => {
   });
 
   it('carries its own authorization rather than leaning on a policy', () => {
-    // 0023 shipped this view as security_invoker alongside a SELECT policy on
-    // `orders` itself -- and 0014 grants every column of every table to
-    // `authenticated`, so the narrow projection was advisory. A wall tablet's
-    // token could read the cart. The gate has to be inside the view.
+    // 0023 shipped this view alongside a SELECT policy on `orders` itself --
+    // and 0014 grants every column of every table to `authenticated`, so the
+    // narrow projection was advisory. The public view is now invoker-safe and
+    // delegates its exceptional base-table read to an unexposed helper.
     const inForce = boardTicketsInForce();
     assert.match(inForce, /app\.can_read_board/,
       'board_tickets must gate itself');
-    assert.doesNotMatch(inForce, /security_invoker\s*=\s*true/,
-      'an invoker view cannot reach loyalty_accounts to compute a tier');
+    assert.match(inForce, /security_invoker\s*=\s*true/,
+      'a public view must enforce caller privileges');
+    const helper = /create or replace function app\.board_ticket_rows[\s\S]*?\$\$;/.exec(allSql());
+    assert.ok(helper, 'the private board projection helper is not defined');
+    assert.match(helper[0], /security definer/,
+      'the helper must own the narrow read after direct orders access is removed');
+    assert.match(helper[0], /app\.can_read_board/,
+      'the privileged helper must repeat the authorization gate');
     assert.match(allSql(), /drop policy if exists orders_display_select on public\.orders/,
       'a display device must have no direct read on orders');
   });

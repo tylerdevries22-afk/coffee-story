@@ -92,8 +92,8 @@ say "✅ Operator → $OPERATOR_SIM"
 #    the first version of this script killed whatever it found there. Stepping
 #    aside is both safer and faster than explaining what we just terminated.
 free_port() {
-  local port="$1" tries=0
-  while lsof -ti "tcp:$port" >/dev/null 2>&1; do
+  local port="$1" reserved="${2:-}" tries=0
+  while lsof -ti "tcp:$port" >/dev/null 2>&1 || [ "$port" = "$reserved" ]; do
     port=$((port + 1)); tries=$((tries + 1))
     [ "$tries" -ge 20 ] && fail "No free port near $1. Close something, or set CUSTOMER_PORT/OPERATOR_PORT."
   done
@@ -101,7 +101,7 @@ free_port() {
 }
 ORIGINAL_CUSTOMER_PORT="$CUSTOMER_PORT"; ORIGINAL_OPERATOR_PORT="$OPERATOR_PORT"
 CUSTOMER_PORT="$(free_port "$CUSTOMER_PORT")"
-OPERATOR_PORT="$(free_port "$OPERATOR_PORT")"
+OPERATOR_PORT="$(free_port "$OPERATOR_PORT" "$CUSTOMER_PORT")"
 [ "$CUSTOMER_PORT" = "$ORIGINAL_CUSTOMER_PORT" ] \
   || say "• Port $ORIGINAL_CUSTOMER_PORT is busy (left alone) — customer Metro on $CUSTOMER_PORT"
 [ "$OPERATOR_PORT" = "$ORIGINAL_OPERATOR_PORT" ] \

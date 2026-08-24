@@ -50,6 +50,7 @@ apps/*/android/
 _assets-web/
 _sdk54-backup/
 mobile-expo-go-demo/
+logs/
 
 # Next.js
 .next/

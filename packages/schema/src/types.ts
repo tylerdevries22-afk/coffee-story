@@ -275,6 +275,8 @@ export type OrderEventRow = {
   type: OrderStatus;
   snapshot: Json;
   square_event_id: string | null;
+  /** Stable Square refund id; event ids only identify deliveries. */
+  square_refund_id: string | null;
   actor_user_id: string | null;
   source: 'system' | 'customer' | 'operator' | 'webhook' | 'job';
   created_at: string;

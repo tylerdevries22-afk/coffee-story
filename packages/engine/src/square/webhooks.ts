@@ -54,6 +54,8 @@ export type MappedEvent = {
   orderStatus: OrderStatus | null;
   squareOrderId: string | null;
   squarePaymentId: string | null;
+  /** The underlying refund id, stable across Square delivery event ids. */
+  squareRefundId: string | null;
   /**
    * What a refund actually returned, in cents. Square sends it and the
    * platform used to drop it, then reversed loyalty as though every refund
@@ -80,6 +82,7 @@ export function mapSquareEvent(event: SquareEvent): MappedEvent | null {
       orderStatus: object.payment.status === 'COMPLETED' ? 'paid' : null,
       squareOrderId: object.payment.order_id ?? null,
       squarePaymentId: object.payment.id ?? null,
+      squareRefundId: null,
       refundedCents: null,
       kind: 'payment',
     };
@@ -90,6 +93,7 @@ export function mapSquareEvent(event: SquareEvent): MappedEvent | null {
       orderStatus: object.refund.status === 'COMPLETED' ? 'refunded' : null,
       squareOrderId: null,
       squarePaymentId: object.refund.payment_id ?? null,
+      squareRefundId: object.refund.id ?? null,
       refundedCents: typeof object.refund.amount_money?.amount === 'number'
         ? object.refund.amount_money.amount
         : null,
@@ -102,6 +106,7 @@ export function mapSquareEvent(event: SquareEvent): MappedEvent | null {
       orderStatus: object.order.state === 'CANCELED' ? 'cancelled' : null,
       squareOrderId: object.order.id ?? null,
       squarePaymentId: null,
+      squareRefundId: null,
       refundedCents: null,
       kind: 'order',
     };
@@ -111,6 +116,7 @@ export function mapSquareEvent(event: SquareEvent): MappedEvent | null {
     orderStatus: null,
     squareOrderId: null,
     squarePaymentId: null,
+    squareRefundId: null,
     refundedCents: null,
     kind: 'ignored',
   };

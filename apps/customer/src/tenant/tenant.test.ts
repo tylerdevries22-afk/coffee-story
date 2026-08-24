@@ -48,6 +48,26 @@ describe('bundled tenant config', () => {
       }
     }
   });
+
+  it('ships only artwork generated from this tenant logo', () => {
+    const generated = join(__dirname, `../../../../tenants/${TENANT.identity.slug}/app-store/generated`);
+    const mappings = [
+      ['icon.png', '../../assets/images/icon.png'],
+      ['android-foreground.png', '../../assets/images/android-icon-foreground.png'],
+      ['android-background.png', '../../assets/images/android-icon-background.png'],
+      ['android-monochrome.png', '../../assets/images/android-icon-monochrome.png'],
+      ['favicon.png', '../../assets/images/favicon.png'],
+      ['splash-logo.png', '../../assets/brand/logo.png'],
+      ['icon.png', '../../public/icon.png'],
+      ['icon-180.png', '../../public/icon-180.png'],
+    ] as const;
+    for (const [source, destination] of mappings) {
+      assert.ok(
+        readFileSync(join(__dirname, destination)).equals(readFileSync(join(generated, source))),
+        `${destination} has drifted from generated tenant artwork`,
+      );
+    }
+  });
 });
 
 describe('bundled product cut-outs', () => {

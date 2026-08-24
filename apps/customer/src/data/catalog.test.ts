@@ -1,19 +1,12 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { DEMO_ADD_ONS } from '@platform/domain';
+import { MENU_ADD_ONS } from './catalog-data';
 
-// Contract for the Coffee Story drink customization list.
-describe('DEMO_ADD_ONS', () => {
-  it('matches the menu add-on catalog exactly', () => {
-    assert.deepEqual(
-      DEMO_ADD_ONS.map(({ slug, name, priceCents, durationMin }) => ({ slug, name, priceCents, durationMin })),
-      [
-        { slug: 'extra-shot', name: 'Extra Espresso Shot', priceCents: 150, durationMin: 0 },
-        { slug: 'oat-milk', name: 'Oat Milk', priceCents: 75, durationMin: 0 },
-        { slug: 'boba-pearls', name: 'Boba Pearls', priceCents: 100, durationMin: 0 },
-        { slug: 'pistachio-cold-foam', name: 'Pistachio Cold Foam', priceCents: 125, durationMin: 0 },
-      ],
-    );
+describe('MENU_ADD_ONS', () => {
+  it('derives paid add-ons from tenant modifiers without duplicate ids', () => {
+    assert.ok(MENU_ADD_ONS.length > 0);
+    assert.equal(new Set(MENU_ADD_ONS.map((addOn) => addOn.slug)).size, MENU_ADD_ONS.length);
+    assert.ok(MENU_ADD_ONS.every((addOn) => addOn.priceCents > 0));
   });
 });
