@@ -4,10 +4,10 @@ import {
   buildOrderLine, defaultOptionSelection, missingRequiredGroups, optionDeltaCents,
   optionGroupsFor, pruneHiddenGroups, sizeLabelFor, sizePriceCents, toggleOptionChoice,
   visibleOptionGroups,
-  type MenuCategoryId, type OptionGroup, type OptionSelection, type OrderLine,
+  type KioskMenuItem as MenuItem, type MenuCategoryId, type OptionGroup,
+  type OptionSelection, type OrderLine,
 } from '@platform/domain';
 
-import type { MenuItem } from '@/data/catalog';
 import { EMPTY_FILL, allocate, isComplete, packSummary, release, remaining, type PackFill } from '@/features/pack-fill';
 
 /**
@@ -77,7 +77,7 @@ function reducer(state: BuilderState, event: BuilderEvent): BuilderState {
 }
 
 function groupsOf(item: MenuItem): OptionGroup[] {
-  return optionGroupsFor(item.id, item.category as MenuCategoryId);
+  return optionGroupsFor(item.id, item.categoryId as MenuCategoryId);
 }
 
 type BuilderValue = {

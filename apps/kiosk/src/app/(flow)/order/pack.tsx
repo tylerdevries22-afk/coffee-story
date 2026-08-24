@@ -1,12 +1,14 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import { formatMoney, sizePriceCents } from '@platform/domain';
+import {
+  formatMoney, itemsInCategoryOf, packsInCategoryOf, sizePriceCents,
+} from '@platform/domain';
 import { useTokens } from '@platform/ui';
 
 import { StepHeading } from '@/components/chrome/step-heading';
 import { CircleTile } from '@/components/circle/circle-tile';
 import { packSavingBps } from '@/features/pack-fill';
-import { itemsInCategory, packsInCategory } from '@/data/menu-source';
+import { useKioskMenu } from '@/data/menu-store';
 import { useBuilder } from '@/state/builder';
 import { useFlow } from '@/state/flow';
 import TENANT from '@/tenant/brand.json';
@@ -23,10 +25,11 @@ export default function PackStep() {
   const tokens = useTokens();
   const { selected, goNext } = useFlow();
   const builder = useBuilder();
+  const { menu } = useKioskMenu();
 
   const categoryTitle = selected?.target.kind === 'category' ? selected.target.categoryId : '';
-  const packs = packsInCategory(categoryTitle);
-  const singles = itemsInCategory(categoryTitle);
+  const packs = packsInCategoryOf(menu, categoryTitle);
+  const singles = itemsInCategoryOf(menu, categoryTitle);
 
   if (packs.length === 0) {
     return (

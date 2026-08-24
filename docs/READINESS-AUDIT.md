@@ -15,49 +15,68 @@ dropped rather than softened, so the absence of a concern is meaningful.
 
 ---
 
-## Open decision: how the kiosk gets its menu
+## Settled: the kiosk reads its menu live
 
-Recorded here because a test assertion currently settles it, and it should be a
-decision instead.
+Recorded as an open decision on 2026-08-23 because a test assertion was
+settling it. It is settled now, deliberately, and the reasoning is worth
+keeping because the deciding fact was not the one either side started with.
 
-**The state.** `apps/kiosk/src/data/catalog-data.ts` is a 181-line compiled
-menu. A second tenant cannot change a price, add an item or 86 something without
-a rebuild and a store release, which is the largest remaining franchise blocker
-on this surface.
+**What it was.** `apps/kiosk/src/data/catalog-data.ts` was a 181-line compiled
+menu. A second tenant could not change a price, add an item or 86 something
+without a rebuild and a store release -- the largest remaining franchise
+blocker on this surface. The obvious fix, a direct read, was forbidden by a
+guard in `packages/schema/src/surfaces.test.ts` asserting the kiosk built no
+Supabase client.
 
-**The constraint.** `packages/schema/src/surfaces.test.ts` now asserts that
-`apps/kiosk/src` contains no `createClient(` and no `from('orders')`. The
-orders half is right and I asked for it. The client half is broader than the
-danger it names.
+**What decided it.** Not a preference between "client on a public tablet" and
+"documented capability", but the RLS: `menu_items_select` admits **anyone**
+once `menus.is_published` is true -- no device claim required. So a kiosk
+reading the menu directly obtains nothing a lifted tablet could not already
+get with the anon key that ships in the customer bundle. The client was never
+the risk; what it reads is. The guard was buying no security on that path and
+costing both a documented capability (`docs/FIVE-SURFACES.md`'s device table)
+and migration 0027's entire stated rationale.
 
-**The tension.** `docs/FIVE-SURFACES.md`'s device table says a `kiosk` token
-**may "read the menu"** and may not "read other orders, read customers" -- so a
-direct menu read is the documented design, not an oversight. Migration 0027 goes
-further: it added `menu_items`, `menu_categories` and `drops` to the Realtime
-publication with the stated rationale that "a change made once should appear on
-every kiosk and display at once". Realtime needs a client. Today nothing
-subscribes, so 86'ing an item propagates to no screen at all.
+**What shipped.** The read goes through `@platform/data`'s `fetchMenuTree` --
+the same read the customer and operator apps make, so there is one assembly of
+the menu tree rather than a fourth -- and `subscribeToMenu` keeps it current.
+0027 published `menu_items`, `menu_categories` and `drops` so "a change made
+once should appear on every kiosk and display at once"; until now nothing
+subscribed, so 86'ing an item reached no screen and a guest could order
+something the shop ran out of an hour earlier.
 
-**The two ways out.**
+**Three things worth knowing, because none were visible from the decision.**
 
-*Direct read.* The kiosk builds a Supabase client with its device token and
-reads `menu_items` under RLS, subscribing for changes. Matches FIVE-SURFACES and
-0027, needs no new endpoint, and is the only option that makes an 86 reach a
-lobby screen without a poll. Requires narrowing the guard from "no client" to
-"no `from('orders')` / `from('customers')`" -- a rule about WHAT is read rather
-than whether a client exists.
+*The mapping was a silent data bug waiting to happen.* `menu_items.sizes` is
+stored `{ slug, label, price_cents }`; the kiosk's `CatalogSize` is
+`{ slug, ounces?, priceCents }`. Reading one as the other does not throw -- it
+yields `undefined` and prices the whole live menu at $0.00. Size slugs are also
+bare in the database (`'12'`, not `'latte-12'`), which `sizeLabelFor` reads as
+"Each". Both are pinned in `packages/domain/src/kiosk-menu.test.ts` against the
+seed's literal shape.
 
-*Server projection.* A menu endpoint on the platform API, the way
-`lib/identify.ts` is already shaped. Keeps a public tablet free of a database
-client and leaves the guard as-is, at the cost of a poll for freshness and a
-divergence from the documented device table.
+*A pack's `choice_source` had never done anything.* The compiled
+`packChoicesFor(pack)` took its argument and ignored it, so a 'lineup' pack and
+a 'static' pack offered the same list and this week's rotation narrowed
+nothing -- the one behaviour the column exists to express. With live rows the
+drop window is readable, so `packChoicesOf` honours it.
 
-I lean to the direct read, because the 86 propagation is a real operational
-failure -- a guest ordering something the shop ran out of an hour ago -- and
-because the device token was built to be exactly this narrow. But it widens what
-a lifted tablet can read, so it is a judgement call and it is not mine alone.
+*Routing the read through a shared package made the guard vacuous.* With no
+`.from(` call left in `apps/kiosk/src`, the allowlist inspected nothing and
+would have passed just as happily on `fetchCustomerOrders`. The guard now also
+attributes a `@platform/data` module's relations to every export from it, which
+immediately failed -- `subscribeToMenu` had been placed in `realtime.ts` beside
+two functions that read `orders`. The fix was splitting the module, not
+widening the list. Both directions are probe-verified: it fires on a delegated
+forbidden read, fires on a direct one, and passes on the menu read.
 
-Neither is blocked on the other work; both are blocked on someone choosing.
+**What is left.** The bundled catalog stays as a demo fixture for the web
+export and the capture recipes. It is deliberately **not** a fallback for a
+configured kiosk that fails to read: it is one tenant's menu, and serving it to
+another brand's tablet would price their drinks wrong under their own logo with
+nothing on screen to say so. A kiosk holding no menu says it is offline; a
+kiosk that already has one keeps selling through a brief outage, which is a
+stated trade rather than an oversight (`menu-store.tsx`).
 
 ---
 

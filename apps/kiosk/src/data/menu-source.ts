@@ -1,54 +1,49 @@
 /**
- * What the flow resolver needs to know about the menu.
+ * The bundled menu, for a kiosk with no backend configured.
  *
- * Built from the compiled catalog today. When the kiosk moves onto live rows
- * this is the one function that changes: the resolver, the config editor and
- * every screen consume `KioskMenuFacts` and none of them care where it came
- * from.
+ * This used to be THE menu: `catalog-data.ts` compiled into the binary, which
+ * meant a second tenant could not change a price, add an item or 86 something
+ * without a rebuild and a store release. That was the last franchise blocker
+ * on this surface, and `menu-store.tsx` now reads live rows instead.
  *
- * Categories are keyed by TITLE, because `menu_categories` (0003) has no slug
- * and a uuid differs per environment -- so the title is the only thing a tenant
- * file can name a category by. See `kiosk-flow.ts`.
+ * What is left here is a demo fixture — it drives the web export, the capture
+ * recipes and a walkthrough with nothing running. It is deliberately NOT a
+ * fallback for a configured kiosk that fails to read: this is one tenant's
+ * menu, and serving it to a different brand's tablet would price their drinks
+ * wrong under their own logo. A configured kiosk that cannot read says so.
  */
-import type { KioskMenuFacts } from '@platform/domain';
+import { kioskMenuFromRows, type KioskMenu, type KioskMenuItem } from '@platform/domain';
 
 import { MENU_CATEGORY_META, MENU_ITEMS } from '@/data/catalog';
 
-export function menuFactsFromCatalog(): KioskMenuFacts {
+/** The bundled catalog in the shape live rows map to. */
+export function demoMenu(): KioskMenu {
+  const titleById = new Map(MENU_CATEGORY_META.map((meta) => [meta.id, meta.title]));
+  const items: KioskMenuItem[] = MENU_ITEMS.flatMap((item) => {
+    const categoryId = titleById.get(item.category);
+    if (categoryId === undefined) return [];
+    return [{
+      id: item.id,
+      name: item.name,
+      description: item.description,
+      categoryId,
+      sizes: item.sizes,
+      soldOutToday: item.soldOutToday === true,
+      // The bundled catalog predates rotation; everything in it is always on.
+      rotation: 'permanent' as const,
+      ...(typeof item.packSize === 'number' ? { packSize: item.packSize } : {}),
+      ...(item.choiceSource ? { choiceSource: item.choiceSource } : {}),
+      ...(item.singleItemId ? { singleItemId: item.singleItemId } : {}),
+    }];
+  });
   return {
-    categories: MENU_CATEGORY_META.map((meta) => ({ id: meta.title, title: meta.title })),
-    itemSlugs: MENU_ITEMS.map((item) => item.id),
+    categories: MENU_CATEGORY_META.map((meta) => ({
+      id: meta.title, title: meta.title, tagline: meta.tagline,
+    })),
+    items,
+    drops: [],
   };
 }
 
-/** The items under one category title. */
-export function itemsInCategory(title: string) {
-  const meta = MENU_CATEGORY_META.find((entry) => entry.title === title);
-  if (!meta) return [];
-  return MENU_ITEMS.filter((item) => item.category === meta.id);
-}
-
-/**
- * The containers a tenant sells, if any.
- *
- * Empty for a shop whose SKU is a drink, which is why the container family is
- * a per-tenant choice and never inferred from the menu: a coffee shop that adds
- * one box of pastries has not changed what it is.
- */
-export function packsInCategory(title: string) {
-  return itemsInCategory(title).filter((item) => typeof item.packSize === 'number' && item.packSize > 0);
-}
-
-/**
- * What may go in a pack right now.
- *
- * The client mirror of `app.pack_choices` (0029): everything listed, not 86'd,
- * and not itself a pack. The SQL additionally narrows a 'lineup' source to
- * items that are permanent or in an orderable drop -- that part needs the live
- * rows, so a compiled catalog returns the permanent set and the server remains
- * the authority.
- */
-export function packChoicesFor(pack: { packSize?: number; choiceSource?: 'lineup' | 'static' }) {
-  return MENU_ITEMS.filter((item) =>
-    item.soldOutToday !== true && typeof item.packSize !== 'number');
-}
+/** Re-exported so a caller needs one import to go from rows to a menu. */
+export { kioskMenuFromRows };

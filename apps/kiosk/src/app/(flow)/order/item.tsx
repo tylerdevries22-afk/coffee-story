@@ -1,11 +1,13 @@
 import { ScrollView, StyleSheet, View } from 'react-native';
 
-import { formatMoney, optionGroupsFor, sizePriceCents, type MenuCategoryId } from '@platform/domain';
+import {
+  formatMoney, itemsInCategoryOf, optionGroupsFor, sizePriceCents, type MenuCategoryId,
+} from '@platform/domain';
 import { useTokens } from '@platform/ui';
 
 import { StepHeading } from '@/components/chrome/step-heading';
 import { CircleTile } from '@/components/circle/circle-tile';
-import { itemsInCategory } from '@/data/menu-source';
+import { useKioskMenu } from '@/data/menu-store';
 import { useBuilder } from '@/state/builder';
 import { useFlow } from '@/state/flow';
 import TENANT from '@/tenant/brand.json';
@@ -21,16 +23,17 @@ export default function ItemStep() {
   const tokens = useTokens();
   const { selected, goNext } = useFlow();
   const builder = useBuilder();
+  const { menu } = useKioskMenu();
 
   const categoryTitle = selected?.target.kind === 'category' ? selected.target.categoryId : '';
-  const items = itemsInCategory(categoryTitle);
+  const items = itemsInCategoryOf(menu, categoryTitle);
 
   return (
     <View style={styles.root}>
       <StepHeading title={selected?.label ?? 'Choose a drink'} />
       <ScrollView contentContainerStyle={styles.grid}>
         {items.map((item, index) => {
-          const soldOut = item.soldOutToday === true;
+          const soldOut = item.soldOutToday;
           const from = item.sizes[0];
           return (
             <CircleTile
@@ -47,7 +50,7 @@ export default function ItemStep() {
                 // item -- a latte has size, milk and ice; a mochi donut has
                 // none -- so it is carried INTO the advance rather than set
                 // beside it, or the step is decided from stale facts.
-                goNext({ hasOptions: optionGroupsFor(item.id, item.category as MenuCategoryId).length > 0 });
+                goNext({ hasOptions: optionGroupsFor(item.id, item.categoryId as MenuCategoryId).length > 0 });
               }}
             />
           );

@@ -2,7 +2,7 @@ import { Fraunces_700Bold } from '@expo-google-fonts/fraunces';
 import { Inter_400Regular, Inter_600SemiBold, Inter_700Bold, useFonts } from '@expo-google-fonts/inter';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Platform, View } from 'react-native';
 import * as ScreenOrientation from 'expo-screen-orientation';
 
@@ -10,16 +10,16 @@ import { ThemeProvider } from '@platform/ui';
 
 import TENANT_BRAND_CONFIG from '@/tenant/brand.json';
 
+import { menuFactsFrom } from '@platform/domain';
+
 import { IdleNotice } from '@/components/idle-notice';
-import { menuFactsFromCatalog } from '@/data/menu-source';
+import { MenuProvider, useKioskMenu } from '@/data/menu-store';
 import { DeviceProvider } from '@/state/device';
 import { BuilderProvider } from '@/state/builder';
 import { FlowProvider, useFlow } from '@/state/flow';
 import { GuestProvider } from '@/state/guest';
 import { KioskSessionProvider } from '@/state/session';
 
-/** Stable identity: rebuilding this each render would re-resolve the flow. */
-const MENU_FACTS = menuFactsFromCatalog();
 const SPLASH_GROUND = TENANT_BRAND_CONFIG.tokens?.surface ?? '#FAFAF9';
 
 export default function KioskLayout() {
@@ -49,6 +49,32 @@ export default function KioskLayout() {
   return (
     <ThemeProvider brandConfig={TENANT_BRAND_CONFIG}>
       <DeviceProvider>
+        <MenuProvider>
+          <FlowGate />
+        </MenuProvider>
+      </DeviceProvider>
+    </ThemeProvider>
+  );
+}
+
+/**
+ * The flow, resolved against the menu that is actually loaded.
+ *
+ * The entry constellation can be derived from the tenant's own categories, so
+ * the resolver needs the menu — and the menu now arrives asynchronously and
+ * changes under a running screen. Holding it as a module constant read the
+ * bundled catalog once at import and never again, which is precisely what
+ * made a rebuild the only way to change a tenant's menu.
+ */
+function FlowGate() {
+  const { menu } = useKioskMenu();
+  // Recomputed only when the menu itself changes: a new object every render
+  // would re-resolve the flow, and the resolved flow is what the idle clock
+  // and every screen key off.
+  const facts = useMemo(() => menuFactsFrom(menu), [menu]);
+
+  return (
+    <>
         {/*
           FlowProvider sits ABOVE the session on purpose: the session's idle
           clock is tenant-configured (`brand_config.kiosk.idle`), so the flow
@@ -57,15 +83,14 @@ export default function KioskLayout() {
           defaults, and a container tenant's longer window -- the whole reason
           the field exists -- never took effect.
         */}
-        <FlowProvider
-          brandConfig={TENANT_BRAND_CONFIG.kiosk}
-          menu={MENU_FACTS}
-          storedValue={TENANT_BRAND_CONFIG.features?.stored_value === true}
-        >
-          <KioskSurface />
-        </FlowProvider>
-      </DeviceProvider>
-    </ThemeProvider>
+      <FlowProvider
+        brandConfig={TENANT_BRAND_CONFIG.kiosk}
+        menu={facts}
+        storedValue={TENANT_BRAND_CONFIG.features?.stored_value === true}
+      >
+        <KioskSurface />
+      </FlowProvider>
+    </>
   );
 }
 

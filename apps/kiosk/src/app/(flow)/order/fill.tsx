@@ -1,12 +1,13 @@
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { packChoicesOf } from '@platform/domain';
 import { useTokens } from '@platform/ui';
 
 import { KioskPressable } from '@/components/chrome/kiosk-pressable';
 import { StepHeading } from '@/components/chrome/step-heading';
 import { KioskMenuImage } from '@/components/menu-image';
 import { CircleTile } from '@/components/circle/circle-tile';
-import { packChoicesFor } from '@/data/menu-source';
+import { useKioskMenu } from '@/data/menu-store';
 import { useBuilder } from '@/state/builder';
 import { useFlow } from '@/state/flow';
 import TENANT from '@/tenant/brand.json';
@@ -33,12 +34,15 @@ export default function FillStep() {
   const tokens = useTokens();
   const { goNext } = useFlow();
   const builder = useBuilder();
+  const { menu } = useKioskMenu();
   const pack = builder.state.item;
   const packSize = pack?.packSize ?? 0;
 
   if (!pack || packSize <= 0) return null;
 
-  const choices = packChoicesFor(pack);
+  // `Date.now()` rather than a memo: a drop window closing mid-session should
+  // remove a choice at the next render, not at the next mount.
+  const choices = packChoicesOf(menu, pack, Date.now());
   const left = builder.packRemaining(packSize);
   const complete = builder.packComplete(packSize);
   const slots = Array.from({ length: packSize }, (_, index) => index);
