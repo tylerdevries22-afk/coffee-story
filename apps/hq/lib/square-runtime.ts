@@ -17,6 +17,8 @@ import {
   decryptToken,
   loadTokenKey,
   squareConfigFromEnv,
+  resolveFeeConfig,
+  type BrandFeeTerms,
   type FeeConfig,
   type SquareConfig,
 } from '@platform/engine';
@@ -38,22 +40,15 @@ type ConnectionRow = {
 type LocationRow = {
   id: string;
   timezone: string | null;
+  // Nullable per-location overrides of rule 3's brand numbers (0039). A
+  // franchise does not have one fee schedule; NULL inherits the brand.
+  fee_bps: number | null;
+  fee_bps_tier2: number | null;
+  tier_threshold_cents: number | null;
 };
 
 /** Rule 3's numbers are brand columns, not config JSON. */
-export type BrandFeeRow = {
-  fee_bps: number;
-  fee_bps_tier2: number;
-  tier_threshold_cents: number;
-};
-
-export function feeConfigFrom(brand: BrandFeeRow): FeeConfig {
-  return {
-    feeBps: Number(brand.fee_bps),
-    feeBpsTier2: Number(brand.fee_bps_tier2),
-    tierThresholdCents: Number(brand.tier_threshold_cents),
-  };
-}
+export type BrandFeeRow = BrandFeeTerms;
 
 /**
  * Resolves the Square runtime for one location, or null when this brand has
@@ -72,7 +67,7 @@ export async function squareRuntimeFor(
   // write that a failed request could leave unset.
   const [location, connectionRow] = await Promise.all([
     db.from('locations')
-      .select('id, timezone')
+      .select('id, timezone, fee_bps, fee_bps_tier2, tier_threshold_cents')
       .eq('id', input.locationId)
       .eq('brand_id', input.brandId)
       .maybeSingle<LocationRow>(),
@@ -103,7 +98,7 @@ export async function squareRuntimeFor(
     square,
     locationAccessToken,
     squareLocationId: connection.square_location_id,
-    feeConfig: feeConfigFrom(input.brand),
+    feeConfig: resolveFeeConfig(input.brand, data),
     locationTimezone: data.timezone ?? 'America/Denver',
   };
 }

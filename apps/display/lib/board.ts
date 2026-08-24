@@ -22,15 +22,52 @@ import { displayTheme, type DisplayTheme } from './theme';
  * where anyone can open devtools, and a token it does not have is a token
  * nobody can lift.
  */
+/**
+ * The device token, and only the device token.
+ *
+ * This used to fall back to `NEXT_PUBLIC_SUPABASE_ANON_KEY`, which was
+ * harmless while `board_tickets` was `security_invoker` and became a silent
+ * failure the moment 0033 gated the view on `app.can_read_board`. The anon key
+ * carries no device claim and no staff role, so it satisfies the gate for
+ * nothing: the read succeeds, returns zero rows, and the board renders an
+ * empty queue with a green "Live" chip beside it.
+ *
+ * That is the worst shape a failure can take on this surface. A shop with a
+ * queue of eight sees a board confidently reporting nobody is waiting, and
+ * every signal the screen has says it is working. Falling back to fixtures
+ * instead makes a misconfiguration look like what it is.
+ *
+ * Found by the session working device pairing, whose 0038 issues the real
+ * tokens this now requires.
+ */
 function client(): SupabaseClient | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.DISPLAY_DEVICE_TOKEN ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const key = process.env.DISPLAY_DEVICE_TOKEN;
   if (!url || !key) return null;
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
 export function isConfigured(): boolean {
   return client() !== null;
+}
+
+/**
+ * Whether this deployment may draw invented guests.
+ *
+ * The fixtures exist so the screen can be reviewed and demoed with no
+ * infrastructure. On a laptop that is the whole point; on a wall in a shop it
+ * is a liability -- an unpaired production display would fall back to them and
+ * put "Marguerite Vandersteen" and five other fabricated names on a screen the
+ * room can read, indistinguishable from the real queue except that nobody in
+ * the room is holding those orders.
+ *
+ * So a production build never invents anyone. It shows an unpaired screen and
+ * says so, which is a state a passing manager can act on. A deployment that
+ * genuinely wants the demo -- a trade stand, a sales call -- opts in.
+ */
+export function demoAllowed(): boolean {
+  if (process.env.DISPLAY_DEMO_MODE === '1') return true;
+  return process.env.NODE_ENV !== 'production';
 }
 
 /**
@@ -64,6 +101,11 @@ export type BoardSnapshot = {
   live: boolean;
   /** True when a live read failed and the board is showing what it last knew. */
   degraded: boolean;
+  /**
+   * True when this is a production deployment with no device token: the screen
+   * is not paired to a location, so there is nothing honest to draw.
+   */
+  unpaired: boolean;
 };
 
 type BrandBits = { name: string; config: unknown };
@@ -98,6 +140,28 @@ function fixtures(locationId: string, degraded: boolean): BoardSnapshot {
     theme: displayTheme(DEMO_BRAND_CONFIG),
     live: false,
     degraded,
+    unpaired: false,
+  };
+}
+
+/**
+ * A production screen with no device token.
+ *
+ * Deliberately empty rather than fixtures: an unpaired board must not be
+ * mistakable for a working one. It keeps the platform's default palette
+ * because there is no brand to hydrate from -- not knowing which shop this is
+ * is precisely the condition being reported.
+ */
+function unpaired(): BoardSnapshot {
+  return {
+    locationName: '',
+    tickets: [],
+    config: resolveBoardConfig(null),
+    copy: resolveCopy(null),
+    theme: displayTheme(null),
+    live: false,
+    degraded: false,
+    unpaired: true,
   };
 }
 
@@ -111,7 +175,7 @@ function fixtures(locationId: string, degraded: boolean): BoardSnapshot {
  */
 export async function loadBoard(locationId: string): Promise<BoardSnapshot> {
   const db = client();
-  if (!db) return fixtures(locationId, false);
+  if (!db) return demoAllowed() ? fixtures(locationId, false) : unpaired();
 
   try {
     const [tickets, brand] = await Promise.all([
@@ -126,10 +190,13 @@ export async function loadBoard(locationId: string): Promise<BoardSnapshot> {
       theme: displayTheme(brand?.config),
       live: true,
       degraded: false,
+      unpaired: false,
     };
   } catch (error) {
     console.error('display: board read failed', error);
-    return { ...fixtures(locationId, true), tickets: [] };
+    // Degraded, not demo: a failed read on a paired screen must not start
+    // inventing guests either.
+    return { ...unpaired(), degraded: true, unpaired: false };
   }
 }
 
@@ -143,6 +210,6 @@ export async function loadBoard(locationId: string): Promise<BoardSnapshot> {
  */
 export async function loadBoardTickets(locationId: string): Promise<BoardTicketRow[]> {
   const db = client();
-  if (!db) return demoBoardAt(Date.now(), locationId);
+  if (!db) return demoAllowed() ? demoBoardAt(Date.now(), locationId) : [];
   return fetchBoardTickets(db, locationId);
 }

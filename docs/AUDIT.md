@@ -576,3 +576,232 @@ regression dressed as tidying.
 The reusable lesson: a dead-code pass in a multi-branch repo needs
 `git grep` across `refs/remotes/*` before anything is deleted, not just a
 workspace search.
+
+# Franchise-readiness audit — 2026-08-23
+
+Scope: what stands between this platform and a second brand, and a brand with
+several franchisees, running on it. Findings are ordered by what a franchise
+literally cannot ship without. **F1-F5 are blockers**; O1-O6 are correctness
+and optimisation.
+
+Two of these are fixed in this pass (F3, and O1 from the earlier sweep). The
+rest are specified rather than built, and the reason is stated per item — this
+is a repo with three agents working concurrently, and several of these land in
+territory another session has open.
+
+## Blockers
+
+### F1 — Nothing writes `brand_users`. You cannot provision a franchisee. **[open]**
+
+`app.custom_access_token` (0009) resolves staff claims from `brand_users`, and
+every staff policy in 0007 reads the `role` and `location_ids` it mints. A
+grep across `apps/`, `packages/`, `scripts/` and `supabase/` finds **no writer
+for that table at all** — no UI, no script, no seed. `docs/PRODUCTION.md:143`
+documents inserting the row by hand as a launch step.
+
+For a single shop, a one-off `insert` is tolerable. For a franchise it is the
+whole product: onboarding a franchisee *is* creating their scoped access, and
+today that means someone with a service-role key writing SQL. Until this
+exists, "franchisee isolation" is a property of the schema that no one can
+actually obtain.
+
+Shape of the fix: a `POST /api/staff` route in HQ (service-role, owner-gated)
+plus an invite flow, and a `brand_users` upsert in `scripts/onboard.ts` for
+the brand owner. The RLS is already correct — `brand_users_update` is guarded
+against self-promotion by 0031's trigger. This is a provisioning gap, not a
+security one.
+
+### F2 — Onboarding creates exactly one location. **[open — overlaps another session]**
+
+`scripts/onboard.ts` reads `brand.location` (singular) and inserts one row. A
+multi-location brand cannot be onboarded by the documented path at all, which
+makes `multi_location` unreachable from the front door.
+
+Fix: `locations[]` in `brand.json` with the current singular form accepted as
+a one-element shorthand, so no existing tenant file breaks. Deliberately not
+done here: `coffee-story-e4` has step 6 of that script open (tenant asset copy
++ product-media codegen). Agreed with them to split it — `locations[]` does
+not touch step 6 — and to ping before pushing.
+
+### F3 — One fee schedule per brand. **[FIXED — 0039]**
+
+Rule 3 puts the platform's take on the brand. That is right for a shop and for
+a chain a brand owns outright, and wrong the moment the brand carries
+franchisees: terms are negotiated per franchisee, and with the rate on the
+brand the only way to express two rates is two brands — splitting the menu,
+the loyalty ladder and the guest's account along a line that exists purely for
+billing.
+
+Fixed: nullable `fee_bps` / `fee_bps_tier2` / `tier_threshold_cents` on
+`locations`, NULL meaning inherit, so no backfill. Overrides apply **field by
+field** — a franchisee who negotiated a rate but not a threshold still moves
+with the brand when the threshold changes, which is what "we renegotiated the
+rate" means and what a wholesale override would quietly break.
+
+`resolveFeeConfig` moved out of `apps/hq/lib/square-runtime.ts` into
+`packages/engine/src/fees.ts`: which numbers apply to a payment is rule 3, not
+HTTP plumbing, and HQ owned it only because HQ happened to need it first.
+
+A franchisee editing their own commission is guarded by a trigger, not a
+policy — `locations_update` admits `app.at_location`, which includes a
+`location_manager`, and policies cannot compare OLD to NEW. Same shape as
+0031's platform_admin guard. `platform_fees.fee_bps_applied` already records
+the rate each payment was charged at, so the ledger stays truthful across a
+renegotiation without a backfill, which is exactly what a franchisee disputing
+an invoice needs.
+
+### F4 — `is_86d` is brand-wide, so one shop selling out 86s every shop. **[open]**
+
+`menu_items` carries `brand_id` and no `location_id`. `is_86d` therefore
+applies to the brand: a franchisee in Aurora running out of oat milk removes
+the item from the menu in every other franchisee's shop, including their
+kiosk and their board.
+
+This is the most user-visible multi-location defect in the tree and it is a
+data-model change, not a patch: availability has to become
+`(menu_item, location)` rather than a column. Shape: a
+`location_menu_availability` table keyed on both, a view that resolves
+brand default + location override, and the operator's 86 toggle writing the
+location row. Not attempted here because the kiosk agent has the menu read
+path open and a data-model change under a live consumer is how two sessions
+produce a broken merge.
+
+### F5 — `multi_location` gates nothing. **[open]**
+
+The flag is declared (0002), typed, mirrored into `brand_storefront`, and
+surfaced in HQ's editor. Nothing in the tree branches on it. A flag that
+gates nothing is worse than a missing flag: it reads as a supported feature in
+the console and in `brand.json`, and an owner who turns it on gets no
+behaviour and no error.
+
+Either it gates something real (a location switcher in the customer app, the
+locations list in HQ, per-location board routing) or it should be removed.
+Cannot be decided unilaterally — it is rule 5 vocabulary.
+
+## Correctness and optimisation
+
+- **O1 — `in_app_share` measured the opposite of its name. [FIXED — 0036]**
+  Covered in the previous section. The headline number on the franchise
+  dashboard fell as franchisees adopted the shop's own hardware.
+- **O2 — `prep_batches.service_date` has no trigger. [open]**
+  `orders.service_date` is stamped in the *location's* timezone by 0023's
+  trigger; `prep_batches.service_date` is a bare `date` with no equivalent.
+  Reported by `coffee-story-e4`, who lost CI time to it: asserting against
+  Postgres `current_date` (UTC) at 01:22 UTC was still the previous evening in
+  Denver. Per-location anything is exactly where this bites, so it is a
+  franchise concern and not just a test annoyance.
+- **O3 — `locations` published every column, and 0039 made that expensive.
+  [FIXED — 0039]** `locations_select` is `using (true)`, correctly: a shop's
+  address and hours must be readable before anyone signs in. RLS is row-level,
+  so that policy exposed every *column* of every row to `anon`. Minor while
+  the table held storefront fields plus an opaque payments FK — and then 0039,
+  in this same pass, put each franchisee's negotiated commission on it. A
+  franchise platform publishing what every franchisee pays, to every other
+  franchisee and to anyone holding the anon key that ships in the app bundle,
+  is not a privacy footnote; it is the commercial relationship.
+
+  Fixed column-level rather than with a new view, because the rows really are
+  public and only four columns are not: `revoke select (fee_bps,
+  fee_bps_tier2, tier_threshold_cents, square_connection_id)`. The storefront
+  read keeps working; the one caller that asked for `*` now names its columns,
+  since a client asking for a revoked column gets an error rather than a
+  redacted row. The engine reads them as the service role, which no client
+  grant constrains.
+
+  Pinned by a test, because the failure mode is a one-line mistake with no
+  symptom: a later bare `grant select on public.locations` replaces the column
+  set and silently restores everything.
+- **O4 — the integration suite skips rather than fails without a stack.**
+  `pnpm verify` returns green without exercising RLS at all. Carried forward;
+  a pre-promotion check should name the suites that did not run.
+- **O5 — dead code cannot be swept mechanically in this repo.** 322 exports
+  have no non-test consumer; 27 are runtime values referenced nowhere. Every
+  one of the nine in `workspace-ui.tsx` is referenced by operator screens on
+  five or six other branches. `coffee-story-e4` independently confirmed three
+  more that look dead and are not (`fetchPrepBoard`,
+  `productCutoutFrame`'s `tile`/`hero`, `ProductMediaCatalog.remote`). A sweep
+  needs `git grep` across `refs/remotes/*` before anything is deleted.
+- **O6 — `packages/domain` is becoming a bag.** It now holds cart, tax,
+  totals, dates, sizes, fulfillment, feed, search, kiosk-flow, guest-label,
+  order-channel, order-snapshot, stored-value, product-media, board-display
+  and qr. Several are surface-specific rather than domain-wide. Worth
+  splitting, but not while three sessions are adding to it.
+
+## What this pass changed
+
+0039 (per-location fee terms + the franchisee guard), 0040 (the column revoke),
+0035 (the two loyalty
+ladders), 0036 (the owned-channel metric), plus `resolveFeeConfig` moving into
+the engine. Everything else above is specified and left, with the reason
+recorded per item.
+
+**Verification note for this pass:** the local Supabase stack lost its
+database container mid-pass, and port 54322 is now published by an unrelated
+project's stack, so `supabase start` could not restore it without stopping
+another project's database or editing shared config — neither of which is
+mine to do. 0035 and 0036 were executed against the real database before it
+went; **0039 and 0040 are verified statically only** — typecheck, tests, and the SQL
+reviewed against the same patterns 0031 and 0033 established. CI runs the
+migrations on a hosted stack and is the gate that will actually execute it.
+
+## Production wiring — 2026-08-23
+
+"Nothing running locally" checked end to end, not assumed.
+
+**Nothing is hardcoded to a local stack.** No `.env` file is tracked or even
+present on disk — only `.env.example`. Every `localhost` / `127.0.0.1` string
+in shipping source is inside a *validator* (`runtime-config.ts`,
+`packages/data/src/config.ts`, `packages/api-client/src/client.ts`,
+`auth-links.ts`) that permits a local host only in development and enforces
+HTTPS otherwise. The rest are CI workflows, test harnesses and
+`supabase/config.toml`, which is the local dev stack's own config and belongs
+there.
+
+Two things were genuinely wrong, both on the surface I own.
+
+### An unpaired production wall would have shown invented guests. **[FIXED]**
+
+`loadBoard` fell back to fixtures whenever no client could be built. On a
+laptop that is the whole point of them. On a wall in a shop it is a liability:
+a production display with no device token would have drawn "Marguerite
+Vandersteen" and five other fabricated names on a screen the room can read,
+indistinguishable from the real queue except that nobody present is holding
+those orders. Staff would have no reason to look twice.
+
+A production build now never invents anyone. With no token it renders an
+honest unpaired screen addressed to staff rather than guests — a guest can do
+nothing about it, and the person who can needs to know what to do. A trade
+stand opts in with `DISPLAY_DEMO_MODE=1`; any other value fails safe. A
+*degraded* read on a paired screen no longer falls back to fixtures either.
+
+Verified by building with `NODE_ENV=production`, serving it with a Supabase
+URL and no device token, and reading the rendered HTML: "This screen is not
+paired / Pair it from the console under Locations → Devices."
+
+### `DISPLAY_DEVICE_TOKEN` was documented nowhere. **[FIXED]**
+
+It became required earlier in this pass and appeared in no `.env.example`, so
+a deployment had no way to learn it exists. Added to the root reference and to
+a new `apps/display/.env.example`, which states plainly why the anon key is
+not a substitute: `board_tickets` is gated on `app.can_read_board` (0033), the
+anon key satisfies it for nothing, and the resulting read returns zero rows
+that the board would label "Live".
+
+A test now asserts every `process.env` name the app reads appears in its own
+`.env.example`, so the next variable cannot be added silently.
+
+### Still required from the operator, not from the code
+
+The platform is configured entirely by environment; nothing here can supply
+these, and each is named in `.env.example` with what it is for:
+
+- A real Supabase project — `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`,
+  `SUPABASE_DB_URL`, plus the browser-safe pair for HQ.
+- Square application credentials, `SQUARE_TOKEN_KEY` (32 bytes, base64), and
+  the webhook signature key and URL.
+- One `DISPLAY_DEVICE_TOKEN` per paired screen, issued from the console.
+- Sentry, Twilio/Resend and Checkly, each optional and each DSN-gated.
+
+The migrations in `supabase/migrations/` are the schema of record and CI
+applies them to a hosted stack; `supabase/config.toml` configures only the
+local development stack and has no bearing on a deployed project.

@@ -1,5 +1,7 @@
 import { notFound } from 'next/navigation';
 
+import { formatCopy } from '@platform/ui/copy';
+
 import { isConfigured, isLocationId, loadBoard } from '@/lib/board';
 
 import { BoardView } from './board-view';
@@ -25,6 +27,18 @@ export default async function BoardPage({ params }: { params: Promise<{ location
   if (isConfigured() && !isLocationId(location)) notFound();
 
   const board = await loadBoard(location);
+
+  // An unpaired production screen draws no queue at all. There is no honest
+  // board to show -- the fixtures would be an invented one, and a blank board
+  // would read as "nobody is waiting" to the room.
+  if (board.unpaired) {
+    return (
+      <div className="display-root display-signpost" style={board.theme.cssVariables}>
+        <h1 className="board-title">{formatCopy(board.copy, 'boardUnpairedTitle')}</h1>
+        <p className="board-empty">{formatCopy(board.copy, 'boardUnpairedBody')}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="display-root" style={board.theme.cssVariables}>

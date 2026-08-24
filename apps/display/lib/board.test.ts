@@ -5,7 +5,7 @@ import { describe, it } from 'node:test';
 
 import { resolveBoardConfig, toEntry } from '@platform/domain';
 
-import { isLocationId } from './board';
+import { demoAllowed, isLocationId } from './board';
 import {
   DEMO_BRAND_CONFIG, DEMO_STEP_MS, DEMO_TICKETS, demoBoardAt, demoLocationName,
 } from './demo-board';
@@ -248,5 +248,87 @@ describe('demoLocationName', () => {
   it('names the sample locations and falls back for anything else', () => {
     assert.equal(demoLocationName('loc-uptown'), 'Uptown');
     assert.equal(demoLocationName('whatever'), 'Downtown');
+  });
+});
+
+/**
+ * The failure this surface must never have.
+ *
+ * A wall board reporting an empty queue with a green "Live" chip, while eight
+ * people wait, is worse than a dark screen: every signal it shows says it is
+ * working. The anon key produces exactly that against a gated view, so it is
+ * not an acceptable credential here.
+ */
+describe('the display credential', () => {
+  it('requires a device token and never falls back to the anon key', () => {
+    const source = readFileSync(join(process.cwd(), 'lib', 'board.ts'), 'utf8');
+    const fn = /function client\(\)[\s\S]*?\n}/.exec(source);
+    assert.ok(fn, 'client() is not defined');
+    assert.match(fn[0], /DISPLAY_DEVICE_TOKEN/);
+    assert.ok(!fn[0].includes('ANON_KEY'),
+      'the anon key satisfies app.can_read_board for nothing: it reads zero '
+      + 'rows and the board calls that "Live"');
+  });
+});
+
+/**
+ * A wall in a shop must never show invented guests.
+ *
+ * The fixtures are the right answer on a laptop and a liability on a wall: an
+ * unpaired production display falling back to them would put six fabricated
+ * names on a screen the room can read, indistinguishable from the real queue
+ * except that nobody present is holding those orders.
+ */
+describe('demoAllowed', () => {
+  const withEnv = (patch: Record<string, string | undefined>, run: () => void) => {
+    const saved = { ...process.env };
+    Object.assign(process.env, patch);
+    for (const [key, value] of Object.entries(patch)) {
+      if (value === undefined) delete process.env[key];
+    }
+    try { run(); } finally {
+      for (const key of Object.keys(patch)) delete process.env[key];
+      Object.assign(process.env, saved);
+    }
+  };
+
+  it('never invents a queue in a production build', () => {
+    withEnv({ NODE_ENV: 'production', DISPLAY_DEMO_MODE: undefined }, () => {
+      assert.equal(demoAllowed(), false);
+    });
+  });
+
+  it('still demos everywhere else, which is what the fixtures are for', () => {
+    withEnv({ NODE_ENV: 'development', DISPLAY_DEMO_MODE: undefined }, () => {
+      assert.equal(demoAllowed(), true);
+    });
+  });
+
+  it('lets a trade stand opt in explicitly', () => {
+    withEnv({ NODE_ENV: 'production', DISPLAY_DEMO_MODE: '1' }, () => {
+      assert.equal(demoAllowed(), true);
+    });
+  });
+
+  it('treats any other value as off, so a typo fails safe', () => {
+    for (const value of ['true', 'yes', '0', '']) {
+      withEnv({ NODE_ENV: 'production', DISPLAY_DEMO_MODE: value }, () => {
+        assert.equal(demoAllowed(), false, `DISPLAY_DEMO_MODE=${value} must not enable demo`);
+      });
+    }
+  });
+});
+
+describe('the configuration reference', () => {
+  it('documents every env var the app actually reads', () => {
+    const source = readFileSync(join(process.cwd(), 'lib', 'board.ts'), 'utf8');
+    const example = readFileSync(join(process.cwd(), '.env.example'), 'utf8');
+    const read = new Set([...source.matchAll(/process\.env\.([A-Z_]+)/g)].map((m) => m[1]));
+    for (const name of read) {
+      if (name === 'NODE_ENV') continue;  // set by the runtime, not by an operator
+      assert.ok(example.includes(name as string),
+        `${name} is read by the app but absent from apps/display/.env.example — `
+        + 'a deployment has no way to know it is needed');
+    }
   });
 });
