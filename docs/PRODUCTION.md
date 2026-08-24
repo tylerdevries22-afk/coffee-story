@@ -38,6 +38,7 @@ token>` and an `Idempotency-Key`.
 | `POST /api/loyalty/redeem` | Spends points on a reward from `brand_config.loyalty.rewards`. |
 | `POST /api/push-tokens` | Registers a device push token (re-homes it if the device changes accounts). |
 | `POST /api/profile` | Updates the guest's own contact card. |
+| `DELETE /api/profile` | Deletes a guest account: anonymizes retained order history, revokes push tokens, and removes the GoTrue identity. Staff identities require administrator removal. |
 | `POST /api/referrals` | Mints (or re-surfaces) the guest's referral code. |
 | `POST /api/jobs/run` | The cron tick: drop windows open/close, due campaigns move on. Guarded by `CRON_SECRET`. |
 | `GET /api/health` | Liveness + deployed version. |
@@ -88,7 +89,9 @@ Server (Vercel project for `apps/hq` — never in any app bundle):
 - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (console sign-in)
 - Square (when connected): `SQUARE_APP_ID`, `SQUARE_APP_SECRET`,
   `SQUARE_TOKEN_KEY` (AES-256-GCM key for stored OAuth tokens),
-  `SQUARE_WEBHOOK_SIGNATURE_KEY`, `SQUARE_WEBHOOK_URL`
+  `SQUARE_WEBHOOK_SIGNATURE_KEY`, `SQUARE_WEBHOOK_URL`, and `SQUARE_ENV`
+  (`production` for live card acceptance; unset intentionally fails safe to
+  `sandbox`)
 
 Apps (EAS env — **every `EXPO_PUBLIC_*` value is world-readable in the
 bundle**):
@@ -108,17 +111,22 @@ Everything below is code-complete and covered by
 Square over real HTTP). Activating it for a brand is configuration, not a
 deploy:
 
-1. Set `SQUARE_APP_ID`, `SQUARE_APP_SECRET` and `SQUARE_TOKEN_KEY` on the
+1. Set `SQUARE_ENV=production` on the HQ deployment and confirm the app ID,
+   secret, OAuth redirect, webhook subscription, and every connected location
+   all belong to the production Square environment. Sandbox credentials cannot
+   charge a real card. The code continues to default an omitted `SQUARE_ENV` to
+   `sandbox` so a missing variable cannot silently activate live payments.
+2. Set `SQUARE_APP_ID`, `SQUARE_APP_SECRET` and `SQUARE_TOKEN_KEY` on the
    HQ deployment. `SQUARE_TOKEN_KEY` is 32 random bytes, base64
    (`openssl rand -base64 32`) — losing it means every stored merchant
    token must be reconnected.
-2. In the console: Locations → Connect Square, per location. The OAuth
+3. In the console: Locations → Connect Square, per location. The OAuth
    callback writes the encrypted tokens and the merchant's
    `square_location_id`.
-3. Point Square's webhook at `/api/webhooks/square` and set
+4. Point Square's webhook at `/api/webhooks/square` and set
    `SQUARE_WEBHOOK_SIGNATURE_KEY`. The webhook is what marks an order paid;
    the guest returning from the checkout page never is.
-4. The customer app then sends `tenderType: 'square_link'` and opens the
+5. The customer app then sends `tenderType: 'square_link'` and opens the
    `checkoutUrl` it gets back. Until a location is connected that tender
    answers 503, which is why the app keeps `pay_at_pickup` as its default.
 
