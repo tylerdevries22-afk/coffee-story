@@ -79,7 +79,7 @@ export const DEFAULT_ADMIN_SETTINGS: AdminSettingsState = {
   businessAddress: BUSINESS_ADDRESS,
 };
 
-export function validateAdminSettings(settings: AdminSettingsState): string | null {
+export function validateAdminSettings(settings: AdminSettingsState, isLive = false): string | null {
   if (!Number.isInteger(settings.leadTimeMinutes) || settings.leadTimeMinutes < 0 || settings.leadTimeMinutes > 10080) {
     return 'Lead time must be between 0 and 10,080 minutes.';
   }
@@ -92,6 +92,12 @@ export function validateAdminSettings(settings: AdminSettingsState): string | nu
   if (settings.availability.length !== 7 || invalidAvailability) {
     return 'Review the seven availability windows.';
   }
+  // Business Info is the brand's own identity. In live mode it is read from
+  // the brand row and not editable here, so it must not be something the
+  // operator is asked to fix before they can save an availability change --
+  // a brand that posted no mailbox would otherwise be locked out of Settings
+  // entirely, on a tab with no email field on it.
+  if (isLive) return null;
   if (!settings.businessName.trim()) return 'Business name is required.';
   if (!settings.businessEmail.includes('@')) return 'Enter a valid business email.';
   return null;
@@ -117,4 +123,22 @@ export function mergeServerStaffSettings(
   settings: StaffSettings,
 ): AdminSettingsState {
   return { ...current, ...settings };
+}
+
+/**
+ * The Business Info fields are the brand's identity, not settings the server
+ * stores — in live mode they belong to the signed-in brand row, not to the
+ * bundled defaults, which are Coffee Story's because demo mode is.
+ */
+export function withBusinessIdentity(
+  current: AdminSettingsState,
+  business: { name: string; email: string; phone: string; street: string; cityLine: string },
+): AdminSettingsState {
+  return {
+    ...current,
+    businessName: business.name,
+    businessEmail: business.email,
+    businessPhone: business.phone,
+    businessAddress: [business.street, business.cityLine].filter(Boolean).join(', '),
+  };
 }

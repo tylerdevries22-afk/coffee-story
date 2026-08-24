@@ -158,3 +158,79 @@ in Expo, never in this repository, never in `packages/data`.
   the developer account and connects a location (P8).
 - Campaign "send" records the transition with `delivered: 0` until a
   push/SMS provider is configured.
+- **Loyalty redemption rate reads 0% on every dashboard, and that number is
+  not measured.** The `location_daily_metrics` / `brand_daily_metrics` views
+  compute it from `orders.loyalty_redeemed_points`, and nothing writes that
+  column: redeeming a reward (`POST /api/loyalty/redeem`) spends points from
+  the catalog and is not attached to an order at all — the order API refuses
+  `loyaltyRedeemPoints` outright with "not live yet". So the figure on the HQ
+  analytics page, in the CSV export and in the weekly owner email is a
+  placeholder, not a measurement, and it will stay 0.0000 until order-level
+  redemption is built. Do not quote it to a brand owner.
+- **The rewards ladder the guest app shows is not the rate the engine pays.**
+  `apps/customer/src/features/rewards/rules.ts` advertises 10/11/12/13 points
+  per dollar across the four tiers, and the bag screen renders that number
+  against the guest's real lifetime points. `recordLoyaltyEarn` always credits
+  the flat `DEFAULT_EARN_RATE_PER_DOLLAR` of 10, so a "Coffee Legend" shown
+  260 points on a $20 order is credited 200. Whether the fix is to honour the
+  ladder in the engine or to stop advertising it is the owner's call: it
+  changes what the brand owes its regulars. Until then the app over-promises.
+- **The rewards ladder is the last thing in the guest app that is not
+  tenant-derived.** `brand.json` carries `loyalty.rewards` (the redemption
+  catalog) but no tiers, so the four tier names, thresholds, rates, blurbs and
+  perks are compiled into `features/rewards/rules.ts`. Onboarding a brand that
+  wants a different ladder needs a code change today, which is the one thing
+  `tenants/<slug>/` exists to prevent. The fix is a promotion, not an edit:
+  that file is byte-identical in both Expo apps, so changing it in place fails
+  the drift guard by design. Everything downstream is already ready for it --
+  every function takes the ladder as a parameter, `RewardTierName` is free text
+  rather than a union, and `paletteForTier` falls back by ladder position (then
+  by a stable name hash) so a renamed tier still gets a deliberate, distinct
+  glass. Only the data source is missing.
+- **`tests/e2e` "full loop" fails intermittently and the cause is NOT known.**
+  It times out on `waitText('Order placed')` after Place Order, with the
+  customer back on the Pickup Options step, no failed API calls and no console
+  errors. The same commit's app code has passed this scenario and failed it, so
+  it is not a regression in the code under test; it reproduces only in CI
+  (`tests/e2e` needs Docker for the Supabase stack, so it cannot be run from an
+  agent sandbox).
+
+  Landing on Pickup Options points at one branch -- `order-screen.tsx` refusing
+  a lapsed pickup window via `isWindowStillBookable` and calling
+  `setStep('details')`, the only path there from `placeOrder`. But the evidence
+  does not support it: in the last failure the picker was still offering
+  `12:45 - 1:15 PM` while the driver's pinned clock read about 12:26, so the
+  chosen window was ~19 minutes out against a 15-minute guard. Two "fixes"
+  written on that assumption both made the suite worse (booking a slot far
+  enough out puts the order in the board's Scheduled lane, where there is no
+  Start button; re-picking from the menu's time pill leaves the sheet covering
+  View bag) and were reverted.
+
+  What would settle it: the dump records `document.body.innerText`, which omits
+  input values and had not captured `payError`. Rendering the `payError` string
+  into the failure dump would say in one line whether the window guard fired,
+  and if so with what message.
+
+  Worth knowing while looking: the picker and the guard share
+  `PICKUP_LEAD_MINUTES` (15), and the picker starts at
+  `roundUpToStep(now + 15min)`, so the earliest slot CAN be offered exactly on
+  the bookable boundary. That is a genuine sharp edge for a real guest even
+  though it does not explain these failures. Note too that the board holds
+  anything past `SCHEDULED_LANE_MINUTES` (30) in a separate lane, so the
+  earliest slot is the only one this scenario can use.
+- **The operator board fires live queries with a demo location id.**
+  `operator-store` initialises `location` to `DEMO_LOCATIONS[0]`
+  (`loc-havana`, a slug) and only corrects it to the signed-in account's real
+  location in a `useEffect` -- after the render that has already issued the
+  board fetch. Under live mode those first queries reach PostgREST as
+  `location_id=eq.loc-havana` against a uuid column and come back 400
+  `22P02 invalid input syntax for type uuid`, twice, on every sign-in. It
+  self-corrects once `liveLocations` arrives, so the board works; but if an
+  account ever has no locations the fallback keeps the demo roster and the
+  board queries stay malformed forever. Live mode should have no demo location
+  in it at all.
+- **Rule 4 is mounted but barely consumed.** ThemeProvider now runs in both
+  Expo apps and both root Stacks take their page ground from `useTokens()`, so
+  a tenant palette reaches the app -- and stops at the page ground. The other
+  92 files still import the compiled `theme/tokens`, which is where the rest of
+  the sweep goes.

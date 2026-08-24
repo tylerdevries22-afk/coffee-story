@@ -21,8 +21,17 @@ config.watchFolders = [path.resolve(__dirname, '../..')];
 // root, and the two Expo apps poison each other's expo-router context there:
 // an operator export served the customer's route tree out of the shared
 // cache and failed on the customer-only @/lib/brand-cache import.
+// Keyed by tenant as well as by app. app.config.ts resolves identity from
+// `tenants/$TENANT/brand.json`, and the app config reaches the bundle through
+// expo-constants as a GENERATED module -- not a file Metro watches -- so its
+// transform stays cached across a tenant switch. A `TENANT=b expo export` run
+// after a tenant-a build therefore shipped tenant a's manifest: a's name, a's
+// slug, a's scheme, inside b's binary, with `expo config` reporting b
+// correctly the whole time. Verified by exporting the same tree twice.
 config.cacheStores = [
-  new FileStore({ root: path.join(__dirname, '.metro-cache') }),
+  new FileStore({
+    root: path.join(__dirname, '.metro-cache', process.env.TENANT || 'default'),
+  }),
 ];
 
 module.exports = config;

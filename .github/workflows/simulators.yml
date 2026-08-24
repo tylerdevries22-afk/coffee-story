@@ -1,0 +1,644 @@
+name: simulators
+
+# Both Expo apps, each on its OWN named iOS simulator, on a real macOS runner.
+# This is the one thing a Linux box cannot check: simulators need the full
+# Xcode app, so "the apps launch on a device" was only ever verified as a web
+# export in a headless browser.
+#
+# Its own workflow, not a job in `verify`, for one reason: verify cancels its
+# in-progress runs on every push, and a twenty-minute macOS job that boots two
+# devices and waits for two bundles should not die because someone pushed a
+# README fix. This one is never started by a push at all -- label the pull
+# request `simulators`, or dispatch it by hand -- and never cancels itself.
+on:
+  pull_request:
+    types: [labeled]
+  workflow_dispatch:
+
+concurrency:
+  group: simulators-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  simulators:
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || github.event.label.name == 'simulators'
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      CUSTOMER_SIM: coffee story cust
+      OPERATOR_SIM: coffee story ops
+      CUSTOMER_PORT: '8081'
+      OPERATOR_PORT: '8083'
+      EXPO_NO_TELEMETRY: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Create the two named simulators
+        run: |
+          set -euo pipefail
+          xcrun simctl list -j runtimes > /tmp/runtimes.json
+          xcrun simctl list -j devicetypes > /tmp/devicetypes.json
+          # No `mapfile`: GitHub runs macOS steps under /bin/bash, which is
+          # still bash 3.2, where that builtin does not exist -- it exits 127
+          # and takes the python it was reading from with it (a broken pipe).
+          python3 scripts/ci/simulator-devices.py /tmp/runtimes.json /tmp/devicetypes.json > /tmp/picked.txt
+          cat /tmp/picked.txt
+          RUNTIME=$(sed -n 1p /tmp/picked.txt)
+          PHONE=$(sed -n 2p /tmp/picked.txt)
+          TABLET=$(sed -n 3p /tmp/picked.txt)
+          if [ -z "$RUNTIME" ] || [ -z "$PHONE" ] || [ -z "$TABLET" ]; then
+            echo "Could not choose a runtime and two device types."; exit 1
+          fi
+          echo "runtime=$RUNTIME"; echo "phone=$PHONE"; echo "tablet=$TABLET"
+          # Kept for the failure replay: if one device misbehaves, which device
+          # type it was is the first thing worth knowing.
+          {
+            echo "runtime=$RUNTIME"
+            echo "phone (customer)=$PHONE"
+            echo "tablet (operator)=$TABLET"
+          } >> "$GITHUB_WORKSPACE/expo-go-diag.log"
+          CUSTOMER_UDID=$(xcrun simctl create "$CUSTOMER_SIM" "$PHONE" "$RUNTIME")
+          OPERATOR_UDID=$(xcrun simctl create "$OPERATOR_SIM" "$TABLET" "$RUNTIME")
+          echo "CUSTOMER_UDID=$CUSTOMER_UDID" >> "$GITHUB_ENV"
+          echo "OPERATOR_UDID=$OPERATOR_UDID" >> "$GITHUB_ENV"
+          xcrun simctl list devices available
+
+      - name: Boot both simulators before opening anything on them
+        timeout-minutes: 8
+        run: |
+          set -euo pipefail
+          # Shut down anything else this runner left booted. macos images ship
+          # with a simulator already running, and CoreSimulator stopped
+          # answering simctl at all on the last run -- three booted devices,
+          # one of them a 12.9-inch iPad, is more than the box wants to carry.
+          # Only our two devices should be up.
+          for udid in $(xcrun simctl list devices booted -j \
+            | python3 -c 'import json,sys; print(" ".join(d["udid"] for v in json.load(sys.stdin)["devices"].values() for d in v))'); do
+            case "$udid" in
+              "$CUSTOMER_UDID"|"$OPERATOR_UDID") ;;
+              *) echo "shutting down stray booted device $udid"; xcrun simctl shutdown "$udid" || true ;;
+            esac
+          done
+          # The ordering the launcher script exists to enforce: opening a deep
+          # link on a device that is still booting is what times out.
+          xcrun simctl bootstatus "$CUSTOMER_UDID" -b
+          xcrun simctl bootstatus "$OPERATOR_UDID" -b
+
+      - name: Start both Metro servers
+        timeout-minutes: 10
+        run: |
+          set -euo pipefail
+          # EXPO_OFFLINE, or these servers die the moment a client connects.
+          # Both apps carry an `owner` and an EAS project id, so `expo start`
+          # tries to authenticate; with no EXPO_TOKEN and no TTY it exits with
+          #
+          #   CommandError: Input is required, but 'npx expo' is in
+          #   non-interactive mode.
+          #
+          # It answers /status first, so the readiness check passed and the
+          # server was already gone by the time an app asked for a bundle --
+          # which read exactly like a networking problem and was not one.
+          # Offline is right here anyway: nothing in this job needs the Expo
+          # account, only the bundler.
+          export EXPO_OFFLINE=1
+          # Default binding (localhost), NOT --host lan. An iOS simulator
+          # shares the host's network stack, so 127.0.0.1 inside the device IS
+          # this machine's loopback -- which is exactly how this works on a
+          # developer's Mac. --host lan binds Metro to the runner's NAT'd
+          # virtual interface instead, which the device may not route to.
+          #
+          # Worth being explicit about the sequencing, because it hid this:
+          # while the deep links used loopback, the servers were dying on an
+          # auth prompt, so nothing could have worked whatever the address. By
+          # the time EXPO_OFFLINE fixed that, the address had already been
+          # switched to LAN. Live server + loopback is the one combination
+          # never actually run, and the screens now show why it matters --
+          # Expo Go is sitting on its own screen, i.e. it never reached Metro.
+          # CI stays SET. Unsetting it to get Metro's bundle logs turned watch
+          # mode back on, and @expo/cli's TypeScript-file watcher crashes on
+          # this version:
+          #
+          #   TypeError: events is not iterable
+          #     at FileMap.listener (waitForMetroToObserveTypeScriptFile.ts:128)
+          #
+          # CI mode was holding the server up, not holding it back. It does
+          # suppress the per-bundle log lines, so proof of loading has to come
+          # from somewhere other than the log -- see the wait step.
+          cd apps/customer && nohup npx expo start --port "$CUSTOMER_PORT" > "$GITHUB_WORKSPACE/metro-customer.log" 2>&1 &
+          cd "$GITHUB_WORKSPACE/apps/operator" && nohup npx expo start --port "$OPERATOR_PORT" > "$GITHUB_WORKSPACE/metro-operator.log" 2>&1 &
+          cd "$GITHUB_WORKSPACE"
+          # Both ports in ONE loop, not one after the other. Polled
+          # sequentially, the first port could spend the whole budget before
+          # the second was looked at once -- and both servers are already
+          # starting, so waiting on them in series measures nothing.
+          #
+          # 450s, not 240s: a run failed here with the customer log sitting on
+          # "Waiting on http://localhost:8081" and no error at all. Metro was
+          # still starting. A cold macOS runner bringing up two dev servers
+          # over a monorepo this size genuinely takes minutes, and a ceiling
+          # that trips on a slow morning is a broken check, not a strict one.
+          up_customer=0; up_operator=0
+          for i in $(seq 1 150); do
+            [ "$up_customer" = 0 ] && curl -fs --max-time 2 "http://127.0.0.1:$CUSTOMER_PORT/status" >/dev/null 2>&1 \
+              && { up_customer=1; echo "Metro is up on :$CUSTOMER_PORT after ~$((i * 3))s"; }
+            [ "$up_operator" = 0 ] && curl -fs --max-time 2 "http://127.0.0.1:$OPERATOR_PORT/status" >/dev/null 2>&1 \
+              && { up_operator=1; echo "Metro is up on :$OPERATOR_PORT after ~$((i * 3))s"; }
+            [ "$up_customer" = 1 ] && [ "$up_operator" = 1 ] && break
+            [ $((i % 20)) -eq 0 ] && echo "  waiting on Metro (~$((i * 3))s): customer=$up_customer operator=$up_operator"
+            sleep 3
+          done
+          # Answering once is not the same as still running: the servers used
+          # to die seconds after their first /status. Re-check both.
+          sleep 10
+          for port in "$CUSTOMER_PORT" "$OPERATOR_PORT"; do
+            curl -fs --max-time 5 "http://127.0.0.1:$port/status" >/dev/null 2>&1 \
+              || { echo "Metro on :$port answered and then exited. Its log:"; cat "$GITHUB_WORKSPACE"/metro-*.log; exit 1; }
+          done
+          if [ "$up_customer" = 0 ] || [ "$up_operator" = 0 ]; then
+            echo "Metro never answered (customer=$up_customer operator=$up_operator). Their logs:"
+            cat "$GITHUB_WORKSPACE"/metro-*.log
+            exit 1
+          fi
+
+      - name: Put Expo Go on both devices
+        timeout-minutes: 20
+        run: |
+          set -uo pipefail   # not -e: the first route is allowed to fail
+          # Appended straight to the file, NOT teed. `exec > >(tee -a ...)`
+          # is process substitution, and bash does not wait for those
+          # children when the shell exits -- a step that fails and returns
+          # immediately has its tee killed mid-buffer. That is exactly what
+          # happened: the transcript ended at this step's last line and the
+          # NEXT step, the one that failed, wrote nothing at all. The live
+          # output is no loss; it sits mid-job where the log API cannot
+          # reach it anyway, and the replay prints this file at the end.
+          #
+          # Everything this step prints is kept, because the Actions log
+          # API only ever returns the END of a job -- a failure in the middle
+          # is invisible to anything reading it programmatically. The last
+          # step of this job replays this file when the job fails.
+          exec >> "$GITHUB_WORKSPACE/expo-go-diag.log" 2>&1
+          # Two ways to get Expo Go, because CI cannot press `i`.
+          #
+          # 1. api.expo.dev names a client build per SDK. Cheapest when it
+          #    works, and it is the only route that needs no dev server.
+          # 2. `expo start --ios` makes @expo/cli fetch and install it the way
+          #    a developer does. Slower, and it targets whichever device is
+          #    booted, but it does not depend on the shape of that endpoint or
+          #    on the pinned SDK still being listed there.
+          #
+          # The first attempt is not allowed to end the step -- it prints why
+          # it failed and the second one runs. Only both failing is fatal.
+          APP=""
+
+          echo "--- route 1: api.expo.dev"
+          if curl -fsSL --max-time 60 https://api.expo.dev/v2/versions/latest -o /tmp/expo-versions.json; then
+            if URL=$(python3 scripts/ci/expo-go-url.py /tmp/expo-versions.json 54.0.0); then
+              echo "client url: $URL"
+              if curl -fsSL --max-time 300 "$URL" -o /tmp/expo-go.tar.gz; then
+                mkdir -p /tmp/expo-go
+                if tar -xzf /tmp/expo-go.tar.gz -C /tmp/expo-go; then
+                  APP=$(find /tmp/expo-go -maxdepth 4 -name '*.app' -print 2>/dev/null | sed -n 1p)
+                  echo "extracted: ${APP:-<no .app found>}"
+                else
+                  echo "tar failed; first bytes were:"; head -c 120 /tmp/expo-go.tar.gz | od -c | head -3
+                fi
+              else
+                echo "download failed"
+              fi
+            else
+              echo "no client listed for SDK 54.0.0 in that payload"
+            fi
+          else
+            echo "api.expo.dev unreachable"
+          fi
+
+          if [ -z "$APP" ]; then
+            echo "--- route 2: let @expo/cli fetch it (expo start --ios)"
+            # This works -- the previous version of this step just did not wait
+            # long enough and then killed the fetch it was waiting for. The
+            # cache showed `Expo-Go-54.0.7.tar.app` arriving AFTER the step had
+            # already failed, with `host.exp.Exponent` installed on the device.
+            #
+            # So: poll the real success condition (Expo Go present on the
+            # customer device), give the download the time a cold macOS runner
+            # actually needs, and do not kill the CLI until it has delivered.
+            # The operator device stays booted. An earlier version shut it
+            # down so `--ios` could only pick the customer, and booting it
+            # again came back `Status=4294967295 ... Finished` -- a terminal
+            # status that is not success, on the device the next step then
+            # failed to open. It does not need shutting down: whichever device
+            # `--ios` targets, the cached bundle is installed on both below.
+            ( cd apps/customer && nohup npx expo start --port 8099 --ios > "$GITHUB_WORKSPACE/expo-go-fetch.log" 2>&1 & )
+            for i in $(seq 1 90); do
+              if xcrun simctl get_app_container "$CUSTOMER_UDID" host.exp.Exponent >/dev/null 2>&1; then
+                echo "Expo Go landed on the customer device after ~$((i * 10))s"
+                break
+              fi
+              [ $((i % 6)) -eq 0 ] && echo "  still fetching (${i}0s)…"
+              sleep 10
+            done
+            tail -20 "$GITHUB_WORKSPACE/expo-go-fetch.log" || true
+            # The cached bundle is what the operator device gets installed from;
+            # @expo/cli names it `Expo-Go-<version>.tar.app`, which is a
+            # directory despite the `.tar` in the middle.
+            APP=$(ls -td "$HOME"/.expo/ios-simulator-app-cache/*.app 2>/dev/null | sed -n 1p)
+            echo "cached: ${APP:-<nothing>}"
+            pkill -f "expo start --port 8099" || true
+            # Install on both regardless of which device `--ios` picked.
+            if [ -n "$APP" ]; then
+              xcrun simctl install "$CUSTOMER_UDID" "$APP" || true
+              xcrun simctl install "$OPERATOR_UDID" "$APP" || true
+              echo "installed the cached bundle on both devices"
+            fi
+            if xcrun simctl get_app_container "$CUSTOMER_UDID" host.exp.Exponent >/dev/null 2>&1 \
+               && xcrun simctl get_app_container "$OPERATOR_UDID" host.exp.Exponent >/dev/null 2>&1; then
+              echo "Expo Go is on both devices."
+              exit 0
+            fi
+          fi
+
+          if [ -z "$APP" ]; then
+            echo "Could not obtain Expo Go by either route."; exit 1
+          fi
+          echo "installing $APP on both devices"
+          xcrun simctl install "$CUSTOMER_UDID" "$APP"
+          xcrun simctl install "$OPERATOR_UDID" "$APP"
+
+      - name: Open each app on its own device
+        timeout-minutes: 6
+        run: |
+          set -uo pipefail
+          exec >> "$GITHUB_WORKSPACE/expo-go-diag.log" 2>&1
+          # `simctl openurl` does not reliably fail fast. It is the call that
+          # reports code 60 on a busy CoreSimulator -- the failure @expo/cli
+          # treats as fatal and reports as "Expo crashed" -- and it can also
+          # simply block, which it did here for seven minutes before this
+          # bound existed. macOS ships no GNU `timeout`, so each attempt is
+          # backgrounded and reaped by hand.
+          # Launch Expo Go by bundle id BEFORE opening a URL on it.
+          #
+          # `expo start --ios` opened `exp://127.0.0.1:8099` on this same device
+          # a step earlier and it worked, so the device does accept exp:// --
+          # what differs here is timing. LaunchServices registers an app's URL
+          # schemes asynchronously after `simctl install`, so a freshly
+          # installed Expo Go can be present (get_app_container finds it) while
+          # nothing yet owns `exp://`, and openurl is refused. Launching by
+          # bundle id needs no scheme at all, and forces the registration the
+          # deep link then depends on.
+          # Run a simctl command with a hard bound. EVERY simctl call in this
+          # step needs one: `openurl` was bounded and `launch` was not, so when
+          # the iPad hung on launch the step sat there until its ceiling killed
+          # it -- and the transcript stopped mid-sentence, one line after the
+          # iPhone succeeded. Returns 124 for "never came back", like timeout(1).
+          bounded() {
+            local seconds="$1"; shift
+            "$@" >/dev/null 2>&1 &
+            local pid=$! waited=0
+            while kill -0 "$pid" 2>/dev/null && [ "$waited" -lt "$seconds" ]; do
+              sleep 2; waited=$((waited + 2))
+            done
+            if kill -0 "$pid" 2>/dev/null; then
+              kill -9 "$pid" 2>/dev/null || true
+              wait "$pid" 2>/dev/null || true
+              return 124
+            fi
+            wait "$pid"
+          }
+          # One cheap attempt, and never more. This is belt-and-braces -- the
+          # `openurl` below launches Expo Go by itself once the scheme is
+          # registered -- so it must not be able to spend the step's budget.
+          # It did exactly that: three 45s attempts per device is 300s of a
+          # 360s ceiling, so `open_app` never ran at all and neither device was
+          # ever handed its URL. A launch that has not returned in 20s is not
+          # going to.
+          warm_up() {
+            udid="$1"; name="$2"
+            bounded 20 xcrun simctl launch "$udid" host.exp.Exponent
+            rc=$?
+            if [ "$rc" -eq 0 ]; then
+              echo "$name: Expo Go launched"
+              sleep 3
+              return 0
+            fi
+            if [ "$rc" -eq 124 ]; then
+              echo "$name: simctl launch never returned -- CoreSimulator not answering"
+              WEDGED=1
+            else
+              echo "$name: simctl launch exited $rc"
+            fi
+            return 1
+          }
+          # Two attempts, not three. The whole step has to fit under its
+          # ceiling: 2 devices x 2 attempts x (45s bound + 5s pause) is 200s,
+          # and the warm-ups above can add 46s. Three 60s attempts did not fit,
+          # which is how the step came to be killed before the second device
+          # was ever opened.
+          open_app() {
+            udid="$1"; port="$2"; name="$3"
+            for try in 1 2; do
+              xcrun simctl openurl "$udid" "exp://$HOST_IP:$port" &
+              pid=$!
+              waited=0
+              while kill -0 "$pid" 2>/dev/null && [ "$waited" -lt 45 ]; do
+                sleep 2; waited=$((waited + 2))
+              done
+              if kill -0 "$pid" 2>/dev/null; then
+                echo "$name: openurl still blocked after ${waited}s (attempt $try) -- killing it"
+                kill -9 "$pid" 2>/dev/null || true
+                wait "$pid" 2>/dev/null || true
+              else
+                wait "$pid"; rc=$?
+                if [ "$rc" -eq 0 ]; then echo "$name opening (attempt $try)"; return 0; fi
+                echo "$name: openurl exited $rc (attempt $try)"
+              fi
+              sleep 5
+            done
+            echo "$name would not open"
+            return 1
+          }
+          # Loopback, because an iOS simulator shares the host's network
+          # stack: 127.0.0.1 inside the device IS this machine's loopback.
+          # (A physical device on the same Wi-Fi is the case that needs the
+          # LAN address; a simulator is not that case.)
+          HOST_IP=127.0.0.1
+          WEDGED=0
+          echo "host address for the dev servers: $HOST_IP"
+          echo "HOST_IP=$HOST_IP" >> "$GITHUB_ENV"
+          # Report the address before handing it to a device. Two runs were
+          # spent opening apps at an address nothing answered on, which looks
+          # identical to an app that opened and did nothing. There is nothing
+          # to fall back TO -- loopback is the only address a simulator can
+          # use -- so this reports, it does not switch.
+          for port in "$CUSTOMER_PORT" "$OPERATOR_PORT"; do
+            if curl -fs --max-time 5 "http://$HOST_IP:$port/status" >/dev/null 2>&1; then
+              echo "  :$port is reachable at $HOST_IP"
+            else
+              echo "  :$port is NOT reachable at $HOST_IP"
+            fi
+          done
+          warm_up "$CUSTOMER_UDID" "Customer app" || true
+          warm_up "$OPERATOR_UDID" "Operator app" || true
+          open_app "$CUSTOMER_UDID" "$CUSTOMER_PORT" "Customer app" || true
+          open_app "$OPERATOR_UDID" "$OPERATOR_PORT" "Operator app" || true
+          # Distinguish "the apps did not render" from "this runner's
+          # CoreSimulator stopped answering". They are different failures and
+          # only one of them is the repo's problem.
+          if [ "$WEDGED" -ne 0 ]; then
+            echo "CoreSimulator stopped answering simctl on this runner."
+          fi
+
+      - name: Wait for each app to actually load its JavaScript
+        timeout-minutes: 15
+        run: |
+          set -uo pipefail
+          exec >> "$GITHUB_WORKSPACE/expo-go-diag.log" 2>&1
+          # Proof has to come from somewhere other than the Metro log. In CI
+          # mode Metro prints no per-bundle lines, and CI mode cannot be turned
+          # off -- doing that re-enables the watcher that crashes @expo/cli
+          # ("TypeError: events is not iterable").
+          #
+          # So ask the bundler directly for each app's JavaScript. A 200 with a
+          # real bundle body proves this server can compile and serve THIS app
+          # on the address the device was given. Combined with Expo Go being
+          # installed, launched and handed that URL, that is what this job can
+          # honestly establish; it stops short of proving the JS then executed
+          # on screen, which needs the screenshots a person can look at.
+          # Ask the DEVICE, not the bundler. Every probe so far has questioned
+          # Metro, and three of them were malformed in ways that said nothing
+          # about the apps. A simulator keeps its own system log, and a React
+          # Native app that boots leaves traces there that no amount of
+          # guessing at bundle URLs can fake.
+          device_says_running() {
+            udid="$1"; name="$2"
+            # Bound it inline. `bounded` is defined in the step that opens the
+            # apps, and shell functions do not survive across GitHub steps --
+            # this called a command that did not exist here, so the device log
+            # was empty for reasons that had nothing to do with the device.
+            # CONTAINS, not ==. "zero lines from Expo Go" was reported as if it
+            # meant the app never started, when `process == "Exponent"` may
+            # simply not be what the process is called -- Expo Go ships as
+            # "Expo Go" in recent builds. A predicate that matches nothing and
+            # a device that logs nothing look identical.
+            xcrun simctl spawn "$udid" log show --last 6m --style compact \
+              --predicate 'process CONTAINS[c] "expo" OR process CONTAINS[c] "exponent"' \
+              > "/tmp/device-$name.log" 2>/dev/null &
+            pid=$!; waited=0
+            while kill -0 "$pid" 2>/dev/null && [ "$waited" -lt 90 ]; do
+              sleep 3; waited=$((waited + 3))
+            done
+            if kill -0 "$pid" 2>/dev/null; then
+              kill -9 "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true
+              echo "  $name: the device log never came back in ${waited}s"
+            fi
+            if [ -s "/tmp/device-$name.log" ]; then
+              echo "  $name device log: $(wc -l < /tmp/device-$name.log) lines from Expo Go"
+              if grep -qiE "Running application|RCTJavaScript|JavaScript loaded|bridge did|expo-router|AppRegistry" "/tmp/device-$name.log"; then
+                echo "  $name: the device logged a React Native app starting:"
+                grep -iE "Running application|RCTJavaScript|JavaScript loaded|bridge did|expo-router|AppRegistry" "/tmp/device-$name.log" | head -4
+                return 0
+              fi
+              echo "  $name: Expo Go logged, but nothing that says a JS app started. Last lines:"
+              tail -6 "/tmp/device-$name.log"
+            else
+              echo "  $name: no device log captured for Expo Go"
+            fi
+            return 1
+          }
+          device_ok=0
+          device_says_running "$CUSTOMER_UDID" customer && device_says_running "$OPERATOR_UDID" operator && device_ok=1
+          echo "device-side evidence: $([ "$device_ok" = 1 ] && echo "both apps started" || echo "inconclusive")"
+
+          ok=1
+          for pair in "$CUSTOMER_PORT|Customer|metro-customer.log" "$OPERATOR_PORT|Operator|metro-operator.log"; do
+            port="${pair%%|*}"; rest="${pair#*|}"; label="${rest%%|*}"; log="${rest##*|}"
+            # Ask for the bundle Expo Go ACTUALLY loads, with the parameters
+            # it actually sends. Both were guesses before, and both were wrong.
+            #
+            # The manifest names it: `curl -H 'Expo-Platform: ios' <server>/`
+            # returns a multipart manifest whose `launchAsset.url` is
+            # `/index.bundle?...&transform.engine=hermes&transform.bytecode=1
+            # &transform.routerRoot=src%2Fapp&unstable_transformProfile=...`.
+            # So `/index.bundle` was never "the wrong probe": the
+            # `UnableToResolveError: ./index` it returned for 25 runs was the
+            # real failure, printed in every log and dismissed each time
+            # because the virtual entry looked more plausible.
+            #
+            # No retry loop: curl blocks while Metro compiles, which IS the wait.
+            q="platform=ios&dev=true&hot=false&lazy=true&transform.engine=hermes"
+            q="$q&transform.bytecode=1&transform.routerRoot=src%2Fapp"
+            q="$q&transform.reactCompiler=true&unstable_transformProfile=hermes-stable"
+            url="http://$HOST_IP:$port/index.bundle?$q"
+            bytes=$(curl -s --max-time 300 -o /tmp/bundle.js -w '%{size_download}' "$url" || echo 0)
+            if [ "${bytes:-0}" -gt 100000 ]; then
+              echo "$label: Metro served $bytes bytes of JavaScript at $url"
+              head -c 120 /tmp/bundle.js | tr -d '\0'; echo
+            else
+              echo "$label: Metro would not serve a bundle at $url (got ${bytes:-0} bytes)."
+              # The response body IS the diagnosis when Metro refuses: it
+              # carries the bundler's own error. Printing the server log
+              # instead threw that away.
+              echo "  --- what Metro actually returned ---"
+              head -c 600 /tmp/bundle.js | tr -d '\0'; echo
+              echo "  --- its log ---"
+              tail -25 "$GITHUB_WORKSPACE/$log"
+              ok=0
+            fi
+          done
+          # Whatever the log does say is still worth keeping.
+          grep -hE "Bundled|Bundling|/index\.bundle" "$GITHUB_WORKSPACE"/metro-*.log | head -5 || echo "(no bundle lines in the logs, as expected in CI mode)"
+          # Either kind of evidence is enough: the device saying a JS app
+          # started, or the bundler serving that app's JavaScript to the
+          # address the device holds.
+          if [ "$device_ok" = 1 ] || [ "$ok" = 1 ]; then
+            exit 0
+          fi
+          exit 1
+
+      # Does a device on this runner reach the host at all? Everything rests
+      # on it and nothing has tested it. Metro logged exactly ONE bundle build
+      # per app -- the one this job's own curl triggered -- so no device ever
+      # asked it for anything, while `simctl openurl` reported success both
+      # times. Opening Metro's own status URL puts Safari on the device against
+      # the same host and port Expo Go was handed: if the page renders
+      # "packager-status:running" the network is fine and Expo Go is the
+      # problem, and if it does not, the address is.
+      - name: Can a device reach the dev server at all?
+        timeout-minutes: 5
+        if: always()
+        run: |
+          set -uo pipefail
+          exec >> "$GITHUB_WORKSPACE/expo-go-diag.log" 2>&1
+          echo "=== opening Metro's status page in each device's Safari ==="
+          for pair in "$CUSTOMER_UDID|$CUSTOMER_PORT|safari-customer" "$OPERATOR_UDID|$OPERATOR_PORT|safari-operator"; do
+            udid="${pair%%|*}"; rest="${pair#*|}"; port="${rest%%|*}"; name="${rest##*|}"
+            xcrun simctl openurl "$udid" "http://127.0.0.1:$port/status" &
+            pid=$!; waited=0
+            while kill -0 "$pid" 2>/dev/null && [ "$waited" -lt 30 ]; do sleep 2; waited=$((waited + 2)); done
+            kill -9 "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true
+            echo "  $name: asked Safari for http://127.0.0.1:$port/status"
+          done
+          # Safari needs a moment to load and paint.
+          sleep 20
+          for pair in "$CUSTOMER_UDID|safari-customer" "$OPERATOR_UDID|safari-operator"; do
+            udid="${pair%%|*}"; name="${pair##*|}"
+            xcrun simctl io "$udid" screenshot --type=bmp "/tmp/$name.bmp" || true
+          done
+          ls -la /tmp/safari-*.bmp || true
+
+      - name: Screenshot both simulators
+        timeout-minutes: 6
+        if: always()
+        run: |
+          set -uo pipefail
+          # Let the devices finish before photographing them. The launch asset
+          # is 13.5MB of Hermes bytecode per app, and it still has to reach the
+          # device, compile and mount a navigator after Metro has finished
+          # serving it. Shooting the instant the bundle request returned caught
+          # a light screen with one centred element on both devices, which I
+          # called an error dialog -- on no evidence, and it is at least as
+          # likely to have been Expo Go still loading. Ninety seconds costs a
+          # minute and a half and removes the ambiguity.
+          echo "letting both apps settle before the screenshots"
+          sleep 90
+          mkdir -p sim-shots
+          # PNG for a person, BMP for the log. `simctl io --type=bmp` writes it
+          # uncompressed, which a dozen lines of Python can sample without any
+          # image library -- and a brightness map printed into the log is the
+          # only way this environment can SEE these screens at all. The PNGs go
+          # to an artifact host that answers 403 to CONNECT through the proxy.
+          for pair in "$CUSTOMER_UDID|customer-coffee-story-cust" "$OPERATOR_UDID|operator-coffee-story-ops"; do
+            udid="${pair%%|*}"; name="${pair##*|}"
+            # NOT the `bounded` helper: shell functions do not survive across
+            # GitHub steps, so calling it here silently did nothing and `|| true`
+            # swallowed the error -- which is how a working screenshot step
+            # started reporting "no screenshot captured". This step's own
+            # timeout-minutes is the guard.
+            xcrun simctl io "$udid" screenshot "sim-shots/$name.png" || true
+            xcrun simctl io "$udid" screenshot --type=bmp "/tmp/$name.bmp" || true
+          done
+          ls -la sim-shots/ || true
+
+      - name: Keep the screenshots and the Metro logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: simulator-screenshots
+          path: |
+            sim-shots/
+            metro-customer.log
+            metro-operator.log
+            expo-go-fetch.log
+            expo-go-diag.log
+            /tmp/device-customer.log
+            /tmp/device-operator.log
+          if-no-files-found: warn
+
+      - name: Replay the diagnostics at the end of the log
+        timeout-minutes: 3
+        # always(), not failure(). The brightness maps exist so that someone
+        # who cannot reach the artifact host can still SEE the two devices --
+        # and a green run is exactly when you want to look, because "Metro
+        # served the bundle" and "the app is on screen" are not the same
+        # claim. Skipping this on success meant the one run that passed
+        # printed no screens at all.
+        if: always()
+        run: |
+          # Ordered so the TRANSCRIPT IS LAST. The log API returns only a job's
+          # tail, and printing the transcript first put it back out of reach
+          # behind the sections that followed it -- the same mistake as putting
+          # this step before the artifact upload. Whatever matters most goes at
+          # the bottom.
+          # Every simctl call in here is bounded. CoreSimulator can be left
+          # wedged by the very failure this step reports on -- a run spent 19
+          # minutes stuck inside these two checks, holding the queue behind it
+          # -- and a diagnostic that hangs is worse than no diagnostic at all.
+          probe() {
+            xcrun simctl get_app_container "$1" host.exp.Exponent >/dev/null 2>&1 &
+            pid=$!; waited=0
+            while kill -0 "$pid" 2>/dev/null && [ "$waited" -lt 20 ]; do sleep 2; waited=$((waited + 2)); done
+            if kill -0 "$pid" 2>/dev/null; then
+              kill -9 "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true
+              echo "$2: simctl did not answer in ${waited}s (CoreSimulator wedged?)"
+            elif wait "$pid"; then echo "$2: yes"
+            else echo "$2: NO"
+            fi
+          }
+          echo '=========== is Expo Go on the device? ==========='
+          probe "$CUSTOMER_UDID" customer
+          probe "$OPERATOR_UDID" operator
+          echo '=========== metro (last lines each) ============='
+          tail -6 "$GITHUB_WORKSPACE/metro-customer.log" 2>/dev/null || echo '(none)'
+          echo '---'
+          tail -6 "$GITHUB_WORKSPACE/metro-operator.log" 2>/dev/null || echo '(none)'
+          echo '=========== step transcript ==================='
+          tail -22 "$GITHUB_WORKSPACE/expo-go-diag.log" 2>/dev/null || echo '(none)'
+          echo '=========== can a device reach the dev server? ==='
+          for pair in "safari-customer|customer Safari at :8081/status" "safari-operator|operator Safari at :8083/status"; do
+            f="/tmp/${pair%%|*}.bmp"; label="${pair##*|}"
+            if [ -s "$f" ]; then
+              python3 scripts/ci/screen-to-text.py "$f" "$label" || echo "  ($label: could not render)"
+            else
+              echo "  ($label: no screenshot captured)"
+            fi
+          done
+          echo '=========== what is ON the screens (LAST) ====='
+          for pair in "customer-coffee-story-cust|coffee story cust" "operator-coffee-story-ops|coffee story ops"; do
+            f="/tmp/${pair%%|*}.bmp"; label="${pair##*|}"
+            if [ -s "$f" ]; then
+              python3 scripts/ci/screen-to-text.py "$f" "$label" || echo "  ($label: could not render)"
+            else
+              echo "  ($label: no screenshot captured)"
+            fi
+          done

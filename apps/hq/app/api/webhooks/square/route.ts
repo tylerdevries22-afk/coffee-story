@@ -56,10 +56,35 @@ export async function POST(request: Request): Promise<Response> {
   }).select('id');
 
   const orderQuery = mapped.squareOrderId
-    ? db.from('orders').select('id, brand_id, location_id, customer_id, total_cents, subtotal_cents, stored_value_applied_cents').eq('square_order_id', mapped.squareOrderId)
-    : db.from('orders').select('id, brand_id, location_id, customer_id, total_cents, subtotal_cents, stored_value_applied_cents').eq('square_payment_id', mapped.squarePaymentId ?? '');
+    ? db.from('orders').select('id, brand_id, location_id, customer_id, status, total_cents, subtotal_cents, stored_value_applied_cents').eq('square_order_id', mapped.squareOrderId)
+    : db.from('orders').select('id, brand_id, location_id, customer_id, status, total_cents, subtotal_cents, stored_value_applied_cents').eq('square_payment_id', mapped.squarePaymentId ?? '');
   const { data: order } = await orderQuery.maybeSingle();
   if (!order) return new Response('Order not known (yet); Square will retry', { status: 404 });
+
+  // A partial refund is not a refunded order. `mapSquareEvent` reports any
+  // COMPLETED refund as `refunded`, which is terminal: a $2 courtesy refund on
+  // a $22 order took it off the operator board with the guest still waiting
+  // for the drink and no legal move left. refundOrderPayment already gets this
+  // right on the operator's own path -- it re-asserts the current status and
+  // keeps the refund in the snapshot -- and this is the same decision for the
+  // deliveries Square sends. Only the last refund that closes out the charge
+  // moves the order.
+  let eventType = mapped.orderStatus;
+  if (mapped.orderStatus === 'refunded' && mapped.refundedCents !== null) {
+    const chargeCents = Math.max(0, order.total_cents - order.stored_value_applied_cents);
+    const priorEvents = await db
+      .from('order_events')
+      .select('snapshot')
+      .eq('order_id', order.id)
+      .returns<{ snapshot: { refunded_cents?: unknown } | null }[]>();
+    const refundedBefore = (priorEvents.data ?? []).reduce((sum, row) => {
+      const cents = row.snapshot?.refunded_cents;
+      return sum + (typeof cents === 'number' && cents > 0 ? cents : 0);
+    }, 0);
+    if (refundedBefore + mapped.refundedCents < chargeCents) {
+      eventType = order.status as typeof mapped.orderStatus;
+    }
+  }
 
   // `.select()` is what tells a first delivery from a retry: with
   // ignoreDuplicates a replay succeeds and returns no rows. Everything after
@@ -69,7 +94,7 @@ export async function POST(request: Request): Promise<Response> {
     {
       brand_id: order.brand_id,
       order_id: order.id,
-      type: mapped.orderStatus,
+      type: eventType,
       snapshot: {
         square_event: event.type,
         square_event_id: mapped.squareEventId,
@@ -112,13 +137,15 @@ export async function POST(request: Request): Promise<Response> {
 
   if (mapped.orderStatus === 'refunded') {
     // What Square says came back, not the whole order: a partial refund takes
-    // back a proportional share of the earn.
+    // back a proportional share of the earn. Keyed on the event, so a retry of
+    // this refund reverses nothing and a second, different refund still can.
     await reverseLoyaltyEarn(db, {
       brandId: order.brand_id,
       customerId: order.customer_id,
       orderId: order.id,
       orderTotalCents: order.total_cents,
       refundedCents: mapped.refundedCents ?? order.total_cents,
+      causeKey: mapped.squareEventId,
     });
   }
 

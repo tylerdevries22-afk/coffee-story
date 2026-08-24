@@ -41,9 +41,9 @@ export function StaffTabs() {
         <TabLabel>{STAFF_TAB_LABELS.prep}</TabLabel>
       </NativeTabs.Trigger>
 
-      <NativeTabs.Trigger name="today">
-        <TabIcon sf={{ default: 'sun.max', selected: 'sun.max.fill' }} />
-        <TabLabel>{STAFF_TAB_LABELS.today}</TabLabel>
+      <NativeTabs.Trigger name="crew">
+        <TabIcon sf={{ default: 'person.2', selected: 'person.2.fill' }} />
+        <TabLabel>{STAFF_TAB_LABELS.crew}</TabLabel>
       </NativeTabs.Trigger>
 
       {/* The user's own photo once they've picked one (circle-cropped by

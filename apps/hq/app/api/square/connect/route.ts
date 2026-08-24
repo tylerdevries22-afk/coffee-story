@@ -3,6 +3,7 @@ import { canManageLocation, parseTenantClaims } from '@platform/schema';
 
 import { encodeOAuthState, STATE_TTL_SECONDS } from '../../../../lib/square-oauth-state';
 import { serverClient } from '../../../../lib/supabase-server';
+import { tokenAppMetadata } from '../../../../lib/token-claims';
 
 /**
  * GET /api/square/connect?location_id=... — sends the signed-in owner into
@@ -36,10 +37,7 @@ export async function GET(request: Request): Promise<Response> {
   if (userError || !userData.user) return Response.redirect(new URL('/login', url.origin), 302);
 
   // Hook-minted claims live in the token payload, not in the stored metadata.
-  const payload = JSON.parse(
-    Buffer.from(session.access_token.split('.')[1] ?? '', 'base64url').toString('utf8'),
-  ) as { app_metadata?: unknown };
-  const claims = parseTenantClaims(payload.app_metadata);
+  const claims = parseTenantClaims(tokenAppMetadata(session.access_token));
   if (!claims?.role) return new Response('Only staff can connect Square.', { status: 403 });
   if (!canManageLocation(claims, locationId)) {
     return new Response('That location is not yours to connect.', { status: 403 });

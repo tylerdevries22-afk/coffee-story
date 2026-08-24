@@ -8,6 +8,7 @@ import {
   mergeServerStaffSettings,
   serverStaffSettings,
   validateAdminSettings,
+  withBusinessIdentity,
 } from './admin-settings';
 
 test('accepts the complete default administration settings', () => {
@@ -45,4 +46,34 @@ test('live settings expose only fields the server contract persists', () => {
   assert.equal(isAdminSettingWritableInLive('confirmationsEnabled'), false);
   assert.equal(isAdminSettingWritableInLive('intakeRequired'), false);
   assert.equal(isAdminSettingWritableInLive('businessName'), false);
+});
+
+test('Business Info shows the signed-in brand, not the bundled demo shop', () => {
+  // The tab is read-only in live mode, but it was still rendering Coffee
+  // Story's name, mailbox and street to whichever tenant's staff signed in.
+  const applied = withBusinessIdentity(DEFAULT_ADMIN_SETTINGS, {
+    name: 'Demo Roastery',
+    email: 'hello@demoroastery.example',
+    phone: '(303) 555-0143',
+    street: '100 Main St',
+    cityLine: 'Denver, CO 80202',
+  });
+  assert.equal(applied.businessName, 'Demo Roastery');
+  assert.equal(applied.businessEmail, 'hello@demoroastery.example');
+  assert.equal(applied.businessPhone, '(303) 555-0143');
+  assert.equal(applied.businessAddress, '100 Main St, Denver, CO 80202');
+  // Everything that is a real setting is left alone.
+  assert.equal(applied.leadTimeMinutes, DEFAULT_ADMIN_SETTINGS.leadTimeMinutes);
+  assert.deepEqual(applied.availability, DEFAULT_ADMIN_SETTINGS.availability);
+});
+
+test('a brand with no posted address gets no address, not somebody else\'s', () => {
+  const applied = withBusinessIdentity(DEFAULT_ADMIN_SETTINGS, {
+    name: 'Demo Roastery', email: '', phone: '', street: '', cityLine: '',
+  });
+  assert.equal(applied.businessAddress, '');
+  // And it does not lock them out of Settings: the identity fields are not
+  // editable in live mode, so they cannot block saving an availability change.
+  assert.equal(validateAdminSettings(applied, true), null);
+  assert.equal(validateAdminSettings(applied), 'Enter a valid business email.');
 });

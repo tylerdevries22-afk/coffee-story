@@ -699,6 +699,9 @@ importers:
       '@platform/data':
         specifier: workspace:*
         version: link:../../packages/data
+      '@platform/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
       '@platform/schema':
         specifier: workspace:*
         version: link:../../packages/schema

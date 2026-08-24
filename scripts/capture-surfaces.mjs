@@ -12,10 +12,13 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const base = process.env.HQ_URL ?? 'http://localhost:3000';
+const OUT = join(ROOT, 'docs', 'captures');
+const base = process.env.DISPLAY_URL ?? 'http://localhost:3200';
 const locationId = process.env.BOARD_LOCATION ?? 'loc-downtown';
 
 const kiosk = process.env.KIOSK_URL ?? 'http://localhost:4180';
+const operator = process.env.OPERATOR_URL ?? 'http://localhost:4190';
+const display = process.env.DISPLAY_URL ?? 'http://localhost:3200';
 
 /** An iPad Pro 11" in landscape, which is what a kiosk stand holds. */
 const IPAD_LANDSCAPE = { width: 1366, height: 1024 };
@@ -72,16 +75,52 @@ const SHOTS = [
   {
     dir: '03-pickup-display',
     name: '01-board-wall',
-    url: `${base}/board/${locationId}`,
+    url: `${display}/board/${locationId}`,
     viewport: { width: 1920, height: 1080 },
     note: 'The wall display at 1080p: two columns, ticket numbers sized to read across a room, a curbside arrival badged.',
   },
   {
     dir: '03-pickup-display',
     name: '02-board-portrait',
-    url: `${base}/board/${locationId}`,
+    url: `${display}/board/${locationId}`,
     viewport: { width: 1080, height: 1920 },
     note: 'The same board on a portrait-mounted tablet, which is how a small shop usually hangs one.',
+  },
+  {
+    dir: '04-prep-station',
+    name: '01-bake-list',
+    url: `${operator}/staff/prep`,
+    viewport: { width: 1194, height: 834 },
+    note: "Today's bake, sorted the way a shift works it: what is in the oven first, then the biggest batch still to start.",
+  },
+  {
+    dir: '04-prep-station',
+    name: '02-recipe',
+    url: `${operator}/staff/prep`,
+    viewport: { width: 1194, height: 834 },
+    note: 'A recipe scaled to the batch, with the recipe figure kept beside the scaled one and the allergen banner pinned.',
+    prepare: async (page) => {
+      await page.evaluate(() => {
+        const btn = [...document.querySelectorAll('[role="button"]')]
+          .find((b) => (b.getAttribute('aria-label') || '').startsWith('Pistachio Milk Cake'));
+        btn?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      });
+      await page.waitForTimeout(500);
+    },
+  },
+  {
+    dir: '05-crew',
+    name: '01-roster-and-checklists',
+    url: `${operator}/staff/crew`,
+    viewport: { width: 1194, height: 834 },
+    note: 'Who is on now, who is next, who has gone -- then what the shift still owes, with each tick attributed to a name.',
+  },
+  {
+    dir: '01-customer',
+    name: '01-home',
+    url: `${process.env.CUSTOMER_URL ?? 'http://localhost:4170'}/`,
+    viewport: { width: 430, height: 932 },
+    note: 'The guest app. Phone portrait, thumb-reachable.',
   },
 ];
 
@@ -92,7 +131,7 @@ for (const shot of SHOTS) {
     await page.goto(shot.url, { waitUntil: 'networkidle', timeout: 30_000 });
     await page.waitForTimeout(800);
     if (shot.prepare) await shot.prepare(page);
-    const dir = join(ROOT, 'captures', shot.dir);
+    const dir = join(OUT, shot.dir);
     mkdirSync(dir, { recursive: true });
     await page.screenshot({ path: join(dir, `${shot.name}.png`) });
     console.log(`captured ${shot.dir}/${shot.name}.png — ${shot.note}`);

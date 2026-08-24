@@ -1,0 +1,128 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+
+import { recoveryCodeFromUrl, recoveryRedirectUrl } from './auth-links';
+
+test('accepts only the allowlisted PKCE recovery callback', () => {
+  assert.equal(
+    recoveryCodeFromUrl('coffeestory://reset-password?code=0123456789abcdef'),
+    '0123456789abcdef',
+  );
+  assert.equal(recoveryCodeFromUrl('coffeestory://gift?code=0123456789abcdef'), null);
+  assert.equal(recoveryCodeFromUrl('https://example.com/?code=0123456789abcdef'), null);
+});
+
+test('accepts the Expo Go callback shape without broadening to web origins', () => {
+  assert.equal(
+    recoveryCodeFromUrl('exp://192.168.1.20:8081/--/reset-password?code=0123456789abcdef'),
+    '0123456789abcdef',
+  );
+  assert.equal(
+    recoveryCodeFromUrl('exp://192.168.1.20:8081/--/gift?code=0123456789abcdef'),
+    null,
+  );
+});
+
+test('creates only native-build or Expo Go recovery redirects', () => {
+  assert.equal(
+    recoveryRedirectUrl(() => 'coffeestory://reset-password'),
+    'coffeestory://reset-password',
+  );
+  assert.equal(
+    recoveryRedirectUrl(() => 'exp://192.168.1.20:8081/--/reset-password'),
+    'exp://192.168.1.20:8081/--/reset-password',
+  );
+  assert.throws(() => recoveryRedirectUrl(() => 'https://attacker.example/reset-password'));
+});
+
+test('rejects legacy token fragments and malformed codes', () => {
+  assert.equal(
+    recoveryCodeFromUrl('coffeestory://reset-password#access_token=attacker&refresh_token=attacker'),
+    null,
+  );
+  assert.equal(recoveryCodeFromUrl('coffeestory://reset-password?code=short'), null);
+  assert.equal(recoveryCodeFromUrl('not a url'), null);
+});
+
+const HOST_TEST_CODE = 'a'.repeat(32);
+
+test('takes a recovery code from a dev server on this machine or the local network', () => {
+  for (const host of ['localhost:8081', '127.0.0.1:8081', '192.168.1.42:8081',
+    '10.0.0.7:8081', '172.20.1.9:8081', 'abc-xyz.exp.direct']) {
+    assert.equal(
+      recoveryCodeFromUrl(`exp://${host}/--/reset-password?code=${HOST_TEST_CODE}`),
+      HOST_TEST_CODE,
+      host,
+    );
+  }
+});
+
+test('refuses a recovery code arriving from anywhere else', () => {
+  // The hole: scheme and path were checked, the host was not -- so a crafted
+  // link could hand the app someone else's recovery code.
+  for (const host of ['evil.example.com', 'coffeestory.evil.com', '8.8.8.8',
+    '172.32.0.1', '11.0.0.1', 'exp.direct.evil.com']) {
+    assert.equal(
+      recoveryCodeFromUrl(`exp://${host}/--/reset-password?code=${HOST_TEST_CODE}`),
+      null,
+      host,
+    );
+  }
+});
+
+test('still takes the store build own scheme, which needs no host rule', () => {
+  assert.equal(recoveryCodeFromUrl(`coffeestory://reset-password?code=${HOST_TEST_CODE}`), HOST_TEST_CODE);
+});
+
+test('refuses to mint a callback pointing at a host that is not ours', () => {
+  assert.throws(() => recoveryRedirectUrl(() => 'exp://evil.example.com/--/reset-password'));
+  assert.equal(
+    recoveryRedirectUrl(() => 'exp://192.168.1.42:8081/--/reset-password'),
+    'exp://192.168.1.42:8081/--/reset-password',
+  );
+});
+
+test('works for the staff app and for a second tenant, not just coffeestory', () => {
+  // The regression this package exists for: the staff binary registers
+  // `coffee-operator`, so Linking.createURL('reset-password') hands us
+  // coffee-operator://reset-password. Pinning `coffeestory:` threw here, which
+  // meant password recovery was dead in a staff store build; and every tenant
+  // after the first would have hit the same wall in the guest binary.
+  for (const scheme of ['coffee-operator', 'yourbrand', 'demoroastery']) {
+    assert.equal(
+      recoveryRedirectUrl(() => `${scheme}://reset-password`),
+      `${scheme}://reset-password`,
+      scheme,
+    );
+    assert.equal(
+      recoveryCodeFromUrl(`${scheme}://reset-password?code=${HOST_TEST_CODE}`),
+      HOST_TEST_CODE,
+      scheme,
+    );
+    assert.equal(recoveryCodeFromUrl(`${scheme}://gift?code=${HOST_TEST_CODE}`), null, scheme);
+  }
+});
+
+test('opening the scheme up does not open up the web or the scriptable ones', () => {
+  for (const url of [
+    `https://attacker.example/reset-password?code=${HOST_TEST_CODE}`,
+    `http://reset-password/?code=${HOST_TEST_CODE}`,
+    `javascript://reset-password?code=${HOST_TEST_CODE}`,
+    `data://reset-password?code=${HOST_TEST_CODE}`,
+    `file://reset-password/?code=${HOST_TEST_CODE}`,
+    `intent://reset-password?code=${HOST_TEST_CODE}`,
+    `content://reset-password?code=${HOST_TEST_CODE}`,
+    `blob://reset-password?code=${HOST_TEST_CODE}`,
+    `ws://reset-password/?code=${HOST_TEST_CODE}`,
+  ]) {
+    assert.equal(recoveryCodeFromUrl(url), null, url);
+    assert.throws(() => recoveryRedirectUrl(() => url), /not configured/, url);
+  }
+});
+
+test('a custom-scheme host is matched case-insensitively, as hosts are', () => {
+  assert.equal(
+    recoveryCodeFromUrl(`coffee-operator://Reset-Password?code=${HOST_TEST_CODE}`),
+    HOST_TEST_CODE,
+  );
+});

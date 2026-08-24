@@ -13,11 +13,30 @@ apps/hq            brand-owner + platform console (Next.js)
 packages/engine    ordering, loyalty, drops, square, notifications, analytics
 packages/ui        design tokens + ThemeProvider + component kit
 packages/schema    Supabase migrations, RLS, generated types, seed
+packages/data      Supabase reads under RLS + realtime subscriptions
+packages/api-client typed client for the platform API (trusted writes)
+packages/domain    guest-and-shift domain + deep-link parsing, framework-free
 tenants/<slug>     brand config, menu, assets, app-store listing material
 ```
 
 Run everything from the root: `pnpm install`, then `pnpm verify` (lint,
 typecheck, tests, and both app bundles per workspace).
+
+## Running all five surfaces locally
+
+```bash
+pnpm preview
+```
+
+That builds the web export each Expo surface is served from and publishes the
+preview wall. Then start the servers — `.claude/launch.json` has one entry each
+(`customer-web`, `kiosk-web`, `operator-web`, `display`, `hq`) — and open
+**http://localhost:4170/wall**, which frames all five at once, each at the
+viewport its real device has.
+
+`pnpm preview --wall` re-publishes the wall alone when only it changed. Details,
+including why the console needed a development-only framing header, are in
+[`tools/preview-wall/README.md`](tools/preview-wall/README.md).
 
 ## The customer app (`apps/customer`)
 
@@ -82,6 +101,13 @@ than both landing on whichever one happens to be booted. Simulator names
 match loosely, so `coffee story ops` and `Coffee-Story-Ops` are the same
 device. Defaults to simulators named `coffee story cust` and
 `coffee story ops`; both apps open in Demo mode and need no backend.
+
+There is a CI equivalent for when you have no Mac to hand: label a pull
+request `simulators` and `.github/workflows/simulators.yml` does the same
+thing on a macOS runner, uploading a screenshot of each device. It is
+label-gated and never runs on a push -- macOS runners cost ten times what
+Linux ones do, and a twenty-minute run that boots two devices should not be
+cancelled by someone pushing a README fix.
 
 `.env` is gitignored. Every `EXPO_PUBLIC_*` value is inlined into the
 JavaScript bundle and publicly readable, so only publishable keys belong in it

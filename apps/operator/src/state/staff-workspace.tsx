@@ -10,6 +10,7 @@ import {
   DEFAULT_ADMIN_SETTINGS,
   mergeServerStaffSettings,
   serverStaffSettings,
+  withBusinessIdentity,
   type AdminSettingsState,
 } from '@/features/admin/admin-settings';
 import { PICKUP_LOCATIONS, taxCentsFor , requestKey , projectFirstVariants } from '@platform/domain';
@@ -17,6 +18,7 @@ import { applyDemoBlockTime, applyDemoGuestNote } from '@/features/staff/dashboa
 import { mobileApi } from '@/lib/mobile-api';
 import { useAppState } from '@/state/app-context';
 import { useAuth } from '@/state/auth-context';
+import { useBusiness } from '@/state/business';
 import type { OrderableItem, StaffDashboard } from '@platform/domain';
 
 /**
@@ -58,6 +60,7 @@ export function StaffWorkspaceProvider({ children }: PropsWithChildren) {
   const [dashboard, setDashboard] = useState<StaffDashboard>(DEMO_STAFF);
   const [liveOrderableItems, setLiveOrderableItems] = useState<OrderableItem[]>([]);
   const orderableItems = isDemo || !liveOrderableItems.length ? demoOrderableItems : liveOrderableItems;
+  const business = useBusiness();
   const [adminSettings, setAdminSettings] = useState<AdminSettingsState>(DEFAULT_ADMIN_SETTINGS);
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [settingsReady, setSettingsReady] = useState(isDemo);
@@ -101,6 +104,13 @@ export function StaffWorkspaceProvider({ children }: PropsWithChildren) {
       .then((catalog) => setLiveOrderableItems(catalog.items))
       .catch(() => setLiveOrderableItems([]));
   }, [isDemo]);
+
+  // The Business Info tab is the brand's own identity, and in live mode that
+  // is whoever signed in — not the bundled demo shop the defaults carry.
+  useEffect(() => {
+    if (isDemo) return;
+    setAdminSettings((current) => withBusinessIdentity(current, business));
+  }, [business, isDemo]);
 
   const loadSettings = useCallback(async () => {
     if (isDemo) return;

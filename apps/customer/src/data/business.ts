@@ -21,9 +21,48 @@ export const BUSINESS = {
   website: TENANT.business.website,
   /** Prefix on every gift-card code the app issues. */
   giftCodePrefix: TENANT.business.giftCodePrefix,
+  /** The shop's wall-clock zone: pickup windows, calendar events, hours. */
+  timezone: TENANT.location.timezone,
 } as const;
 
 export const BUSINESS_ADDRESS = `${BUSINESS.street}, ${BUSINESS.cityLine}`;
 
 /** The 1-3 letter mark the app falls back to when there is no name or photo. */
 export const BUSINESS_MONOGRAM = TENANT.business.monogram;
+
+export type BusinessDetails = {
+  name: string;
+  legalName: string;
+  tagline: string;
+  email: string;
+  phone: string;
+  street: string;
+  cityLine: string;
+  website: string;
+  giftCodePrefix: string;
+  monogram: string;
+  timezone: string;
+  /** What this brand calls its loyalty points. */
+  pointsLabel: string;
+};
+
+/**
+ * The same shape the staff app resolves per signed-in brand, so the components
+ * both apps share can read one `useBusiness()` (state/business.ts) instead of
+ * a constant that is only correct in this binary. Here it IS constant: this
+ * binary is built for one tenant.
+ */
+export const BUSINESS_DETAILS: BusinessDetails = {
+  ...BUSINESS,
+  monogram: BUSINESS_MONOGRAM,
+  pointsLabel: TENANT.copy.pointsName ?? 'Points',
+};
+
+/**
+ * Mirrors the staff app's runtime resolver so the modules both apps share can
+ * ask one question and each get the right answer. Here it never changes: one
+ * binary per brand.
+ */
+export function currentBusiness(): BusinessDetails {
+  return BUSINESS_DETAILS;
+}

@@ -345,3 +345,39 @@ the rewards headline breaks where the brand's copy says it breaks (`\n` in
 `boardQrTitle`) rather than wherever the viewport happens to put it — a
 three-stop headline that lands "Perks." / "Status. Rewards" has lost the rhythm
 that made it three stops.
+
+## Follow-up — integrating with main caught a hole of its own
+
+The board work was cut from `b328efa` and main moved nineteen commits while it
+was in flight. Merging main *into* the branch before promoting — rather than
+the other way round — is what surfaced the following, and it is the reason to
+keep doing it that way.
+
+- **The board view was a write path.** This branch's migration created
+  `board_tickets` as a security-definer view, and 0014's
+  `alter default privileges ... grant all on tables to authenticated` reaches
+  views, so `authenticated` arrived holding INSERT, UPDATE and DELETE on it.
+  A write through a definer view runs as the owner, outside RLS, against
+  `orders`. Executed against the local stack before the fix:
+  `information_schema.role_table_grants` listed DELETE/INSERT/UPDATE for
+  `authenticated`; after `revoke insert, update, delete`, a bare authenticated
+  caller running `delete from public.board_tickets` gets
+  `permission denied for view board_tickets`.
+
+  Main's 0031 had closed exactly this on `brand_storefront` and
+  `location_square_status` and left a note saying the next definer view would
+  reopen it. This was that view. The note worked — but only because the
+  branches were reconciled before one of them shipped.
+- **The migration number collided.** Main landed 0030, 0031 and 0032 while this
+  branch held its own 0030. Renumbered to 0033. Nothing in the tree would have
+  caught two migrations claiming one sequence number; the collision is silent
+  until the second one to be applied is simply skipped.
+- **`splitBoard` was not dead after all.** It was removed here as unused, and
+  main's new five-surface trace suite imports it. That suite now asserts the
+  queue model instead — a paid order takes a place in line rather than sitting
+  in a "making now" column — which is what the display actually draws.
+- **`packages/domain` picked up a file that predates its stricter tsconfig.**
+  `scheme.ts` arrived from main under the looser settings it was written for
+  and failed immediately under `noUncheckedIndexedAccess`. Fixed rather than
+  suppressed. This will keep happening to anything merged in until every
+  package extends `tsconfig.base.json`; that it happens loudly is the point.

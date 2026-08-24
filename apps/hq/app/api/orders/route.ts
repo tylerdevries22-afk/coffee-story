@@ -169,6 +169,11 @@ export async function POST(request: Request): Promise<Response> {
       lines: body.lines,
       tipCents: body.tipCents,
       tenderType: body.tenderType,
+      // From the caller's claims, not the body: a staff token placing an order
+      // is someone at the counter, a guest token is the app. Deriving it here
+      // means a client cannot dress a web order up as in-app to flatter the
+      // brand's own dashboard.
+      channel: auth.claims.role ? 'pos' : 'app',
       clientKey,
       taxJurisdictions,
     });

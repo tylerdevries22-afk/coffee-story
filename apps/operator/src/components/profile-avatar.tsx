@@ -2,7 +2,7 @@ import { Image } from 'expo-image';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppIcon } from '@/components/icon';
-import { BUSINESS_MONOGRAM } from '@/data/business';
+import { useBusiness } from '@/state/business';
 import { colors, fonts, shadow } from '@/theme/tokens';
 
 type ProfileAvatarProps = {
@@ -21,6 +21,7 @@ export function ProfileAvatar({
   editable = false,
   onEdit,
 }: ProfileAvatarProps) {
+  const { monogram } = useBusiness();
   const avatar = avatarUrl ? (
     <Image
       accessibilityLabel={`${name} profile photo`}
@@ -31,7 +32,7 @@ export function ProfileAvatar({
     />
   ) : (
     <View style={[styles.fallback, { width: size, height: size, borderRadius: size / 2 }]}>
-      <Text style={[styles.initials, { fontSize: Math.max(15, size * 0.34) }]}>{initials(name)}</Text>
+      <Text style={[styles.initials, { fontSize: Math.max(15, size * 0.34) }]}>{initials(name, monogram)}</Text>
     </View>
   );
 
@@ -60,9 +61,9 @@ export function ProfileAvatar({
   );
 }
 
-function initials(name: string): string {
+function initials(name: string, fallback: string): string {
   const pieces = name.trim().split(/\s+/).filter(Boolean);
-  return pieces.slice(0, 2).map((piece) => piece[0]?.toUpperCase() ?? '').join('') || BUSINESS_MONOGRAM;
+  return pieces.slice(0, 2).map((piece) => piece[0]?.toUpperCase() ?? '').join('') || fallback;
 }
 
 const styles = StyleSheet.create({

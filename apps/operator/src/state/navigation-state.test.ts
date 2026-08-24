@@ -40,7 +40,7 @@ test('an unrecognised More segment falls back to the menu rather than throwing',
 });
 
 test('the order board leads the bar', () => {
-  assert.deepEqual(STAFF_TAB_ORDER, ['orders', 'prep', 'today', 'more']);
+  assert.deepEqual(STAFF_TAB_ORDER, ['orders', 'prep', 'crew', 'more']);
   // Four triggers, still inside the five a UITabBar shows before it collapses
   // the rest into a system More overflow -- worth watching, because a fifth
   // would push Profile into that overflow. The board is first because that is
@@ -50,8 +50,8 @@ test('the order board leads the bar', () => {
 
 test('primary admin paths route to their matching staff tab, not a detail page', () => {
   const href = staffDestinationHref('/admin/dashboard');
-  assert.equal(href, staffTabHref('today'));
-  assert.equal(staffTabFromPathname(href), 'today');
+  assert.equal(href, staffTabHref('crew'));
+  assert.equal(staffTabFromPathname(href), 'crew');
   assert.equal(staffDetailPathFromPathname(href), null);
 });
 
