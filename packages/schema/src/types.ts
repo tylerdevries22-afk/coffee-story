@@ -371,7 +371,13 @@ export type CrewTaskCompletionRow = {
   completed_at: string;
 };
 
-/** public.board_tickets -- the pickup display's PII-narrow projection. */
+/**
+ * public.board_tickets -- the pickup display's PII-narrow projection.
+ *
+ * Every field here is readable by a whole room, so the list is a privacy
+ * decision before it is a type. `loyalty_tier` is a coarse bucket slug and
+ * never a balance; there is deliberately no customer_id to join one back to.
+ */
 export type BoardTicketRow = {
   id: string;
   brand_id: string;
@@ -380,6 +386,10 @@ export type BoardTicketRow = {
   guest_label: string | null;
   status: OrderStatus;
   fulfillment_type: FulfillmentType;
+  /** Where the order came in from, so the board can say "via kiosk" (0030). */
+  channel: OrderChannel;
   arrived_at: string | null;
+  /** The brand's tier slug, or null: no account, or the brand kept it private. */
+  loyalty_tier: string | null;
   updated_at: string;
 };

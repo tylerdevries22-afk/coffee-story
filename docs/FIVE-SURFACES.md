@@ -86,26 +86,48 @@ immediately rather than when a token expires.
 
 Honest list, in rough order of what blocks the most:
 
-1. **Nothing has touched a live backend.** No Supabase project migrated, no
-   Square sandbox run. Every surface is on fixtures or the demo plane. The RLS
-   policies and the state-machine trigger are written and unit-covered against
-   the SQL, but not *exercised* — which is the difference between "written" and
-   "known to work". `supabase start` plus the credentials in
-   `docs/BUILD-REPORT.md` is the first step.
-2. **The five-surface trace does not exist yet.** One order placed on the
-   kiosk, appearing on the board, the display, the prep batch and the crew
-   summary, asserted through the real `packages/data` queries. That test is the
-   one that proves the surfaces are actually connected rather than merely
-   consistent; it needs a live database.
-3. **Card tender is simulated.** Square's Reader SDK needs a dev client, not
+1. **Card tender is simulated.** Square's Reader SDK needs a dev client, not
    Expo Go. `authorize()` in the kiosk's tender screen is the single seam.
 4. **Menu imagery on the kiosk.** It reads the pure catalog and shows text
    tiles. `menu_items.image_url` exists; imagery should arrive with the rows
    rather than as a third copy of ~60 bundled files.
-5. **Bundle identity.** `com.example.operator` still, and the kiosk and display
+3. **Bundle identity.** `com.example.operator` still, and the kiosk and display
    need real ones before any build.
-6. **The demo planes.** Customer and operator still run their own demo data;
-   C1 points them at `placeOrder` and `menu_items`.
+4. **The demo planes.** Customer and operator still run their own demo data;
+   the screens read fixtures even though the backend behind them now works.
+5. **A hosted project.** Everything below is verified against a local stack.
+   Nothing has been pushed to a hosted Supabase or run against Square's
+   sandbox, both of which need credentials.
+
+## What the backend is known to do
+
+Verified against a real Postgres, not read off the files. `supabase start`,
+then:
+
+```bash
+export SUPABASE_TEST_URL=http://127.0.0.1:54321
+export SUPABASE_TEST_ANON_KEY=...        # supabase status
+export SUPABASE_TEST_SERVICE_ROLE_KEY=...
+export SUPABASE_TEST_DB_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres
+pnpm --filter @platform/integration-tests test
+```
+
+51 tests, and re-runnable — proven by running three times consecutively rather
+than once, because the suite previously passed on a fresh database and failed
+on the second run.
+
+The one worth knowing about is `five-surface-trace.test.ts`: a single order
+placed through the real API route, then followed as each surface actually
+queries it. It creates on the kiosk's channel, gets a database-assigned ticket,
+appears on the display's PII-narrow view, is started by the operator, is marked
+arrived without the state machine moving, has its item returned to the menu by
+a finished prep batch, leaves the board when collected, and lands in the crew's
+day. Every step goes through the query the surface runs, so if a surface stops
+seeing the order this fails.
+
+The other suites cover the state machine's transitions and idempotency, the
+webhook replay guard, the double-charge guard, brand isolation, what a device
+token may and may not do, and the claims hook.
 
 ## Regenerating the captures
 

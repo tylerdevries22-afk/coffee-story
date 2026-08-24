@@ -37,6 +37,8 @@ export function boardOrderFromRow(row: OrderRow, guestName: string): BoardOrder 
     guestName,
     status: row.status,
     placedAt: row.created_at,
+    dailyNumber: row.daily_number,
+    updatedAt: row.updated_at,
     scheduledFor: row.scheduled_for,
     lines: (totals.lines ?? []).map((line) => ({
       name: line.name ?? 'Item',

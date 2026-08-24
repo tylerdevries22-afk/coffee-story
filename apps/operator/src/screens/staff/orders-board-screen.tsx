@@ -34,7 +34,7 @@ import {
   recordSuccess,
   type PinState,
 } from '@/features/operator/pin-lock';
-import { formatMoney } from '@platform/domain';
+import { formatMoney, queuePositions } from '@platform/domain';
 import { MENU_ITEMS } from '@/data/catalog';
 import { useOperator } from '@/state/operator-store';
 import { disabledState, toggleState } from '@/lib/a11y-state';
@@ -78,6 +78,25 @@ export function OrdersBoardScreen() {
   const columns = useMemo(
     () => boardColumns(operator.orders, clock),
     [clock, operator.orders],
+  );
+
+  /**
+   * The line as the wall display draws it.
+   *
+   * Computed from the same function the display calls, over the same fields,
+   * so the number a barista reads off this card is the number the guest is
+   * looking at behind them. Deliberately over `operator.orders` rather than
+   * the columns: the queue is one line, and slicing it per column first would
+   * have numbered each column from 1.
+   */
+  const queue = useMemo(
+    () => queuePositions(operator.orders.map((order) => ({
+      id: order.id,
+      status: order.status,
+      daily_number: order.dailyNumber,
+      updated_at: order.updatedAt,
+    }))),
+    [operator.orders],
   );
   const detailLive = detail ? operator.orders.find((order) => order.id === detail.id) ?? null : null;
 
@@ -166,6 +185,7 @@ export function OrdersBoardScreen() {
                 <OrderCard
                   key={order.id}
                   order={order}
+                  queuePosition={queue.get(order.id) ?? null}
                   now={clock}
                   kds={operator.settings.kdsMode}
                   fresh={operator.unseenIds.has(order.id)}
@@ -220,6 +240,7 @@ function ageLabel(placedAt: string, now: Date): string {
 
 function OrderCard({
   order,
+  queuePosition,
   now,
   kds,
   fresh,
@@ -227,6 +248,8 @@ function OrderCard({
   onAdvance,
 }: {
   order: BoardOrder;
+  /** What the wall display shows this guest, or null once they are ready. */
+  queuePosition: number | null;
   now: Date;
   kds: boolean;
   fresh: boolean;
@@ -244,6 +267,16 @@ function OrderCard({
       <View style={styles.cardTop}>
         <Text style={[styles.cardCode, kds && styles.cardCodeKds]}>{order.shortCode}</Text>
         <Text style={styles.cardGuest}>{order.guestName}</Text>
+        {/*
+          What the guest is looking at.
+          The wall shows a place in line, not the short code, so a barista
+          asked "what number am I?" had nothing to answer with. Same function
+          computes both (queuePositions, @platform/domain), so this and the
+          screen behind the counter cannot disagree.
+        */}
+        {queuePosition !== null ? (
+          <Text style={styles.cardQueue}>#{queuePosition}</Text>
+        ) : null}
         <Text style={styles.cardAge}>{ageLabel(order.placedAt, now)}</Text>
       </View>
       {order.lines.map((line, index) => (
@@ -692,6 +725,12 @@ const styles = StyleSheet.create({
   cardTop: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.sm },
   cardCode: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 18 },
   cardCodeKds: { fontSize: 26 },
+  cardQueue: {
+    color: colors.ink500 ?? colors.ink900,
+    fontFamily: fonts.sansBold,
+    fontSize: 14,
+    fontVariant: ['tabular-nums'],
+  },
   cardGuest: { flex: 1, color: colors.ink600, fontFamily: fonts.sansMedium, fontSize: 14 },
   cardAge: { color: colors.ink500, fontFamily: fonts.sansMedium, fontSize: 13 },
   cardLine: { color: colors.ink900, fontFamily: fonts.sans, fontSize: 14, lineHeight: 20 },

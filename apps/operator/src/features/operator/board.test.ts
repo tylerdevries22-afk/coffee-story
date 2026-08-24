@@ -5,6 +5,8 @@ import { boardColumns, newOrderIds, nextActionFor, type BoardOrder } from './boa
 
 const NOW = new Date('2026-08-22T12:00:00Z');
 const order = (id: string, status: BoardOrder['status'], placedAt: string, scheduledFor: string | null = null): BoardOrder => ({
+  dailyNumber: null,
+  updatedAt: placedAt,
   id, shortCode: id.toUpperCase(), guestName: 'G', status, placedAt, scheduledFor,
   lines: [{ name: 'Cortado', quantity: 1, options: [] }], totalCents: 450, note: '',
 });

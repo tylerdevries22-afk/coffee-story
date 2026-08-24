@@ -18,8 +18,10 @@ export type RewardTier = {
  * render with no backend -- the marketing site and the Expo Go demo -- and the
  * default for callers that do not pass a ladder.
  */
+const BASE_TIER: RewardTier = { name: 'First Sip', minimumAnnualPoints: 0, pointsPerDollar: 10, description: 'Where every coffee story begins.', perks: ['Member-only drink offers'] };
+
 export const REWARD_TIERS: readonly RewardTier[] = [
-  { name: 'First Sip', minimumAnnualPoints: 0, pointsPerDollar: 10, description: 'Where every coffee story begins.', perks: ['Member-only drink offers'] },
+  BASE_TIER,
   { name: 'Daily Ritual', minimumAnnualPoints: 500, pointsPerDollar: 11, description: 'For guests settling into a daily rhythm.', perks: ['Birthday drink on us'] },
   { name: 'House Regular', minimumAnnualPoints: 1500, pointsPerDollar: 12, description: 'For guests who make Coffee Story part of their day.', perks: ['Free size upgrade'] },
   { name: 'Coffee Legend', minimumAnnualPoints: 2500, pointsPerDollar: 13, description: 'Our most dedicated regulars.', perks: ['5% off + priority pickup'] },
@@ -48,7 +50,10 @@ export function tierForAnnualPoints(annualPoints: number, tiers: readonly Reward
   const ladder = sortedTiers(tiers.length > 0 ? tiers : REWARD_TIERS);
   const safeAnnualPoints = Number.isFinite(annualPoints) ? Math.max(0, annualPoints) : 0;
   const eligible = ladder.filter((tier) => safeAnnualPoints >= tier.minimumAnnualPoints);
-  return eligible.at(-1) ?? ladder[0];
+  // Both fallbacks are unreachable -- `ladder` is non-empty by construction
+  // above -- but naming the base rung is cheaper than an assertion that
+  // tells a future reader nothing about why it is safe.
+  return eligible.at(-1) ?? ladder[0] ?? BASE_TIER;
 }
 
 export function qualifyingSpendCents(purchase: PurchaseBreakdown): number {

@@ -40,6 +40,7 @@ test('a pickup chip labelled Today carries today', () => {
   // tomorrow's date to the availability API and to demoSlotFor.
   const evening = new Date(2026, 6, 15, 21, 0);
   const [first] = upcomingDates(evening, 7);
+  assert.ok(first, 'upcomingDates must return at least one chip');
   assert.equal(first.label, 'Today');
   assert.equal(first.value, localIsoDate(evening));
   assert.equal(first.value, '2026-07-15');

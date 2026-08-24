@@ -25,22 +25,3 @@ export async function fetchBoardTickets(
   if (result.error) throw new Error(`fetchBoardTickets: ${result.error.message}`);
   return result.data ?? [];
 }
-
-export type BoardColumns = {
-  inProgress: BoardTicketRow[];
-  ready: BoardTicketRow[];
-};
-
-/**
- * Splits the board the way a display shows it.
- *
- * 'paid' sits with in-progress: from a guest's side of the counter an order
- * that is paid for but not started yet is simply not ready, and a third column
- * saying so would be a column of noise.
- */
-export function splitBoard(tickets: readonly BoardTicketRow[]): BoardColumns {
-  return {
-    inProgress: tickets.filter((t) => t.status === 'paid' || t.status === 'in_progress'),
-    ready: tickets.filter((t) => t.status === 'ready'),
-  };
-}

@@ -18,8 +18,22 @@ import {
   removeOrderLine,
   setOrderNote,
   type OrderCart,
+  type OrderLine,
 } from './cart';
 import { optionGroupsFor } from './menu-options';
+
+/**
+ * The line at `index`, or a failed assertion naming which one was missing.
+ *
+ * `cart.lines[0]!` would compile and, on a regression that empties the cart,
+ * fail with "cannot read property quantity of undefined" -- which says nothing
+ * about what the test expected.
+ */
+function lineAt(cart: OrderCart, index: number): OrderLine {
+  const line = cart.lines[index];
+  assert.ok(line, `expected a cart line at index ${index}`);
+  return line;
+}
 
 const latteGroups = optionGroupsFor('latte', 'coffee');
 
@@ -109,7 +123,7 @@ describe('addOrderLine', () => {
     const line = latte({ serve: ['serve-hot'] });
     const cart = addOrderLine(addOrderLine(EMPTY_CART, line), line);
     assert.equal(cart.lines.length, 1);
-    assert.equal(cart.lines[0].quantity, 2);
+    assert.equal(lineAt(cart, 0).quantity, 2);
   });
 
   it('keeps a differently configured drink as its own row', () => {
@@ -123,7 +137,7 @@ describe('addOrderLine', () => {
   it('caps a merged line rather than letting it climb past the maximum', () => {
     const line = latte({ serve: ['serve-hot'] }, MAX_LINE_QUANTITY);
     const cart = addOrderLine(addOrderLine(EMPTY_CART, line), line);
-    assert.equal(cart.lines[0].quantity, MAX_LINE_QUANTITY);
+    assert.equal(lineAt(cart, 0).quantity, MAX_LINE_QUANTITY);
   });
 
   it('reports how many of an add the bag can actually take', () => {
@@ -155,11 +169,11 @@ describe('addOrderLine', () => {
 
 describe('quantity and removal', () => {
   const seeded: OrderCart = addOrderLine(EMPTY_CART, latte({ serve: ['serve-hot'] }, 2));
-  const lineId = seeded.lines[0].id;
+  const lineId = lineAt(seeded, 0).id;
 
   it('adds and subtracts', () => {
-    assert.equal(changeOrderLineQuantity(seeded, lineId, 1).lines[0].quantity, 3);
-    assert.equal(changeOrderLineQuantity(seeded, lineId, -1).lines[0].quantity, 1);
+    assert.equal(lineAt(changeOrderLineQuantity(seeded, lineId, 1), 0).quantity, 3);
+    assert.equal(lineAt(changeOrderLineQuantity(seeded, lineId, -1), 0).quantity, 1);
   });
 
   it('drops the line at zero rather than keeping an empty row', () => {
@@ -183,8 +197,8 @@ describe('totals and counts', () => {
       addOrderLine(EMPTY_CART, latte({ serve: ['serve-hot'] }, 3)),
       latte({ serve: ['serve-hot'], milk: ['milk-oat'] }, 2),
     );
-    assert.equal(orderLineTotalCents(cart.lines[0]), 1500);
-    assert.equal(orderLineTotalCents(cart.lines[1]), (500 + 75) * 2);
+    assert.equal(orderLineTotalCents(lineAt(cart, 0)), 1500);
+    assert.equal(orderLineTotalCents(lineAt(cart, 1)), (500 + 75) * 2);
     assert.equal(orderSubtotalCents(cart), 1500 + 1150);
     assert.equal(orderItemCount(cart), 5);
   });
@@ -204,7 +218,7 @@ describe('the order note', () => {
 
   it('survives a quantity change', () => {
     const withNote = setOrderNote(addOrderLine(EMPTY_CART, latte({ serve: ['serve-hot'] })), 'For Amina');
-    assert.equal(changeOrderLineQuantity(withNote, withNote.lines[0].id, 1).note, 'For Amina');
+    assert.equal(changeOrderLineQuantity(withNote, lineAt(withNote, 0).id, 1).note, 'For Amina');
   });
 
   it('is cleared along with the bag', () => {

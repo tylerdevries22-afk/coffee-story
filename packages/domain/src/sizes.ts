@@ -50,5 +50,5 @@ export function menuPriceLabel(sizes: readonly CatalogSize[]): string {
 /** The size a detail screen opens on: the middle one, or the only one. */
 export function defaultSizeSlug(sizes: readonly CatalogSize[]): string {
   if (sizes.length === 0) return '';
-  return sizes[Math.floor((sizes.length - 1) / 2)].slug;
+  return sizes[Math.floor((sizes.length - 1) / 2)]?.slug ?? '';
 }

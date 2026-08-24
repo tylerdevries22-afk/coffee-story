@@ -187,6 +187,18 @@ async function run() {
       continue;
     }
 
+    // 0. A menu photograph is opaque. Product cut-outs are a different asset
+    //    class with a different spec, a different grade and a different
+    //    normaliser (docs/PRODUCT-CUTOUTS.md); dropped in here they would be
+    //    centre-cropped square, measured against a café-interior grade band and
+    //    re-encoded without their alpha -- all of which still produces a file
+    //    that looks plausible in a diff.
+    if (!(await sharp(current).stats()).isOpaque) {
+      console.error(`${name} carries transparency, so it is not a menu photograph.`);
+      console.error(`Move it to apps/customer/assets/products/ and run \`pnpm normalize-product-cutouts\`.`);
+      process.exit(1);
+    }
+
     // 1. Square. Crop the tallest centred-ish window the source allows.
     const meta = await sharp(current).metadata();
     const { width = 0, height = 0 } = meta;

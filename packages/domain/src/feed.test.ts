@@ -22,8 +22,8 @@ describe('groupNotifications', () => {
     const old = item('old', '2026-05-01T12:00:00.000Z');
     const fresh = item('fresh', '2026-08-01T11:00:00.000Z');
     const sections = groupNotifications([old, fresh], NOW, new Set(['old']));
-    assert.equal(sections[0].title, 'New');
-    assert.deepEqual(sections[0].items.map((entry) => entry.id), ['old']);
+    assert.equal(sections[0]?.title, 'New');
+    assert.deepEqual(sections[0]?.items.map((entry) => entry.id), ['old']);
   });
 
   it('buckets read rows by widening age', () => {
@@ -34,7 +34,7 @@ describe('groupNotifications', () => {
       item('earlier', '2026-01-10T09:00:00.000Z'),
     ], NOW);
     assert.deepEqual(sections.map((section) => section.title), ['Today', 'This week', 'This month', 'Earlier']);
-    assert.deepEqual(sections.map((section) => section.items[0].id), ['today', 'week', 'month', 'earlier']);
+    assert.deepEqual(sections.map((section) => section.items[0]?.id), ['today', 'week', 'month', 'earlier']);
   });
 
   it('drops empty buckets rather than showing bare headers', () => {
@@ -47,7 +47,7 @@ describe('groupNotifications', () => {
       item('older', '2026-08-01T02:00:00.000Z'),
       item('newer', '2026-08-01T10:00:00.000Z'),
     ], NOW);
-    assert.deepEqual(sections[0].items.map((entry) => entry.id), ['newer', 'older']);
+    assert.deepEqual(sections[0]?.items.map((entry) => entry.id), ['newer', 'older']);
   });
 
   it('returns nothing for an empty feed', () => {

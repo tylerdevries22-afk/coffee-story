@@ -4,6 +4,13 @@
   "private": true,
   "main": "src/index.ts",
   "types": "src/index.ts",
+  "$exports": "The root entry pulls in components.tsx and therefore react-native. The web surfaces (apps/hq, apps/display) need the token and copy contracts and must not drag a native renderer into a Next bundle to get them, so the framework-free modules are addressable on their own. The ./src/* wildcard keeps the deep paths that predate this map resolvable -- adding `exports` without it would have made them hard errors (scripts/normalize-menu-images.ts).",
+  "exports": {
+    ".": "./src/index.ts",
+    "./tokens": "./src/tokens.ts",
+    "./copy": "./src/copy.ts",
+    "./src/*": "./src/*.ts"
+  },
   "scripts": {
     "lint": "echo 'lint: runs under each consuming app eslint'",
     "typecheck": "tsc --noEmit",

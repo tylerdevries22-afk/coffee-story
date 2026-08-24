@@ -40,8 +40,10 @@ test('formats optional units and normalizes the state', () => {
 });
 
 test('describes pickup fulfillment from the selected location', () => {
+  const location = PICKUP_LOCATIONS[0];
+  assert.ok(location, 'there must be at least one pickup location');
   assert.equal(
-    fulfillmentDetail({ mode: 'pickup', location: PICKUP_LOCATIONS[0] }),
+    fulfillmentDetail({ mode: 'pickup', location }),
     '2222 S Havana St Unit A1, Aurora, CO 80014',
   );
 });

@@ -64,11 +64,11 @@ const DIVERGENT_BY_DESIGN = [
   'screens/notifications-screen.tsx',
   'state/app-context.tsx',
   'state/auth-context.tsx',
-  // Rule 7 in two directions: the customer binary is one brand fixed at build
-  // time from src/tenant/brand.json, while the operator is one listing whose
-  // tenancy arrives with the login. Mounting the tenant identity in the
-  // operator (19d7f2a) made that persona difference concrete here, and the
-  // guard was not told -- so `pnpm test` has been red on this branch since.
+  // Rule 7 makes this one persona-different by construction: the customer is
+  // one binary per brand, so its shop is fixed at build time from the bundled
+  // brand.json; the operator is one listing tenanted by login, so its shop is
+  // whatever the signed-in staff member's brand row says. Same hook name, same
+  // return type, two answers that cannot be the same code.
   'state/business.ts',
   'state/demo-state.test.ts',
   // The operator's staff bar lost calendar/quick-actions/clients/checkout with

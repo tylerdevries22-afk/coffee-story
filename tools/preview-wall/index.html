@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Five surfaces</title>
+<style>
+  /*
+   * A dev harness, not a product surface: deliberately neutral chrome so it
+   * never competes with the five surfaces it frames. Rule 4 governs the apps;
+   * this page is the wall they hang on.
+   *
+   * Each surface renders at its real device viewport inside the iframe and is
+   * scaled to fit its cell, letterboxed rather than stretched -- so what you
+   * see is the layout that device actually gets, not a desktop page squeezed
+   * into a small box.
+   */
+  :root {
+    --chrome: #14161a;
+    --panel: #1c1f25;
+    --stage: #0a0b0d;
+    --hairline: #2b3038;
+    --ink: #e8eaed;
+    --muted: #868e9a;
+    --live: #7ed492;
+    --down: #e0776f;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--chrome); color: var(--ink); overflow: hidden;
+    font: 12px/1.4 ui-sans-serif, -apple-system, "Segoe UI", sans-serif;
+  }
+
+  header {
+    display: flex; align-items: center; gap: 14px; height: 44px;
+    padding: 0 16px; border-bottom: 1px solid var(--hairline);
+  }
+  h1 { margin: 0; font-size: 14px; font-weight: 600; }
+  header p { margin: 0; color: var(--muted); }
+  header button {
+    margin-left: auto;
+    background: var(--panel); color: var(--ink);
+    border: 1px solid var(--hairline); border-radius: 999px;
+    padding: 5px 13px; font: inherit; cursor: pointer;
+  }
+  header button:hover { border-color: #444c58; }
+
+  .wall {
+    height: calc(100% - 44px);
+    display: grid; gap: 10px; padding: 10px;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+  }
+  /* Row 1 gives the two widest surfaces half the wall each; row 2 puts the
+     two iPads beside the phone, which needs the least width of anything. */
+  .cell[data-span="3"] { grid-column: span 3; }
+  .cell[data-span="2"] { grid-column: span 2; }
+
+  .cell {
+    display: flex; flex-direction: column; min-width: 0; min-height: 0;
+    margin: 0; background: var(--panel);
+    border: 1px solid var(--hairline); border-radius: 8px; overflow: hidden;
+  }
+  figcaption {
+    display: flex; align-items: center; gap: 7px; flex: none;
+    padding: 6px 10px; border-bottom: 1px solid var(--hairline);
+  }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: #555c66; flex: none; }
+  .dot.up { background: var(--live); }
+  .name { font-weight: 600; }
+  .meta { color: var(--muted); margin-left: auto; font-variant-numeric: tabular-nums; }
+  .meta a { color: var(--muted); text-decoration: none; border-bottom: 1px dotted currentColor; }
+  .meta a:hover { color: var(--ink); }
+
+  /* The stage takes whatever height the row leaves; the frame is centred in
+     it at the largest scale that fits both axes. */
+  .stage { flex: 1; min-height: 0; position: relative; overflow: hidden; background: var(--stage); }
+  .screen { position: absolute; transform-origin: 0 0; border: 0; background: #fff; }
+
+  .fault {
+    grid-column: span 6; align-self: start;
+    margin: 0; padding: 16px 18px; border-radius: 8px;
+    background: var(--panel); border: 1px solid var(--down); color: var(--ink);
+  }
+  .fault code { color: var(--muted); }
+
+  /* Below the wall's design width there is no honest way to show five screens
+     at once, so it becomes a scrolling column instead of five illegible tiles. */
+  @media (max-width: 1024px), (max-height: 620px) {
+    body { overflow: auto; }
+    .wall { height: auto; grid-template-rows: none; }
+    .cell { grid-column: span 6 !important; height: 62vh; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Five surfaces</h1>
+  <p>Each frame is that device's real viewport, scaled to fit.</p>
+  <button id="reload">Reload all</button>
+</header>
+
+<div class="wall" id="wall"></div>
+
+<script>
+  /*
+   * The surface list is data, not markup: `pnpm preview` publishes this page
+   * and wall-surfaces.json together, and cross-checks every port in it against
+   * .claude/launch.json. Editing the list here would put the wall and the
+   * servers back out of step, which is the bug that file exists to prevent.
+   */
+  const wall = document.getElementById('wall');
+
+  function fault(message, detail) {
+    const p = document.createElement('p');
+    p.className = 'fault';
+    p.textContent = message + ' ';
+    const code = document.createElement('code');
+    code.textContent = detail;
+    p.appendChild(code);
+    wall.appendChild(p);
+  }
+
+  function mount(s) {
+    const url = 'http://localhost:' + s.port + s.path;
+    const cell = document.createElement('figure');
+    cell.className = 'cell';
+    cell.dataset.span = String(s.span);
+    cell.innerHTML = `
+      <figcaption>
+        <span class="dot"></span>
+        <span class="name"></span>
+        <span class="meta"><a target="_blank" rel="noreferrer"></a> · <span class="note"></span></span>
+      </figcaption>
+      <div class="stage"><iframe class="screen"></iframe></div>`;
+    cell.querySelector('.name').textContent = s.name;
+    cell.querySelector('.note').textContent = s.device + ' · ' + s.width + '×' + s.height;
+    const link = cell.querySelector('.meta a');
+    link.href = url;
+    link.textContent = ':' + s.port;
+
+    const frame = cell.querySelector('iframe');
+    frame.width = s.width;
+    frame.height = s.height;
+    frame.src = url;
+    // A frame that never loads leaves its dot grey, which is the whole signal.
+    frame.addEventListener('load', () => cell.querySelector('.dot').classList.add('up'));
+
+    wall.appendChild(cell);
+
+    const stage = cell.querySelector('.stage');
+    const fit = () => {
+      const bw = stage.clientWidth, bh = stage.clientHeight;
+      if (!bw || !bh) return;
+      const scale = Math.min(bw / s.width, bh / s.height);
+      frame.style.left = Math.round((bw - s.width * scale) / 2) + 'px';
+      frame.style.top = Math.round((bh - s.height * scale) / 2) + 'px';
+      frame.style.transform = 'scale(' + scale + ')';
+    };
+    new ResizeObserver(fit).observe(stage);
+    fit();
+  }
+
+  fetch('./wall-surfaces.json')
+    .then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))))
+    .then((data) => data.surfaces.forEach(mount))
+    .catch((err) => fault('Could not read the surface list — re-publish the wall with', 'pnpm preview --wall'));
+
+  document.getElementById('reload').addEventListener('click', () => {
+    for (const f of document.querySelectorAll('iframe.screen')) f.src = f.src;
+  });
+</script>
+</body>
+</html>

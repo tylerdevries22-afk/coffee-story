@@ -40,8 +40,8 @@ export function isOwnAppScheme(protocol: string): boolean {
  * paths Expo Router hands us that `new URL` would reject.
  */
 export function schemeOf(url: string): string | null {
-  const match = SCHEME_PREFIX.exec(url);
-  return match ? `${match[1].toLowerCase()}:` : null;
+  const scheme = SCHEME_PREFIX.exec(url)?.[1];
+  return scheme === undefined ? null : `${scheme.toLowerCase()}:`;
 }
 
 /** True when `url` arrived over this app's own custom scheme. */

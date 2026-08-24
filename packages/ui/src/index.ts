@@ -6,6 +6,7 @@ export * from './theme';
 export * from './components';
 export * from './item-card';
 export * from './menu-image';
+export * from './product-cutout';
 export * from './sheet';
 export * from './toast';
 export * from './drop-countdown-logic';
