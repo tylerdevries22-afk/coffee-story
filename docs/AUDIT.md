@@ -888,3 +888,34 @@ sequence and take the last verb:
 
 Verified by probe rather than by reading: a view added with no write revoke
 fails both view assertions, and removing it returns the suite to green.
+
+## The kiosk menu read — settled on evidence, not preference
+
+My `surfaces.test.ts` guard asserted no `createClient(` anywhere in
+`apps/kiosk/src`. The kiosk session flagged that it was broader than the danger
+it named and collided with two things already in the tree: `FIVE-SURFACES.md`
+gives a kiosk token leave to read the menu, and 0027 put `menu_items`,
+`menu_categories` and `drops` in the Realtime publication precisely so a change
+made once reaches every kiosk. They offered to build a server projection
+instead rather than edit my test under me.
+
+The deciding fact is in the RLS, not in either of our preferences:
+`menu_items_select` admits **anyone** once a menu is published — no device
+claim required. So a kiosk reading the menu directly obtains nothing a lifted
+tablet could not already get with the anon key that ships in the customer
+bundle. The client was never the risk. What it reads is.
+
+So the guard is narrowed to what is read, and as an **allowlist**: `menus`,
+`menu_categories`, `menu_items`, `menu_item_options`, `drops`, `locations`,
+`brand_storefront`, `devices`. A denylist is always one migration behind
+whoever adds the next relation holding guest data, and this surface is a
+tablet bolted to a counter in a public room.
+
+Verified in both directions rather than one: a probe reading `customers` fails
+with the file and relation named; a probe reading `menu_items` passes. A guard
+only checked for firing is half-checked — the failure that matters most is the
+one that blocks legitimate work and gets deleted.
+
+This unblocks the largest remaining franchise defect on that surface: the
+kiosk ships a compiled 181-line catalog, so today a second tenant cannot
+change a price without a store release, and an 86 reaches no screen.

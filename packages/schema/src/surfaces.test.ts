@@ -186,10 +186,28 @@ describe('the lobby kiosk read', () => {
       'an unread view is still a grant to anon and authenticated');
   });
 
-  it('leaves the kiosk with no client to read with', () => {
-    // The structural reason the two above are safe to assert. If a Supabase
-    // client ever appears in the kiosk, this fails first and whoever added it
-    // gets to decide the grant deliberately rather than by accident.
+  it("reads only storefront relations, never a guest's", () => {
+    // The structural check under the two above: an assertion about grants is
+    // only as good as the assumption that nothing reads.
+    //
+    // This asserted "no Supabase client in apps/kiosk/src" until the kiosk
+    // session pointed out it was broader than the danger it named and
+    // collided with the design. docs/FIVE-SURFACES.md gives a kiosk token
+    // leave to read the menu, and 0027 put menu_items, menu_categories and
+    // drops in the Realtime publication precisely so a change made once
+    // reaches every kiosk. Decisive detail: `menu_items_select` admits anyone
+    // once a menu is published -- no device claim required -- so a kiosk
+    // reading it obtains nothing a lifted tablet could not already get with
+    // the anon key that ships in the customer bundle. The client was never
+    // the risk; what it reads is.
+    //
+    // An allowlist rather than a list of forbidden tables: a denylist is one
+    // migration behind whoever adds the next relation holding guest data, and
+    // this surface is a tablet bolted to a counter in a public room.
+    const ALLOWED = new Set([
+      'menus', 'menu_categories', 'menu_items', 'menu_item_options',
+      'drops', 'locations', 'brand_storefront', 'devices',
+    ]);
     const kioskSrc = join(MIGRATIONS, '..', '..', 'apps', 'kiosk', 'src');
     const files: string[] = [];
     const walk = (dir: string) => {
@@ -201,11 +219,13 @@ describe('the lobby kiosk read', () => {
     };
     walk(kioskSrc);
     for (const file of files) {
-      const src = readFileSync(file, 'utf8');
-      assert.ok(!src.includes("from('orders')"),
-        `${file} reads orders directly; the kiosk is a public tablet`);
-      assert.ok(!/createClient\s*\(/.test(src),
-        `${file} builds a Supabase client; the kiosk had none by design`);
+      for (const [, relation] of readFileSync(file, 'utf8').matchAll(/\.from\('([a-z_]+)'\)/g)) {
+        assert.ok(ALLOWED.has(relation ?? ''),
+          `${file} reads '${relation}'. A kiosk is a public tablet: it may read `
+          + 'the storefront and its own device row, and nothing carrying a '
+          + "guest's orders, identity, loyalty or money. If this relation is "
+          + 'genuinely storefront data, add it to ALLOWED here deliberately.');
+      }
     }
   });
 });
