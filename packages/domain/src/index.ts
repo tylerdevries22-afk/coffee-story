@@ -23,6 +23,7 @@ export * from './auth-links';
 export * from './native-intent';
 export * from './portal-navigation';
 export * from './item-projections';
+export * from './product-media';
 export * from './add-ons';
 export * from './menu-options';
 export * from './cart';

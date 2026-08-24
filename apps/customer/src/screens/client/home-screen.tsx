@@ -11,8 +11,10 @@ import {
   Text,
   View,
   useWindowDimensions,
+  type LayoutChangeEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
+  type ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -27,12 +29,43 @@ import { openWebPath } from '@/lib/web-navigation';
 import { colors, fonts, radius, spacing } from '@/theme/tokens';
 import { demoDrops } from '@/data/drops';
 import { dropStatus, dropWindowLabel, weeklyDrops, type Drop } from '@/features/drops';
-import { formatMoney } from '@platform/domain';
+import { cutoutFeatureLineup, formatMoney, resolveProductMedia } from '@platform/domain';
 import { MenuImage } from '@/components/menu-image';
 import { SiriAssistant, type SiriCommand } from '@/components/siri/siri-assistant';
 import { useReducedMotion } from '@/hooks/use-reduced-motion';
 import { tenantFeature } from '@/tenant';
 import { DropCountdown } from '@platform/ui';
+import { ProductCutout, productCutoutSource, type ProductCutoutSource } from '@/components/product-cutout';
+import { TENANT_PRODUCT_MEDIA } from '@/tenant/product-media';
+import {
+  TEA_MATCHA_CATEGORY,
+  TEA_MATCHA_SHELF_SIZE,
+  teaMatchaCount,
+  teaMatchaSeeAllLabel,
+  teaMatchaShelf,
+  teaMatchaTag,
+} from '@/features/tea-matcha';
+import {
+  GLASS_FEATURE_REST,
+  GLASS_BOX_HEIGHT,
+  GLASS_BOX_WIDTH,
+  GLASS_INSET_X,
+  GLASS_TOP,
+  GROUND_HEIGHT,
+  GROUND_TOP,
+  SHADOW_BOTTOM,
+  SHADOW_HEIGHT,
+  SHADOW_INSET_X,
+  SHADOW_WIDTH,
+  SLOT_HEIGHT,
+  SLOT_WIDTH,
+  BLEED,
+  glassParallaxRange,
+  groundParallaxRange,
+  shadowOpacityRange,
+  shadowScaleRange,
+} from '@/features/glass-feature';
+import { disabledState } from '@/lib/a11y-state';
 
 import heroVideo from '../../../assets/hero/home-hero.mp4';
 import packagesMedia from '../../../assets/hero/stones.webp';
@@ -62,7 +95,7 @@ const CATEGORY_PREVIEW_COUNT = 7;
 export function HomeScreen() {
   const { openMore, setClientTab, startOrder } = useAppState();
   const { portal } = useAuth();
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const tabBarClearance = useTabBarClearance(24);
   const reducedMotion = useReducedMotion();
@@ -70,6 +103,9 @@ export function HomeScreen() {
   const [carouselX] = useState(() => new Animated.Value(0));
   const [activeSlide, setActiveSlide] = useState(0);
   const stickyVisible = useRef(false);
+  const scrollRef = useRef<ScrollView>(null);
+  /** Category tops in content space, measured on layout, for the see-all jump. */
+  const categoryOffsets = useRef(new Map<MenuCategoryId, number>());
   const [showStickyCta, setShowStickyCta] = useState(false);
   const [showAssistant, setShowAssistant] = useState(true);
   const [overHero, setOverHero] = useState(true);
@@ -96,9 +132,44 @@ export function HomeScreen() {
       .filter((entry): entry is { drop: Drop; item: MenuItem } => entry.item !== null);
   }, []);
 
+  /**
+   * The Tea & Matcha shelf: the curated six, narrowed to the ones this build
+   * actually ships a glass render for.
+   *
+   * Two filters rather than one, on purpose. `teaMatchaShelf` is curation --
+   * which six drinks, in what order. `cutoutFeatureLineup` is capability --
+   * which of them have media. A tenant part-way through shooting its menu gets
+   * a shorter shelf; it does not get an empty frame, and it does not fail to
+   * boot the way a missing menu photograph would.
+   */
+  const teaShelf = useMemo(() => {
+    const curated = teaMatchaShelf(MENU_ITEMS);
+    const { shown } = cutoutFeatureLineup(
+      curated.map((item) => item.id),
+      TENANT_PRODUCT_MEDIA,
+      TEA_MATCHA_SHELF_SIZE,
+    );
+    return shown
+      .map((id) => {
+        const item = curated.find((entry) => entry.id === id);
+        const ref = resolveProductMedia(id, TENANT_PRODUCT_MEDIA);
+        const glass = ref ? productCutoutSource(ref) : null;
+        return item && glass ? { ...item, glass } : null;
+      })
+      .filter((entry): entry is MenuItem & { glass: ProductCutoutSource } => entry !== null);
+  }, []);
+  const teaCount = useMemo(() => teaMatchaCount(MENU_ITEMS), []);
+  const teaMeta = MENU_CATEGORY_META.find((category) => category.id === TEA_MATCHA_CATEGORY) ?? {
+    id: TEA_MATCHA_CATEGORY,
+    title: 'Tea & Matcha',
+    tagline: '',
+  };
+
   const onScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offset = event.nativeEvent.contentOffset.y;
-    scrollY.setValue(offset);
+    // `scrollY` is written natively by `Screen` now. Writing it from JS as well
+    // would fight the native driver; this listener keeps only the two pieces of
+    // React state that cannot live off the JS thread.
     const nextVisible = offset > 96;
     if (nextVisible !== stickyVisible.current) {
       stickyVisible.current = nextVisible;
@@ -106,7 +177,7 @@ export function HomeScreen() {
     }
     // The status bar inverts only while the hero runs underneath it.
     setOverHero(offset < heroHeight - insets.top - 72);
-  }, [heroHeight, insets.top, scrollY]);
+  }, [heroHeight, insets.top]);
   const stickyProgress = scrollY.interpolate({
     inputRange: [72, 128],
     outputRange: [0, 1],
@@ -130,6 +201,25 @@ export function HomeScreen() {
     });
   }, []);
 
+  /**
+   * "See all" expands the Tea & Matcha block in the category list below and
+   * scrolls to it, rather than entering the order flow.
+   *
+   * The order flow cannot be deep-linked to a category today -- `MenuStep` will
+   * not render until fulfillment and a pickup window are chosen, so a guest who
+   * tapped "see all tea" would land in setup rather than on tea. Staying on the
+   * page also delivers exactly the four drinks the shelf held back.
+   */
+  const onSeeAllTea = useCallback(() => {
+    setExpanded((current) => new Set(current).add(TEA_MATCHA_CATEGORY));
+    const y = categoryOffsets.current.get(TEA_MATCHA_CATEGORY);
+    if (y !== undefined) scrollRef.current?.scrollTo({ y, animated: !reducedMotion });
+  }, [reducedMotion]);
+
+  const onCategoryLayout = useCallback((category: MenuCategoryId, event: LayoutChangeEvent) => {
+    categoryOffsets.current.set(category, event.nativeEvent.layout.y);
+  }, []);
+
   const toggleCategory = useCallback((category: MenuCategoryId) => {
     setExpanded((current) => {
       const next = new Set(current);
@@ -149,6 +239,8 @@ export function HomeScreen() {
         style={styles.screen}
         contentContainerStyle={styles.content}
         contentInsetAdjustmentBehavior="never"
+        scrollRef={scrollRef}
+        scrollY={scrollY}
         onScroll={onScroll}
         scrollEventThrottle={16}
       >
@@ -311,6 +403,39 @@ export function HomeScreen() {
         />
       ))}
 
+      {teaShelf.length ? (
+        <>
+          <SectionHeader
+            pill={teaMeta.tagline}
+            title={teaMeta.title}
+            body="Stone-ground matcha, black tea and warm spice, poured tall over ice."
+          />
+          {teaShelf.map((item, index) => (
+            <GlassFeatureRow
+              key={item.id}
+              item={item}
+              glass={item.glass}
+              tag={teaMatchaTag(item.id)}
+              scrollY={scrollY}
+              viewportHeight={height}
+              // The favourites above are an even number of rows, so the
+              // alternation carries into this section unbroken.
+              flip={index % 2 === 1}
+              reducedMotion={reducedMotion}
+              onPress={() => startOrder(item.id)}
+            />
+          ))}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Show all ${teaMeta.title}`}
+            onPress={onSeeAllTea}
+            style={({ pressed }) => [styles.dropArchiveLink, pressed && { opacity: 0.7 }]}
+          >
+            <Text style={styles.dropArchiveText}>{teaMatchaSeeAllLabel(teaCount)}</Text>
+          </Pressable>
+        </>
+      ) : null}
+
       <SectionHeader
         pill="The Full Menu"
         title="Explore by Category"
@@ -321,7 +446,11 @@ export function HomeScreen() {
         const isExpanded = expanded.has(category.id);
         const visible = isExpanded ? items : items.slice(0, CATEGORY_PREVIEW_COUNT);
         return (
-          <View key={category.id} style={styles.categorySection}>
+          <View
+            key={category.id}
+            onLayout={(event) => onCategoryLayout(category.id, event)}
+            style={styles.categorySection}
+          >
             <View style={styles.categoryHeader}>
               <View style={styles.categoryHeaderCopy}>
                 <Text accessibilityRole="header" style={styles.categoryTitle}>{category.title}</Text>
@@ -532,6 +661,153 @@ function DropFeatureRow({
   );
 }
 
+type GlassMotion = {
+  glass: Animated.AnimatedInterpolation<number> | number;
+  ground: Animated.AnimatedInterpolation<number> | number;
+  shadowScaleX: Animated.AnimatedInterpolation<number> | number;
+  shadowOpacity: Animated.AnimatedInterpolation<number> | number;
+};
+
+/**
+ * Four interpolations off the natively driven scroll position, or the designed
+ * still frame.
+ *
+ * Memoised because each one is a node attached to that value: rebuilding four
+ * per row on every parent render would churn native nodes for nothing.
+ */
+function useGlassMotion(
+  scrollY: Animated.Value,
+  rowY: number | null,
+  viewportHeight: number,
+  still: boolean,
+): GlassMotion {
+  return useMemo<GlassMotion>(() => {
+    if (still || rowY === null) {
+      return {
+        glass: GLASS_FEATURE_REST.glassShift,
+        ground: GLASS_FEATURE_REST.groundShift,
+        shadowScaleX: GLASS_FEATURE_REST.shadowScaleX,
+        shadowOpacity: GLASS_FEATURE_REST.shadowOpacity,
+      };
+    }
+    const clamp = { extrapolate: 'clamp' } as const;
+    return {
+      glass: scrollY.interpolate({ ...glassParallaxRange(rowY, viewportHeight), ...clamp }),
+      ground: scrollY.interpolate({ ...groundParallaxRange(rowY, viewportHeight), ...clamp }),
+      shadowScaleX: scrollY.interpolate({ ...shadowScaleRange(rowY, viewportHeight), ...clamp }),
+      shadowOpacity: scrollY.interpolate({ ...shadowOpacityRange(rowY, viewportHeight), ...clamp }),
+    };
+  }, [scrollY, rowY, viewportHeight, still]);
+}
+
+/**
+ * One tea on the shelf.
+ *
+ * The photographic feature rows above cut their half-capsule out of the
+ * photograph itself. These renders are cut-outs on transparency: there is no
+ * rectangle to round and nothing that may be cropped, so the capsule becomes a
+ * shape of its own behind the glass, the glass stands on it at `contain`
+ * without ever crossing the screen edge, and the two drift against each other
+ * as the row crosses the viewport. Everything else — the copy column, the tag,
+ * the spacing, the alternating bleed — is the section's existing grammar,
+ * reusing its styles rather than restating its numbers.
+ *
+ * Layer order is DOM order on purpose: react-native-web gives every View
+ * z-index 0 (docs/BUILD-REPORT.md), so positioned siblings stack in the order
+ * they are written. Ground, shadow, glass. Nothing here may rely on `zIndex`.
+ */
+function GlassFeatureRow({
+  item,
+  glass,
+  tag,
+  scrollY,
+  viewportHeight,
+  flip,
+  reducedMotion,
+  onPress,
+}: {
+  item: MenuItem;
+  glass: ProductCutoutSource;
+  tag: string;
+  scrollY: Animated.Value;
+  viewportHeight: number;
+  flip: boolean;
+  reducedMotion: boolean;
+  onPress: () => void;
+}) {
+  const [rowY, setRowY] = useState<number | null>(null);
+  const onLayout = useCallback((event: LayoutChangeEvent) => {
+    const { y } = event.nativeEvent.layout;
+    setRowY((current) => (current === y ? current : y));
+  }, []);
+  // An unmeasured row rests too, rather than showing a pose for a position it
+  // does not have yet.
+  const motion = useGlassMotion(scrollY, rowY, viewportHeight, reducedMotion || rowY === null);
+  const from = item.sizes[0]?.priceCents;
+  const soldOut = Boolean(item.soldOutToday);
+
+  return (
+    <View onLayout={onLayout} style={[styles.feature, styles.glassFeature, flip && styles.featureFlip]}>
+      <View accessible={false} style={[styles.glassSlot, flip ? styles.glassSlotRight : styles.glassSlotLeft]}>
+        <Animated.View
+          style={[
+            styles.glassGround,
+            flip ? styles.glassGroundRight : styles.glassGroundLeft,
+            { transform: [{ translateY: motion.ground }] },
+          ]}
+        >
+          {/*
+            A wash, not a chip: fully present at the bleeding edge where the eye
+            reads the section's rhythm, and dissolved into the page where it
+            would otherwise fight the copy column. brand200 rather than
+            brand100, because brand100 against surface is a two-point step and
+            the capsule simply did not read.
+          */}
+          <LinearGradient
+            colors={flip ? [colors.brand50, colors.brand200] : [colors.brand200, colors.brand50]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={StyleSheet.absoluteFill}
+          />
+        </Animated.View>
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.glassShadow,
+            flip ? styles.glassShadowRight : styles.glassShadowLeft,
+            { opacity: motion.shadowOpacity, transform: [{ scaleX: motion.shadowScaleX }] },
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.glassLift,
+            flip ? styles.glassLiftRight : styles.glassLiftLeft,
+            { transform: [{ translateY: motion.glass }] },
+          ]}
+        >
+          {/* alt="" — the title below names the drink; the glass is decorative. */}
+          <ProductCutout source={glass} variant="feature" alt="" style={styles.glassImage} />
+        </Animated.View>
+      </View>
+      <View style={styles.featureCopy}>
+        <View style={styles.tag}><Text style={styles.tagText}>{soldOut ? "86'd today" : tag}</Text></View>
+        <Text style={styles.featureTitle}>{item.name}</Text>
+        <Text numberOfLines={2} style={styles.dropBlurb}>{item.description}</Text>
+        {from ? <Text style={styles.featureFrom}>From {formatMoney(from)}</Text> : null}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={soldOut ? `${item.name}, out for today` : `Order ${item.name}`}
+          disabled={soldOut}
+          {...disabledState(soldOut)}
+          onPress={onPress}
+        >
+          <Text style={styles.learnMore}>{soldOut ? 'Back tomorrow' : 'Order Now  ›'}</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
 function MenuRow({ item, onPress }: { item: MenuItem; onPress: () => void }) {
   const from = item.sizes[0]?.priceCents;
   return (
@@ -661,6 +937,47 @@ const styles = StyleSheet.create({
     letterSpacing: -0.6,
   },
   featureFrom: { color: colors.ink500, fontFamily: fonts.sans, fontSize: 14 },
+
+  // The glass shelf. It borrows every style above and changes only the media
+  // slot, because a cut-out cannot be the half-capsule -- it has to stand on
+  // one. Every number here is derived in `@/features/glass-feature`, which
+  // tests the relationships between them.
+  glassFeature: { minHeight: SLOT_HEIGHT },
+  glassSlot: { width: SLOT_WIDTH, height: SLOT_HEIGHT },
+  glassSlotLeft: { marginLeft: -BLEED },
+  glassSlotRight: { marginRight: -BLEED },
+  // The ground the glass stands on: the same half-capsule the photographic rows
+  // cut out of their own pixels, drawn as a shape because a cut-out has none.
+  // A flat fill would make the glass look pasted onto a token, so it is a wash
+  // that is fully present at the bleeding edge and dissolves into the surface
+  // where it would otherwise fight the copy column. overflow hidden so the
+  // gradient respects the 999 corners.
+  glassGround: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: GROUND_TOP,
+    height: GROUND_HEIGHT,
+    overflow: 'hidden',
+  },
+  glassGroundLeft: { borderTopRightRadius: 999, borderBottomRightRadius: 999 },
+  glassGroundRight: { borderTopLeftRadius: 999, borderBottomLeftRadius: 999 },
+  // No blur: brand300 on brand100 is a small enough tonal step that a hard edge
+  // is not readable as an edge, and blur is the most expensive thing to animate.
+  glassShadow: {
+    position: 'absolute',
+    bottom: SHADOW_BOTTOM,
+    width: SHADOW_WIDTH,
+    height: SHADOW_HEIGHT,
+    borderRadius: 999,
+    backgroundColor: colors.brand300,
+  },
+  glassShadowLeft: { left: SHADOW_INSET_X },
+  glassShadowRight: { right: SHADOW_INSET_X },
+  glassLift: { position: 'absolute', top: GLASS_TOP, width: GLASS_BOX_WIDTH, height: GLASS_BOX_HEIGHT },
+  glassLiftLeft: { left: GLASS_INSET_X },
+  glassLiftRight: { right: GLASS_INSET_X },
+  glassImage: { width: GLASS_BOX_WIDTH, height: GLASS_BOX_HEIGHT },
   learnMore: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 15, marginTop: 2 },
 
   categorySection: { paddingTop: spacing.lg },

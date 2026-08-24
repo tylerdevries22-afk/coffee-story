@@ -1,0 +1,152 @@
+{
+  "adeni-chai": {
+    "hash": "7ec03186fdf42f01c139aaf571baf3bf2763b606fec4cb898bed3633f007760a",
+    "measured": {
+      "luminance": 171.5,
+      "warmth": 59.7,
+      "saturation": 0.361
+    },
+    "geometry": {
+      "height": 0.9203,
+      "baseline": 0.9797,
+      "centerX": 0.5,
+      "width": 0.7111
+    },
+    "matte": {
+      "subjectMass": 1,
+      "softEdge": 0.6148,
+      "rimLuminance": 179.1,
+      "innerLuminance": 180.4
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "honey-lavender-matcha": {
+    "hash": "440be06f9378a35fd414a4bd46da236279567266e5e147f5e04e18c34b55d0e2",
+    "measured": {
+      "luminance": 169.8,
+      "warmth": -26.7,
+      "saturation": 0.182
+    },
+    "geometry": {
+      "height": 0.9203,
+      "baseline": 0.9797,
+      "centerX": 0.5007,
+      "width": 0.7736
+    },
+    "matte": {
+      "subjectMass": 1,
+      "softEdge": 0.5294,
+      "rimLuminance": 150.2,
+      "innerLuminance": 181.8
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "london-fog": {
+    "hash": "f9c85e4db7364ebe4811faf271dce3f17bed794ebc198db56b970a250bc5e04d",
+    "measured": {
+      "luminance": 164.6,
+      "warmth": 4.3,
+      "saturation": 0.083
+    },
+    "geometry": {
+      "height": 0.9203,
+      "baseline": 0.9797,
+      "centerX": 0.5007,
+      "width": 0.6208
+    },
+    "matte": {
+      "subjectMass": 1,
+      "softEdge": 0.5599,
+      "rimLuminance": 180.6,
+      "innerLuminance": 165.4
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "matcha-latte": {
+    "hash": "668ad95e74ac7d6617ff462eab7cde161890d31fa25fd3344206fdda75ed7f21",
+    "measured": {
+      "luminance": 184.8,
+      "warmth": 8.9,
+      "saturation": 0.12
+    },
+    "geometry": {
+      "height": 0.9203,
+      "baseline": 0.9797,
+      "centerX": 0.5,
+      "width": 0.7667
+    },
+    "matte": {
+      "subjectMass": 1,
+      "softEdge": 0.611,
+      "rimLuminance": 176.4,
+      "innerLuminance": 209.6
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "strawberry-matcha": {
+    "hash": "f9896fb0959dbe9f8531d11146e0eba6224d5ae55f0c773ab24b23ba8b5f1edd",
+    "measured": {
+      "luminance": 170.1,
+      "warmth": 15.3,
+      "saturation": 0.17
+    },
+    "geometry": {
+      "height": 0.9203,
+      "baseline": 0.9797,
+      "centerX": 0.5007,
+      "width": 0.6681
+    },
+    "matte": {
+      "subjectMass": 1,
+      "softEdge": 0.527,
+      "rimLuminance": 172,
+      "innerLuminance": 170.7
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  },
+  "ube-matcha": {
+    "hash": "90ea7a8016fa400e5af1a9ef29cfcdbb8cf6b2ca8ad8fe19a5685d26d392fe2e",
+    "measured": {
+      "luminance": 174.9,
+      "warmth": -17.6,
+      "saturation": 0.169
+    },
+    "geometry": {
+      "height": 0.9203,
+      "baseline": 0.9797,
+      "centerX": 0.5,
+      "width": 0.6028
+    },
+    "matte": {
+      "subjectMass": 1,
+      "softEdge": 0.5201,
+      "rimLuminance": 169.4,
+      "innerLuminance": 184
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    }
+  }
+}

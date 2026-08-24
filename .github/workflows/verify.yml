@@ -75,6 +75,15 @@ jobs:
       - name: Check menu imagery against the spec
         run: pnpm normalize-menu-images --check
 
+      # Product cut-outs are a separate asset class with a separate spec, so
+      # they get a separate step: a failure names which class drifted rather
+      # than making someone read the output to find out. This one re-derives
+      # each cut-out from its tenant master and fails if the committed asset is
+      # not byte-identical -- which also catches the likeliest regression here,
+      # an asset that came back flattened and still looks plausible in a diff.
+      - name: Check product cut-outs against the spec
+        run: pnpm normalize-product-cutouts --check
+
       # The bundle is part of the gate. Lint and tsc both pass on code Metro
       # cannot resolve -- a missing asset or a bad platform-specific import
       # only shows up here.
