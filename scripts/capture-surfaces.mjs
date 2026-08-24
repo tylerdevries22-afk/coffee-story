@@ -23,6 +23,46 @@ const display = process.env.DISPLAY_URL ?? 'http://localhost:3200';
 /** An iPad Pro 11" in landscape, which is what a kiosk stand holds. */
 const IPAD_LANDSCAPE = { width: 1366, height: 1024 };
 
+
+/**
+ * Taps a control by the start of its accessibility label and waits.
+ *
+ * The kiosk's steps past the first are STATEFUL -- /order/options renders
+ * nothing without an item chosen -- so a capture cannot simply navigate to a
+ * URL. It has to walk the flow the way a guest does, which is also the only
+ * way a capture proves the flow works.
+ */
+async function tap(page, prefix, timeoutMs = 8_000) {
+  // Polls rather than assuming: the processing step takes a beat to settle, and
+  // a capture that taps into the gap fails for a reason that has nothing to do
+  // with the screen being wrong.
+  const deadline = Date.now() + timeoutMs;
+  let found = false;
+  while (!found && Date.now() < deadline) {
+    found = await page.evaluate((label) => {
+      const button = [...document.querySelectorAll('[role="button"]')]
+        .find((candidate) => (candidate.getAttribute('aria-label') || '').startsWith(label));
+      if (!button) return false;
+      const options = { bubbles: true, cancelable: true, view: window, button: 0 };
+      button.dispatchEvent(new PointerEvent('pointerdown', { ...options, pointerId: 1, isPrimary: true }));
+      button.dispatchEvent(new MouseEvent('mousedown', options));
+      button.dispatchEvent(new PointerEvent('pointerup', { ...options, pointerId: 1, isPrimary: true }));
+      button.dispatchEvent(new MouseEvent('mouseup', options));
+      button.dispatchEvent(new MouseEvent('click', options));
+      return true;
+    }, prefix);
+    if (!found) await page.waitForTimeout(250);
+  }
+  if (!found) throw new Error(`no control labelled "${prefix}" on ${page.url()}`);
+  await page.waitForTimeout(700);
+}
+
+/** Walks from attract into the flow, so a shot of a later step is real. */
+const walkTo = (...steps) => async (page) => {
+  await tap(page, 'Start an order');
+  for (const step of steps) await tap(page, step);
+};
+
 const SHOTS = [
   {
     dir: '02-kiosk',
@@ -33,44 +73,46 @@ const SHOTS = [
   },
   {
     dir: '02-kiosk',
-    name: '02-menu-empty-bag',
-    url: `${kiosk}/order`,
+    name: '02-entry',
+    url: `${kiosk}/`,
     viewport: IPAD_LANDSCAPE,
-    note: 'Menu and bag both permanently visible: landscape has room for two things, so a standing guest never loses the menu to see their total.',
+    note: "The tenant's own first screen: every tile, its size and its order come from brand_config.kiosk, and a shop that configures nothing gets one derived from its menu.",
+    prepare: walkTo(),
   },
   {
     dir: '02-kiosk',
-    name: '03-menu-with-bag',
-    url: `${kiosk}/order`,
+    name: '03-options',
+    url: `${kiosk}/`,
     viewport: IPAD_LANDSCAPE,
-    note: 'Two items in. Per-jurisdiction tax rows, and money on the action itself.',
-    prepare: async (page) => {
-      const tap = async (prefix) => {
-        await page.evaluate((p) => {
-          const btn = [...document.querySelectorAll('[role="button"]')]
-            .find((b) => (b.getAttribute('aria-label') || '').startsWith(p));
-          btn?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-        }, prefix);
-        await page.waitForTimeout(250);
-      };
-      await tap('Spanish Latte');
-      await tap('Pistachio Latte');
-      await tap('Pistachio Latte');
-    },
+    note: 'Size and options. The Ice group does not exist until the drink is asked for iced, and the action reads what is missing rather than what it does.',
+    prepare: walkTo('Signature Lattes', 'Tiramisu Latte', 'Iced'),
   },
   {
     dir: '02-kiosk',
-    name: '04-tender',
-    url: `${kiosk}/tender`,
+    name: '04-review',
+    url: `${kiosk}/`,
     viewport: IPAD_LANDSCAPE,
-    note: 'Tender. The card reader is the interaction; this screen exists to say which part of it is happening.',
+    note: 'The last look before the bag. Money rides the action, so a choice shows its cost where the hand already is.',
+    prepare: walkTo('Signature Lattes', 'Tiramisu Latte', 'Iced', 'Regular Ice', 'Continue'),
   },
   {
     dir: '02-kiosk',
-    name: '05-receipt',
-    url: `${kiosk}/receipt`,
+    name: '05-pay',
+    url: `${kiosk}/`,
     viewport: IPAD_LANDSCAPE,
-    note: 'The handoff: one number, readable while walking away, and no button to dismiss -- a kiosk waiting to be dismissed is out of service until someone notices.',
+    note: "Per-authority tax rows from the tenant's own config, each rounded on its own so the printed rows add up to the printed total.",
+    prepare: walkTo('Signature Lattes', 'Tiramisu Latte', 'Iced', 'Regular Ice', 'Continue', 'Add to bag', 'Checkout'),
+  },
+  {
+    dir: '02-kiosk',
+    name: '06-done',
+    url: `${kiosk}/`,
+    viewport: IPAD_LANDSCAPE,
+    note: 'The handoff, and the optional attribution question the tenant configured. No button to dismiss: a guest who has paid is already leaving.',
+    prepare: walkTo(
+      'Signature Lattes', 'Tiramisu Latte', 'Iced', 'Regular Ice', 'Continue',
+      'Add to bag', 'Checkout', 'Credit / Debit', 'Continue', 'Skip',
+    ),
   },
   {
     dir: '03-pickup-display',
@@ -124,20 +166,48 @@ const SHOTS = [
   },
 ];
 
+const failures = [];
 const browser = await chromium.launch();
 for (const shot of SHOTS) {
   const page = await browser.newPage({ viewport: shot.viewport });
   try {
-    await page.goto(shot.url, { waitUntil: 'networkidle', timeout: 30_000 });
+    // Playwright does NOT throw on a 404, which is how all five committed
+    // kiosk captures came to be error pages -- four of them byte-identical --
+    // filed under confident captions. Both checks below exist because of that.
+    const response = await page.goto(shot.url, { waitUntil: 'networkidle', timeout: 30_000 });
+    if (response && !response.ok()) {
+      throw new Error(`${response.status()} from ${shot.url}`);
+    }
     await page.waitForTimeout(800);
     if (shot.prepare) await shot.prepare(page);
+    const rendered = await page.evaluate(() => document.body.innerText.trim());
+    if (rendered.length < 8) throw new Error('rendered nothing worth capturing');
+    if (/unmatched route|could not be found/i.test(rendered)) {
+      throw new Error('landed on a not-found screen');
+    }
     const dir = join(OUT, shot.dir);
     mkdirSync(dir, { recursive: true });
     await page.screenshot({ path: join(dir, `${shot.name}.png`) });
     console.log(`captured ${shot.dir}/${shot.name}.png — ${shot.note}`);
   } catch (err) {
-    console.log(`SKIPPED ${shot.dir}/${shot.name}: ${err.message.split('\n')[0]}`);
+    const reason = err.message.split('\n')[0];
+    // A surface whose server is not up is skipped loudly, which is this
+    // script's documented behaviour. A surface whose server IS up and served
+    // something broken is a failure -- that distinction is the whole point,
+    // because the committed kiosk captures were error pages from a live server.
+    const serverDown = /ERR_CONNECTION_REFUSED|ECONNREFUSED|net::ERR_/.test(reason);
+    if (!serverDown) failures.push(`${shot.dir}/${shot.name}: ${reason}`);
+    console.log(`${serverDown ? 'SKIPPED' : 'FAILED '} ${shot.dir}/${shot.name}: ${reason}`);
   }
   await page.close();
 }
 await browser.close();
+
+// A partial run used to look like a successful one. It exits non-zero now, so
+// a capture that silently stopped matching the product is a failure rather
+// than a line in a log nobody reads.
+if (failures.length > 0) {
+  console.error(`\n${failures.length} capture(s) failed:`);
+  for (const failure of failures) console.error(`  ${failure}`);
+  process.exitCode = 1;
+}

@@ -11,7 +11,7 @@ confused in the final submission.
 |---|---|---|---|
 | 1 | Customer ordering | public web ordering flow | **Full journey captured**, 6 frames |
 | 1 | Customer app | consumer app store listing | **~6 publisher frames of real UI** |
-| 2 | Self-order kiosk / POS | app stores, web, vendor pages | **Nothing published** |
+| 2 | Self-order kiosk / POS | app stores, web, vendor pages | **Nothing published.** Later walked in person at a public lobby kiosk — see `KIOSK-FLOW-OBSERVATIONS.md` |
 | 3 | Order-status display | app stores, web | **Nothing published** |
 | 4 | Recipe / prep station | app stores, web | **Nothing published** |
 | 5 | Crew operations app | crew app store listing | **2 placeholder cards, zero UI** |
@@ -38,9 +38,18 @@ which is available or appropriate.
 Surface 5 has a public *listing* but the application is employee-gated, and
 the publisher chose to ship placeholder cards instead of screenshots.
 
-**No screenshots of these four surfaces exist in this repository, and none
-were reconstructed from video stills or imagination.** An invented screen
-labelled as research would be worse than an acknowledged gap.
+**No screenshots of these four surfaces exist in this repository.** An invented
+screen labelled as research would be worse than an acknowledged gap.
+
+That sentence used to end "and none were reconstructed from video stills or
+imagination", which stopped being true when surface 2 was walked in person at a
+public lobby kiosk. What changed is the *sourcing*, not the discipline:
+`KIOSK-FLOW-OBSERVATIONS.md` records what each screen decides and in what order,
+the way `FLOW-OBSERVATIONS.md` does, and stops where that file stops. No capture
+was committed, no asset was vendored, and no visual identity was transcribed —
+`docs/DO-NOT-RESEMBLE.md` treats shipping their files as the one advisory item
+that is effectively hard, and rule 6 is enforced in CI as of the originality
+gate in `.github/workflows/verify.yml`.
 
 ## What the unsourced surfaces are designed from instead
 
