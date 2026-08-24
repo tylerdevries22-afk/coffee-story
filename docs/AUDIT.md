@@ -852,10 +852,39 @@ and still broader than a receipt needs — on a tablet bolted to a counter in a
 public room. It is the same argument that made `board_tickets` a projection
 rather than a policy: the projection is the privilege.
 
-Referred to them, since the receipt path is theirs, with three options: fold
-`device_id` into `kiosk_receipts` and drop the policy (strictest, and
-consistent with the display); keep the policy and drop my view; or keep the
-policy and revoke columns on `orders` — which carries exactly the failure mode
-above, on a table with far more readers. Default if they do not reply: drop
-the view, because leaving an unread view in the schema is the one option that
-is wrong either way.
+**Resolved, and the answer was none of the three.** The kiosk reads nothing at
+all: `apps/kiosk/src` has no Supabase client, no `@platform/data` import and no
+`.from('orders')`. Its two network calls are `placeOrder` and the pairing
+fetch, the ticket arrives on the placeOrder response, and even the timeout path
+needs no read — a retry with the same Idempotency-Key returns the original
+order. There was never a read to authorise.
+
+So 0041 (theirs) drops the policy outright rather than narrowing it, and 0042
+(mine) drops `kiosk_receipts` and its now-orphaned `app.can_read_receipt`. Both
+of us had been designing containment for a reader that does not exist. Deleting
+rather than keeping it "in case": an unread view is still a grant to `anon` and
+`authenticated`, still has to be reasoned about by whoever audits grants next,
+and is three lines to re-add — with `orders.device_id` in it, which stays as
+attribution and would scope such a read to one till rather than a location.
+
+### The rule both of us needed
+
+Their 0038 re-created a policy 0034 had deliberately dropped, because it read
+0023 and never checked whether anything later had removed it. My guard then
+made the mirror-image mistake: it required a write revoke for `kiosk_receipts`
+after 0042 dropped it, asserting against a view that was no longer there.
+
+**In an append-only migration set, the state of a thing is the last statement
+that names it — never the presence of a pattern anywhere in the file.** A
+`drop` grepped for passes while a later `create` puts it back; a `create`
+grepped for passes while a later `drop` removes it. Both guards now walk the
+sequence and take the last verb:
+
+- `surfaces.test.ts` asserts the last statement touching `orders_kiosk_select`
+  and `kiosk_receipts` is a `drop`, and separately that no Supabase client
+  exists in `apps/kiosk/src` — the structural reason the first two are safe.
+- `invariants.test.ts` builds its view list from the last verb per name, so a
+  dropped view is not required to carry a revoke it cannot have.
+
+Verified by probe rather than by reading: a view added with no write revoke
+fails both view assertions, and removing it returns the suite to green.

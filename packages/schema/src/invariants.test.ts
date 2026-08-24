@@ -81,9 +81,30 @@ describe('no view is a write path', () => {
   const WRITE_REVOKE = (view: string) =>
     new RegExp(`revoke[^;]*\\b(insert|update|delete)\\b[^;]*on\\s+(public\\.)?${view}\\b[^;]*;`, 'is');
 
+  /**
+   * Views that exist at the end of the sequence.
+   *
+   * Not every view a `create` ever mentioned: migrations are append-only, so a
+   * view dropped later still has its creation in the tree forever. Requiring a
+   * write revoke for one of those makes the guard assert against something
+   * that is not there -- a test that passes for a reason unrelated to what it
+   * claims. `kiosk_receipts` became exactly that when 0042 dropped it.
+   *
+   * The general rule, learned twice this week on this tree: in an additive
+   * migration set, the state of a thing is the LAST statement that names it,
+   * never the presence of a pattern anywhere in it.
+   */
   function declaredViews(): string[] {
-    const matches = orderedSql().matchAll(/create\s+(?:or\s+replace\s+)?view\s+public\.([a-z_]+)/gi);
-    return [...new Set([...matches].map((m) => (m[1] ?? '').toLowerCase()))];
+    const sql = statementsOnly();
+    const touched = [...sql.matchAll(
+      /(create|drop)\s+(?:or\s+replace\s+)?view(?:\s+if\s+exists)?\s+public\.([a-z_]+)/gi)];
+    const lastVerb = new Map<string, string>();
+    for (const [, verb, name] of touched) {
+      lastVerb.set((name ?? '').toLowerCase(), (verb ?? '').toLowerCase());
+    }
+    return [...lastVerb.entries()]
+      .filter(([, verb]) => verb === 'create')
+      .map(([name]) => name);
   }
 
   it('finds views to check, so a broken parser cannot pass vacuously', () => {

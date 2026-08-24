@@ -145,33 +145,68 @@ describe('the pickup display read', () => {
   });
 });
 
+/**
+ * The kiosk reads nothing, and that is the invariant.
+ *
+ * Three migrations circled this. 0023 gave a lobby tablet SELECT on `orders`
+ * for every row at its location for an hour. 0034 (mine) dropped that and
+ * added a projection, `kiosk_receipts`. 0038 re-created a policy of the same
+ * name -- narrower, but on `orders`, which grants every column of the rows it
+ * matches, so it was a step backwards from the projection it did not know had
+ * replaced it. 0041 dropped the policy outright and 0042 dropped my view.
+ *
+ * The reason all three were wrong is the same: `apps/kiosk/src` contains no
+ * Supabase client, no `@platform/data` import and no `.from('orders')`. The
+ * ticket arrives on the placeOrder response, and a retry with the same
+ * Idempotency-Key returns the original order. There is no read to authorise.
+ *
+ * So the assertion is not "the grant is narrow" but "there is no grant", and
+ * it has to be checked as the LAST statement touching each name. Grepping for
+ * a `drop` passes while a later `create` puts it back -- which is exactly how
+ * 0038 slipped past, and why this walks the sequence.
+ */
 describe('the lobby kiosk read', () => {
-  it('leaves an ordering device no route to orders either', () => {
-    // Same shape as the display policy 0033 dropped, on a surface just as
-    // public: `orders_kiosk_select` granted SELECT on `orders` -- every column,
-    // every row at that location, for a rolling hour -- to a tablet bolted to
-    // a counter anyone can reach. 0034 replaced it with a projection.
-    assert.match(allSql(), /drop policy if exists orders_kiosk_select on public\.orders/);
+  /** What the migration sequence last did to `name`: 'create', 'drop', or null. */
+  function lastVerbFor(name: string, kind: 'policy' | 'view'): string | null {
+    const pattern = kind === 'policy'
+      ? new RegExp(`(create|drop)\\s+policy(?:\\s+if\\s+exists)?\\s+${name}\\b`, 'gi')
+      : new RegExp(`(create|drop)\\s+(?:or\\s+replace\\s+)?view(?:\\s+if\\s+exists)?\\s+public\\.${name}\\b`, 'gi');
+    const hits = [...allSql().matchAll(pattern)];
+    return hits.length === 0 ? null : (hits[hits.length - 1]?.[1] ?? '').toLowerCase();
+  }
+
+  it('ends with no orders policy for an ordering device', () => {
+    assert.equal(lastVerbFor('orders_kiosk_select', 'policy'), 'drop',
+      'the last statement touching orders_kiosk_select must be a drop; a later '
+      + 'create hands a public tablet every column of the rows it matches');
   });
 
-  it('hands a receipt a number and a name, and nothing that costs money', () => {
-    const views = [...allSql().matchAll(
-      /create (?:or replace )?view public\.kiosk_receipts[\s\S]*?;/g)];
-    assert.ok(views.length > 0, 'kiosk_receipts is not defined');
-    const columns = projectedColumns(views[views.length - 1]![0]);
-    assert.ok(columns.includes('daily_number'));
-    for (const forbidden of ['customer_id', 'totals', 'total_cents', 'note', 'square_payment_id']) {
-      assert.ok(!columns.includes(forbidden), `kiosk_receipts must not expose ${forbidden}`);
+  it('ends with no receipt projection either, because nothing reads one', () => {
+    assert.equal(lastVerbFor('kiosk_receipts', 'view'), 'drop',
+      'an unread view is still a grant to anon and authenticated');
+  });
+
+  it('leaves the kiosk with no client to read with', () => {
+    // The structural reason the two above are safe to assert. If a Supabase
+    // client ever appears in the kiosk, this fails first and whoever added it
+    // gets to decide the grant deliberately rather than by accident.
+    const kioskSrc = join(MIGRATIONS, '..', '..', 'apps', 'kiosk', 'src');
+    const files: string[] = [];
+    const walk = (dir: string) => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const full = join(dir, entry.name);
+        if (entry.isDirectory()) walk(full);
+        else if (/\.tsx?$/.test(entry.name)) files.push(full);
+      }
+    };
+    walk(kioskSrc);
+    for (const file of files) {
+      const src = readFileSync(file, 'utf8');
+      assert.ok(!src.includes("from('orders')"),
+        `${file} reads orders directly; the kiosk is a public tablet`);
+      assert.ok(!/createClient\s*\(/.test(src),
+        `${file} builds a Supabase client; the kiosk had none by design`);
     }
-  });
-
-  it('bounds the window, because a kiosk cannot prove which order is its own', () => {
-    const fn = /create or replace function app\.can_read_receipt[\s\S]*?\$\$;/.exec(allSql());
-    assert.ok(fn, 'app.can_read_receipt is not defined');
-    assert.match(fn[0], /device_is_active\('kiosk'\)/);
-    assert.match(fn[0], /jwt_device_location\(\)/, 'must be scoped to the device location');
-    assert.match(allSql(), /created_at > now\(\) - interval '10 minutes'/,
-      'the receipt window is the containment; it must stay short');
   });
 });
 
