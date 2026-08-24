@@ -456,3 +456,31 @@ before it was a test and a comment is not a control:
 - The kiosk receipt / board numbering conflict, `REWARD_TIERS` carrying one
   tenant's ladder in a shared package, and the annual-vs-lifetime points
   mismatch all stand as previously recorded.
+
+### A gap in this pass's own verification
+
+0033 broke the five-surface trace on `main` and nothing here noticed. That
+suite read the board with the service role, which worked only while
+`board_tickets` was `security_invoker`; once the view gated itself on
+`app.can_read_board`, a principal with no device claim and no staff role
+correctly got nothing back. Another session caught it and fixed it properly —
+the board reads now go through `fetchBoardTickets` as a shift lead, plus a new
+assertion on a paired display device's own claims.
+
+The reason it was missed here is worth stating plainly: **`pnpm verify` returns
+green without exercising RLS at all.** `tests/integration` is the only suite
+that runs as a real principal, and it *skips* rather than fails when
+`SUPABASE_TEST_*` is unset. A migration that changes who can read what is
+therefore invisible to a full local verification run — the exact class of
+change most likely to break something, and the one class the default gate does
+not cover.
+
+Two things follow, neither done here:
+
+- A migration touching a policy, a definer function or a view's gate should not
+  be considered verified until the integration suite has actually run. CI
+  starts a stack; locally it needs `supabase start` and the `SUPABASE_TEST_*`
+  variables, and the local containers were half-unhealthy through this pass.
+- A skipped suite reporting the same green as a passing one is the underlying
+  problem. `skipUnlessConfigured` is right for `pnpm -r test`, but a
+  pre-promotion check should say out loud which suites did not run.
