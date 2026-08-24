@@ -1,0 +1,55 @@
+{
+  "$comment": "The five surfaces, as the preview wall frames them. `launch` names the entry in .claude/launch.json that serves each one; `pnpm preview` fails if a port here disagrees with that file. width/height are the device viewport the surface is designed for -- the wall renders at that size and scales down, so a small tile still shows the layout the real device gets. span is how many of the wall's six grid columns the cell claims.",
+  "surfaces": [
+    {
+      "launch": "display",
+      "name": "Pickup display",
+      "device": "wall TV",
+      "port": 3200,
+      "path": "/board/demo",
+      "width": 1920,
+      "height": 1080,
+      "span": 3
+    },
+    {
+      "launch": "hq",
+      "name": "HQ console",
+      "device": "desktop",
+      "port": 3300,
+      "path": "/",
+      "width": 1440,
+      "height": 900,
+      "span": 3
+    },
+    {
+      "launch": "kiosk-web",
+      "name": "Kiosk / POS",
+      "device": "iPad landscape",
+      "port": 4180,
+      "path": "/",
+      "width": 1180,
+      "height": 820,
+      "span": 2
+    },
+    {
+      "launch": "operator-web",
+      "name": "Operator",
+      "device": "iPad landscape",
+      "port": 4190,
+      "path": "/",
+      "width": 1180,
+      "height": 820,
+      "span": 2
+    },
+    {
+      "launch": "customer-web",
+      "name": "Customer",
+      "device": "iPhone",
+      "port": 4170,
+      "path": "/",
+      "width": 390,
+      "height": 844,
+      "span": 2
+    }
+  ]
+}

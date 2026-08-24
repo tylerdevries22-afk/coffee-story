@@ -1,6 +1,7 @@
-import { createContext, useContext, type PropsWithChildren, type ReactNode } from 'react';
+import { createContext, useContext, useMemo, type PropsWithChildren, type ReactNode, type Ref } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   Image,
   Pressable,
   ScrollView,
@@ -16,7 +17,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { BUSINESS_MONOGRAM } from '@/data/business';
+import { useBusiness } from '@/state/business';
 import { colors, fonts, radius, shadow, spacing } from '@/theme/tokens';
 import type { AppIconName } from '@/components/icon-map';
 import { AppIcon } from '@/components/icon';
@@ -101,20 +102,61 @@ function surfaceOf(tone: SurfaceTone) {
 export function Screen({
   children,
   tone = 'light',
+  scrollY,
+  scrollRef,
   ...props
-}: PropsWithChildren<ScrollViewProps & { tone?: SurfaceTone }>) {
+}: PropsWithChildren<
+  ScrollViewProps & {
+    tone?: SurfaceTone;
+    /**
+     * Opt in to a natively driven scroll position.
+     *
+     * With it, the scroller becomes an `Animated.ScrollView` that writes this
+     * value off the JS thread, and `onScroll` still fires as the event's
+     * `listener` for anything that has to touch React state. Without it, this
+     * stays the plain ScrollView every other screen mounts today.
+     *
+     * The caller must not also write the value from `onScroll`: a JS write to a
+     * value that has moved into the native graph is what produces "Attempting
+     * to run JS driven animation on animated node that has been moved to
+     * native".
+     *
+     * Stable for the life of the screen — adding or removing it changes the
+     * element type and remounts the scroller.
+     */
+    scrollY?: Animated.Value;
+    /** For scrolling to a measured child; pairs with an `onLayout` offset. */
+    scrollRef?: Ref<ScrollView>;
+  }
+>) {
   const insets = useSafeAreaInsets();
   const surface = surfaceOf(tone);
+  const Scroller = scrollY ? Animated.ScrollView : ScrollView;
+  const { onScroll } = props;
+  // Rebuilt only when the value or the listener changes: a fresh
+  // `Animated.event` re-attaches the native handler.
+  const handleScroll = useMemo(
+    () =>
+      scrollY
+        ? Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+            useNativeDriver: true,
+            listener: onScroll,
+          })
+        : onScroll,
+    [scrollY, onScroll],
+  );
   return (
     <ToneContext.Provider value={tone}>
-      <ScrollView
+      <Scroller
         {...props}
+        ref={scrollRef}
+        onScroll={handleScroll}
         style={[styles.screen, surface ? { backgroundColor: surface.screen } : null, props.style]}
         contentContainerStyle={[styles.screenContent, { paddingTop: insets.top + spacing.md }, props.contentContainerStyle]}
         showsVerticalScrollIndicator={false}
       >
         {children}
-      </ScrollView>
+      </Scroller>
     </ToneContext.Provider>
   );
 }
@@ -176,10 +218,11 @@ export function LoadingState({ label }: { label: string }) {
 }
 
 export function ErrorState({ title = 'Something went quiet.', message, onRetry }: { title?: string; message: string; onRetry?: () => void }) {
+  const { monogram } = useBusiness();
   return (
     <StaticScreen>
       <View style={styles.stateWrap}>
-        <View style={styles.stateMark}><Text style={styles.stateMarkText}>{BUSINESS_MONOGRAM}</Text></View>
+        <View style={styles.stateMark}><Text style={styles.stateMarkText}>{monogram}</Text></View>
         <Title>{title}</Title>
         <Body muted>{message}</Body>
         {onRetry ? <Button label="Try again" onPress={onRetry} /> : null}

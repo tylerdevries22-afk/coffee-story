@@ -101,8 +101,8 @@ custom-native falls back to the simulated Demo path:
 - Stripe card payments are simulated. `usesSimulatedNativeFlows` in
   `lib/native-adapters.ts` is what decides.
 - The device calendar is not written; the calendar export reports a preview.
-- The custom `coffeestory://` scheme is not stable, so password-recovery deep
-  links have to use the session-specific `exp://…/--/reset-password` URL that
-  the running tunnel prints.
+- The app's own custom scheme is not stable, so password-recovery deep links
+  have to use the session-specific `exp://…/--/reset-password` URL that the
+  running tunnel prints.
 
 For any of those, use an EAS development build or TestFlight.

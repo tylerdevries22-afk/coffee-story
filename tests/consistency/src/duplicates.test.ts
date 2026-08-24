@@ -64,6 +64,12 @@ const DIVERGENT_BY_DESIGN = [
   'screens/notifications-screen.tsx',
   'state/app-context.tsx',
   'state/auth-context.tsx',
+  // Rule 7 makes this one persona-different by construction: the customer is
+  // one binary per brand, so its shop is fixed at build time from the bundled
+  // brand.json; the operator is one listing tenanted by login, so its shop is
+  // whatever the signed-in staff member's brand row says. Same hook name, same
+  // return type, two answers that cannot be the same code.
+  'state/business.ts',
   'state/demo-state.test.ts',
   // The operator's staff bar lost calendar/quick-actions/clients/checkout with
   // the booking workspace, so its route vocabulary is genuinely smaller than the

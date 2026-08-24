@@ -16,7 +16,17 @@ export type StaffContext = {
   /** brand_config from the brands row: tokens, copy, business details. */
   brandConfig: unknown;
   /** The locations this account may work, claims-scoped for shift staff. */
-  locations: { id: string; name: string }[];
+  locations: StaffLocation[];
+};
+
+/** A location as the staff app needs it: enough to scope the board, plus the
+ * posted address and wall-clock zone, which are per location (rule 1) and not
+ * on the brand. */
+export type StaffLocation = {
+  id: string;
+  name: string;
+  address: { street?: string; city?: string; region?: string; postal?: string } | null;
+  timezone: string | null;
 };
 
 /** The hook-minted tenancy claims ride in the token payload, not in the
@@ -54,13 +64,13 @@ export async function loadStaffContext(
 
   const locationsQuery = client
     .from('locations')
-    .select('id, name')
+    .select('id, name, address, timezone')
     .eq('brand_id', claims.brand_id)
     .order('created_at');
   const locations = await (claims.role === 'staff' && claims.location_ids.length > 0
     ? locationsQuery.in('id', claims.location_ids)
     : locationsQuery
-  ).returns<{ id: string; name: string }[]>();
+  ).returns<StaffLocation[]>();
   if (locations.error) throw new Error(`Locations could not be loaded: ${locations.error.message}`);
 
   const metadata = session.user.user_metadata as { full_name?: string } | null;

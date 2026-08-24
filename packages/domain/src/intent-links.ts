@@ -1,3 +1,5 @@
+import { isOwnAppUrl } from './scheme';
+
 export type IntentDestination = 'book' | 'orders' | 'rewards' | 'gift';
 
 const INTENT_HOSTS: readonly IntentDestination[] = ['book', 'orders', 'rewards', 'gift'];
@@ -13,13 +15,13 @@ const LEGACY_INTENT_HOSTS: Readonly<Record<string, IntentDestination>> = {
 };
 
 /**
- * Maps Siri/App Intents deep links (coffeestory://<host>) to portal destinations.
- * Returns null for any URL that is not an intent link — auth recovery and gift
- * claim URLs are handled by their own listeners.
+ * Maps Siri/App Intents deep links (`<our scheme>://<host>`) to portal
+ * destinations. Returns null for any URL that is not an intent link — auth
+ * recovery and gift claim URLs are handled by their own listeners.
  */
 export function destinationForIntentUrl(url: string | null | undefined): IntentDestination | null {
-  if (!url || !url.startsWith('coffeestory://')) return null;
-  const withoutScheme = url.slice('coffeestory://'.length);
+  if (!url || !isOwnAppUrl(url)) return null;
+  const withoutScheme = url.slice(url.indexOf('://') + '://'.length);
   const host = withoutScheme.split(/[/?#]/)[0]?.toLowerCase();
   if (!host) return null;
   // Gift claim links belong to the gift-claim flow, which extracts the token and
@@ -33,7 +35,7 @@ export function destinationForIntentUrl(url: string | null | undefined): IntentD
 
 /**
  * Extracts the claim token from a gift-claim deep link
- * (`coffeestory://gift?token=…` or `https://<host>/gift?token=…`).
+ * (`<our scheme>://gift?token=…` or `https://<host>/gift?token=…`).
  * Returns null for every other URL so unrelated links that merely carry a
  * `token` query param (auth callbacks, reward links, …) are never hijacked
  * by the gift-claim flow. Server-issued tokens are at least 32 characters.

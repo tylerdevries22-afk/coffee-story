@@ -1,1 +1,1 @@
-export { redirectSystemPath } from '@/state/native-intent';
+export { redirectSystemPath } from '@platform/domain';
