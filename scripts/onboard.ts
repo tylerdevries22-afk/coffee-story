@@ -112,7 +112,9 @@ function argValue(flag: string): string | null {
   return index >= 0 ? process.argv[index + 1] ?? null : null;
 }
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const slug = argValue('--tenant');
+const ownerFlagProvided = process.argv.includes('--owner-user-id');
 const ownerUserId = argValue('--owner-user-id');
 const apply = process.argv.includes('--apply');
 const requireDatabase = process.argv.includes('--require-db');
@@ -120,7 +122,7 @@ if (!slug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
   console.error('Usage: pnpm onboard --tenant <slug> [--apply] [--owner-user-id <uuid>]');
   process.exit(1);
 }
-if (ownerUserId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(ownerUserId)) {
+if (ownerFlagProvided && (!ownerUserId || !UUID_PATTERN.test(ownerUserId))) {
   console.error('--owner-user-id must be a valid UUID.');
   process.exit(1);
 }
