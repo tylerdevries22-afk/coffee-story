@@ -42,6 +42,13 @@ export const DEFAULT_COPY: BrandCopy = {
    */
   handoffPromise: "We'll call your name when it's ready.",
   boardTitle: 'Order Queue',
+  /**
+   * Shown when a production screen has no device token. Addressed to staff,
+   * not guests -- a guest can do nothing about it, and the one person who can
+   * needs to know what to do rather than that something is wrong.
+   */
+  boardUnpairedTitle: 'This screen is not paired',
+  boardUnpairedBody: 'Pair it from the console under Locations → Devices.',
   boardReady: 'Ready',
   /** Read out by assistive tech in place of the bare digit. */
   boardPosition: 'Number {position} in line',

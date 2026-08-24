@@ -743,3 +743,65 @@ mine to do. 0035 and 0036 were executed against the real database before it
 went; **0039 and 0040 are verified statically only** — typecheck, tests, and the SQL
 reviewed against the same patterns 0031 and 0033 established. CI runs the
 migrations on a hosted stack and is the gate that will actually execute it.
+
+## Production wiring — 2026-08-23
+
+"Nothing running locally" checked end to end, not assumed.
+
+**Nothing is hardcoded to a local stack.** No `.env` file is tracked or even
+present on disk — only `.env.example`. Every `localhost` / `127.0.0.1` string
+in shipping source is inside a *validator* (`runtime-config.ts`,
+`packages/data/src/config.ts`, `packages/api-client/src/client.ts`,
+`auth-links.ts`) that permits a local host only in development and enforces
+HTTPS otherwise. The rest are CI workflows, test harnesses and
+`supabase/config.toml`, which is the local dev stack's own config and belongs
+there.
+
+Two things were genuinely wrong, both on the surface I own.
+
+### An unpaired production wall would have shown invented guests. **[FIXED]**
+
+`loadBoard` fell back to fixtures whenever no client could be built. On a
+laptop that is the whole point of them. On a wall in a shop it is a liability:
+a production display with no device token would have drawn "Marguerite
+Vandersteen" and five other fabricated names on a screen the room can read,
+indistinguishable from the real queue except that nobody present is holding
+those orders. Staff would have no reason to look twice.
+
+A production build now never invents anyone. With no token it renders an
+honest unpaired screen addressed to staff rather than guests — a guest can do
+nothing about it, and the person who can needs to know what to do. A trade
+stand opts in with `DISPLAY_DEMO_MODE=1`; any other value fails safe. A
+*degraded* read on a paired screen no longer falls back to fixtures either.
+
+Verified by building with `NODE_ENV=production`, serving it with a Supabase
+URL and no device token, and reading the rendered HTML: "This screen is not
+paired / Pair it from the console under Locations → Devices."
+
+### `DISPLAY_DEVICE_TOKEN` was documented nowhere. **[FIXED]**
+
+It became required earlier in this pass and appeared in no `.env.example`, so
+a deployment had no way to learn it exists. Added to the root reference and to
+a new `apps/display/.env.example`, which states plainly why the anon key is
+not a substitute: `board_tickets` is gated on `app.can_read_board` (0033), the
+anon key satisfies it for nothing, and the resulting read returns zero rows
+that the board would label "Live".
+
+A test now asserts every `process.env` name the app reads appears in its own
+`.env.example`, so the next variable cannot be added silently.
+
+### Still required from the operator, not from the code
+
+The platform is configured entirely by environment; nothing here can supply
+these, and each is named in `.env.example` with what it is for:
+
+- A real Supabase project — `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`,
+  `SUPABASE_DB_URL`, plus the browser-safe pair for HQ.
+- Square application credentials, `SQUARE_TOKEN_KEY` (32 bytes, base64), and
+  the webhook signature key and URL.
+- One `DISPLAY_DEVICE_TOKEN` per paired screen, issued from the console.
+- Sentry, Twilio/Resend and Checkly, each optional and each DSN-gated.
+
+The migrations in `supabase/migrations/` are the schema of record and CI
+applies them to a hosted stack; `supabase/config.toml` configures only the
+local development stack and has no bearing on a deployed project.
