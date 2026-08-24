@@ -1,0 +1,10 @@
+{
+  "brew-box-4": {
+    "packSize": 4,
+    "choiceSource": "lineup",
+    "singleItemSlug": "v60-single",
+    "eligibleItemSlugs": [
+      "v60-single"
+    ]
+  }
+}

@@ -118,7 +118,7 @@ describe('recovery advice', () => {
   it('never offers another tender after a timeout', () => {
     for (let attempts = 1; attempts <= 5; attempts += 1) {
       assert.notEqual(
-        recoveryAdvice(at('timedOut', { attempts })), 'choose-another-tender',
+        recoveryAdvice(at('timedOut', { attempts })), 'retry-payment',
         `attempts=${attempts}`,
       );
     }
@@ -126,8 +126,14 @@ describe('recovery advice', () => {
     assert.equal(recoveryAdvice(at('timedOut', { attempts: 2 })), 'see-staff');
   });
 
-  it('offers another tender after a definite decline, keeping the bag', () => {
-    assert.equal(recoveryAdvice(at('failed', { errorCode: 'declined' })), 'choose-another-tender');
+  it('retries a definite decline in place so the order key survives', () => {
+    assert.equal(recoveryAdvice(at('failed', { errorCode: 'declined' })), 'retry-payment');
+  });
+
+  it('sends configuration and order failures to staff instead of another tender', () => {
+    assert.equal(recoveryAdvice(at('failed', { errorCode: 'api_not_configured' })), 'see-staff');
+    assert.equal(recoveryAdvice(at('failed', { errorCode: 'order_ordering_paused' })), 'see-staff');
+    assert.equal(recoveryAdvice(at('failed', { errorCode: 'reader_unavailable' })), 'see-staff');
   });
 
   it('has nothing to say while things are working', () => {

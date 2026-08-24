@@ -1,14 +1,12 @@
 import { ScrollView, StyleSheet, View } from 'react-native';
 
-import {
-  formatMoney, itemsInCategoryOf, optionGroupsFor, sizePriceCents, type MenuCategoryId,
-} from '@platform/domain';
+import { formatMoney, itemNeedsConfiguration, itemsForTarget, sizePriceCents } from '@platform/domain';
 import { useTokens } from '@platform/ui';
 
+import { FlowRecovery } from '@/components/chrome/flow-recovery';
 import { StepHeading } from '@/components/chrome/step-heading';
 import { CircleTile } from '@/components/circle/circle-tile';
 import { useKioskMenu } from '@/data/menu-store';
-import { optionCategoryIdFor } from '@/data/menu-source';
 import { useBuilder } from '@/state/builder';
 import { useFlow } from '@/state/flow';
 import TENANT from '@/tenant/brand.json';
@@ -22,12 +20,15 @@ import TENANT from '@/tenant/brand.json';
  */
 export default function ItemStep() {
   const tokens = useTokens();
-  const { selected, goNext } = useFlow();
+  const { selected, goNext, goTo } = useFlow();
   const builder = useBuilder();
   const { menu } = useKioskMenu();
 
-  const categoryTitle = selected?.target.kind === 'category' ? selected.target.categoryId : '';
-  const items = itemsInCategoryOf(menu, categoryTitle);
+  // An item-family flow must never sell a container without collecting its
+  // exact fill. Misconfigured pack targets fail closed into recovery.
+  const items = itemsForTarget(menu, selected?.target).filter((item) => item.packSize === undefined);
+
+  if (items.length === 0) return <FlowRecovery onRecover={() => goTo('entry')} />;
 
   return (
     <View style={styles.root}>
@@ -44,18 +45,19 @@ export default function ItemStep() {
               caption={soldOut ? 'Sold out today' : from ? formatMoney(sizePriceCents(from)) : undefined}
               variant="kioskChoice"
               disabled={soldOut}
-              request={{ imageSlug: item.id, monogram: TENANT.business?.monogram, label: item.name }}
+              request={{
+                imageSlug: item.id,
+                imageUrl: item.imageUrl,
+                monogram: TENANT.business?.monogram,
+                label: item.name,
+              }}
               onPress={() => {
                 builder.choose(item);
                 // Whether an options screen exists at all is a property of the
                 // item -- a latte has size, milk and ice; a mochi donut has
                 // none -- so it is carried INTO the advance rather than set
                 // beside it, or the step is decided from stale facts.
-                const categoryId = optionCategoryIdFor(item);
-                goNext({
-                  hasOptions: categoryId !== null
-                    && optionGroupsFor(item.id, categoryId as MenuCategoryId).length > 0,
-                });
+                goNext({ hasOptions: itemNeedsConfiguration(item) });
               }}
             />
           );

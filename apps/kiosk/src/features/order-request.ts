@@ -17,6 +17,8 @@ export type OrderRequestInput = {
   locationId: string;
   tenderType: TenderType;
   tipCents?: number;
+  /** Local checkout total already shown to and approved by the guest. */
+  maximumTotalCents?: number;
   /** Already validated with `parseGuestLabel`; omitted when absent. */
   guestLabel?: string | null;
 };
@@ -41,6 +43,9 @@ export function toPlaceOrderRequest(input: OrderRequestInput): PlaceOrderRequest
     fulfillmentType: 'pickup',
     lines,
     tipCents: Math.max(0, Math.trunc(input.tipCents ?? 0)),
+    ...(input.maximumTotalCents === undefined
+      ? {}
+      : { maximumTotalCents: Math.max(0, Math.trunc(input.maximumTotalCents)) }),
     tenderType: input.tenderType,
     ...(input.guestLabel ? { guestLabel: input.guestLabel } : {}),
   };
@@ -49,10 +54,19 @@ export function toPlaceOrderRequest(input: OrderRequestInput): PlaceOrderRequest
 function toLine(line: OrderLine): PlaceOrderLine {
   return {
     itemSlug: line.itemId,
-    sizeSlug: line.sizeSlug,
+    ...(line.sizeSlugIsSynthetic ? {} : { sizeSlug: line.sizeSlug }),
     quantity: line.quantity,
     // Sorted upstream, so the same drink produces the same request whichever
     // order the guest tapped its options in.
     modifierSlugs: [...line.optionIds],
+    ...(line.note ? { note: line.note } : {}),
+    ...(line.packContents
+      ? {
+          packContents: line.packContents.map((content) => ({
+            itemSlug: content.itemSlug,
+            quantity: content.quantity,
+          })),
+        }
+      : {}),
   };
 }

@@ -1,7 +1,7 @@
 /**
  * Tenant onboarding: `pnpm onboard --tenant <slug>` (add `--apply` to point
- * the customer app's bundled tenant at this slug, and optionally pass an
- * existing Supabase identity with `--owner-user-id <uuid>`).
+ * the customer and kiosk apps' bundled tenant at this slug, and optionally
+ * pass an existing Supabase identity with `--owner-user-id <uuid>`).
  *
  * Idempotent by construction: brand upserts on slug, the location on
  * (brand, name), menu items on (menu, slug); generated files overwrite their
@@ -15,8 +15,8 @@
  *   3. With assets/logo.svg: generate icon/splash/adaptive art (sharp) into
  *      tenants/<slug>/app-store/generated/.
  *   4. Emit the app-store listing draft and screenshots checklist.
- *   5. With --apply: copy brand.json into apps/customer/src/tenant/ so the
- *      next build ships this tenant (the drift test pins the copy).
+ *   5. With --apply: refresh the generated customer and kiosk tenant bundles
+ *      so both binaries ship this tenant (drift tests pin every copy).
  */
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -57,6 +57,7 @@ type BrandFile = {
     kioskBundleId: string;
     kioskScheme: string;
     easProjectId: string;
+    kioskEasProjectId: string;
   };
   tokens: Record<string, unknown> & {
     primary?: string;
@@ -144,6 +145,11 @@ async function run() {
   if (!/^[a-z][a-z0-9+.-]*$/.test(brand.identity?.kioskScheme ?? '')) {
     problems.push('identity.kioskScheme must be a valid URL scheme.');
   }
+  if (typeof brand.identity?.kioskEasProjectId !== 'string') {
+    problems.push('identity.kioskEasProjectId is required (use an empty string until `eas init`).');
+  } else if (brand.identity.kioskEasProjectId !== '' && !UUID_PATTERN.test(brand.identity.kioskEasProjectId)) {
+    problems.push('identity.kioskEasProjectId must be empty or a valid EAS project UUID.');
+  }
   if (!brand.identity?.name) problems.push('identity.name is required.');
   if (!brand.location?.timezone?.includes('/')) problems.push('location.timezone must be an IANA zone.');
   for (const jurisdiction of brand.tax?.jurisdictions ?? []) {
@@ -181,8 +187,11 @@ async function run() {
   const categories = existsSync(categoriesPath)
     ? JSON.parse(readFileSync(categoriesPath, 'utf8')) as TenantMenuCategory[]
     : [];
-  const compiled = buildTenantMenu(menu.rows, categories, modifiersBySlug);
+  const packsPath = join(tenantDir, 'packs.json');
+  const packsBySlug = readOptionalObjectFile(packsPath, 'packs.json', problems);
+  const compiled = buildTenantMenu(menu.rows, categories, modifiersBySlug, packsBySlug);
   problems.push(...compiled.errors);
+  validatePackFlow(brand.kiosk, compiled.menu, problems);
   validateTokens(brand.tokens, problems);
   if (apply) validateCustomerAssets(tenantDir, compiled.menu, problems);
   if (problems.length > 0) {
@@ -293,8 +302,12 @@ async function run() {
         if (error) throw error;
         categoryIds.set(category.title, saved.id);
       }
+      const compiledBySlug = new Map(compiled.menu.items.map((item) => [item.id, item]));
+      const menuItemIds = new Map<string, string>();
       for (const [index, row] of menu.rows.entries()) {
-        const { error } = await db.from('menu_items').upsert(
+        const compiledItem = compiledBySlug.get(row.slug);
+        if (!compiledItem) throw new Error(`No compiled menu item for "${row.slug}".`);
+        const { data: savedItem, error } = await db.from('menu_items').upsert(
           {
             brand_id: brandRow.id,
             menu_id: menuId,
@@ -306,9 +319,25 @@ async function run() {
             sizes: row.sizes,
             modifiers: modifiersBySlug[row.slug] ?? [],
             sort_order: index,
+            pack_size: compiledItem.packSize ?? null,
+            choice_source: compiledItem.choiceSource ?? null,
+            pack_choice_slugs: compiledItem.eligibleItemIds ?? [],
+            // The referenced row may be later in menu.csv, so UUIDs are linked
+            // only after every stable slug has been upserted below.
+            single_item_id: null,
           },
           { onConflict: 'menu_id,slug' },
-        );
+        ).select('id,slug').single();
+        if (error) throw error;
+        menuItemIds.set(savedItem.slug, savedItem.id);
+      }
+      for (const item of compiled.menu.items) {
+        if (!item.singleItemId) continue;
+        const packId = requiredMenuItemId(menuItemIds, item.id);
+        const singleId = requiredMenuItemId(menuItemIds, item.singleItemId);
+        const { error } = await db.from('menu_items')
+          .update({ single_item_id: singleId })
+          .eq('id', packId);
         if (error) throw error;
       }
     }
@@ -419,7 +448,7 @@ own colors, type, and photography (docs/DO-NOT-RESEMBLE.md).
   ];
   if (apply) {
     for (const destination of BUNDLED_COPIES) copyFileSync(brandPath, destination);
-    applyCustomerBundle(tenantDir, brand, compiled.menu);
+    applyAppBundles(tenantDir, brand, compiled.menu);
     console.log(`5. applied: apps/customer and apps/kiosk now bundle ${slug} (build with TENANT=${slug})`);
   } else {
     console.log(`5. not applied: pass --apply to point apps/customer and apps/kiosk at this tenant`);
@@ -469,10 +498,97 @@ function requiredCategoryId(categoryIds: ReadonlyMap<string, string>, title: str
   return categoryId;
 }
 
+function requiredMenuItemId(itemIds: ReadonlyMap<string, string>, slug: string): string {
+  const itemId = itemIds.get(slug);
+  if (!itemId) throw new Error(`No database menu item was created for "${slug}".`);
+  return itemId;
+}
+
 function objectRecord(value: unknown): Record<string, unknown> | null {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
     ? value as Record<string, unknown>
     : null;
+}
+
+function readOptionalObjectFile(path: string, label: string, problems: string[]): Record<string, unknown> {
+  if (!existsSync(path)) return {};
+  try {
+    const parsed = objectRecord(JSON.parse(readFileSync(path, 'utf8')) as unknown);
+    if (parsed) return parsed;
+  } catch {
+    // The single structured error below is more useful than a JSON stack trace.
+  }
+  problems.push(`${label} must contain one JSON object.`);
+  return {};
+}
+
+type TargetReachability = { valid: boolean; reachesPack: boolean; utilityOnly: boolean };
+
+function auditPackTarget(
+  value: unknown,
+  menu: BundledTenantMenu,
+  packSlugs: ReadonlySet<string>,
+  depth: number,
+): TargetReachability {
+  const target = objectRecord(value);
+  if (!target) return { valid: false, reachesPack: false, utilityOnly: false };
+  if (target.kind === 'utility') {
+    return { valid: nonEmptyString(target.utility), reachesPack: false, utilityOnly: true };
+  }
+  if (target.kind === 'item' && nonEmptyString(target.itemSlug)) {
+    const valid = menu.items.some((item) => item.id === target.itemSlug);
+    return { valid, reachesPack: valid && packSlugs.has(target.itemSlug), utilityOnly: false };
+  }
+  if (target.kind === 'category' && nonEmptyString(target.categoryId)) {
+    const category = menu.categories.find((candidate) => candidate.title === target.categoryId);
+    const reachesPack = category !== undefined && menu.items.some(
+      (item) => item.category === category.id && packSlugs.has(item.id),
+    );
+    return { valid: category !== undefined, reachesPack, utilityOnly: false };
+  }
+  if (target.kind !== 'group' || depth > 0 || !Array.isArray(target.nodes)) {
+    return { valid: false, reachesPack: false, utilityOnly: false };
+  }
+  const children = target.nodes.map((node) => auditPackNode(node, menu, packSlugs, depth + 1));
+  const validChildren = children.filter((child) => child.valid);
+  const nonUtility = validChildren.filter((child) => !child.utilityOnly);
+  return {
+    valid: validChildren.length > 0,
+    reachesPack: nonUtility.length > 0 && nonUtility.every((child) => child.reachesPack),
+    utilityOnly: validChildren.length > 0 && validChildren.every((child) => child.utilityOnly),
+  };
+}
+
+function auditPackNode(
+  value: unknown,
+  menu: BundledTenantMenu,
+  packSlugs: ReadonlySet<string>,
+  depth = 0,
+): TargetReachability {
+  const node = objectRecord(value);
+  if (!node || !nonEmptyString(node.id) || !nonEmptyString(node.label)) {
+    return { valid: false, reachesPack: false, utilityOnly: false };
+  }
+  return auditPackTarget(node.target, menu, packSlugs, depth);
+}
+
+function validatePackFlow(config: unknown, menu: BundledTenantMenu, problems: string[]): void {
+  const kiosk = objectRecord(config);
+  if (kiosk?.family !== 'pack') return;
+  const packs = new Set(menu.items.filter((item) => item.packSize !== undefined).map((item) => item.id));
+  if (packs.size === 0) {
+    problems.push('brand.json: kiosk.family is "pack", but packs.json defines no usable pack.');
+    return;
+  }
+  const nodes = objectRecord(kiosk.entry)?.nodes;
+  if (!Array.isArray(nodes) || nodes.length === 0) return;
+  const targets = nodes.map((node) => auditPackNode(node, menu, packs));
+  const dead = targets.flatMap((target, index) => (
+    target.valid && !target.utilityOnly && !target.reachesPack ? [index + 1] : []
+  ));
+  if (dead.length > 0) {
+    problems.push(`brand.json: kiosk pack flow entry tile${dead.length === 1 ? '' : 's'} ${dead.join(', ')} cannot reach an item from packs.json.`);
+  }
 }
 
 function nonEmptyString(value: unknown): value is string {
@@ -609,17 +725,20 @@ function writeWebManifest(brand: BrandFile, target: string): void {
   writeFileSync(target, `${JSON.stringify(manifest, null, 2)}\n`);
 }
 
-function applyCustomerBundle(dir: string, brand: BrandFile, menu: BundledTenantMenu): void {
+function applyAppBundles(dir: string, brand: BrandFile, menu: BundledTenantMenu): void {
   const root = join(process.cwd(), 'apps', 'customer');
+  const kioskRoot = join(process.cwd(), 'apps', 'kiosk');
   const tenantTarget = join(root, 'src', 'tenant');
-  writeFileSync(join(tenantTarget, 'menu.json'), `${JSON.stringify(menu, null, 2)}\n`);
-  writeFileSync(
-    join(process.cwd(), 'apps', 'kiosk', 'src', 'tenant', 'menu.json'),
-    `${JSON.stringify(menu, null, 2)}\n`,
-  );
-  writeFileSync(join(tenantTarget, 'menu-media.ts'), renderMenuMedia(menu.items.map((item) => item.id)));
+  const kioskTenantTarget = join(kioskRoot, 'src', 'tenant');
+  const menuJson = `${JSON.stringify(menu, null, 2)}\n`;
+  const menuMedia = renderMenuMedia(menu.items.map((item) => item.id));
+  writeFileSync(join(tenantTarget, 'menu.json'), menuJson);
+  writeFileSync(join(kioskTenantTarget, 'menu.json'), menuJson);
+  writeFileSync(join(tenantTarget, 'menu-media.ts'), menuMedia);
+  writeFileSync(join(kioskTenantTarget, 'menu-media.ts'), menuMedia);
   const assets = join(dir, 'assets');
   syncDirectory(join(assets, 'menu'), join(root, 'assets', 'menu'), ['.webp', '.normalized.json']);
+  syncDirectory(join(assets, 'menu'), join(kioskRoot, 'assets', 'menu'), ['.webp', '.normalized.json']);
   syncDirectory(join(assets, 'gift'), join(root, 'assets', 'gift'), ['.webp', '.png']);
   syncDirectory(join(assets, 'hero'), join(root, 'assets', 'hero'), ['.webp', '.png', '.mp4']);
   syncDirectory(join(assets, 'rewards'), join(root, 'assets', 'rewards'), ['.webp', '.png']);
@@ -635,7 +754,7 @@ function applyCustomerBundle(dir: string, brand: BrandFile, menu: BundledTenantM
   copyFileSync(join(generated, 'icon.png'), join(root, 'public', 'icon.png'));
   copyFileSync(join(generated, 'icon-180.png'), join(root, 'public', 'icon-180.png'));
   writeWebManifest(brand, join(root, 'public', 'manifest.webmanifest'));
-  applyKioskArtwork(generated);
+  applyKioskArtwork(generated, brand.tokens.surface);
 }
 
 function writeExpoIconConfig(surface: unknown, target: string): void {
@@ -653,18 +772,23 @@ function writeExpoIconConfig(surface: unknown, target: string): void {
   writeFileSync(target, `${JSON.stringify(config, null, 2)}\n`);
 }
 
-function applyKioskArtwork(generated: string): void {
+function applyKioskArtwork(generated: string, surface: unknown): void {
   const root = join(process.cwd(), 'apps', 'kiosk');
   const images = join(root, 'assets', 'images');
   const brand = join(root, 'assets', 'brand');
+  const expoIcon = join(root, 'assets', 'expo.icon');
+  const expoIconAssets = join(expoIcon, 'Assets');
   mkdirSync(images, { recursive: true });
   mkdirSync(brand, { recursive: true });
+  mkdirSync(expoIconAssets, { recursive: true });
   copyFileSync(join(generated, 'icon.png'), join(images, 'icon.png'));
   copyFileSync(join(generated, 'android-foreground.png'), join(images, 'android-icon-foreground.png'));
   copyFileSync(join(generated, 'android-background.png'), join(images, 'android-icon-background.png'));
   copyFileSync(join(generated, 'android-monochrome.png'), join(images, 'android-icon-monochrome.png'));
   copyFileSync(join(generated, 'favicon.png'), join(images, 'favicon.png'));
   copyFileSync(join(generated, 'splash-logo.png'), join(brand, 'logo.png'));
+  copyFileSync(join(generated, 'android-foreground.png'), join(expoIconAssets, 'mark.png'));
+  writeExpoIconConfig(surface, join(expoIcon, 'icon.json'));
 }
 
 /**

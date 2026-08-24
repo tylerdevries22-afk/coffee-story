@@ -1,10 +1,16 @@
-import { useRouter } from 'expo-router';
+import { usePathname, useRouter } from 'expo-router';
 import { createContext, useCallback, useContext, useMemo, useState, type PropsWithChildren } from 'react';
 
-import { resolveKioskFlow, type KioskEntryNode, type KioskFlow, type KioskMenuFacts } from '@platform/domain';
+import {
+  resolveKioskFlow,
+  type KioskEntryNode,
+  type KioskFlow,
+  type KioskMenuFacts,
+  type KioskUtility,
+} from '@platform/domain';
 
 import {
-  EMPTY_FACTS, STEP_ROUTES, backStep, canAdvance, nextStep, recoveryStep, stepsFor,
+  EMPTY_FACTS, STEP_ROUTES, backStep, canAdvance, factsForAdvance, nextStep, recoveryStep, stepForRoute, stepsFor,
   type FlowFacts, type KioskStepId,
 } from '@/features/step-flow';
 
@@ -41,6 +47,14 @@ type FlowValue = {
   goNext: (learned?: Partial<FlowFacts>) => void;
   goBack: () => void;
   goTo: (step: KioskStepId) => void;
+  activeUtility: KioskUtility | null;
+  openUtility: (utility: KioskUtility) => void;
+  closeUtility: () => void;
+  cartOpen: boolean;
+  openCart: () => void;
+  closeCart: () => void;
+  /** Clear flow facts and enter ordering without visiting browser history. */
+  beginOrder: () => void;
   startOver: () => void;
 };
 
@@ -58,9 +72,11 @@ export function FlowProvider({
   storedValue: boolean;
 }>) {
   const router = useRouter();
+  const pathname = usePathname();
   const [rawFacts, setFacts] = useState<FlowFacts>(EMPTY_FACTS);
-  const [step, setStep] = useState<KioskStepId>('entry');
   const [selected, setSelected] = useState<KioskEntryNode | null>(null);
+  const [activeUtility, setActiveUtility] = useState<KioskUtility | null>(null);
+  const [cartOpen, setCartOpen] = useState(false);
 
   const flow = useMemo(
     () => resolveKioskFlow(brandConfig, { menu, features: { stored_value: storedValue } }),
@@ -68,12 +84,33 @@ export function FlowProvider({
   );
 
   const navigate = useCallback((target: KioskStepId) => {
-    setStep(target);
     // The one cast. `typedRoutes` builds its Href union from generated types
     // the dev server refreshes, so keeping the table as strings is what stops a
     // CI typecheck failing on stale codegen.
     router.replace(STEP_ROUTES[target] as never);
   }, [router]);
+
+  const openUtility = useCallback((utility: KioskUtility) => {
+    setCartOpen(false);
+    setActiveUtility(utility);
+  }, []);
+  const closeUtility = useCallback(() => {
+    setActiveUtility(null);
+  }, []);
+  const openCart = useCallback(() => {
+    setActiveUtility(null);
+    setCartOpen(true);
+  }, []);
+  const closeCart = useCallback(() => {
+    setCartOpen(false);
+  }, []);
+
+  const resetFlowState = useCallback(() => {
+    setActiveUtility(null);
+    setCartOpen(false);
+    setFacts(EMPTY_FACTS);
+    setSelected(null);
+  }, []);
 
   const value = useMemo<FlowValue>(() => {
     /**
@@ -85,9 +122,10 @@ export function FlowProvider({
      */
     const facts: FlowFacts = { ...rawFacts, wantsName: flow.guestName.mode !== 'off' };
     const steps = stepsFor(flow, facts);
+    const routeStep = stepForRoute(pathname) ?? 'entry';
     // A guest who deep-links or lands somewhere the facts no longer support is
     // moved, rather than left on a screen whose only action is dead.
-    const safeStep = recoveryStep(flow, facts, step);
+    const safeStep = recoveryStep(flow, facts, routeStep);
     return {
       flow,
       facts,
@@ -101,7 +139,7 @@ export function FlowProvider({
       learn: (next) => setFacts((current) => ({ ...current, ...next })),
       goNext: (learned) => {
         if (learned) setFacts((current) => ({ ...current, ...learned }));
-        const target = nextStep(flow, { ...facts, ...learned }, safeStep);
+        const target = nextStep(flow, factsForAdvance(facts, learned), safeStep);
         if (target) navigate(target);
       },
       goBack: () => {
@@ -109,14 +147,25 @@ export function FlowProvider({
         if (target) navigate(target);
       },
       goTo: navigate,
+      activeUtility,
+      openUtility,
+      closeUtility,
+      cartOpen,
+      openCart,
+      closeCart,
+      beginOrder: () => {
+        resetFlowState();
+        router.replace(STEP_ROUTES.entry as never);
+      },
       startOver: () => {
-        setFacts(EMPTY_FACTS);
-        setSelected(null);
-        setStep('entry');
+        resetFlowState();
         router.replace('/');
       },
     };
-  }, [flow, rawFacts, selected, step, navigate, router]);
+  }, [
+    flow, rawFacts, selected, pathname, navigate, router, activeUtility, cartOpen,
+    openUtility, closeUtility, openCart, closeCart, resetFlowState,
+  ]);
 
   return <FlowContext.Provider value={value}>{children}</FlowContext.Provider>;
 }

@@ -12,20 +12,9 @@
  * menu, and serving it to a different brand's tablet would price their drinks
  * wrong under their own logo. A configured kiosk that cannot read says so.
  */
-import { kioskMenuFromRows, type KioskMenu, type KioskMenuItem } from '@platform/domain';
+import { parseOptionGroups, kioskMenuFromRows, type KioskMenu, type KioskMenuItem } from '@platform/domain';
 
-import { MENU_CATEGORY_META, MENU_ITEMS, type MenuCategoryId } from '@/data/catalog';
-
-const OPTION_CATEGORY_BY_TITLE = new Map(
-  MENU_CATEGORY_META.map((category) => [category.title, category.id] as const),
-);
-
-/** Resolve the stable option-engine key from the database-backed title. */
-export function optionCategoryIdFor(
-  item: Pick<KioskMenuItem, 'categoryId'>,
-): MenuCategoryId | null {
-  return OPTION_CATEGORY_BY_TITLE.get(item.categoryId) ?? null;
-}
+import { MENU_CATEGORY_META, MENU_ITEMS } from '@/data/catalog';
 
 /** The bundled catalog in the shape live rows map to. */
 export function demoMenu(): KioskMenu {
@@ -33,18 +22,22 @@ export function demoMenu(): KioskMenu {
   const items: KioskMenuItem[] = MENU_ITEMS.flatMap((item) => {
     const categoryId = titleById.get(item.category);
     if (categoryId === undefined) return [];
+    const optionGroups = parseOptionGroups(item.optionGroups);
+    if (optionGroups === null) return [];
     return [{
       id: item.id,
       name: item.name,
       description: item.description,
       categoryId,
       sizes: item.sizes,
+      optionGroups,
       soldOutToday: item.soldOutToday === true,
       // The bundled catalog predates rotation; everything in it is always on.
       rotation: 'permanent' as const,
       ...(typeof item.packSize === 'number' ? { packSize: item.packSize } : {}),
       ...(item.choiceSource ? { choiceSource: item.choiceSource } : {}),
       ...(item.singleItemId ? { singleItemId: item.singleItemId } : {}),
+      ...(item.eligibleItemIds ? { eligibleItemIds: [...item.eligibleItemIds] } : {}),
     }];
   });
   return {

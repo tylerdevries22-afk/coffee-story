@@ -13,7 +13,10 @@ export function StepHeading({ title, hint }: { title: string; hint?: string }) {
   const tokens = useTokens();
   return (
     <View style={styles.wrap}>
-      <Text style={[styles.title, { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: tokens.type.hero }]}>
+      <Text
+        accessibilityRole="header"
+        style={[styles.title, { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: tokens.type.hero }]}
+      >
         {title}
       </Text>
       {hint ? (

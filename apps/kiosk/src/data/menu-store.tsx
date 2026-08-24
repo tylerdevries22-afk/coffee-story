@@ -21,7 +21,7 @@
  * to know. A kiosk that cannot read its menu says so and keeps retrying.
  */
 import {
-  fetchBrandBySlug, fetchMenuTree, subscribeToLocationSettings, subscribeToMenu,
+  fetchBrandBySlug, fetchMenuTree, readWithRetry, subscribeToLocationSettings, subscribeToMenu,
 } from '@platform/data';
 import { EMPTY_KIOSK_MENU, type KioskMenu } from '@platform/domain';
 import {
@@ -58,9 +58,15 @@ export function MenuProvider({ children }: PropsWithChildren) {
   const [status, setStatus] = useState<KioskMenuStatus>(hasSupabaseConfig ? 'loading' : 'demo');
   const [nonce, setNonce] = useState(0);
   const failures = useRef(0);
+  const locationFailures = useRef(0);
+  const brandFailures = useRef(0);
+  const [brandRetrySeq, setBrandRetrySeq] = useState(0);
 
   const refresh = useCallback(() => {
     failures.current = 0;
+    locationFailures.current = 0;
+    brandFailures.current = 0;
+    setBrandRetrySeq((value) => value + 1);
     setNonce((n) => n + 1);
   }, []);
 
@@ -75,38 +81,68 @@ export function MenuProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     if (!supabase || deviceBrandId !== null || resolvedBrandId !== null) return;
     let alive = true;
+    let retry: ReturnType<typeof setTimeout> | null = null;
     void fetchBrandBySlug(supabase, TENANT_BRAND_CONFIG.identity.slug)
       .then((summary) => {
-        if (alive && summary) {
-          setResolvedBrandId(summary.brand.id);
-          setResolvedLocationId(summary.locations[0]?.id ?? null);
-        }
+        if (!alive) return;
+        if (!summary) throw new Error('The configured brand is unavailable.');
+        brandFailures.current = 0;
+        setStatus('loading');
+        setResolvedBrandId(summary.brand.id);
+        setResolvedLocationId(summary.locations[0]?.id ?? null);
       })
-      .catch(() => undefined);
-    return () => { alive = false; };
-  }, [deviceBrandId, resolvedBrandId]);
+      .catch(() => {
+        if (!alive) return;
+        setStatus('unavailable');
+        const wait = RETRY_MS[Math.min(brandFailures.current, RETRY_MS.length - 1)] ?? 60_000;
+        brandFailures.current += 1;
+        retry = setTimeout(() => setBrandRetrySeq((value) => value + 1), wait);
+      });
+    return () => {
+      alive = false;
+      if (retry) clearTimeout(retry);
+    };
+  }, [deviceBrandId, resolvedBrandId, brandRetrySeq]);
 
   useEffect(() => {
     const client = supabase;
     if (!client || brandId === null) return;
     let alive = true;
-    let retry: ReturnType<typeof setTimeout> | null = null;
+    let menuRetry: ReturnType<typeof setTimeout> | null = null;
+    let locationRetry: ReturnType<typeof setTimeout> | null = null;
     let orderingPaused = false;
+    let menuReady = false;
+    let pauseKnown = false;
+    let menuGeneration = 0;
+    let locationGeneration = 0;
+
+    setStatus('loading');
+
+    const publishStatus = () => {
+      if (!alive || !menuReady || !pauseKnown) return;
+      setStatus(orderingPaused ? 'paused' : 'live');
+    };
 
     const read = () => {
+      const generation = ++menuGeneration;
       void fetchMenuTree(client, brandId)
         .then((tree) => {
-          if (!alive) return;
+          if (!alive || generation !== menuGeneration) return;
+          if (menuRetry) {
+            clearTimeout(menuRetry);
+            menuRetry = null;
+          }
           failures.current = 0;
+          menuReady = true;
           setMenu(kioskMenuFromRows({
             categories: tree.categories,
             items: tree.categories.flatMap((category) => category.items),
             drops: tree.drops,
           }));
-          setStatus(orderingPaused ? 'paused' : 'live');
+          publishStatus();
         })
         .catch(() => {
-          if (!alive) return;
+          if (!alive || generation !== menuGeneration) return;
           // A menu already on screen keeps selling. A shop that loses wifi for
           // thirty seconds should not stop taking orders: a dead kiosk during
           // a rush is a queue and lost revenue, where an item 86'd in the gap
@@ -119,26 +155,45 @@ export function MenuProvider({ children }: PropsWithChildren) {
           setStatus((current) => (current === 'live' ? 'live' : 'unavailable'));
           const wait = RETRY_MS[Math.min(failures.current, RETRY_MS.length - 1)] ?? 60_000;
           failures.current += 1;
-          retry = setTimeout(read, wait);
+          if (menuRetry) clearTimeout(menuRetry);
+          menuRetry = setTimeout(read, wait);
         });
     };
 
     read();
     const unsubscribe = subscribeToMenu(client, brandId, read);
     const readLocation = () => {
-      if (!locationId) return;
-      void client
+      if (!locationId) {
+        setStatus('unavailable');
+        return;
+      }
+      const generation = ++locationGeneration;
+      void readWithRetry('fetch kiosk location settings', (signal) => client
         .from('locations')
         .select('ordering_paused')
         .eq('id', locationId)
-        .maybeSingle<{ ordering_paused: boolean }>()
-        .then((result) => {
-          if (!alive || !result.data) return;
-          orderingPaused = result.data.ordering_paused;
-          setStatus((current) => {
-            if (current === 'loading' || current === 'unavailable') return current;
-            return orderingPaused ? 'paused' : 'live';
-          });
+        .abortSignal(signal)
+        .maybeSingle<{ ordering_paused: boolean }>())
+        .then((location) => {
+          if (!alive || generation !== locationGeneration) return;
+          if (!location) throw new Error('Location settings are unavailable.');
+          if (locationRetry) {
+            clearTimeout(locationRetry);
+            locationRetry = null;
+          }
+          locationFailures.current = 0;
+          pauseKnown = true;
+          orderingPaused = location.ordering_paused;
+          publishStatus();
+        })
+        .catch(() => {
+          if (!alive || generation !== locationGeneration) return;
+          pauseKnown = false;
+          setStatus('unavailable');
+          const wait = RETRY_MS[Math.min(locationFailures.current, RETRY_MS.length - 1)] ?? 60_000;
+          locationFailures.current += 1;
+          if (locationRetry) clearTimeout(locationRetry);
+          locationRetry = setTimeout(readLocation, wait);
         });
     };
     readLocation();
@@ -147,7 +202,8 @@ export function MenuProvider({ children }: PropsWithChildren) {
       : () => {};
     return () => {
       alive = false;
-      if (retry) clearTimeout(retry);
+      if (menuRetry) clearTimeout(menuRetry);
+      if (locationRetry) clearTimeout(locationRetry);
       unsubscribe();
       unsubscribeLocation();
     };

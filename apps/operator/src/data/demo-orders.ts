@@ -22,18 +22,21 @@ export function initialDemoOrders(): BoardOrder[] {
         { name: 'Croissant', quantity: 1, options: [] },
       ],
       totalCents: 1125, note: '',
+      tenderType: 'square_card',
     },
     {
       id: 'ord-a13', shortCode: 'A13', guestName: 'Dev', status: 'in_progress',
       placedAt: minutesAgo(9), dailyNumber: 13, updatedAt: minutesAgo(7), scheduledFor: null,
       lines: [{ name: 'Cold Brew', quantity: 2, options: ['16 oz'] }],
       totalCents: 1050, note: 'Light ice please',
+      tenderType: 'square_card',
     },
     {
       id: 'ord-a14', shortCode: 'A14', guestName: 'Rosa', status: 'in_progress',
       placedAt: minutesAgo(6), dailyNumber: 14, updatedAt: minutesAgo(5), scheduledFor: null,
       lines: [{ name: 'Honey Lavender Latte', quantity: 1, options: ['12 oz', 'Hot'] }],
       totalCents: 675, note: '',
+      tenderType: 'square_card',
     },
     {
       id: 'ord-a15', shortCode: 'A15', guestName: 'Sam', status: 'paid',
@@ -43,12 +46,14 @@ export function initialDemoOrders(): BoardOrder[] {
         { name: 'Avocado Toast', quantity: 1, options: ['No chili'] },
       ],
       totalCents: 1400, note: '',
+      tenderType: 'square_card',
     },
     {
       id: 'ord-a16', shortCode: 'A16', guestName: 'Lena', status: 'paid',
       placedAt: minutesAgo(1), dailyNumber: 16, updatedAt: minutesAgo(1), scheduledFor: minutesAhead(90),
       lines: [{ name: 'Boba Milk Tea', quantity: 4, options: ['Brown sugar'] }],
       totalCents: 2600, note: 'Team meeting at 2pm',
+      tenderType: 'square_card',
     },
   ];
 }
@@ -78,5 +83,6 @@ export function spawnDemoOrder(index: number): BoardOrder {
     lines: [{ name: item.name, quantity, options: item.options }],
     totalCents: item.priceCents * quantity,
     note: index % 4 === 0 ? 'Extra hot' : '',
+    tenderType: 'square_card',
   };
 }

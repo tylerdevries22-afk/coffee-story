@@ -13,6 +13,7 @@ export type TrackingStep = {
 
 /** The steps a guest watches, in order. Terminal failures replace the tail. */
 export const TRACKING_STEPS: readonly TrackingStep[] = [
+  { status: 'created', title: 'Awaiting payment', detail: 'Pay at the counter before the shop starts your order.' },
   { status: 'paid', title: 'Order received', detail: 'The shop has your order.' },
   { status: 'in_progress', title: 'Being made', detail: 'The bar is on it.' },
   { status: 'ready', title: 'Ready for pickup', detail: 'Come and get it while it is hot.' },
@@ -21,7 +22,7 @@ export const TRACKING_STEPS: readonly TrackingStep[] = [
 
 export type TrackingView = {
   steps: readonly TrackingStep[];
-  /** Index into steps of the current state, -1 before payment lands. */
+  /** Index into steps of the current state. */
   activeIndex: number;
   failed: 'cancelled' | 'refunded' | null;
 };

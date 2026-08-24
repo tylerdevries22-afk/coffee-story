@@ -55,6 +55,7 @@ function portalOrderOf(row: OrderRow): PortalOrder {
     quantity: line.quantity,
     unitPriceCents: line.unitPriceCents,
     options: line.options,
+    ...(line.packContents.length > 0 ? { packContents: line.packContents } : {}),
   }));
   const summary = lines
     .map((line) => (line.quantity > 1 ? `${line.quantity}× ${line.name}` : line.name))

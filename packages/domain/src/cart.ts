@@ -36,6 +36,8 @@ export type OrderLine = {
   itemId: string;
   name: string;
   sizeSlug: string;
+  /** Omit this client-only fallback from the server request. */
+  sizeSlugIsSynthetic?: boolean;
   sizeLabel: string;
   /** The size's list price, before any customization. */
   basePriceCents: number;
@@ -46,6 +48,10 @@ export type OrderLine = {
   /** base + option deltas, for a single unit. */
   unitPriceCents: number;
   quantity: number;
+  /** Optional free-form preparation note for this line. */
+  note?: string;
+  /** One pack's exact recipe. Names are display-only; the API sends slugs. */
+  packContents?: readonly { itemSlug: string; name: string; quantity: number }[];
 };
 
 export type OrderCart = {
@@ -59,6 +65,7 @@ export type OrderLineInput = {
   itemId: string;
   name: string;
   sizeSlug: string;
+  sizeSlugIsSynthetic?: boolean;
   sizeLabel: string;
   basePriceCents: number;
   groups: readonly OptionGroup[];
@@ -90,10 +97,11 @@ export function buildOrderLine(input: OrderLineInput): OrderLine {
   const choices = selectedChoices(input.groups, input.selection);
   const basePriceCents = Math.max(0, Math.round(input.basePriceCents));
   return {
-    id: `${input.sizeSlug}#${optionFingerprint(input.groups, input.selection)}`,
+    id: `${input.itemId}@${input.sizeSlug}#${optionFingerprint(input.groups, input.selection)}`,
     itemId: input.itemId,
     name: input.name,
     sizeSlug: input.sizeSlug,
+    ...(input.sizeSlugIsSynthetic ? { sizeSlugIsSynthetic: true } : {}),
     sizeLabel: input.sizeLabel,
     basePriceCents,
     optionIds: [...choices.map((choice) => choice.id)].sort(),

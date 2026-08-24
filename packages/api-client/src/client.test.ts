@@ -77,3 +77,24 @@ describe('deleteProfile', () => {
     assert.deepEqual(observed, { method: 'DELETE', authorization: 'Bearer guest-token' });
   });
 });
+
+describe('refundOrder', () => {
+  it('sends the caller-owned attempt key unchanged', async () => {
+    const originalFetch = globalThis.fetch;
+    let observedKey: string | null = null;
+    globalThis.fetch = async (_input, init) => {
+      observedKey = new Headers(init?.headers).get('idempotency-key');
+      return Response.json({ orderId: 'order-1', refundId: 'refund-1', amountCents: 500 });
+    };
+    try {
+      const client = createApiClient({ ...config, getAccessToken: async () => 'staff-token' });
+      await client.refundOrder(
+        { orderId: 'order-1', amountCents: 500 },
+        '11111111-1111-4111-8111-111111111111',
+      );
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+    assert.equal(observedKey, '11111111-1111-4111-8111-111111111111');
+  });
+});

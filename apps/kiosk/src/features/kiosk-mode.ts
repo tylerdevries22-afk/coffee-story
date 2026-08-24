@@ -11,7 +11,7 @@ import type { DeviceRole } from '@platform/schema';
 export type KioskPosture = {
   /** Guest-facing: nothing that could expose another order. */
   unattended: boolean;
-  /** Cash needs a drawer and someone accountable for it. */
+  /** The guest may choose pay-at-counter; collection stays with staff. */
   allowsCashTender: boolean;
   /** Looking an order up by ticket shows a name; staff only. */
   allowsOrderLookup: boolean;
@@ -24,7 +24,7 @@ export function postureFor(role: DeviceRole): KioskPosture | null {
   if (role === 'kiosk') {
     return {
       unattended: true,
-      allowsCashTender: false,
+      allowsCashTender: true,
       allowsOrderLookup: false,
       idleResets: true,
       channel: 'kiosk',

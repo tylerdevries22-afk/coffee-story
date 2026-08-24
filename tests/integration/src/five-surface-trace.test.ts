@@ -116,6 +116,7 @@ describe('one order across five surfaces', { skip: skipUnlessConfigured }, () =>
         fulfillmentType: 'curbside',
         lines: [{ itemSlug: 'milk-cake', quantity: 2 }],
         tipCents: 0,
+        maximumTotalCents: 1_441,
         tenderType: 'pay_at_pickup',
       }),
     }));
@@ -133,12 +134,21 @@ describe('one order across five surfaces', { skip: skipUnlessConfigured }, () =>
     const ticket = numbered.rows[0]!;
     assert.ok(ticket.daily_number >= 1, 'the order must carry a human-readable ticket');
     assert.ok(ticket.service_date, 'and the service date its numbering resets on');
-    assert.equal(ticket.status, 'paid', 'pay-at-pickup lands on the board straight away');
+    assert.equal(ticket.status, 'created', 'pay-at-pickup stays unpaid until operator collection');
+
+    // Staff collects at the counter before the public board announces the
+    // ticket. Creation alone is not settlement and must not mint a paid state.
+    await sql(
+      `insert into public.order_events (brand_id, order_id, type, source, snapshot)
+       values ($1, $2, 'paid', 'operator', '{}'::jsonb)`,
+      [brandId, orderId],
+    );
 
     // A display can only show a name it is given, so give it one.
     await sql(`update public.orders set guest_label = 'Sara D.' where id = $1`, [orderId]);
 
-    // 2. THE DISPLAY sees it, through its own read -- the view, not the table.
+    // 2. THE DISPLAY sees the collected payment, through its own read -- the
+    //    view, not the table.
     const service = serviceClient();
 
     /**

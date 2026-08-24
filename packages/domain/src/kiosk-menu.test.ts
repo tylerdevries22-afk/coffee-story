@@ -5,8 +5,8 @@ import type { DropRow, MenuCategoryRow, MenuItemRow } from '@platform/schema';
 
 import { resolveKioskFlow } from './kiosk-flow';
 import {
-  dropVisibility, itemsInCategoryOf, kioskMenuFromRows, menuFactsFrom,
-  packChoicesOf, packsInCategoryOf, parseSizes,
+  dropVisibility, itemNeedsConfiguration, itemsForTarget, itemsInCategoryOf, kioskMenuFromRows, menuFactsFrom,
+  nextPackChoiceBoundary, packChoicesOf, packsInCategoryOf, parseOptionGroups, parseSizes,
 } from './kiosk-menu';
 import { sizeLabel } from './sizes';
 
@@ -26,7 +26,7 @@ function item(over: Partial<MenuItemRow> = {}): MenuItemRow {
     name: 'Cortado', description: '', image_url: null, base_price_cents: 450,
     sizes: [], modifiers: [], availability: {}, is_86d: false, is_listed: true,
     sort_order: 0, rotation: 'permanent', weekday: null, pack_size: null,
-    choice_source: null, single_item_id: null, created_at: '', updated_at: '',
+    choice_source: null, single_item_id: null, pack_choice_slugs: [], created_at: '', updated_at: '',
     ...over,
   };
 }
@@ -64,7 +64,7 @@ describe('parseSizes', () => {
   });
 
   it('synthesises one size for an item that has none', () => {
-    assert.deepEqual(parseSizes([], 525), [{ slug: 'each', priceCents: 525 }]);
+    assert.deepEqual(parseSizes([], 525), [{ slug: 'each', priceCents: 525, synthetic: true }]);
   });
 
   it('drops an entry with no usable price rather than selling it for nothing', () => {
@@ -73,8 +73,43 @@ describe('parseSizes', () => {
   });
 
   it('survives junk where an array belongs', () => {
-    assert.deepEqual(parseSizes('not an array', 400), [{ slug: 'each', priceCents: 400 }]);
+    assert.deepEqual(parseSizes('not an array', 400), [{ slug: 'each', priceCents: 400, synthetic: true }]);
     assert.deepEqual(parseSizes([null, 7, { label: 'no slug' }], 0), []);
+  });
+});
+
+describe('parseOptionGroups', () => {
+  const groups = [{
+    id: 'serve', name: 'Serve', select: 'single', required: true, maxChoices: 1,
+    choices: [
+      { id: 'hot', name: 'Hot', priceDeltaCents: 0 },
+      { id: 'iced', name: 'Iced', priceDeltaCents: 25 },
+    ],
+  }, {
+    id: 'ice', name: 'Ice', select: 'single', required: true, maxChoices: 1,
+    dependsOn: { groupId: 'serve', choiceIds: ['iced'] },
+    choices: [{ id: 'regular', name: 'Regular', priceDeltaCents: 0 }],
+  }];
+
+  it('preserves a valid tenant modifier contract and dependency', () => {
+    assert.deepEqual(parseOptionGroups(groups), groups);
+  });
+
+  it('distinguishes a valid empty contract from malformed JSON', () => {
+    assert.deepEqual(parseOptionGroups([]), []);
+    assert.equal(parseOptionGroups(null), null);
+    assert.equal(parseOptionGroups([{ ...groups[0], maxChoices: 2 }]), null);
+  });
+
+  it('rejects duplicate choices and broken dependencies', () => {
+    assert.equal(parseOptionGroups([
+      groups[0],
+      { ...groups[1], choices: [{ id: 'hot', name: 'Duplicate', priceDeltaCents: 0 }] },
+    ]), null);
+    assert.equal(parseOptionGroups([
+      groups[0],
+      { ...groups[1], dependsOn: { groupId: 'serve', choiceIds: ['missing'] } },
+    ]), null);
   });
 });
 
@@ -90,17 +125,71 @@ describe('kioskMenuFromRows', () => {
     assert.equal(itemsInCategoryOf(menu, 'Espresso').length, 1);
   });
 
+  it('carries live modifiers instead of deriving a tenant-specific catalogue', () => {
+    const modifiers = [{
+      id: 'temperature', name: 'Temperature', select: 'single', required: true, maxChoices: 1,
+      choices: [{ id: 'warm', name: 'Warm', priceDeltaCents: 75 }],
+    }];
+    const menu = kioskMenuFromRows({
+      categories: [category()], items: [item({ modifiers })], drops: [],
+    });
+    assert.deepEqual(menu.items[0]?.optionGroups, modifiers);
+  });
+
+  it('requires configuration for multiple sizes even without modifiers', () => {
+    const menu = kioskMenuFromRows({
+      categories: [category()],
+      items: [item({ sizes: [
+        { slug: '12', label: '12 oz', price_cents: 500 },
+        { slug: '16', label: '16 oz', price_cents: 600 },
+      ] })],
+      drops: [],
+    });
+    const configured = menu.items[0];
+    assert.ok(configured);
+    assert.equal(itemNeedsConfiguration(configured), true);
+    assert.equal(itemNeedsConfiguration({ ...configured, sizes: configured.sizes.slice(0, 1) }), false);
+  });
+
+  it('omits a live item whose modifier contract cannot be priced safely', () => {
+    const menu = kioskMenuFromRows({
+      categories: [category()], items: [item({ modifiers: [{ id: 'broken' }] })], drops: [],
+    });
+    assert.deepEqual(menu.items, []);
+  });
+
+  it('resolves category and direct-item entry targets', () => {
+    const menu = kioskMenuFromRows({
+      categories: [category()],
+      items: [item(), item({ id: 'i-2', slug: 'latte', name: 'Latte' })],
+      drops: [],
+    });
+    assert.deepEqual(
+      itemsForTarget(menu, { kind: 'category', categoryId: 'Espresso' }).map((entry) => entry.id),
+      ['cortado', 'latte'],
+    );
+    assert.deepEqual(
+      itemsForTarget(menu, { kind: 'item', itemSlug: 'latte' }).map((entry) => entry.id),
+      ['latte'],
+    );
+    assert.deepEqual(itemsForTarget(menu, { kind: 'item', itemSlug: 'gone' }), []);
+  });
+
   it('resolves a pack single from uuid to slug', () => {
     const menu = kioskMenuFromRows({
       categories: [category()],
       items: [
         item(),
-        item({ id: 'i-2', slug: 'six-pack', name: 'Six Pack', pack_size: 6, choice_source: 'lineup', single_item_id: 'i-1' }),
+        item({
+          id: 'i-2', slug: 'six-pack', name: 'Six Pack', pack_size: 6,
+          choice_source: 'lineup', single_item_id: 'i-1', pack_choice_slugs: ['cortado'],
+        }),
       ],
       drops: [],
     });
     const pack = packsInCategoryOf(menu, 'Espresso')[0];
     assert.equal(pack?.singleItemId, 'cortado');
+    assert.deepEqual(pack?.eligibleItemIds, ['cortado']);
   });
 
   it('loses the badge rather than the pack when the single is delisted', () => {
@@ -155,26 +244,31 @@ describe('packChoicesOf', () => {
       item({ id: 'i-2', slug: 'rotating-live', rotation: 'rotating' }),
       item({ id: 'i-3', slug: 'rotating-dark', rotation: 'rotating' }),
       item({ id: 'i-4', slug: 'eighty-sixed', is_86d: true }),
-      item({ id: 'i-5', slug: 'a-pack', pack_size: 6, choice_source: 'lineup' }),
+      item({
+        id: 'i-5', slug: 'a-pack', pack_size: 6, choice_source: 'lineup',
+        pack_choice_slugs: ['permanent-one', 'rotating-live', 'rotating-dark', 'eighty-sixed'],
+      }),
     ],
     drops: [drop({ item_id: 'i-2' })],
   });
+  const pack = menu.items.find((entry) => entry.id === 'a-pack');
+  assert.ok(pack);
 
   // The compiled version took `pack` and ignored it, so these two were equal
   // and the choice_source column expressed nothing.
   it('narrows a lineup pack to permanent plus what is orderable now', () => {
-    const slugs = packChoicesOf(menu, { packSize: 6, choiceSource: 'lineup' }, NOW).map((i) => i.id);
+    const slugs = packChoicesOf(menu, pack, NOW).map((i) => i.id);
     assert.deepEqual(slugs, ['permanent-one', 'rotating-live']);
   });
 
   it('offers a static pack every single', () => {
-    const slugs = packChoicesOf(menu, { packSize: 6, choiceSource: 'static' }, NOW).map((i) => i.id);
+    const slugs = packChoicesOf(menu, { ...pack, choiceSource: 'static' }, NOW).map((i) => i.id);
     assert.deepEqual(slugs, ['permanent-one', 'rotating-live', 'rotating-dark']);
   });
 
   it('never offers a pack inside a pack, or an 86d item', () => {
     for (const source of ['lineup', 'static'] as const) {
-      const slugs = packChoicesOf(menu, { packSize: 6, choiceSource: source }, NOW).map((i) => i.id);
+      const slugs = packChoicesOf(menu, { ...pack, choiceSource: source }, NOW).map((i) => i.id);
       assert.ok(!slugs.includes('a-pack'));
       assert.ok(!slugs.includes('eighty-sixed'));
     }
@@ -182,8 +276,25 @@ describe('packChoicesOf', () => {
 
   it('drops a rotating item back out when its window closes', () => {
     const later = NOW + 2 * HOUR;
-    const slugs = packChoicesOf(menu, { packSize: 6, choiceSource: 'lineup' }, later).map((i) => i.id);
+    const slugs = packChoicesOf(menu, pack, later).map((i) => i.id);
     assert.deepEqual(slugs, ['permanent-one']);
+  });
+
+  it('schedules the exact clock boundary where the lineup changes', () => {
+    assert.equal(
+      nextPackChoiceBoundary(menu, pack, NOW),
+      NOW + HOUR,
+    );
+    assert.equal(
+      nextPackChoiceBoundary(menu, pack, NOW + 2 * HOUR),
+      null,
+    );
+    assert.equal(nextPackChoiceBoundary(menu, { ...pack, choiceSource: 'static' }, NOW), null);
+  });
+
+  it('never admits a permanent item outside the authored eligibility set', () => {
+    const slugs = packChoicesOf(menu, { ...pack, eligibleItemIds: ['rotating-live'] }, NOW).map((i) => i.id);
+    assert.deepEqual(slugs, ['rotating-live']);
   });
 });
 

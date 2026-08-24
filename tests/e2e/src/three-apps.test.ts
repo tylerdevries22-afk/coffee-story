@@ -147,7 +147,7 @@ describe('three apps, one stack', { skip: skipUnlessConfigured }, () => {
       );
       const order = placed.rows[0];
       assert.ok(order, 'the order reached the database');
-      assert.equal(order.status, 'paid', 'pay_at_pickup lands on the board immediately');
+      assert.equal(order.status, 'created', 'pay_at_pickup waits for staff to collect payment');
       await waitText(customer.page, money(Number(order.total_cents)));
       const callOut = ticketCallout(order.daily_number, order.guest_label);
 
@@ -160,12 +160,17 @@ describe('three apps, one stack', { skip: skipUnlessConfigured }, () => {
       await waitText(operator.page, callOut, 45_000);
       await operator.shot('04-operator-board');
 
-      await clickLabel(operator.page, `Start order ${callOut}`);
+      await clickLabel(
+        operator.page,
+        `Collect ${money(Number(order.total_cents))} for order ${callOut}`,
+      );
+      assert.equal(await waitForOrderStatus(order.id, 'paid'), 'paid');
+      await clickLabel(operator.page, `Start for order ${callOut}`);
       await waitText(customer.page, 'Being made', 30_000);
-      await clickLabel(operator.page, `Ready order ${callOut}`);
+      await clickLabel(operator.page, `Ready for order ${callOut}`);
       await waitText(customer.page, 'Ready for pickup', 30_000);
       await customer.shot('05-customer-ready');
-      await clickLabel(operator.page, `Picked up order ${callOut}`);
+      await clickLabel(operator.page, `Picked up for order ${callOut}`);
       assert.equal(await waitForOrderStatus(order.id, 'picked_up'), 'picked_up');
 
       // ---- A rival brand's order never reaches this board (RLS isolation).

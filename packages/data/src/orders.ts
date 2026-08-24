@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { BOARD_STATUSES, type OrderRow } from '@platform/schema';
+import type { OrderRow } from '@platform/schema';
 
 /**
  * The operator board's working set: everything at the location that needs
@@ -15,7 +15,9 @@ export async function fetchActiveLocationOrders(
     .from('orders')
     .select('*')
     .eq('location_id', locationId)
-    .in('status', [...BOARD_STATUSES])
+    // Unpaid Square rows stay private and off the production board. A
+    // pay-at-pickup row is actionable: staff must explicitly collect it.
+    .or('status.in.(paid,in_progress,ready),and(status.eq.created,tender_type.eq.pay_at_pickup)')
     .order('created_at')
     .returns<OrderRow[]>();
   if (result.error) throw new Error(`fetchActiveLocationOrders: ${result.error.message}`);

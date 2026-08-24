@@ -20,7 +20,7 @@ describe('readSnapshotLines', () => {
     assert.equal(lines.length, 2);
     assert.deepEqual(lines[0], {
       itemSlug: 'latte', name: 'Latte', quantity: 2, unitPriceCents: 500,
-      options: ['Oat milk'], note: '',
+      options: ['Oat milk'], note: '', packContents: [],
     });
     assert.equal(lines[1]?.note, 'warm');
   });
@@ -58,5 +58,22 @@ describe('readSnapshotLines', () => {
   it('keeps only string options', () => {
     const lines = readSnapshotLines({ lines: [{ name: 'A', options: ['Oat', 5, null, 'Extra shot'] }] });
     assert.deepEqual(lines[0]?.options, ['Oat', 'Extra shot']);
+  });
+
+  it('reads structured pack contents and drops malformed recipe entries', () => {
+    const lines = readSnapshotLines({
+      lines: [{
+        name: 'Brew Box',
+        pack_contents: [
+          { item_slug: 'v60', name: 'V60', quantity: 3 },
+          { item_slug: 'kenya', quantity: 1 },
+          { item_slug: 'broken', name: 'Broken', quantity: 0 },
+        ],
+      }],
+    });
+    assert.deepEqual(lines[0]?.packContents, [
+      { itemSlug: 'v60', name: 'V60', quantity: 3 },
+      { itemSlug: 'kenya', name: 'kenya', quantity: 1 },
+    ]);
   });
 });

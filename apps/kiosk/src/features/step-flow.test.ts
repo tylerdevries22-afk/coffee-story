@@ -4,8 +4,8 @@ import { describe, it } from 'node:test';
 import { resolveKioskFlow, type KioskFlow } from '@platform/domain';
 
 import {
-  EMPTY_FACTS, STEP_ROUTES, backStep, canAdvance, idleMayReset, isLoadBearing,
-  isStepReachable, nextStep, recoveryStep, stepSpine, stepsFor,
+  EMPTY_FACTS, STEP_ROUTES, backStep, canAdvance, factsForAdvance, idleMayReset, isLoadBearing,
+  isStepReachable, nextStep, recoveryStep, routeMatchesStep, stepForRoute, stepSpine, stepsFor,
   type FlowFacts, type KioskStepId,
 } from './step-flow';
 
@@ -32,6 +32,17 @@ describe('stepsFor', () => {
     assert.equal(stepsFor(DRINKS, facts({ identifyOffered: true })).includes('identify'), true);
   });
 
+  it('offers the tenant tip step only when usable presets are enabled', () => {
+    const tipped = resolveKioskFlow({ family: 'item', tip: { enabled: true, presetsCents: [100, 200] } }, {});
+    assert.equal(stepsFor(tipped, facts()).includes('tip'), true);
+    assert.equal(stepsFor(DRINKS, facts()).includes('tip'), false);
+  });
+
+  it('collects an order name before processing can create the order', () => {
+    const steps = stepsFor(DRINKS, facts({ wantsName: true }));
+    assert.ok(steps.indexOf('name') < steps.indexOf('processing'));
+  });
+
   it('offers a keypad only for a phone lookup, not for a scan', () => {
     const scan = stepsFor(DRINKS, facts({ identifyOffered: true, identifyMethod: 'scan' }));
     const phone = stepsFor(DRINKS, facts({ identifyOffered: true, identifyMethod: 'phone' }));
@@ -51,7 +62,7 @@ describe('stepsFor', () => {
     const tailOf = (spine: readonly KioskStepId[]) => spine.slice(spine.indexOf('review'));
     assert.deepEqual(tailOf(stepSpine('item')), tailOf(stepSpine('pack')));
     for (const step of tailOf(stepSpine('item'))) {
-      if (step === 'identify' || step === 'keypad' || step === 'balance' || step === 'name') continue;
+      if (step === 'tip' || step === 'identify' || step === 'keypad' || step === 'balance' || step === 'name') continue;
       assert.equal(isLoadBearing(step), true, `${step} must not be configurable away`);
     }
   });
@@ -100,7 +111,9 @@ describe('nextStep and backStep', () => {
           assert.equal(forward, steps[index + 1], `next from ${step}`);
           assert.equal(
             backStep(flow, { ...shape, placed: true }, forward),
-            forward === 'done' || forward === 'processing' ? null : step,
+            forward === 'done' || forward === 'processing'
+              ? null
+              : forward === 'bag' ? 'entry' : step,
             `back from ${forward}`,
           );
         }
@@ -114,10 +127,21 @@ describe('nextStep and backStep', () => {
     assert.equal(backStep(DRINKS, facts({ placed: true }), 'done'), null);
   });
 
+  it('returns from the bag to ordering after review has cleared the builder', () => {
+    assert.equal(backStep(DRINKS, facts(), 'bag'), 'entry');
+    assert.equal(backStep(PACKS, facts(), 'bag'), 'entry');
+  });
+
   it('steps over a screen the facts removed instead of landing on it', () => {
     // No options on this item, so review is what follows the item screen.
     assert.equal(nextStep(DRINKS, facts({ hasOptions: false }), 'item'), 'review');
     assert.equal(backStep(DRINKS, facts({ hasOptions: false }), 'review'), 'item');
+  });
+
+  it('uses facts learned by the current tap before choosing its route', () => {
+    const staleGroup = facts({ inGroup: true });
+    const directCategory = factsForAdvance(staleGroup, { inGroup: false });
+    assert.equal(nextStep(DRINKS, directCategory, 'entry'), 'item');
   });
 });
 
@@ -126,6 +150,9 @@ describe('reachability', () => {
     const empty = facts({ bagCount: 0 });
     assert.equal(isStepReachable(DRINKS, empty, 'pay'), false);
     assert.equal(isStepReachable(DRINKS, empty, 'bag'), false);
+    assert.equal(isStepReachable(DRINKS, empty, 'processing'), false);
+    assert.equal(isStepReachable(DRINKS, empty, 'name'), false);
+    assert.equal(isStepReachable(DRINKS, empty, 'done'), false);
     // Never 'bag': an empty bag under a dead Checkout pill is the same dead end.
     assert.equal(recoveryStep(DRINKS, empty, 'pay'), 'entry');
   });
@@ -166,5 +193,15 @@ describe('STEP_ROUTES', () => {
       assert.match(STEP_ROUTES[step], /^\//, `${step} route must be absolute`);
     }
     assert.equal(Object.keys(STEP_ROUTES).length, all.size);
+  });
+
+  it('rejects a deep-linked page that disagrees with recovered flow state', () => {
+    assert.equal(routeMatchesStep('/order/entry', 'entry'), true);
+    assert.equal(routeMatchesStep('/order/entry/', 'entry'), true);
+    assert.equal(routeMatchesStep('/checkout/processing', 'entry'), false);
+    assert.equal(routeMatchesStep('/checkout/pay', 'entry'), false);
+    assert.equal(stepForRoute('/checkout/processing'), 'processing');
+    assert.equal(stepForRoute('/checkout/pay/'), 'pay');
+    assert.equal(stepForRoute('/pair'), null);
   });
 });

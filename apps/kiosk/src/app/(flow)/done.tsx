@@ -4,7 +4,9 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useCopy, useTokens } from '@platform/ui';
 
 import { KioskPressable } from '@/components/chrome/kiosk-pressable';
+import { resetExperience as runExperienceReset } from '@/features/experience-reset';
 import * as haptics from '@/lib/haptics';
+import { useBuilder } from '@/state/builder';
 import { useFlow } from '@/state/flow';
 import { useGuest } from '@/state/guest';
 import { useKioskSession } from '@/state/session';
@@ -24,11 +26,21 @@ export default function DoneStep() {
   const tokens = useTokens();
   const copy = useCopy();
   const { flow, startOver } = useFlow();
-  const { guestLabel, surveyAnswers, toggleSurveyAnswer } = useGuest();
+  const { guestLabel, surveyAnswers, toggleSurveyAnswer, clear: clearGuest } = useGuest();
+  const builder = useBuilder();
   const { reset } = useKioskSession();
 
+  function resetExperience() {
+    runExperienceReset({
+      resetSession: reset,
+      clearGuest,
+      resetBuilder: builder.reset,
+      navigate: startOver,
+    });
+  }
+
   useEffect(() => {
-    const timer = setTimeout(() => { reset(); startOver(); }, HANDOFF_MS);
+    const timer = setTimeout(resetExperience, HANDOFF_MS);
     return () => clearTimeout(timer);
     // Deliberately mount-only: re-arming on every survey tap would mean a guest
     // answering questions could hold the kiosk indefinitely.
@@ -42,9 +54,9 @@ export default function DoneStep() {
           {guestLabel ? `Thank you, ${guestLabel}` : copy('orderPlaced')}
         </Text>
         <Text style={[styles.detail, { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: tokens.type.xl }]}>
-          {copy('handoffPromise')}
+          {guestLabel ? copy('handoffPromise') : 'Watch the pickup board for your order.'}
         </Text>
-        <KioskPressable label="Start a new order" onPress={() => { reset(); startOver(); }} />
+        <KioskPressable label="Start a new order" onPress={resetExperience} />
       </View>
 
       {flow.survey.enabled ? (

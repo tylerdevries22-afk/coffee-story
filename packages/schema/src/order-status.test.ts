@@ -4,7 +4,15 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { describe, it } from 'node:test';
 
-import { ORDER_STATUSES, ORDER_TRANSITIONS, OPERATOR_TRANSITIONS, canTransition, transitionPath } from './order-status';
+import {
+  ORDER_STATUSES,
+  ORDER_TRANSITIONS,
+  OPERATOR_TRANSITIONS,
+  REVENUE_ORDER_STATUSES,
+  canTransition,
+  isRevenueOrderStatus,
+  transitionPath,
+} from './order-status';
 
 // Migrations live in the repo-root supabase/ dir (CLI layout) since 0009+.
 const MIGRATIONS = join(dirname(fileURLToPath(import.meta.url)), '../../../supabase/migrations');
@@ -28,6 +36,18 @@ function latestDefining(marker: string): string {
 const sql = latestDefining('order_transition_allowed');
 
 describe('order status machine', () => {
+  it('counts only collected-payment states as revenue', () => {
+    assert.deepEqual(REVENUE_ORDER_STATUSES, ['paid', 'in_progress', 'ready', 'picked_up']);
+    for (const status of ORDER_STATUSES) {
+      assert.equal(
+        isRevenueOrderStatus(status),
+        ['paid', 'in_progress', 'ready', 'picked_up'].includes(status),
+        status,
+      );
+    }
+    assert.equal(isRevenueOrderStatus('future_unpaid_state'), false);
+  });
+
   it('matches the SQL trigger transition for transition', () => {
     // Parse the pairs out of app.order_transition_allowed.
     const body = sql.split('order_transition_allowed')[1]!.split('$$')[1]!;

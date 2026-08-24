@@ -2,11 +2,11 @@
  * Order placement, tender-first.
  *
  * createOrder is the money path's front half: recompute every cent from
- * menu_items (the client only ever sends slugs), write the orders row with
- * its cart snapshot, append the created event, and — for tenders that settle
- * outside the platform (pay at pickup, external POS) — assert paid so the
- * order lands on the operator board. Idempotent on client_key: a retried
- * request returns the first order instead of ringing a guest up twice.
+ * menu_items (the client only ever sends slugs), then atomically commit the
+ * order row and created event. Only an attended external POS settles during
+ * that commit; pay-at-pickup stays created until staff records collection.
+ * Idempotent on client_key: a retried request returns the complete first order
+ * instead of ringing a guest up twice or accepting a half-written checkout.
  *
  * captureSquarePayment is the back half for card tenders: Square order +
  * payment carrying app_fee_money, paid event, platform_fees row, loyalty
@@ -18,14 +18,29 @@
  * config + the location's decrypted token), which keeps this testable and
  * keeps credentials at the edges.
  */
+import { createHash } from 'node:crypto';
+
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import type { OrderSnapshotLine } from '@platform/domain';
-import type { OrderTenderType } from '@platform/schema';
+import { dropVisibility, type OrderSnapshotLine } from '@platform/domain';
+import { requireSinglePublishedMenuId, type OrderTenderType } from '@platform/schema';
 
 import { computeAppFeeCents, feeMonthRange, type FeeConfig } from './fees';
-import { pointsEarnedFor } from './loyalty';
 import { priceLine, MenuPricingError, type MenuItemPricing } from './menu-pricing';
+import {
+  PackOrderError,
+  validatePackSelection,
+  type PackChoiceAvailability,
+  type ResolvedPackContent,
+} from './pack-order';
+import {
+  manualRefundEvent,
+  refundedCentsFrom,
+  replayForClaimedRefund,
+  replayForRequest,
+  replayForSquareRefund,
+  type RefundEventRecord,
+} from './refunds';
 import { taxCentsFor, taxRowsFor, type TaxJurisdiction } from './tax';
 import {
   createPaymentLink,
@@ -40,14 +55,13 @@ export type { OrderTenderType };
 /** `app.order_channel`. Where the order was taken, not how it was paid. */
 export type OrderChannel = 'app' | 'web' | 'kiosk' | 'pos';
 
-/** Tenders that settle off-platform: the order is committed the moment it is placed. */
-const IMMEDIATE_TENDERS: ReadonlySet<OrderTenderType> = new Set(['pay_at_pickup', 'external']);
-
 export class OrderError extends Error {
   readonly code:
     | 'invalid_request'
     | 'location_unknown'
     | 'ordering_paused'
+    | 'idempotency_conflict'
+    | 'price_changed'
     | 'item_unavailable'
     | 'refund_unavailable'
     | 'cancel_unavailable'
@@ -66,6 +80,7 @@ export type CreateOrderLine = {
   quantity: number;
   modifierSlugs?: string[];
   note?: string;
+  packContents?: { itemSlug: string; quantity: number }[];
 };
 
 export type CreateOrderInput = {
@@ -79,6 +94,8 @@ export type CreateOrderInput = {
   note: string;
   lines: readonly CreateOrderLine[];
   tipCents: number;
+  /** Client-side ceiling already shown to the guest; never an authority on price. */
+  maximumTotalCents?: number;
   tenderType: OrderTenderType;
   /**
    * Where the order came from. Derived server-side from who is calling, never
@@ -100,8 +117,8 @@ export type CreateOrderInput = {
    * every order at that location in the past hour.
    */
   deviceId: string | null;
-  /** The Idempotency-Key the client sent; persisted as orders.client_key. */
-  clientKey: string | null;
+  /** Required Idempotency-Key; persisted as orders.client_key. */
+  clientKey: string;
   taxJurisdictions: readonly TaxJurisdiction[];
 };
 
@@ -126,6 +143,7 @@ export type CreateOrderDeps = { db: SupabaseClient };
 
 const MAX_LINES = 100;
 const MAX_NOTE_LENGTH = 500;
+const MAX_PACK_CONTENT_ENTRIES = 500;
 /** How far ahead an order may be scheduled, and how late a clock may run. */
 const SCHEDULE_HORIZON_DAYS = 30;
 const SCHEDULE_HORIZON_MS = SCHEDULE_HORIZON_DAYS * 24 * 60 * 60 * 1000;
@@ -143,6 +161,66 @@ type ExistingOrder = {
   daily_number: number | null;
 };
 
+type OrderMenuItem = MenuItemPricing & {
+  id: string;
+  menu_id: string;
+  pack_size: number | null;
+  choice_source: 'lineup' | 'static' | null;
+  pack_choice_slugs: string[];
+};
+
+type PackChoiceRow = Pick<OrderMenuItem, 'id' | 'slug' | 'name' | 'pack_size'> & {
+  is_listed: boolean;
+  is_86d: boolean;
+  rotation: PackChoiceAvailability['rotation'];
+};
+
+type PackDropRow = {
+  item_id: string;
+  status: 'draft' | 'scheduled' | 'revealed' | 'live' | 'ended' | 'cancelled';
+  reveal_at: string | null;
+  starts_at: string;
+  ends_at: string;
+};
+
+/**
+ * Stable digest of the checkout request before menu, availability or tax data
+ * is consulted. Optional fields are normalized to the behavior the engine
+ * applies, so omitted and explicit empty values do not create false
+ * conflicts. Tax jurisdictions are intentionally absent: they are mutable
+ * server configuration, not input from the checkout attempt.
+ */
+export function orderRequestFingerprint(input: CreateOrderInput): string {
+  const canonical = {
+    version: 1,
+    brandId: input.brandId,
+    locationId: input.locationId,
+    customerId: input.customerId,
+    actorUserId: input.actorUserId,
+    fulfillmentType: input.fulfillmentType,
+    scheduledFor: input.scheduledFor,
+    note: input.note,
+    lines: input.lines.map((line) => ({
+      itemSlug: line.itemSlug,
+      sizeSlug: line.sizeSlug ?? null,
+      quantity: line.quantity,
+      modifierSlugs: line.modifierSlugs ?? [],
+      note: line.note ?? '',
+      packContents: (line.packContents ?? []).map((content) => ({
+        itemSlug: content.itemSlug,
+        quantity: content.quantity,
+      })),
+    })),
+    tipCents: input.tipCents,
+    maximumTotalCents: input.maximumTotalCents ?? null,
+    tenderType: input.tenderType,
+    channel: input.channel,
+    guestLabel: input.guestLabel,
+    deviceId: input.deviceId,
+  };
+  return createHash('sha256').update(JSON.stringify(canonical), 'utf8').digest('hex');
+}
+
 function asResult(row: ExistingOrder, replayed: boolean): CreateOrderResult {
   return {
     orderId: row.id,
@@ -156,31 +234,153 @@ function asResult(row: ExistingOrder, replayed: boolean): CreateOrderResult {
   };
 }
 
-async function findByClientKey(
+function committedResult(value: unknown): CreateOrderResult {
+  const payload = value as { order?: Partial<ExistingOrder>; replayed?: unknown } | null;
+  const row = payload?.order;
+  if (!row || typeof row.id !== 'string' || typeof row.status !== 'string'
+    || typeof row.subtotal_cents !== 'number' || !Number.isInteger(row.subtotal_cents)
+    || typeof row.tax_cents !== 'number' || !Number.isInteger(row.tax_cents)
+    || typeof row.tip_cents !== 'number' || !Number.isInteger(row.tip_cents)
+    || typeof row.total_cents !== 'number' || !Number.isInteger(row.total_cents)
+    || (row.daily_number !== null
+      && (typeof row.daily_number !== 'number' || !Number.isInteger(row.daily_number)))
+    || typeof payload?.replayed !== 'boolean') {
+    throw new Error('commit_order returned an invalid result.');
+  }
+  return asResult(row as ExistingOrder, payload.replayed);
+}
+
+type OrderRpcError = { code?: string; message: string };
+
+function throwOrderRpcError(error: OrderRpcError): never {
+  if (error.code === '22023' && /idempotency key was already used/i.test(error.message)) {
+    throw new OrderError('idempotency_conflict',
+      'That Idempotency-Key was already used for a different order request.');
+  }
+  throw error;
+}
+
+async function resolveOrderReplay(
+  db: SupabaseClient,
+  input: Pick<CreateOrderInput, 'brandId' | 'clientKey'>,
+  requestFingerprint: string,
+): Promise<CreateOrderResult | null> {
+  const replay = await db.rpc('resolve_order_replay', {
+    p_brand_id: input.brandId,
+    p_client_key: input.clientKey,
+    p_request_fingerprint: requestFingerprint,
+  });
+  if (replay.error) throwOrderRpcError(replay.error);
+  return replay.data === null ? null : committedResult(replay.data);
+}
+
+/** A client ceiling can only reject an increase; it never sets a price. */
+export function totalExceedsApprovedMaximum(totalCents: number, maximumTotalCents?: number): boolean {
+  return maximumTotalCents !== undefined && totalCents > maximumTotalCents;
+}
+
+async function packContentsForLines(
   db: SupabaseClient,
   brandId: string,
-  clientKey: string,
-): Promise<ExistingOrder | null> {
-  const { data, error } = await db
-    .from('orders')
-    .select('id, status, subtotal_cents, tax_cents, tip_cents, total_cents, daily_number')
+  menuId: string,
+  lines: readonly CreateOrderLine[],
+  items: ReadonlyMap<string, OrderMenuItem>,
+): Promise<ResolvedPackContent[][]> {
+  const entryCount = lines.reduce((total, line) => total + (line.packContents?.length ?? 0), 0);
+  if (entryCount > MAX_PACK_CONTENT_ENTRIES) {
+    throw new OrderError('invalid_request', `An order may carry at most ${MAX_PACK_CONTENT_ENTRIES} pack entries.`);
+  }
+  const contentSlugs = [...new Set(lines.flatMap((line) => line.packContents?.map((entry) => entry.itemSlug) ?? []))];
+  const choices = contentSlugs.length === 0
+    ? []
+    : await fetchPackChoices(db, brandId, menuId, contentSlugs);
+  const orderableDropIds = await fetchOrderableDropIds(db, brandId, choices);
+  const availability = choices.map<PackChoiceAvailability>((choice) => ({
+    itemSlug: choice.slug,
+    name: choice.name,
+    isListed: choice.is_listed,
+    is86d: choice.is_86d,
+    packSize: choice.pack_size,
+    rotation: choice.rotation,
+    dropOrderable: orderableDropIds.has(choice.id),
+  }));
+  return lines.map((line) => {
+    const item = items.get(line.itemSlug);
+    if (!item) throw new OrderError('item_unavailable', `"${line.itemSlug}" is not available right now.`);
+    try {
+      return validatePackSelection({
+        packSize: item.pack_size,
+        choiceSource: item.choice_source,
+        eligibleItemSlugs: item.pack_choice_slugs,
+      }, line.packContents, availability);
+    } catch (error) {
+      if (error instanceof PackOrderError) throw new OrderError(error.code, error.message);
+      throw error;
+    }
+  });
+}
+
+async function fetchPackChoices(
+  db: SupabaseClient,
+  brandId: string,
+  menuId: string,
+  slugs: readonly string[],
+): Promise<PackChoiceRow[]> {
+  const result = await db.from('menu_items')
+    .select('id, slug, name, pack_size, is_listed, is_86d, rotation')
     .eq('brand_id', brandId)
-    .eq('client_key', clientKey)
-    .maybeSingle<ExistingOrder>();
-  if (error) throw error;
-  return data;
+    .eq('menu_id', menuId)
+    .in('slug', [...slugs])
+    .returns<PackChoiceRow[]>();
+  if (result.error) throw result.error;
+  return result.data ?? [];
+}
+
+async function fetchOrderableDropIds(
+  db: SupabaseClient,
+  brandId: string,
+  choices: readonly PackChoiceRow[],
+): Promise<ReadonlySet<string>> {
+  const rotatingIds = choices.filter((choice) => choice.rotation !== 'permanent').map((choice) => choice.id);
+  if (rotatingIds.length === 0) return new Set();
+  const result = await db.from('drops')
+    .select('item_id, status, reveal_at, starts_at, ends_at')
+    .eq('brand_id', brandId)
+    .in('item_id', rotatingIds)
+    .returns<PackDropRow[]>();
+  if (result.error) throw result.error;
+  const now = Date.now();
+  return new Set((result.data ?? []).filter((drop) => dropVisibility({
+    itemId: drop.item_id,
+    status: drop.status,
+    revealAt: drop.reveal_at === null ? null : Date.parse(drop.reveal_at),
+    startsAt: Date.parse(drop.starts_at),
+    endsAt: Date.parse(drop.ends_at),
+  }, now) === 'orderable').map((drop) => drop.item_id));
 }
 
 export async function createOrder(deps: CreateOrderDeps, input: CreateOrderInput): Promise<CreateOrderResult> {
+  // Resolve a completed attempt before applying even local validation. A
+  // retry after a lost response must return the immutable winner if clocks,
+  // catalog state, or local validation limits changed after it committed.
+  const requestFingerprint = orderRequestFingerprint(input);
+  const replay = await resolveOrderReplay(deps.db, input, requestFingerprint);
+  if (replay) return replay;
+
   if (input.lines.length < 1 || input.lines.length > MAX_LINES) {
     throw new OrderError('invalid_request', `An order carries 1..${MAX_LINES} lines.`);
   }
   if (!Number.isInteger(input.tipCents) || input.tipCents < 0) {
     throw new OrderError('invalid_request', 'Tip must be a non-negative integer of cents.');
   }
+  if (input.maximumTotalCents !== undefined
+    && (!Number.isInteger(input.maximumTotalCents) || input.maximumTotalCents < 0)) {
+    throw new OrderError('invalid_request', 'maximumTotalCents must be non-negative integer cents.');
+  }
   if (input.note.length > MAX_NOTE_LENGTH) {
     throw new OrderError('invalid_request', `The order note caps at ${MAX_NOTE_LENGTH} characters.`);
   }
+
   if (input.scheduledFor !== null) {
     const when = Date.parse(input.scheduledFor);
     if (Number.isNaN(when)) {
@@ -199,11 +399,6 @@ export async function createOrder(deps: CreateOrderDeps, input: CreateOrderInput
     }
   }
 
-  if (input.clientKey) {
-    const existing = await findByClientKey(deps.db, input.brandId, input.clientKey);
-    if (existing) return asResult(existing, true);
-  }
-
   const location = await deps.db
     .from('locations')
     .select('id, ordering_paused')
@@ -216,37 +411,38 @@ export async function createOrder(deps: CreateOrderDeps, input: CreateOrderInput
     throw new OrderError('ordering_paused', 'Ordering is paused at this location right now.');
   }
 
-  const slugs = [...new Set(input.lines.map((line) => line.itemSlug))];
-  const [items, menus] = await Promise.all([
-    deps.db
-      .from('menu_items')
-      .select('slug, name, base_price_cents, sizes, modifiers, menu_id')
-      .eq('brand_id', input.brandId)
-      .in('slug', slugs)
-      .eq('is_listed', true)
-      .eq('is_86d', false)
-      .returns<(MenuItemPricing & { menu_id: string })[]>(),
-    deps.db
-      .from('menus')
-      .select('id')
-      .eq('brand_id', input.brandId)
-      .eq('is_published', true)
-      .returns<{ id: string }[]>(),
-  ]);
-  if (items.error) throw items.error;
+  const menus = await deps.db
+    .from('menus')
+    .select('id')
+    .eq('brand_id', input.brandId)
+    .eq('is_published', true)
+    .returns<{ id: string }[]>();
   if (menus.error) throw menus.error;
-  const publishedMenus = new Set((menus.data ?? []).map((menu) => menu.id));
-  const bySlug = new Map(
-    (items.data ?? [])
-      .filter((item) => publishedMenus.has(item.menu_id))
-      .map((item) => [item.slug, item]),
-  );
+  let menuId: string;
+  try {
+    menuId = requireSinglePublishedMenuId(menus.data ?? []);
+  } catch {
+    throw new OrderError('catalog_invalid', 'This brand must have exactly one published menu.');
+  }
+  const slugs = [...new Set(input.lines.map((line) => line.itemSlug))];
+  const items = await deps.db
+    .from('menu_items')
+    .select('id, slug, name, base_price_cents, sizes, modifiers, menu_id, pack_size, choice_source, pack_choice_slugs')
+    .eq('brand_id', input.brandId)
+    .eq('menu_id', menuId)
+    .in('slug', slugs)
+    .eq('is_listed', true)
+    .eq('is_86d', false)
+    .returns<OrderMenuItem[]>();
+  if (items.error) throw items.error;
+  const bySlug = new Map((items.data ?? []).map((item) => [item.slug, item]));
+  const packContents = await packContentsForLines(deps.db, input.brandId, menuId, input.lines, bySlug);
 
   let subtotalCents = 0;
   // Typed against the contract in @platform/domain rather than against itself,
   // so a renamed key fails here instead of quietly rendering "Item x1" on
   // every surface that reads the snapshot back.
-  const snapshotLines: OrderSnapshotLine[] = input.lines.map((line) => {
+  const snapshotLines: OrderSnapshotLine[] = input.lines.map((line, index) => {
     const item = bySlug.get(line.itemSlug);
     if (!item) throw new OrderError('item_unavailable', `"${line.itemSlug}" is not available right now.`);
     let priced;
@@ -264,13 +460,18 @@ export async function createOrder(deps: CreateOrderDeps, input: CreateOrderInput
       unit_price_cents: priced.unitPriceCents,
       options: priced.optionNames,
       note: line.note ?? '',
+      pack_contents: packContents[index] ?? [],
     };
   });
 
   const taxRows = taxRowsFor(subtotalCents, input.taxJurisdictions);
   const taxCents = taxCentsFor(subtotalCents, input.taxJurisdictions);
   const totalCents = subtotalCents + taxCents + input.tipCents;
+  if (totalExceedsApprovedMaximum(totalCents, input.maximumTotalCents)) {
+    throw new OrderError('price_changed', 'The current menu total is higher than the amount the guest approved.');
+  }
   const snapshot = {
+    request_fingerprint: requestFingerprint,
     lines: snapshotLines,
     tax_rows: taxRows.map((row) => ({ id: row.id, label: row.label, rate: row.rate, amount_cents: row.amountCents })),
     subtotal_cents: subtotalCents,
@@ -280,99 +481,28 @@ export async function createOrder(deps: CreateOrderDeps, input: CreateOrderInput
     tender_type: input.tenderType,
   };
 
-  const inserted = await deps.db
-    .from('orders')
-    .insert({
-      brand_id: input.brandId,
-      location_id: input.locationId,
-      customer_id: input.customerId,
-      fulfillment_type: input.fulfillmentType,
-      scheduled_for: input.scheduledFor,
-      note: input.note,
-      totals: snapshot,
-      subtotal_cents: subtotalCents,
-      tax_cents: taxCents,
-      tip_cents: input.tipCents,
-      total_cents: totalCents,
-      tender_type: input.tenderType,
-      channel: input.channel,
-      guest_label: input.guestLabel,
-      device_id: input.deviceId,
-      client_key: input.clientKey,
-    })
-    .select('id, status, subtotal_cents, tax_cents, tip_cents, total_cents, daily_number')
-    .single<ExistingOrder>();
-  if (inserted.error) {
-    // Two rings of the same client_key raced: the UNIQUE lost this insert,
-    // so the winner IS this order — return it.
-    if (inserted.error.code === '23505' && input.clientKey) {
-      const winner = await findByClientKey(deps.db, input.brandId, input.clientKey);
-      if (winner) return asResult(winner, true);
-    }
-    throw inserted.error;
-  }
-  const order = inserted.data;
-
-  const createdEvent = await deps.db.from('order_events').insert({
-    brand_id: input.brandId,
-    order_id: order.id,
-    type: 'created',
-    snapshot,
-    actor_user_id: input.actorUserId,
-    source: 'customer',
+  const committed = await deps.db.rpc('commit_order', {
+    p_brand_id: input.brandId,
+    p_location_id: input.locationId,
+    p_customer_id: input.customerId,
+    p_fulfillment_type: input.fulfillmentType,
+    p_scheduled_for: input.scheduledFor,
+    p_note: input.note,
+    p_totals: snapshot,
+    p_subtotal_cents: subtotalCents,
+    p_tax_cents: taxCents,
+    p_tip_cents: input.tipCents,
+    p_total_cents: totalCents,
+    p_tender_type: input.tenderType,
+    p_channel: input.channel,
+    p_guest_label: input.guestLabel,
+    p_device_id: input.deviceId,
+    p_client_key: input.clientKey,
+    p_request_fingerprint: requestFingerprint,
+    p_actor_user_id: input.actorUserId,
   });
-  if (createdEvent.error) throw createdEvent.error;
-
-  if (IMMEDIATE_TENDERS.has(input.tenderType)) {
-    const paidEvent = await deps.db.from('order_events').insert({
-      brand_id: input.brandId,
-      order_id: order.id,
-      type: 'paid',
-      snapshot: { ...snapshot, settlement: input.tenderType === 'pay_at_pickup' ? 'at_pickup' : 'external' },
-      source: 'system',
-    });
-    if (paidEvent.error) throw paidEvent.error;
-    order.status = 'paid';
-    if (input.customerId) {
-      await recordLoyaltyEarn(deps.db, {
-        brandId: input.brandId,
-        customerId: input.customerId,
-        orderId: order.id,
-        subtotalCents,
-      });
-    }
-  }
-
-  return asResult(order, false);
-}
-
-/**
- * The earn on a paid order: subtotal qualifies, tax and tip never. Creates
- * the loyalty account on first earn so a brand-new guest's first coffee
- * counts. Returns the points granted, or 0 if this order has already earned.
- *
- * Idempotent per ORDER, not per delivery. The webhook decides a delivery is
- * new from its `square_event_id`, and Square will send two `payment.updated`
- * events with different ids for the same COMPLETED payment; the order trigger
- * records the second as an idempotent re-assertion and moves nothing, so the
- * route saw "new" and earned again. `loyalty_events_one_earn_per_order`
- * (migration 0022) makes "once" true even when two deliveries race, the same
- * way the reversal has worked since 0018.
- */
-export async function recordLoyaltyEarn(
-  db: SupabaseClient,
-  input: { brandId: string; customerId: string; orderId: string; subtotalCents: number },
-): Promise<number> {
-  const earned = pointsEarnedFor(input.subtotalCents);
-  if (earned <= 0) return 0;
-  const { data, error } = await db.rpc('loyalty_record_earn', {
-    target_brand: input.brandId,
-    target_customer: input.customerId,
-    target_order: input.orderId,
-    earned_points: earned,
-  });
-  if (error) throw error;
-  return Number(data ?? 0);
+  if (committed.error) throwOrderRpcError(committed.error);
+  return committedResult(committed.data);
 }
 
 /**
@@ -419,7 +549,7 @@ export async function recordPlatformFee(
     locationTimezone: location.data.timezone ?? 'UTC',
   });
 
-  const { error } = await db.from('platform_fees').insert({
+  await insertPlatformFeeOnce(db, {
     brand_id: input.brandId,
     location_id: input.locationId,
     order_id: input.orderId,
@@ -428,64 +558,46 @@ export async function recordPlatformFee(
     fee_bps_applied: fee.feeBpsApplied,
     square_payment_id: input.squarePaymentId,
   });
-  // Already recorded for this payment.
-  if (error && error.code !== '23505') throw error;
 }
 
-/**
- * Takes back the points an order earned, once and only once.
- *
- * Both callers need this to be idempotent for different reasons: Square
- * retries a refund delivery (the event id is deduplicated, but everything
- * after it used to run again), and a guest can cancel an order that a refund
- * already reversed.
- *
- * `causeKey` is what makes "once" mean once per REFUND rather than once per
- * order. It used to be the latter -- one reversal row per order, ever -- which
- * is right for a retry and wrong for a second refund: a $50 order earning 500
- * points, refunded $10 and then the remaining $40, reversed 100 and then hit
- * the constraint and reversed nothing, leaving the guest 400 points on a fully
- * refunded order. Now a retry carries the same key and is refused, a different
- * refund carries a different one and is allowed, and the running total is
- * capped at what was earned so the two paths agree about the same money.
- *
- * `refundedCents` is what went back on THIS refund, so a partial refund takes
- * back a proportional share rather than the whole earn.
- */
-export async function reverseLoyaltyEarn(
-  db: SupabaseClient,
-  input: {
-    brandId: string;
-    customerId: string | null;
-    orderId: string;
-    orderTotalCents: number;
-    refundedCents: number;
-    /** What caused this reversal: a Square event id, or `cancel:<order id>`. */
-    causeKey: string;
-  },
-): Promise<number> {
-  if (!input.customerId) return 0;
-  const { data, error } = await db.rpc('loyalty_reverse_earn', {
-    target_brand: input.brandId,
-    target_customer: input.customerId,
-    target_order: input.orderId,
-    order_total_cents: input.orderTotalCents,
-    refunded_cents: input.refundedCents,
-    cause_key: input.causeKey,
-  });
-  if (error) throw error;
-  return Number(data ?? 0);
+type PlatformFeeInsert = {
+  brand_id: string;
+  location_id: string;
+  order_id: string;
+  gross_cents: number;
+  fee_cents: number;
+  fee_bps_applied: number;
+  square_payment_id: string;
+};
+
+async function insertPlatformFeeOnce(db: SupabaseClient, row: PlatformFeeInsert): Promise<void> {
+  const { error } = await db.from('platform_fees').insert(row);
+  // A lost HTTP response can replay after the first insert committed. The
+  // payment id is unique, so that conflict is the success we already had.
+  if (error && error.code !== '23505') throw error;
 }
 
 /** The cart lines in Square's shape. Pure; covered by orders.test.ts. */
 export function buildSquareLines(
-  lines: readonly { name: string; quantity: number; unitPriceCents: number; options: readonly string[] }[],
+  lines: readonly {
+    name: string;
+    quantity: number;
+    unitPriceCents: number;
+    options: readonly string[];
+    packContents?: readonly { name: string; quantity: number }[];
+  }[],
 ): SquareOrderLine[] {
-  return lines.map((line) => ({
-    name: line.options.length > 0 ? `${line.name} (${line.options.join(', ')})` : line.name,
-    quantity: String(line.quantity),
-    base_price_money: { amount: line.unitPriceCents, currency: 'USD' },
-  }));
+  return lines.map((line) => {
+    const packNote = line.packContents && line.packContents.length > 0
+      ? `Inside each pack: ${line.packContents.map((content) => `${content.quantity}x ${content.name}`).join(', ')}`
+      : undefined;
+    return {
+      name: line.options.length > 0 ? `${line.name} (${line.options.join(', ')})` : line.name,
+      quantity: String(line.quantity),
+      base_price_money: { amount: line.unitPriceCents, currency: 'USD' },
+      ...(packNote ? { note: packNote } : {}),
+    };
+  });
 }
 
 export type CapturePaymentDeps = {
@@ -508,6 +620,7 @@ type SnapshotLine = {
   quantity: number;
   unit_price_cents: number;
   options: readonly string[];
+  pack_contents?: readonly { item_slug: string; name: string; quantity: number }[];
 };
 
 export async function captureSquarePayment(
@@ -534,8 +647,46 @@ export async function captureSquarePayment(
   if (loaded.error) throw loaded.error;
   const order = loaded.data;
   if (!order) throw new OrderError('invalid_request', 'That order does not exist.');
-  // A retried capture after a lost response: the first one won.
-  if (order.square_payment_id) return { orderId: order.id, squarePaymentId: order.square_payment_id };
+  // A retried capture after a lost response must finish the local settlement,
+  // not merely notice that Square already charged the card. Linking the
+  // payment, recording platform revenue, and appending the paid event are
+  // separate database calls because the external charge sits between them.
+  // Square's idempotency keys prevent another charge; these local idempotent
+  // repairs prevent a linked-but-unpaid order replaying as a false success.
+  if (order.square_payment_id) {
+    const cardChargeCents = order.total_cents - order.stored_value_applied_cents;
+    const fee = await appFeeForCharge(deps.db, {
+      locationId: order.location_id,
+      chargeCents: cardChargeCents,
+      feeConfig: deps.feeConfig,
+      locationTimezone: deps.locationTimezone,
+    });
+    await insertPlatformFeeOnce(deps.db, {
+      brand_id: order.brand_id,
+      location_id: order.location_id,
+      order_id: order.id,
+      gross_cents: cardChargeCents,
+      fee_cents: fee.feeCents,
+      fee_bps_applied: fee.feeBpsApplied,
+      square_payment_id: order.square_payment_id,
+    });
+    if (order.status === 'created') {
+      const { error } = await deps.db.from('order_events').insert({
+        brand_id: order.brand_id,
+        order_id: order.id,
+        type: 'paid',
+        snapshot: {
+          ...order.totals,
+          square_payment_id: order.square_payment_id,
+          card_charge_cents: cardChargeCents,
+          recovered: true,
+        },
+        source: 'system',
+      });
+      if (error) throw error;
+    }
+    return { orderId: order.id, squarePaymentId: order.square_payment_id };
+  }
   if (order.status !== 'created') {
     throw new OrderError('invalid_request', `Order is ${order.status}; only a created order can be captured.`);
   }
@@ -545,6 +696,7 @@ export async function captureSquarePayment(
     quantity: line.quantity,
     unitPriceCents: line.unit_price_cents,
     options: line.options ?? [],
+    packContents: line.pack_contents ?? [],
   }));
   const squareOrder = await createSquareOrder(deps.square, deps.locationAccessToken, {
     squareLocationId: deps.squareLocationId,
@@ -589,19 +741,10 @@ export async function captureSquarePayment(
     );
   }
 
-  // The paid event: state moves through order_events only (rule 2). The
-  // webhook will assert paid again with its own event id; the trigger treats
-  // the re-assertion as idempotent.
-  const { error: eventError } = await deps.db.from('order_events').insert({
-    brand_id: order.brand_id,
-    order_id: order.id,
-    type: 'paid',
-    snapshot: { ...order.totals, square_payment_id: paymentId, card_charge_cents: cardChargeCents },
-    source: 'system',
-  });
-  if (eventError) throw eventError;
-
-  const { error: feeError } = await deps.db.from('platform_fees').insert({
+  // Record the fee before advancing state. If this call fails, the order is
+  // still created and the replay path above repairs it. Once paid is visible,
+  // the fee row is therefore already durable.
+  await insertPlatformFeeOnce(deps.db, {
     brand_id: order.brand_id,
     location_id: order.location_id,
     order_id: order.id,
@@ -610,16 +753,17 @@ export async function captureSquarePayment(
     fee_bps_applied: fee.feeBpsApplied,
     square_payment_id: paymentId,
   });
-  if (feeError) throw feeError;
 
-  if (order.customer_id) {
-    await recordLoyaltyEarn(deps.db, {
-      brandId: order.brand_id,
-      customerId: order.customer_id,
-      orderId: order.id,
-      subtotalCents: order.subtotal_cents,
-    });
-  }
+  // State moves through order_events only (rule 2). Its database trigger
+  // grants loyalty in the same transaction, including staff-recorded cash.
+  const { error: eventError } = await deps.db.from('order_events').insert({
+    brand_id: order.brand_id,
+    order_id: order.id,
+    type: 'paid',
+    snapshot: { ...order.totals, square_payment_id: paymentId, card_charge_cents: cardChargeCents },
+    source: 'system',
+  });
+  if (eventError) throw eventError;
 
   return { orderId: order.id, squarePaymentId: paymentId };
 }
@@ -714,6 +858,7 @@ export async function createSquareCheckoutLink(
     quantity: line.quantity,
     unitPriceCents: line.unit_price_cents,
     options: line.options ?? [],
+    packContents: line.pack_contents ?? [],
   }));
   const chargeCents = order.total_cents - order.stored_value_applied_cents;
   const fee = await appFeeForCharge(deps.db, {
@@ -762,8 +907,8 @@ export async function createSquareCheckoutLink(
   return { orderId: order.id, checkoutUrl, replayed: false };
 }
 
-/** Cancellable by the guest only while the shop has not started making it. */
-const GUEST_CANCELLABLE: ReadonlySet<string> = new Set(['created', 'paid']);
+/** Cancellable by the guest only before any tender has been collected. */
+const GUEST_CANCELLABLE: ReadonlySet<string> = new Set(['created']);
 
 export type CancelOrderInput = {
   orderId: string;
@@ -845,17 +990,8 @@ export async function cancelOrder(
     throw error;
   }
 
-  // A pay-at-pickup order earns its points the moment it is placed, because
-  // the shop is about to make it. Cancelling has to give them back, or
-  // ordering and cancelling in a loop mints points out of nothing.
-  await reverseLoyaltyEarn(deps.db, {
-    brandId: order.brand_id,
-    customerId: order.customer_id,
-    orderId: order.id,
-    orderTotalCents: order.total_cents,
-    refundedCents: order.total_cents,
-    causeKey: `cancel:${order.id}`,
-  });
+  // The event trigger reverses any prior earn in this same transaction. A
+  // created pay-at-pickup order has no earn to reverse until staff collects.
   return { orderId: order.id, status: 'cancelled', alreadyCancelled: false };
 }
 
@@ -883,25 +1019,79 @@ export type RefundInput = {
 /**
  * What has already gone back on this order.
  *
- * Keyed on the refund id in the snapshot rather than the event type: a
- * partial refund records itself without moving the order (see below), so it
- * does not carry type 'refunded' and a type filter would miss exactly the
- * events this sum exists to count.
+ * Keyed on typed processor identity rather than event type: a partial refund
+ * records itself without moving the order (see below), so it does not carry
+ * type 'refunded' and a type filter would miss exactly what this sum counts.
  */
-type RefundedEvent = { snapshot: { refund_id?: unknown; amount_cents?: unknown } | null };
-
-async function refundedSoFar(db: SupabaseClient, orderId: string): Promise<number> {
+async function refundEventsFor(db: SupabaseClient, orderId: string): Promise<RefundEventRecord[]> {
   const { data, error } = await db
     .from('order_events')
-    .select('snapshot')
+    .select('brand_id, order_id, square_refund_id, refund_cents, refund_request_key, snapshot')
     .eq('order_id', orderId)
-    .returns<RefundedEvent[]>();
+    .returns<RefundEventRecord[]>();
   if (error) throw error;
-  return (data ?? []).reduce((sum, row) => {
-    if (typeof row.snapshot?.refund_id !== 'string') return sum;
-    const amount = row.snapshot.amount_cents;
-    return sum + (typeof amount === 'number' ? amount : 0);
-  }, 0);
+  return data ?? [];
+}
+
+async function refundEventByRequestKey(
+  db: SupabaseClient,
+  brandId: string,
+  requestKey: string,
+): Promise<RefundEventRecord | null> {
+  const result = await db
+    .from('order_events')
+    .select('brand_id, order_id, square_refund_id, refund_cents, refund_request_key, snapshot')
+    .eq('brand_id', brandId)
+    .eq('refund_request_key', requestKey)
+    .maybeSingle<RefundEventRecord>();
+  if (result.error) throw result.error;
+  return result.data;
+}
+
+async function refundEventBySquareId(
+  db: SupabaseClient,
+  refundId: string,
+): Promise<RefundEventRecord | null> {
+  const result = await db
+    .from('order_events')
+    .select('brand_id, order_id, square_refund_id, refund_cents, refund_request_key, snapshot')
+    .eq('square_refund_id', refundId)
+    .maybeSingle<RefundEventRecord>();
+  if (result.error) throw result.error;
+  return result.data;
+}
+
+async function claimWebhookRefundWinner(
+  db: SupabaseClient,
+  input: {
+    brandId: string;
+    orderId: string;
+    refundId: string;
+    refundCents: number;
+    requestKey: string;
+    requestedAmount: number | 'full';
+  },
+) {
+  const claimed = await db.rpc('claim_refund_request', {
+    p_brand_id: input.brandId,
+    p_order_id: input.orderId,
+    p_square_refund_id: input.refundId,
+    p_refund_cents: input.refundCents,
+    p_refund_request_key: input.requestKey,
+    p_requested_amount: input.requestedAmount,
+  });
+  if (claimed.error) {
+    if (claimed.error.code === '22023') {
+      throw new OrderError('invalid_request',
+        'That idempotency key belongs to a different refund attempt.');
+    }
+    throw claimed.error;
+  }
+  const replay = claimed.data
+    ? replayForClaimedRefund(claimed.data as RefundEventRecord, input)
+    : null;
+  if (!replay) throw new Error('claim_refund_request returned an invalid refund event.');
+  return replay;
 }
 
 /** States a refund may legally follow. Checked before money moves. */
@@ -937,6 +1127,20 @@ export async function refundOrderPayment(
     throw new OrderError('refund_unavailable',
       'This order was not paid by card through the app, so there is nothing to return here — refund it at the register.');
   }
+  const existingAttempt = await refundEventByRequestKey(deps.db, order.brand_id, input.requestKey);
+  const priorAttempt = replayForRequest(existingAttempt ? [existingAttempt] : [], {
+    brandId: order.brand_id,
+    orderId: order.id,
+    requestKey: input.requestKey,
+    amountCents: input.amountCents,
+  });
+  if (priorAttempt.outcome === 'match') return priorAttempt.result;
+  if (priorAttempt.outcome === 'conflict') {
+    throw new OrderError('invalid_request', 'That idempotency key belongs to a different refund attempt.');
+  }
+
+  const refundEvents = await refundEventsFor(deps.db, order.id);
+
   // Checked BEFORE Square is called. Money that moves and then cannot be
   // recorded is the one failure with no clean recovery: the guest has their
   // refund, the platform has no trace of it, and every retry repeats the
@@ -947,7 +1151,7 @@ export async function refundOrderPayment(
       `This order is ${order.status}; it cannot be refunded.`);
   }
 
-  const alreadyRefunded = await refundedSoFar(deps.db, order.id);
+  const alreadyRefunded = refundedCentsFrom(refundEvents);
   const refundable = order.total_cents - order.stored_value_applied_cents - alreadyRefunded;
   if (refundable <= 0) {
     throw new OrderError('refund_unavailable', 'This order has already been fully refunded.');
@@ -979,20 +1183,51 @@ export async function refundOrderPayment(
   // is terminal, and asserting it for a $2 courtesy refund stranded a $22
   // order the barista still had to hand over, with no legal move left.
   const fullyRefunded = alreadyRefunded + amountCents >= order.total_cents - order.stored_value_applied_cents;
-  const { error: eventError } = await deps.db.from('order_events').insert({
-    brand_id: order.brand_id,
-    order_id: order.id,
+  const { error: eventError } = await deps.db.from('order_events').insert(manualRefundEvent({
+    brandId: order.brand_id,
+    orderId: order.id,
     // Partial refunds record themselves without moving the order.
     type: fullyRefunded ? 'refunded' : order.status,
-    snapshot: {
-      refund_id: refundId,
-      amount_cents: amountCents,
-      reason: input.reason,
-      partial: !fullyRefunded,
-    },
-    actor_user_id: input.actorUserId,
-    source: 'operator',
-  });
+    refundId,
+    amountCents,
+    requestedAmount: input.amountCents,
+    requestKey: input.requestKey,
+    reason: input.reason,
+    partial: !fullyRefunded,
+    actorUserId: input.actorUserId,
+  }));
+  if (eventError?.code === '23505') {
+    const winner = await refundEventBySquareId(deps.db, refundId);
+    const processorReplay = winner ? replayForSquareRefund(winner, {
+      brandId: order.brand_id,
+      orderId: order.id,
+      refundId,
+      amountCents,
+    }) : null;
+    if (!winner || !processorReplay) {
+      throw new OrderError('invalid_request',
+        'That idempotency key belongs to a different refund attempt.');
+    }
+    const requestReplay = replayForRequest([winner], {
+      brandId: order.brand_id,
+      orderId: order.id,
+      requestKey: input.requestKey,
+      amountCents: input.amountCents,
+    });
+    if (requestReplay.outcome === 'match') return requestReplay.result;
+    if (requestReplay.outcome === 'conflict' || winner.refund_request_key !== null) {
+      throw new OrderError('invalid_request',
+        'That idempotency key belongs to a different refund attempt.');
+    }
+    return claimWebhookRefundWinner(deps.db, {
+      brandId: order.brand_id,
+      orderId: order.id,
+      refundId,
+      refundCents: amountCents,
+      requestKey: input.requestKey,
+      requestedAmount: input.amountCents,
+    });
+  }
   if (eventError) throw eventError;
 
   return { orderId: order.id, refundId, amountCents };

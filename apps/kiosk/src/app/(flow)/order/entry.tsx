@@ -18,22 +18,23 @@ import TENANT from '@/tenant/brand.json';
  * franchise onboarded this morning opens on something a guest can press.
  */
 export default function EntryStep() {
-  const { flow, learn, goTo, goNext, select } = useFlow();
+  const { flow, learn, goTo, goNext, select, openUtility } = useFlow();
   const { status, refresh } = useKioskMenu();
 
   function choose(node: KioskEntryNode) {
-    select(node);
     switch (node.target.kind) {
       case 'group':
+        select(node);
         learn({ inGroup: true });
         goTo('node');
         return;
       case 'category':
       case 'item':
-        learn({ inGroup: false });
-        goNext();
+        select(node);
+        goNext({ inGroup: false });
         return;
       case 'utility':
+        openUtility(node.target.utility);
         return;
     }
   }

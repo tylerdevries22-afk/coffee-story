@@ -162,6 +162,8 @@ export type MenuItemRow = {
   pack_size: number | null;
   choice_source: 'lineup' | 'static' | null;
   single_item_id: string | null;
+  /** Stable slugs authored for this pack; availability narrows this set. */
+  pack_choice_slugs: string[];
   created_at: string;
   updated_at: string;
 };
@@ -261,6 +263,9 @@ export type OrderRow = {
   guest_label: string | null;
   /** Curbside check-in. Not a status: an order can arrive mid-preparation. */
   arrived_at: string | null;
+  client_key: string | null;
+  tender_type: OrderTenderType;
+  square_checkout_url: string | null;
   square_order_id: string | null;
   square_payment_id: string | null;
   created_at: string;
@@ -278,6 +283,10 @@ export type OrderEventRow = {
   square_event_id: string | null;
   /** Stable Square refund id; event ids only identify deliveries. */
   square_refund_id: string | null;
+  /** Positive processor-refund amount, typed outside the general snapshot. */
+  refund_cents: number | null;
+  /** Brand-scoped idempotency key for an attended refund request. */
+  refund_request_key: string | null;
   actor_user_id: string | null;
   source: 'system' | 'customer' | 'operator' | 'webhook' | 'job';
   created_at: string;

@@ -2,10 +2,12 @@ import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
 import { describe, it } from 'node:test';
 
+import type { SupabaseClient } from '@supabase/supabase-js';
+
 import {
   DEVICE_TOKEN_TTL_SECONDS, DeviceError, canPlaceOrders, hashPairingCode,
-  loadDeviceSigningKey, newPairingCode, normalizeCode, signDeviceToken, verifyDeviceToken,
-  type DeviceClaims, type DeviceSigningKey,
+  loadDeviceSigningKey, newPairingCode, normalizeCode, redeemPairingCode, signDeviceToken,
+  tenantSlugMatches, verifyDeviceToken, type DeviceClaims, type DeviceRowLike, type DeviceSigningKey,
 } from './devices';
 
 const KEY: DeviceSigningKey = { secret: 'a'.repeat(48), issuer: 'https://example.test/auth/v1' };
@@ -59,6 +61,101 @@ describe('hashPairingCode', () => {
     assert.equal(hashPairingCode('bc23-4567', KEY), hashPairingCode('BC234567', KEY));
     assert.notEqual(hashPairingCode('BC234567', KEY), hashPairingCode('BC234568', KEY));
     assert.equal(normalizeCode(' bc23 4567 '), 'BC234567');
+  });
+});
+
+describe('tenantSlugMatches', () => {
+  it('refuses a valid code belonging to another white-label tenant', () => {
+    assert.equal(tenantSlugMatches('coffee-story', 'coffee-story'), true);
+    assert.equal(tenantSlugMatches('other-roastery', 'coffee-story'), false);
+    assert.equal(tenantSlugMatches('coffee-story', '../coffee-story'), false);
+  });
+});
+
+type PairingDbState = {
+  row: DeviceRowLike;
+  initialReads: number;
+  releaseReads: (() => void) | null;
+  readsReady: Promise<void>;
+};
+
+class PairingQuery {
+  private mode: 'read' | 'update' = 'read';
+  private readonly equals = new Map<string, unknown>();
+  private readonly nulls = new Set<string>();
+  private readonly greaterThan = new Map<string, unknown>();
+  private updateValues: Record<string, unknown> = {};
+
+  constructor(private readonly state: PairingDbState, private readonly table: string) {}
+  select(): this { return this; }
+  update(values: Record<string, unknown>): this { this.mode = 'update'; this.updateValues = values; return this; }
+  eq(column: string, value: unknown): this { this.equals.set(column, value); return this; }
+  is(column: string): this { this.nulls.add(column); return this; }
+  gt(column: string, value: unknown): this { this.greaterThan.set(column, value); return this; }
+
+  async maybeSingle(): Promise<{ data: unknown; error: null }> {
+    if (this.table === 'brands') return { data: { slug: 'coffee-story' }, error: null };
+    if (this.mode === 'update') return { data: this.applyUpdate(), error: null };
+    const snapshot = { ...this.state.row };
+    if (this.equals.get('pairing_code_hash') !== snapshot.pairing_code_hash) {
+      return { data: null, error: null };
+    }
+    this.state.initialReads += 1;
+    if (this.state.initialReads === 2) this.state.releaseReads?.();
+    await this.state.readsReady;
+    return { data: snapshot, error: null };
+  }
+
+  private applyUpdate(): DeviceRowLike | null {
+    const row = this.state.row as DeviceRowLike & Record<string, unknown>;
+    for (const [column, value] of this.equals) if (row[column] !== value) return null;
+    for (const column of this.nulls) if (row[column] !== null) return null;
+    for (const [column, value] of this.greaterThan) {
+      if (typeof row[column] !== 'string' || typeof value !== 'string' || row[column] <= value) return null;
+    }
+    Object.assign(row, this.updateValues);
+    return { ...this.state.row };
+  }
+}
+
+function concurrentPairingDb(codeHash: string): SupabaseClient {
+  let releaseReads: (() => void) | null = null;
+  const readsReady = new Promise<void>((resolve) => { releaseReads = resolve; });
+  const state: PairingDbState = {
+    row: {
+      id: CLAIMS.deviceId,
+      brand_id: CLAIMS.brandId,
+      location_id: CLAIMS.locationId,
+      role: CLAIMS.role,
+      label: 'Lobby kiosk',
+      pairing_code_hash: codeHash,
+      pairing_expires_at: new Date(NOW + 60_000).toISOString(),
+      paired_at: null,
+      revoked_at: null,
+      last_seen_at: null,
+      token_version: 1,
+    },
+    initialReads: 0,
+    releaseReads,
+    readsReady,
+  };
+  return { from: (table: string) => new PairingQuery(state, table) } as unknown as SupabaseClient;
+}
+
+describe('redeemPairingCode', () => {
+  it('atomically lets only one concurrent request consume a code', async () => {
+    const code = 'BC234567';
+    const db = concurrentPairingDb(hashPairingCode(code, KEY));
+    const attempts = await Promise.allSettled([
+      redeemPairingCode({ db, key: KEY, now: () => NOW }, { code, expectedBrandSlug: 'coffee-story' }),
+      redeemPairingCode({ db, key: KEY, now: () => NOW }, { code, expectedBrandSlug: 'coffee-story' }),
+    ]);
+    assert.equal(attempts.filter((attempt) => attempt.status === 'fulfilled').length, 1);
+    const rejection = attempts.find((attempt) => attempt.status === 'rejected');
+    assert.ok(rejection?.status === 'rejected' && rejection.reason instanceof DeviceError);
+    if (rejection?.status === 'rejected' && rejection.reason instanceof DeviceError) {
+      assert.equal(rejection.reason.code, 'pairing_unknown');
+    }
   });
 });
 

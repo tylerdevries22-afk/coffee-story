@@ -15,7 +15,7 @@ import { menuFactsFrom } from '@platform/domain';
 
 import { IdleNotice } from '@/components/idle-notice';
 import { MenuProvider, useKioskMenu } from '@/data/menu-store';
-import { DeviceProvider } from '@/state/device';
+import { DeviceProvider, useDevice } from '@/state/device';
 import { BuilderProvider } from '@/state/builder';
 import { FlowProvider, useFlow } from '@/state/flow';
 import { GuestProvider } from '@/state/guest';
@@ -31,8 +31,9 @@ export default function KioskLayout() {
   });
 
   // A kiosk is bolted to a stand. Locking the orientation means a guest cannot
-  // turn the layout into a phone-shaped one by leaning on it, and it is the
-  // whole reason the bag can be a permanent rail rather than a screen.
+  // turn the layout into a phone-shaped one by leaning on it. Payment uses the
+  // whole stage while cart review is a bounded overlay, so neither may be
+  // collapsed into a phone-shaped navigator column.
   //
   // Native only. A desktop browser rejects screen.orientation.lock() from
   // inside the module, where a .catch() on the returned promise never sees it,
@@ -100,8 +101,9 @@ function FlowGate() {
 /** Inside FlowProvider, so the session can be built from the resolved flow. */
 function KioskSurface() {
   const { flow } = useFlow();
+  const { posture } = useDevice();
   return (
-    <KioskSessionProvider timing={flow.idle}>
+    <KioskSessionProvider timing={flow.idle} idleResets={posture.idleResets}>
       {/* Innermost, because they are the hot state: every tap on a size, an
           option or a pack choice writes to the builder, and the cart and the
           chrome must not re-render with it. */}

@@ -50,7 +50,18 @@ export function StepStage({
     };
   });
 
-  return <Animated.View style={[styles.stage, style]}>{children}</Animated.View>;
+  return (
+    <Animated.View
+      testID="kiosk-full-screen-stage"
+      style={[styles.stage, style]}
+    >
+      {children}
+    </Animated.View>
+  );
 }
 
-const styles = StyleSheet.create({ stage: { flex: 1 } });
+const styles = StyleSheet.create({
+  // Explicit width keeps the route stage stable underneath the intentional
+  // cart overlay and prevents payment routes collapsing to drawer width.
+  stage: { flex: 1, alignSelf: 'stretch', width: '100%' },
+});

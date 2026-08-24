@@ -891,6 +891,7 @@ export type Database = {
           menu_id: string
           modifiers: Json
           name: string
+          pack_choice_slugs: string[]
           pack_size: number | null
           rotation: Database["app"]["Enums"]["item_rotation"]
           single_item_id: string | null
@@ -915,6 +916,7 @@ export type Database = {
           menu_id: string
           modifiers?: Json
           name: string
+          pack_choice_slugs?: string[]
           pack_size?: number | null
           rotation?: Database["app"]["Enums"]["item_rotation"]
           single_item_id?: string | null
@@ -939,6 +941,7 @@ export type Database = {
           menu_id?: string
           modifiers?: Json
           name?: string
+          pack_choice_slugs?: string[]
           pack_size?: number | null
           rotation?: Database["app"]["Enums"]["item_rotation"]
           single_item_id?: string | null
@@ -1021,6 +1024,8 @@ export type Database = {
           created_at: string
           id: string
           order_id: string
+          refund_cents: number | null
+          refund_request_key: string | null
           snapshot: Json
           source: string
           square_event_id: string | null
@@ -1033,6 +1038,8 @@ export type Database = {
           created_at?: string
           id?: string
           order_id: string
+          refund_cents?: number | null
+          refund_request_key?: string | null
           snapshot?: Json
           source?: string
           square_event_id?: string | null
@@ -1045,6 +1052,8 @@ export type Database = {
           created_at?: string
           id?: string
           order_id?: string
+          refund_cents?: number | null
+          refund_request_key?: string | null
           snapshot?: Json
           source?: string
           square_event_id?: string | null
@@ -1842,6 +1851,48 @@ export type Database = {
       anonymize_customer_account: {
         Args: { p_user_id: string }
         Returns: undefined
+      }
+      commit_order: {
+        Args: {
+          p_actor_user_id: string | null
+          p_brand_id: string
+          p_channel: Database["app"]["Enums"]["order_channel"]
+          p_client_key: string
+          p_customer_id: string | null
+          p_device_id: string | null
+          p_fulfillment_type: Database["app"]["Enums"]["fulfillment_type"]
+          p_guest_label: string | null
+          p_location_id: string
+          p_note: string
+          p_request_fingerprint: string
+          p_scheduled_for: string | null
+          p_subtotal_cents: number
+          p_tax_cents: number
+          p_tender_type: string
+          p_tip_cents: number
+          p_total_cents: number
+          p_totals: Json
+        }
+        Returns: Json
+      }
+      claim_refund_request: {
+        Args: {
+          p_brand_id: string
+          p_order_id: string
+          p_refund_cents: number
+          p_refund_request_key: string
+          p_requested_amount: Json
+          p_square_refund_id: string
+        }
+        Returns: Database["public"]["Tables"]["order_events"]["Row"]
+      }
+      resolve_order_replay: {
+        Args: {
+          p_brand_id: string
+          p_client_key: string
+          p_request_fingerprint: string
+        }
+        Returns: Json
       }
       loyalty_adjust: {
         Args: { account: string; delta: number }

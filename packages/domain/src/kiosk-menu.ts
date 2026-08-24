@@ -24,6 +24,8 @@
  */
 import type { DropRow, ItemRotation, MenuCategoryRow, MenuItemRow } from '@platform/schema';
 
+import type { KioskNodeTarget } from './kiosk-flow';
+import type { OptionGroup } from './menu-options';
 import type { CatalogSize } from './sizes';
 
 export type KioskMenuCategory = { id: string; title: string; tagline: string };
@@ -43,6 +45,8 @@ export type KioskMenuItem = {
   description: string;
   categoryId: string;
   sizes: readonly CatalogSize[];
+  /** Tenant-authored choices, in the same shape the pricing service validates. */
+  optionGroups: readonly OptionGroup[];
   soldOutToday: boolean;
   rotation: ItemRotation;
   imageUrl?: string;
@@ -51,6 +55,8 @@ export type KioskMenuItem = {
   choiceSource?: 'lineup' | 'static';
   /** The single this pack is built from, as a slug. */
   singleItemId?: string;
+  /** Explicit authored slugs this pack may contain, before live availability. */
+  eligibleItemIds?: readonly string[];
 };
 
 /** A drop, reduced to what visibility needs and keyed by item slug. */
@@ -129,7 +135,89 @@ export function parseSizes(raw: unknown, basePriceCents: number): CatalogSize[] 
     });
   }
   if (sizes.length > 0) return sizes;
-  return base > 0 ? [{ slug: 'each', priceCents: base }] : [];
+  return base > 0 ? [{ slug: 'each', priceCents: base, synthetic: true }] : [];
+}
+
+function record(value: unknown): Record<string, unknown> | null {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
+function nonEmpty(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+/**
+ * Reads the exact JSONB option-group contract used by server-side pricing.
+ *
+ * `null` means the row is malformed, while `[]` is a valid item with no
+ * customizations. Keeping those cases distinct lets the live mapper omit an
+ * unsafe item instead of silently selling it without a required modifier.
+ */
+export function parseOptionGroups(raw: unknown): OptionGroup[] | null {
+  if (!Array.isArray(raw)) return null;
+
+  const groups: OptionGroup[] = [];
+  const groupIds = new Set<string>();
+  const choiceIds = new Set<string>();
+  for (const entry of raw) {
+    const source = record(entry);
+    if (!source || !nonEmpty(source.id) || !nonEmpty(source.name)
+      || (source.select !== 'single' && source.select !== 'multi')
+      || typeof source.required !== 'boolean'
+      || !Number.isInteger(source.maxChoices) || Number(source.maxChoices) < 1
+      || (source.select === 'single' && source.maxChoices !== 1)
+      || !Array.isArray(source.choices) || source.choices.length === 0
+      || groupIds.has(source.id)) return null;
+
+    const choices: OptionGroup['choices'][number][] = [];
+    for (const entryChoice of source.choices) {
+      const choice = record(entryChoice);
+      if (!choice || !nonEmpty(choice.id) || !nonEmpty(choice.name)
+        || !Number.isInteger(choice.priceDeltaCents) || Number(choice.priceDeltaCents) < 0
+        || choiceIds.has(choice.id)) return null;
+      choiceIds.add(choice.id);
+      choices.push({
+        id: choice.id,
+        name: choice.name,
+        priceDeltaCents: Number(choice.priceDeltaCents),
+      });
+    }
+
+    groupIds.add(source.id);
+    const dependency = source.dependsOn === undefined
+      ? undefined
+      : parseOptionDependency(source.dependsOn);
+    if (source.dependsOn !== undefined && dependency === null) return null;
+    groups.push({
+      id: source.id,
+      name: source.name,
+      select: source.select,
+      required: source.required,
+      maxChoices: Number(source.maxChoices),
+      choices,
+      ...(dependency ? { dependsOn: dependency } : {}),
+    });
+  }
+
+  for (const group of groups) {
+    const dependency = group.dependsOn;
+    if (!dependency) continue;
+    const parent = groups.find((candidate) => candidate.id === dependency.groupId);
+    if (!parent || parent.id === group.id
+      || dependency.choiceIds.some((choiceId) => (
+        !parent.choices.some((choice) => choice.id === choiceId)
+      ))) return null;
+  }
+  return groups;
+}
+
+function parseOptionDependency(value: unknown): OptionGroup['dependsOn'] | null {
+  const source = record(value);
+  if (!source || !nonEmpty(source.groupId) || !Array.isArray(source.choiceIds)
+    || source.choiceIds.length === 0 || source.choiceIds.some((id) => !nonEmpty(id))) return null;
+  return { groupId: source.groupId, choiceIds: source.choiceIds as string[] };
 }
 
 export type MenuRows = {
@@ -155,6 +243,11 @@ export function kioskMenuFromRows(rows: MenuRows): KioskMenu {
     // An item whose category did not come back has nowhere to be drawn.
     if (categoryId === undefined) continue;
     if (!row.is_listed) continue;
+    // Server-side pricing rejects a malformed modifier contract. Omitting the
+    // same row here prevents the kiosk from presenting a path that can only
+    // fail after payment begins, or from bypassing a required choice.
+    const optionGroups = parseOptionGroups(row.modifiers);
+    if (optionGroups === null) continue;
     const single = row.single_item_id === null ? undefined : slugById.get(row.single_item_id);
     items.push({
       id: row.slug,
@@ -162,6 +255,7 @@ export function kioskMenuFromRows(rows: MenuRows): KioskMenu {
       description: row.description,
       categoryId,
       sizes: parseSizes(row.sizes, row.base_price_cents),
+      optionGroups,
       soldOutToday: row.is_86d,
       rotation: row.rotation,
       ...(row.image_url ? { imageUrl: row.image_url } : {}),
@@ -170,6 +264,7 @@ export function kioskMenuFromRows(rows: MenuRows): KioskMenu {
         : {}),
       ...(row.choice_source ? { choiceSource: row.choice_source } : {}),
       ...(single ? { singleItemId: single } : {}),
+      ...(row.pack_choice_slugs.length > 0 ? { eligibleItemIds: [...row.pack_choice_slugs] } : {}),
     });
   }
   const drops: KioskMenuDrop[] = [];
@@ -212,6 +307,23 @@ export function itemsInCategoryOf(menu: KioskMenu, title: string): readonly Kios
   return menu.items.filter((item) => item.categoryId === title);
 }
 
+/** Items represented by an entry target, including a direct item tile. */
+export function itemsForTarget(
+  menu: KioskMenu,
+  target: KioskNodeTarget | null | undefined,
+): readonly KioskMenuItem[] {
+  if (target?.kind === 'category') return itemsInCategoryOf(menu, target.categoryId);
+  if (target?.kind === 'item') return menu.items.filter((item) => item.id === target.itemSlug);
+  return [];
+}
+
+/** Whether choosing this item still requires a size/modifier screen. */
+export function itemNeedsConfiguration(
+  item: Pick<KioskMenuItem, 'sizes' | 'optionGroups'>,
+): boolean {
+  return item.sizes.length > 1 || item.optionGroups.length > 0;
+}
+
 /** The containers under one category title. */
 export function packsInCategoryOf(menu: KioskMenu, title: string): readonly KioskMenuItem[] {
   return itemsInCategoryOf(menu, title).filter((item) => item.packSize !== undefined);
@@ -234,7 +346,7 @@ export function packsInCategoryOf(menu: KioskMenu, title: string): readonly Kios
  */
 export function packChoicesOf(
   menu: KioskMenu,
-  pack: Pick<KioskMenuItem, 'packSize' | 'choiceSource'>,
+  pack: Pick<KioskMenuItem, 'packSize' | 'choiceSource' | 'eligibleItemIds'>,
   atMs: number,
 ): readonly KioskMenuItem[] {
   const orderable = new Set(
@@ -242,10 +354,31 @@ export function packChoicesOf(
       .filter((drop) => dropVisibility(drop, atMs) === 'orderable')
       .map((drop) => drop.itemId),
   );
+  const eligible = new Set(pack.eligibleItemIds ?? []);
   return menu.items.filter((item) => {
+    if (!eligible.has(item.id)) return false;
     if (item.packSize !== undefined) return false;
     if (item.soldOutToday) return false;
     if (pack.choiceSource === 'static') return true;
     return item.rotation === 'permanent' || orderable.has(item.id);
   });
+}
+
+/** Earliest clock-only transition that can change a lineup pack's choices. */
+export function nextPackChoiceBoundary(
+  menu: KioskMenu,
+  pack: Pick<KioskMenuItem, 'choiceSource' | 'eligibleItemIds'>,
+  atMs: number,
+): number | null {
+  if (pack.choiceSource !== 'lineup') return null;
+  const eligible = new Set(pack.eligibleItemIds ?? []);
+  let next: number | null = null;
+  for (const drop of menu.drops) {
+    if (!eligible.has(drop.itemId)) continue;
+    if (drop.status === 'draft' || drop.status === 'cancelled') continue;
+    for (const boundary of [drop.startsAt, drop.endsAt]) {
+      if (boundary > atMs && (next === null || boundary < next)) next = boundary;
+    }
+  }
+  return next;
 }

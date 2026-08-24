@@ -16,9 +16,13 @@ import TENANT from '@/tenant/brand.json';
  * three taps deep into groups has been handed a file browser.
  */
 export default function NodeStep() {
-  const { selected, group, select, goNext, goTo } = useFlow();
+  const { selected, group, select, goNext, goTo, openUtility } = useFlow();
 
   function choose(node: KioskEntryNode) {
+    if (node.target.kind === 'utility') {
+      openUtility(node.target.utility);
+      return;
+    }
     select(node);
     if (node.target.kind === 'group') {
       // Cannot happen -- the resolver drops nested groups -- but landing back

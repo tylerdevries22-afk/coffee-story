@@ -57,7 +57,7 @@ export default function PairScreen() {
   }
 
   return (
-    <View style={[styles.root, { backgroundColor: tokens.surface }]}>
+    <View testID="kiosk-full-screen-stage" style={[styles.root, { backgroundColor: tokens.surface }]}>
       <StepHeading
         title="Set up this kiosk"
         hint="Enter the pairing code from the console. It is good for fifteen minutes."
@@ -77,6 +77,7 @@ export default function PairScreen() {
             key={key}
             label={key}
             variant="secondary"
+            compact
             onPress={() => {
               setError(null);
               if (key === 'DEL') setCode((current) => current.slice(0, -1));
@@ -108,7 +109,10 @@ export default function PairScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, alignItems: 'center', paddingHorizontal: 32, paddingTop: 12, gap: 12 },
   code: { letterSpacing: 10 },
-  pad: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center', maxWidth: 1100 },
+  pad: {
+    flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center',
+    width: '100%', maxWidth: 860,
+  },
   error: { textAlign: 'center' },
   actions: { flexDirection: 'row', gap: 16, paddingTop: 8 },
 });

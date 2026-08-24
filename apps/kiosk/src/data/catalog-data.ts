@@ -1,4 +1,6 @@
 /** The tenant menu bundled for offline kiosk previews. */
+import type { OptionGroup } from '@platform/domain';
+
 import menuJson from '@/tenant/menu.json';
 
 export type MenuCategoryId = string;
@@ -15,10 +17,12 @@ export type CatalogItemData = {
   description: string;
   category: MenuCategoryId;
   sizes: readonly CatalogSize[];
+  optionGroups: readonly OptionGroup[];
   soldOutToday?: boolean;
   packSize?: number;
   choiceSource?: 'lineup' | 'static';
   singleItemId?: string;
+  eligibleItemIds?: readonly string[];
 };
 
 type BundledMenu = {

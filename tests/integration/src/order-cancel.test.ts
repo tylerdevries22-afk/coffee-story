@@ -72,6 +72,7 @@ describe('a guest cancels their own order', { skip: skipUnlessConfigured }, () =
         fulfillmentType: 'pickup',
         lines: [{ itemSlug: 'drip', quantity: 1 }],
         tipCents: 0,
+        maximumTotalCents: 1_000,
         tenderType: 'pay_at_pickup',
       },
     });
@@ -116,6 +117,10 @@ describe('a guest cancels their own order', { skip: skipUnlessConfigured }, () =
   it('refuses once the barista has started the drink', async () => {
     const orderId = await placeOrder(guestToken);
     await sql(
+      `insert into public.order_events (brand_id, order_id, type, source) values ($1, $2, 'paid', 'operator')`,
+      [brandId, orderId],
+    );
+    await sql(
       `insert into public.order_events (brand_id, order_id, type, source) values ($1, $2, 'in_progress', 'operator')`,
       [brandId, orderId],
     );
@@ -134,7 +139,7 @@ describe('a guest cancels their own order', { skip: skipUnlessConfigured }, () =
     // Same answer as a nonexistent order: no probing which ids are real.
     assert.equal(response.status, 404);
     const row = await sql<{ status: string }>('select status from public.orders where id = $1', [orderId]);
-    assert.equal(row.rows[0]!.status, 'paid', 'the owner’s order is untouched');
+    assert.equal(row.rows[0]!.status, 'created', 'the owner’s unpaid order is untouched');
   });
 
   it('requires a bearer token', async () => {

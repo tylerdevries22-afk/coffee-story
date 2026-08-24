@@ -10,6 +10,7 @@
  * screens catch it. The legacy orders host is gone.
  */
 import type { IntakeFormCatalogEntry } from '@/features/admin/preferences-forms';
+import { staffRevenueMetrics } from '@/features/staff/revenue';
 import { supabase } from '@/lib/supabase';
 import type {
   OrderableCatalog,
@@ -73,16 +74,15 @@ export const mobileApi = {
       throw new MobileApiError(`Today's orders could not be loaded: ${orders.error.message}`, 500, 'load_failed');
     }
     const rows = orders.data ?? [];
-    const counted = rows.filter((row) => row.status !== 'cancelled' && row.status !== 'refunded');
-    const todayRevenueCents = counted.reduce((sum, row) => sum + row.total_cents, 0);
+    const metrics = staffRevenueMetrics(rows);
     return {
       orders: [],
       clients: [],
-      projectedCents: todayRevenueCents,
+      projectedCents: metrics.revenueCents,
       openMinutes: 0,
       metrics: {
-        todayRevenueCents,
-        orderCount: counted.length,
+        todayRevenueCents: metrics.revenueCents,
+        orderCount: metrics.orderCount,
         newClientCount: 0,
         rebookRatePct: 0,
       },

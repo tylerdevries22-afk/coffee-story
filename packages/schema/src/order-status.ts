@@ -17,6 +17,23 @@ export const ORDER_STATUSES = [
 
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
+/** States whose order total represents collected revenue. */
+export const REVENUE_ORDER_STATUSES = [
+  'paid',
+  'in_progress',
+  'ready',
+  'picked_up',
+] as const satisfies readonly OrderStatus[];
+
+const REVENUE_ORDER_STATUS_SET: ReadonlySet<string> = new Set(REVENUE_ORDER_STATUSES);
+
+/** Fail closed for reporting rows whose status is unknown or still unpaid. */
+export function isRevenueOrderStatus(
+  status: string,
+): status is (typeof REVENUE_ORDER_STATUSES)[number] {
+  return REVENUE_ORDER_STATUS_SET.has(status);
+}
+
 export const ORDER_TRANSITIONS: readonly (readonly [OrderStatus, OrderStatus])[] = [
   ['created', 'paid'],
   ['created', 'cancelled'],

@@ -4,11 +4,12 @@ import { describe, it } from 'node:test';
 import { simulateProgress, trackingView } from './tracking';
 
 describe('trackingView', () => {
-  it('walks the four visible steps', () => {
-    assert.equal(trackingView('paid').activeIndex, 0);
-    assert.equal(trackingView('in_progress').activeIndex, 1);
-    assert.equal(trackingView('ready').activeIndex, 2);
-    assert.equal(trackingView('picked_up').activeIndex, 3);
+  it('walks payment due through the four fulfilled states', () => {
+    assert.equal(trackingView('created').activeIndex, 0);
+    assert.equal(trackingView('paid').activeIndex, 1);
+    assert.equal(trackingView('in_progress').activeIndex, 2);
+    assert.equal(trackingView('ready').activeIndex, 3);
+    assert.equal(trackingView('picked_up').activeIndex, 4);
   });
 
   it('marks a cancellation instead of pretending progress', () => {
@@ -17,8 +18,8 @@ describe('trackingView', () => {
     assert.equal(view.activeIndex, -1);
   });
 
-  it('shows created as not-yet-started rather than crashing', () => {
-    assert.equal(trackingView('created').activeIndex, -1);
+  it('explains how a created pay-at-pickup order advances', () => {
+    assert.match(trackingView('created').steps[0]?.detail ?? '', /counter/);
   });
 });
 

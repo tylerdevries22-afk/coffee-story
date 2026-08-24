@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { parseGuestLabel, MAX_GUEST_LABEL } from '@platform/domain';
 import { useTokens } from '@platform/ui';
@@ -34,7 +34,10 @@ export default function NameStep() {
   }
 
   return (
-    <View style={styles.root}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={styles.root}
+    >
       <StepHeading
         title="What name for the order?"
         hint={optional ? 'Optional — we can just call the number.' : undefined}
@@ -77,7 +80,7 @@ export default function NameStep() {
           <KioskPressable label="Skip" variant="secondary" onPress={() => { setGuestLabel(null); goNext(); }} />
         ) : null}
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 

@@ -14,25 +14,27 @@ pnpm onboard --tenant <slug>
 pnpm onboard --tenant <slug> --apply
 ```
 
-The dry run validates the brand, categories, menu, modifiers, and identity,
+The dry run validates the brand, categories, menu, modifiers, packs, and identity,
 then prepares listing material and artwork when a logo exists. `--apply`
-requires the customer media contract and refreshes:
+requires the shared menu media contract and refreshes:
 
 - customer and kiosk `brand.json` copies;
-- the generated customer menu JSON and static media maps;
-- customer hero, gift, rewards, menu, and product assets;
+- the generated customer and kiosk menu JSON, static media maps, and menu WebPs;
+- customer hero, gift, rewards, and product assets;
 - customer PWA metadata and customer/kiosk native artwork;
 - the kiosk name, slug, scheme, and bundle identifiers through its dynamic
-  Expo config.
+  Expo config, including the tenant's separate kiosk EAS update project when
+  `identity.kioskEasProjectId` is set.
 
 ## Ownership map
 
 | Input | Owns |
 | --- | --- |
-| `brand.json` | identities, tokens, copy, features, business rules, location |
+| `brand.json` | per-app identities/EAS projects, tokens, copy, features, business rules, location |
 | `menu.csv` | item identity, category title, description, price, sizes |
 | `menu-categories.json` | stable category ids, order, display taglines |
 | `modifiers.json` | item option groups and price deltas |
+| `packs.json` | optional pack size, choice source, single-item price reference, and explicit eligible item slugs |
 | `assets/menu/` | one normalized `<item-slug>.webp` per menu row |
 | `assets/products/` | optional transparent shelf cut-outs |
 | `assets/hero/`, `gift/`, `rewards/` | customer campaign artwork |

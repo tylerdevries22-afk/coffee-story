@@ -12,9 +12,16 @@ export type OrderBoardEntry = {
   dailyNumber: number | null;
   updatedAt: string;
   scheduledFor: string | null;
-  lines: readonly { name: string; quantity: number; options: readonly string[] }[];
+  lines: readonly {
+    name: string;
+    quantity: number;
+    options: readonly string[];
+    note?: string;
+    packContents?: readonly { itemSlug: string; name: string; quantity: number }[];
+  }[];
   totalCents: number;
   note: string;
+  tenderType: OrderRow['tender_type'];
 };
 
 /** The one call-out every staff and guest surface uses. */
@@ -37,9 +44,12 @@ export function orderBoardEntryFromRow(row: OrderRow): OrderBoardEntry {
       name: line.name,
       quantity: line.quantity,
       options: line.options,
+      note: line.note,
+      packContents: line.packContents,
     })),
     totalCents: row.total_cents,
     note: row.note,
+    tenderType: row.tender_type,
   };
 }
 

@@ -56,7 +56,21 @@ function badLine(line: unknown): boolean {
         || candidate.modifierSlugs.length > 50
         || candidate.modifierSlugs.some((slug) => typeof slug !== 'string')))
     || (candidate.note !== undefined && (typeof candidate.note !== 'string' || candidate.note.length > 200))
+    || badPackContents(candidate.packContents)
   );
+}
+
+function badPackContents(contents: CreateOrderLine['packContents']): boolean {
+  if (contents === undefined) return false;
+  if (!Array.isArray(contents) || contents.length < 1 || contents.length > 100) return true;
+  const slugs = new Set<string>();
+  for (const content of contents) {
+    if (!content || typeof content.itemSlug !== 'string' || content.itemSlug.length < 1
+      || content.itemSlug.length > 100 || !Number.isInteger(content.quantity)
+      || content.quantity < 1 || content.quantity > 100 || slugs.has(content.itemSlug)) return true;
+    slugs.add(content.itemSlug);
+  }
+  return false;
 }
 
 const ERROR_STATUS: Record<OrderError['code'], number> = {
@@ -69,6 +83,8 @@ const ERROR_STATUS: Record<OrderError['code'], number> = {
   catalog_invalid: 500,
   location_unknown: 404,
   ordering_paused: 409,
+  idempotency_conflict: 409,
+  price_changed: 409,
   item_unavailable: 409,
   refund_unavailable: 409,
   cancel_unavailable: 409,
@@ -122,6 +138,10 @@ export async function POST(request: Request): Promise<Response> {
   if (body.note !== undefined && typeof body.note !== 'string') {
     return jsonError(400, 'invalid_request', 'note must be a string.');
   }
+  if (body.maximumTotalCents !== undefined
+    && (!Number.isInteger(body.maximumTotalCents) || body.maximumTotalCents < 0)) {
+    return jsonError(400, 'invalid_request', 'maximumTotalCents must be non-negative integer cents.');
+  }
   // Enforced here rather than trusted from the client: `board_tickets` is
   // granted to `anon` and the pickup display hangs where a whole room reads it,
   // so this column is a broadcast channel and the server is the only thing
@@ -137,6 +157,9 @@ export async function POST(request: Request): Promise<Response> {
   const clientKey = idempotencyKeyOf(request);
   if (clientKey === false) {
     return jsonError(400, 'invalid_request', 'Idempotency-Key must be a UUID.');
+  }
+  if (clientKey === null) {
+    return jsonError(428, 'idempotency_key_required', 'Idempotency-Key is required for order placement.');
   }
   if (body.tenderType === 'square_card') {
     return jsonError(503, 'tender_unavailable', 'In-app card payment needs a store build; use square_link or pay_at_pickup.');
@@ -203,6 +226,7 @@ export async function POST(request: Request): Promise<Response> {
       note: body.note ?? '',
       lines: body.lines,
       tipCents: body.tipCents,
+      maximumTotalCents: body.maximumTotalCents,
       tenderType: body.tenderType,
       // From the caller, never from the body: a client that could name its own
       // channel could dress a web order up as in-app and flatter the brand's

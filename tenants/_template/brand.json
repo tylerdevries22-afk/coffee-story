@@ -1,6 +1,6 @@
 {
   "$docs": {
-    "identity": "slug is the tenant key everywhere (folder name, brands.slug, onboarding); bundleId/scheme feed the per-brand Expo config; easProjectId comes from `eas init` for this brand's binary.",
+    "identity": "slug is the tenant key everywhere (folder name, brands.slug, onboarding); bundleId/scheme and kioskBundleId/kioskScheme feed the per-brand Expo configs; easProjectId and kioskEasProjectId come from each binary's separate `eas init`.",
     "tokens": "Hydrated into packages/ui's ThemeProvider and stored on brands.brand_config. Colors are #RRGGBB. fontDisplay/fontBody must be family names from the supported font registry (maintained in packages/ui/src/font-registry.ts, landing in the next phase). Optional tokens.ramp holds advanced overrides for the app's internal palette, keyed exactly like the legacy `colors` export -- note ramp.surface is the app screen surface, distinct from top-level tokens.surface used by splash/shared components; when omitted, the steps are derived from the seed colors by the theme resolver. Derive the palette from the brand's own assets -- never from any other product's look (docs/DO-NOT-RESEMBLE.md).",
     "copy": "Every user-facing brand string. Keys the apps read are listed in packages/ui/src/copy.ts (DEFAULT_COPY); unknown keys are allowed and ignored. {placeholders} survive until formatted.",
     "features": "Rule 5 flags, mirrored to the brands row by onboarding.",
@@ -17,7 +17,8 @@
     "scheme": "yourbrand",
     "kioskBundleId": "com.yourbrand.kiosk",
     "kioskScheme": "yourbrand-kiosk",
-    "easProjectId": ""
+    "easProjectId": "",
+    "kioskEasProjectId": ""
   },
   "tokens": {
     "primary": "#1C1917",
@@ -166,7 +167,8 @@
     },
     "$tendersDocs": "card | cash settle an order; stored_value | gift_card reduce what is due and need the brand's stored_value feature switched on. A list with no settling tender has card added to it.",
     "tenders": [
-      "card"
+      "card",
+      "cash"
     ],
     "$tipDocs": "Integer cents, never float dollars. Leave disabled unless you want a tip prompt.",
     "tip": {

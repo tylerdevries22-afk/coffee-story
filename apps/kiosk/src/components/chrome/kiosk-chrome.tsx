@@ -4,6 +4,7 @@ import { useCopy, useTokens } from '@platform/ui';
 import type { KioskUtility } from '@platform/domain';
 
 import * as haptics from '@/lib/haptics';
+import { utilityContentFor } from '@/features/utility-content';
 
 /**
  * The furniture every step carries: who this shop is, a way out, a way back,
@@ -13,24 +14,24 @@ import * as haptics from '@/lib/haptics';
  * have to wonder where "start again" lives, and hunting for it is exactly when
  * they give up and walk to the counter.
  */
-const UTILITY_LABEL: Record<KioskUtility, string> = {
-  rewards: 'Rewards',
-  giftBalance: 'Check gift card',
-  allergens: 'Allergy & nutrition',
-};
-
 export function KioskChrome({
   utilities,
+  canStartOver,
   canGoBack,
   onBack,
   onStartOver,
   onUtility,
+  cart,
+  onCart,
 }: {
   utilities: readonly KioskUtility[];
+  canStartOver: boolean;
   canGoBack: boolean;
   onBack: () => void;
   onStartOver: () => void;
   onUtility: (utility: KioskUtility) => void;
+  cart?: { count: number; amount: string; accessibilityLabel: string };
+  onCart?: () => void;
 }) {
   const tokens = useTokens();
   const copy = useCopy();
@@ -44,16 +45,18 @@ export function KioskChrome({
         >
           {copy('appName')}
         </Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Start over"
-          onPress={() => { haptics.tapped(); onStartOver(); }}
-          style={[styles.pill, { borderColor: tokens.textMuted, borderRadius: tokens.radius.pill }]}
-        >
-          <Text style={[styles.pillLabel, { color: tokens.textPrimary, fontSize: tokens.type.md }]}>
-            Start over
-          </Text>
-        </Pressable>
+        {canStartOver ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Start over"
+            onPress={() => { haptics.tapped(); onStartOver(); }}
+            style={[styles.pill, { borderColor: tokens.textMuted, borderRadius: tokens.radius.pill }]}
+          >
+            <Text style={[styles.pillLabel, { color: tokens.textPrimary, fontSize: tokens.type.md }]}>
+              Start over
+            </Text>
+          </Pressable>
+        ) : null}
         {canGoBack ? (
           <Pressable
             accessibilityRole="button"
@@ -73,15 +76,38 @@ export function KioskChrome({
           <Pressable
             key={utility}
             accessibilityRole="button"
-            accessibilityLabel={UTILITY_LABEL[utility]}
+            accessibilityLabel={utilityContentFor(utility).label}
             onPress={() => { haptics.tapped(); onUtility(utility); }}
             style={[styles.pill, { borderColor: tokens.textMuted, borderRadius: tokens.radius.pill }]}
           >
             <Text style={[styles.pillLabel, { color: tokens.textPrimary, fontSize: tokens.type.md }]}>
-              {UTILITY_LABEL[utility]}
+              {utilityContentFor(utility).label}
             </Text>
           </Pressable>
         ))}
+        {cart && onCart ? (
+          <Pressable
+            testID="kiosk-cart-button"
+            accessibilityRole="button"
+            accessibilityLabel={cart.accessibilityLabel}
+            onPress={() => { haptics.tapped(); onCart(); }}
+            style={[
+              styles.cart,
+              {
+                backgroundColor: tokens.textPrimary,
+                borderRadius: tokens.radius.pill,
+                shadowColor: tokens.textPrimary,
+                shadowOpacity: tokens.elevation.raised,
+              },
+            ]}
+          >
+            <Text style={[styles.cartLabel, { color: tokens.surfaceElevated, fontSize: tokens.type.md }]}>Cart</Text>
+            <View style={[styles.count, { backgroundColor: tokens.surfaceElevated, borderRadius: tokens.radius.pill }]}>
+              <Text style={[styles.countLabel, { color: tokens.textPrimary, fontSize: tokens.type.sm }]}>{cart.count}</Text>
+            </View>
+            <Text style={[styles.cartAmount, { color: tokens.surfaceElevated, fontSize: tokens.type.md }]}>{cart.amount}</Text>
+          </Pressable>
+        ) : null}
       </View>
     </View>
   );
@@ -96,4 +122,12 @@ const styles = StyleSheet.create({
   // holding a phone (docs/FIVE-SURFACES.md).
   pill: { minHeight: 60, paddingHorizontal: 24, justifyContent: 'center', borderWidth: 2 },
   pillLabel: { fontWeight: '600' },
+  cart: {
+    minHeight: 60, paddingHorizontal: 22, flexDirection: 'row', alignItems: 'center', gap: 10,
+    shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 4,
+  },
+  cartLabel: { fontWeight: '700' },
+  cartAmount: { fontWeight: '600' },
+  count: { minWidth: 28, height: 28, paddingHorizontal: 8, alignItems: 'center', justifyContent: 'center' },
+  countLabel: { fontWeight: '800' },
 });
