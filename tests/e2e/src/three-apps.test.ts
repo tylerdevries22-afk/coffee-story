@@ -165,12 +165,12 @@ describe('three apps, one stack', { skip: skipUnlessConfigured }, () => {
         `Collect ${money(Number(order.total_cents))} for order ${callOut}`,
       );
       assert.equal(await waitForOrderStatus(order.id, 'paid'), 'paid');
-      await clickLabel(operator.page, `Start order ${callOut}`);
+      await clickLabel(operator.page, `Start for order ${callOut}`);
       await waitText(customer.page, 'Being made', 30_000);
-      await clickLabel(operator.page, `Ready order ${callOut}`);
+      await clickLabel(operator.page, `Ready for order ${callOut}`);
       await waitText(customer.page, 'Ready for pickup', 30_000);
       await customer.shot('05-customer-ready');
-      await clickLabel(operator.page, `Picked up order ${callOut}`);
+      await clickLabel(operator.page, `Picked up for order ${callOut}`);
       assert.equal(await waitForOrderStatus(order.id, 'picked_up'), 'picked_up');
 
       // ---- A rival brand's order never reaches this board (RLS isolation).
