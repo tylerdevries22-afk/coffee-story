@@ -32,14 +32,16 @@ describe('parseMenuCsv', () => {
       HEADER,
       'ok,Fine,Espresso,,450,',
       'Bad Slug,Nope,Espresso,,450,',
+      'bad--slug,Nope,Espresso,,450,',
       'dollars,Nope,Espresso,,4.50,',
       'ok,Again,Espresso,,450,',
     ].join('\n'));
     assert.equal(rows.length, 2);
-    assert.equal(errors.length, 3);
+    assert.equal(errors.length, 4);
     assert.ok(errors[0]?.includes('line 3'));
-    assert.ok(errors[1]?.includes('cents, never dollars'));
-    assert.ok(errors[2]?.includes('Duplicate slug'));
+    assert.ok(errors[1]?.includes('line 4'));
+    assert.ok(errors[2]?.includes('cents, never dollars'));
+    assert.ok(errors[3]?.includes('Duplicate slug'));
   });
 
   it('refuses a wrong header outright', () => {

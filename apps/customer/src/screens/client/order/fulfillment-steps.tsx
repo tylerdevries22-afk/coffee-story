@@ -36,6 +36,7 @@ import { formatMoney , DELIVERY_FEE_CENTS } from '@platform/domain';
 import { pickupWindows, shopStatus, type PickupWindow } from '@/features/order/pickup';
 import { choiceState } from '@/lib/a11y-state';
 import { colors, fonts, radius, shadow, spacing } from '@/theme/tokens';
+import { TENANT } from '@/tenant';
 
 /** Enough windows to fill a scroll without pretending the shop is limitless. */
 const WINDOW_COUNT = 12;
@@ -43,11 +44,11 @@ const WINDOW_COUNT = 12;
 const SEARCH_THRESHOLD = 4;
 
 const DEMO_ADDRESS: DeliveryAddress = {
-  street: '1240 Dayton Street',
+  street: TENANT.location.address.street,
   unit: '',
-  city: 'Aurora',
-  state: 'CO',
-  postalCode: '80010',
+  city: TENANT.location.address.city,
+  state: TENANT.location.address.region,
+  postalCode: TENANT.location.address.postal,
   instructions: '',
 };
 
@@ -114,7 +115,7 @@ function PickupLocationStep({
       ) : null}
 
       {matches.length === 0 ? (
-        <Body muted>No Coffee Story shop matches “{query.trim()}”.</Body>
+        <Body muted>No {TENANT.identity.name} shop matches “{query.trim()}”.</Body>
       ) : (
         matches.map((location) => (
           <LocationCard
@@ -203,7 +204,7 @@ function DeliveryAddressStep({
         contentContainerStyle={[styles.content, { paddingBottom: clearance }]}
       >
         <Body muted>
-          We deliver within Aurora and the surrounding metro. A {formatMoney(DELIVERY_FEE_CENTS)} delivery
+          We deliver within {TENANT.location.address.city || 'the local area'} and the surrounding metro. A {formatMoney(DELIVERY_FEE_CENTS)} delivery
           fee is added at checkout.
         </Body>
         {isDemo ? (

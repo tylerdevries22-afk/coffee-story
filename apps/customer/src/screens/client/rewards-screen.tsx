@@ -22,6 +22,7 @@ import { mobileApi } from '@/lib/mobile-api';
 import { useAppState } from '@/state/app-context';
 import { useAuth } from '@/state/auth-context';
 import { useDemo } from '@/state/demo-context';
+import { TENANT } from '@/tenant';
 
 import { hapticError, hapticSelection, hapticSuccess } from './rewards/haptics';
 import { RewardsHeader, RewardTabs, type RewardTab } from './rewards/header';
@@ -154,7 +155,7 @@ export function RewardsScreen() {
       <Screen
         style={styles.screen}
         contentContainerStyle={styles.screenContent}
-        accessibilityLabel="Coffee Story rewards"
+        accessibilityLabel={`${TENANT.identity.name} rewards`}
         stickyHeaderIndices={[0]}
         onScroll={onScroll}
         scrollEventThrottle={16}
@@ -216,7 +217,8 @@ export function RewardsScreen() {
                   void completeActivity(key);
                 }}
                 onGoogleReview={() => {
-                  void Linking.openURL('https://www.google.com/search?q=Coffee+Story+Aurora+CO+reviews');
+                  const place = `${TENANT.identity.name} ${TENANT.location.address.city} ${TENANT.location.address.region} reviews`;
+                  void Linking.openURL(`https://www.google.com/search?q=${encodeURIComponent(place)}`);
                 }}
               />
             ) : null}

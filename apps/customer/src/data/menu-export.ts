@@ -1,13 +1,7 @@
 /**
- * The bridge from the app's menu model to the tenant's seed files:
- * tenants/coffee-story/menu.csv (parsed by @platform/schema parseMenuCsv)
- * and modifiers.json (seeded into menu_items.modifiers, priced by the
- * engine's menu-pricing module).
- *
- * One model, two planes: the demo app renders CATALOG_ITEMS directly, the
- * live database sells what onboarding seeded from these files. The
- * menu-export sync test pins the committed files to this output, so the two
- * planes cannot quietly drift; `pnpm emit:menu` regenerates them.
+ * A round-trip view of the generated tenant menu. The source direction is
+ * tenant files -> onboarding -> this bundle; these helpers let the drift test
+ * prove that codegen preserved the source without making the app authoritative.
  *
  * Slug translation: a catalog size slug is `<item>-<suffix>` ("latte-16",
  * "mochi-donut-trio") or the bare item id for single-serve items. The
@@ -16,7 +10,7 @@
  * PlaceOrderRequest.
  */
 import type { OptionGroup } from '@platform/domain';
-import { optionGroupsFor , sizePriceCents } from '@platform/domain';
+import { sizePriceCents } from '@platform/domain';
 
 import { CATALOG_ITEMS, MENU_CATEGORY_META } from './catalog-data';
 
@@ -58,7 +52,7 @@ export function menuCsv(): string {
 export function menuModifiers(): Record<string, OptionGroup[]> {
   const modifiers: Record<string, OptionGroup[]> = {};
   for (const item of CATALOG_ITEMS) {
-    const groups = optionGroupsFor(item.id, item.category);
+    const groups = [...item.optionGroups];
     if (groups.length > 0) modifiers[item.id] = groups;
   }
   return modifiers;

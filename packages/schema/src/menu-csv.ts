@@ -56,7 +56,7 @@ export function parseMenuCsv(content: string): { rows: MenuCsvRow[]; errors: str
       return;
     }
     const [slug, name, category, description, priceRaw, sizesRaw] = fields as [string, string, string, string, string, string];
-    if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) {
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
       errors.push(`${where}: slug "${slug}" must be lowercase kebab-case.`);
       return;
     }

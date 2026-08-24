@@ -7,6 +7,8 @@ import healingOil from '../../assets/gift/healing-oil.webp';
 import quietHour from '../../assets/gift/quiet-hour.webp';
 import thankYou from '../../assets/gift/thank-you.webp';
 
+import { TENANT } from '@/tenant';
+
 export type GiftDesign = {
   /** Persisted on the gift card, so these keys must stay stable. */
   key: string;
@@ -73,7 +75,7 @@ export type GiftFaq = { question: string; answer: string };
 
 export const GIFT_FAQS: readonly GiftFaq[] = [
   {
-    question: 'Do Coffee Story gift cards expire?',
+    question: `Do ${TENANT.identity.name} gift cards expire?`,
     answer:
       'No. Digital gift cards hold their balance indefinitely and never lose value over time.',
   },

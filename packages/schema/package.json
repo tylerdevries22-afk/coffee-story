@@ -9,7 +9,7 @@
     "typecheck": "tsc --noEmit",
     "test": "tsx --test \"src/**/*.test.ts\"",
     "verify": "pnpm typecheck && pnpm test",
-    "seed": "tsx seed/seed.ts",
+    "seed": "cd ../.. && tsx scripts/onboard.ts --tenant demo-roastery --require-db",
     "migrate": "./migrate.sh"
   },
   "dependencies": {

@@ -1,0 +1,17 @@
+[
+  {
+    "id": "espresso",
+    "title": "Espresso",
+    "tagline": "Pulled to order"
+  },
+  {
+    "id": "brew-bar",
+    "title": "Brew Bar",
+    "tagline": "Brewed your way"
+  },
+  {
+    "id": "bakery",
+    "title": "Bakery",
+    "tagline": "Fresh from the case"
+  }
+]

@@ -17,14 +17,38 @@
  *   5. With --apply: copy brand.json into apps/customer/src/tenant/ so the
  *      next build ships this tenant (the drift test pins the copy).
  */
-import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { parseMenuCsv } from '@platform/schema';
+import {
+  buildTenantMenu,
+  parseMenuCsv,
+  type BundledTenantMenu,
+  type TenantMenuCategory,
+} from '@platform/schema';
+import { APP_COLOR_KEYS } from '@platform/ui/app-tokens';
+import { isRegisteredFont } from '@platform/ui/font-registry';
 
 type BrandFile = {
-  identity: { slug: string; name: string; bundleId: string; scheme: string; easProjectId: string };
-  tokens: Record<string, unknown> & { primary?: string; surface?: string };
+  identity: {
+    slug: string;
+    name: string;
+    bundleId: string;
+    scheme: string;
+    kioskBundleId: string;
+    kioskScheme: string;
+    easProjectId: string;
+  };
+  tokens: Record<string, unknown> & {
+    primary?: string;
+    surface?: string;
+    /**
+     * Optional advanced overrides for the app's internal palette, keyed like
+     * the legacy `colors` export. When absent, the theme resolver derives the
+     * steps from the seed colors. Passed through to brand_config untouched.
+     */
+    ramp?: Record<string, string>;
+  };
   copy: Record<string, string>;
   features: Record<string, boolean>;
   fees: { feeBps: number; feeBpsTier2: number; tierThresholdCents: number };
@@ -60,7 +84,8 @@ function argValue(flag: string): string | null {
 
 const slug = argValue('--tenant');
 const apply = process.argv.includes('--apply');
-if (!slug || !/^[a-z0-9][a-z0-9-]*$/.test(slug)) {
+const requireDatabase = process.argv.includes('--require-db');
+if (!slug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
   console.error('Usage: pnpm onboard --tenant <slug> [--apply]');
   process.exit(1);
 }
@@ -78,6 +103,10 @@ async function run() {
   const problems: string[] = [];
   if (brand.identity?.slug !== slug) problems.push(`identity.slug is "${brand.identity?.slug}", folder is "${slug}".`);
   if (!brand.identity?.bundleId?.includes('.')) problems.push('identity.bundleId must be reverse-DNS.');
+  if (!brand.identity?.kioskBundleId?.includes('.')) problems.push('identity.kioskBundleId must be reverse-DNS.');
+  if (!/^[a-z][a-z0-9+.-]*$/.test(brand.identity?.kioskScheme ?? '')) {
+    problems.push('identity.kioskScheme must be a valid URL scheme.');
+  }
   if (!brand.identity?.name) problems.push('identity.name is required.');
   if (!brand.location?.timezone?.includes('/')) problems.push('location.timezone must be an IANA zone.');
   for (const jurisdiction of brand.tax?.jurisdictions ?? []) {
@@ -107,8 +136,18 @@ async function run() {
       problems.push(`modifiers.json: "${itemSlug}" must map to an array of option groups.`);
     } else if (menu.rows.length > 0 && !menu.rows.some((row) => row.slug === itemSlug)) {
       problems.push(`modifiers.json: "${itemSlug}" is not in menu.csv.`);
+    } else {
+      validateModifierGroups(itemSlug, groups, problems);
     }
   }
+  const categoriesPath = join(tenantDir, 'menu-categories.json');
+  const categories = existsSync(categoriesPath)
+    ? JSON.parse(readFileSync(categoriesPath, 'utf8')) as TenantMenuCategory[]
+    : [];
+  const compiled = buildTenantMenu(menu.rows, categories, modifiersBySlug);
+  problems.push(...compiled.errors);
+  validateTokens(brand.tokens, problems);
+  if (apply) validateCustomerAssets(tenantDir, compiled.menu, problems);
   if (problems.length > 0) {
     console.error(`tenants/${slug} does not validate:`);
     for (const problem of problems) console.error(`  - ${problem}`);
@@ -119,6 +158,9 @@ async function run() {
   // 2. Database ------------------------------------------------------------
   const supabaseUrl = process.env.SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (requireDatabase && (!supabaseUrl || !serviceKey)) {
+    throw new Error('--require-db needs SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.');
+  }
   if (supabaseUrl && serviceKey) {
     const { createClient } = await import('@supabase/supabase-js');
     const db = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
@@ -241,8 +283,14 @@ async function run() {
     await sharp({ create: { width: 1024, height: 1024, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
       .composite([{ input: await sharp(logo).resize(560, 560, { fit: 'inside' }).png().toBuffer() }])
       .png().toFile(join(generatedDir, 'android-foreground.png'));
+    await sharp({ create: { width: 512, height: 512, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
+      .composite([{
+        input: await sharp(logo).resize(280, 280, { fit: 'inside' }).ensureAlpha().tint('#FFFFFF').png().toBuffer(),
+      }])
+      .png().toFile(join(generatedDir, 'android-monochrome.png'));
     await sharp({ create: { width: 1024, height: 1024, channels: 4, background: primary } })
       .png().toFile(join(generatedDir, 'android-background.png'));
+    await sharp(join(generatedDir, 'icon.png')).resize(48, 48).png().toFile(join(generatedDir, 'favicon.png'));
     console.log(`3. artwork: icon, splash logo, adaptive art -> tenants/${slug}/app-store/generated/`);
   } else {
     console.log(`3. artwork: skipped (add tenants/${slug}/assets/logo.svg or logo.png to generate icons and splash)`);
@@ -309,6 +357,7 @@ own colors, type, and photography (docs/DO-NOT-RESEMBLE.md).
   ];
   if (apply) {
     for (const destination of BUNDLED_COPIES) copyFileSync(brandPath, destination);
+    applyCustomerBundle(tenantDir, brand, compiled.menu);
     console.log(`5. applied: apps/customer and apps/kiosk now bundle ${slug} (build with TENANT=${slug})`);
   } else {
     console.log(`5. not applied: pass --apply to point apps/customer and apps/kiosk at this tenant`);
@@ -326,6 +375,219 @@ own colors, type, and photography (docs/DO-NOT-RESEMBLE.md).
   } else {
     console.log(`6. cut-outs: not applied (pass --apply)`);
   }
+}
+
+const HEX = /^#[0-9a-fA-F]{6}$/;
+const BASE_COLOR_KEYS = [
+  'primary', 'secondary', 'surface', 'surfaceElevated', 'accent',
+  'textPrimary', 'textMuted', 'success', 'warning', 'danger',
+] as const;
+
+function validateTokens(tokens: BrandFile['tokens'], problems: string[]): void {
+  for (const key of BASE_COLOR_KEYS) {
+    if (!HEX.test(String(tokens[key] ?? ''))) problems.push(`tokens.${key} must be #RRGGBB.`);
+  }
+  for (const key of ['fontDisplay', 'fontBody'] as const) {
+    const family = tokens[key];
+    if (typeof family !== 'string' || !isRegisteredFont(family)) {
+      problems.push(`tokens.${key} must be a bundled family: System, Inter, or Fraunces.`);
+    }
+  }
+  const knownRampKeys = new Set<string>(APP_COLOR_KEYS);
+  for (const [key, value] of Object.entries(tokens.ramp ?? {})) {
+    if (key.startsWith('$')) continue;
+    if (!knownRampKeys.has(key)) problems.push(`tokens.ramp.${key} is not a supported app color.`);
+    else if (!HEX.test(value)) problems.push(`tokens.ramp.${key} must be #RRGGBB.`);
+  }
+}
+
+function objectRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
+function nonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function validateModifierChoice(itemSlug: string, groupId: string, value: unknown, problems: string[]): string | null {
+  const choice = objectRecord(value);
+  if (!choice || !nonEmptyString(choice.id) || !nonEmptyString(choice.name)
+    || !Number.isInteger(choice.priceDeltaCents) || Number(choice.priceDeltaCents) < 0) {
+    problems.push(`modifiers.json: "${itemSlug}" group "${groupId}" has an invalid choice.`);
+    return null;
+  }
+  return choice.id;
+}
+
+function validateModifierGroupShape(itemSlug: string, value: unknown, problems: string[]): Record<string, unknown> | null {
+  const group = objectRecord(value);
+  if (!group || !nonEmptyString(group.id) || !nonEmptyString(group.name)
+    || (group.select !== 'single' && group.select !== 'multi')
+    || typeof group.required !== 'boolean' || !Number.isInteger(group.maxChoices)
+    || Number(group.maxChoices) < 1 || !Array.isArray(group.choices) || group.choices.length === 0) {
+    problems.push(`modifiers.json: "${itemSlug}" has an invalid option group.`);
+    return null;
+  }
+  if (group.select === 'single' && group.maxChoices !== 1) {
+    problems.push(`modifiers.json: "${itemSlug}" group "${group.id}" must set maxChoices to 1 for single select.`);
+  }
+  return group;
+}
+
+function validateModifierGroups(itemSlug: string, groups: unknown[], problems: string[]): void {
+  const choicesByGroup = new Map<string, Set<string>>();
+  const validGroups: Record<string, unknown>[] = [];
+  for (const value of groups) {
+    const group = validateModifierGroupShape(itemSlug, value, problems);
+    if (!group || !nonEmptyString(group.id) || !Array.isArray(group.choices)) continue;
+    if (choicesByGroup.has(group.id)) problems.push(`modifiers.json: "${itemSlug}" repeats group id "${group.id}".`);
+    const choiceIds = new Set<string>();
+    for (const choice of group.choices) {
+      const choiceId = validateModifierChoice(itemSlug, group.id, choice, problems);
+      if (choiceId && choiceIds.has(choiceId)) problems.push(`modifiers.json: "${itemSlug}" repeats choice id "${choiceId}".`);
+      if (choiceId) choiceIds.add(choiceId);
+    }
+    choicesByGroup.set(group.id, choiceIds);
+    validGroups.push(group);
+  }
+  for (const group of validGroups) {
+    if (group.dependsOn === undefined) continue;
+    const dependency = objectRecord(group.dependsOn);
+    const choiceIds = dependency && Array.isArray(dependency.choiceIds) ? dependency.choiceIds : [];
+    const source = dependency && nonEmptyString(dependency.groupId) ? choicesByGroup.get(dependency.groupId) : undefined;
+    if (!dependency || !source || choiceIds.length === 0 || choiceIds.some((id) => !nonEmptyString(id) || !source.has(id))) {
+      problems.push(`modifiers.json: "${itemSlug}" group "${String(group.id)}" has an invalid dependency.`);
+    }
+  }
+}
+
+function webpSlugs(dir: string): string[] {
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir).filter((file) => file.endsWith('.webp'))
+    .map((file) => file.replace(/\.webp$/, '')).sort();
+}
+
+function validateCustomerAssets(dir: string, menu: BundledTenantMenu, problems: string[]): void {
+  const imageDir = join(dir, 'assets', 'menu');
+  const actual = new Set(webpSlugs(imageDir));
+  const expected = new Set(menu.items.map((item) => item.id));
+  for (const item of menu.items) {
+    if (!actual.has(item.id)) problems.push(`assets/menu/${item.id}.webp is required by menu.csv.`);
+  }
+  for (const item of actual) {
+    if (!expected.has(item)) problems.push(`assets/menu/${item}.webp has no row in menu.csv.`);
+  }
+  const required = [
+    'assets/hero/home-hero.mp4', 'assets/hero/stones.webp',
+    'assets/gift/birthday-cake.webp', 'assets/gift/birthday-confetti.webp',
+    'assets/gift/congrats-bloom.webp', 'assets/gift/congrats-gold.webp',
+    'assets/gift/grateful.webp', 'assets/gift/healing-oil.webp',
+    'assets/gift/quiet-hour.webp', 'assets/gift/thank-you.webp',
+    'assets/rewards/liquid-nebula.webp',
+  ];
+  for (const relative of required) {
+    if (!existsSync(join(dir, relative))) problems.push(`${relative} is required by the customer shell.`);
+  }
+  if (!existsSync(join(dir, 'assets', 'logo.svg')) && !existsSync(join(dir, 'assets', 'logo.png'))) {
+    problems.push('assets/logo.svg or assets/logo.png is required to apply a tenant.');
+  }
+}
+
+function syncDirectory(from: string, to: string, extensions: readonly string[]): number {
+  mkdirSync(to, { recursive: true });
+  const sources = existsSync(from)
+    ? readdirSync(from).filter((file) => extensions.some((extension) => file.endsWith(extension)))
+    : [];
+  const sourceSet = new Set(sources);
+  for (const file of readdirSync(to)) {
+    if (extensions.some((extension) => file.endsWith(extension)) && !sourceSet.has(file)) unlinkSync(join(to, file));
+  }
+  for (const file of sources) copyFileSync(join(from, file), join(to, file));
+  return sources.length;
+}
+
+function mediaIdentifier(slug: string): string {
+  return `menu${slug.split('-').map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`).join('')}`;
+}
+
+function renderMenuMedia(slugs: readonly string[]): string {
+  const imports = slugs.map((slug) => `import ${mediaIdentifier(slug)} from '../../assets/menu/${slug}.webp';`);
+  const entries = slugs.map((slug) => `  '${slug}': ${mediaIdentifier(slug)},`);
+  return `/** GENERATED by \`pnpm onboard --tenant <slug> --apply\`. */
+${imports.join('\n')}
+
+export const TENANT_MENU_MEDIA: Readonly<Record<string, number>> = {
+${entries.join('\n')}
+};
+`;
+}
+
+function writeWebManifest(brand: BrandFile, target: string): void {
+  const pointsName = brand.copy.pointsName ?? 'Points';
+  const manifest = {
+    name: brand.identity.name,
+    short_name: brand.identity.name,
+    description: `Order ahead, send a gift card, and earn ${pointsName} at ${brand.identity.name}.`,
+    start_url: '/', display: 'standalone', background_color: brand.tokens.surface,
+    theme_color: brand.tokens.primary,
+    icons: [{ src: '/icon.png', sizes: '1024x1024', type: 'image/png' }],
+  };
+  writeFileSync(target, `${JSON.stringify(manifest, null, 2)}\n`);
+}
+
+function applyCustomerBundle(dir: string, brand: BrandFile, menu: BundledTenantMenu): void {
+  const root = join(process.cwd(), 'apps', 'customer');
+  const tenantTarget = join(root, 'src', 'tenant');
+  writeFileSync(join(tenantTarget, 'menu.json'), `${JSON.stringify(menu, null, 2)}\n`);
+  writeFileSync(join(tenantTarget, 'menu-media.ts'), renderMenuMedia(menu.items.map((item) => item.id)));
+  const assets = join(dir, 'assets');
+  syncDirectory(join(assets, 'menu'), join(root, 'assets', 'menu'), ['.webp', '.normalized.json']);
+  syncDirectory(join(assets, 'gift'), join(root, 'assets', 'gift'), ['.webp', '.png']);
+  syncDirectory(join(assets, 'hero'), join(root, 'assets', 'hero'), ['.webp', '.png', '.mp4']);
+  syncDirectory(join(assets, 'rewards'), join(root, 'assets', 'rewards'), ['.webp', '.png']);
+  const generated = join(dir, 'app-store', 'generated');
+  copyFileSync(join(generated, 'splash-logo.png'), join(root, 'assets', 'brand', 'logo.png'));
+  copyFileSync(join(generated, 'icon.png'), join(root, 'assets', 'images', 'icon.png'));
+  copyFileSync(join(generated, 'android-foreground.png'), join(root, 'assets', 'images', 'android-icon-foreground.png'));
+  copyFileSync(join(generated, 'android-background.png'), join(root, 'assets', 'images', 'android-icon-background.png'));
+  copyFileSync(join(generated, 'android-monochrome.png'), join(root, 'assets', 'images', 'android-icon-monochrome.png'));
+  copyFileSync(join(generated, 'favicon.png'), join(root, 'assets', 'images', 'favicon.png'));
+  copyFileSync(join(generated, 'android-foreground.png'), join(root, 'assets', 'expo.icon', 'Assets', 'mark.png'));
+  writeExpoIconConfig(brand.tokens.surface, join(root, 'assets', 'expo.icon', 'icon.json'));
+  copyFileSync(join(generated, 'icon.png'), join(root, 'public', 'icon.png'));
+  writeWebManifest(brand, join(root, 'public', 'manifest.webmanifest'));
+  applyKioskArtwork(generated);
+}
+
+function writeExpoIconConfig(surface: unknown, target: string): void {
+  const color = typeof surface === 'string' && HEX.test(surface) ? surface : '#FFFFFF';
+  const channels = [1, 3, 5].map((offset) => (Number.parseInt(color.slice(offset, offset + 2), 16) / 255).toFixed(5));
+  const config = {
+    fill: { 'automatic-gradient': `extended-srgb:${channels.join(',')},1.00000` },
+    groups: [{
+      layers: [{ 'image-name': 'mark.png', name: 'mark' }],
+      shadow: { kind: 'neutral', opacity: 0.5 },
+      translucency: { enabled: false, value: 0.5 },
+    }],
+    'supported-platforms': { circles: ['watchOS'], squares: 'shared' },
+  };
+  writeFileSync(target, `${JSON.stringify(config, null, 2)}\n`);
+}
+
+function applyKioskArtwork(generated: string): void {
+  const root = join(process.cwd(), 'apps', 'kiosk');
+  const images = join(root, 'assets', 'images');
+  const brand = join(root, 'assets', 'brand');
+  mkdirSync(images, { recursive: true });
+  mkdirSync(brand, { recursive: true });
+  copyFileSync(join(generated, 'icon.png'), join(images, 'icon.png'));
+  copyFileSync(join(generated, 'android-foreground.png'), join(images, 'android-icon-foreground.png'));
+  copyFileSync(join(generated, 'android-background.png'), join(images, 'android-icon-background.png'));
+  copyFileSync(join(generated, 'android-monochrome.png'), join(images, 'android-icon-monochrome.png'));
+  copyFileSync(join(generated, 'favicon.png'), join(images, 'favicon.png'));
+  copyFileSync(join(generated, 'splash-logo.png'), join(brand, 'logo.png'));
 }
 
 /**
@@ -348,8 +610,7 @@ function applyProductCutouts(dir: string): string {
         .sort()
     : [];
 
-  mkdirSync(to, { recursive: true });
-  for (const name of seated) copyFileSync(join(from, `${name}.webp`), join(to, `${name}.webp`));
+  syncDirectory(from, to, ['.webp']);
 
   const identifier = (name: string) => name.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
   const imports = seated.map((n) => `import ${identifier(n)} from '../../assets/products/${n}.webp';`);

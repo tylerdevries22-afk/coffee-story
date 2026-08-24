@@ -1,0 +1,23 @@
+{
+  "house-latte": [
+    {
+      "id": "milk",
+      "name": "Milk",
+      "select": "single",
+      "required": false,
+      "maxChoices": 1,
+      "choices": [
+        {
+          "id": "milk-whole",
+          "name": "Whole Milk",
+          "priceDeltaCents": 0
+        },
+        {
+          "id": "milk-oat",
+          "name": "Oat Milk",
+          "priceDeltaCents": 75
+        }
+      ]
+    }
+  ]
+}

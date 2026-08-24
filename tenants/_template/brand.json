@@ -1,19 +1,22 @@
 {
   "$docs": {
     "identity": "slug is the tenant key everywhere (folder name, brands.slug, onboarding); bundleId/scheme feed the per-brand Expo config; easProjectId comes from `eas init` for this brand's binary.",
-    "tokens": "Hydrated into packages/ui's ThemeProvider and stored on brands.brand_config. Colors are #RRGGBB. Fonts are family names the app loads (expo-google-fonts). Derive the palette from the brand's own assets -- never from any other product's look (docs/DO-NOT-RESEMBLE.md).",
+    "tokens": "Hydrated into packages/ui's ThemeProvider and stored on brands.brand_config. Colors are #RRGGBB. fontDisplay/fontBody must be family names from the supported font registry (maintained in packages/ui/src/font-registry.ts, landing in the next phase). Optional tokens.ramp holds advanced overrides for the app's internal palette, keyed exactly like the legacy `colors` export -- note ramp.surface is the app screen surface, distinct from top-level tokens.surface used by splash/shared components; when omitted, the steps are derived from the seed colors by the theme resolver. Derive the palette from the brand's own assets -- never from any other product's look (docs/DO-NOT-RESEMBLE.md).",
     "copy": "Every user-facing brand string. Keys the apps read are listed in packages/ui/src/copy.ts (DEFAULT_COPY); unknown keys are allowed and ignored. {placeholders} survive until formatted.",
     "features": "Rule 5 flags, mirrored to the brands row by onboarding.",
     "fees": "Rule 3: platform take in basis points; above tierThresholdCents of gross in a calendar month (per location) later payments use feeBpsTier2. Confirm per contract before onboarding.",
     "location": "The first location, created by onboarding. hours uses 24h HH:MM in the location's timezone; a day maps to a list of open/close spans, [] = closed.",
     "illustrations": "Optional named palettes for brand illustration work (e.g. the rewards cup). Free-form; read by the app's illustration components.",
-    "business": "Contact + legal identity the apps print (error screens, receipts, calendar notes, gift codes). monogram is the 1-3 letter fallback mark; giftCodePrefix prefixes every issued gift code."
+    "business": "Contact + legal identity the apps print (error screens, receipts, calendar notes, gift codes). monogram is the 1-3 letter fallback mark; giftCodePrefix prefixes every issued gift code.",
+    "modifiers.json": "Sibling file: option groups per item slug, in the JSONB shape packages/engine/src/menu-pricing.ts reads -- each slug maps to an array of groups {id, name, select: 'single' | 'multi', required, maxChoices, dependsOn?, choices: [{id, name, priceDeltaCents}]}. Optional; items absent from it sell plain. Every key must be a slug in menu.csv -- onboarding validates that."
   },
   "identity": {
     "slug": "your-brand",
     "name": "Your Brand",
     "bundleId": "com.yourbrand.app",
     "scheme": "yourbrand",
+    "kioskBundleId": "com.yourbrand.kiosk",
+    "kioskScheme": "yourbrand-kiosk",
     "easProjectId": ""
   },
   "tokens": {
