@@ -18,6 +18,8 @@ Supabase directly under RLS; every trusted write goes through the API.
 | Platform API + HQ console | `apps/hq` (Next.js) | Vercel — owner-triggered only |
 | Customer app | `apps/customer` (Expo) | EAS update/build — owner-triggered only |
 | Operator app | `apps/operator` (Expo) | EAS update/build — owner-triggered only |
+| Kiosk app | `apps/kiosk` (Expo) | EAS update/build — owner-triggered only |
+| Pickup display | `apps/display` (Next.js) | Node/Vercel deployment paired to a display device |
 | Scheduled jobs | `/api/jobs/run` | Vercel Cron (`apps/hq/vercel.json`, every 5 min) |
 
 Nothing deploys automatically. CI verifies; a deploy happens when the owner
@@ -100,9 +102,15 @@ bundle**):
 - `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` — `sb_publishable_` key or legacy
   anon JWT; `packages/data` rejects anything with database authority
 - `EXPO_PUBLIC_API_URL` + `EXPO_PUBLIC_ALLOWED_API_HOST` — the HQ
-  deployment; the API client fails closed when they disagree. Required by
-  the customer app; optional for the operator app, whose board works
+  deployment; API clients fail closed when they disagree. Required by the
+  customer and kiosk apps; optional for the operator app, whose board works
   entirely under staff RLS — set it there to enable refunds
+
+Pickup display (server environment; see `apps/display/.env.example`):
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `DISPLAY_DEVICE_TOKEN` — one paired display JWT, never an anon key
+- `SENTRY_DSN` plus the shared Sentry upload variables when monitoring is on
 
 ## Turning on card payments
 
@@ -153,7 +161,8 @@ in Expo, never in this repository, never in `packages/data`.
 
 ## 6. Verifying a deployment
 
-- `GET /api/health` answers `{ ok: true, version }`.
+- `GET /api/health` answers `{ ok: true, version }`; authenticated
+  `GET /api/health?deep=1` also performs a bounded, retried database read.
 - CI's `integration` job runs the full RLS/state-machine/route suite against
   a real Postgres on every PR (`tests/integration/`).
 - The E2E loop (customer orders → operator advances → HQ reports) runs in CI
@@ -226,31 +235,3 @@ in Expo, never in this repository, never in `packages/data`.
   though it does not explain these failures. Note too that the board holds
   anything past `SCHEDULED_LANE_MINUTES` (30) in a separate lane, so the
   earliest slot is the only one this scenario can use.
-- **The operator board fires live queries with a demo location id.**
-  `operator-store` initialises `location` to `DEMO_LOCATIONS[0]`
-  (`loc-havana`, a slug) and only corrects it to the signed-in account's real
-  location in a `useEffect` -- after the render that has already issued the
-  board fetch. Under live mode those first queries reach PostgREST as
-  `location_id=eq.loc-havana` against a uuid column and come back 400
-  `22P02 invalid input syntax for type uuid`, twice, on every sign-in. It
-  self-corrects once `liveLocations` arrives, so the board works; but if an
-  account ever has no locations the fallback keeps the demo roster and the
-  board queries stay malformed forever. Live mode should have no demo location
-  in it at all.
-- **Rule 4 is mounted but barely consumed.** ThemeProvider now runs in both
-  Expo apps and both root Stacks take their page ground from `useTokens()`, so
-  a tenant palette reaches the app -- and stops at the page ground. The other
-  92 files still import the compiled `theme/tokens`, which is where the rest of
-  the sweep goes.
-
-- **The prep board's day is not chosen yet, and the obvious choice is wrong.**
-  `fetchPrepBoard(client, locationId, serviceDate)` takes the day as a
-  parameter and has no callers — the prep screen renders a fixture. Whoever
-  writes the first one must pass the *location's* date, not the device's and
-  not the server's: `prep_batches.service_date` is a bare `date` with no
-  trigger behind it, unlike `orders.service_date`, which migration 0023 stamps
-  in the location's timezone. A caller reaching for `new Date()` or
-  `current_date` gives a Denver bench tomorrow's empty bake list from 18:00
-  onward. This is exactly the bug CI caught in the five-surface trace
-  (`34e7b44`), and the reason it is written down rather than fixed is that
-  there is no caller to fix.

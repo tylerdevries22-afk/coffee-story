@@ -116,11 +116,8 @@ function ConfiguredApp({ config }: { config: MobileLiveConfig }) {
 }
 
 function CustomerStack() {
-  // The page ground is the tenant's, not a constant. `ThemeProvider` has been
-  // hydrating tokens from brand.json since it was mounted, but nothing read
-  // them -- every screen still imports the compiled `theme/tokens`, so a second
-  // tenant's palette reached the provider and stopped there. This is the first
-  // consumer and the seam the rest move through.
+  // The page ground and every screen token resolve from the tenant provider,
+  // so a second tenant does not inherit a compiled palette.
   const tokens = useTokens();
   return (
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: tokens.surface } }}>

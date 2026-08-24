@@ -33,27 +33,13 @@ const IPAD_LANDSCAPE = { width: 1366, height: 1024 };
  * way a capture proves the flow works.
  */
 async function tap(page, prefix, timeoutMs = 8_000) {
-  // Polls rather than assuming: the processing step takes a beat to settle, and
-  // a capture that taps into the gap fails for a reason that has nothing to do
-  // with the screen being wrong.
-  const deadline = Date.now() + timeoutMs;
-  let found = false;
-  while (!found && Date.now() < deadline) {
-    found = await page.evaluate((label) => {
-      const button = [...document.querySelectorAll('[role="button"]')]
-        .find((candidate) => (candidate.getAttribute('aria-label') || '').startsWith(label));
-      if (!button) return false;
-      const options = { bubbles: true, cancelable: true, view: window, button: 0 };
-      button.dispatchEvent(new PointerEvent('pointerdown', { ...options, pointerId: 1, isPrimary: true }));
-      button.dispatchEvent(new MouseEvent('mousedown', options));
-      button.dispatchEvent(new PointerEvent('pointerup', { ...options, pointerId: 1, isPrimary: true }));
-      button.dispatchEvent(new MouseEvent('mouseup', options));
-      button.dispatchEvent(new MouseEvent('click', options));
-      return true;
-    }, prefix);
-    if (!found) await page.waitForTimeout(250);
+  const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const control = page.getByRole('button', { name: new RegExp(`^${escaped}`) }).first();
+  try {
+    await control.click({ timeout: timeoutMs });
+  } catch {
+    throw new Error(`no control labelled "${prefix}" on ${page.url()}`);
   }
-  if (!found) throw new Error(`no control labelled "${prefix}" on ${page.url()}`);
   await page.waitForTimeout(700);
 }
 
@@ -142,11 +128,7 @@ const SHOTS = [
     viewport: { width: 1194, height: 834 },
     note: 'A recipe scaled to the batch, with the recipe figure kept beside the scaled one and the allergen banner pinned.',
     prepare: async (page) => {
-      await page.evaluate(() => {
-        const btn = [...document.querySelectorAll('[role="button"]')]
-          .find((b) => (b.getAttribute('aria-label') || '').startsWith('Pistachio Milk Cake'));
-        btn?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-      });
+      await page.getByRole('button', { name: /^Pistachio Milk Cake/ }).first().click();
       await page.waitForTimeout(500);
     },
   },
@@ -174,10 +156,18 @@ for (const shot of SHOTS) {
     // Playwright does NOT throw on a 404, which is how all five committed
     // kiosk captures came to be error pages -- four of them byte-identical --
     // filed under confident captions. Both checks below exist because of that.
-    const response = await page.goto(shot.url, { waitUntil: 'networkidle', timeout: 30_000 });
+    // Expo's dev server keeps framework connections open, so `networkidle`
+    // never arrives even when the screen is fully rendered. DOM readiness plus
+    // visible body copy is the contract these captures actually need.
+    const response = await page.goto(shot.url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
     if (response && !response.ok()) {
       throw new Error(`${response.status()} from ${shot.url}`);
     }
+    await page.waitForFunction(
+      () => document.body.innerText.trim().length >= 8,
+      undefined,
+      { timeout: 30_000 },
+    );
     await page.waitForTimeout(800);
     if (shot.prepare) await shot.prepare(page);
     const rendered = await page.evaluate(() => document.body.innerText.trim());

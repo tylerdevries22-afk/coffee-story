@@ -120,9 +120,7 @@ function BrandedShell({ children }: PropsWithChildren) {
 }
 
 function OperatorStack() {
-  // The page ground is the tenant's, not a constant. Everything else in this
-  // app still reads the compiled `theme/tokens`; this is the first consumer
-  // and the seam the rest move through.
+  // The page ground and every screen token resolve from the signed-in tenant.
   const tokens = useTokens();
   return (
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: tokens.surface } }}>
