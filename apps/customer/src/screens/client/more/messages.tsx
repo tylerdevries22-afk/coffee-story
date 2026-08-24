@@ -7,10 +7,11 @@ import { mobileApi } from '@/lib/mobile-api';
 import { useAuth } from '@/state/auth-context';
 import { useDemo } from '@/state/demo-context';
 
-import { styles } from './information-page';
+import { useInformationStyles } from './information-page';
 import { Field } from './profile-and-preferences';
 
 export function Messages({ onBack }: { onBack: () => void }) {
+  const styles = useInformationStyles();
   const { portal, isDemo, refresh } = useAuth();
   const demo = useDemo();
   const [body, setBody] = useState('');

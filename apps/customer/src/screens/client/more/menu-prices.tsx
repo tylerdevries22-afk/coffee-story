@@ -5,7 +5,7 @@ import { MenuImage } from '@/components/menu-image';
 import { Body, Card, SectionTitle } from '@/components/ui';
 import { DEMO_ADD_ONS, MENU_ITEMS, type MenuItem } from '@/data/catalog';
 import { formatMoney , sizeLabelFor, sizePriceCents } from '@platform/domain';
-import { colors, fonts, radius, spacing } from '@/theme/tokens';
+import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 /**
  * The full menu, as the website publishes it.
@@ -22,6 +22,8 @@ export function MenuPage({
   onBack: () => void;
   onBook: (serviceId: string) => void;
 }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   return (
     <CollapsingScreen title="Items & pricing" eyebrow="Our menu" onBack={onBack}>
       <Body muted>
@@ -53,6 +55,8 @@ export function MenuPage({
 }
 
 function MenuItemCard({ item, onBook }: { item: MenuItem; onBook: () => void }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   return (
     <Card style={styles.card}>
       <MenuImage source={item.image} variant="hero" alt={item.name} style={styles.image} />
@@ -84,11 +88,11 @@ function MenuItemCard({ item, onBook }: { item: MenuItem; onBook: () => void }) 
   );
 }
 
-const styles = StyleSheet.create({
-  card: { gap: spacing.sm, padding: spacing.md, overflow: 'hidden' },
-  image: { borderRadius: radius.md },
+const createStyles = (tokens: BrandTokens) => StyleSheet.create({
+  card: { gap: tokens.spacing.md, padding: tokens.spacing.lg, overflow: 'hidden' },
+  image: { borderRadius: tokens.radius.lg },
   copy: { gap: 2 },
-  name: { color: colors.ink900, fontFamily: fonts.display, fontSize: 20 },
+  name: { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: 20 },
   sizes: { gap: 0 },
   durationRow: {
     flexDirection: 'row',
@@ -98,20 +102,20 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: 'rgba(70,48,78,0.12)',
   },
-  durationLabel: { color: colors.ink700, fontFamily: fonts.sans, fontSize: 15 },
-  durationPrice: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 16 },
+  durationLabel: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 15 },
+  durationPrice: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 16 },
   book: {
     minHeight: 48,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: radius.pill,
-    backgroundColor: colors.brand700,
+    borderRadius: tokens.radius.pill,
+    backgroundColor: tokens.primary,
   },
-  bookLabel: { color: colors.white, fontFamily: fonts.sansBold, fontSize: 15 },
+  bookLabel: { color: tokens.surfaceElevated, fontFamily: tokens.fontBody, fontSize: 15 },
   pressed: { opacity: 0.72 },
-  addOnCard: { gap: spacing.sm, padding: spacing.md },
-  addOnRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 56 },
+  addOnCard: { gap: tokens.spacing.md, padding: tokens.spacing.lg },
+  addOnRow: { flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.md, minHeight: 56 },
   addOnCopy: { flex: 1, gap: 2 },
-  addOnName: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 16 },
-  addOnPrice: { color: colors.ink900, fontFamily: fonts.display, fontSize: 19 },
+  addOnName: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 16 },
+  addOnPrice: { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: 19 },
 });

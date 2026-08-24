@@ -21,10 +21,10 @@ import { useAppState, type MoreView } from '@/state/app-context';
 import { tenantFeature } from '@/tenant';
 import { useAuth } from '@/state/auth-context';
 import { useDemo } from '@/state/demo-context';
-import { colors } from '@/theme/tokens';
 
 
 import rewardsCup from '../../../assets/tabs/cup.png';
+import { useTokens as useBrandTokens } from '@platform/ui';
 
 /** Catalog entries in the booking shape the account search expects. */
 const ORDERABLE_ITEMS: OrderableItem[] = projectFirstVariants(MENU_ITEMS);
@@ -47,6 +47,7 @@ const SEARCH_SYMBOLS: Record<ClientSearchResult['kind'], 'doc.text' | 'clock.arr
  * `state/app-context`) is the shared vocabulary both sides key off.
  */
 export function MoreScreen() {
+  const tokens = useBrandTokens();
   const {
     openNotifications,
     readNotificationIds,
@@ -103,7 +104,7 @@ export function MoreScreen() {
       onQueryChange={setQuery}
       placeholder="Orders, gift cards, menu…"
       accessibilityLabel="Search your account"
-      surfaceColor={colors.surface}
+      surfaceColor={tokens.surface}
       results={(
         <Screen keyboardShouldPersistTaps="handled">
           {!query.trim() ? <Body muted>Search your orders, gift cards, menu and account pages.</Body> : null}
@@ -250,7 +251,7 @@ export function MoreScreen() {
       <MoreFooter
         onPrivacy={() => openMore('privacy')}
         onTerms={() => openMore('privacy')}
-        version="Coffee Story 1.0"
+        version={`${BUSINESS.name} 1.0`}
         caption={isDemo ? 'Explicit Demo mode · changes are saved on this device' : 'Connected securely to live items'}
         iconSrc={rewardsCup}
       />

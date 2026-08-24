@@ -26,7 +26,7 @@ import { MAX_LINE_QUANTITY, buildOrderLine, type OrderLine ,
   visibleOptionGroups,
   type OptionSelection,
 } from '@platform/domain';
-import { colors, fonts, radius, spacing } from '@/theme/tokens';
+import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 export function ItemSheet({
   item,
@@ -37,6 +37,8 @@ export function ItemSheet({
   onClose: () => void;
   onAdd: (line: OrderLine) => number;
 }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   // `SheetModal` holds its tree through the exit precisely so the dismissal
   // can play. Gating the children on the same `item` that gates `visible`
   // defeated that: the body unmounted on the first frame, the sheet collapsed
@@ -65,6 +67,8 @@ function ItemSheetBody({
   onClose: () => void;
   onAdd: (line: OrderLine) => number;
 }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const bottom = useCoveringBottomInset();
   const groups = useMemo(() => optionGroupsFor(item.id, item.category), [item.id, item.category]);
   const [sizeSlug, setSizeSlug] = useState(() => defaultSizeSlug(item.sizes));
@@ -133,7 +137,7 @@ function ItemSheetBody({
             onPress={onClose}
             style={({ pressed }) => [styles.close, pressed && styles.pressed]}
           >
-            <AppIcon name="xmark" size={17} tintColor={colors.ink900} weight="bold" />
+            <AppIcon name="xmark" size={17} tintColor={tokens.textPrimary} weight="bold" />
           </Pressable>
         </View>
 
@@ -205,7 +209,7 @@ function ItemSheetBody({
         ) : null}
       </ScrollView>
 
-      <View style={[styles.footer, { paddingBottom: bottom + spacing.sm }]}>
+      <View style={[styles.footer, { paddingBottom: bottom + tokens.spacing.md }]}>
         <ActionButton
           label={item.soldOutToday ? 'Sold out today' : quantity > 1 ? `Add ${quantity} to Bag` : 'Add to Bag'}
           value={item.soldOutToday ? undefined : formatMoney(unitPriceCents * quantity)}
@@ -222,48 +226,48 @@ function ItemSheetBody({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (tokens: BrandTokens) => StyleSheet.create({
   sheet: {
     maxHeight: '94%',
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
-    backgroundColor: colors.surface,
+    borderTopLeftRadius: tokens.radius.lg,
+    borderTopRightRadius: tokens.radius.lg,
+    backgroundColor: tokens.surface,
     overflow: 'hidden',
   },
   body: { flexShrink: 1 },
-  scroll: { paddingBottom: spacing.lg, gap: spacing.lg },
+  scroll: { paddingBottom: tokens.spacing.xl, gap: tokens.spacing.xl },
   pressed: { opacity: 0.72 },
 
   // No fixed height: the hero is as tall as the square master is wide, so it
   // shows the identical framing the thumbnails do.
-  hero: { backgroundColor: colors.brand100 },
+  hero: { backgroundColor: tokens.surface },
   close: {
     position: 'absolute',
-    top: spacing.md,
-    left: spacing.md,
+    top: tokens.spacing.lg,
+    left: tokens.spacing.lg,
     width: 36,
     height: 36,
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.surface,
+    backgroundColor: tokens.surface,
   },
 
-  copy: { paddingHorizontal: spacing.lg, gap: spacing.xs },
-  name: { color: colors.ink900, fontFamily: fonts.display, fontSize: 28, lineHeight: 34 },
-  description: { color: colors.ink700, fontFamily: fonts.sans, fontSize: 15, lineHeight: 22 },
+  copy: { paddingHorizontal: tokens.spacing.xl, gap: tokens.spacing.sm },
+  name: { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: 28, lineHeight: 34 },
+  description: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 15, lineHeight: 22 },
 
-  block: { paddingHorizontal: spacing.lg, gap: spacing.sm },
-  blockTitle: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 18 },
-  quantityBlock: { gap: spacing.sm },
+  block: { paddingHorizontal: tokens.spacing.xl, gap: tokens.spacing.md },
+  blockTitle: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 18 },
+  quantityBlock: { gap: tokens.spacing.md },
 
-  error: { paddingHorizontal: spacing.lg, color: colors.danger, fontFamily: fonts.sansMedium, fontSize: 13 },
+  error: { paddingHorizontal: tokens.spacing.xl, color: tokens.danger, fontFamily: tokens.fontBody, fontSize: 13 },
 
   footer: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
+    paddingHorizontal: tokens.spacing.xl,
+    paddingTop: tokens.spacing.md,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.ink200,
-    backgroundColor: colors.surface,
+    borderTopColor: tokens.secondary,
+    backgroundColor: tokens.surface,
   },
 });

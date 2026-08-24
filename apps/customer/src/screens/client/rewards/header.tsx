@@ -3,11 +3,10 @@ import { BUSINESS } from '@/data/business';
 import { Animated, Pressable, Text, View } from 'react-native';
 
 import { CollapsingPageHeader } from '@/components/collapsing-page-header';
-import { tabState } from '@/lib/a11y-state';
-import { colors } from '@/theme/tokens';
+import { tabState, useTokens as useBrandTokens } from '@platform/ui';
 
 import { RewardMark } from './reward-mark';
-import { styles } from './styles';
+import { useRewardStyles } from './styles';
 
 export const TABS = ['Redeem', 'Status', 'Earn', 'Cash'] as const;
 export type RewardTab = (typeof TABS)[number];
@@ -23,11 +22,13 @@ export function RewardsHeader({
   onHelp: () => void;
   scrollY: Animated.Value;
 }) {
+  const styles = useRewardStyles();
+  const tokens = useBrandTokens();
   return (
     <CollapsingPageHeader
       title="Rewards"
       scrollY={scrollY}
-      backgroundColor={colors.brand100}
+      backgroundColor={tokens.surface}
       actions={(
         <View style={[styles.headerActions, compact && styles.headerActionsCompact]}>
           <View style={[styles.tierChip, compact && styles.tierChipCompact]}>
@@ -58,6 +59,7 @@ export function RewardTabs({
   value: RewardTab;
   onChange: (tab: RewardTab) => void;
 }) {
+  const styles = useRewardStyles();
   return (
     <View accessibilityRole="tablist" style={styles.tabs}>
       {TABS.map((tab) => (

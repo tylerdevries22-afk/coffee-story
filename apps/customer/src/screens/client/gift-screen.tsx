@@ -12,9 +12,9 @@ import { GiftCardSheet, GiftGallery, GiftInfoSheet } from '@/components/gift/gif
 import { giftDesignByKey, type GiftDesign } from '@/data/gift-designs';
 import { tierForAnnualPoints } from '@platform/domain';
 import { BUSINESS, BUSINESS_MONOGRAM } from '@/data/business';
-import { colors, fonts, radius, spacing } from '@/theme/tokens';
 import type { GiftCard } from '@platform/domain';
-import { choiceState } from '@/lib/a11y-state';
+import { choiceState } from '@platform/ui';
+import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 const AMOUNTS = [50, 75, 100, 150, 200] as const;
 
@@ -258,9 +258,11 @@ type PurchaseProps = {
 };
 
 function Purchase({ amount, recipientName, recipient, message, delivery, loading, setAmount, setRecipientName, setRecipient, setMessage, setDelivery, onBack, onPay }: PurchaseProps) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   return (
     <CollapsingScreen title="Send a digital gift" eyebrow="Gift cards" onBack={onBack} backLabel="Gift cards" keyboardShouldPersistTaps="handled">
-      <View style={styles.preview}><LinearGradient colors={[colors.brand300, colors.brand700]} style={StyleSheet.absoluteFill} /><Text style={styles.previewMark}>Coffee Story</Text><Text style={styles.previewAmount}>${amount}</Text></View>
+      <View style={styles.preview}><LinearGradient colors={[tokens.secondary, tokens.primary]} style={StyleSheet.absoluteFill} /><Text style={styles.previewMark}>Coffee Story</Text><Text style={styles.previewAmount}>${amount}</Text></View>
       <SectionTitle>Choose an amount</SectionTitle>
       <View accessibilityRole="radiogroup" style={styles.amounts}>{AMOUNTS.map((value) => (
         <Pressable
@@ -288,10 +290,14 @@ function Purchase({ amount, recipientName, recipient, message, delivery, loading
 }
 
 function Field({ label, ...props }: React.ComponentProps<typeof TextInput> & { label: string }) {
-  return <View style={styles.field}><Text style={styles.fieldLabel}>{label}</Text><TextInput accessibilityLabel={`${label} input`} {...props} placeholderTextColor={colors.ink400} style={[styles.input, props.multiline && styles.multiline]} /></View>;
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
+  return <View style={styles.field}><Text style={styles.fieldLabel}>{label}</Text><TextInput accessibilityLabel={`${label} input`} {...props} placeholderTextColor={tokens.textMuted} style={[styles.input, props.multiline && styles.multiline]} /></View>;
 }
 
 function RecipientExperience({ initialToken, isDemo, onBook, onBack }: { initialToken: string; isDemo: boolean; onBook: () => void; onBack: () => void }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const { portal, refresh } = useAuth();
   const demo = useDemo();
   const [token, setToken] = useState(initialToken);
@@ -352,7 +358,7 @@ function RecipientExperience({ initialToken, isDemo, onBook, onBack }: { initial
       onBack={onBack}
       backLabel="Gift cards"
     >
-      <View style={styles.preview}><LinearGradient colors={[colors.gold300, colors.brand600]} style={StyleSheet.absoluteFill} /><Text style={styles.previewMark}>Coffee Story</Text><Text style={styles.previewAmount}>{claimed ? `$${(claimed.balanceCents / 100).toFixed(0)}` : 'A gift'}</Text></View>
+      <View style={styles.preview}><LinearGradient colors={[tokens.accent, tokens.primary]} style={StyleSheet.absoluteFill} /><Text style={styles.previewMark}>Coffee Story</Text><Text style={styles.previewAmount}>{claimed ? `$${(claimed.balanceCents / 100).toFixed(0)}` : 'A gift'}</Text></View>
       {claimed ? (
         <>
           <PillRow title={claimed.code} subtitle={`$${(claimed.balanceCents / 100).toFixed(2)} available · never expires`} symbol="creditcard" />
@@ -382,10 +388,12 @@ function RecipientExperience({ initialToken, isDemo, onBook, onBack }: { initial
 }
 
 function GiftDetail({ gift, onBook, onBack }: { gift: GiftCard; onBook: () => void; onBack: () => void }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   return (
     <CollapsingScreen title={gift.recipientName || 'A gift of care'} eyebrow="My gift card" onBack={onBack} backLabel="Gift cards">
       <View style={styles.preview}>
-        <LinearGradient colors={[colors.brand300, colors.brand700]} style={StyleSheet.absoluteFill} />
+        <LinearGradient colors={[tokens.secondary, tokens.primary]} style={StyleSheet.absoluteFill} />
         <Text style={styles.previewMark}>{gift.code}</Text>
         <Text style={styles.previewAmount}>${(gift.balanceCents / 100).toFixed(0)}</Text>
       </View>
@@ -397,6 +405,8 @@ function GiftDetail({ gift, onBook, onBack }: { gift: GiftCard; onBook: () => vo
 }
 
 function SentScreen({ amount, recipient, isDemo, onReset }: { amount: number; recipient: string; isDemo: boolean; onReset: () => void }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   return (
     <Screen contentContainerStyle={styles.sent}>
       <View style={styles.sentMark}><Text style={styles.sentMarkText}>{BUSINESS_MONOGRAM}</Text></View>
@@ -408,32 +418,32 @@ function SentScreen({ amount, recipient, isDemo, onReset }: { amount: number; re
   );
 }
 
-const styles = StyleSheet.create({
-  myCards: { height: 180, borderRadius: radius.lg, overflow: 'hidden', justifyContent: 'center' },
-  myCardsCopy: { width: '68%', padding: spacing.lg, gap: spacing.sm },
-  myCardsTitle: { color: colors.ink900, fontFamily: fonts.display, fontSize: 26 },
-  giftGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
-  cardList: { gap: spacing.xs },
-  design: { width: '47%', aspectRatio: 1.32, borderRadius: radius.md, overflow: 'hidden', justifyContent: 'space-between', padding: spacing.md },
-  designMark: { color: colors.white, fontFamily: fonts.display, fontSize: 24 },
-  designTitle: { color: colors.white, fontFamily: fonts.sansBold, fontSize: 15 },
-  preview: { height: 220, borderRadius: radius.lg, overflow: 'hidden', padding: spacing.lg, justifyContent: 'space-between' },
-  previewMark: { color: colors.white, fontFamily: fonts.display, fontSize: 26 },
-  previewAmount: { color: colors.white, fontFamily: fonts.display, fontSize: 58, alignSelf: 'flex-end' },
-  amounts: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  amount: { minWidth: 70, height: 48, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.ink200, alignItems: 'center', justifyContent: 'center' },
-  deliveryChoice: { minHeight: 48, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.ink200, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.md },
-  amountActive: { backgroundColor: colors.brand600, borderColor: colors.brand600 },
-  amountText: { color: colors.ink700, fontFamily: fonts.sansBold, fontSize: 14 },
-  amountTextActive: { color: colors.white },
-  field: { gap: spacing.sm },
-  fieldLabel: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 14 },
-  input: { minHeight: 54, borderRadius: radius.md, borderWidth: 1, borderColor: colors.ink300, paddingHorizontal: spacing.md, color: colors.ink900, fontFamily: fonts.sans, fontSize: 15, backgroundColor: colors.white },
-  multiline: { minHeight: 104, paddingTop: spacing.md, textAlignVertical: 'top' },
-  legal: { padding: spacing.md, backgroundColor: colors.brand50 },
-  error: { color: colors.danger, fontFamily: fonts.sansMedium, fontSize: 13 },
+const createStyles = (tokens: BrandTokens) => StyleSheet.create({
+  myCards: { height: 180, borderRadius: tokens.radius.lg, overflow: 'hidden', justifyContent: 'center' },
+  myCardsCopy: { width: '68%', padding: tokens.spacing.xl, gap: tokens.spacing.md },
+  myCardsTitle: { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: 26 },
+  giftGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: tokens.spacing.lg },
+  cardList: { gap: tokens.spacing.sm },
+  design: { width: '47%', aspectRatio: 1.32, borderRadius: tokens.radius.lg, overflow: 'hidden', justifyContent: 'space-between', padding: tokens.spacing.lg },
+  designMark: { color: tokens.surfaceElevated, fontFamily: tokens.fontDisplay, fontSize: 24 },
+  designTitle: { color: tokens.surfaceElevated, fontFamily: tokens.fontBody, fontSize: 15 },
+  preview: { height: 220, borderRadius: tokens.radius.lg, overflow: 'hidden', padding: tokens.spacing.xl, justifyContent: 'space-between' },
+  previewMark: { color: tokens.surfaceElevated, fontFamily: tokens.fontDisplay, fontSize: 26 },
+  previewAmount: { color: tokens.surfaceElevated, fontFamily: tokens.fontDisplay, fontSize: 58, alignSelf: 'flex-end' },
+  amounts: { flexDirection: 'row', flexWrap: 'wrap', gap: tokens.spacing.md },
+  amount: { minWidth: 70, height: 48, borderRadius: tokens.radius.pill, borderWidth: 1, borderColor: tokens.secondary, alignItems: 'center', justifyContent: 'center' },
+  deliveryChoice: { minHeight: 48, borderRadius: tokens.radius.pill, borderWidth: 1, borderColor: tokens.secondary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: tokens.spacing.lg },
+  amountActive: { backgroundColor: tokens.primary, borderColor: tokens.primary },
+  amountText: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 14 },
+  amountTextActive: { color: tokens.surfaceElevated },
+  field: { gap: tokens.spacing.md },
+  fieldLabel: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 14 },
+  input: { minHeight: 54, borderRadius: tokens.radius.lg, borderWidth: 1, borderColor: tokens.textMuted, paddingHorizontal: tokens.spacing.lg, color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 15, backgroundColor: tokens.surfaceElevated },
+  multiline: { minHeight: 104, paddingTop: tokens.spacing.lg, textAlignVertical: 'top' },
+  legal: { padding: tokens.spacing.lg, backgroundColor: tokens.surface },
+  error: { color: tokens.danger, fontFamily: tokens.fontBody, fontSize: 13 },
   sent: { minHeight: '100%', justifyContent: 'center', paddingBottom: 140 },
-  sentMark: { width: 104, height: 104, borderRadius: 52, alignSelf: 'center', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.brand200 },
-  sentMarkText: { color: colors.brand700, fontFamily: fonts.display, fontSize: 32 },
+  sentMark: { width: 104, height: 104, borderRadius: 52, alignSelf: 'center', alignItems: 'center', justifyContent: 'center', backgroundColor: tokens.surface },
+  sentMarkText: { color: tokens.primary, fontFamily: tokens.fontDisplay, fontSize: 32 },
   pressed: { opacity: 0.72, transform: [{ scale: 0.99 }] },
 });

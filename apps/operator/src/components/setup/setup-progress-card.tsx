@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppIcon } from '@/components/icon';
 import { setupProgressPercent, type AnyRoleSetup } from '@/features/setup/setup';
-import { colors, fonts, radius, spacing } from '@/theme/tokens';
+import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 export function SetupProgressCard({
   setup,
@@ -11,6 +11,8 @@ export function SetupProgressCard({
   setup: AnyRoleSetup;
   onPress: () => void;
 }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const percent = setupProgressPercent(setup);
   return (
     <Pressable
@@ -20,13 +22,13 @@ export function SetupProgressCard({
       onPress={onPress}
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}
     >
-      <AppIcon name="star" size={21} tintColor={colors.brand700} />
+      <AppIcon name="star" size={21} tintColor={tokens.primary} />
       <View style={styles.copy}>
         <Text style={styles.title}>Workspace setup</Text>
         <Text style={styles.detail}>Review or continue onboarding</Text>
       </View>
       <Text style={styles.percent}>{percent}%</Text>
-      <AppIcon name="chevron.right" size={14} tintColor={colors.ink400} />
+      <AppIcon name="chevron.right" size={14} tintColor={tokens.textMuted} />
       <View style={styles.progressTrack}>
         <View style={[styles.progressFill, { width: `${percent}%` }]} />
       </View>
@@ -34,26 +36,26 @@ export function SetupProgressCard({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (tokens: BrandTokens) => StyleSheet.create({
   card: {
     position: 'relative',
     minHeight: 68,
     overflow: 'hidden',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.md,
+    gap: tokens.spacing.md,
+    paddingHorizontal: tokens.spacing.lg,
+    paddingVertical: tokens.spacing.md,
+    borderRadius: tokens.radius.lg,
     borderWidth: 1,
-    borderColor: colors.brand100,
-    backgroundColor: colors.white,
+    borderColor: tokens.surface,
+    backgroundColor: tokens.surfaceElevated,
   },
   copy: { flex: 1, gap: 2 },
-  title: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 15 },
-  detail: { color: colors.ink500, fontFamily: fonts.sans, fontSize: 11 },
-  percent: { color: colors.brand700, fontFamily: fonts.sansBold, fontSize: 12 },
-  progressTrack: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 3, backgroundColor: colors.brand100 },
-  progressFill: { height: 3, borderRadius: radius.pill, backgroundColor: colors.brand600 },
+  title: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 15 },
+  detail: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 11 },
+  percent: { color: tokens.primary, fontFamily: tokens.fontBody, fontSize: 12 },
+  progressTrack: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 3, backgroundColor: tokens.surface },
+  progressFill: { height: 3, borderRadius: tokens.radius.pill, backgroundColor: tokens.primary },
   pressed: { opacity: 0.75, transform: [{ scale: 0.99 }] },
 });

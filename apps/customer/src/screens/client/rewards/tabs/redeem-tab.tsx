@@ -7,14 +7,14 @@ import { GlassCup, POUR_MS, pourFillAt, useLiquidDrag } from '@/components/rewar
 import { POINTS_LABEL } from '@/features/rewards/presentation';
 import { nextRewardForBalance, rewardFillPercent, rewardIsLocked } from '@/features/rewards/redeem';
 import { tierForAnnualPoints } from '@platform/domain';
-import { colors } from '@/theme/tokens';
 import type { RewardAccount, RewardCatalogItem } from '@platform/domain';
 import { AppIcon } from '@/components/icon';
 
 import { hapticSelection } from '../haptics';
 import { RewardMark } from '../reward-mark';
-import { styles } from '../styles';
+import { useRewardStyles } from '../styles';
 import type { RewardDetail } from '../types';
+import { useTokens as useBrandTokens } from '@platform/ui';
 
 /**
  * Counts to `target` on the same clock and curve as the liquid pour, so the
@@ -51,6 +51,8 @@ export function RedeemTab({
   reducedMotion: boolean;
   onSelect: (detail: RewardDetail) => void;
 }) {
+  const styles = useRewardStyles();
+  const tokens = useBrandTokens();
   const tier = tierForAnnualPoints(account.annualPoints);
   const { dragAngle, dragLateral, gesture } = useLiquidDrag(!reducedMotion);
   // Keyed on the tier so the demo switch replays the pour and the counter
@@ -65,7 +67,7 @@ export function RedeemTab({
       <GestureDetector gesture={gesture}>
         <View style={styles.pointsHero}>
           <LinearGradient
-            colors={[colors.gold50, colors.gold300]}
+            colors={[tokens.surface, tokens.accent]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={StyleSheet.absoluteFill}
@@ -127,6 +129,8 @@ function RewardRow({
   loading: boolean;
   onPress: () => void;
 }) {
+  const styles = useRewardStyles();
+  const tokens = useBrandTokens();
   const rowFill = rewardFillPercent(availablePoints, reward.pointsCost);
   const content = (
     <>
@@ -146,9 +150,9 @@ function RewardRow({
         </Text>
       </View>
       {locked ? (
-        <AppIcon name="lock.fill" size={22} tintColor={colors.ink400} />
+        <AppIcon name="lock.fill" size={22} tintColor={tokens.textMuted} />
       ) : (
-        <AppIcon name="chevron.right" size={18} tintColor={colors.ink500} />
+        <AppIcon name="chevron.right" size={18} tintColor={tokens.textMuted} />
       )}
     </>
   );

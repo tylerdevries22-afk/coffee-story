@@ -27,8 +27,8 @@ test('shared headers support edge-to-edge pages and screen-centered compact titl
 
 test('the order flow uses one continuous page and header surface', () => {
   const order = source('screens', 'client', 'order-screen.tsx');
-  assert.match(order, /headerBackgroundColor=\{colors\.brand200\}/);
-  assert.match(order, /headerBorderColor=\{colors\.brand200\}/);
+  assert.match(order, /headerBackgroundColor=\{tokens\.surface\}/);
+  assert.match(order, /headerBorderColor=\{tokens\.surface\}/);
 });
 
 test('navigable client pages use the sticky header contract', () => {

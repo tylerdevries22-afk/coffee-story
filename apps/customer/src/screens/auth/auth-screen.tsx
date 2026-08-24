@@ -7,11 +7,13 @@ import { isValidOtpCode, normalizePhone } from '@/features/auth/phone';
 import { POINTS_LABEL } from '@/features/rewards/presentation';
 import { useAuth } from '@/state/auth-context';
 import { useDemo } from '@/state/demo-context';
-import { colors, fonts, radius, spacing } from '@/theme/tokens';
+import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 type AuthView = 'sign-in' | 'create' | 'reset' | 'phone' | 'phone-code' | 'email-code' | 'email-code-verify';
 
 export function AuthScreen() {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const { signIn, signInWithEmailOtp, signInWithPhone, signUp, requestPasswordReset, verifyEmailCode, verifyPhoneCode } = useAuth();
   const { chooseDemo } = useDemo();
   const [view, setView] = useState<AuthView>('sign-in');
@@ -181,6 +183,8 @@ export function AuthScreen() {
 }
 
 export function PasswordRecoveryScreen() {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const { updatePassword } = useAuth();
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
@@ -226,15 +230,19 @@ export function PasswordRecoveryScreen() {
 }
 
 function Field({ label, ...props }: React.ComponentProps<typeof TextInput> & { label: string }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
-      <TextInput accessibilityLabel={label} {...props} placeholderTextColor={colors.ink400} style={styles.input} />
+      <TextInput accessibilityLabel={label} {...props} placeholderTextColor={tokens.textMuted} style={styles.input} />
     </View>
   );
 }
 
 function AuthLink({ label, onPress }: { label: string; onPress: () => void }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   return (
     <Pressable
       accessibilityRole="button"
@@ -247,16 +255,16 @@ function AuthLink({ label, onPress }: { label: string; onPress: () => void }) {
   );
 }
 
-const styles = StyleSheet.create({
-  content: { flexGrow: 1, justifyContent: 'center', paddingBottom: spacing.xxl },
-  intro: { gap: spacing.sm, marginBottom: spacing.md },
-  form: { gap: spacing.md },
-  field: { gap: spacing.sm },
-  label: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 14 },
-  input: { minHeight: 56, borderRadius: radius.md, borderWidth: 1, borderColor: colors.ink300, paddingHorizontal: spacing.md, backgroundColor: colors.white, color: colors.ink900, fontFamily: fonts.sans, fontSize: 16 },
-  error: { color: colors.danger, fontFamily: fonts.sansMedium, fontSize: 13, lineHeight: 19 },
-  links: { alignItems: 'center', gap: spacing.md },
-  linkButton: { minHeight: 44, justifyContent: 'center', paddingHorizontal: spacing.md },
-  link: { color: colors.brand700, fontFamily: fonts.sansBold, fontSize: 14 },
+const createStyles = (tokens: BrandTokens) => StyleSheet.create({
+  content: { flexGrow: 1, justifyContent: 'center', paddingBottom: tokens.spacing.xxl },
+  intro: { gap: tokens.spacing.md, marginBottom: tokens.spacing.lg },
+  form: { gap: tokens.spacing.lg },
+  field: { gap: tokens.spacing.md },
+  label: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 14 },
+  input: { minHeight: 56, borderRadius: tokens.radius.lg, borderWidth: 1, borderColor: tokens.textMuted, paddingHorizontal: tokens.spacing.lg, backgroundColor: tokens.surfaceElevated, color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 16 },
+  error: { color: tokens.danger, fontFamily: tokens.fontBody, fontSize: 13, lineHeight: 19 },
+  links: { alignItems: 'center', gap: tokens.spacing.lg },
+  linkButton: { minHeight: 44, justifyContent: 'center', paddingHorizontal: tokens.spacing.lg },
+  link: { color: tokens.primary, fontFamily: tokens.fontBody, fontSize: 14 },
   pressed: { opacity: 0.72 },
 });

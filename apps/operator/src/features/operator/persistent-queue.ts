@@ -15,7 +15,7 @@ export type ApplyTransitionResult =
 
 const VERSION = 1;
 function key(locationId: string): string {
-  return `coffee-story:operator-transition-queue:${locationId}`;
+  return `platform:operator-transition-queue:${locationId}`;
 }
 
 function isTransition(value: unknown): value is QueuedTransition {

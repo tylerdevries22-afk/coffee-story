@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppIcon } from '@/components/icon';
 import { useBusiness } from '@/state/business';
-import { colors, fonts, shadow } from '@/theme/tokens';
+import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 type ProfileAvatarProps = {
   name: string;
@@ -21,6 +21,8 @@ export function ProfileAvatar({
   editable = false,
   onEdit,
 }: ProfileAvatarProps) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const { monogram } = useBusiness();
   const avatar = avatarUrl ? (
     <Image
@@ -54,7 +56,7 @@ export function ProfileAvatar({
             pressed && styles.pressed,
           ]}
         >
-          <AppIcon name="camera.fill" size={size < 72 ? 12 : 16} tintColor={colors.white} />
+          <AppIcon name="camera.fill" size={size < 72 ? 12 : 16} tintColor={tokens.surfaceElevated} />
         </Pressable>
       ) : null}
     </View>
@@ -66,9 +68,9 @@ function initials(name: string, fallback: string): string {
   return pieces.slice(0, 2).map((piece) => piece[0]?.toUpperCase() ?? '').join('') || fallback;
 }
 
-const styles = StyleSheet.create({
-  fallback: { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.gold400 },
-  initials: { color: colors.ink900, fontFamily: fonts.display },
+const createStyles = (tokens: BrandTokens) => StyleSheet.create({
+  fallback: { alignItems: 'center', justifyContent: 'center', backgroundColor: tokens.accent },
+  initials: { color: tokens.textPrimary, fontFamily: tokens.fontDisplay },
   edit: {
     position: 'absolute',
     width: 24,
@@ -77,9 +79,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: colors.white,
-    backgroundColor: colors.brand700,
-    ...shadow.card,
+    borderColor: tokens.surfaceElevated,
+    backgroundColor: tokens.primary,
+    shadowColor: tokens.textPrimary, shadowOffset: { width: 0, height: 8 }, shadowOpacity: tokens.elevation.card, shadowRadius: 24, elevation: 5,
   },
   pressed: { opacity: 0.76, transform: [{ scale: 0.94 }] },
 });

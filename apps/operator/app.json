@@ -1,15 +1,15 @@
 {
   "expo": {
     "name": "Order Board",
-    "slug": "coffee-story-operator",
+    "slug": "platform-operator",
     "version": "1.0.0",
     "orientation": "default",
-    "icon": "./assets/images/icon.png",
-    "scheme": "coffee-operator",
+    "icon": "./assets/images/operator-icon.png",
+    "scheme": "platform-operator",
     "runtimeVersion": "exposdk:54.0.0",
     "userInterfaceStyle": "light",
     "ios": {
-      "bundleIdentifier": "com.coffeestory.operator",
+      "bundleIdentifier": "com.devries.platform.operator",
       "supportsTablet": true,
       "usesAppleSignIn": false,
       "config": {
@@ -17,27 +17,19 @@
       }
     },
     "android": {
-      "adaptiveIcon": {
-        "backgroundColor": "#241710",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
-      },
       "predictiveBackGestureEnabled": false,
-      "package": "com.coffeestory.operator"
+      "package": "com.devries.platform.operator"
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/operator-icon.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#FAF5EF",
-          "image": "./assets/brand/logo.png",
-          "imageWidth": 180
+          "backgroundColor": "#FAFAF9"
         }
       ],
       "expo-secure-store"

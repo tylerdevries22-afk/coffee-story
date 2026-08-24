@@ -15,7 +15,7 @@ import {
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/state/auth-context';
 import { useOperator } from '@/state/operator-store';
-import { colors, fonts, radius, spacing } from '@/theme/tokens';
+import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 /**
  * The prep station: a bench tablet, read by someone with flour on their hands.
@@ -28,6 +28,20 @@ import { colors, fonts, radius, spacing } from '@/theme/tokens';
  * looking at their finger.
  */
 export function PrepScreen() {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
+  const statusTone = {
+    pending: { backgroundColor: tokens.secondary },
+    in_progress: { backgroundColor: tokens.surface },
+    done: { backgroundColor: tokens.surfaceElevated },
+    abandoned: { backgroundColor: tokens.surfaceElevated },
+  } as const;
+  const statusText = {
+    pending: tokens.textPrimary,
+    in_progress: tokens.warning,
+    done: tokens.success,
+    abandoned: tokens.danger,
+  } as const;
   const { isDemo } = useAuth();
   const { location } = useOperator();
   const [batches, setBatches] = useState<readonly PrepBoardEntry[]>(() => isDemo ? DEMO_BAKE_LIST : []);
@@ -121,8 +135,8 @@ export function PrepScreen() {
                   : ''}
               </Body>
             </View>
-            <View style={[styles.statusPill, STATUS_TONE[batch.status]]}>
-              <Text style={[styles.statusText, { color: STATUS_TEXT[batch.status] }]}>
+            <View style={[styles.statusPill, statusTone[batch.status]]}>
+              <Text style={[styles.statusText, { color: statusText[batch.status] }]}>
                 {STATUS_LABEL[batch.status]}
               </Text>
             </View>
@@ -140,6 +154,8 @@ function RecipeDetail({
   onBack: () => void;
   onAdvance: (id: string) => void;
 }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const steps = recipeSteps(batch.recipe.steps);
   const scale = batchScale(batch.recipe, batch.target_qty);
   const multiplier = multiplierLabel(scale);
@@ -208,49 +224,35 @@ const STATUS_LABEL = {
   abandoned: 'Abandoned',
 } as const;
 
-const STATUS_TONE = {
-  pending: { backgroundColor: colors.ink200 },
-  in_progress: { backgroundColor: colors.gold50 },
-  done: { backgroundColor: colors.successTint },
-  abandoned: { backgroundColor: colors.dangerTint },
-} as const;
-
-const STATUS_TEXT = {
-  pending: colors.ink700,
-  in_progress: colors.warning,
-  done: colors.success,
-  abandoned: colors.danger,
-} as const;
-
-const styles = StyleSheet.create({
-  batchRow: { marginBottom: spacing.md },
-  batchCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 96 },
+const createStyles = (tokens: BrandTokens) => StyleSheet.create({
+  batchRow: { marginBottom: tokens.spacing.lg },
+  batchCard: { flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.lg, minHeight: 96 },
   batchCopy: { flex: 1, gap: 4 },
-  batchName: { color: colors.ink900, fontFamily: fonts.display, fontSize: 26 },
-  statusPill: { paddingHorizontal: spacing.md, paddingVertical: 10, borderRadius: radius.pill },
-  statusText: { fontFamily: fonts.sansBold, fontSize: 16 },
+  batchName: { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: 26 },
+  statusPill: { paddingHorizontal: tokens.spacing.lg, paddingVertical: 10, borderRadius: tokens.radius.pill },
+  statusText: { fontFamily: tokens.fontBody, fontSize: 16 },
   allergens: {
-    backgroundColor: colors.dangerTint,
-    borderRadius: radius.md,
-    padding: spacing.md,
+    backgroundColor: tokens.surfaceElevated,
+    borderRadius: tokens.radius.lg,
+    padding: tokens.spacing.lg,
     gap: 4,
-    marginBottom: spacing.md,
+    marginBottom: tokens.spacing.lg,
   },
   allergensLabel: {
-    color: colors.danger, fontFamily: fonts.sansBold, fontSize: 14,
+    color: tokens.danger, fontFamily: tokens.fontBody, fontSize: 14,
     letterSpacing: 1.2, textTransform: 'uppercase',
   },
-  allergensList: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 22 },
-  steps: { gap: spacing.md, paddingBottom: spacing.xl },
-  step: { flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start' },
-  stepNumber: { color: colors.brand600, fontFamily: fonts.display, fontSize: 34, minWidth: 40 },
+  allergensList: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 22 },
+  steps: { gap: tokens.spacing.lg, paddingBottom: tokens.spacing.xxl },
+  step: { flexDirection: 'row', gap: tokens.spacing.lg, alignItems: 'flex-start' },
+  stepNumber: { color: tokens.primary, fontFamily: tokens.fontDisplay, fontSize: 34, minWidth: 40 },
   stepCopy: { flex: 1, gap: 6 },
-  stepText: { color: colors.ink900, fontFamily: fonts.sans, fontSize: 22, lineHeight: 30 },
-  stepQuantity: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 22 },
+  stepText: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 22, lineHeight: 30 },
+  stepQuantity: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 22 },
   action: {
-    minHeight: 84, borderRadius: radius.pill, backgroundColor: colors.brand700,
-    alignItems: 'center', justifyContent: 'center', marginTop: spacing.md,
+    minHeight: 84, borderRadius: tokens.radius.pill, backgroundColor: tokens.primary,
+    alignItems: 'center', justifyContent: 'center', marginTop: tokens.spacing.lg,
   },
-  actionLabel: { color: colors.white, fontFamily: fonts.sansBold, fontSize: 24 },
+  actionLabel: { color: tokens.surfaceElevated, fontFamily: tokens.fontBody, fontSize: 24 },
   pressed: { opacity: 0.85 },
 });

@@ -25,7 +25,7 @@ import { AppIcon } from '@/components/icon';
 import { MenuImage } from '@/components/menu-image';
 import { CategoryStrip } from '@/components/order/category-strip';
 import { CartPill, Ribbon } from '@/components/order/order-chrome';
-import { disabledState } from '@/lib/a11y-state';
+import { disabledState } from '@platform/ui';
 import { useTabBarClearance } from '@/components/navigation/tab-screen';
 import type { MenuItem } from '@/data/catalog';
 import { fulfillmentDetail, fulfillmentLabel, type OrderFulfillment } from '@platform/domain';
@@ -34,12 +34,12 @@ import {
 } from '@platform/data';
 import { describePickupWindow } from '@/features/order/pickup';
 import { menuPriceLabel } from '@platform/domain';
-import { colors, fonts, radius, spacing } from '@/theme/tokens';
 import { liveBrand } from '@/lib/live-portal';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/state/auth-context';
 
 import { menuSections } from './menu-data';
+import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 /** How far below the strip a section has to reach before it counts as current. */
 const SECTION_ACTIVATION_OFFSET = 140;
@@ -80,6 +80,8 @@ export function MenuStep({
   onSelectItem: (item: MenuItem) => void;
   onOpenBag: () => void;
 }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const { isDemo } = useAuth();
   const [liveSoldOutIds, setLiveSoldOutIds] = useState<ReadonlySet<string> | null>(null);
   const [orderingPaused, setOrderingPaused] = useState(false);
@@ -95,7 +97,7 @@ export function MenuStep({
   // Set while a tap-driven scroll is in flight, so the strip does not flicker
   // through every section the animation passes over on its way.
   const pending = useRef<string | null>(null);
-  const clearance = useTabBarClearance(spacing.xxl);
+  const clearance = useTabBarClearance(tokens.spacing.xxl);
 
   const window = windowValue ? describePickupWindow(windowValue, new Date()) : null;
   const isDelivery = fulfillment.mode === 'delivery';
@@ -175,8 +177,8 @@ export function MenuStep({
     setActiveId(id);
     if (top === undefined) return;
     pending.current = id;
-    scrollRef.current?.scrollTo({ y: Math.max(0, top - STRIP_HEIGHT - spacing.sm), animated: true });
-  }, []);
+    scrollRef.current?.scrollTo({ y: Math.max(0, top - STRIP_HEIGHT - tokens.spacing.md), animated: true });
+  }, [tokens.spacing.md]);
 
   return (
     <View style={styles.shell}>
@@ -186,8 +188,8 @@ export function MenuStep({
         onBack={onBack}
         backLabel="Order"
         scrollY={scrollY}
-        backgroundColor={colors.brand200}
-        borderColor={colors.brand200}
+        backgroundColor={tokens.surface}
+        borderColor={tokens.surface}
       />
 
       <View style={styles.pills}>
@@ -264,6 +266,8 @@ function ContextPill({
   action?: string;
   onPress: () => void;
 }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   return (
     <Pressable
       accessibilityRole="button"
@@ -271,7 +275,7 @@ function ContextPill({
       onPress={onPress}
       style={({ pressed }) => [styles.pill, pressed && styles.pressed]}
     >
-      <AppIcon name={icon} size={16} tintColor={colors.brand700} />
+      <AppIcon name={icon} size={16} tintColor={tokens.primary} />
       <Text numberOfLines={1} style={styles.pillLabel}>
         {label}
         {detail ? <Text style={styles.pillDetail}>{`  ${detail}`}</Text> : null}
@@ -292,6 +296,8 @@ function MenuRow({
   highlighted: boolean;
   onPress: () => void;
 }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const price = menuPriceLabel(item.sizes);
   const soldOut = Boolean(item.soldOutToday);
   const unavailable = soldOut || orderingPaused;
@@ -316,61 +322,61 @@ function MenuRow({
         <Text style={styles.rowPrice}>{price}</Text>
         <Text numberOfLines={2} style={styles.rowDescription}>{item.description}</Text>
       </View>
-      <AppIcon name="chevron.right" size={16} tintColor={colors.ink400} />
+      <AppIcon name="chevron.right" size={16} tintColor={tokens.textMuted} />
     </Pressable>
   );
 }
 
-const styles = StyleSheet.create({
-  shell: { flex: 1, backgroundColor: colors.surface },
+const createStyles = (tokens: BrandTokens) => StyleSheet.create({
+  shell: { flex: 1, backgroundColor: tokens.surface },
   pressed: { opacity: 0.72 },
 
   pills: {
-    gap: spacing.xs,
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.sm,
-    backgroundColor: colors.brand200,
+    gap: tokens.spacing.sm,
+    paddingHorizontal: tokens.spacing.xl,
+    paddingBottom: tokens.spacing.md,
+    backgroundColor: tokens.surface,
   },
   pausedBanner: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.brand100,
+    paddingHorizontal: tokens.spacing.xl,
+    paddingVertical: tokens.spacing.md,
+    backgroundColor: tokens.surface,
   },
-  pausedText: { color: colors.danger, fontFamily: fonts.sansBold, fontSize: 14 },
+  pausedText: { color: tokens.danger, fontFamily: tokens.fontBody, fontSize: 14 },
   pill: {
     minHeight: 46,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.md,
-    backgroundColor: colors.white,
+    gap: tokens.spacing.md,
+    paddingHorizontal: tokens.spacing.lg,
+    borderRadius: tokens.radius.lg,
+    backgroundColor: tokens.surfaceElevated,
   },
-  pillLabel: { flex: 1, color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 13 },
-  pillDetail: { color: colors.ink600, fontFamily: fonts.sans, fontSize: 12 },
-  pillAction: { color: colors.brand700, fontFamily: fonts.sansMedium, fontSize: 13 },
+  pillLabel: { flex: 1, color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 13 },
+  pillDetail: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 12 },
+  pillAction: { color: tokens.primary, fontFamily: tokens.fontBody, fontSize: 13 },
 
-  scroll: { paddingBottom: spacing.xxl },
+  scroll: { paddingBottom: tokens.spacing.xxl },
 
-  section: { paddingTop: spacing.lg },
-  sectionHeader: { paddingHorizontal: spacing.lg, paddingBottom: spacing.sm, gap: 2 },
-  sectionTitle: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 22, lineHeight: 28 },
-  sectionTagline: { color: colors.ink600, fontFamily: fonts.sans, fontSize: 13 },
+  section: { paddingTop: tokens.spacing.xl },
+  sectionHeader: { paddingHorizontal: tokens.spacing.xl, paddingBottom: tokens.spacing.md, gap: 2 },
+  sectionTitle: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 22, lineHeight: 28 },
+  sectionTagline: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 13 },
 
   rowSoldOut: { opacity: 0.55 },
   row: {
     minHeight: 96,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
+    gap: tokens.spacing.lg,
+    paddingHorizontal: tokens.spacing.xl,
+    paddingVertical: tokens.spacing.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.ink200,
+    borderBottomColor: tokens.secondary,
   },
-  rowHighlighted: { backgroundColor: colors.brand50 },
+  rowHighlighted: { backgroundColor: tokens.surface },
   rowCopy: { flex: 1, gap: 2 },
-  rowName: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 16 },
-  rowPrice: { color: colors.ink600, fontFamily: fonts.sansMedium, fontSize: 13 },
-  rowDescription: { color: colors.ink600, fontFamily: fonts.sans, fontSize: 13, lineHeight: 18 },
+  rowName: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 16 },
+  rowPrice: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 13 },
+  rowDescription: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 13, lineHeight: 18 },
 });

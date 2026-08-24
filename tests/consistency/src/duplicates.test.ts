@@ -83,7 +83,6 @@ const DIVERGENT_BY_DESIGN = [
   'state/navigation-state.property.test.ts',
   'state/navigation-state.test.ts',
   'state/navigation-state.ts',
-  'theme/tokens.ts',
 ] as const;
 
 function sourceFiles(dir: string): string[] {

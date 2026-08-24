@@ -16,11 +16,11 @@ import {
 import {
   leavingSoon, minutesRemaining, shiftState, sortRoster, type Shift,
 } from '@/features/crew/shift';
-import { choiceState } from '@/lib/a11y-state';
+import { choiceState } from '@platform/ui';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/state/auth-context';
 import { useOperator } from '@/state/operator-store';
-import { colors, fonts, radius, spacing } from '@/theme/tokens';
+import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 /**
  * Crew: who is on, and what the shift still owes.
@@ -32,6 +32,18 @@ import { colors, fonts, radius, spacing } from '@/theme/tokens';
  * Two questions, in the order a shift asks them: who is here, and what is left.
  */
 export function CrewScreen() {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
+  const stateTone = {
+    on: { backgroundColor: tokens.surfaceElevated },
+    upcoming: { backgroundColor: tokens.surface },
+    ended: { backgroundColor: tokens.secondary },
+  } as const;
+  const stateText = {
+    on: tokens.success,
+    upcoming: tokens.warning,
+    ended: tokens.textMuted,
+  } as const;
   const { isDemo, portal, tenant, user } = useAuth();
   const { location } = useOperator();
   const [checklist, setChecklist] = useState<readonly ChecklistItem[]>(() => isDemo ? DEMO_CHECKLIST : []);
@@ -131,8 +143,8 @@ export function CrewScreen() {
               </Text>
               <Body muted>{shift.role} · {clockRange(shift.startsAt, shift.endsAt)}</Body>
             </View>
-            <View style={[styles.statePill, STATE_TONE[state]]}>
-              <Text style={[styles.stateText, { color: STATE_TEXT[state] }]}>
+            <View style={[styles.statePill, stateTone[state]]}>
+              <Text style={[styles.stateText, { color: stateText[state] }]}>
                 {STATE_LABEL[state]}
               </Text>
             </View>
@@ -183,6 +195,8 @@ function Checklist({
   items: readonly ChecklistItem[];
   onToggle: (id: string) => void;
 }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const list = itemsFor(items, recurrence);
   const progress = progressOf(list);
   if (list.length === 0) return null;
@@ -230,39 +244,32 @@ function clockRange(startsAt: string, endsAt: string): string {
 }
 
 const STATE_LABEL = { on: 'On', upcoming: 'Later', ended: 'Done' } as const;
-const STATE_TONE = {
-  on: { backgroundColor: colors.successTint },
-  upcoming: { backgroundColor: colors.gold50 },
-  ended: { backgroundColor: colors.ink200 },
-} as const;
-const STATE_TEXT = { on: colors.success, upcoming: colors.warning, ended: colors.ink500 } as const;
-
-const styles = StyleSheet.create({
+const createStyles = (tokens: BrandTokens) => StyleSheet.create({
   notice: {
-    backgroundColor: colors.gold50, borderRadius: radius.md,
-    padding: spacing.md, gap: 4, marginBottom: spacing.md,
+    backgroundColor: tokens.surface, borderRadius: tokens.radius.lg,
+    padding: tokens.spacing.lg, gap: 4, marginBottom: tokens.spacing.lg,
   },
   noticeLabel: {
-    color: colors.warning, fontFamily: fonts.sansBold, fontSize: 13,
+    color: tokens.warning, fontFamily: tokens.fontBody, fontSize: 13,
     letterSpacing: 1.2, textTransform: 'uppercase',
   },
-  noticeBody: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 18 },
-  shift: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.sm },
+  noticeBody: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 18 },
+  shift: { flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.lg, marginBottom: tokens.spacing.md },
   shiftCopy: { flex: 1, gap: 2 },
-  shiftName: { color: colors.ink900, fontFamily: fonts.display, fontSize: 22 },
-  faded: { color: colors.ink500 },
-  statePill: { paddingHorizontal: spacing.md, paddingVertical: 8, borderRadius: radius.pill },
-  stateText: { fontFamily: fonts.sansBold, fontSize: 14 },
-  taskRow: { marginBottom: spacing.sm },
-  task: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 72 },
+  shiftName: { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: 22 },
+  faded: { color: tokens.textMuted },
+  statePill: { paddingHorizontal: tokens.spacing.lg, paddingVertical: 8, borderRadius: tokens.radius.pill },
+  stateText: { fontFamily: tokens.fontBody, fontSize: 14 },
+  taskRow: { marginBottom: tokens.spacing.md },
+  task: { flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.lg, minHeight: 72 },
   box: {
     width: 32, height: 32, borderRadius: 8, borderWidth: 2,
-    borderColor: colors.ink300, alignItems: 'center', justifyContent: 'center',
+    borderColor: tokens.textMuted, alignItems: 'center', justifyContent: 'center',
   },
-  boxDone: { backgroundColor: colors.success, borderColor: colors.success },
-  tick: { color: colors.white, fontFamily: fonts.sansBold, fontSize: 18 },
+  boxDone: { backgroundColor: tokens.success, borderColor: tokens.success },
+  tick: { color: tokens.surfaceElevated, fontFamily: tokens.fontBody, fontSize: 18 },
   taskCopy: { flex: 1, gap: 2 },
-  taskTitle: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 18 },
-  taskTitleDone: { color: colors.ink500, textDecorationLine: 'line-through' },
+  taskTitle: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 18 },
+  taskTitleDone: { color: tokens.textMuted, textDecorationLine: 'line-through' },
   pressed: { opacity: 0.85 },
 });

@@ -46,7 +46,7 @@ export function Sheet({
           <View style={{ width: 36, height: 4, borderRadius: tokens.radius.pill, backgroundColor: withAlpha(tokens.textMuted, 0.35) }} />
         </View>
         {title ? (
-          <Text style={{ fontFamily: tokens.fontDisplay, fontSize: 20, color: tokens.textPrimary, paddingHorizontal: tokens.spacing.lg, paddingBottom: tokens.spacing.sm }}>
+          <Text style={{ fontFamily: tokens.fontDisplay, fontSize: tokens.type.lg, color: tokens.textPrimary, paddingHorizontal: tokens.spacing.lg, paddingBottom: tokens.spacing.sm }}>
             {title}
           </Text>
         ) : null}
@@ -96,10 +96,10 @@ export function ModifierSheet({
       {groups.map((group) => (
         <View key={group.id} style={{ gap: tokens.spacing.sm }}>
           <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: tokens.spacing.sm }}>
-            <Text style={{ fontFamily: tokens.fontBody, fontWeight: '700', fontSize: 15, color: tokens.textPrimary }}>
+            <Text style={{ fontFamily: tokens.fontBody, fontWeight: '700', fontSize: tokens.type.sm, color: tokens.textPrimary }}>
               {group.name}
             </Text>
-            <Text style={{ fontFamily: tokens.fontBody, fontSize: 12, color: tokens.textMuted }}>
+            <Text style={{ fontFamily: tokens.fontBody, fontSize: tokens.type.xs, color: tokens.textMuted }}>
               {group.required ? 'Required' : group.select === 'multi' && group.maxChoices ? `Choose up to ${group.maxChoices}` : 'Optional'}
             </Text>
           </View>
@@ -124,7 +124,7 @@ export function ModifierSheet({
                     opacity: pressed ? 0.8 : 1,
                   })}
                 >
-                  <Text style={{ fontFamily: tokens.fontBody, fontSize: 14, color: selected ? tokens.surfaceElevated : tokens.textPrimary }}>
+                  <Text style={{ fontFamily: tokens.fontBody, fontSize: tokens.type.sm, color: selected ? tokens.surfaceElevated : tokens.textPrimary }}>
                     {choice.label}{priced}
                   </Text>
                 </Pressable>

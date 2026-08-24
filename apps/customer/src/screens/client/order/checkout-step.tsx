@@ -22,8 +22,8 @@ import {
 import { formatMoney, formatRate } from '@platform/domain';
 import { TIP_PRESETS_CENTS, type OrderTotals , PaymentMethod } from '@platform/domain';
 import { POINTS_LABEL } from '@/features/rewards/presentation';
-import { choiceState, toggleState } from '@/lib/a11y-state';
-import { colors, fonts, radius, spacing } from '@/theme/tokens';
+import { choiceState, toggleState } from '@platform/ui';
+import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 export type CheckoutPaymentMethod =
   | { kind: 'apple-pay' }
@@ -77,7 +77,9 @@ export function CheckoutStep({
   onPlaceOrder: () => void;
   onManagePayment: () => void;
 }) {
-  const clearance = useStickyBarClearance(spacing.xl);
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
+  const clearance = useStickyBarClearance(tokens.spacing.xxl);
   const [customTipOpen, setCustomTipOpen] = useState(false);
   const [customTip, setCustomTip] = useState('');
   const isPreset = TIP_PRESETS_CENTS.includes(totals.tipCents);
@@ -116,8 +118,8 @@ export function CheckoutStep({
         backLabel="Bag"
         keyboardShouldPersistTaps="handled"
         style={styles.page}
-        headerBackgroundColor={colors.brand200}
-        headerBorderColor={colors.brand200}
+        headerBackgroundColor={tokens.surface}
+        headerBorderColor={tokens.surface}
         contentContainerStyle={[styles.content, { paddingBottom: clearance }]}
       >
         <View style={styles.card}>
@@ -160,7 +162,7 @@ export function CheckoutStep({
               onChangeText={applyCustomTip}
               keyboardType="decimal-pad"
               placeholder="0.00"
-              placeholderTextColor={colors.ink400}
+              placeholderTextColor={tokens.textMuted}
               autoFocus
               style={styles.tipInput}
             />
@@ -183,13 +185,13 @@ export function CheckoutStep({
           <Text accessibilityRole="header" style={styles.cardTitle}>Payment</Text>
           {paymentLoading ? (
             <View style={styles.paymentSkeleton}>
-              <Skeleton height={56} radius={radius.md} />
+              <Skeleton height={56} radius={tokens.radius.lg} />
             </View>
           ) : payment?.kind === 'pay-at-pickup' ? (
             // Nothing to manage: the tender is the counter. A pressable row
             // would open a payments screen live mode does not have.
             <View accessibilityLabel="Payment method: pay at the counter when you pick up" style={styles.paymentRow}>
-              <AppIcon name="cup.and.saucer.fill" size={20} tintColor={colors.ink900} />
+              <AppIcon name="cup.and.saucer.fill" size={20} tintColor={tokens.textPrimary} />
               <Text style={styles.paymentLabel}>{describePayment(payment)}</Text>
             </View>
           ) : (
@@ -206,13 +208,13 @@ export function CheckoutStep({
               <AppIcon
                 name={applePay ? 'applelogo' : 'creditcard.fill'}
                 size={20}
-                tintColor={colors.ink900}
+                tintColor={tokens.textPrimary}
               />
               <Text style={styles.paymentLabel}>
                 {payment ? describePayment(payment) : 'Add a payment method'}
               </Text>
               {payment ? <View style={styles.defaultChip}><Text style={styles.defaultChipText}>Default</Text></View> : null}
-              <AppIcon name="chevron.right" size={16} tintColor={colors.ink400} />
+              <AppIcon name="chevron.right" size={16} tintColor={tokens.textMuted} />
             </Pressable>
           )}
 
@@ -228,7 +230,7 @@ export function CheckoutStep({
               onPress={redeem.onToggle}
               style={({ pressed }) => [styles.promoRow, pressed && styles.pressed]}
             >
-              <AppIcon name="star.fill" size={16} tintColor={redeem.appliedCents > 0 ? colors.success : colors.ink700} />
+              <AppIcon name="star.fill" size={16} tintColor={redeem.appliedCents > 0 ? tokens.success : tokens.textPrimary} />
               <Text style={styles.promoLabel}>
                 {redeem.appliedCents > 0
                   ? `Redeeming ${formatMoney(redeem.appliedCents)} (${redeem.pointsCharged} ${redeem.pointsName})`
@@ -250,7 +252,7 @@ export function CheckoutStep({
               onPress={storedValue.onToggle}
               style={({ pressed }) => [styles.promoRow, pressed && styles.pressed]}
             >
-              <AppIcon name="giftcard" size={16} tintColor={storedValue.enabled ? colors.success : colors.ink700} />
+              <AppIcon name="giftcard" size={16} tintColor={storedValue.enabled ? tokens.success : tokens.textPrimary} />
               <Text style={styles.promoLabel}>
                 {storedValue.enabled
                   ? `Gift balance covering ${formatMoney(storedValue.appliedCents)}`
@@ -267,7 +269,7 @@ export function CheckoutStep({
               onPress={onManagePayment}
               style={({ pressed }) => [styles.promoRow, pressed && styles.pressed]}
             >
-              <AppIcon name="tag" size={16} tintColor={colors.ink700} />
+              <AppIcon name="tag" size={16} tintColor={tokens.textPrimary} />
               <Text style={styles.promoLabel}>Gift Card, Voucher, Promo Code</Text>
             </Pressable>
           ) : null}
@@ -299,7 +301,7 @@ export function CheckoutStep({
           disabled={!canPay}
           onPress={onPlaceOrder}
           accessibilityHint={payment ? undefined : 'Add a payment method first'}
-          leading={applePay ? <AppIcon name="applelogo" size={18} tintColor={colors.white} /> : undefined}
+          leading={applePay ? <AppIcon name="applelogo" size={18} tintColor={tokens.surfaceElevated} /> : undefined}
         />
       </StickyActionBar>
     </>
@@ -314,6 +316,8 @@ function describePayment(payment: CheckoutPaymentMethod): string {
 }
 
 function ReceiptRow({ label, value }: { label: string; value: string }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   return (
     <View style={styles.receiptRow}>
       <Text style={styles.receiptLabel}>{label}</Text>
@@ -331,6 +335,8 @@ function TipChip({
   selected: boolean;
   onPress: () => void;
 }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   return (
     <Pressable
       accessibilityRole="radio"
@@ -344,88 +350,88 @@ function TipChip({
   );
 }
 
-const styles = StyleSheet.create({
-  page: { backgroundColor: colors.brand200 },
-  content: { gap: spacing.md },
+const createStyles = (tokens: BrandTokens) => StyleSheet.create({
+  page: { backgroundColor: tokens.surface },
+  content: { gap: tokens.spacing.lg },
   pressed: { opacity: 0.72 },
 
-  card: { borderRadius: radius.lg, backgroundColor: colors.white, padding: spacing.lg, gap: spacing.sm },
-  cardTitle: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 20, marginBottom: spacing.xs },
+  card: { borderRadius: tokens.radius.lg, backgroundColor: tokens.surfaceElevated, padding: tokens.spacing.xl, gap: tokens.spacing.md },
+  cardTitle: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 20, marginBottom: tokens.spacing.sm },
 
-  receiptRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: spacing.md },
-  receiptLabel: { flex: 1, color: colors.ink600, fontFamily: fonts.sans, fontSize: 14, lineHeight: 20 },
-  receiptValue: { color: colors.ink700, fontFamily: fonts.sansMedium, fontSize: 14, lineHeight: 20 },
+  receiptRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: tokens.spacing.lg },
+  receiptLabel: { flex: 1, color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 14, lineHeight: 20 },
+  receiptValue: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 14, lineHeight: 20 },
 
-  tipRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
+  tipRow: { flexDirection: 'row', gap: tokens.spacing.md, marginTop: tokens.spacing.md },
   tipChip: {
     flex: 1,
     minHeight: 46,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: radius.md,
+    borderRadius: tokens.radius.lg,
     borderWidth: 1,
-    borderColor: colors.ink200,
-    backgroundColor: colors.white,
+    borderColor: tokens.secondary,
+    backgroundColor: tokens.surfaceElevated,
   },
-  tipChipSelected: { borderColor: colors.brand700, backgroundColor: colors.brand50 },
-  tipChipText: { color: colors.ink700, fontFamily: fonts.sansMedium, fontSize: 14 },
-  tipChipTextSelected: { color: colors.brand700, fontFamily: fonts.sansBold },
+  tipChipSelected: { borderColor: tokens.primary, backgroundColor: tokens.surface },
+  tipChipText: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 14 },
+  tipChipTextSelected: { color: tokens.primary, fontFamily: tokens.fontBody },
   tipInput: {
     minHeight: 52,
-    borderRadius: radius.md,
+    borderRadius: tokens.radius.lg,
     borderWidth: 1,
-    borderColor: colors.brand700,
-    backgroundColor: colors.white,
-    color: colors.ink900,
-    fontFamily: fonts.sans,
+    borderColor: tokens.primary,
+    backgroundColor: tokens.surfaceElevated,
+    color: tokens.textPrimary,
+    fontFamily: tokens.fontBody,
     fontSize: 16,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: tokens.spacing.lg,
   },
-  tipCaption: { color: colors.ink500, fontFamily: fonts.sans, fontSize: 12 },
+  tipCaption: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 12 },
 
   totalRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: spacing.sm,
-    paddingTop: spacing.sm,
+    marginTop: tokens.spacing.md,
+    paddingTop: tokens.spacing.md,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.ink200,
+    borderTopColor: tokens.secondary,
   },
-  totalLabel: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 20 },
-  totalValue: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 20 },
+  totalLabel: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 20 },
+  totalValue: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 20 },
 
-  paymentSkeleton: { paddingVertical: spacing.xs },
+  paymentSkeleton: { paddingVertical: tokens.spacing.sm },
   paymentRow: {
     minHeight: 56,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.md,
+    gap: tokens.spacing.md,
+    paddingHorizontal: tokens.spacing.lg,
+    borderRadius: tokens.radius.lg,
     borderWidth: 1,
-    borderColor: colors.ink200,
+    borderColor: tokens.secondary,
   },
-  paymentLabel: { flex: 1, color: colors.ink900, fontFamily: fonts.sansMedium, fontSize: 15 },
-  defaultChip: { paddingHorizontal: spacing.sm, paddingVertical: 3, borderRadius: radius.pill, backgroundColor: colors.brand100 },
-  defaultChipText: { color: colors.brand700, fontFamily: fonts.sansMedium, fontSize: 11 },
+  paymentLabel: { flex: 1, color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 15 },
+  defaultChip: { paddingHorizontal: tokens.spacing.md, paddingVertical: 3, borderRadius: tokens.radius.pill, backgroundColor: tokens.surface },
+  defaultChipText: { color: tokens.primary, fontFamily: tokens.fontBody, fontSize: 11 },
 
   promoRow: {
     minHeight: 46,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: tokens.spacing.md,
     alignSelf: 'flex-start',
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.pill,
-    backgroundColor: colors.warm,
+    paddingHorizontal: tokens.spacing.lg,
+    borderRadius: tokens.radius.pill,
+    backgroundColor: tokens.surface,
   },
-  toggleHint: { color: colors.ink500, fontFamily: fonts.sansMedium, fontSize: 13 },
-  promoLabel: { color: colors.ink700, fontFamily: fonts.sansMedium, fontSize: 13 },
+  toggleHint: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 13 },
+  promoLabel: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 13 },
 
-  legal: { color: colors.ink500, fontFamily: fonts.sans, fontSize: 11, lineHeight: 16, fontStyle: 'italic' },
-  legalQuiet: { color: colors.ink500, fontFamily: fonts.sans, fontSize: 11, fontStyle: 'italic' },
+  legal: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 11, lineHeight: 16, fontStyle: 'italic' },
+  legalQuiet: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 11, fontStyle: 'italic' },
 
-  simulated: { color: colors.ink600, fontFamily: fonts.sans, fontSize: 12, lineHeight: 18 },
-  error: { color: colors.danger, fontFamily: fonts.sansMedium, fontSize: 13, lineHeight: 19 },
+  simulated: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 12, lineHeight: 18 },
+  error: { color: tokens.danger, fontFamily: tokens.fontBody, fontSize: 13, lineHeight: 19 },
 });

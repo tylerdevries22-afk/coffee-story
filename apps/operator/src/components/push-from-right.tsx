@@ -11,10 +11,8 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { useReducedMotion } from '@/hooks/use-reduced-motion';
-import { colors, motion } from '@/theme/tokens';
+import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
-const ENTER_MS = motion.enterMs;
-const EXIT_MS = motion.exitMs;
 /** Past a quarter of the screen the push is considered committed to leaving. */
 const DISMISS_FRACTION = 0.25;
 /** A flick this fast leaves regardless of how far the finger actually travelled. */
@@ -40,6 +38,8 @@ export function PushFromRight({
   onDismiss,
   children,
 }: PropsWithChildren<{ visible: boolean; onDismiss: () => void }>) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const reducedMotion = useReducedMotion();
   const { width } = useWindowDimensions();
   // Set true by the exit animation's completion callback, and re-armed on the
@@ -65,19 +65,19 @@ export function PushFromRight({
       // starting from wherever the last swipe left the value.
       if (wasClosed) translateX.value = width;
       translateX.value = withTiming(0, {
-        duration: reducedMotion ? 0 : ENTER_MS,
+        duration: reducedMotion ? 0 : tokens.motion.slow,
         easing: Easing.out(Easing.cubic),
       });
       return;
     }
     translateX.value = withTiming(
       width,
-      { duration: reducedMotion ? 0 : EXIT_MS, easing: Easing.in(Easing.cubic) },
+      { duration: reducedMotion ? 0 : tokens.motion.base, easing: Easing.in(Easing.cubic) },
       (finished) => {
         if (finished) runOnJS(markClosed)();
       },
     );
-  }, [visible, reducedMotion, wasClosed, width, translateX, markClosed]);
+  }, [visible, reducedMotion, wasClosed, width, translateX, markClosed, tokens.motion.base, tokens.motion.slow]);
 
   const gesture = useMemo(
     () =>
@@ -97,7 +97,7 @@ export function PushFromRight({
           if (committed) {
             translateX.value = withTiming(
               width,
-              { duration: EXIT_MS, easing: Easing.out(Easing.cubic) },
+              { duration: tokens.motion.base, easing: Easing.out(Easing.cubic) },
               (finished) => {
                 if (finished) runOnJS(onDismiss)();
               },
@@ -106,7 +106,7 @@ export function PushFromRight({
           }
           translateX.value = withSpring(0, SETTLE_SPRING);
         }),
-    [reducedMotion, width, translateX, onDismiss],
+    [reducedMotion, width, translateX, onDismiss, tokens.motion.base],
   );
 
   const slide = useAnimatedStyle(() => ({ transform: [{ translateX: translateX.value }] }));
@@ -131,10 +131,10 @@ export function PushFromRight({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (tokens: BrandTokens) => StyleSheet.create({
   overlay: {
     position: 'absolute',
-    backgroundColor: colors.surface,
+    backgroundColor: tokens.surface,
     // Above the bottom tab bar and the floating action button that sit in the
     // same absolutely-positioned layer as this overlay.
     zIndex: 60,

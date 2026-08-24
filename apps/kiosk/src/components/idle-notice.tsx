@@ -41,20 +41,20 @@ export function IdleNotice() {
 
   return (
     <View style={[styles.scrim, { backgroundColor: `${tokens.textPrimary}D9` }]}>
-      <View style={[styles.card, { backgroundColor: tokens.surfaceElevated, borderRadius: tokens.radius.lg }]}>
-        <Text style={[styles.title, { color: tokens.textPrimary, fontFamily: tokens.fontDisplay }]}>
+      <View style={[styles.card, { backgroundColor: tokens.surfaceElevated, borderRadius: tokens.radius.lg, padding: tokens.spacing.xxl, gap: tokens.spacing.lg }]}>
+        <Text style={[styles.title, { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: tokens.type.display }]}>
           Still ordering?
         </Text>
-        <Text style={[styles.detail, { color: tokens.textMuted }]}>
+        <Text style={[styles.detail, { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: tokens.type.xl }]}>
           Starting over in {secondsLeft}s
         </Text>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Keep ordering"
           onPress={touch}
-          style={[styles.keep, { backgroundColor: tokens.primary }]}
+          style={[styles.keep, { backgroundColor: tokens.primary, borderRadius: tokens.radius.pill, paddingHorizontal: tokens.spacing.xxl }]}
         >
-          <Text style={[styles.keepLabel, { color: tokens.surfaceElevated }]}>Keep ordering</Text>
+          <Text style={[styles.keepLabel, { color: tokens.surfaceElevated, fontFamily: tokens.fontBody, fontSize: tokens.type.xl }]}>Keep ordering</Text>
         </Pressable>
         <Pressable
           accessibilityRole="button"
@@ -62,7 +62,7 @@ export function IdleNotice() {
           onPress={reset}
           style={styles.startOver}
         >
-          <Text style={[styles.startOverLabel, { color: tokens.textMuted }]}>Start over</Text>
+          <Text style={[styles.startOverLabel, { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: tokens.type.lg }]}>Start over</Text>
         </Pressable>
       </View>
     </View>
@@ -71,11 +71,11 @@ export function IdleNotice() {
 
 const styles = StyleSheet.create({
   scrim: { position: 'absolute', inset: 0, alignItems: 'center', justifyContent: 'center' },
-  card: { width: 560, padding: 44, gap: 16, alignItems: 'center' },
-  title: { fontSize: 44 },
-  detail: { fontSize: 24 },
-  keep: { minHeight: 88, borderRadius: 999, paddingHorizontal: 56, justifyContent: 'center', marginTop: 12 },
-  keepLabel: { fontSize: 26, fontWeight: '700' },
+  card: { width: 560, alignItems: 'center' },
+  title: {},
+  detail: {},
+  keep: { minHeight: 88, justifyContent: 'center', marginTop: 12 },
+  keepLabel: { fontWeight: '700' },
   startOver: { minHeight: 60, justifyContent: 'center' },
-  startOverLabel: { fontSize: 20, fontWeight: '600' },
+  startOverLabel: { fontWeight: '600' },
 });

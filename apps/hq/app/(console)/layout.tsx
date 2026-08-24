@@ -1,8 +1,10 @@
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 
 import { currentSession, hasRole } from '@/lib/auth';
 import { isConfigured } from '@/lib/supabase-server';
 import { NavLink } from '@/components/nav-link';
+import { serverClient } from '@/lib/supabase-server';
+import { hqTheme } from '@/lib/theme';
 
 import { signOut } from './login/actions';
 
@@ -14,9 +16,13 @@ import { signOut } from './login/actions';
  * happens to be served from here and must not inherit a nav a guest can see.
  */
 export default async function ConsoleLayout({ children }: { children: ReactNode }) {
-  const session = await currentSession();
+  const [session, client] = await Promise.all([currentSession(), serverClient()]);
+  const brand = client
+    ? await client.from('brands').select('brand_config').maybeSingle<{ brand_config: unknown }>()
+    : null;
+  const brandConfig = brand && !brand.error ? brand.data?.brand_config : null;
   return (
-    <div className="shell">
+    <div className="shell" style={hqTheme(brandConfig) as CSSProperties}>
       <nav className="sidebar" aria-label="Console">
         <div className="brand">{session?.brandName ?? 'HQ'}</div>
         <NavLink href="/">Dashboard</NavLink>

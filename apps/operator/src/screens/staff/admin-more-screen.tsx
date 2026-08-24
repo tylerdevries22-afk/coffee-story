@@ -20,16 +20,19 @@ import { workspaceTone } from '@/features/staff/workspace';
 import { openWebPath } from '@/lib/web-navigation';
 import { useAppState } from '@/state/app-context';
 import { useAuth } from '@/state/auth-context';
-import { colors, fonts, radius, spacing } from '@/theme/tokens';
+import { useBusiness } from '@/state/business';
 import type { PortalOrder, StaffDashboard } from '@platform/domain';
 import { AppIcon } from '@/components/icon';
 import { Profile } from '@/screens/staff/profile';
 
 import rewardsCup from '../../../assets/tabs/cup.png';
+import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 type HeaderSurface = 'profile' | null;
 
 export function AdminMoreScreen({ dashboard }: { dashboard: StaffDashboard }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const {
     exitStaff,
     openNotifications,
@@ -39,6 +42,7 @@ export function AdminMoreScreen({ dashboard }: { dashboard: StaffDashboard }) {
     selectRole,
   } = useAppState();
   const { isDemo, portal, role, signOut } = useAuth();
+  const business = useBusiness();
   const [surface, setSurface] = useState<HeaderSurface>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -93,7 +97,7 @@ export function AdminMoreScreen({ dashboard }: { dashboard: StaffDashboard }) {
       onQueryChange={setQuery}
       placeholder="Guests, schedule, reports…"
       accessibilityLabel="Search guests and administration"
-      surfaceColor={role === 'admin' ? colors.brand600 : colors.brand400}
+      surfaceColor={role === 'admin' ? tokens.primary : tokens.secondary}
       results={(
         <WorkspaceSearchResults
           tone={workspaceTone(role)}
@@ -120,7 +124,7 @@ export function AdminMoreScreen({ dashboard }: { dashboard: StaffDashboard }) {
       <CollapsingPageHeader
         title="More"
         scrollY={scrollY}
-        backgroundColor={role === 'admin' ? colors.brand100 : colors.brand50}
+        backgroundColor={role === 'admin' ? tokens.surface : tokens.surface}
         actions={(
           <>
             <HeaderIconButton
@@ -194,19 +198,19 @@ export function AdminMoreScreen({ dashboard }: { dashboard: StaffDashboard }) {
       {/* The proposal is a shortcut, not a section: a heading over a single
           card said less than the card already does. */}
       <Card style={styles.proposalCard}>
-        <View style={styles.proposalIcon}><AppIcon name="doc.text" size={20} tintColor={colors.brand700} /></View>
+        <View style={styles.proposalIcon}><AppIcon name="doc.text" size={20} tintColor={tokens.primary} /></View>
         <View style={styles.proposalCopy}>
           <Text style={styles.proposalTitle}>Website Proposal</Text>
           <Text style={styles.proposalDetail}>Approved scope and launch handoff.</Text>
         </View>
         <Pressable accessibilityRole="button" accessibilityLabel="Open Website Proposal" onPress={() => openDestination('/proposal')} style={({ pressed }) => [styles.roundButton, pressed && styles.pressed]}>
-          <AppIcon name="chevron.right" size={16} tintColor={colors.brand700} />
+          <AppIcon name="chevron.right" size={16} tintColor={tokens.primary} />
         </Pressable>
       </Card>
       <MoreFooter
         onPrivacy={() => void openWebPath('/privacy')}
         onTerms={() => void openWebPath('/privacy')}
-        version="Coffee Story 1.0"
+        version={`${business.name} 1.0`}
         caption={isDemo ? 'Explicit Demo mode · changes are saved on this device' : 'Connected securely to live services'}
         iconSrc={rewardsCup}
       />
@@ -288,47 +292,47 @@ function destinationSymbol(path: string): 'person.crop.circle' | 'calendar' | 'c
   return 'doc.text';
 }
 
-const styles = StyleSheet.create({
-  header: { gap: spacing.md, padding: spacing.md },
-  headerTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 54 },
-  identity: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 54 },
+const createStyles = (tokens: BrandTokens) => StyleSheet.create({
+  header: { gap: tokens.spacing.lg, padding: tokens.spacing.lg },
+  headerTop: { flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.md, minHeight: 54 },
+  identity: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.md, minHeight: 54 },
   // Gold monogram on plum, exactly as the web ProfileCard renders it.
-  avatar: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.gold400 },
-  avatarText: { color: colors.ink900, fontFamily: fonts.display, fontSize: 17 },
+  avatar: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: tokens.accent },
+  avatarText: { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: 17 },
   identityCopy: { flex: 1, minWidth: 0 },
-  identityName: { color: colors.ink900, fontFamily: fonts.display, fontSize: 17 },
+  identityName: { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: 17 },
   identityMeta: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 3 },
-  statusDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.success },
-  identityRole: { color: colors.ink700, fontFamily: fonts.sansBold, fontSize: 10 },
-  identityPreview: { color: colors.ink500, fontFamily: fonts.sans, fontSize: 11, textTransform: 'capitalize' },
-  metrics: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: 'rgba(70,48,78,0.14)', paddingTop: spacing.sm },
+  statusDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: tokens.success },
+  identityRole: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 10 },
+  identityPreview: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 11, textTransform: 'capitalize' },
+  metrics: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: 'rgba(70,48,78,0.14)', paddingTop: tokens.spacing.md },
   metric: { flex: 1, alignItems: 'center' },
-  metricValue: { color: colors.ink900, fontFamily: fonts.display, fontSize: 15 },
-  metricLabel: { color: colors.ink500, fontFamily: fonts.sans, fontSize: 9, letterSpacing: 0.6, textTransform: 'uppercase', marginTop: 3 },
+  metricValue: { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: 15 },
+  metricLabel: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 9, letterSpacing: 0.6, textTransform: 'uppercase', marginTop: 3 },
   headerButton: { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.28)' },
-  headerButtonActive: { backgroundColor: colors.brand600 },
-  badge: { position: 'absolute', top: -3, right: -2, minWidth: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.danger, borderWidth: 2, borderColor: colors.surface },
-  badgeText: { color: colors.white, fontFamily: fonts.sansBold, fontSize: 10 },
-  group: { gap: spacing.sm },
-  surface: { gap: spacing.md },
-  surfaceTitle: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 20 },
-  profileName: { color: colors.ink900, fontFamily: fonts.display, fontSize: 25 },
-  permission: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  permissionText: { flex: 1, color: colors.ink700, fontFamily: fonts.sansMedium, fontSize: 13 },
-  search: { minHeight: 52, borderRadius: radius.pill, borderWidth: 1, borderColor: 'rgba(255,255,255,0.24)', paddingHorizontal: spacing.md, backgroundColor: 'rgba(0,0,0,0.22)', color: colors.white, fontFamily: fonts.sans, fontSize: 16 },
-  result: { minHeight: 62, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderBottomWidth: 1, borderBottomColor: 'rgba(70,48,78,0.12)' },
+  headerButtonActive: { backgroundColor: tokens.primary },
+  badge: { position: 'absolute', top: -3, right: -2, minWidth: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: tokens.danger, borderWidth: 2, borderColor: tokens.surface },
+  badgeText: { color: tokens.surfaceElevated, fontFamily: tokens.fontBody, fontSize: 10 },
+  group: { gap: tokens.spacing.md },
+  surface: { gap: tokens.spacing.lg },
+  surfaceTitle: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 20 },
+  profileName: { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: 25 },
+  permission: { flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.md },
+  permissionText: { flex: 1, color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 13 },
+  search: { minHeight: 52, borderRadius: tokens.radius.pill, borderWidth: 1, borderColor: 'rgba(255,255,255,0.24)', paddingHorizontal: tokens.spacing.lg, backgroundColor: 'rgba(0,0,0,0.22)', color: tokens.surfaceElevated, fontFamily: tokens.fontBody, fontSize: 16 },
+  result: { minHeight: 62, flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.md, borderBottomWidth: 1, borderBottomColor: 'rgba(70,48,78,0.12)' },
   resultCopy: { flex: 1 },
-  resultTitle: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 14 },
-  resultDetail: { color: colors.ink500, fontFamily: fonts.sans, fontSize: 11, lineHeight: 16, marginTop: 2 },
-  notification: { minHeight: 60, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  notificationDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.danger },
+  resultTitle: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 14 },
+  resultDetail: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 11, lineHeight: 16, marginTop: 2 },
+  notification: { minHeight: 60, flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.md },
+  notificationDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: tokens.danger },
   // The single gold surface in a plum workspace -- the web comment calls this
   // out deliberately: it is a document to show a client, not another nav row.
-  proposalCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.sm, backgroundColor: colors.gold400, borderColor: colors.gold300 },
-  proposalIcon: { width: 38, height: 38, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.gold50 },
+  proposalCard: { flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.md, padding: tokens.spacing.md, backgroundColor: tokens.accent, borderColor: tokens.accent },
+  proposalIcon: { width: 38, height: 38, borderRadius: tokens.radius.lg, alignItems: 'center', justifyContent: 'center', backgroundColor: tokens.surface },
   proposalCopy: { flex: 1 },
-  proposalTitle: { color: colors.ink900, fontFamily: fonts.display, fontSize: 17 },
-  proposalDetail: { color: colors.ink700, fontFamily: fonts.sans, fontSize: 12, lineHeight: 16, marginTop: 1 },
-  roundButton: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.gold50 },
+  proposalTitle: { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: 17 },
+  proposalDetail: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 12, lineHeight: 16, marginTop: 1 },
+  roundButton: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: tokens.surface },
   pressed: { opacity: 0.72, transform: [{ scale: 0.98 }] },
 });

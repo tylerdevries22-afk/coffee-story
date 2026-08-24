@@ -6,10 +6,12 @@ import { Body, Button, Card } from '@/components/ui';
 import { workspaceTone } from '@/features/staff/workspace';
 import { openWebPath } from '@/lib/web-navigation';
 import { useAuth } from '@/state/auth-context';
-import { colors, fonts, radius, spacing } from '@/theme/tokens';
 import { AppIcon } from '@/components/icon';
+import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 export function AdminProposalScreen({ onBack }: { onBack: () => void }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const { role } = useAuth();
   const tone = workspaceTone(role);
   function open(path: '/proposal' | '/') {
@@ -22,7 +24,7 @@ export function AdminProposalScreen({ onBack }: { onBack: () => void }) {
     <CollapsingScreen title="Website Proposal" eyebrow="Guest document" onBack={onBack} tone={tone}>
       <Body muted>A native overview of the approved website direction, delivery scope, and launch path.</Body>
       <Card style={styles.hero}>
-        <View style={styles.heroMark}><AppIcon name="doc.text" size={28} tintColor={colors.brand700} /></View>
+        <View style={styles.heroMark}><AppIcon name="doc.text" size={28} tintColor={tokens.primary} /></View>
         <Text style={styles.heroTitle}>One connected care experience</Text>
         <Body>Website discovery, client booking, rewards, gifting, and staff operations share one calm brand system.</Body>
       </Card>
@@ -43,15 +45,19 @@ export function AdminProposalScreen({ onBack }: { onBack: () => void }) {
 }
 
 function ProposalRow({ title, detail }: { title: string; detail: string }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   return (
     <View style={styles.row}>
-      <View style={styles.dot}><AppIcon name="checkmark" size={13} tintColor={colors.white} /></View>
+      <View style={styles.dot}><AppIcon name="checkmark" size={13} tintColor={tokens.surfaceElevated} /></View>
       <View style={styles.copy}><Text style={styles.rowTitle}>{title}</Text><Text style={styles.rowDetail}>{detail}</Text></View>
     </View>
   );
 }
 
 function TimelineItem({ index, title, detail }: { index: string; title: string; detail: string }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   return (
     <View style={styles.timelineItem}>
       <Text style={styles.index}>{index}</Text>
@@ -60,17 +66,17 @@ function TimelineItem({ index, title, detail }: { index: string; title: string; 
   );
 }
 
-const styles = StyleSheet.create({
-  hero: { gap: spacing.sm, backgroundColor: colors.gold50, borderColor: colors.gold300 },
-  heroMark: { width: 52, height: 52, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.white },
-  heroTitle: { color: colors.ink900, fontFamily: fonts.display, fontSize: 27, lineHeight: 31 },
-  sectionTitle: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 22, marginTop: spacing.md },
-  row: { minHeight: 78, flexDirection: 'row', alignItems: 'center', gap: spacing.md, borderBottomWidth: 1, borderBottomColor: 'rgba(70,48,78,0.12)' },
-  dot: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.brand600 },
+const createStyles = (tokens: BrandTokens) => StyleSheet.create({
+  hero: { gap: tokens.spacing.md, backgroundColor: tokens.surface, borderColor: tokens.accent },
+  heroMark: { width: 52, height: 52, borderRadius: tokens.radius.lg, alignItems: 'center', justifyContent: 'center', backgroundColor: tokens.surfaceElevated },
+  heroTitle: { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: 27, lineHeight: 31 },
+  sectionTitle: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 22, marginTop: tokens.spacing.lg },
+  row: { minHeight: 78, flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.lg, borderBottomWidth: 1, borderBottomColor: 'rgba(70,48,78,0.12)' },
+  dot: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: tokens.primary },
   copy: { flex: 1, gap: 3 },
-  rowTitle: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 16 },
-  rowDetail: { color: colors.ink600, fontFamily: fonts.sans, fontSize: 13, lineHeight: 19 },
-  timeline: { borderLeftWidth: 2, borderLeftColor: colors.brand200, marginLeft: spacing.md },
-  timelineItem: { minHeight: 78, flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginLeft: -17 },
-  index: { width: 32, height: 32, borderRadius: 16, overflow: 'hidden', textAlign: 'center', textAlignVertical: 'center', color: colors.white, backgroundColor: colors.brand600, fontFamily: fonts.sansBold, fontSize: 11 },
+  rowTitle: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 16 },
+  rowDetail: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 13, lineHeight: 19 },
+  timeline: { borderLeftWidth: 2, borderLeftColor: tokens.surface, marginLeft: tokens.spacing.lg },
+  timelineItem: { minHeight: 78, flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.lg, marginLeft: -17 },
+  index: { width: 32, height: 32, borderRadius: 16, overflow: 'hidden', textAlign: 'center', textAlignVertical: 'center', color: tokens.surfaceElevated, backgroundColor: tokens.primary, fontFamily: tokens.fontBody, fontSize: 11 },
 });

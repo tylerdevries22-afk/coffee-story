@@ -261,6 +261,9 @@ importers:
       '@platform/schema':
         specifier: workspace:*
         version: link:../../packages/schema
+      '@platform/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       '@sentry/nextjs':
         specifier: ^10.70.0
         version: 10.70.0(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.10.0(@opentelemetry/api@1.9.1))(next@15.5.23(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(@types/node@26.2.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react@19.1.0)(webpack@5.109.2)
@@ -645,9 +648,15 @@ importers:
 
   packages/ui:
     dependencies:
+      '@platform/domain':
+        specifier: workspace:*
+        version: link:../domain
       '@platform/schema':
         specifier: workspace:*
         version: link:../schema
+      react-native-safe-area-context:
+        specifier: '*'
+        version: 5.6.2(react-native@0.81.5(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
     devDependencies:
       '@types/react':
         specifier: ~19.1.10

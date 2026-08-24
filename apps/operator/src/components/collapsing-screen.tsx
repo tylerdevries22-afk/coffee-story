@@ -10,14 +10,7 @@ import {
 
 import { CollapsingPageHeader } from '@/components/collapsing-page-header';
 import { Screen, type SurfaceTone } from '@/components/ui';
-import { colors } from '@/theme/tokens';
-
-const HEADER_SURFACES: Record<SurfaceTone, string> = {
-  light: colors.surface,
-  deep: colors.brand900,
-  admin: colors.brand100,
-  staff: colors.brand50,
-};
+import { useTokens as useBrandTokens } from '@platform/ui';
 
 type CollapsingScreenProps = PropsWithChildren<
   Omit<ScrollViewProps, 'children' | 'onScroll' | 'stickyHeaderIndices'> & {
@@ -53,6 +46,13 @@ export function CollapsingScreen({
   scrollEventThrottle,
   ...props
 }: CollapsingScreenProps) {
+  const tokens = useBrandTokens();
+  const headerSurfaces: Record<SurfaceTone, string> = {
+    light: tokens.surface,
+    deep: tokens.primary,
+    admin: tokens.surface,
+    staff: tokens.surface,
+  };
   const [scrollY] = useState(() => new Animated.Value(0));
   const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     scrollY.setValue(event.nativeEvent.contentOffset.y);
@@ -75,10 +75,10 @@ export function CollapsingScreen({
         backLabel={backLabel}
         actions={actions}
         scrollY={scrollY}
-        backgroundColor={headerBackgroundColor ?? HEADER_SURFACES[tone]}
-        foregroundColor={onDark ? colors.white : colors.ink900}
-        accentColor={onDark ? colors.brand200 : colors.brand700}
-        borderColor={headerBorderColor ?? (onDark ? colors.brand700 : colors.ink200)}
+        backgroundColor={headerBackgroundColor ?? headerSurfaces[tone]}
+        foregroundColor={onDark ? tokens.surfaceElevated : tokens.textPrimary}
+        accentColor={onDark ? tokens.surface : tokens.primary}
+        borderColor={headerBorderColor ?? (onDark ? tokens.primary : tokens.secondary)}
         titleStyle={titleStyle}
       />
       {children}

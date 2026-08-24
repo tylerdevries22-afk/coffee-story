@@ -27,8 +27,8 @@ import { mobileApi } from '@/lib/mobile-api';
 import { openWebPath } from '@/lib/web-navigation';
 import { workspaceTone } from '@/features/staff/workspace';
 import { useAuth } from '@/state/auth-context';
-import { colors, fonts, radius, spacing } from '@/theme/tokens';
-import { tabState } from '@/lib/a11y-state';
+import { tabState } from '@platform/ui';
+import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 type AdminSettingsScreenProps = {
   settings: AdminSettingsState;
@@ -45,6 +45,8 @@ export function AdminSettingsScreen({
   onBack,
   onSave,
 }: AdminSettingsScreenProps) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const { role } = useAuth();
   const tone = workspaceTone(role);
   const [tab, setTab] = useState<AdminSettingsTab>('Availability');
@@ -123,6 +125,8 @@ function SettingsTabRail({
   value: AdminSettingsTab;
   onChange: (tab: AdminSettingsTab) => void;
 }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   // Forms decide what clients put their name to, so a team member never sees
   // the tab -- the panel behind it is gated on the same check.
   const { role } = useAuth();
@@ -153,6 +157,8 @@ function SettingsTabRail({
 }
 
 function AvailabilityPanel({ value, onChange }: SettingsPanelProps) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   return (
     <View style={styles.panel}>
       <PanelHeading title="Shop availability" detail="Thirty-minute adjustments keep each day predictable." />
@@ -170,8 +176,8 @@ function AvailabilityPanel({ value, onChange }: SettingsPanelProps) {
                 const availability = value.availability.map((item, itemIndex) => itemIndex === index ? { ...item, enabled } : item);
                 onChange({ ...value, availability });
               }}
-              trackColor={{ false: colors.ink200, true: colors.brand300 }}
-              thumbColor={colors.white}
+              trackColor={{ false: tokens.secondary, true: tokens.secondary }}
+              thumbColor={tokens.surfaceElevated}
             />
           </View>
           {day.enabled ? (
@@ -195,6 +201,8 @@ function AvailabilityPanel({ value, onChange }: SettingsPanelProps) {
 }
 
 function BookingRulesPanel({ value, onChange }: SettingsPanelProps) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   return (
     <View style={styles.panel}>
       <PanelHeading title="Online booking rules" detail="Set expectations before a guest selects a time." />
@@ -208,6 +216,8 @@ function BookingRulesPanel({ value, onChange }: SettingsPanelProps) {
 }
 
 function PaymentsPanel({ value, onChange, isDemo }: SettingsPanelProps & { isDemo: boolean }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   return (
     <View style={styles.panel}>
       <PanelHeading title="Payments" detail="Apply consistent payment expectations across booking and checkout." />
@@ -226,6 +236,8 @@ function PaymentsPanel({ value, onChange, isDemo }: SettingsPanelProps & { isDem
 }
 
 function MessagesPanel({ value, onChange, isDemo }: SettingsPanelProps & { isDemo: boolean }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   return (
     <View style={styles.panel}>
       <PanelHeading title="Outgoing messages" detail="Choose the follow-ups guests receive automatically." />
@@ -237,6 +249,8 @@ function MessagesPanel({ value, onChange, isDemo }: SettingsPanelProps & { isDem
 }
 
 function FormsPanel({ value, onChange, isDemo }: SettingsPanelProps & { isDemo: boolean }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   // Seeded from the bundled catalog so the list is right offline and in the
   // Expo Go demo, then replaced by whatever the site is actually publishing.
   const [drafts, setDrafts] = useState<IntakeFormCatalogEntry[]>(() => INTAKE_FORM_CATALOG.map((form) => ({ ...form })));
@@ -313,7 +327,7 @@ function FormsPanel({ value, onChange, isDemo }: SettingsPanelProps & { isDemo: 
                       consent documents apart; expanded, the fields say it. */}
                   {open ? null : <Body muted>{draft.summary}</Body>}
                 </View>
-                <AppIcon name={open ? 'chevron.down' : 'chevron.right'} size={15} tintColor={colors.brand700} />
+                <AppIcon name={open ? 'chevron.down' : 'chevron.right'} size={15} tintColor={tokens.primary} />
               </Pressable>
 
               {open ? (
@@ -333,7 +347,7 @@ function FormsPanel({ value, onChange, isDemo }: SettingsPanelProps & { isDemo: 
                     style={({ pressed }) => [styles.viewOnSite, pressed && styles.formHeaderPressed]}
                   >
                     <Text style={styles.viewOnSiteLabel}>View on the website</Text>
-                    <AppIcon name="chevron.right" size={13} tintColor={colors.brand700} />
+                    <AppIcon name="chevron.right" size={13} tintColor={tokens.primary} />
                   </Pressable>
                 </View>
               ) : null}
@@ -352,6 +366,8 @@ function FormsPanel({ value, onChange, isDemo }: SettingsPanelProps & { isDemo: 
 }
 
 function BusinessInfoPanel({ value, onChange, isDemo }: SettingsPanelProps & { isDemo: boolean }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   return (
     <View style={styles.panel}>
       <PanelHeading title="Business information" detail="This identity appears on receipts and client communication." />
@@ -369,14 +385,18 @@ type SettingsPanelProps = {
 };
 
 function PanelHeading({ title, detail }: { title: string; detail: string }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   return <View style={styles.heading}><Text style={styles.panelTitle}>{title}</Text><Text style={styles.panelDetail}>{detail}</Text></View>;
 }
 
 function ToggleRow({ label, detail, value, disabled = false, onChange }: { label: string; detail: string; value: boolean; disabled?: boolean; onChange: (value: boolean) => void }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   return (
     <View style={[styles.toggleRow, disabled && styles.controlDisabled]}>
       <View style={styles.flex}><Text style={styles.rowTitle}>{label}</Text><Text style={styles.rowDetail}>{detail}</Text></View>
-      <Switch accessibilityLabel={label} disabled={disabled} value={value} onValueChange={onChange} trackColor={{ false: colors.ink200, true: colors.brand300 }} thumbColor={colors.white} />
+      <Switch accessibilityLabel={label} disabled={disabled} value={value} onValueChange={onChange} trackColor={{ false: tokens.secondary, true: tokens.secondary }} thumbColor={tokens.surfaceElevated} />
     </View>
   );
 }
@@ -400,6 +420,8 @@ function Field({
   value: string;
   onChangeText: (value: string) => void;
 }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   return (
     <View style={styles.field}>
       <Text style={styles.fieldLabel}>{label}</Text>
@@ -417,6 +439,8 @@ function Field({
 }
 
 function TimeStepper({ label, value, onChange }: { label: string; value: number; onChange: (value: number) => void }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   return (
     <View style={styles.timeStepper}>
       <Text style={styles.fieldLabel}>{label}</Text>
@@ -430,6 +454,8 @@ function TimeStepper({ label, value, onChange }: { label: string; value: number;
 }
 
 function StepperButton({ label, text, onPress }: { label: string; text: string; onPress: () => void }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   return <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={({ pressed }) => [styles.stepperButton, pressed && styles.pressed]}><Text style={styles.stepperText}>{text}</Text></Pressable>;
 }
 
@@ -452,51 +478,51 @@ function minuteLabel(total: number): string {
   return `${hour}:${String(minutes).padStart(2, '0')} ${hours < 12 ? 'AM' : 'PM'}`;
 }
 
-const styles = StyleSheet.create({
+const createStyles = (tokens: BrandTokens) => StyleSheet.create({
   // The rail runs edge to edge: a negative margin cancels the Screen's own
   // horizontal padding, and the content pads itself back so the first and last
   // pill still line up with the copy above them. Without this the pills were
   // sheared off at the content inset rather than running off the screen.
-  tabRailScroll: { marginHorizontal: -spacing.lg },
-  tabRail: { gap: spacing.sm, paddingVertical: spacing.xs, paddingHorizontal: spacing.lg },
-  tab: { minHeight: 44, justifyContent: 'center', paddingHorizontal: spacing.md, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.brand100, backgroundColor: colors.white },
-  tabActive: { backgroundColor: colors.brand700, borderColor: colors.brand700 },
-  tabText: { color: colors.ink700, fontFamily: fonts.sansMedium, fontSize: 13 },
-  tabTextActive: { color: colors.white, fontFamily: fonts.sansBold },
-  panel: { gap: spacing.md },
-  heading: { gap: spacing.xs, paddingTop: spacing.sm },
-  panelTitle: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 22 },
-  panelDetail: { color: colors.ink600, fontFamily: fonts.sans, fontSize: 14, lineHeight: 20 },
-  toggleRow: { minHeight: 76, flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: 'rgba(70,48,78,0.12)' },
+  tabRailScroll: { marginHorizontal: -tokens.spacing.xl },
+  tabRail: { gap: tokens.spacing.md, paddingVertical: tokens.spacing.sm, paddingHorizontal: tokens.spacing.xl },
+  tab: { minHeight: 44, justifyContent: 'center', paddingHorizontal: tokens.spacing.lg, borderRadius: tokens.radius.pill, borderWidth: 1, borderColor: tokens.surface, backgroundColor: tokens.surfaceElevated },
+  tabActive: { backgroundColor: tokens.primary, borderColor: tokens.primary },
+  tabText: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 13 },
+  tabTextActive: { color: tokens.surfaceElevated, fontFamily: tokens.fontBody },
+  panel: { gap: tokens.spacing.lg },
+  heading: { gap: tokens.spacing.sm, paddingTop: tokens.spacing.md },
+  panelTitle: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 22 },
+  panelDetail: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 14, lineHeight: 20 },
+  toggleRow: { minHeight: 76, flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.lg, paddingVertical: tokens.spacing.md, borderBottomWidth: 1, borderBottomColor: 'rgba(70,48,78,0.12)' },
   flex: { flex: 1 },
-  rowTitle: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 16 },
-  rowDetail: { color: colors.ink600, fontFamily: fonts.sans, fontSize: 12, lineHeight: 18, marginTop: 3 },
-  dayRow: { gap: spacing.sm, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: 'rgba(70,48,78,0.12)' },
-  dayHeading: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  timeGrid: { flexDirection: 'row', gap: spacing.sm },
-  timeStepper: { flex: 1, gap: spacing.xs },
-  stepperControls: { minHeight: 48, flexDirection: 'row', alignItems: 'center', borderRadius: radius.md, borderWidth: 1, borderColor: colors.ink200, backgroundColor: colors.white },
+  rowTitle: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 16 },
+  rowDetail: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 12, lineHeight: 18, marginTop: 3 },
+  dayRow: { gap: tokens.spacing.md, paddingVertical: tokens.spacing.lg, borderBottomWidth: 1, borderBottomColor: 'rgba(70,48,78,0.12)' },
+  dayHeading: { flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.lg },
+  timeGrid: { flexDirection: 'row', gap: tokens.spacing.md },
+  timeStepper: { flex: 1, gap: tokens.spacing.sm },
+  stepperControls: { minHeight: 48, flexDirection: 'row', alignItems: 'center', borderRadius: tokens.radius.lg, borderWidth: 1, borderColor: tokens.secondary, backgroundColor: tokens.surfaceElevated },
   stepperButton: { width: 44, minHeight: 46, alignItems: 'center', justifyContent: 'center' },
-  stepperText: { color: colors.brand700, fontFamily: fonts.sansBold, fontSize: 22 },
-  timeValue: { flex: 1, color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 12, textAlign: 'center' },
-  field: { gap: spacing.xs },
-  fieldLabel: { color: colors.ink700, fontFamily: fonts.sansBold, fontSize: 12 },
-  input: { minHeight: 52, borderRadius: radius.md, borderWidth: 1, borderColor: colors.ink300, paddingHorizontal: spacing.md, color: colors.ink900, fontFamily: fonts.sans, fontSize: 16, backgroundColor: colors.white },
-  multiline: { minHeight: 90, paddingTop: spacing.md, textAlignVertical: 'top' },
-  integrationCard: { gap: spacing.sm, backgroundColor: colors.brand50 },
-  connected: { alignSelf: 'flex-start', color: colors.success, fontFamily: fonts.sansBold, fontSize: 12, paddingVertical: spacing.xs, paddingHorizontal: spacing.sm, borderRadius: radius.pill, backgroundColor: colors.white },
-  formSummary: { gap: spacing.xs },
-  formHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 64, paddingVertical: spacing.sm },
+  stepperText: { color: tokens.primary, fontFamily: tokens.fontBody, fontSize: 22 },
+  timeValue: { flex: 1, color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 12, textAlign: 'center' },
+  field: { gap: tokens.spacing.sm },
+  fieldLabel: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 12 },
+  input: { minHeight: 52, borderRadius: tokens.radius.lg, borderWidth: 1, borderColor: tokens.textMuted, paddingHorizontal: tokens.spacing.lg, color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 16, backgroundColor: tokens.surfaceElevated },
+  multiline: { minHeight: 90, paddingTop: tokens.spacing.lg, textAlignVertical: 'top' },
+  integrationCard: { gap: tokens.spacing.md, backgroundColor: tokens.surface },
+  connected: { alignSelf: 'flex-start', color: tokens.success, fontFamily: tokens.fontBody, fontSize: 12, paddingVertical: tokens.spacing.sm, paddingHorizontal: tokens.spacing.md, borderRadius: tokens.radius.pill, backgroundColor: tokens.surfaceElevated },
+  formSummary: { gap: tokens.spacing.sm },
+  formHeader: { flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.md, minHeight: 64, paddingVertical: tokens.spacing.md },
   formHeaderPressed: { opacity: 0.72 },
   formHeaderCopy: { flex: 1, gap: 2 },
-  formFields: { gap: spacing.sm, paddingBottom: spacing.sm },
+  formFields: { gap: tokens.spacing.md, paddingBottom: tokens.spacing.md },
   viewOnSite: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44 },
-  viewOnSiteLabel: { color: colors.brand700, fontFamily: fonts.sansBold, fontSize: 14 },
-  formRow: { gap: 2, paddingTop: spacing.sm, borderTopWidth: 1, borderTopColor: 'rgba(70,48,78,0.12)' },
-  formTitle: { color: colors.ink900, fontFamily: fonts.sansMedium, fontSize: 15 },
-  helper: { color: colors.warning, fontFamily: fonts.sansMedium, fontSize: 12, lineHeight: 18 },
+  viewOnSiteLabel: { color: tokens.primary, fontFamily: tokens.fontBody, fontSize: 14 },
+  formRow: { gap: 2, paddingTop: tokens.spacing.md, borderTopWidth: 1, borderTopColor: 'rgba(70,48,78,0.12)' },
+  formTitle: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 15 },
+  helper: { color: tokens.warning, fontFamily: tokens.fontBody, fontSize: 12, lineHeight: 18 },
   controlDisabled: { opacity: 0.55 },
-  error: { color: colors.danger, fontFamily: fonts.sansBold, fontSize: 13, lineHeight: 19 },
-  notice: { color: colors.success, fontFamily: fonts.sansBold, fontSize: 13, lineHeight: 19 },
+  error: { color: tokens.danger, fontFamily: tokens.fontBody, fontSize: 13, lineHeight: 19 },
+  notice: { color: tokens.success, fontFamily: tokens.fontBody, fontSize: 13, lineHeight: 19 },
   pressed: { opacity: 0.7, transform: [{ scale: 0.98 }] },
 });

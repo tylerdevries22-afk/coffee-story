@@ -12,8 +12,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useReducedMotion } from '@/hooks/use-reduced-motion';
-import { colors, fonts, radius, spacing } from '@/theme/tokens';
 import { AppIcon } from '@/components/icon';
+import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 const ENTER_MS = 260;
 
@@ -55,10 +55,12 @@ export function MoreSearchTakeover({
    */
   surfaceColor: string;
 }>) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const reducedMotion = useReducedMotion();
-  const onPlum = surfaceColor !== colors.surface;
+  const onPlum = surfaceColor !== tokens.surface;
   const [progress] = useState(() => new Animated.Value(searching ? 1 : 0));
   // Written only from the animation's completion callback, never synchronously
   // in the effect body, which the React Compiler lint rejects.
@@ -97,8 +99,8 @@ export function MoreSearchTakeover({
   };
 
   const mountSearch = searching || !settledClosed;
-  const fieldFill = onPlum ? 'rgba(0,0,0,0.24)' : colors.brand50;
-  const fieldBorder = onPlum ? 'rgba(255,255,255,0.34)' : colors.brand300;
+  const fieldFill = onPlum ? 'rgba(0,0,0,0.24)' : tokens.surface;
+  const fieldBorder = onPlum ? 'rgba(255,255,255,0.34)' : tokens.secondary;
 
   return (
     // The host carries the page colour so no seam shows between the field strip
@@ -111,22 +113,22 @@ export function MoreSearchTakeover({
         <Animated.View
           style={[
             styles.searchLayer,
-            { paddingTop: insets.top + spacing.md, backgroundColor: surfaceColor },
+            { paddingTop: insets.top + tokens.spacing.lg, backgroundColor: surfaceColor },
             searchStyle,
           ]}
           pointerEvents={searching ? 'auto' : 'none'}
         >
           <View style={[styles.field, { backgroundColor: fieldFill, borderColor: fieldBorder }]}>
-            <AppIcon name="magnifyingglass" size={17} tintColor={onPlum ? colors.white : colors.ink500} />
+            <AppIcon name="magnifyingglass" size={17} tintColor={onPlum ? tokens.surfaceElevated : tokens.textMuted} />
             <TextInput
               autoFocus={searching}
               accessibilityLabel={accessibilityLabel}
               value={query}
               onChangeText={onQueryChange}
               placeholder={placeholder}
-              placeholderTextColor={onPlum ? 'rgba(255,255,255,0.6)' : colors.ink400}
+              placeholderTextColor={onPlum ? 'rgba(255,255,255,0.6)' : tokens.textMuted}
               returnKeyType="search"
-              style={[styles.input, { color: onPlum ? colors.white : colors.ink900 }]}
+              style={[styles.input, { color: onPlum ? tokens.surfaceElevated : tokens.textPrimary }]}
             />
             {query ? (
               <Pressable
@@ -135,12 +137,12 @@ export function MoreSearchTakeover({
                 onPress={() => onQueryChange('')}
                 hitSlop={8}
               >
-                <AppIcon name="xmark.circle.fill" size={17} tintColor={onPlum ? 'rgba(255,255,255,0.7)' : colors.ink400} />
+                <AppIcon name="xmark.circle.fill" size={17} tintColor={onPlum ? 'rgba(255,255,255,0.7)' : tokens.textMuted} />
               </Pressable>
             ) : null}
           </View>
           <Pressable accessibilityRole="button" accessibilityLabel="Close search" onPress={onClose} hitSlop={8}>
-            <Text style={[styles.cancel, { color: onPlum ? colors.white : colors.brand600 }]}>Cancel</Text>
+            <Text style={[styles.cancel, { color: onPlum ? tokens.surfaceElevated : tokens.primary }]}>Cancel</Text>
           </Pressable>
         </Animated.View>
       ) : null}
@@ -156,7 +158,7 @@ export function MoreSearchTakeover({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (tokens: BrandTokens) => StyleSheet.create({
   host: { flex: 1 },
   layer: { flex: 1 },
   searchLayer: {
@@ -168,8 +170,8 @@ const styles = StyleSheet.create({
     right: 0,
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
+    gap: tokens.spacing.md,
+    paddingHorizontal: tokens.spacing.xl,
     zIndex: 2,
   },
   resultsLayer: {
@@ -183,13 +185,13 @@ const styles = StyleSheet.create({
   field: {
     flex: 1,
     minHeight: 44,
-    borderRadius: radius.pill,
+    borderRadius: tokens.radius.pill,
     borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
+    gap: tokens.spacing.sm,
+    paddingHorizontal: tokens.spacing.lg,
   },
-  input: { flex: 1, fontFamily: fonts.sans, fontSize: 16, paddingVertical: 0 },
-  cancel: { fontFamily: fonts.sansMedium, fontSize: 15 },
+  input: { flex: 1, fontFamily: tokens.fontBody, fontSize: 16, paddingVertical: 0 },
+  cancel: { fontFamily: tokens.fontBody, fontSize: 15 },
 });

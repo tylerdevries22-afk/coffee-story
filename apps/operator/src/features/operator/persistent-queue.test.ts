@@ -59,7 +59,7 @@ describe('persistent transition queue', () => {
     assert.deepEqual(drained.remaining, [intent]);
 
     const storage = new MemoryStorage();
-    storage.values.set('coffee-story:operator-transition-queue:location-1', '{bad');
+    storage.values.set('platform:operator-transition-queue:location-1', '{bad');
     assert.deepEqual(await loadTransitionQueue(storage, 'location-1'), []);
   });
 });

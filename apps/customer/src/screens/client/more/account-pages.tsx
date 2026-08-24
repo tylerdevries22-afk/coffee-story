@@ -6,9 +6,10 @@ import { summarizeGiftCardOwnership } from '@/features/gifts/ownership';
 import { useAuth } from '@/state/auth-context';
 import { useDemo } from '@/state/demo-context';
 
-import { openWithFeedback, styles } from './information-page';
+import { openWithFeedback, useInformationStyles } from './information-page';
 
 export function Membership({ onBack }: { onBack: () => void }) {
+  const styles = useInformationStyles();
   const { portal, isDemo } = useAuth();
   const demo = useDemo();
   const membership = portal.membership;
@@ -35,6 +36,7 @@ export function Membership({ onBack }: { onBack: () => void }) {
 }
 
 export function Payments({ onBack }: { onBack: () => void }) {
+  const styles = useInformationStyles();
   const { portal, isDemo } = useAuth();
   const demo = useDemo();
   return (
@@ -53,6 +55,7 @@ export function Payments({ onBack }: { onBack: () => void }) {
 }
 
 export function GiftBalance({ onBack, onBook }: { onBack: () => void; onBook: () => void }) {
+  const styles = useInformationStyles();
   const { portal } = useAuth();
   const giftSummary = summarizeGiftCardOwnership(portal.giftCards);
   return (

@@ -23,8 +23,12 @@ import { AuthProvider } from '@/state/auth-context';
 import { DemoProvider, useDemo } from '@/state/demo-context';
 import { OrderProvider } from '@/state/order-context';
 import { TENANT_BRAND_CONFIG } from '@/tenant';
-import { colors } from '@/theme/tokens';
-import { ThemeProvider, ToastProvider, useTokens } from '@platform/ui';
+import {
+  ThemeProvider,
+  ToastProvider,
+  useTokens,
+  useTokens as useBrandTokens,
+} from '@platform/ui';
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
@@ -141,16 +145,17 @@ function CustomerStack() {
  * validate and its Stripe placeholder does not.
  */
 function RuntimeConfigError({ missing, onUseDemo }: { missing: string[]; onUseDemo: () => void }) {
+  const tokens = useBrandTokens();
   return (
-    <View style={{ flex: 1, justifyContent: 'center', padding: 32, gap: 16, backgroundColor: colors.surface }}>
-      <Text style={{ color: colors.ink900, fontSize: 24, fontWeight: '700' }}>
+    <View style={{ flex: 1, justifyContent: 'center', padding: 32, gap: 16, backgroundColor: tokens.surface }}>
+      <Text style={{ color: tokens.textPrimary, fontSize: 24, fontWeight: '700' }}>
         Secure setup is incomplete
       </Text>
-      <Text style={{ color: colors.ink600, fontSize: 16, lineHeight: 24 }}>
+      <Text style={{ color: tokens.textMuted, fontSize: 16, lineHeight: 24 }}>
         This build is missing the account or ordering configuration live mode needs. You can still
         explore the whole app in Demo.
       </Text>
-      <Text accessibilityRole="text" style={{ color: colors.ink500, fontSize: 12 }}>
+      <Text accessibilityRole="text" style={{ color: tokens.textMuted, fontSize: 12 }}>
         Missing: {missing.join(', ')}
       </Text>
       <Button label="Continue in Demo" onPress={onUseDemo} />

@@ -3,10 +3,10 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Card } from '@/components/ui';
 import { deltaPercent, formatMoney, initials } from '@/features/staff/workspace';
-import { colors, fonts, radius, spacing } from '@/theme/tokens';
 import type { PortalOrder } from '@platform/domain';
 import { AppIcon } from '@/components/icon';
-import { toggleState } from '@/lib/a11y-state';
+import { toggleState } from '@platform/ui';
+import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 /**
  * Status -> pill colour, one entry per state in rule 2's machine.
@@ -14,18 +14,19 @@ import { toggleState } from '@/lib/a11y-state';
  * Record<> rather than a partial map on purpose: adding a state to the enum
  * should fail this file rather than render an undefined tone at runtime.
  */
-const STATUS_TONE: Record<PortalOrder['status'], { fg: string; bg: string }> = {
-  created: { fg: colors.ink500, bg: colors.ink200 },
-  paid: { fg: colors.success, bg: colors.successTint },
-  in_progress: { fg: colors.warning, bg: colors.gold50 },
-  ready: { fg: colors.brand600, bg: colors.brand50 },
-  picked_up: { fg: colors.ink500, bg: colors.ink200 },
-  cancelled: { fg: colors.ink500, bg: colors.ink200 },
-  refunded: { fg: colors.danger, bg: colors.dangerTint },
-};
-
 export function StatusBadge({ status }: { status: PortalOrder['status'] }) {
-  const tone = STATUS_TONE[status];
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
+  const tones: Record<PortalOrder['status'], { fg: string; bg: string }> = {
+    created: { fg: tokens.textMuted, bg: tokens.secondary },
+    paid: { fg: tokens.success, bg: tokens.surfaceElevated },
+    in_progress: { fg: tokens.warning, bg: tokens.surface },
+    ready: { fg: tokens.primary, bg: tokens.surface },
+    picked_up: { fg: tokens.textMuted, bg: tokens.secondary },
+    cancelled: { fg: tokens.textMuted, bg: tokens.secondary },
+    refunded: { fg: tokens.danger, bg: tokens.surfaceElevated },
+  };
+  const tone = tones[status];
   return (
     <View style={[styles.badge, { backgroundColor: tone.bg }]}>
       <Text style={[styles.badgeText, { color: tone.fg }]}>{status.replace('_', ' ')}</Text>
@@ -34,11 +35,13 @@ export function StatusBadge({ status }: { status: PortalOrder['status'] }) {
 }
 
 export function SourceBadge({ label, tone = 'plum' }: { label: string; tone?: 'plum' | 'amber' | 'green' | 'gray' }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const palette = {
-    plum: { fg: colors.brand600, bg: colors.brand50 },
-    amber: { fg: colors.warning, bg: colors.gold50 },
-    green: { fg: colors.success, bg: colors.successTint },
-    gray: { fg: colors.ink500, bg: colors.warm },
+    plum: { fg: tokens.primary, bg: tokens.surface },
+    amber: { fg: tokens.warning, bg: tokens.surface },
+    green: { fg: tokens.success, bg: tokens.surfaceElevated },
+    gray: { fg: tokens.textMuted, bg: tokens.surface },
   }[tone];
   return (
     <View style={[styles.badge, { backgroundColor: palette.bg }]}>
@@ -48,6 +51,8 @@ export function SourceBadge({ label, tone = 'plum' }: { label: string; tone?: 'p
 }
 
 export function Avatar({ name, size = 44, tone = 'soft' }: { name: string; size?: number; tone?: 'soft' | 'gold' }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   return (
     <View
       style={[
@@ -56,11 +61,11 @@ export function Avatar({ name, size = 44, tone = 'soft' }: { name: string; size?
           width: size,
           height: size,
           borderRadius: size / 2,
-          backgroundColor: tone === 'gold' ? colors.gold400 : colors.brand100,
+          backgroundColor: tone === 'gold' ? tokens.accent : tokens.surface,
         },
       ]}
     >
-      <Text style={[styles.avatarText, { fontSize: size * 0.34, color: tone === 'gold' ? colors.ink900 : colors.brand700 }]}>
+      <Text style={[styles.avatarText, { fontSize: size * 0.34, color: tone === 'gold' ? tokens.textPrimary : tokens.primary }]}>
         {initials(name)}
       </Text>
     </View>
@@ -85,6 +90,8 @@ export function StatTile({
   previous?: number;
   hint?: string;
 }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const delta = current === undefined ? null : deltaPercent(current, previous);
   return (
     <View style={styles.statTile}>
@@ -92,7 +99,7 @@ export function StatTile({
       <Text style={styles.statValue}>{value}</Text>
       <View style={styles.statFooter}>
         {delta === null ? null : (
-          <Text style={[styles.statDelta, { color: delta >= 0 ? colors.success : colors.danger }]}>
+          <Text style={[styles.statDelta, { color: delta >= 0 ? tokens.success : tokens.danger }]}>
             {delta >= 0 ? '▲' : '▼'} {Math.abs(delta)}%
           </Text>
         )}
@@ -115,6 +122,8 @@ export function WorkspaceCard({
   children: ReactNode;
   style?: object;
 }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   return (
     <Card style={{ ...styles.card, ...(style ?? {}) }}>
       <View style={styles.cardHeader}>
@@ -142,6 +151,8 @@ export function ChipRow<T extends string>({
   onChange: (next: T | null) => void;
   allLabel?: string;
 }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   return (
     <ScrollView
       horizontal
@@ -164,6 +175,8 @@ export function ChipRow<T extends string>({
 }
 
 export function Chip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   return (
     <Pressable
       accessibilityRole="button"
@@ -186,6 +199,8 @@ export function ViewSwitcher<T extends string>({
   value: T;
   onChange: (next: T) => void;
 }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   return (
     <View style={styles.switcher}>
       {options.map((option) => (
@@ -218,6 +233,8 @@ export function IconButton({
   onPress: () => void;
   tone?: 'soft' | 'plain';
 }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   return (
     <Pressable
       accessibilityRole="button"
@@ -229,17 +246,19 @@ export function IconButton({
         pressed && styles.pressed,
       ]}
     >
-      <AppIcon name={symbol} size={16} tintColor={colors.brand700} />
+      <AppIcon name={symbol} size={16} tintColor={tokens.primary} />
     </Pressable>
   );
 }
 
 /** Muted rule used between agenda rows to show buffer or open time. */
 export function GapStrip({ kind, minutes }: { kind: 'recovery' | 'open'; minutes: number }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   if (kind === 'recovery') {
     return (
       <View style={styles.recoveryStrip}>
-        <AppIcon name="clock" size={13} tintColor={colors.brand500} />
+        <AppIcon name="clock" size={13} tintColor={tokens.secondary} />
         <Text style={styles.recoveryText}>{minutes} min recovery &amp; room reset</Text>
       </View>
     );
@@ -248,10 +267,14 @@ export function GapStrip({ kind, minutes }: { kind: 'recovery' | 'open'; minutes
 }
 
 export function MoneyText({ cents, style }: { cents: number; style?: object }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   return <Text style={{ ...styles.money, ...(style ?? {}) }}>{formatMoney(cents)}</Text>;
 }
 
 export function EmptyState({ title, message }: { title: string; message: string }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   return (
     <Card style={styles.empty}>
       <Text style={styles.emptyTitle}>{title}</Text>
@@ -260,71 +283,71 @@ export function EmptyState({ title, message }: { title: string; message: string 
   );
 }
 
-const styles = StyleSheet.create({
-  badge: { borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: 4, alignSelf: 'flex-start' },
-  badgeText: { fontFamily: fonts.sansBold, fontSize: 11, letterSpacing: 0.2 },
+const createStyles = (tokens: BrandTokens) => StyleSheet.create({
+  badge: { borderRadius: tokens.radius.pill, paddingHorizontal: tokens.spacing.md, paddingVertical: 4, alignSelf: 'flex-start' },
+  badgeText: { fontFamily: tokens.fontBody, fontSize: 11, letterSpacing: 0.2 },
   avatar: { alignItems: 'center', justifyContent: 'center' },
-  avatarText: { fontFamily: fonts.sansBold },
+  avatarText: { fontFamily: tokens.fontBody },
   statTile: {
     flexGrow: 1,
     flexBasis: '46%',
     minHeight: 96,
-    borderRadius: radius.md,
-    backgroundColor: colors.brand50,
-    padding: spacing.md,
+    borderRadius: tokens.radius.lg,
+    backgroundColor: tokens.surface,
+    padding: tokens.spacing.lg,
     gap: 2,
     justifyContent: 'center',
   },
-  statLabel: { color: colors.ink500, fontFamily: fonts.sansMedium, fontSize: 12 },
-  statValue: { color: colors.ink900, fontFamily: fonts.display, fontSize: 26 },
+  statLabel: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 12 },
+  statValue: { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: 26 },
   statFooter: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  statDelta: { fontFamily: fonts.sansBold, fontSize: 11 },
-  statHint: { color: colors.ink400, fontFamily: fonts.sans, fontSize: 11, flexShrink: 1 },
-  card: { gap: spacing.sm },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
-  cardTitle: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 17, flexShrink: 1 },
-  cardAction: { color: colors.brand600, fontFamily: fonts.sansMedium, fontSize: 13 },
-  chipRow: { gap: spacing.xs, paddingRight: spacing.md },
+  statDelta: { fontFamily: tokens.fontBody, fontSize: 11 },
+  statHint: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 11, flexShrink: 1 },
+  card: { gap: tokens.spacing.md },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: tokens.spacing.md },
+  cardTitle: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 17, flexShrink: 1 },
+  cardAction: { color: tokens.primary, fontFamily: tokens.fontBody, fontSize: 13 },
+  chipRow: { gap: tokens.spacing.sm, paddingRight: tokens.spacing.lg },
   chip: {
     minHeight: 38,
     justifyContent: 'center',
-    borderRadius: radius.pill,
-    backgroundColor: colors.warm,
-    paddingHorizontal: spacing.md,
+    borderRadius: tokens.radius.pill,
+    backgroundColor: tokens.surface,
+    paddingHorizontal: tokens.spacing.lg,
   },
-  chipSelected: { backgroundColor: colors.brand600 },
-  chipText: { color: colors.ink700, fontFamily: fonts.sansMedium, fontSize: 14 },
-  chipTextSelected: { color: colors.white },
+  chipSelected: { backgroundColor: tokens.primary },
+  chipText: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 14 },
+  chipTextSelected: { color: tokens.surfaceElevated },
   switcher: {
     flexDirection: 'row',
-    borderRadius: radius.pill,
-    backgroundColor: colors.warm,
+    borderRadius: tokens.radius.pill,
+    backgroundColor: tokens.surface,
     padding: 4,
     gap: 2,
   },
-  switcherItem: { flex: 1, minHeight: 38, alignItems: 'center', justifyContent: 'center', borderRadius: radius.pill },
-  switcherItemActive: { backgroundColor: colors.brand600 },
-  switcherText: { color: colors.ink700, fontFamily: fonts.sansMedium, fontSize: 14 },
-  switcherTextActive: { color: colors.white, fontFamily: fonts.sansBold },
+  switcherItem: { flex: 1, minHeight: 38, alignItems: 'center', justifyContent: 'center', borderRadius: tokens.radius.pill },
+  switcherItemActive: { backgroundColor: tokens.primary },
+  switcherText: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 14 },
+  switcherTextActive: { color: tokens.surfaceElevated, fontFamily: tokens.fontBody },
   iconButton: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  iconButtonSoft: { backgroundColor: colors.brand50 },
+  iconButtonSoft: { backgroundColor: tokens.surface },
   recoveryStrip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     alignSelf: 'flex-start',
-    borderRadius: radius.pill,
+    borderRadius: tokens.radius.pill,
     borderWidth: 1,
     borderStyle: 'dashed',
-    borderColor: colors.brand200,
-    paddingHorizontal: spacing.sm,
+    borderColor: tokens.surface,
+    paddingHorizontal: tokens.spacing.md,
     paddingVertical: 5,
   },
-  recoveryText: { color: colors.brand600, fontFamily: fonts.sansMedium, fontSize: 12 },
-  openGapText: { color: colors.ink400, fontFamily: fonts.sans, fontSize: 12, paddingVertical: 2 },
-  money: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 15 },
-  empty: { alignItems: 'center', gap: 6, paddingVertical: spacing.xl },
-  emptyTitle: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 16 },
-  emptyMessage: { color: colors.ink500, fontFamily: fonts.sans, fontSize: 14, textAlign: 'center' },
+  recoveryText: { color: tokens.primary, fontFamily: tokens.fontBody, fontSize: 12 },
+  openGapText: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 12, paddingVertical: 2 },
+  money: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 15 },
+  empty: { alignItems: 'center', gap: 6, paddingVertical: tokens.spacing.xxl },
+  emptyTitle: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 16 },
+  emptyMessage: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 14, textAlign: 'center' },
   pressed: { opacity: 0.75 },
 });

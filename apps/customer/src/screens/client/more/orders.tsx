@@ -11,9 +11,9 @@ import { addOrderToCalendar } from '@/lib/native-adapters';
 import { useAuth } from '@/state/auth-context';
 import { useDemo } from '@/state/demo-context';
 import type { PortalOrder } from '@platform/domain';
-import { choiceState } from '@/lib/a11y-state';
+import { choiceState } from '@platform/ui';
 
-import { styles } from './information-page';
+import { useInformationStyles } from './information-page';
 import { Field } from './profile-and-preferences';
 
 const ACTIVE_ORDER_STATUSES = new Set(['created', 'paid', 'in_progress', 'ready']);
@@ -104,6 +104,7 @@ function UpcomingOrderCard({
   onReschedule: () => Promise<void>;
   onReviewed: () => Promise<void>;
 }) {
+  const styles = useInformationStyles();
   const demo = useDemo();
   const [reviewing, setReviewing] = useState(false);
   const [rating, setRating] = useState(5);
@@ -145,6 +146,7 @@ function UpcomingOrderCard({
 
 /** One live order: what it was, where it stands, what it cost. */
 function OrderTrackingCard({ order }: { order: PortalOrder }) {
+  const styles = useInformationStyles();
   const tracking = trackingView(order.status);
   const active = tracking.activeIndex >= 0 && order.status !== 'picked_up';
   const statusLine = tracking.failed

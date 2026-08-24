@@ -1,7 +1,7 @@
 import { ActionSheetIOS, Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors, fonts, radius, spacing } from '@/theme/tokens';
 import type { NativePickerOption } from '@platform/domain';
+import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 /**
  * A small native selector for values that already come from availability.
@@ -21,6 +21,8 @@ export function NativeOptionPicker({
   onChange: (value: string) => void;
   disabled?: boolean;
 }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const selected = options.find((option) => option.value === value);
 
   function open() {
@@ -60,13 +62,13 @@ export function NativeOptionPicker({
   );
 }
 
-const styles = StyleSheet.create({
-  field: { gap: spacing.xs },
-  label: { color: colors.ink700, fontFamily: fonts.sansBold, fontSize: 12 },
-  control: { minHeight: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: radius.md, borderWidth: 1, borderColor: colors.ink300, paddingHorizontal: spacing.md, backgroundColor: colors.white },
-  value: { color: colors.ink900, fontFamily: fonts.sans, fontSize: 16 },
-  placeholder: { color: colors.ink400 },
-  chevron: { color: colors.ink500, fontSize: 20, lineHeight: 20 },
+const createStyles = (tokens: BrandTokens) => StyleSheet.create({
+  field: { gap: tokens.spacing.sm },
+  label: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 12 },
+  control: { minHeight: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: tokens.radius.lg, borderWidth: 1, borderColor: tokens.textMuted, paddingHorizontal: tokens.spacing.lg, backgroundColor: tokens.surfaceElevated },
+  value: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 16 },
+  placeholder: { color: tokens.textMuted },
+  chevron: { color: tokens.textMuted, fontSize: 20, lineHeight: 20 },
   disabled: { opacity: 0.5 },
   pressed: { opacity: 0.72 },
 });

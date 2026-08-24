@@ -34,8 +34,8 @@ import {
 } from '@platform/domain';
 import { formatMoney , DELIVERY_FEE_CENTS } from '@platform/domain';
 import { pickupWindows, shopStatus, type PickupWindow } from '@/features/order/pickup';
-import { choiceState } from '@/lib/a11y-state';
-import { colors, fonts, radius, shadow, spacing } from '@/theme/tokens';
+import { choiceState } from '@platform/ui';
+import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 /** Enough windows to fill a scroll without pretending the shop is limitless. */
 const WINDOW_COUNT = 12;
@@ -78,6 +78,8 @@ function PickupLocationStep({
   onBack: () => void;
   onChoose: (fulfillment: OrderFulfillment) => void;
 }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const [query, setQuery] = useState('');
   const searchable = PICKUP_LOCATIONS.length >= SEARCH_THRESHOLD;
   const matches = useMemo(() => {
@@ -95,19 +97,19 @@ function PickupLocationStep({
       backLabel="Order"
       keyboardShouldPersistTaps="handled"
       style={styles.page}
-      headerBackgroundColor={colors.brand200}
-      headerBorderColor={colors.brand200}
+      headerBackgroundColor={tokens.surface}
+      headerBorderColor={tokens.surface}
       contentContainerStyle={styles.content}
     >
       {searchable ? (
         <View style={styles.searchField}>
-          <AppIcon name="magnifyingglass" size={18} tintColor={colors.ink500} />
+          <AppIcon name="magnifyingglass" size={18} tintColor={tokens.textMuted} />
           <TextInput
             accessibilityLabel="Search locations by city, state, or ZIP code"
             value={query}
             onChangeText={setQuery}
             placeholder="Search city, state, or ZIP"
-            placeholderTextColor={colors.ink400}
+            placeholderTextColor={tokens.textMuted}
             style={styles.searchInput}
           />
         </View>
@@ -132,6 +134,8 @@ function PickupLocationStep({
 }
 
 function LocationCard({ location, onPress }: { location: PickupLocation; onPress: () => void }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const status = shopStatus(new Date());
   return (
     <Pressable
@@ -141,7 +145,7 @@ function LocationCard({ location, onPress }: { location: PickupLocation; onPress
       style={({ pressed }) => [styles.locationCard, pressed && styles.pressed]}
     >
       <View style={styles.locationMark}>
-        <AppIcon name="cup.and.saucer.fill" size={20} tintColor={colors.brand700} />
+        <AppIcon name="cup.and.saucer.fill" size={20} tintColor={tokens.primary} />
       </View>
       <View style={styles.locationCopy}>
         <Text style={styles.locationName}>{location.name}</Text>
@@ -155,7 +159,7 @@ function LocationCard({ location, onPress }: { location: PickupLocation; onPress
         </View>
         <Text style={styles.locationAddress}>{location.address}, {location.cityLine}</Text>
       </View>
-      <AppIcon name="chevron.right" size={18} tintColor={colors.ink400} />
+      <AppIcon name="chevron.right" size={18} tintColor={tokens.textMuted} />
     </Pressable>
   );
 }
@@ -171,6 +175,8 @@ function DeliveryAddressStep({
   onBack: () => void;
   onChoose: (fulfillment: OrderFulfillment) => void;
 }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const [address, setAddress] = useState<DeliveryAddress>(initialAddress ?? EMPTY_DELIVERY_ADDRESS);
   const [error, setError] = useState<string | null>(null);
   const clearance = useStickyBarClearance();
@@ -198,8 +204,8 @@ function DeliveryAddressStep({
         backLabel="Order"
         keyboardShouldPersistTaps="handled"
         style={styles.page}
-        headerBackgroundColor={colors.brand200}
-        headerBorderColor={colors.brand200}
+        headerBackgroundColor={tokens.surface}
+        headerBorderColor={tokens.surface}
         contentContainerStyle={[styles.content, { paddingBottom: clearance }]}
       >
         <Body muted>
@@ -217,12 +223,12 @@ function DeliveryAddressStep({
             }}
             style={({ pressed }) => [styles.savedAddress, pressed && styles.pressed]}
           >
-            <AppIcon name="house.fill" size={22} tintColor={colors.brand700} />
+            <AppIcon name="house.fill" size={22} tintColor={tokens.primary} />
             <View style={styles.locationCopy}>
               <Text style={styles.locationName}>Use demo home address</Text>
               <Text style={styles.locationAddress}>{deliveryAddressLine(DEMO_ADDRESS)}</Text>
             </View>
-            <AppIcon name="arrow.down.to.line" size={18} tintColor={colors.ink500} />
+            <AppIcon name="arrow.down.to.line" size={18} tintColor={tokens.textMuted} />
           </Pressable>
         ) : null}
         <Field label="Street address" value={address.street} onChangeText={(value) => update('street', value)} maxLength={200} autoComplete="street-address" />
@@ -235,7 +241,7 @@ function DeliveryAddressStep({
         <Field label="Drop-off notes" value={address.instructions} onChangeText={(value) => update('instructions', value)} maxLength={500} placeholder="Gate code, parking, or where to leave it" multiline />
         {summary ? (
           <View style={styles.addressPreview}>
-            <AppIcon name="checkmark.circle.fill" size={20} tintColor={colors.success} />
+            <AppIcon name="checkmark.circle.fill" size={20} tintColor={tokens.success} />
             <Text style={styles.addressPreviewText}>{summary}</Text>
           </View>
         ) : null}
@@ -269,6 +275,8 @@ export function DetailsStep({
   onChangeWindow: (value: string) => void;
   onDone: () => void;
 }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const clearance = useStickyBarClearance();
   const windows = useMemo(() => pickupWindows(now, WINDOW_COUNT), [now]);
   const [error, setError] = useState<string | null>(null);
@@ -296,8 +304,8 @@ export function DetailsStep({
         backLabel="Back"
         keyboardShouldPersistTaps="handled"
         style={styles.page}
-        headerBackgroundColor={colors.brand200}
-        headerBorderColor={colors.brand200}
+        headerBackgroundColor={tokens.surface}
+        headerBorderColor={tokens.surface}
         contentContainerStyle={[styles.content, { paddingBottom: clearance }]}
       >
         <Field
@@ -352,6 +360,8 @@ function WindowChip({
   selected: boolean;
   onPress: () => void;
 }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   return (
     <Pressable
       accessibilityRole="radio"
@@ -374,6 +384,8 @@ function Field({ label, containerStyle, onClear, ...props }: TextInputProps & {
   /** Renders the clear button. Omit when there is nothing to clear. */
   onClear?: () => void;
 }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   return (
     <View style={[styles.field, containerStyle]}>
       <Text style={styles.fieldLabel}>{label}</Text>
@@ -381,7 +393,7 @@ function Field({ label, containerStyle, onClear, ...props }: TextInputProps & {
         <TextInput
           {...props}
           accessibilityLabel={label}
-          placeholderTextColor={colors.ink400}
+          placeholderTextColor={tokens.textMuted}
           style={[styles.input, props.multiline && styles.multiline, onClear && styles.inputClearable]}
         />
         {onClear ? (
@@ -392,7 +404,7 @@ function Field({ label, containerStyle, onClear, ...props }: TextInputProps & {
             onPress={onClear}
             style={({ pressed }) => [styles.clearButton, pressed && styles.pressed]}
           >
-            <AppIcon name="xmark.circle.fill" size={20} tintColor={colors.ink400} />
+            <AppIcon name="xmark.circle.fill" size={20} tintColor={tokens.textMuted} />
           </Pressable>
         ) : null}
       </View>
@@ -400,31 +412,31 @@ function Field({ label, containerStyle, onClear, ...props }: TextInputProps & {
   );
 }
 
-const styles = StyleSheet.create({
-  page: { backgroundColor: colors.brand200 },
-  content: { gap: spacing.md },
+const createStyles = (tokens: BrandTokens) => StyleSheet.create({
+  page: { backgroundColor: tokens.surface },
+  content: { gap: tokens.spacing.lg },
   pressed: { opacity: 0.72 },
 
   searchField: {
     minHeight: 52,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.pill,
-    backgroundColor: colors.white,
+    gap: tokens.spacing.md,
+    paddingHorizontal: tokens.spacing.lg,
+    borderRadius: tokens.radius.pill,
+    backgroundColor: tokens.surfaceElevated,
   },
-  searchInput: { flex: 1, color: colors.ink900, fontFamily: fonts.sans, fontSize: 15 },
+  searchInput: { flex: 1, color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 15 },
 
   locationCard: {
     minHeight: 96,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
-    padding: spacing.md,
-    borderRadius: radius.lg,
-    backgroundColor: colors.white,
-    ...shadow.card,
+    gap: tokens.spacing.lg,
+    padding: tokens.spacing.lg,
+    borderRadius: tokens.radius.lg,
+    backgroundColor: tokens.surfaceElevated,
+    shadowColor: tokens.textPrimary, shadowOffset: { width: 0, height: 8 }, shadowOpacity: tokens.elevation.card, shadowRadius: 24, elevation: 5,
   },
   locationMark: {
     width: 44,
@@ -432,73 +444,73 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.brand100,
+    backgroundColor: tokens.surface,
   },
   locationCopy: { flex: 1, gap: 4 },
-  locationName: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 16 },
-  locationBadges: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' },
-  statusBadge: { paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: radius.pill },
-  statusBadgeOpen: { backgroundColor: colors.gold50 },
-  statusBadgeShut: { backgroundColor: colors.warm },
-  statusText: { fontFamily: fonts.sansBold, fontSize: 11 },
-  statusTextOpen: { color: colors.warning },
-  statusTextShut: { color: colors.ink600 },
-  locationNote: { flex: 1, color: colors.ink600, fontFamily: fonts.sans, fontSize: 11 },
-  locationAddress: { color: colors.ink700, fontFamily: fonts.sans, fontSize: 13, lineHeight: 18 },
+  locationName: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 16 },
+  locationBadges: { flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.md, flexWrap: 'wrap' },
+  statusBadge: { paddingHorizontal: tokens.spacing.md, paddingVertical: 2, borderRadius: tokens.radius.pill },
+  statusBadgeOpen: { backgroundColor: tokens.surface },
+  statusBadgeShut: { backgroundColor: tokens.surface },
+  statusText: { fontFamily: tokens.fontBody, fontSize: 11 },
+  statusTextOpen: { color: tokens.warning },
+  statusTextShut: { color: tokens.textMuted },
+  locationNote: { flex: 1, color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 11 },
+  locationAddress: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 13, lineHeight: 18 },
 
   savedAddress: {
     minHeight: 76,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
-    padding: spacing.md,
-    borderRadius: radius.lg,
+    gap: tokens.spacing.lg,
+    padding: tokens.spacing.lg,
+    borderRadius: tokens.radius.lg,
     borderWidth: 1,
-    borderColor: colors.brand100,
-    backgroundColor: colors.brand50,
+    borderColor: tokens.surface,
+    backgroundColor: tokens.surface,
   },
 
-  sectionLabel: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 18, marginTop: spacing.sm },
-  windowGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  sectionLabel: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 18, marginTop: tokens.spacing.md },
+  windowGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: tokens.spacing.md },
   windowChip: {
     minWidth: '47%',
     flexGrow: 1,
     minHeight: 62,
     justifyContent: 'center',
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.md,
+    paddingHorizontal: tokens.spacing.lg,
+    borderRadius: tokens.radius.lg,
     borderWidth: 1,
-    borderColor: colors.brand100,
-    backgroundColor: colors.white,
+    borderColor: tokens.surface,
+    backgroundColor: tokens.surfaceElevated,
     gap: 2,
   },
-  windowChipSelected: { borderColor: colors.brand700, backgroundColor: colors.brand50 },
-  windowDay: { color: colors.ink600, fontFamily: fonts.sansMedium, fontSize: 12 },
-  windowDaySelected: { color: colors.brand700 },
-  windowTime: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 15 },
-  windowTimeSelected: { color: colors.ink900 },
+  windowChipSelected: { borderColor: tokens.primary, backgroundColor: tokens.surface },
+  windowDay: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 12 },
+  windowDaySelected: { color: tokens.primary },
+  windowTime: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 15 },
+  windowTimeSelected: { color: tokens.textPrimary },
 
-  field: { gap: spacing.xs },
-  fieldRow: { flexDirection: 'row', gap: spacing.sm },
+  field: { gap: tokens.spacing.sm },
+  fieldRow: { flexDirection: 'row', gap: tokens.spacing.md },
   cityField: { flex: 1 },
   stateField: { width: 84 },
-  fieldLabel: { color: colors.ink700, fontFamily: fonts.sansMedium, fontSize: 13 },
+  fieldLabel: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 13 },
   input: {
     minHeight: 52,
-    borderRadius: radius.md,
+    borderRadius: tokens.radius.lg,
     borderWidth: 1,
-    borderColor: colors.ink200,
-    backgroundColor: colors.white,
-    color: colors.ink900,
-    fontFamily: fonts.sans,
+    borderColor: tokens.secondary,
+    backgroundColor: tokens.surfaceElevated,
+    color: tokens.textPrimary,
+    fontFamily: tokens.fontBody,
     fontSize: 16,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: tokens.spacing.lg,
   },
-  multiline: { minHeight: 88, paddingTop: spacing.md, textAlignVertical: 'top' },
+  multiline: { minHeight: 88, paddingTop: tokens.spacing.lg, textAlignVertical: 'top' },
   inputClearable: { paddingRight: 48 },
   clearButton: {
     position: 'absolute',
-    right: spacing.sm,
+    right: tokens.spacing.md,
     top: 0,
     bottom: 0,
     width: 32,
@@ -508,11 +520,11 @@ const styles = StyleSheet.create({
   addressPreview: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: spacing.sm,
-    padding: spacing.md,
-    borderRadius: radius.md,
-    backgroundColor: colors.gold50,
+    gap: tokens.spacing.md,
+    padding: tokens.spacing.lg,
+    borderRadius: tokens.radius.lg,
+    backgroundColor: tokens.surface,
   },
-  addressPreviewText: { flex: 1, color: colors.ink700, fontFamily: fonts.sansMedium, fontSize: 12, lineHeight: 18 },
-  error: { color: colors.danger, fontFamily: fonts.sansMedium, fontSize: 13, lineHeight: 19 },
+  addressPreviewText: { flex: 1, color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 12, lineHeight: 18 },
+  error: { color: tokens.danger, fontFamily: tokens.fontBody, fontSize: 13, lineHeight: 19 },
 });

@@ -1,7 +1,7 @@
 import { Text, View } from 'react-native';
 import { useCopy } from '@platform/ui';
 
-import { styles } from './styles';
+import { useRewardStyles } from './styles';
 
 /**
  * The status mark that rides beside a tier name.
@@ -12,6 +12,7 @@ import { styles } from './styles';
  * brand changed it. Rule 4: words and marks are tokens too.
  */
 export function RewardMark({ compact = false }: { compact?: boolean }) {
+  const styles = useRewardStyles();
   const copy = useCopy();
   return (
     <View style={[styles.rewardMark, compact && styles.rewardMarkCompact]}>

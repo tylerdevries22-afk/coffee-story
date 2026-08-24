@@ -2,10 +2,10 @@ import { Pressable, Text, View } from 'react-native';
 
 import { POINTS_LABEL } from '@/features/rewards/presentation';
 import { EARN_ACTIONS, earnActionState } from '@/features/rewards/earn-actions';
-import { disabledState } from '@/lib/a11y-state';
+import { disabledState } from '@platform/ui';
 
 import { hapticSelection } from '../haptics';
-import { styles } from '../styles';
+import { useRewardStyles } from '../styles';
 
 /**
  * `behavior` describes what a tap actually DOES, which is not the same question
@@ -39,6 +39,7 @@ export function EarnTab({
   onGoogleReview: () => void;
   isDemo: boolean;
 }) {
+  const styles = useRewardStyles();
   return (
     <>
       <Text style={styles.sectionTitle}>Earn {POINTS_LABEL}</Text>

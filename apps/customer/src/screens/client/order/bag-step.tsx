@@ -28,10 +28,10 @@ import { fulfillmentDetail, fulfillmentLabel, type OrderFulfillment ,
 import { formatMoney } from '@platform/domain';
 import { describePickupWindow } from '@/features/order/pickup';
 import { POINTS_LABEL } from '@/features/rewards/presentation';
-import { colors, fonts, radius, spacing } from '@/theme/tokens';
 import { menuImageFrame } from '@platform/ui';
 
 import { findMenuItem } from './menu-data';
+import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 export function BagStep({
   cart,
@@ -54,6 +54,8 @@ export function BagStep({
   onChangeQuantity: (lineId: string, delta: number) => void;
   onCheckout: () => void;
 }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const clearance = useStickyBarClearance();
   const window = windowValue ? describePickupWindow(windowValue, new Date()) : null;
   const empty = cart.lines.length === 0;
@@ -65,8 +67,8 @@ export function BagStep({
         onBack={onBack}
         backLabel="Menu"
         style={styles.page}
-        headerBackgroundColor={colors.brand200}
-        headerBorderColor={colors.brand200}
+        headerBackgroundColor={tokens.surface}
+        headerBorderColor={tokens.surface}
         contentContainerStyle={[styles.content, { paddingBottom: clearance }]}
       >
         <View style={styles.contextCard}>
@@ -109,7 +111,7 @@ export function BagStep({
 
             {cart.note ? (
               <View style={styles.noteEcho}>
-                <AppIcon name="pencil" size={16} tintColor={colors.brand700} />
+                <AppIcon name="pencil" size={16} tintColor={tokens.primary} />
                 <Text style={styles.noteEchoText}>{cart.note}</Text>
               </View>
             ) : null}
@@ -139,9 +141,11 @@ function ContextRow({
   detail?: string;
   onEdit?: () => void;
 }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   return (
     <View style={styles.contextRow}>
-      <AppIcon name={icon} size={16} tintColor={colors.brand700} />
+      <AppIcon name={icon} size={16} tintColor={tokens.primary} />
       <View style={styles.contextCopy}>
         <Text style={styles.contextLabel}>{label}</Text>
         {detail ? <Text numberOfLines={1} style={styles.contextDetail}>{detail}</Text> : null}
@@ -171,6 +175,8 @@ function BagLine({
   line: OrderLine;
   onChangeQuantity: (delta: number) => void;
 }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const item = findMenuItem(line.itemId);
   return (
     <View style={styles.line}>
@@ -211,6 +217,8 @@ export function NoteStep({
   onChangeNote: (note: string) => void;
   onDone: () => void;
 }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const clearance = useStickyBarClearance();
   const remaining = MAX_ORDER_NOTE_LENGTH - note.length;
   return (
@@ -221,8 +229,8 @@ export function NoteStep({
         backLabel="Bag"
         keyboardShouldPersistTaps="handled"
         style={styles.page}
-        headerBackgroundColor={colors.brand200}
-        headerBorderColor={colors.brand200}
+        headerBackgroundColor={tokens.surface}
+        headerBorderColor={tokens.surface}
         contentContainerStyle={[styles.content, { paddingBottom: clearance }]}
       >
         <Body muted>
@@ -239,7 +247,7 @@ export function NoteStep({
             value={note}
             onChangeText={onChangeNote}
             placeholder="Optional"
-            placeholderTextColor={colors.ink400}
+            placeholderTextColor={tokens.textMuted}
             maxLength={MAX_ORDER_NOTE_LENGTH}
             multiline
             style={styles.noteInput}
@@ -255,63 +263,63 @@ export function NoteStep({
 
 const LINE_FRAME = menuImageFrame('line');
 
-const styles = StyleSheet.create({
-  page: { backgroundColor: colors.brand200 },
-  content: { gap: spacing.md },
+const createStyles = (tokens: BrandTokens) => StyleSheet.create({
+  page: { backgroundColor: tokens.surface },
+  content: { gap: tokens.spacing.lg },
 
-  contextCard: { borderRadius: radius.md, backgroundColor: colors.white, paddingHorizontal: spacing.md },
-  contextRow: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  contextDivider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.ink200 },
+  contextCard: { borderRadius: tokens.radius.lg, backgroundColor: tokens.surfaceElevated, paddingHorizontal: tokens.spacing.lg },
+  contextRow: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.md },
+  contextDivider: { height: StyleSheet.hairlineWidth, backgroundColor: tokens.secondary },
   contextCopy: { flex: 1 },
-  contextLabel: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 14 },
-  contextDetail: { color: colors.ink600, fontFamily: fonts.sans, fontSize: 12 },
+  contextLabel: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 14 },
+  contextDetail: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 12 },
   contextEditButton: { minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center' },
-  contextEdit: { color: colors.brand700, fontFamily: fonts.sansMedium, fontSize: 14 },
+  contextEdit: { color: tokens.primary, fontFamily: tokens.fontBody, fontSize: 14 },
   pressed: { opacity: 0.72 },
 
-  empty: { gap: spacing.xs, paddingVertical: spacing.xl },
-  emptyTitle: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 20 },
+  empty: { gap: tokens.spacing.sm, paddingVertical: tokens.spacing.xxl },
+  emptyTitle: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 20 },
 
-  line: { borderRadius: radius.md, backgroundColor: colors.white, padding: spacing.md, gap: spacing.sm },
-  lineTop: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
+  line: { borderRadius: tokens.radius.lg, backgroundColor: tokens.surfaceElevated, padding: tokens.spacing.lg, gap: tokens.spacing.md },
+  lineTop: { flexDirection: 'row', alignItems: 'flex-start', gap: tokens.spacing.lg },
   // Empty state for a line whose item has no photograph. Sized from the same
   // frame MenuImage uses, so the two cannot drift apart.
-  lineImage: { width: LINE_FRAME.size, height: LINE_FRAME.size, borderRadius: radius.sm, backgroundColor: colors.brand100 },
+  lineImage: { width: LINE_FRAME.size, height: LINE_FRAME.size, borderRadius: tokens.radius.md, backgroundColor: tokens.surface },
   lineCopy: { flex: 1, gap: 3 },
-  lineName: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 16 },
-  lineSummary: { color: colors.ink600, fontFamily: fonts.sans, fontSize: 12, lineHeight: 17 },
-  lineUnit: { color: colors.ink600, fontFamily: fonts.sansMedium, fontSize: 14 },
+  lineName: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 16 },
+  lineSummary: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 12, lineHeight: 17 },
+  lineUnit: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 14 },
   lineBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  lineTotal: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 16 },
+  lineTotal: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 16 },
 
-  subtotalRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: spacing.xs },
-  subtotalLabel: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 20 },
-  subtotalValue: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 20 },
+  subtotalRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: tokens.spacing.sm },
+  subtotalLabel: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 20 },
+  subtotalValue: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 20 },
 
   noteEcho: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: spacing.sm,
-    padding: spacing.md,
-    borderRadius: radius.md,
-    backgroundColor: colors.brand50,
+    gap: tokens.spacing.md,
+    padding: tokens.spacing.lg,
+    borderRadius: tokens.radius.lg,
+    backgroundColor: tokens.surface,
   },
-  noteEchoText: { flex: 1, color: colors.ink700, fontFamily: fonts.sans, fontSize: 13, lineHeight: 18 },
+  noteEchoText: { flex: 1, color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 13, lineHeight: 18 },
 
-  noteField: { gap: spacing.xs },
+  noteField: { gap: tokens.spacing.sm },
   noteHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  fieldLabel: { color: colors.ink700, fontFamily: fonts.sansMedium, fontSize: 13 },
-  noteCount: { color: colors.ink600, fontFamily: fonts.sans, fontSize: 12 },
+  fieldLabel: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 13 },
+  noteCount: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 12 },
   noteInput: {
     minHeight: 108,
-    borderRadius: radius.md,
+    borderRadius: tokens.radius.lg,
     borderWidth: 1,
-    borderColor: colors.ink200,
-    backgroundColor: colors.white,
-    color: colors.ink900,
-    fontFamily: fonts.sans,
+    borderColor: tokens.secondary,
+    backgroundColor: tokens.surfaceElevated,
+    color: tokens.textPrimary,
+    fontFamily: tokens.fontBody,
     fontSize: 16,
-    padding: spacing.md,
+    padding: tokens.spacing.lg,
     textAlignVertical: 'top',
   },
 });

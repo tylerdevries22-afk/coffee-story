@@ -19,10 +19,10 @@ import { findMenuItem } from '@/screens/client/order/menu-data';
 import { useAuth } from '@/state/auth-context';
 import { useAppState } from '@/state/app-context';
 import { TENANT, tenantFeature } from '@/tenant';
-import { colors, fonts, radius, spacing } from '@/theme/tokens';
 import { DropCountdown } from '@platform/ui';
 
-import { styles as pageStyles } from './information-page';
+import { useInformationStyles } from './information-page';
+import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 export function DropsArchive({ onBack }: { onBack: () => void }) {
   const { setClientTab } = useAppState();
@@ -41,6 +41,9 @@ export function DropsArchive({ onBack }: { onBack: () => void }) {
 }
 
 function DropRow({ drop, onOrder }: { drop: Drop; onOrder: () => void }) {
+  const pageStyles = useInformationStyles();
+  const tokens = useBrandTokens();
+  const local = createLocal(tokens);
   const item = findMenuItem(drop.itemId);
   const live = dropStatus(drop, new Date()) === 'live';
   return (
@@ -67,6 +70,9 @@ function DropRow({ drop, onOrder }: { drop: Drop; onOrder: () => void }) {
 }
 
 export function CateringRequest({ onBack }: { onBack: () => void }) {
+  const pageStyles = useInformationStyles();
+  const tokens = useBrandTokens();
+  const local = createLocal(tokens);
   const { portal } = useAuth();
   const [eventDate, setEventDate] = useState('');
   const [partySize, setPartySize] = useState('');
@@ -106,7 +112,7 @@ export function CateringRequest({ onBack }: { onBack: () => void }) {
               value={eventDate}
               onChangeText={setEventDate}
               placeholder="Sat Sep 12, morning"
-              placeholderTextColor={colors.ink400}
+              placeholderTextColor={tokens.textMuted}
               style={local.field}
             />
             <Text style={local.fieldLabel}>How many people</Text>
@@ -116,7 +122,7 @@ export function CateringRequest({ onBack }: { onBack: () => void }) {
               onChangeText={setPartySize}
               placeholder="25"
               keyboardType="number-pad"
-              placeholderTextColor={colors.ink400}
+              placeholderTextColor={tokens.textMuted}
               style={local.field}
             />
             <Text style={local.fieldLabel}>Anything else</Text>
@@ -125,7 +131,7 @@ export function CateringRequest({ onBack }: { onBack: () => void }) {
               value={notes}
               onChangeText={setNotes}
               placeholder="Dietary needs, delivery or pickup, timing"
-              placeholderTextColor={colors.ink400}
+              placeholderTextColor={tokens.textMuted}
               multiline
               style={[local.field, local.fieldTall]}
             />
@@ -138,6 +144,9 @@ export function CateringRequest({ onBack }: { onBack: () => void }) {
 }
 
 export function Referrals({ onBack }: { onBack: () => void }) {
+  const pageStyles = useInformationStyles();
+  const tokens = useBrandTokens();
+  const local = createLocal(tokens);
   const { portal } = useAuth();
 
   if (!tenantFeature('referrals')) {
@@ -188,23 +197,23 @@ export function Referrals({ onBack }: { onBack: () => void }) {
   );
 }
 
-const local = StyleSheet.create({
-  dropRow: { flexDirection: 'row', gap: spacing.md, alignItems: 'center' },
-  dropBody: { flex: 1, gap: spacing.xs },
-  endedLabel: { color: colors.ink500, fontFamily: fonts.sansMedium, fontSize: 13 },
-  fieldLabel: { color: colors.ink700, fontFamily: fonts.sansMedium, fontSize: 13 },
+const createLocal = (tokens: BrandTokens) => StyleSheet.create({
+  dropRow: { flexDirection: 'row', gap: tokens.spacing.lg, alignItems: 'center' },
+  dropBody: { flex: 1, gap: tokens.spacing.sm },
+  endedLabel: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 13 },
+  fieldLabel: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 13 },
   field: {
     borderWidth: 1,
-    borderColor: colors.ink200,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    color: colors.ink900,
-    fontFamily: fonts.sans,
+    borderColor: tokens.secondary,
+    borderRadius: tokens.radius.lg,
+    paddingHorizontal: tokens.spacing.lg,
+    paddingVertical: tokens.spacing.md,
+    color: tokens.textPrimary,
+    fontFamily: tokens.fontBody,
     fontSize: 15,
-    backgroundColor: colors.white,
+    backgroundColor: tokens.surfaceElevated,
   },
   fieldTall: { minHeight: 88, textAlignVertical: 'top' },
-  codeLabel: { color: colors.ink500, fontFamily: fonts.sansMedium, fontSize: 13 },
-  code: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 24, letterSpacing: 1 },
+  codeLabel: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 13 },
+  code: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 24, letterSpacing: 1 },
 });
