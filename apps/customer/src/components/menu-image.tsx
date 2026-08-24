@@ -18,9 +18,13 @@
 import { Image } from 'expo-image';
 import { StyleSheet, type StyleProp, type ImageStyle } from 'react-native';
 
-import { menuImageFrame, type MenuImageVariant } from '@platform/ui';
+import {
+  menuImageFrame,
+  useTokens as useBrandTokens,
+  type BrandTokens,
+  type MenuImageVariant,
+} from '@platform/ui';
 
-import { colors, radius } from '@/theme/tokens';
 
 export function MenuImage({
   source,
@@ -34,6 +38,8 @@ export function MenuImage({
   alt: string;
   style?: StyleProp<ImageStyle>;
 }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const frame = menuImageFrame(variant);
   return (
     <Image
@@ -54,16 +60,18 @@ export function MenuImage({
         // rather than over the subset this app happens to render.
         frame.radius === 'circle'
           ? { borderRadius: frame.size / 2 }
-          : frame.radius !== 'none' && { borderRadius: radius[frame.radius] },
+          : frame.radius !== 'none' && {
+              borderRadius: tokens.radius[frame.radius === 'sm' ? 'md' : 'lg'],
+            },
         style,
       ]}
     />
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (tokens: BrandTokens) => StyleSheet.create({
   // The placeholder ground shows while the asset decodes.
-  base: { backgroundColor: colors.brand100 },
+  base: { backgroundColor: tokens.surface },
   // Square by aspect rather than by a fixed height, so a full-bleed hero shows
   // the whole master at whatever width the screen gives it.
   fill: { width: '100%', aspectRatio: 1 },

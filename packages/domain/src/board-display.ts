@@ -314,6 +314,8 @@ export function provenanceLabel(
  */
 export type BoardEntry = {
   id: string;
+  /** The same database-backed call-out printed on the receipt and KDS. */
+  callout: string;
   /**
    * Place in line, 1-based -- or null once the order is ready, where a check
    * replaces the number. Numbering counts only the people still waiting, so
@@ -328,6 +330,15 @@ export type BoardEntry = {
   provenance: string | null;
   arrived: boolean;
 };
+
+/** Daily number first, then the optional counter name, then a safe fallback. */
+export function ticketCallout(
+  dailyNumber: number | null | undefined,
+  guestLabel: string | null | undefined,
+): string {
+  if (dailyNumber !== null && dailyNumber !== undefined) return String(dailyNumber);
+  return guestLabel?.trim() || 'Guest';
+}
 
 /**
  * The queue position of every ticket, by id.
@@ -396,6 +407,7 @@ export function toEntry(
 ): BoardEntry {
   return {
     id: ticket.id,
+    callout: ticketCallout(ticket.daily_number, ticket.guest_label),
     position,
     ready: ticket.status === 'ready',
     name: displayName(ticket.guest_label),

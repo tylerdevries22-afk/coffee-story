@@ -154,7 +154,7 @@ html, body {
 /* The mark ------------------------------------------------------------- */
 
 /*
- * Place in line, or a check once it is yours.
+ * The shared call-out stays visible when ready; the check appears behind it.
  *
  * Both live in the same fixed box and cross-fade, so the row never reflows as
  * a ticket becomes ready -- a list that shuffles its own heights while people
@@ -177,6 +177,8 @@ html, body {
 }
 
 .ticket-position {
+  position: relative;
+  z-index: 1;
   font-family: var(--board-font-display, Georgia, serif);
   font-size: clamp(24px, 3.2vmin, 56px);
   line-height: 1;
@@ -221,12 +223,11 @@ html, body {
 }
 
 .ticket-mark[data-ready='true'] .ticket-position {
-  opacity: 0;
-  transform: scale(0.7);
+  color: var(--board-success, #2f6844);
 }
 
 .ticket-mark[data-ready='true'] .ticket-check {
-  opacity: 1;
+  opacity: 0.32;
   transform: none;
 }
 

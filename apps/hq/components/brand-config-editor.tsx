@@ -7,27 +7,14 @@
  */
 import { useMemo, useState } from 'react';
 
-type EditableTokens = {
-  primary: string;
-  surface: string;
-  surfaceElevated: string;
-  accent: string;
-  textPrimary: string;
-  textMuted: string;
-};
-
-const DEFAULTS: EditableTokens = {
-  primary: '#2E211A',
-  surface: '#FAF5EF',
-  surfaceElevated: '#FFFFFF',
-  accent: '#B08D57',
-  textPrimary: '#241710',
-  textMuted: '#6B5B4E',
-};
-
-const FLAGS = ['drops', 'catering', 'delivery', 'multi_location', 'sms', 'stored_value', 'referrals'] as const;
-
-const HEX = /^#[0-9a-fA-F]{6}$/;
+import { saveBrandConfig } from '@/app/(console)/brand/actions';
+import {
+  BRAND_FLAGS,
+  EDITABLE_TOKEN_KEYS,
+  brandEditorStateOf,
+  isBrandHex,
+  type EditableTier,
+} from '@/lib/brand-config';
 
 /**
  * The status ladder, as the in-store order board draws it.
@@ -38,53 +25,63 @@ const HEX = /^#[0-9a-fA-F]{6}$/;
  * what this editor writes is what `resolveBoardConfig` reads, and a rung left
  * blank falls back to its semantic token and the brand's reward mark.
  */
-type EditableTier = {
-  slug: string;
-  label: string;
-  color: string;
-  icon: string;
-};
-
-const TIERS: EditableTier[] = [
-  { slug: 'first-sip', label: 'First Sip', color: '#8C7A6B', icon: '◇' },
-  { slug: 'daily-ritual', label: 'Daily Ritual', color: '#B08D57', icon: '◆' },
-  { slug: 'house-regular', label: 'House Regular', color: '#3E6B4F', icon: '✦' },
-  { slug: 'coffee-legend', label: 'Coffee Legend', color: '#2E211A', icon: '★' },
-];
-
-export function BrandConfigEditor() {
-  const [tokens, setTokens] = useState<EditableTokens>(DEFAULTS);
-  const [appName, setAppName] = useState('Coffee Story');
-  const [pointsName, setPointsName] = useState('Beans');
-  const [flags, setFlags] = useState<Record<string, boolean>>({
-    drops: true, catering: true, delivery: true, multi_location: false, sms: false, stored_value: true, referrals: true,
-  });
-  const [tiers, setTiers] = useState<EditableTier[]>(TIERS);
+export function BrandConfigEditor({
+  initialConfig,
+  updatedAt: initialUpdatedAt,
+}: {
+  initialConfig: unknown;
+  updatedAt: string | null;
+}) {
+  const initialState = useMemo(() => brandEditorStateOf(initialConfig), [initialConfig]);
+  const [tokens, setTokens] = useState(initialState.tokens);
+  const [appName, setAppName] = useState(initialState.appName);
+  const [pointsName, setPointsName] = useState(initialState.pointsName);
+  const [flags, setFlags] = useState(initialState.flags);
+  const [tiers, setTiers] = useState<EditableTier[]>(initialState.tiers);
+  const [updatedAt, setUpdatedAt] = useState(initialUpdatedAt);
+  const [pending, setPending] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
 
   const editTier = (index: number, patch: Partial<EditableTier>) =>
     setTiers((current) => current.map((tier, i) => (i === index ? { ...tier, ...patch } : tier)));
 
   // The device-side rule: a malformed value falls back, field by field.
   const applied = useMemo(() => {
-    const result = { ...DEFAULTS };
-    for (const key of Object.keys(DEFAULTS) as (keyof EditableTokens)[]) {
-      if (HEX.test(tokens[key])) result[key] = tokens[key];
-    }
-    return result;
+    return brandEditorStateOf({ tokens }).tokens;
   }, [tokens]);
+
+  async function save() {
+    if (pending) return;
+    setPending(true);
+    setMessage(null);
+    try {
+      const result = await saveBrandConfig({
+        tokens,
+        copy: { appName, pointsName },
+        features: flags,
+        board: { tiers },
+      }, updatedAt);
+      setMessage(result.ok ? 'Saved. Apps receive these settings on their next config read.' : result.error);
+      if (result.ok) setUpdatedAt(result.updatedAt);
+    } catch {
+      setMessage('The settings could not be saved. Try again.');
+    } finally {
+      setPending(false);
+    }
+  }
 
   return (
     <div className="grid-2">
       <div>
         <div className="card">
           <h2>Tokens</h2>
-          {(Object.keys(DEFAULTS) as (keyof EditableTokens)[]).map((key) => (
+          {EDITABLE_TOKEN_KEYS.map((key) => (
             <label className="field" key={key}>
               {key}
               <input
                 value={tokens[key]}
                 onChange={(event) => setTokens((current) => ({ ...current, [key]: event.target.value }))}
-                aria-invalid={!HEX.test(tokens[key])}
+                aria-invalid={!isBrandHex(tokens[key])}
               />
             </label>
           ))}
@@ -96,7 +93,7 @@ export function BrandConfigEditor() {
         </div>
         <div className="card">
           <h2>Feature flags</h2>
-          {FLAGS.map((flag) => (
+          {BRAND_FLAGS.map((flag) => (
             <label className="field" key={flag} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <input
                 type="checkbox"
@@ -122,7 +119,7 @@ export function BrandConfigEditor() {
                 <input
                   value={tier.color}
                   aria-label={`${tier.label} badge colour`}
-                  aria-invalid={!HEX.test(tier.color)}
+                  aria-invalid={!isBrandHex(tier.color)}
                   onChange={(event) => editTier(index, { color: event.target.value })}
                 />
               </label>
@@ -139,7 +136,10 @@ export function BrandConfigEditor() {
           ))}
         </div>
 
-        <button className="button" type="button">Save to brand</button>
+        <button className="button" type="button" disabled={pending} onClick={() => void save()}>
+          {pending ? 'Saving…' : 'Save to brand'}
+        </button>
+        {message ? <p role="status" className="subtitle">{message}</p> : null}
       </div>
 
       <div className="card" style={{ position: 'sticky', top: 24 }}>
@@ -166,7 +166,7 @@ export function BrandConfigEditor() {
           }}>
             <span style={{ fontSize: 20, color: applied.textMuted, fontVariant: 'tabular-nums' }}>1</span>
             <span style={{ fontWeight: 700, flex: 1 }}>Sara D.</span>
-            <TierBadgePreview tier={tiers[1] ?? TIERS[1]!} surface={applied.surfaceElevated} ink={applied.textPrimary} />
+            <TierBadgePreview tier={tiers[1] ?? initialState.tiers[0]!} surface={applied.surfaceElevated} ink={applied.textPrimary} />
           </div>
           <div style={{ background: applied.surfaceElevated, borderRadius: 16, padding: 16, marginBottom: 12 }}>
             <div style={{ fontWeight: 700 }}>Honey Lavender Latte</div>
@@ -214,7 +214,7 @@ function TierBadgePreview({
   surface?: string;
   ink?: string;
 }) {
-  const color = HEX.test(tier.color) ? tier.color : '#57534E';
+  const color = isBrandHex(tier.color) ? tier.color : '#57534E';
   return (
     <span
       className="tier-badge"

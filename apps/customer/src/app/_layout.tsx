@@ -3,7 +3,7 @@ import { Inter_400Regular } from '@expo-google-fonts/inter/400Regular';
 import { Inter_600SemiBold } from '@expo-google-fonts/inter/600SemiBold';
 import { Inter_700Bold } from '@expo-google-fonts/inter/700Bold';
 import { fontGateReady } from '@/lib/font-gate';
-import { initMonitoring } from '@/lib/monitoring';
+import { initMobileMonitoring } from '@platform/monitoring';
 import { liveConfigFromEnv, missingLiveConfig, type MobileLiveConfig } from '@/lib/runtime-config';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
@@ -23,12 +23,16 @@ import { AuthProvider } from '@/state/auth-context';
 import { DemoProvider, useDemo } from '@/state/demo-context';
 import { OrderProvider } from '@/state/order-context';
 import { TENANT_BRAND_CONFIG } from '@/tenant';
-import { colors } from '@/theme/tokens';
-import { ThemeProvider, ToastProvider, useTokens } from '@platform/ui';
+import {
+  ThemeProvider,
+  ToastProvider,
+  useTokens,
+  useTokens as useBrandTokens,
+} from '@platform/ui';
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
-initMonitoring();
+void initMobileMonitoring();
 
 export default function RootLayout() {
   const [loaded, fontError] = useFonts({ Inter_400Regular, Inter_600SemiBold, Inter_700Bold, Fraunces_700Bold });
@@ -112,11 +116,8 @@ function ConfiguredApp({ config }: { config: MobileLiveConfig }) {
 }
 
 function CustomerStack() {
-  // The page ground is the tenant's, not a constant. `ThemeProvider` has been
-  // hydrating tokens from brand.json since it was mounted, but nothing read
-  // them -- every screen still imports the compiled `theme/tokens`, so a second
-  // tenant's palette reached the provider and stopped there. This is the first
-  // consumer and the seam the rest move through.
+  // The page ground and every screen token resolve from the tenant provider,
+  // so a second tenant does not inherit a compiled palette.
   const tokens = useTokens();
   return (
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: tokens.surface } }}>
@@ -141,16 +142,17 @@ function CustomerStack() {
  * validate and its Stripe placeholder does not.
  */
 function RuntimeConfigError({ missing, onUseDemo }: { missing: string[]; onUseDemo: () => void }) {
+  const tokens = useBrandTokens();
   return (
-    <View style={{ flex: 1, justifyContent: 'center', padding: 32, gap: 16, backgroundColor: colors.surface }}>
-      <Text style={{ color: colors.ink900, fontSize: 24, fontWeight: '700' }}>
+    <View style={{ flex: 1, justifyContent: 'center', padding: 32, gap: 16, backgroundColor: tokens.surface }}>
+      <Text style={{ color: tokens.textPrimary, fontSize: 24, fontWeight: '700' }}>
         Secure setup is incomplete
       </Text>
-      <Text style={{ color: colors.ink600, fontSize: 16, lineHeight: 24 }}>
+      <Text style={{ color: tokens.textMuted, fontSize: 16, lineHeight: 24 }}>
         This build is missing the account or ordering configuration live mode needs. You can still
         explore the whole app in Demo.
       </Text>
-      <Text accessibilityRole="text" style={{ color: colors.ink500, fontSize: 12 }}>
+      <Text accessibilityRole="text" style={{ color: tokens.textMuted, fontSize: 12 }}>
         Missing: {missing.join(', ')}
       </Text>
       <Button label="Continue in Demo" onPress={onUseDemo} />

@@ -4,10 +4,9 @@ import { Pressable, Text, View } from 'react-native';
 import { AppIcon } from '@/components/icon';
 import { paletteForTier } from '@/components/rewards/glass-cup-palettes';
 import { hapticSelection } from './haptics';
-import { styles } from './styles';
+import { useRewardStyles } from './styles';
 import { REWARD_TIERS, type RewardTierName } from '@platform/domain';
-import { choiceState } from '@/lib/a11y-state';
-import { colors } from '@/theme/tokens';
+import { choiceState, useTokens as useBrandTokens } from '@platform/ui';
 
 /**
  * Demo-only tier switch. Overriding the year's points is what swaps the tier:
@@ -23,6 +22,8 @@ export function DemoTierToggle({
   annualPoints: number;
   onChange: (tier: RewardTierName) => void;
 }) {
+  const styles = useRewardStyles();
+  const tokens = useBrandTokens();
   const safeAnnualPoints = Number.isFinite(annualPoints) ? Math.max(0, annualPoints) : 0;
 
   return (
@@ -53,16 +54,16 @@ export function DemoTierToggle({
                   ]}
                 >
                   <View style={styles.demoTierChipContent}>
-                    {!selected ? <AppIcon name="lock.fill" size={10} tintColor={colors.ink400} /> : null}
-                    <Text style={[styles.demoTierText, { color: selected ? palette.liquidDeep : colors.ink500 }]}>
+                    {!selected ? <AppIcon name="lock.fill" size={10} tintColor={tokens.textMuted} /> : null}
+                    <Text style={[styles.demoTierText, { color: selected ? palette.liquidDeep : tokens.textMuted }]}>
                       {tier.name}
                     </Text>
                   </View>
                 </Pressable>
-                <Text style={[styles.demoTierPercent, { color: selected ? palette.liquidMid : colors.ink400 }]}>{percentage}%</Text>
+                <Text style={[styles.demoTierPercent, { color: selected ? palette.liquidMid : tokens.textMuted }]}>{percentage}%</Text>
               </View>
               {index < REWARD_TIERS.length - 1 ? (
-                <AppIcon name="chevron.right" size={13} tintColor={colors.ink300} style={styles.demoTierArrow} />
+                <AppIcon name="chevron.right" size={13} tintColor={tokens.textMuted} style={styles.demoTierArrow} />
               ) : null}
             </Fragment>
           );

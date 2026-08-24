@@ -1,4 +1,6 @@
 import type { NextConfig } from 'next';
+import { withSentryConfig } from '@sentry/nextjs';
+import { securityHeaders } from '@platform/web-config';
 
 /**
  * The storefront display.
@@ -24,6 +26,19 @@ const nextConfig: NextConfig = {
   // config it is not the authority on -- so it is turned off rather than left
   // to imply the real gate is missing.
   eslint: { ignoreDuringBuilds: true },
+  headers: async () => [{
+    source: '/(.*)',
+    headers: securityHeaders({
+      developmentFrames: process.env.NODE_ENV !== 'production',
+      noIndex: true,
+    }),
+  }],
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  silent: true,
+  webpack: { treeshake: { removeDebugLogging: true } },
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_DISPLAY_PROJECT ?? process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+});

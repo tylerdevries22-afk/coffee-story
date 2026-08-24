@@ -10,10 +10,10 @@ import { requestKey } from '@platform/domain';
 import { STRENGTH_OPTIONS, strengthLabel } from '@/features/setup/setup';
 import { useAuth } from '@/state/auth-context';
 import { useDemo } from '@/state/demo-context';
-import { colors, fonts, spacing } from '@/theme/tokens';
 import type { GuestPreferences, PortalProfile } from '@platform/domain';
 
-import { styles } from './information-page';
+import { useInformationStyles } from './information-page';
+import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
 
@@ -80,11 +80,14 @@ export function Profile({
   onExit?: () => void;
   onSignOut?: () => void;
 }) {
-  const { portal, isDemo, refresh, role } = useAuth();
+  const tokens = useBrandTokens();
+  const profileStyles = createProfileStyles(tokens);
+  const { portal, isDemo, refresh, role, signOut } = useAuth();
   const demo = useDemo();
   const [profile, setProfile] = useState<PortalProfile>(portal.profile);
   const [saving, setSaving] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   async function chooseProfilePhoto() {
     try {
@@ -159,6 +162,28 @@ export function Profile({
       setSaving(false);
     }
   }
+
+  async function deleteAccount() {
+    setDeleting(true);
+    try {
+      await mobileApi.deleteProfile();
+      await signOut();
+    } catch (error) {
+      Alert.alert('Account not deleted', error instanceof Error ? error.message : 'Try again later.');
+      setDeleting(false);
+    }
+  }
+
+  function confirmAccountDeletion() {
+    Alert.alert(
+      'Delete account?',
+      'This permanently removes your sign-in and personal details. Order history stays anonymized for shop records.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete account', style: 'destructive', onPress: () => void deleteAccount() },
+      ],
+    );
+  }
   return (
     <CollapsingScreen title="Profile" eyebrow="My account" onBack={onBack} keyboardShouldPersistTaps="handled">
       <View style={profileStyles.avatarHeader}>
@@ -186,6 +211,19 @@ export function Profile({
       <Field label="Phone" value={profile.phone ?? ''} keyboardType="phone-pad" onChangeText={(phone) => setProfile({ ...profile, phone })} />
       <Field label="Birthday" value={profile.birthday ?? ''} placeholder="YYYY-MM-DD" onChangeText={(birthday) => setProfile({ ...profile, birthday })} />
       <Button label="Save profile" loading={saving} onPress={() => void saveProfile()} />
+      {!isDemo && role === 'client' ? (
+        <Card style={profileStyles.accessCard}>
+          <SectionTitle>Delete account</SectionTitle>
+          <Body muted>Your personal details and sign-in will be removed. An anonymized order record remains with the shop.</Body>
+          <Button
+            label="Delete my account"
+            variant="secondary"
+            loading={deleting}
+            disabled={deleting}
+            onPress={confirmAccountDeletion}
+          />
+        </Card>
+      ) : null}
       {role !== 'client' ? (
         <Card style={profileStyles.accessCard}>
           <SectionTitle>Workspace access</SectionTitle>
@@ -201,6 +239,7 @@ export function Profile({
 }
 
 export function Preferences({ onBack }: { onBack: () => void }) {
+  const styles = useInformationStyles();
   const { portal, isDemo, refresh } = useAuth();
   const demo = useDemo();
   const initial: GuestPreferences = portal.preferences
@@ -255,17 +294,19 @@ export function Preferences({ onBack }: { onBack: () => void }) {
   );
 }
 export function Field({ label, ...props }: React.ComponentProps<typeof TextInput> & { label: string }) {
+  const styles = useInformationStyles();
+  const tokens = useBrandTokens();
   return (
     <View style={styles.field}>
       <Text style={styles.fieldLabel}>{label}</Text>
-      <TextInput accessibilityLabel={`${label} input`} {...props} placeholderTextColor={colors.ink400} style={[styles.input, props.multiline && styles.multiline]} />
+      <TextInput accessibilityLabel={`${label} input`} {...props} placeholderTextColor={tokens.textMuted} style={[styles.input, props.multiline && styles.multiline]} />
     </View>
   );
 }
 
-const profileStyles = StyleSheet.create({
-  avatarHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg, paddingVertical: spacing.sm },
-  avatarCopy: { flex: 1, gap: spacing.xs },
-  profileName: { color: colors.ink900, fontFamily: fonts.display, fontSize: 25, lineHeight: 30 },
-  accessCard: { gap: spacing.md },
+const createProfileStyles = (tokens: BrandTokens) => StyleSheet.create({
+  avatarHeader: { flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.xl, paddingVertical: tokens.spacing.md },
+  avatarCopy: { flex: 1, gap: tokens.spacing.sm },
+  profileName: { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: 25, lineHeight: 30 },
+  accessCard: { gap: tokens.spacing.lg },
 });

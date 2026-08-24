@@ -3,7 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { PrepBatchRow, RecipeRow } from '@platform/schema';
 
 export type PrepBoardEntry = PrepBatchRow & {
-  recipe: Pick<RecipeRow, 'id' | 'menu_item_id' | 'version' | 'yield_qty' | 'yield_unit' | 'allergens'>;
+  recipe: Pick<RecipeRow, 'id' | 'menu_item_id' | 'version' | 'steps' | 'yield_qty' | 'yield_unit' | 'allergens'>;
   itemName: string;
 };
 
@@ -21,7 +21,7 @@ export async function fetchPrepBoard(
 ): Promise<PrepBoardEntry[]> {
   const result = await client
     .from('prep_batches')
-    .select('*, recipe:recipes(id, menu_item_id, version, yield_qty, yield_unit, allergens, menu_items(name))')
+    .select('*, recipe:recipes(id, menu_item_id, version, steps, yield_qty, yield_unit, allergens, menu_items(name))')
     .eq('location_id', locationId)
     .eq('service_date', serviceDate)
     .order('status')
@@ -32,6 +32,18 @@ export async function fetchPrepBoard(
     recipe: row.recipe,
     itemName: row.recipe?.menu_items?.name ?? 'Unnamed item',
   }));
+}
+
+/** Applies a Realtime batch row without discarding its joined recipe metadata. */
+export function mergePrepBoardEntry(
+  entries: readonly PrepBoardEntry[],
+  row: PrepBatchRow,
+): PrepBoardEntry[] {
+  const index = entries.findIndex((entry) => entry.id === row.id);
+  if (index < 0) return [...entries];
+  const next = [...entries];
+  next[index] = { ...next[index]!, ...row };
+  return next;
 }
 
 /**
@@ -70,7 +82,7 @@ export function batchScale(recipe: Pick<RecipeRow, 'yield_qty'>, targetQty: numb
 export function subscribeToPrepBatches(
   client: SupabaseClient | null,
   locationId: string,
-  onChange: (batch: PrepBatchRow) => void,
+  onChange: () => void,
 ): () => void {
   if (!client) return () => {};
   const channel = client
@@ -78,10 +90,7 @@ export function subscribeToPrepBatches(
     .on(
       'postgres_changes',
       { event: '*', schema: 'public', table: 'prep_batches', filter: `location_id=eq.${locationId}` },
-      (payload) => {
-        const row = payload.new as PrepBatchRow | null;
-        if (row && typeof row.id === 'string') onChange(row);
-      },
+      onChange,
     )
     .subscribe();
   return () => {

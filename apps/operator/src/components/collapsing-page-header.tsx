@@ -12,7 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppIcon } from '@/components/icon';
 import { useReducedMotion } from '@/hooks/use-reduced-motion';
-import { colors, fonts, radius, spacing } from '@/theme/tokens';
+import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 /**
  * A tab header that follows the iOS large-title pattern: the title starts
@@ -33,12 +33,12 @@ export function CollapsingPageHeader({
   backLabel = 'More',
   actions,
   scrollY,
-  backgroundColor = colors.surface,
+  backgroundColor,
   expandedHeight,
   compactHeight = 56,
-  foregroundColor = colors.ink900,
-  accentColor = colors.brand700,
-  borderColor = colors.ink200,
+  foregroundColor,
+  accentColor,
+  borderColor,
   titleStyle,
   flush = false,
 }: {
@@ -59,6 +59,12 @@ export function CollapsingPageHeader({
   /** Use when the parent ScrollView is already edge-to-edge instead of padded. */
   flush?: boolean;
 }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
+  backgroundColor ??= tokens.surface;
+  foregroundColor ??= tokens.textPrimary;
+  accentColor ??= tokens.primary;
+  borderColor ??= tokens.secondary;
   const insets = useSafeAreaInsets();
   const reducedMotion = useReducedMotion();
   const resolvedExpandedHeight = expandedHeight ?? (eyebrow || onBack ? 132 : 104);
@@ -142,11 +148,11 @@ export function CollapsingPageHeader({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (tokens: BrandTokens) => StyleSheet.create({
   container: {
     position: 'relative',
     overflow: 'hidden',
-    marginHorizontal: -spacing.lg,
+    marginHorizontal: -tokens.spacing.xl,
     borderBottomWidth: 1,
     justifyContent: 'flex-end',
     zIndex: 20,
@@ -155,14 +161,14 @@ const styles = StyleSheet.create({
   containerFlush: { marginHorizontal: 0 },
   largeTitleRow: {
     position: 'absolute',
-    left: spacing.lg,
-    right: spacing.lg,
-    bottom: spacing.md,
+    left: tokens.spacing.xl,
+    right: tokens.spacing.xl,
+    bottom: tokens.spacing.lg,
     gap: 2,
   },
   largeTitleWithActions: { paddingRight: 136 },
   largeTitle: {
-    fontFamily: fonts.display,
+    fontFamily: tokens.fontDisplay,
     fontSize: 36,
     lineHeight: 42,
     letterSpacing: -1,
@@ -177,9 +183,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  compactTitle: { width: '100%', textAlign: 'center', fontFamily: fonts.sansBold, fontSize: 17 },
+  compactTitle: { width: '100%', textAlign: 'center', fontFamily: tokens.fontBody, fontSize: 17 },
   eyebrow: {
-    fontFamily: fonts.sansBold,
+    fontFamily: tokens.fontBody,
     fontSize: 11,
     letterSpacing: 1.7,
     lineHeight: 16,
@@ -187,26 +193,26 @@ const styles = StyleSheet.create({
   },
   backButton: {
     position: 'absolute',
-    left: spacing.sm,
+    left: tokens.spacing.md,
     zIndex: 4,
     minWidth: 44,
     maxWidth: 108,
     height: 56,
-    borderRadius: radius.pill,
+    borderRadius: tokens.radius.pill,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: tokens.spacing.md,
   },
-  backLabel: { flexShrink: 1, fontFamily: fonts.sansMedium, fontSize: 16 },
+  backLabel: { flexShrink: 1, fontFamily: tokens.fontBody, fontSize: 16 },
   actions: {
     position: 'absolute',
-    right: spacing.md,
+    right: tokens.spacing.lg,
     height: 56,
     zIndex: 2,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: tokens.spacing.md,
   },
   pressed: { opacity: 0.58 },
 });

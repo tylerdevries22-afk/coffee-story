@@ -6,9 +6,11 @@ import { Body, Button, Card, PillRow, SectionTitle } from '@/components/ui';
 import { NATIVE_ADMIN_PAGES } from '@/features/admin/admin-pages/content';
 import { workspaceTone } from '@/features/staff/workspace';
 import { useAuth } from '@/state/auth-context';
-import { colors, fonts, radius, spacing } from '@/theme/tokens';
+import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 export function Metric({ label, value }: { label: string; value: string }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   return <View style={styles.metric}><Text style={styles.metricValue}>{value}</Text><Text style={styles.metricLabel}>{label}</Text></View>;
 }
 
@@ -21,6 +23,8 @@ export function NativeAdminPage({
   isDemo: boolean;
   onBack: () => void;
 }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const config = NATIVE_ADMIN_PAGES[path];
   const { role } = useAuth();
   const tone = workspaceTone(role);
@@ -84,7 +88,7 @@ export function NativeAdminPage({
             onChangeText={setNotes}
             multiline
             placeholder="Add optional notes"
-            placeholderTextColor={colors.ink400}
+            placeholderTextColor={tokens.textMuted}
             style={styles.workflowInput}
           />
           <Button
@@ -104,52 +108,52 @@ export function NativeAdminPage({
   );
 }
 
-export const styles = StyleSheet.create({
+export const createStyles = (tokens: BrandTokens) => StyleSheet.create({
   shell: { flex: 1 },
-  metrics: { flexDirection: 'row', gap: spacing.sm },
-  metric: { flex: 1, minHeight: 92, borderRadius: radius.md, backgroundColor: colors.brand50, alignItems: 'center', justifyContent: 'center' },
-  metricValue: { color: colors.ink900, fontFamily: fonts.display, fontSize: 28 },
-  metricLabel: { color: colors.ink500, fontFamily: fonts.sansMedium, fontSize: 11 },
-  nextCard: { backgroundColor: colors.brand700, gap: spacing.sm },
-  nextTime: { color: colors.brand200, fontFamily: fonts.sansBold, fontSize: 13 },
-  nextName: { color: colors.white, fontFamily: fonts.display, fontSize: 28 },
-  actions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
+  metrics: { flexDirection: 'row', gap: tokens.spacing.md },
+  metric: { flex: 1, minHeight: 92, borderRadius: tokens.radius.lg, backgroundColor: tokens.surface, alignItems: 'center', justifyContent: 'center' },
+  metricValue: { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: 28 },
+  metricLabel: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 11 },
+  nextCard: { backgroundColor: tokens.primary, gap: tokens.spacing.md },
+  nextTime: { color: tokens.surface, fontFamily: tokens.fontBody, fontSize: 13 },
+  nextName: { color: tokens.surfaceElevated, fontFamily: tokens.fontDisplay, fontSize: 28 },
+  actions: { flexDirection: 'row', gap: tokens.spacing.md, marginTop: tokens.spacing.md },
   actionButton: { flex: 1, minHeight: 46 },
-  scheduleRow: { minHeight: 82, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.ink200 },
-  scheduleTime: { width: 48, color: colors.ink700, fontFamily: fonts.sansBold, fontSize: 13 },
-  timelineDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.brand500 },
+  scheduleRow: { minHeight: 82, flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.md, borderBottomWidth: 1, borderBottomColor: tokens.secondary },
+  scheduleTime: { width: 48, color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 13 },
+  timelineDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: tokens.secondary },
   scheduleCopy: { flex: 1 },
-  scheduleName: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 15 },
-  scheduleService: { color: colors.ink500, fontFamily: fonts.sans, fontSize: 12, marginTop: 3 },
-  status: { color: colors.success, fontFamily: fonts.sansBold, fontSize: 10, padding: 7, borderRadius: radius.pill, backgroundColor: colors.brand50 },
-  statusWarning: { color: colors.warning, backgroundColor: colors.gold50 },
+  scheduleName: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 15 },
+  scheduleService: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 12, marginTop: 3 },
+  status: { color: tokens.success, fontFamily: tokens.fontBody, fontSize: 10, padding: 7, borderRadius: tokens.radius.pill, backgroundColor: tokens.surface },
+  statusWarning: { color: tokens.warning, backgroundColor: tokens.surface },
   weekdays: { flexDirection: 'row' },
-  weekday: { width: '14.285%', textAlign: 'center', color: colors.ink500, fontFamily: fonts.sansBold, fontSize: 12 },
+  weekday: { width: '14.285%', textAlign: 'center', color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 12 },
   calendarGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 0 },
   day: { width: '14.285%', aspectRatio: 1, alignItems: 'center', justifyContent: 'center', gap: 3 },
-  dayActive: { backgroundColor: colors.brand600, borderRadius: radius.pill },
-  dayText: { color: colors.ink700, fontFamily: fonts.sansMedium, fontSize: 14 },
-  dayTextActive: { color: colors.white, fontFamily: fonts.sansBold },
-  dayDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: colors.gold500 },
-  search: { minHeight: 54, borderRadius: radius.pill, backgroundColor: colors.brand50, paddingHorizontal: spacing.lg, color: colors.ink900, fontFamily: fonts.sans, fontSize: 15 },
-  clientCard: { backgroundColor: colors.brand700 },
-  checkoutItem: { minHeight: 66, borderRadius: radius.md, borderWidth: 1, borderColor: colors.ink200, paddingHorizontal: spacing.md, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  checkoutList: { gap: spacing.sm },
-  checkoutItemActive: { backgroundColor: colors.brand50, borderColor: colors.brand600 },
-  checkoutPrice: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 15 },
-  receipt: { gap: spacing.md },
+  dayActive: { backgroundColor: tokens.primary, borderRadius: tokens.radius.pill },
+  dayText: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 14 },
+  dayTextActive: { color: tokens.surfaceElevated, fontFamily: tokens.fontBody },
+  dayDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: tokens.accent },
+  search: { minHeight: 54, borderRadius: tokens.radius.pill, backgroundColor: tokens.surface, paddingHorizontal: tokens.spacing.xl, color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 15 },
+  clientCard: { backgroundColor: tokens.primary },
+  checkoutItem: { minHeight: 66, borderRadius: tokens.radius.lg, borderWidth: 1, borderColor: tokens.secondary, paddingHorizontal: tokens.spacing.lg, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  checkoutList: { gap: tokens.spacing.md },
+  checkoutItemActive: { backgroundColor: tokens.surface, borderColor: tokens.primary },
+  checkoutPrice: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 15 },
+  receipt: { gap: tokens.spacing.lg },
   receiptRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  receiptText: { color: colors.ink700, fontFamily: fonts.sans, fontSize: 14 },
-  receiptBold: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 18 },
-  receiptRule: { height: 1, backgroundColor: colors.ink200 },
-  amounts: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  tipChoice: { minHeight: 46, minWidth: 72, paddingHorizontal: spacing.md, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.ink200, borderRadius: radius.pill },
-  success: { color: colors.success, fontFamily: fonts.sansBold, fontSize: 13 },
-  notice: { color: colors.success, fontFamily: fonts.sansBold, fontSize: 13, lineHeight: 19 },
-  detailCard: { gap: spacing.sm },
+  receiptText: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 14 },
+  receiptBold: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 18 },
+  receiptRule: { height: 1, backgroundColor: tokens.secondary },
+  amounts: { flexDirection: 'row', flexWrap: 'wrap', gap: tokens.spacing.md },
+  tipChoice: { minHeight: 46, minWidth: 72, paddingHorizontal: tokens.spacing.lg, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: tokens.secondary, borderRadius: tokens.radius.pill },
+  success: { color: tokens.success, fontFamily: tokens.fontBody, fontSize: 13 },
+  notice: { color: tokens.success, fontFamily: tokens.fontBody, fontSize: 13, lineHeight: 19 },
+  detailCard: { gap: tokens.spacing.md },
   noteRow: { gap: 2 },
-  detailHeading: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 18 },
-  workflowCard: { gap: spacing.md },
-  workflowInput: { minHeight: 96, borderRadius: radius.md, borderWidth: 1, borderColor: colors.ink300, padding: spacing.md, color: colors.ink900, fontFamily: fonts.sans, fontSize: 15, backgroundColor: colors.white, textAlignVertical: 'top' },
+  detailHeading: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 18 },
+  workflowCard: { gap: tokens.spacing.lg },
+  workflowInput: { minHeight: 96, borderRadius: tokens.radius.lg, borderWidth: 1, borderColor: tokens.textMuted, padding: tokens.spacing.lg, color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 15, backgroundColor: tokens.surfaceElevated, textAlignVertical: 'top' },
   pressed: { opacity: 0.72, transform: [{ scale: 0.98 }] },
 });

@@ -1,0 +1,14 @@
+{
+  "name": "@platform/web-config",
+  "version": "0.1.0",
+  "private": true,
+  "main": "src/security-headers.ts",
+  "types": "src/security-headers.ts",
+  "exports": { ".": "./src/security-headers.ts" },
+  "scripts": {
+    "lint": "eslint src --max-warnings=0",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test \"src/**/*.test.ts\"",
+    "verify": "pnpm lint && pnpm typecheck && pnpm test"
+  }
+}

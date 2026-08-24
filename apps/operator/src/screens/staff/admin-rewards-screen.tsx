@@ -5,7 +5,7 @@ import { Body, Card } from '@/components/ui';
 import { REWARD_TIERS, pointsForPurchase } from '@platform/domain';
 import { workspaceTone } from '@/features/staff/workspace';
 import { useAuth } from '@/state/auth-context';
-import { colors, fonts, spacing } from '@/theme/tokens';
+import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 /**
  * Read-only: the ladder is authored on the web admin, which is where reordering
@@ -40,6 +40,8 @@ const QUALIFYING: readonly { label: string; earns: boolean }[] = [
 ];
 
 function Row({ label, value }: { label: string; value: string }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   return (
     <View style={styles.row}>
       <Text style={styles.rowLabel}>{label}</Text>
@@ -49,6 +51,8 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 export function AdminRewardsScreen({ onBack }: { onBack: () => void }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const { role } = useAuth();
   // The bundled ladder is the truth until brand_config carries tiers (the
   // white-label sweep); the legacy portal endpoint this used to poll is gone.
@@ -101,22 +105,22 @@ export function AdminRewardsScreen({ onBack }: { onBack: () => void }) {
   );
 }
 
-const styles = StyleSheet.create({
-  card: { gap: spacing.sm },
-  heading: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 16 },
-  tier: { gap: 2, paddingTop: spacing.sm, borderTopWidth: 1, borderTopColor: 'rgba(70,48,78,0.12)' },
-  tierHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
-  tierName: { color: colors.ink900, fontFamily: fonts.sansMedium, fontSize: 15 },
-  tierRate: { color: colors.ink700, fontFamily: fonts.sansBold, fontSize: 13 },
+const createStyles = (tokens: BrandTokens) => StyleSheet.create({
+  card: { gap: tokens.spacing.md },
+  heading: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 16 },
+  tier: { gap: 2, paddingTop: tokens.spacing.md, borderTopWidth: 1, borderTopColor: 'rgba(70,48,78,0.12)' },
+  tierHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: tokens.spacing.md },
+  tierName: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 15 },
+  tierRate: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 13 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: spacing.sm,
-    paddingTop: spacing.sm,
+    gap: tokens.spacing.md,
+    paddingTop: tokens.spacing.md,
     borderTopWidth: 1,
     borderTopColor: 'rgba(70,48,78,0.12)',
   },
-  rowLabel: { flex: 1, color: colors.ink900, fontFamily: fonts.sansMedium, fontSize: 15 },
-  rowValue: { color: colors.ink700, fontFamily: fonts.sans, fontSize: 14 },
+  rowLabel: { flex: 1, color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 15 },
+  rowValue: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 14 },
 });

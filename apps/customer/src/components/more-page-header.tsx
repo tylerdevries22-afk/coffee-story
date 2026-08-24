@@ -2,9 +2,9 @@ import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Eyebrow } from '@/components/ui';
-import { colors, fonts, spacing } from '@/theme/tokens';
 import { AppIcon, type AppIconName } from '@/components/icon';
-import { toggleState } from '@/lib/a11y-state';
+import { toggleState } from '@platform/ui';
+import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 type SymbolName = AppIconName;
 
@@ -26,6 +26,8 @@ export function MorePageHeader({
   /** Replaces the eyebrow, for headers that need a control rather than a label. */
   leading?: ReactNode;
 }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   return (
     <View style={styles.header}>
       {leading ?? <Eyebrow>{eyebrow}</Eyebrow>}
@@ -52,6 +54,8 @@ export function HeaderIconButton({
   badge?: number;
   onPress: () => void;
 }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const button = (
     <Pressable
       accessibilityRole="button"
@@ -64,7 +68,7 @@ export function HeaderIconButton({
         pressed && styles.pressed,
       ]}
     >
-      <AppIcon name={symbol} size={20} tintColor={colors.brand700} />
+      <AppIcon name={symbol} size={20} tintColor={tokens.primary} />
     </Pressable>
   );
   if (!badge) return button;
@@ -78,17 +82,17 @@ export function HeaderIconButton({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (tokens: BrandTokens) => StyleSheet.create({
   header: {
     minHeight: 46,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: spacing.sm,
+    gap: tokens.spacing.md,
   },
-  actions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexShrink: 1 },
-  iconButton: { width: 46, height: 46, borderRadius: 23, borderWidth: 1, borderColor: colors.brand200, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
-  iconButtonSelected: { borderColor: colors.brand400, backgroundColor: colors.brand50 },
+  actions: { flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.md, flexShrink: 1 },
+  iconButton: { width: 46, height: 46, borderRadius: 23, borderWidth: 1, borderColor: tokens.surface, backgroundColor: tokens.surfaceElevated, alignItems: 'center', justifyContent: 'center' },
+  iconButtonSelected: { borderColor: tokens.secondary, backgroundColor: tokens.surface },
   badge: {
     position: 'absolute',
     top: -3,
@@ -98,10 +102,10 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.danger,
+    backgroundColor: tokens.danger,
     borderWidth: 2,
-    borderColor: colors.white,
+    borderColor: tokens.surfaceElevated,
   },
-  badgeText: { color: colors.white, fontFamily: fonts.sansBold, fontSize: 10 },
+  badgeText: { color: tokens.surfaceElevated, fontFamily: tokens.fontBody, fontSize: 10 },
   pressed: { opacity: 0.75 },
 });

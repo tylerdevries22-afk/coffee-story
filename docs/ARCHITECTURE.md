@@ -1,39 +1,49 @@
 # Architecture
 
-A multi-tenant, white-label ordering platform: one schema, one engine, three
-front ends, tenants as data (and one folder of config each).
+A multi-tenant, white-label ordering platform: one schema, one engine, five
+store/customer surfaces plus HQ, and tenants represented as data.
 
 ```mermaid
 flowchart LR
   subgraph Tenant devices
     C[apps/customer\nExpo, one binary per brand]
-    O[apps/operator\nExpo, iPad-first, one listing]
+    K[apps/kiosk\nExpo, paired lobby device]
+    D[apps/display\nNext.js, read-only board]
+    O[apps/operator\nExpo, operator + prep + crew]
   end
   H[apps/hq\nNext.js console]
   subgraph Server
+    A[HQ API routes\nauthenticated + idempotent]
     E[packages/engine\norders, fees, loyalty,\nnotifications, jobs]
-    W[hq API routes\nSquare OAuth + webhooks]
+    W[Square webhook route\nsignature + replay guard]
   end
   DB[(Supabase Postgres\npackages/schema\nRLS on every table)]
   SQ[Square\nOAuth, Orders,\nPayments, Refunds, Webhooks]
   N[Expo Push / Twilio / Resend]
 
-  C -->|anon + RLS| DB
+  C -->|guest JWT + RLS| DB
+  K -->|device JWT + narrow reads| DB
+  D -->|device JWT + board view| DB
   O -->|staff JWT + RLS| DB
   H -->|role-gated| DB
-  C -->|place order| E
+  C -->|trusted writes| A
+  K -->|place order| A
+  O -->|refund request| A
+  A --> E
   E -->|service role| DB
   E --> SQ
   SQ -->|webhooks| W
   W -->|order_events\nidempotent on event id| DB
-  DB -->|Realtime\norder_events inserts| C
-  DB -->|Realtime| O
+  DB -->|Realtime\norders + storefront signals| C
+  DB -->|Realtime\norders, menu, prep + settings| O
+  DB -->|revision signals| K
+  DB -->|revision signals| D
   E --> N
 ```
 
 ## Data flow: one order, end to end
 
-1. The guest builds a cart in `apps/customer` (pure modules: options, cart,
+1. The guest builds a cart in `apps/customer` or `apps/kiosk` (pure modules: options, cart,
    totals with per-jurisdiction tax rows, tip, loyalty redemption, stored
    value). Money is integer cents everywhere.
 2. Checkout calls the engine's `placeOrder`: an `orders` row (status
@@ -50,12 +60,14 @@ flowchart LR
    verified, mapped to a state, appended idempotently on
    `square_event_id UNIQUE` (a replay dies at the constraint). Refunds also
    reverse the loyalty earn proportionally.
-5. Supabase Realtime fans `order_events` inserts out: the customer app's
-   tracking timeline and the operator's board both re-render from the same
-   events. RLS decides who receives which rows.
-6. The operator advances orders from the board; changes ride an offline
-   queue that reconciles against server state on reconnect (illegal moves are
-   dropped and surfaced, not replayed).
+5. Supabase Realtime fans the projected `orders` row to the customer tracker
+   and location-scoped operator board. Menu and prep rows have their own
+   subscriptions. Public screens that must not receive a source row subscribe
+   to payload-free revision tables, then reconcile through their narrow read.
+   RLS decides who receives each change.
+6. The operator advances orders from the board; changes ride a location-keyed,
+   persistent offline queue that reconciles against server state on reconnect
+   (illegal moves are dropped and surfaced, not replayed).
 
 ## Tenancy
 
@@ -73,9 +85,13 @@ encrypted at rest besides.
   for offline cold starts); `app.config.ts` reads the same file at build time
   for bundle id, scheme, and store identity. One binary per brand.
 - **Operator**: one listing; tenancy by login. The board is the first tab.
+- **Kiosk**: one paired binary. Device posture and tenant flow determine lobby
+  versus attended behavior; menu and ordering are live after pairing.
+- **Pickup display**: one read-only board per paired location. It can subscribe
+  only to payload-free revisions and reconcile through the display-safe view.
 - **HQ**: role-gated console; the platform-fees report is `platform_admin`
-  only. Renders fully on fixtures with zero infrastructure so every page is
-  reviewable before credentials exist.
+  only. Demo mode remains reviewable without infrastructure; a configured
+  console reads and writes hosted tenant state.
 
 ## Jobs
 

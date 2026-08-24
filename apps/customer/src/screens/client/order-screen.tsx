@@ -37,7 +37,7 @@ import { TENANT_TAX_JURISDICTIONS, tenantFeature } from '@/tenant';
 import { newIdempotencyKey } from '@platform/api-client';
 import { subscribeToOrderStatus } from '@platform/data';
 import type { OrderStatus } from '@platform/schema';
-import { choiceState, disabledState } from '@/lib/a11y-state';
+import { choiceState, disabledState } from '@platform/ui';
 import { platformApi } from '@/lib/api';
 import { liveOrderContext } from '@/lib/live-portal';
 import { usesSimulatedNativeFlows } from '@/lib/native-adapters';
@@ -47,13 +47,13 @@ import { useAuth } from '@/state/auth-context';
 import { useDemo } from '@/state/demo-context';
 import { useOrder } from '@/state/order-context';
 import { useReducedMotion } from '@/hooks/use-reduced-motion';
-import { colors, fonts, radius, shadow, spacing } from '@/theme/tokens';
 
 import { BagStep, NoteStep } from './order/bag-step';
 import { CheckoutStep, type CheckoutPaymentMethod } from './order/checkout-step';
 import { PlaceStep, DetailsStep } from './order/fulfillment-steps';
 import { ItemSheet } from './order/item-sheet';
 import { MenuStep } from './order/menu-step';
+import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 type SetupStep = 'hub' | 'place' | 'details' | 'menu';
 type Overlay = 'none' | 'bag' | 'note' | 'checkout' | 'placed';
@@ -476,6 +476,8 @@ function OrderHub({
   onOpenRewards: () => void;
   pointsPerDollar: number;
 }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const { width } = useWindowDimensions();
   const compact = width < 360;
 
@@ -484,8 +486,8 @@ function OrderHub({
       title="Start an Order"
       keyboardShouldPersistTaps="handled"
       style={styles.page}
-      headerBackgroundColor={colors.brand200}
-      headerBorderColor={colors.brand200}
+      headerBackgroundColor={tokens.surface}
+      headerBorderColor={tokens.surface}
       contentContainerStyle={[styles.content, compact && styles.contentCompact]}
     >
       <View accessibilityRole="radiogroup" style={[styles.modeRow, compact && styles.modeRowCompact]}>
@@ -532,7 +534,7 @@ function OrderHub({
           </Text>
         </View>
         <View style={styles.promoMark}>
-          <AppIcon name="cup.and.saucer.fill" size={28} tintColor={colors.brand700} />
+          <AppIcon name="cup.and.saucer.fill" size={28} tintColor={tokens.primary} />
         </View>
       </Pressable>
 
@@ -552,6 +554,8 @@ function HubRow({
   detail: string;
   onPress: () => void;
 }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   return (
     <Pressable
       accessibilityRole="button"
@@ -563,13 +567,13 @@ function HubRow({
       style={({ pressed }) => [styles.hubRow, pressed && styles.cardPressed]}
     >
       <View style={styles.hubIcon}>
-        <AppIcon name={icon} size={22} tintColor={colors.brand700} />
+        <AppIcon name={icon} size={22} tintColor={tokens.primary} />
       </View>
       <View style={styles.hubCopy}>
         <Text style={styles.hubTitle}>{title}</Text>
         <Text style={styles.hubDetail}>{detail}</Text>
       </View>
-      <AppIcon name="chevron.right" size={18} tintColor={colors.ink500} />
+      <AppIcon name="chevron.right" size={18} tintColor={tokens.textMuted} />
     </Pressable>
   );
 }
@@ -583,6 +587,8 @@ type ModeCardProps = {
 };
 
 function ModeCard({ mode, label, compact, selected, onPress }: ModeCardProps) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   return (
     <Pressable
       accessibilityRole="radio"
@@ -631,6 +637,8 @@ function useIdleLoop(durationMs: number, restingValue: number) {
 }
 
 function DispatchIllustration({ active, compact }: { active: boolean; compact: boolean }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const progress = useIdleLoop(2400, 0.55);
   const carStyle = {
     opacity: active ? 1 : 0.72,
@@ -645,13 +653,15 @@ function DispatchIllustration({ active, compact }: { active: boolean; compact: b
       <View style={[styles.routePin, styles.routePinStart]} />
       <View style={[styles.routePin, styles.routePinEnd]} />
       <Animated.View style={[styles.car, carStyle]}>
-        <AppIcon name="car.side.fill" size={compact ? 46 : 54} tintColor={colors.brand700} />
+        <AppIcon name="car.side.fill" size={compact ? 46 : 54} tintColor={tokens.primary} />
       </Animated.View>
     </View>
   );
 }
 
 function ShopIllustration({ active, compact }: { active: boolean; compact: boolean }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const progress = useIdleLoop(2000, 0);
   const steamStyle = {
     opacity: active ? 1 : 0.8,
@@ -663,7 +673,7 @@ function ShopIllustration({ active, compact }: { active: boolean; compact: boole
   return (
     <View style={[styles.illustration, compact && styles.illustrationCompact]}>
       <Animated.View style={[styles.shopSign, compact && styles.shopSignCompact, active && styles.shopSignActive, steamStyle]}>
-        <AppIcon name="cup.and.saucer.fill" size={24} tintColor={colors.brand700} />
+        <AppIcon name="cup.and.saucer.fill" size={24} tintColor={tokens.primary} />
       </Animated.View>
       <View style={[styles.shopBuilding, compact && styles.shopBuildingCompact, active && styles.shopBuildingActive]}>
         <View style={styles.shopRoof} />
@@ -701,6 +711,8 @@ function OrderPlaced({
   onViewVisits: () => void;
   onDone: () => void;
 }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const window = describePickupWindow(windowValue, new Date());
   // A live order streams rule-2's states over Realtime; the demo shop makes
   // the drink in front of you on believable delays. Both render the same
@@ -737,13 +749,13 @@ function OrderPlaced({
       onBack={onDone}
       backLabel="Order"
       style={styles.page}
-      headerBackgroundColor={colors.brand200}
-      headerBorderColor={colors.brand200}
+      headerBackgroundColor={tokens.surface}
+      headerBorderColor={tokens.surface}
       contentContainerStyle={styles.content}
     >
       <View style={styles.placedCard}>
         <View style={styles.placedMark}>
-          <AppIcon name="checkmark" size={26} tintColor={colors.white} weight="bold" />
+          <AppIcon name="checkmark" size={26} tintColor={tokens.surfaceElevated} weight="bold" />
         </View>
         <Text style={styles.placedTitle}>
           {isDelivery ? 'On its way' : 'We’ll have it ready'}
@@ -806,86 +818,86 @@ function OrderPlaced({
         style={({ pressed }) => [styles.hubRow, pressed && styles.cardPressed]}
       >
         <View style={styles.hubIcon}>
-          <AppIcon name="clock" size={22} tintColor={colors.brand700} />
+          <AppIcon name="clock" size={22} tintColor={tokens.primary} />
         </View>
         <View style={styles.hubCopy}>
           <Text style={styles.hubTitle}>See your orders</Text>
           <Text style={styles.hubDetail}>Every order you have placed, with its status.</Text>
         </View>
-        <AppIcon name="chevron.right" size={18} tintColor={colors.ink500} />
+        <AppIcon name="chevron.right" size={18} tintColor={tokens.textMuted} />
       </Pressable>
     </CollapsingScreen>
   );
 }
 
-const styles = StyleSheet.create({
-  cancelBlock: { marginHorizontal: spacing.lg, gap: spacing.xs },
+const createStyles = (tokens: BrandTokens) => StyleSheet.create({
+  cancelBlock: { marginHorizontal: tokens.spacing.xl, gap: tokens.spacing.sm },
   cancelRow: {
-    borderRadius: radius.md,
+    borderRadius: tokens.radius.lg,
     borderWidth: 1,
-    borderColor: colors.ink200,
-    backgroundColor: colors.white,
-    paddingVertical: spacing.md,
+    borderColor: tokens.secondary,
+    backgroundColor: tokens.surfaceElevated,
+    paddingVertical: tokens.spacing.lg,
     alignItems: 'center',
   },
-  cancelText: { color: colors.danger, fontFamily: fonts.sansMedium, fontSize: 15 },
-  cancelNote: { color: colors.ink500, fontFamily: fonts.sans, fontSize: 13, textAlign: 'center' },
-  cancelError: { color: colors.danger, fontFamily: fonts.sans, fontSize: 13, textAlign: 'center' },
+  cancelText: { color: tokens.danger, fontFamily: tokens.fontBody, fontSize: 15 },
+  cancelNote: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 13, textAlign: 'center' },
+  cancelError: { color: tokens.danger, fontFamily: tokens.fontBody, fontSize: 13, textAlign: 'center' },
   trackCard: {
-    marginHorizontal: spacing.lg,
-    borderRadius: radius.md,
-    backgroundColor: colors.white,
-    padding: spacing.lg,
-    gap: spacing.md,
+    marginHorizontal: tokens.spacing.xl,
+    borderRadius: tokens.radius.lg,
+    backgroundColor: tokens.surfaceElevated,
+    padding: tokens.spacing.xl,
+    gap: tokens.spacing.lg,
   },
-  trackRow: { flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start' },
+  trackRow: { flexDirection: 'row', gap: tokens.spacing.lg, alignItems: 'flex-start' },
   trackDot: {
     width: 12,
     height: 12,
     borderRadius: 6,
     marginTop: 3,
-    backgroundColor: colors.ink200,
+    backgroundColor: tokens.secondary,
   },
-  trackDotReached: { backgroundColor: colors.success },
-  trackDotCurrent: { borderWidth: 3, borderColor: colors.brand200, width: 16, height: 16, borderRadius: 8, marginTop: 1 },
+  trackDotReached: { backgroundColor: tokens.success },
+  trackDotCurrent: { borderWidth: 3, borderColor: tokens.surface, width: 16, height: 16, borderRadius: 8, marginTop: 1 },
   trackCopy: { flex: 1, gap: 2 },
-  trackTitle: { color: colors.ink900, fontFamily: fonts.sansMedium, fontSize: 15 },
-  trackMuted: { color: colors.ink500 },
-  trackDetail: { color: colors.ink600, fontFamily: fonts.sans, fontSize: 13 },
-  page: { backgroundColor: colors.brand200 },
-  content: { gap: spacing.lg },
-  contentCompact: { paddingHorizontal: spacing.md, gap: spacing.md },
+  trackTitle: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 15 },
+  trackMuted: { color: tokens.textMuted },
+  trackDetail: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 13 },
+  page: { backgroundColor: tokens.surface },
+  content: { gap: tokens.spacing.xl },
+  contentCompact: { paddingHorizontal: tokens.spacing.lg, gap: tokens.spacing.lg },
   cardPressed: { transform: [{ scale: 0.975 }] },
 
-  modeRow: { flexDirection: 'row', gap: spacing.md },
-  modeRowCompact: { gap: spacing.sm },
+  modeRow: { flexDirection: 'row', gap: tokens.spacing.lg },
+  modeRowCompact: { gap: tokens.spacing.md },
   modeCard: {
     flex: 1,
     minHeight: 238,
-    borderRadius: radius.lg,
+    borderRadius: tokens.radius.lg,
     borderWidth: 2,
-    borderColor: colors.white,
-    backgroundColor: colors.white,
-    padding: spacing.md,
+    borderColor: tokens.surfaceElevated,
+    backgroundColor: tokens.surfaceElevated,
+    padding: tokens.spacing.lg,
     alignItems: 'center',
     justifyContent: 'space-between',
-    ...shadow.card,
+    shadowColor: tokens.textPrimary, shadowOffset: { width: 0, height: 8 }, shadowOpacity: tokens.elevation.card, shadowRadius: 24, elevation: 5,
   },
-  modeCardCompact: { minHeight: 206, borderRadius: radius.md, padding: spacing.sm },
-  modeCardSelected: { borderColor: colors.brand700, backgroundColor: colors.warm },
-  modeLabel: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 22, lineHeight: 28 },
+  modeCardCompact: { minHeight: 206, borderRadius: tokens.radius.lg, padding: tokens.spacing.md },
+  modeCardSelected: { borderColor: tokens.primary, backgroundColor: tokens.surface },
+  modeLabel: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 22, lineHeight: 28 },
   modeLabelCompact: { fontSize: 19, lineHeight: 24 },
 
   hubRow: {
     minHeight: 76,
-    borderRadius: radius.lg,
+    borderRadius: tokens.radius.lg,
     borderWidth: 1,
-    borderColor: colors.brand100,
-    backgroundColor: colors.brand50,
-    paddingHorizontal: spacing.md,
+    borderColor: tokens.surface,
+    backgroundColor: tokens.surface,
+    paddingHorizontal: tokens.spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
+    gap: tokens.spacing.lg,
   },
   hubIcon: {
     width: 44,
@@ -893,41 +905,41 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.gold50,
+    backgroundColor: tokens.surface,
     borderWidth: 1,
-    borderColor: colors.gold300,
+    borderColor: tokens.accent,
   },
   hubCopy: { flex: 1, gap: 3 },
-  hubTitle: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 16 },
-  hubDetail: { color: colors.ink600, fontFamily: fonts.sans, fontSize: 12, lineHeight: 17 },
+  hubTitle: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 16 },
+  hubDetail: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 12, lineHeight: 17 },
 
   promo: {
     minHeight: 104,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
-    padding: spacing.md,
-    borderRadius: radius.lg,
-    backgroundColor: colors.gold50,
+    gap: tokens.spacing.lg,
+    padding: tokens.spacing.lg,
+    borderRadius: tokens.radius.lg,
+    backgroundColor: tokens.surface,
     borderWidth: 1,
-    borderColor: colors.gold300,
+    borderColor: tokens.accent,
   },
   promoCopy: { flex: 1, gap: 4 },
-  promoTitle: { color: colors.ink900, fontFamily: fonts.display, fontSize: 22, lineHeight: 26 },
-  promoDetail: { color: colors.ink700, fontFamily: fonts.sans, fontSize: 13, lineHeight: 18 },
+  promoTitle: { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: 22, lineHeight: 26 },
+  promoDetail: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 13, lineHeight: 18 },
   promoMark: {
     width: 56,
     height: 56,
     borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.white,
+    backgroundColor: tokens.surfaceElevated,
   },
 
   illustration: { flex: 1, width: '100%', minHeight: 154, alignItems: 'center', justifyContent: 'center' },
   illustrationCompact: { minHeight: 132 },
-  routeLine: { position: 'absolute', left: 14, right: 14, top: '58%', height: 2, backgroundColor: colors.brand200 },
-  routePin: { position: 'absolute', top: '54%', width: 10, height: 10, borderRadius: 5, backgroundColor: colors.brand500 },
+  routeLine: { position: 'absolute', left: 14, right: 14, top: '58%', height: 2, backgroundColor: tokens.surface },
+  routePin: { position: 'absolute', top: '54%', width: 10, height: 10, borderRadius: 5, backgroundColor: tokens.secondary },
   routePinStart: { left: 12 },
   routePinEnd: { right: 12 },
   car: { width: 72, height: 58, alignItems: 'center', justifyContent: 'center' },
@@ -937,49 +949,49 @@ const styles = StyleSheet.create({
     borderRadius: 27,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.gold50,
+    backgroundColor: tokens.surface,
     borderWidth: 1,
-    borderColor: colors.gold300,
+    borderColor: tokens.accent,
     marginBottom: -8,
   },
   shopSignCompact: { width: 46, height: 46, borderRadius: 23 },
-  shopSignActive: { backgroundColor: colors.brand100, borderColor: colors.brand500 },
+  shopSignActive: { backgroundColor: tokens.surface, borderColor: tokens.secondary },
   shopBuilding: {
     width: 124,
     minHeight: 94,
     borderWidth: 2,
-    borderColor: colors.ink900,
-    backgroundColor: colors.warm,
-    borderRadius: radius.sm,
+    borderColor: tokens.textPrimary,
+    backgroundColor: tokens.surface,
+    borderRadius: tokens.radius.md,
     overflow: 'hidden',
   },
   shopBuildingCompact: { width: 102, minHeight: 84 },
-  shopBuildingActive: { backgroundColor: colors.brand50 },
-  shopRoof: { height: 22, backgroundColor: colors.brand300, borderBottomWidth: 2, borderBottomColor: colors.ink900 },
-  shopWindows: { flex: 1, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-evenly', padding: spacing.sm },
-  shopWindow: { width: 24, height: 30, borderWidth: 1.5, borderColor: colors.ink900, backgroundColor: colors.white },
-  shopDoor: { width: 28, height: 48, borderWidth: 1.5, borderColor: colors.ink900, backgroundColor: colors.brand200 },
+  shopBuildingActive: { backgroundColor: tokens.surface },
+  shopRoof: { height: 22, backgroundColor: tokens.secondary, borderBottomWidth: 2, borderBottomColor: tokens.textPrimary },
+  shopWindows: { flex: 1, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-evenly', padding: tokens.spacing.md },
+  shopWindow: { width: 24, height: 30, borderWidth: 1.5, borderColor: tokens.textPrimary, backgroundColor: tokens.surfaceElevated },
+  shopDoor: { width: 28, height: 48, borderWidth: 1.5, borderColor: tokens.textPrimary, backgroundColor: tokens.surface },
 
-  placedCard: { borderRadius: radius.lg, backgroundColor: colors.white, padding: spacing.lg, gap: spacing.sm, ...shadow.card },
+  placedCard: { borderRadius: tokens.radius.lg, backgroundColor: tokens.surfaceElevated, padding: tokens.spacing.xl, gap: tokens.spacing.md, shadowColor: tokens.textPrimary, shadowOffset: { width: 0, height: 8 }, shadowOpacity: tokens.elevation.card, shadowRadius: 24, elevation: 5 },
   placedMark: {
     width: 56,
     height: 56,
     borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.success,
+    backgroundColor: tokens.success,
   },
-  placedTitle: { color: colors.ink900, fontFamily: fonts.display, fontSize: 28, lineHeight: 34 },
-  placedDetail: { color: colors.ink700, fontFamily: fonts.sans, fontSize: 15, lineHeight: 22 },
-  placedSummary: { color: colors.ink600, fontFamily: fonts.sansMedium, fontSize: 13, lineHeight: 19 },
+  placedTitle: { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: 28, lineHeight: 34 },
+  placedDetail: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 15, lineHeight: 22 },
+  placedSummary: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 13, lineHeight: 19 },
   placedTotalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingTop: spacing.sm,
+    paddingTop: tokens.spacing.md,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.ink200,
+    borderTopColor: tokens.secondary,
   },
-  placedTotalLabel: { color: colors.ink700, fontFamily: fonts.sansMedium, fontSize: 15 },
-  placedTotalValue: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 18 },
-  placedNote: { color: colors.ink600, fontFamily: fonts.sans, fontSize: 12, lineHeight: 18 },
+  placedTotalLabel: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 15 },
+  placedTotalValue: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 18 },
+  placedNote: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 12, lineHeight: 18 },
 });

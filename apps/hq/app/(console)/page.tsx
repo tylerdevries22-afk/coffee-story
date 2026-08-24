@@ -40,6 +40,16 @@ export default async function DashboardPage() {
         </div>
       </div>
 
+      <div className="card">
+        <h2>Revenue by order channel</h2>
+        <div className="kpi-row">
+          <div className="kpi-card"><div className="label">App</div><div className="value">{formatMoney(totals.channelRevenueCents.app)}</div></div>
+          <div className="kpi-card"><div className="label">Web</div><div className="value">{formatMoney(totals.channelRevenueCents.web)}</div></div>
+          <div className="kpi-card"><div className="label">Kiosk</div><div className="value">{formatMoney(totals.channelRevenueCents.kiosk)}</div></div>
+          <div className="kpi-card"><div className="label">POS</div><div className="value">{formatMoney(totals.channelRevenueCents.pos)}</div></div>
+        </div>
+      </div>
+
       {liveDrop ? (
         <div className="card">
           <h2>Live drop — {liveDrop.title}</h2>
@@ -69,6 +79,8 @@ export default async function DashboardPage() {
               <th className="num">Orders</th>
               <th className="num">AOV</th>
               <th className="num">In-app</th>
+              <th className="num">Kiosk</th>
+              <th className="num">POS</th>
               <th className="num">Loyalty</th>
             </tr>
           </thead>
@@ -80,6 +92,8 @@ export default async function DashboardPage() {
                 <td className="num">{row.ordersCount.toLocaleString('en-US')}</td>
                 <td className="num">{formatMoney(row.aovCents)}</td>
                 <td className="num">{formatShare(row.inAppShare)}</td>
+                <td className="num">{formatMoney(row.channelRevenueCents.kiosk)}</td>
+                <td className="num">{formatMoney(row.channelRevenueCents.pos)}</td>
                 <td className="num">{formatShare(row.loyaltyRedemptionRate)}</td>
               </tr>
             ))}

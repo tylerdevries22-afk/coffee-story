@@ -67,7 +67,7 @@ export async function loadKpis(): Promise<KpiDay[]> {
   const [metrics, names] = await Promise.all([
     client
       .from('location_daily_metrics')
-      .select('location_id, day, orders_count, revenue_cents, aov_cents, in_app_share, loyalty_redemption_rate')
+      .select('location_id, day, orders_count, revenue_cents, aov_cents, in_app_share, loyalty_redemption_rate, revenue_by_channel')
       .gte('day', sevenDaysAgo())
       .order('day')
       .returns<MetricsRow[]>(),
@@ -217,6 +217,23 @@ export type KioskConfigView = {
   /** For optimistic concurrency on save; null when unknown. */
   updatedAt: string | null;
 };
+
+export type BrandConfigView = {
+  config: unknown;
+  updatedAt: string | null;
+};
+
+/** Current settings and row version for the concurrency-safe brand editor. */
+export async function loadBrandConfig(): Promise<BrandConfigView> {
+  const client = await serverClient();
+  if (!client) return { config: null, updatedAt: null };
+  const result = await client.from('brands').select('brand_config, updated_at').maybeSingle<{
+    brand_config: unknown;
+    updated_at: string;
+  }>();
+  if (result.error) throw new Error(`brands: ${result.error.message}`);
+  return { config: result.data?.brand_config ?? null, updatedAt: result.data?.updated_at ?? null };
+}
 
 /**
  * The kiosk flow, plus enough of the menu to validate it against.

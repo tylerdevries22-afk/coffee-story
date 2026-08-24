@@ -14,8 +14,10 @@ export async function register() {
   Sentry.init({
     dsn: process.env.SENTRY_DSN,
     // Lower than the console's 0.2: this app serves a handful of screens that
-    // each poll every five seconds all day, so a high rate buys nothing but
+    // each hold a socket and reconcile once a minute all day, so a high rate buys nothing but
     // volume. Errors are unsampled regardless.
     tracesSampleRate: 0.05,
   });
 }
+
+export { captureRequestError as onRequestError } from '@sentry/nextjs';

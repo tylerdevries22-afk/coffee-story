@@ -8,6 +8,7 @@ const day = (locationId: string, revenueCents: number, ordersCount: number, inAp
   day: '2026-08-22', locationId, locationName: locationId.toUpperCase(),
   ordersCount, revenueCents, aovCents: ordersCount ? Math.round(revenueCents / ordersCount) : 0,
   inAppShare, loyaltyRedemptionRate: loyalty,
+  channelRevenueCents: { app: Math.round(revenueCents * 0.4), web: 0, kiosk: 0, pos: Math.round(revenueCents * 0.6) },
 });
 
 describe('rollupKpis', () => {
@@ -16,6 +17,7 @@ describe('rollupKpis', () => {
     assert.equal(totals.revenueCents, 150_000);
     assert.equal(totals.ordersCount, 125);
     assert.equal(totals.aovCents, 1200);
+    assert.deepEqual(totals.channelRevenueCents, { app: 60_000, web: 0, kiosk: 0, pos: 90_000 });
   });
 
   it('weights shares by what they describe: revenue for in-app, orders for loyalty', () => {

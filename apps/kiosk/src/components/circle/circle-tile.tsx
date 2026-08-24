@@ -4,7 +4,7 @@ import Animated, {
   Easing, useAnimatedStyle, useSharedValue, withDelay, withSequence, withSpring, withTiming,
 } from 'react-native-reanimated';
 
-import { EASING, SPRING, duration, staggerDelay, useReducedMotion, useTokens } from '@platform/ui';
+import { EASING, SPRING, disabledState, duration, staggerDelay, toggleState, useReducedMotion, useTokens } from '@platform/ui';
 import type { MenuImageVariant } from '@platform/ui';
 
 import { KioskMenuImage } from '@/components/menu-image';
@@ -116,9 +116,8 @@ export const CircleTile = memo(function CircleTile({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={caption ? `${label}, ${caption}` : label}
-        accessibilityState={{ disabled, selected }}
-        aria-disabled={disabled}
-        aria-selected={selected}
+        {...disabledState(disabled)}
+        {...toggleState(selected)}
         onPressIn={onPressIn}
         onPressOut={onPressOut}
         onPress={handlePress}
@@ -127,6 +126,7 @@ export const CircleTile = memo(function CircleTile({
         <View
           style={[
             styles.ring,
+            { borderRadius: tokens.radius.pill },
             selected && { borderColor: tokens.accent, borderWidth: 6 },
             disabled && styles.disabled,
           ]}
@@ -154,7 +154,7 @@ export const CircleTile = memo(function CircleTile({
 
 const styles = StyleSheet.create({
   pressable: { alignItems: 'center' },
-  ring: { borderRadius: 9999, borderWidth: 0, borderColor: 'transparent', overflow: 'hidden' },
+  ring: { borderWidth: 0, borderColor: 'transparent', overflow: 'hidden' },
   disabled: { opacity: 0.4 },
   label: { marginTop: 14, fontWeight: '700', textAlign: 'center', maxWidth: 260 },
   caption: { marginTop: 4, textAlign: 'center', maxWidth: 260 },

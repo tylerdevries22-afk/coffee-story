@@ -3,8 +3,8 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Avatar } from '@/components/avatar';
 import { CollapsingScreen } from '@/components/collapsing-screen';
 import { groupNotifications, relativeAge, type NotificationItem } from '@platform/domain';
-import { colors, fonts, radius, spacing } from '@/theme/tokens';
 import { AppIcon } from '@/components/icon';
+import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 /**
  * The notifications page, laid out the way Instagram lays its own out: one
@@ -27,6 +27,8 @@ export function NotificationsScreen({
   onOpen: (item: NotificationItem) => void;
   onAction: (item: NotificationItem) => void;
 }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const now = new Date();
   const sections = groupNotifications(items, now, unreadIds);
 
@@ -68,6 +70,8 @@ function NotificationRow({
   onOpen: (item: NotificationItem) => void;
   onAction: (item: NotificationItem) => void;
 }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   return (
     <View style={[styles.row, unread && styles.rowUnread]}>
       <Pressable
@@ -99,10 +103,12 @@ function NotificationRow({
 }
 
 function EmptyFeed() {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   return (
     <View style={styles.empty}>
       <View style={styles.emptyMark}>
-        <AppIcon name="bell" size={34} tintColor={colors.brand600} />
+        <AppIcon name="bell" size={34} tintColor={tokens.primary} />
       </View>
       <Text style={styles.emptyTitle}>No notifications yet</Text>
       <Text style={styles.emptyBody}>Booking updates and rewards will show up here.</Text>
@@ -110,82 +116,82 @@ function EmptyFeed() {
   );
 }
 
-const styles = StyleSheet.create({
-  section: { gap: spacing.xs },
+const createStyles = (tokens: BrandTokens) => StyleSheet.create({
+  section: { gap: tokens.spacing.sm },
   sectionTitle: {
-    color: colors.ink900,
-    fontFamily: fonts.sansBold,
+    color: tokens.textPrimary,
+    fontFamily: tokens.fontBody,
     fontSize: 15,
     lineHeight: 20,
-    marginTop: spacing.sm,
+    marginTop: tokens.spacing.md,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    borderRadius: radius.md,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.xs,
+    gap: tokens.spacing.md,
+    borderRadius: tokens.radius.lg,
+    paddingVertical: tokens.spacing.sm,
+    paddingHorizontal: tokens.spacing.sm,
   },
-  rowUnread: { backgroundColor: colors.brand50 },
+  rowUnread: { backgroundColor: tokens.surface },
   rowBody: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: tokens.spacing.md,
   },
   rowText: {
     flex: 1,
-    color: colors.ink700,
-    fontFamily: fonts.sans,
+    color: tokens.textPrimary,
+    fontFamily: tokens.fontBody,
     fontSize: 14,
     lineHeight: 20,
   },
-  rowActor: { color: colors.ink900, fontFamily: fonts.sansBold },
-  rowAge: { color: colors.ink400 },
+  rowActor: { color: tokens.textPrimary, fontFamily: tokens.fontBody },
+  rowAge: { color: tokens.textMuted },
   action: {
     minHeight: 34,
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.pill,
+    paddingHorizontal: tokens.spacing.lg,
+    borderRadius: tokens.radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.brand600,
+    backgroundColor: tokens.primary,
   },
   actionText: {
-    color: colors.white,
-    fontFamily: fonts.sansMedium,
+    color: tokens.surfaceElevated,
+    fontFamily: tokens.fontBody,
     fontSize: 13,
   },
   unreadDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: colors.brand500,
+    backgroundColor: tokens.secondary,
   },
   pressed: { opacity: 0.7 },
   empty: {
     alignItems: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.xxl,
+    gap: tokens.spacing.md,
+    paddingVertical: tokens.spacing.xxl,
   },
   emptyMark: {
     width: 72,
     height: 72,
-    borderRadius: radius.pill,
+    borderRadius: tokens.radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.brand50,
-    marginBottom: spacing.xs,
+    backgroundColor: tokens.surface,
+    marginBottom: tokens.spacing.sm,
   },
   emptyTitle: {
-    color: colors.ink900,
-    fontFamily: fonts.sansBold,
+    color: tokens.textPrimary,
+    fontFamily: tokens.fontBody,
     fontSize: 18,
     lineHeight: 24,
   },
   emptyBody: {
-    color: colors.ink500,
-    fontFamily: fonts.sans,
+    color: tokens.textMuted,
+    fontFamily: tokens.fontBody,
     fontSize: 14,
     lineHeight: 20,
     textAlign: 'center',

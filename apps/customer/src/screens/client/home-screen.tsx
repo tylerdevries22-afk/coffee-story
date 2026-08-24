@@ -26,7 +26,6 @@ import { MENU_ADD_ONS, MENU_CATEGORY_META, MENU_ITEMS, type MenuCategoryId, type
 import { useAppState } from '@/state/app-context';
 import { useAuth } from '@/state/auth-context';
 import { openWebPath } from '@/lib/web-navigation';
-import { colors, fonts, radius, spacing } from '@/theme/tokens';
 import { demoDrops } from '@/data/drops';
 import { dropStatus, dropWindowLabel, weeklyDrops, type Drop } from '@/features/drops';
 import { cutoutFeatureLineup, formatMoney, resolveProductMedia } from '@platform/domain';
@@ -34,7 +33,6 @@ import { MenuImage } from '@/components/menu-image';
 import { SiriAssistant, type SiriCommand } from '@/components/siri/siri-assistant';
 import { useReducedMotion } from '@/hooks/use-reduced-motion';
 import { TENANT, tenantFeature } from '@/tenant';
-import { DropCountdown } from '@platform/ui';
 import { ProductCutout, productCutoutSource, type ProductCutoutSource } from '@/components/product-cutout';
 import { TENANT_PRODUCT_MEDIA } from '@/tenant/product-media';
 import {
@@ -65,7 +63,7 @@ import {
   shadowOpacityRange,
   shadowScaleRange,
 } from '@/features/glass-feature';
-import { disabledState } from '@/lib/a11y-state';
+import { disabledState, DropCountdown, useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 import heroVideo from '../../../assets/hero/home-hero.mp4';
 import packagesMedia from '../../../assets/hero/stones.webp';
@@ -92,6 +90,8 @@ const CATEGORY_PREVIEW_COUNT = 7;
  * menu, sectioned by category with a capped preview and a Show All reveal.
  */
 export function HomeScreen() {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const { openMore, setClientTab, startOrder } = useAppState();
   const { portal } = useAuth();
   const { width, height } = useWindowDimensions();
@@ -313,7 +313,7 @@ export function HomeScreen() {
                         onPress={onOpenPackages}
                         style={({ pressed }) => [styles.packageArrow, pressed && styles.pressed]}
                       >
-                        <AppIcon name="chevron.right" size={16} tintColor={colors.brand700} />
+                        <AppIcon name="chevron.right" size={16} tintColor={tokens.primary} />
                       </Pressable>
                     </View>
                     {HOME_PACKAGES.map((carePackage) => (
@@ -339,7 +339,7 @@ export function HomeScreen() {
                       style={({ pressed }) => [styles.storyButton, pressed && styles.pressed]}
                     >
                       <Text style={styles.storyButtonText}>Send a Gift</Text>
-                      <AppIcon name="chevron.right" size={14} tintColor={colors.ink900} />
+                      <AppIcon name="chevron.right" size={14} tintColor={tokens.textPrimary} />
                     </Pressable>
                   </View>
                 ) : null}
@@ -470,7 +470,7 @@ export function HomeScreen() {
                 <Text style={styles.showAllText}>
                   {isExpanded ? 'Show less' : `Show all ${items.length}`}
                 </Text>
-                <AppIcon name={isExpanded ? 'chevron.up' : 'chevron.down'} size={13} tintColor={colors.brand700} />
+                <AppIcon name={isExpanded ? 'chevron.up' : 'chevron.down'} size={13} tintColor={tokens.primary} />
               </Pressable>
             ) : null}
           </View>
@@ -527,7 +527,7 @@ export function HomeScreen() {
           <PulseDot reducedMotion={reducedMotion} />
           <Text style={styles.stickyBookNowText}>Order Now</Text>
           <Text style={styles.stickyBookNowWait}>~ 3 min</Text>
-          <AppIcon name="chevron.right" size={14} tintColor={colors.white} />
+          <AppIcon name="chevron.right" size={14} tintColor={tokens.surfaceElevated} />
         </Pressable>
       </Animated.View>
     </View>
@@ -536,6 +536,8 @@ export function HomeScreen() {
 
 /** The live "we're open and fast" dot: a soft pulse on a success-green core. */
 function PulseDot({ reducedMotion }: { reducedMotion: boolean }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const pulse = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -562,6 +564,8 @@ function PulseDot({ reducedMotion }: { reducedMotion: boolean }) {
 }
 
 function BookNowPill({ onPress, reducedMotion }: { onPress: () => void; reducedMotion: boolean }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   return (
     <Pressable
       accessibilityRole="button"
@@ -573,12 +577,14 @@ function BookNowPill({ onPress, reducedMotion }: { onPress: () => void; reducedM
       <Text style={styles.bookNowText}>Order Now</Text>
       <View style={styles.bookNowDivider} />
       <Text style={styles.bookNowWait}>~ 3 min</Text>
-      <AppIcon name="chevron.right" size={14} tintColor={colors.white} />
+      <AppIcon name="chevron.right" size={14} tintColor={tokens.surfaceElevated} />
     </Pressable>
   );
 }
 
 function SectionHeader({ pill, title, body }: { pill: string; title: string; body: string }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   return (
     <View style={styles.sectionHeader}>
       <View style={styles.pill}><Text style={styles.pillText}>{pill}</Text></View>
@@ -599,6 +605,8 @@ function FeatureRow({
   flip: boolean;
   onPress: () => void;
 }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const from = item.sizes[0]?.priceCents;
   return (
     <View style={[styles.feature, flip && styles.featureFlip]}>
@@ -636,6 +644,8 @@ function DropFeatureRow({
   flip: boolean;
   onPress: () => void;
 }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const live = dropStatus(drop, new Date()) === 'live';
   return (
     <View style={[styles.feature, flip && styles.featureFlip]}>
@@ -736,6 +746,8 @@ function GlassFeatureRow({
   reducedMotion: boolean;
   onPress: () => void;
 }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const [rowY, setRowY] = useState<number | null>(null);
   const onLayout = useCallback((event: LayoutChangeEvent) => {
     const { y } = event.nativeEvent.layout;
@@ -765,7 +777,7 @@ function GlassFeatureRow({
             the capsule simply did not read.
           */}
           <LinearGradient
-            colors={flip ? [colors.brand50, colors.brand200] : [colors.brand200, colors.brand50]}
+            colors={flip ? [tokens.surface, tokens.surface] : [tokens.surface, tokens.surface]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={StyleSheet.absoluteFill}
@@ -810,6 +822,8 @@ function GlassFeatureRow({
 }
 
 function MenuRow({ item, onPress }: { item: MenuItem; onPress: () => void }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const from = item.sizes[0]?.priceCents;
   return (
     <Pressable
@@ -824,120 +838,120 @@ function MenuRow({ item, onPress }: { item: MenuItem; onPress: () => void }) {
         <Text numberOfLines={1} style={styles.menuRowBody}>{item.description}</Text>
       </View>
       {from ? <Text style={styles.menuRowPrice}>{formatMoney(from)}</Text> : null}
-      <AppIcon name="chevron.right" size={13} tintColor={colors.ink400} />
+      <AppIcon name="chevron.right" size={13} tintColor={tokens.textMuted} />
     </Pressable>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (tokens: BrandTokens) => StyleSheet.create({
   dropSection: { gap: 0 },
-  dropBlurb: { color: colors.ink500, fontFamily: fonts.sans, fontSize: 13, lineHeight: 18 },
-  dropArchiveLink: { alignSelf: 'center', marginTop: spacing.md, paddingVertical: spacing.xs, paddingHorizontal: spacing.md },
-  dropArchiveText: { color: colors.ink600, fontFamily: fonts.sansMedium, fontSize: 14, textDecorationLine: 'underline' },
+  dropBlurb: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 13, lineHeight: 18 },
+  dropArchiveLink: { alignSelf: 'center', marginTop: tokens.spacing.lg, paddingVertical: tokens.spacing.sm, paddingHorizontal: tokens.spacing.lg },
+  dropArchiveText: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 14, textDecorationLine: 'underline' },
   shell: { flex: 1 },
-  screen: { backgroundColor: colors.surface },
+  screen: { backgroundColor: tokens.surface },
   content: { paddingTop: 0, paddingHorizontal: 0, paddingBottom: 150, gap: 0 },
   // overflow hidden keeps the video inside the hero box: on web an absolutely
   // filled child otherwise paints behind the whole page.
-  hero: { width: '100%', backgroundColor: colors.brand100, overflow: 'hidden' },
+  hero: { width: '100%', backgroundColor: tokens.surface, overflow: 'hidden' },
   heroSlide: { height: '100%', overflow: 'hidden' },
   heroMedia: { position: 'absolute', top: 0, bottom: 0, left: '-14%', right: '-14%' },
-  openingContent: { position: 'absolute', left: spacing.lg, right: spacing.lg, bottom: 42 },
+  openingContent: { position: 'absolute', left: tokens.spacing.xl, right: tokens.spacing.xl, bottom: 42 },
 
   // Content-width and centered, sized to the carousel's compact pill button
   // (the gifting slide's) rather than spanning the screen edge to edge.
   bookNowPill: {
     alignSelf: 'center',
     minHeight: 46,
-    borderRadius: radius.pill,
-    backgroundColor: colors.brand600,
+    borderRadius: tokens.radius.pill,
+    backgroundColor: tokens.primary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
+    gap: tokens.spacing.md,
+    paddingHorizontal: tokens.spacing.xl,
   },
-  bookNowText: { color: colors.white, fontFamily: fonts.sansBold, fontSize: 15 },
+  bookNowText: { color: tokens.surfaceElevated, fontFamily: tokens.fontBody, fontSize: 15 },
   bookNowDivider: { width: 1, height: 16, backgroundColor: 'rgba(255,255,255,0.35)' },
-  bookNowWait: { color: 'rgba(255,255,255,0.82)', fontFamily: fonts.sansMedium, fontSize: 13 },
+  bookNowWait: { color: 'rgba(255,255,255,0.82)', fontFamily: tokens.fontBody, fontSize: 13 },
 
   pulseWrap: { width: 12, height: 12, alignItems: 'center', justifyContent: 'center' },
-  pulseRing: { position: 'absolute', width: 12, height: 12, borderRadius: 8, backgroundColor: colors.liveGlow },
-  pulseCore: { width: 7, height: 7, borderRadius: 5, backgroundColor: colors.liveGlow },
+  pulseRing: { position: 'absolute', width: 12, height: 12, borderRadius: 8, backgroundColor: tokens.success },
+  pulseCore: { width: 7, height: 7, borderRadius: 5, backgroundColor: tokens.success },
 
   pressed: { opacity: 0.85 },
-  dots: { position: 'absolute', left: spacing.lg, bottom: 19, flexDirection: 'row', gap: 6 },
+  dots: { position: 'absolute', left: tokens.spacing.xl, bottom: 19, flexDirection: 'row', gap: 6 },
   dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.55)' },
-  dotActive: { width: 22, backgroundColor: colors.white },
+  dotActive: { width: 22, backgroundColor: tokens.surfaceElevated },
 
   packagePanel: {
     position: 'absolute',
-    left: spacing.md,
-    right: spacing.md,
+    left: tokens.spacing.lg,
+    right: tokens.spacing.lg,
     bottom: 42,
-    borderRadius: radius.lg,
+    borderRadius: tokens.radius.lg,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.78)',
     backgroundColor: 'rgba(255,253,248,0.94)',
-    padding: spacing.md,
+    padding: tokens.spacing.lg,
   },
   packageHeadingRow: { minHeight: 54, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  storyEyebrowDark: { color: colors.brand700, fontFamily: fonts.sansBold, fontSize: 10, letterSpacing: 1.2, textTransform: 'uppercase' },
-  packageTitle: { color: colors.ink900, fontFamily: fonts.display, fontSize: 22, lineHeight: 27 },
-  packageArrow: { width: 44, height: 44, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.brand50 },
-  packageRow: { minHeight: 38, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderTopWidth: 1, borderTopColor: colors.ink200 },
+  storyEyebrowDark: { color: tokens.primary, fontFamily: tokens.fontBody, fontSize: 10, letterSpacing: 1.2, textTransform: 'uppercase' },
+  packageTitle: { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: 22, lineHeight: 27 },
+  packageArrow: { width: 44, height: 44, borderRadius: tokens.radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: tokens.surface },
+  packageRow: { minHeight: 38, flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.md, borderTopWidth: 1, borderTopColor: tokens.secondary },
   packageCopy: { flex: 1, minWidth: 0 },
-  packageName: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 13 },
-  packageDetail: { color: colors.ink600, fontFamily: fonts.sans, fontSize: 10, marginTop: 1 },
-  packagePrice: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 13 },
-  storyContent: { position: 'absolute', left: spacing.lg, right: spacing.lg, bottom: 52, gap: spacing.sm, alignItems: 'flex-start' },
-  storyEyebrow: { color: colors.white, fontFamily: fonts.sansBold, fontSize: 11, letterSpacing: 1.4, textTransform: 'uppercase' },
-  storyTitle: { maxWidth: 310, color: colors.white, fontFamily: fonts.display, fontSize: 38, lineHeight: 41, letterSpacing: -1 },
-  storyBody: { maxWidth: 300, color: colors.white, fontFamily: fonts.sansMedium, fontSize: 14, lineHeight: 20 },
-  storyButton: { minHeight: 46, borderRadius: radius.pill, backgroundColor: colors.white, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.lg },
-  storyButtonText: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 15 },
+  packageName: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 13 },
+  packageDetail: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 10, marginTop: 1 },
+  packagePrice: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 13 },
+  storyContent: { position: 'absolute', left: tokens.spacing.xl, right: tokens.spacing.xl, bottom: 52, gap: tokens.spacing.md, alignItems: 'flex-start' },
+  storyEyebrow: { color: tokens.surfaceElevated, fontFamily: tokens.fontBody, fontSize: 11, letterSpacing: 1.4, textTransform: 'uppercase' },
+  storyTitle: { maxWidth: 310, color: tokens.surfaceElevated, fontFamily: tokens.fontDisplay, fontSize: 38, lineHeight: 41, letterSpacing: -1 },
+  storyBody: { maxWidth: 300, color: tokens.surfaceElevated, fontFamily: tokens.fontBody, fontSize: 14, lineHeight: 20 },
+  storyButton: { minHeight: 46, borderRadius: tokens.radius.pill, backgroundColor: tokens.surfaceElevated, flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.md, paddingHorizontal: tokens.spacing.xl },
+  storyButtonText: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 15 },
 
-  sectionHeader: { paddingHorizontal: spacing.lg, paddingTop: spacing.xl, gap: spacing.xs },
+  sectionHeader: { paddingHorizontal: tokens.spacing.xl, paddingTop: tokens.spacing.xxl, gap: tokens.spacing.sm },
   pill: {
     alignSelf: 'flex-start',
-    borderRadius: radius.sm,
-    backgroundColor: colors.brand100,
-    paddingHorizontal: spacing.sm,
+    borderRadius: tokens.radius.md,
+    backgroundColor: tokens.surface,
+    paddingHorizontal: tokens.spacing.md,
     paddingVertical: 5,
   },
-  pillText: { color: colors.brand700, fontFamily: fonts.sansBold, fontSize: 13 },
+  pillText: { color: tokens.primary, fontFamily: tokens.fontBody, fontSize: 13 },
   sectionTitle: {
-    color: colors.ink900,
-    fontFamily: fonts.display,
+    color: tokens.textPrimary,
+    fontFamily: tokens.fontDisplay,
     fontSize: 40,
     lineHeight: 44,
     letterSpacing: -1.2,
   },
-  sectionBody: { color: colors.ink700, fontFamily: fonts.sans, fontSize: 16, lineHeight: 23 },
+  sectionBody: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 16, lineHeight: 23 },
 
-  feature: { minHeight: 200, marginTop: spacing.lg, flexDirection: 'row', alignItems: 'center' },
+  feature: { minHeight: 200, marginTop: tokens.spacing.xl, flexDirection: 'row', alignItems: 'center' },
   featureFlip: { flexDirection: 'row-reverse' },
   featureImage: { width: 164, height: 186 },
   // Bleeds past the screen edge so it reads as a photograph, not a card.
   featureImageLeft: { marginLeft: -32, borderTopRightRadius: 999, borderBottomRightRadius: 999 },
   featureImageRight: { marginRight: -32, borderTopLeftRadius: 999, borderBottomLeftRadius: 999 },
-  featureCopy: { flex: 1, paddingHorizontal: spacing.lg, gap: 6 },
+  featureCopy: { flex: 1, paddingHorizontal: tokens.spacing.xl, gap: 6 },
   tag: {
     alignSelf: 'flex-start',
-    borderRadius: radius.sm,
-    backgroundColor: colors.brand50,
-    paddingHorizontal: spacing.sm,
+    borderRadius: tokens.radius.md,
+    backgroundColor: tokens.surface,
+    paddingHorizontal: tokens.spacing.md,
     paddingVertical: 4,
   },
-  tagText: { color: colors.brand700, fontFamily: fonts.sansBold, fontSize: 12 },
+  tagText: { color: tokens.primary, fontFamily: tokens.fontBody, fontSize: 12 },
   featureTitle: {
-    color: colors.ink900,
-    fontFamily: fonts.display,
+    color: tokens.textPrimary,
+    fontFamily: tokens.fontDisplay,
     fontSize: 26,
     lineHeight: 30,
     letterSpacing: -0.6,
   },
-  featureFrom: { color: colors.ink500, fontFamily: fonts.sans, fontSize: 14 },
+  featureFrom: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 14 },
 
   // The glass shelf. It borrows every style above and changes only the media
   // slot, because a cut-out cannot be the half-capsule -- it has to stand on
@@ -971,7 +985,7 @@ const styles = StyleSheet.create({
     width: SHADOW_WIDTH,
     height: SHADOW_HEIGHT,
     borderRadius: 999,
-    backgroundColor: colors.brand300,
+    backgroundColor: tokens.secondary,
   },
   glassShadowLeft: { left: SHADOW_INSET_X },
   glassShadowRight: { right: SHADOW_INSET_X },
@@ -979,101 +993,101 @@ const styles = StyleSheet.create({
   glassLiftLeft: { left: GLASS_INSET_X },
   glassLiftRight: { right: GLASS_INSET_X },
   glassImage: { width: GLASS_BOX_WIDTH, height: GLASS_BOX_HEIGHT },
-  learnMore: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 15, marginTop: 2 },
+  learnMore: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 15, marginTop: 2 },
 
-  categorySection: { paddingTop: spacing.lg },
+  categorySection: { paddingTop: tokens.spacing.xl },
   categoryHeader: {
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: tokens.spacing.xl,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: spacing.md,
+    gap: tokens.spacing.lg,
   },
   categoryHeaderCopy: { flex: 1, minWidth: 0, gap: 2 },
-  categoryTitle: { color: colors.ink900, fontFamily: fonts.display, fontSize: 26, lineHeight: 30, letterSpacing: -0.5 },
-  categoryTagline: { color: colors.ink500, fontFamily: fonts.sans, fontSize: 13 },
+  categoryTitle: { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: 26, lineHeight: 30, letterSpacing: -0.5 },
+  categoryTagline: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 13 },
   categoryCount: {
-    color: colors.brand700,
-    fontFamily: fonts.sansBold,
+    color: tokens.primary,
+    fontFamily: tokens.fontBody,
     fontSize: 13,
-    backgroundColor: colors.brand100,
-    borderRadius: radius.pill,
-    paddingHorizontal: spacing.sm,
+    backgroundColor: tokens.surface,
+    borderRadius: tokens.radius.pill,
+    paddingHorizontal: tokens.spacing.md,
     paddingVertical: 4,
     overflow: 'hidden',
   },
-  menuList: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm },
+  menuList: { paddingHorizontal: tokens.spacing.xl, paddingTop: tokens.spacing.md },
   menuRow: {
     minHeight: 76,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
+    gap: tokens.spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: colors.ink200,
-    paddingVertical: spacing.sm,
+    borderBottomColor: tokens.secondary,
+    paddingVertical: tokens.spacing.md,
   },
   menuRowCopy: { flex: 1, minWidth: 0, gap: 2 },
-  menuRowName: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 15 },
-  menuRowBody: { color: colors.ink500, fontFamily: fonts.sans, fontSize: 12.5 },
-  menuRowPrice: { color: colors.ink900, fontFamily: fonts.display, fontSize: 17 },
+  menuRowName: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 15 },
+  menuRowBody: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 12.5 },
+  menuRowPrice: { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: 17 },
   showAllButton: {
     alignSelf: 'center',
-    marginTop: spacing.sm,
+    marginTop: tokens.spacing.md,
     minHeight: 44,
-    borderRadius: radius.pill,
-    backgroundColor: colors.brand50,
+    borderRadius: tokens.radius.pill,
+    backgroundColor: tokens.surface,
     borderWidth: 1,
-    borderColor: colors.brand200,
+    borderColor: tokens.surface,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.lg,
+    gap: tokens.spacing.sm,
+    paddingHorizontal: tokens.spacing.xl,
   },
-  showAllText: { color: colors.brand700, fontFamily: fonts.sansBold, fontSize: 14 },
+  showAllText: { color: tokens.primary, fontFamily: tokens.fontBody, fontSize: 14 },
 
-  addOns: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, gap: spacing.sm },
+  addOns: { paddingHorizontal: tokens.spacing.xl, paddingTop: tokens.spacing.lg, gap: tokens.spacing.md },
   addOnRow: {
     minHeight: 66,
-    borderRadius: radius.md,
-    backgroundColor: colors.brand50,
-    paddingHorizontal: spacing.md,
+    borderRadius: tokens.radius.lg,
+    backgroundColor: tokens.surface,
+    paddingHorizontal: tokens.spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
+    gap: tokens.spacing.lg,
   },
   addOnCopy: { flex: 1, gap: 2 },
-  addOnName: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 16 },
-  addOnBody: { color: colors.ink500, fontFamily: fonts.sans, fontSize: 13 },
-  addOnPrice: { color: colors.ink900, fontFamily: fonts.display, fontSize: 19 },
+  addOnName: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 16 },
+  addOnBody: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 13 },
+  addOnPrice: { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: 19 },
 
-  siriWrap: { paddingHorizontal: spacing.lg, paddingTop: spacing.xl },
-  footerCtaSpace: { height: spacing.xl + 48 },
+  siriWrap: { paddingHorizontal: tokens.spacing.xl, paddingTop: tokens.spacing.xxl },
+  footerCtaSpace: { height: tokens.spacing.xxl + 48 },
   stickyCtaWrap: {
     position: 'absolute',
-    left: spacing.lg,
-    right: spacing.lg,
+    left: tokens.spacing.xl,
+    right: tokens.spacing.xl,
     zIndex: 40,
     // Centered content width, matching the hero pill above.
     alignItems: 'center',
   },
   stickyBookNowButton: {
     minHeight: 46,
-    borderRadius: radius.pill,
-    backgroundColor: colors.brand600,
+    borderRadius: tokens.radius.pill,
+    backgroundColor: tokens.primary,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
+    gap: tokens.spacing.md,
+    paddingHorizontal: tokens.spacing.xl,
   },
   stickyBookNowText: {
-    color: colors.white,
-    fontFamily: fonts.sansBold,
+    color: tokens.surfaceElevated,
+    fontFamily: tokens.fontBody,
     fontSize: 15,
   },
   stickyBookNowWait: {
     color: 'rgba(255,255,255,0.82)',
-    fontFamily: fonts.sansMedium,
+    fontFamily: tokens.fontBody,
     fontSize: 13,
   },
 });

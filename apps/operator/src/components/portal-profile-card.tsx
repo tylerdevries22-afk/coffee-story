@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppIcon } from '@/components/icon';
 import { ProfileAvatar } from '@/components/profile-avatar';
-import { colors, fonts, radius, shadow, spacing } from '@/theme/tokens';
+import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 export type ProfileMetric = {
   label: string;
@@ -33,6 +33,8 @@ export function PortalProfileCard({
   onSettings,
   settingsLabel = 'Open settings',
 }: PortalProfileCardProps) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const identity = (
     <>
       <ProfileAvatar name={name} avatarUrl={avatarUrl} editable onEdit={onProfile} />
@@ -72,10 +74,10 @@ export function PortalProfileCard({
             onPress={onSettings}
             style={({ pressed }) => [pressed && styles.pressed]}
           >
-            <AppIcon name="arrow.up.right" size={18} tintColor={colors.ink400} />
+            <AppIcon name="arrow.up.right" size={18} tintColor={tokens.textMuted} />
           </Pressable>
         ) : (
-          <AppIcon name="arrow.up.right" size={18} tintColor={colors.ink400} />
+          <AppIcon name="arrow.up.right" size={18} tintColor={tokens.textMuted} />
         )}
       </View>
       <View style={styles.metrics}>
@@ -105,27 +107,27 @@ export function PortalProfileCard({
   return <View style={styles.card}>{content}</View>;
 }
 
-const styles = StyleSheet.create({
+const createStyles = (tokens: BrandTokens) => StyleSheet.create({
   card: {
-    gap: spacing.md,
-    padding: spacing.md,
-    borderRadius: radius.lg,
+    gap: tokens.spacing.lg,
+    padding: tokens.spacing.lg,
+    borderRadius: tokens.radius.lg,
     borderWidth: 1,
-    borderColor: colors.brand100,
-    backgroundColor: colors.white,
-    ...shadow.card,
+    borderColor: tokens.surface,
+    backgroundColor: tokens.surfaceElevated,
+    shadowColor: tokens.textPrimary, shadowOffset: { width: 0, height: 8 }, shadowOpacity: tokens.elevation.card, shadowRadius: 24, elevation: 5,
   },
-  headerTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 54 },
-  identity: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 54 },
+  headerTop: { flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.md, minHeight: 54 },
+  identity: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.md, minHeight: 54 },
   identityCopy: { flex: 1, minWidth: 0 },
-  identityName: { color: colors.ink900, fontFamily: fonts.display, fontSize: 17 },
+  identityName: { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: 17 },
   identityMeta: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 3 },
-  statusDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.success },
-  identityRole: { color: colors.ink700, fontFamily: fonts.sansBold, fontSize: 10 },
-  identityPreview: { color: colors.ink500, fontFamily: fonts.sans, fontSize: 11, textTransform: 'capitalize' },
-  metrics: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: colors.brand100, paddingTop: spacing.sm },
+  statusDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: tokens.success },
+  identityRole: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 10 },
+  identityPreview: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 11, textTransform: 'capitalize' },
+  metrics: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: tokens.surface, paddingTop: tokens.spacing.md },
   metric: { flex: 1, alignItems: 'center', paddingHorizontal: 2 },
-  metricValue: { color: colors.ink900, fontFamily: fonts.display, fontSize: 15 },
-  metricLabel: { color: colors.ink500, fontFamily: fonts.sans, fontSize: 9, letterSpacing: 0.45, textTransform: 'uppercase', marginTop: 3 },
+  metricValue: { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: 15 },
+  metricLabel: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 9, letterSpacing: 0.45, textTransform: 'uppercase', marginTop: 3 },
   pressed: { opacity: 0.76, transform: [{ scale: 0.99 }] },
 });

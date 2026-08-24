@@ -1,24 +1,5 @@
-/* Executive dark theme. One place for every visual constant (rule 4 applies
-   to the console too; these are the platform's own tokens, not a tenant's). */
-:root {
-  --bg: #0d0f12;
-  --bg-raised: #15181d;
-  --bg-hover: #1b1f26;
-  --line: #262b33;
-  --text: #eef1f5;
-  --text-muted: #8b94a1;
-  /* The platform's brass accent scale: brass-500 (#B08D57) carries the two
-     warm-surface apps; brass-300 below is its tint for dark ground (AA). One
-     family, two expressions -- see docs/DESIGN.md. */
-  --accent: #c9a468;
-  --success: #58b083;
-  --warning: #d9a04c;
-  --danger: #d9645c;
-  --radius: 14px;
-  --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  /* Display serif, echoing the apps' Fraunces voice without a font fetch. */
-  --font-display: Georgia, "Iowan Old Style", "Times New Roman", serif;
-}
+/* The variables are emitted from lib/theme.ts through the shared token
+   resolver. Signed-in consoles override the neutral root with their tenant. */
 
 * { box-sizing: border-box; }
 
@@ -198,12 +179,12 @@ label.field input, label.field select, label.field textarea {
 .login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
 .login-card { width: 100%; max-width: 420px; }
 .login-form { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
-.login-form-alt { border-top: 1px solid var(--border, #26303c); padding-top: 16px; margin-top: 20px; }
-.login-form label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted, #8b98a5); }
-.login-form input { padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border, #26303c); background: transparent; color: inherit; font-size: 15px; }
-.login-form button { padding: 10px 14px; border-radius: 8px; border: none; background: #e7edf3; color: #10161c; font-weight: 600; cursor: pointer; }
-.login-form button.secondary { background: transparent; color: inherit; border: 1px solid var(--border, #26303c); }
-.login-alt { font-size: 13px; color: var(--muted, #8b98a5); }
+.login-form-alt { border-top: 1px solid var(--line); padding-top: 16px; margin-top: 20px; }
+.login-form label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--text-muted); }
+.login-form input { padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: inherit; font-size: 15px; }
+.login-form button { padding: 10px 14px; border-radius: 8px; border: none; background: var(--text); color: var(--bg); font-weight: 600; cursor: pointer; }
+.login-form button.secondary { background: transparent; color: inherit; border: 1px solid var(--line); }
+.login-alt { font-size: 13px; color: var(--text-muted); }
 .session .linklike { background: none; border: none; padding: 0; margin-top: 6px; color: inherit; text-decoration: underline; cursor: pointer; font: inherit; font-size: 12px; }
 
 /*

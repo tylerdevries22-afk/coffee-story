@@ -27,6 +27,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   icon: './assets/images/icon.png',
   scheme: brand.identity.kioskScheme,
   runtimeVersion: 'exposdk:54.0.0',
+  updates: { url: 'https://u.expo.dev/965cd044-8020-41d0-b719-337f6c9f6f72' },
   userInterfaceStyle: 'light',
   ios: {
     bundleIdentifier: brand.identity.kioskBundleId,
@@ -56,4 +57,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     ],
   ],
   experiments: { typedRoutes: true },
+  extra: {
+    router: {},
+    eas: { projectId: '965cd044-8020-41d0-b719-337f6c9f6f72' },
+  },
+  owner: 'tylerdevries222',
 });

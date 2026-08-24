@@ -14,20 +14,31 @@
 3. Point the Square application's webhook subscription at
    `/api/webhooks/square` and its OAuth redirect at `/api/square/callback`.
 
-**Database:** `cd packages/schema && SUPABASE_DB_URL=... ./migrate.sh`
-(plain psql, filename order). Then `pnpm --filter @platform/schema seed` for
-the demo brand, `npx tsx scripts/migrate-legacy.ts` for the legacy backfill.
+**Database:** `supabase link --project-ref <ref> && supabase db push`, then
+`pnpm onboard --tenant <slug>` against the linked project. Enable the Custom
+Access Token hook (`app.custom_access_token`) before creating staff sessions.
 
 **Customer app:** `pnpm onboard --tenant <slug> --apply`, then from
 `apps/customer`: `TENANT=<slug> npx eas-cli build --platform ios --profile
-production`. Expo Go preview publishes from CI on merge (EXPO_TOKEN secret).
+production`. Publish only when the owner requests it; CI verifies but does not
+deploy.
 
-**Operator app:** built once, not per tenant, from `apps/operator`; needs its
-own EAS project + real bundle id before first submission (currently
-placeholder `com.example.operator`).
+**Operator app:** built once, not per tenant, from `apps/operator`; its EAS
+project and `com.devries.platform.operator` identity are linked. Use the
+preview or production scripts in its `package.json` only on owner request.
 
-**Jobs:** run `npx tsx scripts/run-jobs.ts` every minute from cron, or wrap
-it in a thin authenticated route and use the host's scheduler.
+**Kiosk app:** built from `apps/kiosk`; its EAS project and
+`com.coffeestory.kiosk` identity are linked. Set the four public Supabase/API
+variables from `apps/kiosk/.env.example`, then use its preview or production
+build script.
+
+**Pickup display:** deploy `apps/display` with the values in
+`apps/display/.env.example`. `DISPLAY_DEVICE_TOKEN` must be the paired display
+JWT for the location shown; an anon key intentionally reads no tickets.
+
+**Jobs:** Vercel Cron calls authenticated `/api/jobs/run` every five minutes
+from `apps/hq/vercel.json`. Set `CRON_SECRET`; do not expose the route without
+it.
 
 ## Rotate Square tokens
 

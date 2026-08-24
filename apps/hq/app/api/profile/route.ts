@@ -76,6 +76,29 @@ export async function POST(request: Request): Promise<Response> {
   return jsonWithCors({ ok: true });
 }
 
+/** DELETE /api/profile — anonymizes every tenant customer record, then revokes the identity. */
+export async function DELETE(request: Request): Promise<Response> {
+  const env = serverEnv();
+  if (!env) return notConfigured();
+  const db = serviceDb(env);
+  const auth = await authenticate(request, db);
+  if (auth instanceof Response) return auth;
+  if (auth.claims.role) {
+    return jsonError(403, 'customer_account_required', 'Staff accounts must be removed by a platform administrator.');
+  }
+
+  let anonymized = false;
+  for (let attempt = 0; attempt < 2 && !anonymized; attempt += 1) {
+    const result = await db.rpc('anonymize_customer_account', { p_user_id: auth.userId });
+    anonymized = !result.error;
+  }
+  if (!anonymized) return jsonError(503, 'deletion_unavailable', 'Account deletion is temporarily unavailable.');
+
+  const deleted = await db.auth.admin.deleteUser(auth.userId);
+  if (deleted.error) return jsonError(503, 'deletion_unavailable', 'Account deletion is temporarily unavailable.');
+  return jsonWithCors({ ok: true });
+}
+
 /** Browser preflight for the customer web build. */
 export function OPTIONS(): Response {
   return corsPreflight();

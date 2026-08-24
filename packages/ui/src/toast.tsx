@@ -84,14 +84,14 @@ function ToastCard({ item, onDone }: { item: ToastItem; onDone: () => void }) {
           paddingHorizontal: tokens.spacing.lg,
           paddingVertical: tokens.spacing.md,
           shadowColor: tokens.textPrimary,
-          shadowOpacity: 0.25,
+          shadowOpacity: tokens.elevation.raised,
           shadowRadius: 16,
           shadowOffset: { width: 0, height: 6 },
           elevation: 6,
         }}
       >
         <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: edge }} />
-        <Text style={{ flex: 1, color: tokens.surfaceElevated, fontFamily: tokens.fontBody, fontSize: 14 }}>
+        <Text style={{ flex: 1, color: tokens.surfaceElevated, fontFamily: tokens.fontBody, fontSize: tokens.type.sm }}>
           {item.message}
         </Text>
       </View>

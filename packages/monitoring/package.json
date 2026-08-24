@@ -1,0 +1,18 @@
+{
+  "name": "@platform/monitoring",
+  "version": "0.1.0",
+  "private": true,
+  "main": "src/mobile.ts",
+  "types": "src/mobile.ts",
+  "exports": { ".": "./src/mobile.ts" },
+  "scripts": {
+    "lint": "eslint src --max-warnings=0",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test \"src/**/*.test.ts\"",
+    "verify": "pnpm lint && pnpm typecheck && pnpm test"
+  },
+  "dependencies": {
+    "@sentry/react-native": "^8.23.0",
+    "expo-constants": "~18.0.14"
+  }
+}

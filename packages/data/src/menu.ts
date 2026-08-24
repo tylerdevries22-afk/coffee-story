@@ -109,11 +109,12 @@ export function subscribeToMenu(
     }, settleMs);
   };
   const filter = `brand_id=eq.${brandId}`;
-  const channel = client.channel(`menu-${brandId}`);
-  for (const table of ['menu_items', 'menu_categories', 'drops'] as const) {
-    channel.on('postgres_changes', { event: '*', schema: 'public', table, filter }, settle);
-  }
-  channel.subscribe();
+  const channel = client
+    .channel(`menu-${brandId}`)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'menu_items', filter }, settle)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'menu_categories', filter }, settle)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'drops', filter }, settle)
+    .subscribe();
   return () => {
     live = false;
     if (timer) clearTimeout(timer);

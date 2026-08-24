@@ -12,15 +12,11 @@ import { Pressable, ScrollView, StyleSheet, Text, View, type LayoutChangeEvent }
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 import { useReducedMotion } from '@/hooks/use-reduced-motion';
-import { tabState } from '@/lib/a11y-state';
-import { colors, fonts, motion, radius, spacing } from '@/theme/tokens';
+import { tabState, useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 export type CategoryTab = { id: string; label: string };
 
 type TabLayout = { x: number; width: number };
-
-/** Kept clear of the strip's left edge when a tab is scrolled into view. */
-const SCROLL_LEAD = spacing.lg;
 
 export function CategoryStrip({
   tabs,
@@ -31,6 +27,8 @@ export function CategoryStrip({
   activeId: string;
   onSelect: (id: string) => void;
 }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const reducedMotion = useReducedMotion();
   const scrollRef = useRef<ScrollView>(null);
   const [layouts, setLayouts] = useState<Record<string, TabLayout>>({});
@@ -50,7 +48,7 @@ export function CategoryStrip({
 
   useEffect(() => {
     if (!active) return;
-    const duration = reducedMotion ? 0 : motion.enterMs;
+    const duration = reducedMotion ? 0 : tokens.motion.slow;
     const easing = Easing.out(Easing.cubic);
     // The very first measurement lands the indicator rather than animating it
     // in from the left edge.
@@ -61,15 +59,15 @@ export function CategoryStrip({
     }
     indicatorX.value = withTiming(active.x, { duration, easing });
     indicatorWidth.value = withTiming(active.width, { duration, easing });
-  }, [active, reducedMotion, indicatorX, indicatorWidth]);
+  }, [active, reducedMotion, indicatorX, indicatorWidth, tokens.motion.slow]);
 
   useEffect(() => {
     if (!active) return;
     scrollRef.current?.scrollTo({
-      x: Math.max(0, active.x - SCROLL_LEAD),
+      x: Math.max(0, active.x - tokens.spacing.xl),
       animated: !reducedMotion,
     });
-  }, [active, reducedMotion]);
+  }, [active, reducedMotion, tokens.spacing.xl]);
 
   const indicatorStyle = useAnimatedStyle(() => ({
     width: indicatorWidth.value,
@@ -107,24 +105,24 @@ export function CategoryStrip({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (tokens: BrandTokens) => StyleSheet.create({
   container: {
-    backgroundColor: colors.surface,
+    backgroundColor: tokens.surface,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.ink200,
+    borderBottomColor: tokens.secondary,
   },
-  content: { paddingHorizontal: spacing.lg },
+  content: { paddingHorizontal: tokens.spacing.xl },
   row: { flexDirection: 'row' },
-  tab: { minHeight: 48, justifyContent: 'center', paddingHorizontal: spacing.md },
+  tab: { minHeight: 48, justifyContent: 'center', paddingHorizontal: tokens.spacing.lg },
   pressed: { opacity: 0.72 },
-  tabLabel: { color: colors.ink600, fontFamily: fonts.sans, fontSize: 15 },
-  tabLabelActive: { color: colors.ink900, fontFamily: fonts.sansBold },
+  tabLabel: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 15 },
+  tabLabelActive: { color: tokens.textPrimary, fontFamily: tokens.fontBody },
   indicator: {
     position: 'absolute',
-    left: spacing.lg,
+    left: tokens.spacing.xl,
     bottom: 0,
     height: 3,
-    borderRadius: radius.pill,
-    backgroundColor: colors.ink900,
+    borderRadius: tokens.radius.pill,
+    backgroundColor: tokens.textPrimary,
   },
 });

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { resolveApiUrl } from './client';
+import { createApiClient, resolveApiUrl } from './client';
 import { newIdempotencyKey } from './idempotency';
 import { requestCanRetry } from './http';
 
@@ -51,7 +51,29 @@ describe('idempotency keys', () => {
 describe('requestCanRetry', () => {
   it('retries safe methods and keyed writes only', () => {
     assert.equal(requestCanRetry({ method: 'GET' }), true);
+    assert.equal(requestCanRetry({ method: 'DELETE' }), true);
     assert.equal(requestCanRetry({ method: 'POST' }), false);
     assert.equal(requestCanRetry({ method: 'POST', headers: { 'Idempotency-Key': 'k' } }), true);
+  });
+});
+
+describe('deleteProfile', () => {
+  it('uses the authenticated DELETE endpoint', async () => {
+    const originalFetch = globalThis.fetch;
+    let observed: { method?: string; authorization?: string } = {};
+    globalThis.fetch = async (_input, init) => {
+      observed = {
+        method: init?.method,
+        authorization: new Headers(init?.headers).get('authorization') ?? undefined,
+      };
+      return Response.json({ ok: true });
+    };
+    try {
+      const client = createApiClient({ ...config, getAccessToken: async () => 'guest-token' });
+      await client.deleteProfile();
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+    assert.deepEqual(observed, { method: 'DELETE', authorization: 'Bearer guest-token' });
   });
 });

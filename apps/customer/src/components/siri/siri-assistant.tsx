@@ -12,8 +12,8 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { useReducedMotion } from '@/hooks/use-reduced-motion';
-import { colors, fonts, radius, spacing } from '@/theme/tokens';
 import { AppIcon } from '@/components/icon';
+import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 export type SiriCommand = {
   key: string;
@@ -24,6 +24,8 @@ export type SiriCommand = {
 const COMMAND_DWELL_MS = 3400;
 
 export function SiriAssistant({ commands, onClose }: { commands: readonly SiriCommand[]; onClose?: () => void }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const reducedMotion = useReducedMotion();
   const [index, setIndex] = useState(0);
   const phase = useSharedValue(0);
@@ -54,15 +56,15 @@ export function SiriAssistant({ commands, onClose }: { commands: readonly SiriCo
     ],
   }));
   const blobAStyle = useAnimatedStyle(() => ({
-    backgroundColor: interpolateColor(phase.value, [0, 1, 2], [colors.siriCyan, colors.siriBlue, colors.siriPurple]),
+    backgroundColor: interpolateColor(phase.value, [0, 1, 2], [tokens.accent, tokens.secondary, tokens.primary]),
     transform: [{ translateX: 5 + breathe.value * 2 }, { translateY: -4 }],
   }));
   const blobBStyle = useAnimatedStyle(() => ({
-    backgroundColor: interpolateColor(phase.value, [0, 1, 2], [colors.siriPurple, colors.siriPink, colors.siriCyan]),
+    backgroundColor: interpolateColor(phase.value, [0, 1, 2], [tokens.primary, tokens.accent, tokens.accent]),
     transform: [{ translateX: -6 }, { translateY: 3 + breathe.value * 2 }],
   }));
   const blobCStyle = useAnimatedStyle(() => ({
-    backgroundColor: interpolateColor(phase.value, [0, 1, 2], [colors.siriPink, colors.siriCyan, colors.siriBlue]),
+    backgroundColor: interpolateColor(phase.value, [0, 1, 2], [tokens.accent, tokens.accent, tokens.secondary]),
     opacity: 0.75 + breathe.value * 0.25,
     transform: [{ translateX: 1 }, { translateY: 6 - breathe.value * 3 }],
   }));
@@ -95,7 +97,7 @@ export function SiriAssistant({ commands, onClose }: { commands: readonly SiriCo
           <Text key={command.key} numberOfLines={1} style={styles.phrase}>
             “{command.phrase}”
           </Text>
-          <AppIcon name="chevron.right" size={14} tintColor={colors.ink300} />
+          <AppIcon name="chevron.right" size={14} tintColor={tokens.textMuted} />
         </Pressable>
       </View>
       {onClose ? (
@@ -109,17 +111,17 @@ export function SiriAssistant({ commands, onClose }: { commands: readonly SiriCo
           }}
           style={({ pressed }) => [styles.close, pressed && styles.pressed]}
         >
-          <AppIcon name="xmark" size={16} tintColor={colors.ink300} />
+          <AppIcon name="xmark" size={16} tintColor={tokens.textMuted} />
         </Pressable>
       ) : null}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (tokens: BrandTokens) => StyleSheet.create({
   // Kept deliberately shallow: one line of phrase beside a small orb, so the
   // card reads as a hint strip rather than a feature panel.
-  card: { minHeight: 56, borderRadius: radius.lg, paddingVertical: spacing.xs, paddingLeft: spacing.sm, paddingRight: spacing.xs, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.ink900 },
+  card: { minHeight: 56, borderRadius: tokens.radius.lg, paddingVertical: tokens.spacing.sm, paddingLeft: tokens.spacing.md, paddingRight: tokens.spacing.sm, flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.md, backgroundColor: tokens.textPrimary },
   orbHalo: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
   orb: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
   blob: { position: 'absolute', width: 17, height: 17, borderRadius: 9, opacity: 0.9 },
@@ -127,9 +129,9 @@ const styles = StyleSheet.create({
   blobB: {},
   blobC: { width: 13, height: 13, borderRadius: 7 },
   copy: { flex: 1, gap: 1 },
-  eyebrow: { color: colors.ink400, fontFamily: fonts.sansBold, fontSize: 9, letterSpacing: 1.1, textTransform: 'uppercase' },
-  phraseRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  phrase: { flex: 1, color: colors.white, fontFamily: fonts.sansBold, fontSize: 13, lineHeight: 17 },
-  close: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.ink700 },
+  eyebrow: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 9, letterSpacing: 1.1, textTransform: 'uppercase' },
+  phraseRow: { flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.sm },
+  phrase: { flex: 1, color: tokens.surfaceElevated, fontFamily: tokens.fontBody, fontSize: 13, lineHeight: 17 },
+  close: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: tokens.textPrimary },
   pressed: { opacity: 0.7 },
 });

@@ -20,8 +20,8 @@ import type { BoardTicketRow } from '@platform/schema';
  *
  * Status is not here because a board that never moves is not a demo of a
  * board -- it is a screenshot. `demoBoardAt` walks these through the queue on
- * a fixed cycle so the fixtures path exercises the same poll, reconcile and
- * linger the live path does, which is the only way any of that code is ever
+ * a fixed cycle so the fixtures path exercises the same heartbeat and
+ * reconcile the live path does, which is the only way any of that code is ever
  * actually run before a shop hangs the screen.
  */
 type RosterEntry = Omit<BoardTicketRow, 'status'> & { cycleOffset: number };
@@ -99,7 +99,7 @@ const CYCLE = DEMO_ROSTER.length;
  * shape of a real espresso queue, and chosen so both columns are always
  * occupied. `null` means the read simply does not return it, which is exactly
  * what `board_tickets` does to a collected order and therefore what the
- * client's linger has to handle.
+ * client's authoritative replacement has to remove.
  */
 function stageFor(step: number): BoardTicketRow['status'] | null {
   switch (((step % CYCLE) + CYCLE) % CYCLE) {

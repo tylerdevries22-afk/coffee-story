@@ -3,7 +3,7 @@ import { useDeferredTabBar } from '@/components/navigation/use-deferred-tab-bar'
 import { useTabAvatar } from '@/lib/tab-avatar';
 import { STAFF_TAB_LABELS } from '@/state/navigation-state';
 import { useAuth } from '@/state/auth-context';
-import { colors } from '@/theme/tokens';
+import { useTokens as useBrandTokens } from '@platform/ui';
 
 /**
  * The staff bottom bar, on the same real `UITabBar` as the client one — see
@@ -19,6 +19,7 @@ import { colors } from '@/theme/tokens';
  * Checkout is deliberately not here — see `STAFF_TAB_ORDER`.
  */
 export function StaffTabs() {
+  const tokens = useBrandTokens();
   // See useDeferredTabBar: the avatar image must not race the bar's first
   // label layout on iOS 26.
   const deferred = useDeferredTabBar();
@@ -27,8 +28,8 @@ export function StaffTabs() {
   if (!deferred || !avatar.ready) return null;
   return (
     <NativeTabs
-      tintColor={colors.brand700}
-      iconColor={colors.ink500}
+      tintColor={tokens.primary}
+      iconColor={tokens.textMuted}
       blurEffect="systemChromeMaterial"
     >
       <NativeTabs.Trigger name="orders">

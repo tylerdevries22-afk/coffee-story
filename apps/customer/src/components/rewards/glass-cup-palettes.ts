@@ -1,6 +1,5 @@
 // Staged replacement for src/components/rewards/glass-heart-palettes.ts
 import type { RewardTierName } from '@platform/domain';
-import { colors } from '@/theme/tokens';
 
 export type GlassCupPalette = {
   liquidDeep: string;
@@ -26,7 +25,7 @@ export const TIER_PALETTES: Record<RewardTierName, GlassCupPalette> = {
     liquidLight: '#C9A88C',
     waveFront: '#B38A63',
     waveBack: '#7D5A3C',
-    sparkle: colors.white,
+    sparkle: '#FFFFFF',
     foam: 'rgba(255,250,240,0.92)',
     streamLight: '#D8BC9C',
     streamDeep: '#96683F',
@@ -62,7 +61,7 @@ export const TIER_PALETTES: Record<RewardTierName, GlassCupPalette> = {
     liquidLight: '#5C3A1E',
     waveFront: '#472C15',
     waveBack: '#241308',
-    sparkle: colors.gold300,
+    sparkle: '#C08A3E',
     foam: 'rgba(251,243,228,0.9)',
     streamLight: '#7D5A3C',
     streamDeep: '#33200F',

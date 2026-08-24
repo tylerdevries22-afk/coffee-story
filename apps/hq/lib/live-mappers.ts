@@ -22,7 +22,19 @@ export type MetricsRow = {
   aov_cents: number | string;
   in_app_share: number | string;
   loyalty_redemption_rate: number | string;
+  revenue_by_channel: unknown;
 };
+
+function channelRevenueOf(value: unknown): KpiDay['channelRevenueCents'] {
+  const row = value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+  const cents = (channel: string) => {
+    const amount = Number(row[channel] ?? 0);
+    return Number.isFinite(amount) && amount >= 0 ? amount : 0;
+  };
+  return { app: cents('app'), web: cents('web'), kiosk: cents('kiosk'), pos: cents('pos') };
+}
 
 export function kpiDaysOf(rows: MetricsRow[], locationNames: ReadonlyMap<string, string>): KpiDay[] {
   return rows.map((row) => ({
@@ -34,6 +46,7 @@ export function kpiDaysOf(rows: MetricsRow[], locationNames: ReadonlyMap<string,
     aovCents: Number(row.aov_cents),
     inAppShare: Number(row.in_app_share),
     loyaltyRedemptionRate: Number(row.loyalty_redemption_rate),
+    channelRevenueCents: channelRevenueOf(row.revenue_by_channel),
   }));
 }
 

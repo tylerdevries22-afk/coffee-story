@@ -14,12 +14,13 @@ import {
 describe('kpiDaysOf', () => {
   it('maps metric rows and coerces PostgREST numerics', () => {
     const days = kpiDaysOf(
-      [{ location_id: 'l1', day: '2026-08-22', orders_count: '42', revenue_cents: '47700', aov_cents: 1135, in_app_share: '0.562', loyalty_redemption_rate: 0.216 }],
+      [{ location_id: 'l1', day: '2026-08-22', orders_count: '42', revenue_cents: '47700', aov_cents: 1135, in_app_share: '0.562', loyalty_redemption_rate: 0.216, revenue_by_channel: { app: '12000', web: 3000, kiosk: 6000, pos: 26700 } }],
       new Map([['l1', 'Havana St']]),
     );
     assert.equal(days[0]!.locationName, 'Havana St');
     assert.equal(days[0]!.ordersCount, 42);
     assert.equal(days[0]!.inAppShare, 0.562);
+    assert.deepEqual(days[0]!.channelRevenueCents, { app: 12000, web: 3000, kiosk: 6000, pos: 26700 });
   });
 });
 

@@ -11,7 +11,7 @@
  */
 import { timingSafeEqual } from 'node:crypto';
 
-import type { ApiErrorBody } from '@platform/api-client';
+import { fetchWithRetry, type ApiErrorBody } from '@platform/api-client';
 import { parseTenantClaims, type TenantClaims } from '@platform/schema';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
@@ -33,7 +33,10 @@ export function serverEnv(): ServerEnv | null {
 }
 
 export function serviceDb(env: ServerEnv): SupabaseClient {
-  return createClient(env.url, env.serviceRoleKey, { auth: { persistSession: false } });
+  return createClient(env.url, env.serviceRoleKey, {
+    auth: { persistSession: false },
+    global: { fetch: (input, init) => fetchWithRetry(input, init) },
+  });
 }
 
 /**
@@ -44,7 +47,7 @@ export function serviceDb(env: ServerEnv): SupabaseClient {
  */
 export const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'DELETE, GET, POST, OPTIONS',
   'Access-Control-Allow-Headers': 'authorization, content-type, idempotency-key',
   'Access-Control-Max-Age': '86400',
 } as const;

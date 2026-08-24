@@ -31,10 +31,11 @@ import { CashTab } from './rewards/tabs/cash-tab';
 import { RedeemTab } from './rewards/tabs/redeem-tab';
 import { StatusTab } from './rewards/tabs/status-tab';
 import { HelpSheet, PerkSheet, ReferralSheet, RewardSheet } from './rewards/sheets';
-import { styles } from './rewards/styles';
+import { useRewardStyles } from './rewards/styles';
 import type { PerkDetail, RewardDetail } from './rewards/types';
 
 export function RewardsScreen() {
+  const styles = useRewardStyles();
   const { portal, isDemo, refresh } = useAuth();
   const { setClientTab, startOrder } = useAppState();
   const demo = useDemo();

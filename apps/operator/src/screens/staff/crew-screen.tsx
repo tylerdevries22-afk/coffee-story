@@ -1,5 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+
+import {
+  fetchChecklist, fetchShiftRoster, type ChecklistItem as DataChecklistItem,
+  type RosterEntry,
+} from '@platform/data';
+import { isoDateInTimeZone } from '@platform/domain';
 
 import { CollapsingScreen } from '@/components/collapsing-screen';
 import { Body, Card, SectionTitle } from '@/components/ui';
@@ -7,9 +13,14 @@ import { DEMO_CHECKLIST, DEMO_CREW_MEMBER, DEMO_SHIFTS } from '@/data/crew-demo'
 import {
   itemsFor, outstandingAtClose, progressOf, toggleItem, type ChecklistItem, type ChecklistRecurrence,
 } from '@/features/crew/checklist';
-import { leavingSoon, minutesRemaining, shiftState, sortRoster } from '@/features/crew/shift';
-import { choiceState } from '@/lib/a11y-state';
-import { colors, fonts, radius, spacing } from '@/theme/tokens';
+import {
+  leavingSoon, minutesRemaining, shiftState, sortRoster, type Shift,
+} from '@/features/crew/shift';
+import { choiceState } from '@platform/ui';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/state/auth-context';
+import { useOperator } from '@/state/operator-store';
+import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 /**
  * Crew: who is on, and what the shift still owes.
@@ -21,18 +32,98 @@ import { colors, fonts, radius, spacing } from '@/theme/tokens';
  * Two questions, in the order a shift asks them: who is here, and what is left.
  */
 export function CrewScreen() {
-  const [checklist, setChecklist] = useState<readonly ChecklistItem[]>(DEMO_CHECKLIST);
-  // One clock for the whole render, so the roster and the "leaving soon" cue
-  // can never disagree about what time it is.
-  const now = useMemo(() => new Date(), []);
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
+  const stateTone = {
+    on: { backgroundColor: tokens.surfaceElevated },
+    upcoming: { backgroundColor: tokens.surface },
+    ended: { backgroundColor: tokens.secondary },
+  } as const;
+  const stateText = {
+    on: tokens.success,
+    upcoming: tokens.warning,
+    ended: tokens.textMuted,
+  } as const;
+  const { isDemo, portal, tenant, user } = useAuth();
+  const { location, locationReady } = useOperator();
+  const [checklist, setChecklist] = useState<readonly ChecklistItem[]>(() => isDemo ? DEMO_CHECKLIST : []);
+  const [shifts, setShifts] = useState<readonly Shift[]>(() => isDemo ? DEMO_SHIFTS : []);
+  // One clock for the whole render, advanced once a minute so the roster,
+  // leaving-soon cue, and location calendar day cannot drift apart.
+  const [now, setNow] = useState(() => new Date());
 
-  const roster = useMemo(() => sortRoster(DEMO_SHIFTS, now), [now]);
-  const soon = useMemo(() => leavingSoon(DEMO_SHIFTS, now), [now]);
+  useEffect(() => {
+    const heartbeat = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(heartbeat);
+  }, []);
+
+  const serviceDate = useMemo(
+    () => isoDateInTimeZone(now, location.timezone),
+    [location.timezone, now],
+  );
+  const roster = useMemo(() => sortRoster(shifts, now), [now, shifts]);
+  const soon = useMemo(() => leavingSoon(shifts, now), [now, shifts]);
   const outstanding = useMemo(() => outstandingAtClose(checklist), [checklist]);
   const onNow = roster.filter((shift) => shiftState(shift, now) === 'on');
 
+  useEffect(() => {
+    if (isDemo) {
+      setChecklist(DEMO_CHECKLIST);
+      setShifts(DEMO_SHIFTS);
+      return undefined;
+    }
+    if (!supabase || !user || !locationReady) return undefined;
+    const database = supabase;
+    let active = true;
+    const load = async () => {
+      try {
+        const [rosterRows, opening, closing, daily] = await Promise.all([
+          fetchShiftRoster(database, location.id, serviceDate),
+          fetchChecklist(database, location.id, serviceDate, 'opening'),
+          fetchChecklist(database, location.id, serviceDate, 'closing'),
+          fetchChecklist(database, location.id, serviceDate, 'daily'),
+        ]);
+        if (!active) return;
+        setShifts(rosterRows.map(shiftFromRow));
+        setChecklist([...opening, ...closing, ...daily].map((item) =>
+          checklistFromRow(item, user.id, portal.profile.fullName)));
+      } catch {
+        // Keep the last roster and retry on the heartbeat.
+      }
+    };
+    void load();
+    const heartbeat = setInterval(() => void load(), 60_000);
+    return () => {
+      active = false;
+      clearInterval(heartbeat);
+    };
+  }, [isDemo, location.id, locationReady, portal.profile.fullName, serviceDate, user]);
+
   function tick(id: string) {
-    setChecklist((current) => toggleItem(current, id, DEMO_CREW_MEMBER, new Date().toISOString()));
+    const previous = checklist.find((item) => item.id === id);
+    if (!previous) return;
+    const crewMember = isDemo ? DEMO_CREW_MEMBER : portal.profile.fullName || 'Team member';
+    setChecklist((current) => toggleItem(current, id, crewMember, new Date().toISOString()));
+    if (isDemo || !locationReady || !supabase || !tenant || !user) return;
+    const request = previous.completedAt === null
+      ? supabase.from('crew_task_completions').insert({
+        brand_id: tenant.brand_id,
+        location_id: location.id,
+        task_id: id,
+        service_date: serviceDate,
+        completed_by: user.id,
+      })
+      : supabase
+        .from('crew_task_completions')
+        .delete()
+        .eq('task_id', id)
+        .eq('location_id', location.id)
+        .eq('service_date', serviceDate);
+    void request.then((result) => {
+      if (result.error) {
+        setChecklist((current) => current.map((item) => item.id === id ? previous : item));
+      }
+    });
   }
 
   return (
@@ -60,8 +151,8 @@ export function CrewScreen() {
               </Text>
               <Body muted>{shift.role} · {clockRange(shift.startsAt, shift.endsAt)}</Body>
             </View>
-            <View style={[styles.statePill, STATE_TONE[state]]}>
-              <Text style={[styles.stateText, { color: STATE_TEXT[state] }]}>
+            <View style={[styles.statePill, stateTone[state]]}>
+              <Text style={[styles.stateText, { color: stateText[state] }]}>
                 {STATE_LABEL[state]}
               </Text>
             </View>
@@ -76,6 +167,34 @@ export function CrewScreen() {
   );
 }
 
+function shiftFromRow(row: RosterEntry): Shift {
+  return {
+    id: row.id,
+    staffName: row.staffName,
+    role: row.staffRole.replaceAll('_', ' '),
+    startsAt: row.starts_at,
+    endsAt: row.ends_at,
+  };
+}
+
+function checklistFromRow(
+  row: DataChecklistItem,
+  userId: string,
+  userName: string,
+): ChecklistItem {
+  return {
+    id: row.id,
+    title: row.title,
+    detail: row.detail,
+    recurrence: row.recurrence === 'weekly' ? 'daily' : row.recurrence,
+    sortOrder: row.sort_order,
+    completedAt: row.completedAt,
+    completedBy: row.completedBy
+      ? row.completedBy === userId ? userName || 'You' : 'Crew member'
+      : null,
+  };
+}
+
 function Checklist({
   title, recurrence, items, onToggle,
 }: {
@@ -84,6 +203,8 @@ function Checklist({
   items: readonly ChecklistItem[];
   onToggle: (id: string) => void;
 }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const list = itemsFor(items, recurrence);
   const progress = progressOf(list);
   if (list.length === 0) return null;
@@ -131,39 +252,32 @@ function clockRange(startsAt: string, endsAt: string): string {
 }
 
 const STATE_LABEL = { on: 'On', upcoming: 'Later', ended: 'Done' } as const;
-const STATE_TONE = {
-  on: { backgroundColor: colors.successTint },
-  upcoming: { backgroundColor: colors.gold50 },
-  ended: { backgroundColor: colors.ink200 },
-} as const;
-const STATE_TEXT = { on: colors.success, upcoming: colors.warning, ended: colors.ink500 } as const;
-
-const styles = StyleSheet.create({
+const createStyles = (tokens: BrandTokens) => StyleSheet.create({
   notice: {
-    backgroundColor: colors.gold50, borderRadius: radius.md,
-    padding: spacing.md, gap: 4, marginBottom: spacing.md,
+    backgroundColor: tokens.surface, borderRadius: tokens.radius.lg,
+    padding: tokens.spacing.lg, gap: 4, marginBottom: tokens.spacing.lg,
   },
   noticeLabel: {
-    color: colors.warning, fontFamily: fonts.sansBold, fontSize: 13,
+    color: tokens.warning, fontFamily: tokens.fontBody, fontSize: 13,
     letterSpacing: 1.2, textTransform: 'uppercase',
   },
-  noticeBody: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 18 },
-  shift: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.sm },
+  noticeBody: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 18 },
+  shift: { flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.lg, marginBottom: tokens.spacing.md },
   shiftCopy: { flex: 1, gap: 2 },
-  shiftName: { color: colors.ink900, fontFamily: fonts.display, fontSize: 22 },
-  faded: { color: colors.ink500 },
-  statePill: { paddingHorizontal: spacing.md, paddingVertical: 8, borderRadius: radius.pill },
-  stateText: { fontFamily: fonts.sansBold, fontSize: 14 },
-  taskRow: { marginBottom: spacing.sm },
-  task: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 72 },
+  shiftName: { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: 22 },
+  faded: { color: tokens.textMuted },
+  statePill: { paddingHorizontal: tokens.spacing.lg, paddingVertical: 8, borderRadius: tokens.radius.pill },
+  stateText: { fontFamily: tokens.fontBody, fontSize: 14 },
+  taskRow: { marginBottom: tokens.spacing.md },
+  task: { flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.lg, minHeight: 72 },
   box: {
     width: 32, height: 32, borderRadius: 8, borderWidth: 2,
-    borderColor: colors.ink300, alignItems: 'center', justifyContent: 'center',
+    borderColor: tokens.textMuted, alignItems: 'center', justifyContent: 'center',
   },
-  boxDone: { backgroundColor: colors.success, borderColor: colors.success },
-  tick: { color: colors.white, fontFamily: fonts.sansBold, fontSize: 18 },
+  boxDone: { backgroundColor: tokens.success, borderColor: tokens.success },
+  tick: { color: tokens.surfaceElevated, fontFamily: tokens.fontBody, fontSize: 18 },
   taskCopy: { flex: 1, gap: 2 },
-  taskTitle: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 18 },
-  taskTitleDone: { color: colors.ink500, textDecorationLine: 'line-through' },
+  taskTitle: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 18 },
+  taskTitleDone: { color: tokens.textMuted, textDecorationLine: 'line-through' },
   pressed: { opacity: 0.85 },
 });

@@ -7,13 +7,13 @@ import { Button } from '@/components/ui';
 import { POINTS_LABEL, demoReferralCode, referralShareUrl } from '@/features/rewards/presentation';
 import { mobileApi } from '@/lib/mobile-api';
 import { TENANT } from '@/tenant';
-import { colors } from '@/theme/tokens';
 import type { RewardCatalogItem, RewardReferral } from '@platform/domain';
 
 import { hapticError, hapticSuccess } from './haptics';
 import { RewardMark } from './reward-mark';
-import { styles } from './styles';
+import { useRewardStyles } from './styles';
 import type { PerkDetail, RewardDetail } from './types';
+import { useTokens as useBrandTokens } from '@platform/ui';
 
 /**
  * The Rewards tab's modal sheets: perk detail, reward detail, the referral
@@ -26,6 +26,8 @@ import type { PerkDetail, RewardDetail } from './types';
  * prop any more.
  */
 export function PerkSheet({ perk, onClose }: { perk: PerkDetail | null; onClose: () => void }) {
+  const styles = useRewardStyles();
+  const tokens = useBrandTokens();
   if (!perk) return null;
   return (
     <SheetModal
@@ -39,7 +41,7 @@ export function PerkSheet({ perk, onClose }: { perk: PerkDetail | null; onClose:
           <View style={styles.sheetTierBadge}><Text style={styles.sheetTierText}>{perk?.tier}</Text></View>
           {perk?.locked ? (
             <View style={styles.lockedBadge}>
-              <AppIcon name="lock.fill" size={17} tintColor={colors.ink400} />
+              <AppIcon name="lock.fill" size={17} tintColor={tokens.textMuted} />
               <Text style={styles.lockedBadgeText}>Locked</Text>
             </View>
           ) : null}
@@ -63,6 +65,8 @@ export function RewardSheet({
   onClose: () => void;
   onRedeem: (reward: RewardCatalogItem) => void;
 }) {
+  const styles = useRewardStyles();
+  const tokens = useBrandTokens();
   if (!detail) return null;
   return (
     <SheetModal
@@ -80,7 +84,7 @@ export function RewardSheet({
           </View>
           {detail?.locked ? (
             <View style={styles.lockedBadge}>
-              <AppIcon name="lock.fill" size={17} tintColor={colors.ink400} />
+              <AppIcon name="lock.fill" size={17} tintColor={tokens.textMuted} />
               <Text style={styles.lockedBadgeText}>Locked</Text>
             </View>
           ) : null}
@@ -124,6 +128,8 @@ export function ReferralSheet({
   profileId: string;
   onClose: () => void;
 }) {
+  const styles = useRewardStyles();
+  const tokens = useBrandTokens();
   const demoCode = demoReferralCode(profileId);
   const [code, setCode] = useState(demoCode);
   const [shareUrl, setShareUrl] = useState(referralShareUrl(TENANT.business.website, demoCode));
@@ -187,7 +193,7 @@ export function ReferralSheet({
         style={({ pressed }) => [styles.referralLinkCard, pressed && styles.rowPressed]}
       >
         <Text numberOfLines={1} style={styles.referralLink}>{loading ? 'Preparing your invitation…' : shareUrl}</Text>
-        <AppIcon name="square.and.arrow.up" size={24} tintColor={colors.ink900} />
+        <AppIcon name="square.and.arrow.up" size={24} tintColor={tokens.textPrimary} />
       </Pressable>
       <Text style={styles.referralFootnote}>New guests only. Beans are awarded after the first completed, paid order.</Text>
       <View style={styles.referralDivider} />
@@ -205,6 +211,7 @@ export function ReferralSheet({
 }
 
 export function HelpSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const styles = useRewardStyles();
   if (!open) return null;
   return (
     <SheetModal
@@ -245,6 +252,8 @@ export function HelpSheet({ open, onClose }: { open: boolean; onClose: () => voi
 }
 
 function CloseButton({ onPress }: { onPress: () => void }) {
+  const styles = useRewardStyles();
+  const tokens = useBrandTokens();
   return (
     <Pressable
       accessibilityRole="button"
@@ -253,7 +262,7 @@ function CloseButton({ onPress }: { onPress: () => void }) {
       onPress={onPress}
       style={({ pressed }) => [styles.closeButton, pressed && styles.pressed]}
     >
-      <AppIcon name="xmark" size={25} tintColor={colors.ink900} weight="medium" />
+      <AppIcon name="xmark" size={25} tintColor={tokens.textPrimary} weight="medium" />
     </Pressable>
   );
 }

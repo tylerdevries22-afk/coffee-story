@@ -37,14 +37,16 @@ import {
 import { formatMoney, queuePositions } from '@platform/domain';
 import { MENU_ITEMS } from '@/data/catalog';
 import { useOperator } from '@/state/operator-store';
-import { disabledState, toggleState } from '@/lib/a11y-state';
-import { colors, fonts, radius, shadow, spacing } from '@/theme/tokens';
+import { disabledState, toggleState } from '@platform/ui';
+import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 type BoardSheet = 'none' | 'day' | 'menu' | 'settings' | 'location';
 
 const WIDE_BREAKPOINT = 900;
 
 export function OrdersBoardScreen() {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const operator = useOperator();
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -105,13 +107,13 @@ export function OrdersBoardScreen() {
   }
 
   const columnData = [
-    { key: 'paid' as const, title: 'New', orders: columns.paid, tone: colors.gold500 ?? colors.warning },
-    { key: 'in_progress' as const, title: 'In progress', orders: columns.in_progress, tone: colors.brand500 },
-    { key: 'ready' as const, title: 'Ready', orders: columns.ready, tone: colors.success },
+    { key: 'paid' as const, title: 'New', orders: columns.paid, tone: tokens.accent ?? tokens.warning },
+    { key: 'in_progress' as const, title: 'In progress', orders: columns.in_progress, tone: tokens.secondary },
+    { key: 'ready' as const, title: 'Ready', orders: columns.ready, tone: tokens.success },
   ];
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top + spacing.sm }]}>
+    <View style={[styles.screen, { paddingTop: insets.top + tokens.spacing.md }]}>
       <View style={styles.header}>
         <Pressable
           accessibilityRole="button"
@@ -172,7 +174,7 @@ export function OrdersBoardScreen() {
         style={styles.columnsScroll}
       >
         {columnData.map((column) => (
-          <View key={column.key} style={[styles.column, !wide && { width: width - spacing.lg * 2 }]}>
+          <View key={column.key} style={[styles.column, !wide && { width: width - tokens.spacing.xl * 2 }]}>
             <View style={styles.columnHeader}>
               <View style={[styles.columnDot, { backgroundColor: column.tone }]} />
               <Text style={styles.columnTitle}>{column.title}</Text>
@@ -221,6 +223,8 @@ export function OrdersBoardScreen() {
 }
 
 function HeaderButton({ label, onPress }: { label: string; onPress: () => void }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   return (
     <Pressable
       accessibilityRole="button"
@@ -256,6 +260,8 @@ function OrderCard({
   onOpen: () => void;
   onAdvance: (to: NonNullable<ReturnType<typeof nextActionFor>>['to']) => void;
 }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const action = nextActionFor(order.status);
   return (
     <Pressable
@@ -314,6 +320,8 @@ function SheetShell({
   onClose: () => void;
   children: React.ReactNode;
 }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={onClose} style={styles.backdrop} />
@@ -338,6 +346,8 @@ function OrderDetail({
   onCancel: () => void;
   onRefund: (amount: number | 'full') => void;
 }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const [refundOpen, setRefundOpen] = useState(false);
   const [refundAmount, setRefundAmount] = useState('');
   useEffect(() => {
@@ -403,7 +413,7 @@ function OrderDetail({
             onChangeText={setRefundAmount}
             keyboardType="decimal-pad"
             placeholder="0.00"
-            placeholderTextColor={colors.ink400}
+            placeholderTextColor={tokens.textMuted}
             style={styles.refundInput}
           />
           <View style={styles.detailDangerRow}>
@@ -431,6 +441,8 @@ function OrderDetail({
 }
 
 function DaySheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const operator = useOperator();
   const summary = useMemo(() => endOfDaySummary(operator.orders.map((order) => ({
     status: order.status,
@@ -461,6 +473,8 @@ function DaySheet({ visible, onClose }: { visible: boolean; onClose: () => void 
 }
 
 function MenuControlSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const operator = useOperator();
   return (
     <SheetShell visible={visible} title="Menu control" onClose={onClose}>
@@ -476,7 +490,7 @@ function MenuControlSheet({ visible, onClose }: { visible: boolean; onClose: () 
         value={operator.hoursOverride}
         onChangeText={operator.setHoursOverride}
         placeholder="Closing at 8 tonight — private event"
-        placeholderTextColor={colors.ink400}
+        placeholderTextColor={tokens.textMuted}
         style={styles.refundInput}
       />
       <Text style={styles.sheetSection}>86 board</Text>
@@ -533,6 +547,8 @@ function SettingsSheet({ visible, onClose }: { visible: boolean; onClose: () => 
 }
 
 function LocationSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const operator = useOperator();
   return (
     <SheetShell visible={visible} title="Working location" onClose={onClose}>
@@ -553,6 +569,8 @@ function LocationSheet({ visible, onClose }: { visible: boolean; onClose: () => 
 }
 
 function StatRow({ label, value }: { label: string; value: string }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   return (
     <View style={styles.statRow}>
       <Text style={styles.statLabel}>{label}</Text>
@@ -572,6 +590,8 @@ function SettingToggle({
   value: boolean;
   onToggle: () => void;
 }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   return (
     <Pressable
       accessibilityRole="switch"
@@ -596,6 +616,8 @@ function SettingToggle({
  * the account session underneath stays signed in either way.
  */
 function PinGate({ onUnlock }: { onUnlock: () => void }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const [entry, setEntry] = useState('');
   const [state, setState] = useState<PinState>({ missCount: 0, lockedUntil: null });
   const locked = isLockedOut(state, new Date());
@@ -643,220 +665,220 @@ function PinGate({ onUnlock }: { onUnlock: () => void }) {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.warm },
+const createStyles = (tokens: BrandTokens) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: tokens.surface },
   pressed: { opacity: 0.8 },
 
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.sm,
+    gap: tokens.spacing.md,
+    paddingHorizontal: tokens.spacing.xl,
+    paddingBottom: tokens.spacing.md,
   },
-  headerTitle: { color: colors.ink900, fontFamily: fonts.display, fontSize: 24 },
+  headerTitle: { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: 24 },
   headerChip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.pill,
-    backgroundColor: colors.brand100,
+    paddingHorizontal: tokens.spacing.lg,
+    paddingVertical: tokens.spacing.sm,
+    borderRadius: tokens.radius.pill,
+    backgroundColor: tokens.surface,
   },
-  headerChipText: { color: colors.brand700, fontFamily: fonts.sansBold, fontSize: 13 },
-  headerActions: { flexDirection: 'row', gap: spacing.sm, marginLeft: 'auto' },
+  headerChipText: { color: tokens.primary, fontFamily: tokens.fontBody, fontSize: 13 },
+  headerActions: { flexDirection: 'row', gap: tokens.spacing.md, marginLeft: 'auto' },
   headerButton: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.pill,
-    backgroundColor: colors.white,
+    paddingHorizontal: tokens.spacing.lg,
+    paddingVertical: tokens.spacing.md,
+    borderRadius: tokens.radius.pill,
+    backgroundColor: tokens.surfaceElevated,
     borderWidth: 1,
-    borderColor: colors.ink200,
+    borderColor: tokens.secondary,
   },
-  headerButtonText: { color: colors.ink700, fontFamily: fonts.sansMedium, fontSize: 13 },
+  headerButtonText: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 13 },
   newBadge: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.pill,
-    backgroundColor: colors.danger,
+    paddingHorizontal: tokens.spacing.lg,
+    paddingVertical: tokens.spacing.sm,
+    borderRadius: tokens.radius.pill,
+    backgroundColor: tokens.danger,
   },
-  newBadgeText: { color: colors.white, fontFamily: fonts.sansBold, fontSize: 13 },
+  newBadgeText: { color: tokens.surfaceElevated, fontFamily: tokens.fontBody, fontSize: 13 },
 
-  lane: { paddingBottom: spacing.sm },
-  laneTitle: { color: colors.ink500, fontFamily: fonts.sansBold, fontSize: 12, letterSpacing: 0.6, textTransform: 'uppercase', paddingHorizontal: spacing.lg, paddingBottom: spacing.xs },
-  laneRow: { gap: spacing.sm, paddingHorizontal: spacing.lg },
+  lane: { paddingBottom: tokens.spacing.md },
+  laneTitle: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 12, letterSpacing: 0.6, textTransform: 'uppercase', paddingHorizontal: tokens.spacing.xl, paddingBottom: tokens.spacing.sm },
+  laneRow: { gap: tokens.spacing.md, paddingHorizontal: tokens.spacing.xl },
   laneCard: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.md,
-    backgroundColor: colors.gold50,
+    paddingHorizontal: tokens.spacing.lg,
+    paddingVertical: tokens.spacing.md,
+    borderRadius: tokens.radius.lg,
+    backgroundColor: tokens.surface,
     borderWidth: 1,
-    borderColor: colors.gold300,
+    borderColor: tokens.accent,
     alignItems: 'center',
     gap: 2,
   },
-  laneCode: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 15 },
-  laneWhen: { color: colors.ink600, fontFamily: fonts.sansMedium, fontSize: 12 },
+  laneCode: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 15 },
+  laneWhen: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 12 },
 
   columnsScroll: { flex: 1 },
-  columns: { paddingHorizontal: spacing.lg, gap: spacing.md, paddingBottom: spacing.xl },
+  columns: { paddingHorizontal: tokens.spacing.xl, gap: tokens.spacing.lg, paddingBottom: tokens.spacing.xxl },
   // Side-by-side columns above the breakpoint; the vertical ScrollView's
   // content container needs the row direction stated, or the columns stack.
   columnsWide: { flex: 1, flexDirection: 'row' },
   column: {
     flex: 1,
-    borderRadius: radius.lg,
-    backgroundColor: colors.brand50,
-    padding: spacing.sm,
+    borderRadius: tokens.radius.lg,
+    backgroundColor: tokens.surface,
+    padding: tokens.spacing.md,
   },
-  columnHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.sm },
+  columnHeader: { flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.md, padding: tokens.spacing.md },
   columnDot: { width: 10, height: 10, borderRadius: 5 },
-  columnTitle: { flex: 1, color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 16 },
-  columnCount: { color: colors.ink500, fontFamily: fonts.sansBold, fontSize: 16 },
-  columnBody: { gap: spacing.sm, paddingBottom: spacing.lg },
-  columnEmpty: { color: colors.ink500, fontFamily: fonts.sans, fontSize: 14, textAlign: 'center', paddingVertical: spacing.xl },
+  columnTitle: { flex: 1, color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 16 },
+  columnCount: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 16 },
+  columnBody: { gap: tokens.spacing.md, paddingBottom: tokens.spacing.xl },
+  columnEmpty: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 14, textAlign: 'center', paddingVertical: tokens.spacing.xxl },
 
   card: {
-    borderRadius: radius.md,
-    backgroundColor: colors.white,
-    padding: spacing.md,
-    gap: spacing.xs,
-    ...shadow.card,
+    borderRadius: tokens.radius.lg,
+    backgroundColor: tokens.surfaceElevated,
+    padding: tokens.spacing.lg,
+    gap: tokens.spacing.sm,
+    shadowColor: tokens.textPrimary, shadowOffset: { width: 0, height: 8 }, shadowOpacity: tokens.elevation.card, shadowRadius: 24, elevation: 5,
   },
-  cardFresh: { borderWidth: 2, borderColor: colors.danger },
-  cardTop: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.sm },
-  cardCode: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 18 },
+  cardFresh: { borderWidth: 2, borderColor: tokens.danger },
+  cardTop: { flexDirection: 'row', alignItems: 'baseline', gap: tokens.spacing.md },
+  cardCode: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 18 },
   cardCodeKds: { fontSize: 26 },
   cardQueue: {
-    color: colors.ink500 ?? colors.ink900,
-    fontFamily: fonts.sansBold,
+    color: tokens.textMuted ?? tokens.textPrimary,
+    fontFamily: tokens.fontBody,
     fontSize: 14,
     fontVariant: ['tabular-nums'],
   },
-  cardGuest: { flex: 1, color: colors.ink600, fontFamily: fonts.sansMedium, fontSize: 14 },
-  cardAge: { color: colors.ink500, fontFamily: fonts.sansMedium, fontSize: 13 },
-  cardLine: { color: colors.ink900, fontFamily: fonts.sans, fontSize: 14, lineHeight: 20 },
+  cardGuest: { flex: 1, color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 14 },
+  cardAge: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 13 },
+  cardLine: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 14, lineHeight: 20 },
   cardLineKds: { fontSize: 18, lineHeight: 26 },
-  cardNote: { color: colors.brand600, fontFamily: fonts.sansMedium, fontSize: 13, fontStyle: 'italic' },
-  cardBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: spacing.xs },
-  cardTotal: { color: colors.ink600, fontFamily: fonts.sansBold, fontSize: 14 },
+  cardNote: { color: tokens.primary, fontFamily: tokens.fontBody, fontSize: 13, fontStyle: 'italic' },
+  cardBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: tokens.spacing.sm },
+  cardTotal: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 14 },
   advance: {
     minHeight: 44,
     minWidth: 110,
-    borderRadius: radius.pill,
-    backgroundColor: colors.ink900,
+    borderRadius: tokens.radius.pill,
+    backgroundColor: tokens.textPrimary,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: tokens.spacing.xl,
   },
-  advanceText: { color: colors.white, fontFamily: fonts.sansBold, fontSize: 15 },
+  advanceText: { color: tokens.surfaceElevated, fontFamily: tokens.fontBody, fontSize: 15 },
 
   backdrop: { flex: 1, backgroundColor: 'rgba(20,12,8,0.45)' },
   sheet: {
     position: 'absolute',
-    left: spacing.lg,
-    right: spacing.lg,
+    left: tokens.spacing.xl,
+    right: tokens.spacing.xl,
     top: '12%',
     maxHeight: '76%',
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface,
-    padding: spacing.lg,
-    gap: spacing.md,
-    ...shadow.card,
+    borderRadius: tokens.radius.lg,
+    backgroundColor: tokens.surface,
+    padding: tokens.spacing.xl,
+    gap: tokens.spacing.lg,
+    shadowColor: tokens.textPrimary, shadowOffset: { width: 0, height: 8 }, shadowOpacity: tokens.elevation.card, shadowRadius: 24, elevation: 5,
   },
-  sheetTitle: { color: colors.ink900, fontFamily: fonts.display, fontSize: 20 },
-  sheetBody: { gap: spacing.sm },
-  sheetSection: { color: colors.ink500, fontFamily: fonts.sansBold, fontSize: 12, letterSpacing: 0.6, textTransform: 'uppercase', paddingTop: spacing.sm },
+  sheetTitle: { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: 20 },
+  sheetBody: { gap: tokens.spacing.md },
+  sheetSection: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 12, letterSpacing: 0.6, textTransform: 'uppercase', paddingTop: tokens.spacing.md },
 
   detailLine: { gap: 2 },
-  detailLineName: { color: colors.ink900, fontFamily: fonts.sansMedium, fontSize: 16 },
-  detailLineOptions: { color: colors.ink600, fontFamily: fonts.sans, fontSize: 13 },
-  detailTotalRow: { flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.ink200, paddingTop: spacing.sm },
-  detailTotalLabel: { color: colors.ink600, fontFamily: fonts.sansMedium, fontSize: 14 },
-  detailTotalValue: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 16 },
+  detailLineName: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 16 },
+  detailLineOptions: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 13 },
+  detailTotalRow: { flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: tokens.secondary, paddingTop: tokens.spacing.md },
+  detailTotalLabel: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 14 },
+  detailTotalValue: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 16 },
   detailPrimary: {
     minHeight: 52,
-    borderRadius: radius.pill,
-    backgroundColor: colors.ink900,
+    borderRadius: tokens.radius.pill,
+    backgroundColor: tokens.textPrimary,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  detailPrimaryText: { color: colors.white, fontFamily: fonts.sansBold, fontSize: 16 },
-  detailDangerRow: { flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' },
+  detailPrimaryText: { color: tokens.surfaceElevated, fontFamily: tokens.fontBody, fontSize: 16 },
+  detailDangerRow: { flexDirection: 'row', gap: tokens.spacing.md, flexWrap: 'wrap' },
   detailQuiet: {
     minHeight: 44,
-    borderRadius: radius.pill,
+    borderRadius: tokens.radius.pill,
     borderWidth: 1,
-    borderColor: colors.ink200,
+    borderColor: tokens.secondary,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: spacing.lg,
-    backgroundColor: colors.white,
+    paddingHorizontal: tokens.spacing.xl,
+    backgroundColor: tokens.surfaceElevated,
   },
-  detailQuietText: { color: colors.ink700, fontFamily: fonts.sansMedium, fontSize: 14 },
+  detailQuietText: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 14 },
   detailDanger: {
     minHeight: 44,
-    borderRadius: radius.pill,
+    borderRadius: tokens.radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: spacing.lg,
-    backgroundColor: colors.danger,
+    paddingHorizontal: tokens.spacing.xl,
+    backgroundColor: tokens.danger,
   },
-  detailDangerText: { color: colors.white, fontFamily: fonts.sansBold, fontSize: 14 },
-  refundBox: { gap: spacing.sm },
-  refundHint: { color: colors.ink600, fontFamily: fonts.sans, fontSize: 13, lineHeight: 18 },
+  detailDangerText: { color: tokens.surfaceElevated, fontFamily: tokens.fontBody, fontSize: 14 },
+  refundBox: { gap: tokens.spacing.md },
+  refundHint: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 13, lineHeight: 18 },
   refundInput: {
     borderWidth: 1,
-    borderColor: colors.ink200,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    color: colors.ink900,
-    fontFamily: fonts.sansBold,
+    borderColor: tokens.secondary,
+    borderRadius: tokens.radius.lg,
+    paddingHorizontal: tokens.spacing.lg,
+    paddingVertical: tokens.spacing.md,
+    color: tokens.textPrimary,
+    fontFamily: tokens.fontBody,
     fontSize: 18,
-    backgroundColor: colors.white,
+    backgroundColor: tokens.surfaceElevated,
   },
 
-  statRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: spacing.xs },
-  statLabel: { color: colors.ink700, fontFamily: fonts.sansMedium, fontSize: 15 },
-  statValue: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 15 },
+  statRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: tokens.spacing.sm },
+  statLabel: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 15 },
+  statValue: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 15 },
 
-  settingRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.sm },
+  settingRow: { flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.lg, paddingVertical: tokens.spacing.md },
   settingCopy: { flex: 1, gap: 2 },
-  settingLabel: { color: colors.ink900, fontFamily: fonts.sansMedium, fontSize: 15 },
-  settingDetail: { color: colors.ink600, fontFamily: fonts.sans, fontSize: 13 },
+  settingLabel: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 15 },
+  settingDetail: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 13 },
   switch: {
     width: 52,
     height: 32,
     borderRadius: 16,
-    backgroundColor: colors.ink200,
+    backgroundColor: tokens.secondary,
     padding: 3,
     justifyContent: 'center',
   },
-  switchOn: { backgroundColor: colors.success },
-  switchKnob: { width: 26, height: 26, borderRadius: 13, backgroundColor: colors.white },
+  switchOn: { backgroundColor: tokens.success },
+  switchKnob: { width: 26, height: 26, borderRadius: 13, backgroundColor: tokens.surfaceElevated },
   switchKnobOn: { alignSelf: 'flex-end' },
 
-  eightySixRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: spacing.sm },
-  eightySixName: { color: colors.ink500, textDecorationLine: 'line-through' },
-  eightySixTag: { color: colors.danger, fontFamily: fonts.sansBold, fontSize: 13 },
-  locationRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: spacing.md },
-  locationName: { color: colors.ink900, fontFamily: fonts.sansMedium, fontSize: 16 },
-  locationCurrent: { color: colors.success, fontFamily: fonts.sansBold, fontSize: 13 },
+  eightySixRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: tokens.spacing.md },
+  eightySixName: { color: tokens.textMuted, textDecorationLine: 'line-through' },
+  eightySixTag: { color: tokens.danger, fontFamily: tokens.fontBody, fontSize: 13 },
+  locationRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: tokens.spacing.lg },
+  locationName: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 16 },
+  locationCurrent: { color: tokens.success, fontFamily: tokens.fontBody, fontSize: 13 },
 
-  pinScreen: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md, padding: spacing.xl, backgroundColor: colors.warm },
-  pinTitle: { color: colors.ink900, fontFamily: fonts.display, fontSize: 26 },
-  pinHint: { color: colors.ink600, fontFamily: fonts.sans, fontSize: 14, textAlign: 'center' },
+  pinScreen: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: tokens.spacing.lg, padding: tokens.spacing.xxl, backgroundColor: tokens.surface },
+  pinTitle: { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: 26 },
+  pinHint: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 14, textAlign: 'center' },
   pinInput: {
     minWidth: 180,
     textAlign: 'center',
     borderWidth: 1,
-    borderColor: colors.ink200,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    color: colors.ink900,
-    fontFamily: fonts.sansBold,
+    borderColor: tokens.secondary,
+    borderRadius: tokens.radius.lg,
+    paddingHorizontal: tokens.spacing.lg,
+    paddingVertical: tokens.spacing.lg,
+    color: tokens.textPrimary,
+    fontFamily: tokens.fontBody,
     fontSize: 24,
     letterSpacing: 8,
-    backgroundColor: colors.white,
+    backgroundColor: tokens.surfaceElevated,
   },
 });

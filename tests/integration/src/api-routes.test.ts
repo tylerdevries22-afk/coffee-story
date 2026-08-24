@@ -1,14 +1,15 @@
 import assert from 'node:assert/strict';
-import { randomUUID } from 'node:crypto';
+import { createHmac, randomUUID } from 'node:crypto';
 import { before, describe, it } from 'node:test';
 
 import { GET as healthGet } from '../../../apps/hq/app/api/health/route.ts';
 import { POST as jobsPost } from '../../../apps/hq/app/api/jobs/run/route.ts';
 import { POST as redeemPost } from '../../../apps/hq/app/api/loyalty/redeem/route.ts';
 import { POST as ordersPost } from '../../../apps/hq/app/api/orders/route.ts';
-import { POST as profilePost } from '../../../apps/hq/app/api/profile/route.ts';
+import { DELETE as profileDelete, POST as profilePost } from '../../../apps/hq/app/api/profile/route.ts';
 import { POST as pushTokensPost } from '../../../apps/hq/app/api/push-tokens/route.ts';
 import { POST as referralsPost } from '../../../apps/hq/app/api/referrals/route.ts';
+import { POST as squareWebhookPost } from '../../../apps/hq/app/api/webhooks/square/route.ts';
 
 import { createSignedInUser, seedBrand, skipUnlessConfigured, sql, stack } from './stack.ts';
 
@@ -23,6 +24,8 @@ import { createSignedInUser, seedBrand, skipUnlessConfigured, sql, stack } from 
 process.env.SUPABASE_URL = stack.url;
 process.env.SUPABASE_SERVICE_ROLE_KEY = stack.serviceRoleKey;
 process.env.CRON_SECRET = 'integration-cron-secret';
+process.env.SQUARE_WEBHOOK_SIGNATURE_KEY = 'integration-square-signature';
+process.env.SQUARE_WEBHOOK_URL = 'http://hq.test/api/webhooks/square';
 
 const SLUG = 'api-routes';
 
@@ -40,6 +43,21 @@ function post(handler: (request: Request) => Promise<Response>, path: string, op
     method: 'POST',
     headers,
     body: JSON.stringify(options.body ?? {}),
+  }));
+}
+
+function squareWebhook(event: unknown): Promise<Response> {
+  const body = JSON.stringify(event);
+  const signature = createHmac('sha256', process.env.SQUARE_WEBHOOK_SIGNATURE_KEY!)
+    .update(process.env.SQUARE_WEBHOOK_URL! + body)
+    .digest('base64');
+  return squareWebhookPost(new Request(process.env.SQUARE_WEBHOOK_URL!, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-square-hmacsha256-signature': signature,
+    },
+    body,
   }));
 }
 
@@ -111,7 +129,7 @@ describe('platform API routes', { skip: skipUnlessConfigured }, () => {
   });
 
   it('GET /api/health answers without a database', async () => {
-    const response = healthGet();
+    const response = await healthGet(new Request('http://hq.test/api/health'));
     assert.equal(response.status, 200);
     const body = await response.json() as { ok: boolean; version: string };
     assert.equal(body.ok, true);
@@ -220,6 +238,89 @@ describe('platform API routes', { skip: skipUnlessConfigured }, () => {
     }
   });
 
+  it('records a paid webhook once, including the fee when customer_id is null', async () => {
+    const paymentId = `pay-${randomUUID()}`;
+    const order = await sql<{ id: string }>(
+      `insert into public.orders
+        (brand_id, location_id, customer_id, status, subtotal_cents, total_cents, square_payment_id, tender_type)
+       values ($1, $2, null, 'created', 2200, 2200, $3, 'square_link') returning id`,
+      [brandId, locationId, paymentId],
+    );
+    const event = {
+      event_id: `event-${randomUUID()}`,
+      type: 'payment.updated',
+      data: { object: { payment: { id: paymentId, status: 'COMPLETED' } } },
+    };
+    assert.equal((await squareWebhook(event)).status, 200);
+    assert.equal((await squareWebhook(event)).status, 200, 'Square may replay the same event id');
+
+    const fee = await sql<{ count: string }>(
+      `select count(*)::text as count from public.platform_fees where order_id = $1`,
+      [order.rows[0]!.id],
+    );
+    const earn = await sql<{ count: string }>(
+      `select count(*)::text as count from public.loyalty_events where order_id = $1`,
+      [order.rows[0]!.id],
+    );
+    assert.equal(fee.rows[0]!.count, '1', 'a replay writes no second platform fee');
+    assert.equal(earn.rows[0]!.count, '0', 'a guestless payment still records its fee without inventing loyalty');
+  });
+
+  it('replays a customer payment without a second earn or fee', async () => {
+    const customer = await sql<{ id: string }>(
+      `insert into public.customers (brand_id, full_name) values ($1, 'Webhook Guest') returning id`,
+      [brandId],
+    );
+    const paymentId = `pay-${randomUUID()}`;
+    const order = await sql<{ id: string }>(
+      `insert into public.orders
+        (brand_id, location_id, customer_id, status, subtotal_cents, total_cents, square_payment_id, tender_type)
+       values ($1, $2, $3, 'created', 2200, 2200, $4, 'square_link') returning id`,
+      [brandId, locationId, customer.rows[0]!.id, paymentId],
+    );
+    const event = {
+      event_id: `event-${randomUUID()}`,
+      type: 'payment.updated',
+      data: { object: { payment: { id: paymentId, status: 'COMPLETED' } } },
+    };
+    await squareWebhook(event);
+    await squareWebhook(event);
+    const rows = await sql<{ earns: string; fees: string }>(
+      `select
+        (select count(*) from public.loyalty_events where order_id = $1 and type = 'earn')::text as earns,
+        (select count(*) from public.platform_fees where order_id = $1)::text as fees`,
+      [order.rows[0]!.id],
+    );
+    assert.deepEqual(rows.rows[0], { earns: '1', fees: '1' });
+  });
+
+  it('keeps a $2 partial refund open and closes the order on the final refund', async () => {
+    const paymentId = `pay-${randomUUID()}`;
+    const order = await sql<{ id: string }>(
+      `insert into public.orders
+        (brand_id, location_id, status, subtotal_cents, total_cents, square_payment_id, tender_type)
+       values ($1, $2, 'paid', 2200, 2200, $3, 'square_link') returning id`,
+      [brandId, locationId, paymentId],
+    );
+    const refund = (amount: number) => ({
+      event_id: `refund-event-${randomUUID()}`,
+      type: 'refund.updated',
+      data: { object: { refund: {
+        id: `refund-${randomUUID()}`,
+        status: 'COMPLETED',
+        payment_id: paymentId,
+        amount_money: { amount, currency: 'USD' },
+      } } },
+    });
+    assert.equal((await squareWebhook(refund(200))).status, 200);
+    let status = await sql<{ status: string }>(`select status from public.orders where id = $1`, [order.rows[0]!.id]);
+    assert.equal(status.rows[0]!.status, 'paid');
+
+    assert.equal((await squareWebhook(refund(2000))).status, 200);
+    status = await sql<{ status: string }>(`select status from public.orders where id = $1`, [order.rows[0]!.id]);
+    assert.equal(status.rows[0]!.status, 'refunded');
+  });
+
   it('redeems a configured reward once per idempotency key', async () => {
     const key = randomUUID();
     const first = await post(redeemPost, '/api/loyalty/redeem', {
@@ -326,6 +427,59 @@ describe('platform API routes', { skip: skipUnlessConfigured }, () => {
     });
     assert.equal(conflict.status, 409);
     assert.equal(((await conflict.json()) as { error: { code: string } }).error.code, 'phone_in_use');
+  });
+
+  it('anonymizes a customer, revokes push delivery, and deletes the auth identity', async () => {
+    const departing = await createSignedInUser({ userMetadata: { brand_slug: SLUG } });
+    const profile = await post(profilePost, '/api/profile', {
+      token: departing.accessToken,
+      body: { fullName: 'Departing Guest', phone: `+1${String(Date.now() + 1).slice(-10)}` },
+    });
+    assert.equal(profile.status, 200);
+    const customer = await sql<{ id: string }>(
+      `select id from public.customers where user_id = $1`,
+      [departing.userId],
+    );
+    const customerId = customer.rows[0]!.id;
+    await sql(
+      `insert into public.push_tokens (brand_id, customer_id, token, platform)
+       values ($1, $2, $3, 'ios')`,
+      [brandId, customerId, `ExponentPushToken[${randomUUID()}]`],
+    );
+    const order = await sql<{ id: string }>(
+      `insert into public.orders
+        (brand_id, location_id, customer_id, status, subtotal_cents, total_cents, tender_type)
+       values ($1, $2, $3, 'created', 500, 500, 'pay_at_pickup') returning id`,
+      [brandId, locationId, customerId],
+    );
+
+    const response = await profileDelete(new Request('http://hq.test/api/profile', {
+      method: 'DELETE',
+      headers: { authorization: `Bearer ${departing.accessToken}` },
+    }));
+    assert.equal(response.status, 200);
+
+    const anonymized = await sql<{
+      full_name: string; email: string | null; phone: string | null; user_id: string | null;
+    }>(`select full_name, email, phone, user_id from public.customers where id = $1`, [customerId]);
+    assert.deepEqual(anonymized.rows[0], {
+      full_name: 'Deleted account', email: null, phone: null, user_id: null,
+    });
+    const retained = await sql<{ customer_id: string }>(
+      `select customer_id from public.orders where id = $1`,
+      [order.rows[0]!.id],
+    );
+    assert.equal(retained.rows[0]!.customer_id, customerId);
+    const delivery = await sql<{ count: string }>(
+      `select count(*)::text as count from public.push_tokens where customer_id = $1`,
+      [customerId],
+    );
+    assert.equal(delivery.rows[0]!.count, '0');
+    const authUser = await sql<{ count: string }>(
+      `select count(*)::text as count from auth.users where id = $1`,
+      [departing.userId],
+    );
+    assert.equal(authUser.rows[0]!.count, '0');
   });
 
   it('mints one referral code per guest and re-surfaces it', async () => {

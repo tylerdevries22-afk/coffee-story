@@ -1,6 +1,47 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import type { BoardTicketRow } from '@platform/schema';
+import { readSnapshotLines, ticketCallout } from '@platform/domain';
+import type { BoardTicketRow, OrderRow } from '@platform/schema';
+
+export type OrderBoardEntry = {
+  id: string;
+  shortCode: string;
+  guestName: string;
+  status: OrderRow['status'];
+  placedAt: string;
+  dailyNumber: number | null;
+  updatedAt: string;
+  scheduledFor: string | null;
+  lines: readonly { name: string; quantity: number; options: readonly string[] }[];
+  totalCents: number;
+  note: string;
+};
+
+/** The one call-out every staff and guest surface uses. */
+export function orderCallout(row: Pick<OrderRow, 'daily_number' | 'guest_label'>): string {
+  return ticketCallout(row.daily_number, row.guest_label);
+}
+
+/** Maps the private staff row into the narrow KDS shape. */
+export function orderBoardEntryFromRow(row: OrderRow): OrderBoardEntry {
+  return {
+    id: row.id,
+    shortCode: orderCallout(row),
+    guestName: row.guest_label?.trim() || 'Guest',
+    status: row.status,
+    placedAt: row.created_at,
+    dailyNumber: row.daily_number,
+    updatedAt: row.updated_at,
+    scheduledFor: row.scheduled_for,
+    lines: readSnapshotLines(row.totals).map((line) => ({
+      name: line.name,
+      quantity: line.quantity,
+      options: line.options,
+    })),
+    totalCents: row.total_cents,
+    note: row.note,
+  };
+}
 
 /**
  * The pickup display's read.

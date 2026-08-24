@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppIcon } from '@/components/icon';
 import { useBusiness } from '@/state/business';
-import { colors, fonts, radius, spacing } from '@/theme/tokens';
+import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 /**
  * Offers to install the web demo to the home screen, so it launches without
@@ -28,7 +28,7 @@ type InstallEvent = Event & {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 };
 
-const DISMISSED_KEY = 'coffee-story.install-prompt-dismissed.v1';
+const DISMISSED_KEY = 'platform.operator.install-prompt-dismissed.v1';
 
 function isStandalone(): boolean {
   if (typeof window === 'undefined') return false;
@@ -56,6 +56,8 @@ function wasDismissed(): boolean {
 }
 
 export function InstallPrompt() {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const business = useBusiness();
   const insets = useSafeAreaInsets();
   // Starts empty so the first render matches the statically rendered HTML; the
@@ -116,9 +118,9 @@ export function InstallPrompt() {
   if (dismissed || (!installEvent && !showIosHint)) return null;
 
   return (
-    <View style={[styles.bar, { paddingTop: insets.top + spacing.sm }]}>
+    <View style={[styles.bar, { paddingTop: insets.top + tokens.spacing.md }]}>
       <View style={styles.mark}>
-        <AppIcon name="arrow.down.to.line" size={18} tintColor={colors.white} />
+        <AppIcon name="arrow.down.to.line" size={18} tintColor={tokens.surfaceElevated} />
       </View>
       <View style={styles.copy}>
         <Text style={styles.title}>Add {business.name} to your home screen</Text>
@@ -145,46 +147,46 @@ export function InstallPrompt() {
         onPress={dismiss}
         style={({ pressed }) => [styles.close, pressed && styles.pressed]}
       >
-        <AppIcon name="xmark" size={15} tintColor={colors.brand100} />
+        <AppIcon name="xmark" size={15} tintColor={tokens.surface} />
       </Pressable>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (tokens: BrandTokens) => StyleSheet.create({
   bar: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     zIndex: 50,
-    backgroundColor: colors.brand700,
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.sm,
+    backgroundColor: tokens.primary,
+    paddingHorizontal: tokens.spacing.lg,
+    paddingBottom: tokens.spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: tokens.spacing.md,
   },
   mark: {
     width: 34,
     height: 34,
-    borderRadius: radius.pill,
-    backgroundColor: colors.brand500,
+    borderRadius: tokens.radius.pill,
+    backgroundColor: tokens.secondary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   copy: { flex: 1, gap: 1 },
-  title: { color: colors.white, fontFamily: fonts.sansBold, fontSize: 14 },
-  body: { color: colors.brand100, fontFamily: fonts.sans, fontSize: 12, lineHeight: 16 },
+  title: { color: tokens.surfaceElevated, fontFamily: tokens.fontBody, fontSize: 14 },
+  body: { color: tokens.surface, fontFamily: tokens.fontBody, fontSize: 12, lineHeight: 16 },
   cta: {
     minHeight: 34,
-    borderRadius: radius.pill,
-    backgroundColor: colors.white,
-    paddingHorizontal: spacing.md,
+    borderRadius: tokens.radius.pill,
+    backgroundColor: tokens.surfaceElevated,
+    paddingHorizontal: tokens.spacing.lg,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  ctaText: { color: colors.brand700, fontFamily: fonts.sansBold, fontSize: 14 },
+  ctaText: { color: tokens.primary, fontFamily: tokens.fontBody, fontSize: 14 },
   close: { padding: 4 },
   pressed: { opacity: 0.85 },
 });

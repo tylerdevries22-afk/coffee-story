@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
+import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
-import { colors, fonts } from '@/theme/tokens';
 
 /** "Jordan Álvarez" -> "JA". */
 export function initials(name: string): string {
@@ -18,6 +18,8 @@ export function initials(name: string): string {
  * app; the notifications feed still needs it here.
  */
 export function Avatar({ name, size = 44, tone = 'soft' }: { name: string; size?: number; tone?: 'soft' | 'gold' }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   return (
     <View
       style={[
@@ -26,18 +28,18 @@ export function Avatar({ name, size = 44, tone = 'soft' }: { name: string; size?
           width: size,
           height: size,
           borderRadius: size / 2,
-          backgroundColor: tone === 'gold' ? colors.gold400 : colors.brand100,
+          backgroundColor: tone === 'gold' ? tokens.accent : tokens.surface,
         },
       ]}
     >
-      <Text style={[styles.avatarText, { fontSize: size * 0.34, color: tone === 'gold' ? colors.ink900 : colors.brand700 }]}>
+      <Text style={[styles.avatarText, { fontSize: size * 0.34, color: tone === 'gold' ? tokens.textPrimary : tokens.primary }]}>
         {initials(name)}
       </Text>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (tokens: BrandTokens) => StyleSheet.create({
   avatar: { alignItems: 'center', justifyContent: 'center' },
-  avatarText: { fontFamily: fonts.sansBold },
+  avatarText: { fontFamily: tokens.fontBody },
 });

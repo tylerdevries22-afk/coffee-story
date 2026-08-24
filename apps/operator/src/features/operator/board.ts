@@ -4,27 +4,10 @@
  * Pure; the screen feeds it orders and a clock.
  */
 import { BOARD_STATUSES, type OrderStatus } from '@platform/schema';
+import type { OrderBoardEntry } from '@platform/data';
 
-export type BoardOrder = {
-  id: string;
-  shortCode: string;          // what the barista calls out: "A17"
-  guestName: string;
-  status: OrderStatus;
-  placedAt: string;           // ISO
-  /**
-   * The guest-facing ticket number and the last transition, carried so this
-   * board can compute the same queue position the wall display shows
-   * (`queuePositions`, @platform/domain). A barista asked "what number am I?"
-   * has to answer with the number on the screen behind them; before this the
-   * KDS had no way to know it and the honest answer was a guess.
-   */
-  dailyNumber: number | null;
-  updatedAt: string;          // ISO
-  scheduledFor: string | null;
-  lines: readonly { name: string; quantity: number; options: readonly string[] }[];
-  totalCents: number;
-  note: string;
-};
+/** The KDS shape is owned by @platform/data so every live row is mapped once. */
+export type BoardOrder = OrderBoardEntry;
 
 /** Orders further out than this stay in the scheduled lane, not the board. */
 export const SCHEDULED_LANE_MINUTES = 30;

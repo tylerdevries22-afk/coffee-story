@@ -4,7 +4,9 @@ import { describe, it } from 'node:test';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { BoardTicketRow } from '@platform/schema';
 
-import { fetchBoardTickets } from './board';
+import type { OrderRow } from '@platform/schema';
+
+import { fetchBoardTickets, orderBoardEntryFromRow, orderCallout } from './board';
 
 type Call = { table: string; select: string; eq: [string, string]; order: [string, unknown] };
 
@@ -78,5 +80,31 @@ describe('fetchBoardTickets', () => {
   it('throws with the underlying reason, which the display catches and degrades on', async () => {
     const { client } = recordingClient([], { message: 'permission denied' });
     await assert.rejects(() => fetchBoardTickets(client, 'loc-1'), /permission denied/);
+  });
+});
+
+const ORDER: OrderRow = {
+  id: 'order-1', brand_id: 'brand-1', location_id: 'location-1', customer_id: null,
+  status: 'paid', fulfillment_type: 'pickup', channel: 'kiosk', device_id: null,
+  scheduled_for: null, totals: { lines: [{ name: 'Latte', quantity: 1, options: ['Oat'] }] },
+  subtotal_cents: 500, tax_cents: 40, tip_cents: 0, total_cents: 540,
+  loyalty_redeemed_points: 0, stored_value_applied_cents: 0, note: '',
+  service_date: '2026-08-24', daily_number: 47, guest_label: 'Sara D.', arrived_at: null,
+  square_order_id: null, square_payment_id: null,
+  created_at: '2026-08-24T10:00:00Z', updated_at: '2026-08-24T10:00:00Z',
+};
+
+describe('order call-out', () => {
+  it('uses the daily number before the optional guest label', () => {
+    assert.equal(orderCallout(ORDER), '47');
+    assert.equal(orderCallout({ daily_number: null, guest_label: '  Sara D.  ' }), 'Sara D.');
+    assert.equal(orderCallout({ daily_number: null, guest_label: '  ' }), 'Guest');
+  });
+
+  it('maps the row and snapshot once for every KDS consumer', () => {
+    const entry = orderBoardEntryFromRow(ORDER);
+    assert.equal(entry.shortCode, '47');
+    assert.equal(entry.guestName, 'Sara D.');
+    assert.deepEqual(entry.lines, [{ name: 'Latte', quantity: 1, options: ['Oat'] }]);
   });
 });

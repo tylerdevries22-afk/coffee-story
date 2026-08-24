@@ -16,8 +16,8 @@ import { Body, Button, Card, SectionTitle } from '@/components/ui';
 import { mobileApi } from '@/lib/mobile-api';
 import { useAuth } from '@/state/auth-context';
 import { useDemo } from '@/state/demo-context';
-import { colors, fonts, radius, spacing } from '@/theme/tokens';
 import type { PortalProfile } from '@platform/domain';
+import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
@@ -85,6 +85,8 @@ export function Profile({
   onExit?: () => void;
   onSignOut?: () => void;
 }) {
+  const tokens = useBrandTokens();
+  const profileStyles = createProfileStyles(tokens);
   const { portal, isDemo, refresh, role } = useAuth();
   const demo = useDemo();
   const [profile, setProfile] = useState<PortalProfile>(portal.profile);
@@ -206,32 +208,34 @@ export function Profile({
 }
 
 export function Field({ label, ...props }: React.ComponentProps<typeof TextInput> & { label: string }) {
+  const tokens = useBrandTokens();
+  const profileStyles = createProfileStyles(tokens);
   return (
     <View style={profileStyles.field}>
       <Text style={profileStyles.fieldLabel}>{label}</Text>
       <TextInput
         accessibilityLabel={`${label} input`}
         {...props}
-        placeholderTextColor={colors.ink400}
+        placeholderTextColor={tokens.textMuted}
         style={[profileStyles.input, props.multiline && profileStyles.multiline]}
       />
     </View>
   );
 }
 
-const profileStyles = StyleSheet.create({
+const createProfileStyles = (tokens: BrandTokens) => StyleSheet.create({
   // Inlined when this split out of the guest screen: the field styles lived in
   // information-page.tsx, which went with the rest of screens/client/**.
-  field: { gap: spacing.xs },
-  fieldLabel: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 14 },
+  field: { gap: tokens.spacing.sm },
+  fieldLabel: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 14 },
   input: {
-    minHeight: 54, borderRadius: radius.md, borderWidth: 1, borderColor: colors.ink300,
-    paddingHorizontal: spacing.md, color: colors.ink900, fontFamily: fonts.sans,
-    fontSize: 15, backgroundColor: colors.white,
+    minHeight: 54, borderRadius: tokens.radius.lg, borderWidth: 1, borderColor: tokens.textMuted,
+    paddingHorizontal: tokens.spacing.lg, color: tokens.textPrimary, fontFamily: tokens.fontBody,
+    fontSize: 15, backgroundColor: tokens.surfaceElevated,
   },
-  multiline: { minHeight: 110, paddingTop: spacing.md, textAlignVertical: 'top' },
-  avatarHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg, paddingVertical: spacing.sm },
-  avatarCopy: { flex: 1, gap: spacing.xs },
-  profileName: { color: colors.ink900, fontFamily: fonts.display, fontSize: 25, lineHeight: 30 },
-  accessCard: { gap: spacing.md },
+  multiline: { minHeight: 110, paddingTop: tokens.spacing.lg, textAlignVertical: 'top' },
+  avatarHeader: { flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.xl, paddingVertical: tokens.spacing.md },
+  avatarCopy: { flex: 1, gap: tokens.spacing.sm },
+  profileName: { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: 25, lineHeight: 30 },
+  accessCard: { gap: tokens.spacing.lg },
 });

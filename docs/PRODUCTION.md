@@ -18,6 +18,8 @@ Supabase directly under RLS; every trusted write goes through the API.
 | Platform API + HQ console | `apps/hq` (Next.js) | Vercel — owner-triggered only |
 | Customer app | `apps/customer` (Expo) | EAS update/build — owner-triggered only |
 | Operator app | `apps/operator` (Expo) | EAS update/build — owner-triggered only |
+| Kiosk app | `apps/kiosk` (Expo) | EAS update/build — owner-triggered only |
+| Pickup display | `apps/display` (Next.js) | Node/Vercel deployment paired to a display device |
 | Scheduled jobs | `/api/jobs/run` | Vercel Cron (`apps/hq/vercel.json`, every 5 min) |
 
 Nothing deploys automatically. CI verifies; a deploy happens when the owner
@@ -38,6 +40,7 @@ token>` and an `Idempotency-Key`.
 | `POST /api/loyalty/redeem` | Spends points on a reward from `brand_config.loyalty.rewards`. |
 | `POST /api/push-tokens` | Registers a device push token (re-homes it if the device changes accounts). |
 | `POST /api/profile` | Updates the guest's own contact card. |
+| `DELETE /api/profile` | Deletes a guest account: anonymizes retained order history, revokes push tokens, and removes the GoTrue identity. Staff identities require administrator removal. |
 | `POST /api/referrals` | Mints (or re-surfaces) the guest's referral code. |
 | `POST /api/jobs/run` | The cron tick: drop windows open/close, due campaigns move on. Guarded by `CRON_SECRET`. |
 | `GET /api/health` | Liveness + deployed version. |
@@ -88,7 +91,9 @@ Server (Vercel project for `apps/hq` — never in any app bundle):
 - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (console sign-in)
 - Square (when connected): `SQUARE_APP_ID`, `SQUARE_APP_SECRET`,
   `SQUARE_TOKEN_KEY` (AES-256-GCM key for stored OAuth tokens),
-  `SQUARE_WEBHOOK_SIGNATURE_KEY`, `SQUARE_WEBHOOK_URL`
+  `SQUARE_WEBHOOK_SIGNATURE_KEY`, `SQUARE_WEBHOOK_URL`, and `SQUARE_ENV`
+  (`production` for live card acceptance; unset intentionally fails safe to
+  `sandbox`)
 
 Apps (EAS env — **every `EXPO_PUBLIC_*` value is world-readable in the
 bundle**):
@@ -97,9 +102,15 @@ bundle**):
 - `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` — `sb_publishable_` key or legacy
   anon JWT; `packages/data` rejects anything with database authority
 - `EXPO_PUBLIC_API_URL` + `EXPO_PUBLIC_ALLOWED_API_HOST` — the HQ
-  deployment; the API client fails closed when they disagree. Required by
-  the customer app; optional for the operator app, whose board works
+  deployment; API clients fail closed when they disagree. Required by the
+  customer and kiosk apps; optional for the operator app, whose board works
   entirely under staff RLS — set it there to enable refunds
+
+Pickup display (server environment; see `apps/display/.env.example`):
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `DISPLAY_DEVICE_TOKEN` — one paired display JWT, never an anon key
+- `SENTRY_DSN` plus the shared Sentry upload variables when monitoring is on
 
 ## Turning on card payments
 
@@ -108,17 +119,22 @@ Everything below is code-complete and covered by
 Square over real HTTP). Activating it for a brand is configuration, not a
 deploy:
 
-1. Set `SQUARE_APP_ID`, `SQUARE_APP_SECRET` and `SQUARE_TOKEN_KEY` on the
+1. Set `SQUARE_ENV=production` on the HQ deployment and confirm the app ID,
+   secret, OAuth redirect, webhook subscription, and every connected location
+   all belong to the production Square environment. Sandbox credentials cannot
+   charge a real card. The code continues to default an omitted `SQUARE_ENV` to
+   `sandbox` so a missing variable cannot silently activate live payments.
+2. Set `SQUARE_APP_ID`, `SQUARE_APP_SECRET` and `SQUARE_TOKEN_KEY` on the
    HQ deployment. `SQUARE_TOKEN_KEY` is 32 random bytes, base64
    (`openssl rand -base64 32`) — losing it means every stored merchant
    token must be reconnected.
-2. In the console: Locations → Connect Square, per location. The OAuth
+3. In the console: Locations → Connect Square, per location. The OAuth
    callback writes the encrypted tokens and the merchant's
    `square_location_id`.
-3. Point Square's webhook at `/api/webhooks/square` and set
+4. Point Square's webhook at `/api/webhooks/square` and set
    `SQUARE_WEBHOOK_SIGNATURE_KEY`. The webhook is what marks an order paid;
    the guest returning from the checkout page never is.
-4. The customer app then sends `tenderType: 'square_link'` and opens the
+5. The customer app then sends `tenderType: 'square_link'` and opens the
    `checkoutUrl` it gets back. Until a location is connected that tender
    answers 503, which is why the app keeps `pay_at_pickup` as its default.
 
@@ -145,7 +161,8 @@ in Expo, never in this repository, never in `packages/data`.
 
 ## 6. Verifying a deployment
 
-- `GET /api/health` answers `{ ok: true, version }`.
+- `GET /api/health` answers `{ ok: true, version }`; authenticated
+  `GET /api/health?deep=1` also performs a bounded, retried database read.
 - CI's `integration` job runs the full RLS/state-machine/route suite against
   a real Postgres on every PR (`tests/integration/`).
 - The E2E loop (customer orders → operator advances → HQ reports) runs in CI
@@ -218,31 +235,3 @@ in Expo, never in this repository, never in `packages/data`.
   though it does not explain these failures. Note too that the board holds
   anything past `SCHEDULED_LANE_MINUTES` (30) in a separate lane, so the
   earliest slot is the only one this scenario can use.
-- **The operator board fires live queries with a demo location id.**
-  `operator-store` initialises `location` to `DEMO_LOCATIONS[0]`
-  (`loc-havana`, a slug) and only corrects it to the signed-in account's real
-  location in a `useEffect` -- after the render that has already issued the
-  board fetch. Under live mode those first queries reach PostgREST as
-  `location_id=eq.loc-havana` against a uuid column and come back 400
-  `22P02 invalid input syntax for type uuid`, twice, on every sign-in. It
-  self-corrects once `liveLocations` arrives, so the board works; but if an
-  account ever has no locations the fallback keeps the demo roster and the
-  board queries stay malformed forever. Live mode should have no demo location
-  in it at all.
-- **Rule 4 is mounted but barely consumed.** ThemeProvider now runs in both
-  Expo apps and both root Stacks take their page ground from `useTokens()`, so
-  a tenant palette reaches the app -- and stops at the page ground. The other
-  92 files still import the compiled `theme/tokens`, which is where the rest of
-  the sweep goes.
-
-- **The prep board's day is not chosen yet, and the obvious choice is wrong.**
-  `fetchPrepBoard(client, locationId, serviceDate)` takes the day as a
-  parameter and has no callers — the prep screen renders a fixture. Whoever
-  writes the first one must pass the *location's* date, not the device's and
-  not the server's: `prep_batches.service_date` is a bare `date` with no
-  trigger behind it, unlike `orders.service_date`, which migration 0023 stamps
-  in the location's timezone. A caller reaching for `new Date()` or
-  `current_date` gives a Denver bench tomorrow's empty bake list from 18:00
-  onward. This is exactly the bug CI caught in the five-surface trace
-  (`34e7b44`), and the reason it is written down rather than fixed is that
-  there is no caller to fix.

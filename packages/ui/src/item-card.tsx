@@ -43,15 +43,15 @@ export function ItemCard({
       <View style={{ padding: tokens.spacing.md, gap: tokens.spacing.xs }}>
         {ribbon}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: tokens.spacing.sm }}>
-          <Text style={{ flex: 1, fontFamily: tokens.fontDisplay, fontSize: 16, color: tokens.textPrimary }} numberOfLines={2}>
+          <Text style={{ flex: 1, fontFamily: tokens.fontDisplay, fontSize: tokens.type.md, color: tokens.textPrimary }} numberOfLines={2}>
             {name}
           </Text>
-          <Text style={{ fontFamily: tokens.fontBody, fontWeight: '700', fontSize: 15, color: tokens.textPrimary }}>
+          <Text style={{ fontFamily: tokens.fontBody, fontWeight: '700', fontSize: tokens.type.sm, color: tokens.textPrimary }}>
             {priceLabel}
           </Text>
         </View>
         {description ? (
-          <Text style={{ fontFamily: tokens.fontBody, fontSize: 13, lineHeight: 18, color: tokens.textMuted }} numberOfLines={2}>
+          <Text style={{ fontFamily: tokens.fontBody, fontSize: tokens.type.xs, lineHeight: tokens.type.md + 2, color: tokens.textMuted }} numberOfLines={2}>
             {description}
           </Text>
         ) : null}
@@ -97,7 +97,7 @@ export function DropCountdown({ startsAt, endsAt }: { startsAt: Date; endsAt: Da
       }}
     >
       <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: tokens.accent }} />
-      <Text style={{ fontFamily: tokens.fontBody, fontWeight: '700', fontSize: 12, color: tokens.textPrimary }}>
+      <Text style={{ fontFamily: tokens.fontBody, fontWeight: '700', fontSize: tokens.type.xs, color: tokens.textPrimary }}>
         {label}
       </Text>
     </View>

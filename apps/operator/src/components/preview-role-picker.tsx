@@ -1,8 +1,8 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { choiceState } from '@/lib/a11y-state';
-import { colors, fonts, radius, spacing } from '@/theme/tokens';
+import { choiceState } from '@platform/ui';
 import type { AppRole } from '@platform/domain';
+import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 const ROLES: readonly AppRole[] = ['client', 'staff', 'admin'];
 
@@ -26,6 +26,8 @@ export function PreviewRolePicker({
   role: AppRole;
   onChange: (role: AppRole) => void;
 }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   return (
     <View style={styles.block}>
       <Text style={styles.caption}>Preview role</Text>
@@ -57,14 +59,14 @@ export function PreviewRolePicker({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (tokens: BrandTokens) => StyleSheet.create({
   block: {
-    gap: spacing.xs,
+    gap: tokens.spacing.sm,
   },
   caption: {
     paddingHorizontal: 4,
-    color: colors.ink500,
-    fontFamily: fonts.sansBold,
+    color: tokens.textMuted,
+    fontFamily: tokens.fontBody,
     fontSize: 10,
     letterSpacing: 1.1,
     textTransform: 'uppercase',
@@ -73,7 +75,7 @@ const styles = StyleSheet.create({
     minHeight: 44,
     padding: 3,
     flexDirection: 'row',
-    borderRadius: radius.pill,
+    borderRadius: tokens.radius.pill,
     // iOS's classic segmented-control well: system fill, no border.
     backgroundColor: 'rgba(120,120,128,0.16)',
   },
@@ -82,25 +84,25 @@ const styles = StyleSheet.create({
     minHeight: 38,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: radius.pill,
+    borderRadius: tokens.radius.pill,
   },
   optionSelected: {
-    backgroundColor: colors.white,
-    shadowColor: colors.ink900,
+    backgroundColor: tokens.surfaceElevated,
+    shadowColor: tokens.textPrimary,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.12,
     shadowRadius: 3,
     elevation: 2,
   },
   label: {
-    color: colors.ink500,
-    fontFamily: fonts.sansMedium,
+    color: tokens.textMuted,
+    fontFamily: tokens.fontBody,
     fontSize: 13,
     textTransform: 'capitalize',
   },
   selectedLabel: {
-    color: colors.ink900,
-    fontFamily: fonts.sansBold,
+    color: tokens.textPrimary,
+    fontFamily: tokens.fontBody,
   },
   pressed: {
     opacity: 0.72,

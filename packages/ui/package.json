@@ -21,7 +21,8 @@
   },
   "peerDependencies": {
     "react": "*",
-    "react-native": "*"
+    "react-native": "*",
+    "react-native-safe-area-context": "*"
   },
   "devDependencies": {
     "@types/react": "~19.1.10",
@@ -29,6 +30,7 @@
     "react-native": "0.81.5"
   },
   "dependencies": {
+    "@platform/domain": "workspace:*",
     "@platform/schema": "workspace:*"
   }
 }

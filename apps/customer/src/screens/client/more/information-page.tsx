@@ -5,41 +5,43 @@ import { CollapsingScreen } from '@/components/collapsing-screen';
 import { Body, Button, Card, PillRow } from '@/components/ui';
 import { INFORMATION_PAGES, type InformationPageKey } from '@platform/domain';
 import { openWebPath } from '@/lib/web-navigation';
-import { colors, fonts, radius, spacing } from '@/theme/tokens';
+import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
-export const styles = StyleSheet.create({
-  searchResults: { gap: spacing.xs },
-  merch: { minHeight: 180, borderRadius: radius.lg, overflow: 'hidden', backgroundColor: colors.brand200, flexDirection: 'row', alignItems: 'center' },
+export const createStyles = (tokens: BrandTokens) => StyleSheet.create({
+  searchResults: { gap: tokens.spacing.sm },
+  merch: { minHeight: 180, borderRadius: tokens.radius.lg, overflow: 'hidden', backgroundColor: tokens.surface, flexDirection: 'row', alignItems: 'center' },
   merchImage: { width: '46%', alignSelf: 'stretch' },
-  merchCopy: { flex: 1, padding: spacing.md },
-  merchTitle: { color: colors.ink900, fontFamily: fonts.display, fontSize: 28, marginTop: 6 },
-  staffCard: { minHeight: 110, borderRadius: radius.lg, padding: spacing.lg, backgroundColor: colors.brand700, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  staffTitle: { color: colors.white, fontFamily: fonts.sansBold, fontSize: 17 },
-  staffSubtitle: { color: colors.brand200, fontFamily: fonts.sans, fontSize: 12, lineHeight: 18, maxWidth: 240, marginTop: 5 },
-  staffArrow: { color: colors.white, fontFamily: fonts.sansBold, fontSize: 13 },
-  buildCard: { backgroundColor: colors.warm, gap: 4 },
-  buildTitle: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 14 },
-  detailCard: { gap: spacing.sm },
-  detailTitle: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 18 },
-  balance: { color: colors.ink900, fontFamily: fonts.display, fontSize: 44 },
-  field: { gap: spacing.sm },
-  fieldLabel: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 14 },
-  input: { minHeight: 54, borderRadius: radius.md, borderWidth: 1, borderColor: colors.ink300, paddingHorizontal: spacing.md, color: colors.ink900, fontFamily: fonts.sans, fontSize: 15, backgroundColor: colors.white },
-  multiline: { minHeight: 110, paddingTop: spacing.md, textAlignVertical: 'top' },
-  options: { flexDirection: 'row', gap: spacing.sm },
+  merchCopy: { flex: 1, padding: tokens.spacing.lg },
+  merchTitle: { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: 28, marginTop: 6 },
+  staffCard: { minHeight: 110, borderRadius: tokens.radius.lg, padding: tokens.spacing.xl, backgroundColor: tokens.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  staffTitle: { color: tokens.surfaceElevated, fontFamily: tokens.fontBody, fontSize: 17 },
+  staffSubtitle: { color: tokens.surface, fontFamily: tokens.fontBody, fontSize: 12, lineHeight: 18, maxWidth: 240, marginTop: 5 },
+  staffArrow: { color: tokens.surfaceElevated, fontFamily: tokens.fontBody, fontSize: 13 },
+  buildCard: { backgroundColor: tokens.surface, gap: 4 },
+  buildTitle: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 14 },
+  detailCard: { gap: tokens.spacing.md },
+  detailTitle: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 18 },
+  balance: { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: 44 },
+  field: { gap: tokens.spacing.md },
+  fieldLabel: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 14 },
+  input: { minHeight: 54, borderRadius: tokens.radius.lg, borderWidth: 1, borderColor: tokens.textMuted, paddingHorizontal: tokens.spacing.lg, color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 15, backgroundColor: tokens.surfaceElevated },
+  multiline: { minHeight: 110, paddingTop: tokens.spacing.lg, textAlignVertical: 'top' },
+  options: { flexDirection: 'row', gap: tokens.spacing.md },
   option: { flex: 1, minHeight: 46 },
-  orderActions: { flexDirection: 'row', gap: spacing.sm },
-  orderAction: { flex: 1, minHeight: 48, paddingHorizontal: spacing.sm },
-  reviewForm: { gap: spacing.md, paddingTop: spacing.sm },
-  ratingRow: { flexDirection: 'row', gap: spacing.sm },
-  ratingButton: { flex: 1, minHeight: 46, alignItems: 'center', justifyContent: 'center', borderRadius: radius.pill, borderWidth: 1, borderColor: colors.ink300, backgroundColor: colors.white },
-  ratingButtonActive: { borderColor: colors.brand600, backgroundColor: colors.brand600 },
-  ratingText: { color: colors.ink700, fontFamily: fonts.sansBold, fontSize: 15 },
-  ratingTextActive: { color: colors.white },
-  message: { alignSelf: 'flex-start', maxWidth: '86%', gap: 4, padding: spacing.md, backgroundColor: colors.brand50, borderRadius: radius.lg },
-  myMessage: { alignSelf: 'flex-end', backgroundColor: colors.brand200 },
-  messageSender: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 11 },
+  orderActions: { flexDirection: 'row', gap: tokens.spacing.md },
+  orderAction: { flex: 1, minHeight: 48, paddingHorizontal: tokens.spacing.md },
+  reviewForm: { gap: tokens.spacing.lg, paddingTop: tokens.spacing.md },
+  ratingRow: { flexDirection: 'row', gap: tokens.spacing.md },
+  ratingButton: { flex: 1, minHeight: 46, alignItems: 'center', justifyContent: 'center', borderRadius: tokens.radius.pill, borderWidth: 1, borderColor: tokens.textMuted, backgroundColor: tokens.surfaceElevated },
+  ratingButtonActive: { borderColor: tokens.primary, backgroundColor: tokens.primary },
+  ratingText: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 15 },
+  ratingTextActive: { color: tokens.surfaceElevated },
+  message: { alignSelf: 'flex-start', maxWidth: '86%', gap: 4, padding: tokens.spacing.lg, backgroundColor: tokens.surface, borderRadius: tokens.radius.lg },
+  myMessage: { alignSelf: 'flex-end', backgroundColor: tokens.surface },
+  messageSender: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 11 },
 });
+
+export function useInformationStyles() { return createStyles(useBrandTokens()); }
 
 export function openWithFeedback(path: string) {
   void openWebPath(path).catch((error: unknown) => {
@@ -48,6 +50,8 @@ export function openWithFeedback(path: string) {
 }
 
 export function InformationPage({ page, onBack }: { page: InformationPageKey; onBack: () => void }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const config = INFORMATION_PAGES[page];
   const webPath = config.webPath;
   const action = config.action;

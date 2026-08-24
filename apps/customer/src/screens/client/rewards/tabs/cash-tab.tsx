@@ -4,10 +4,10 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppIcon } from '@/components/icon';
 import { cashEntries } from '@/features/rewards/cash-entries';
 import { formatRewardDate } from '@/features/rewards/presentation';
-import { colors } from '@/theme/tokens';
 import type { RewardAccount, RewardEntry } from '@platform/domain';
 
-import { styles } from '../styles';
+import { useRewardStyles } from '../styles';
+import { useTokens as useBrandTokens } from '@platform/ui';
 
 export function CashTab({
   account,
@@ -20,6 +20,8 @@ export function CashTab({
   onUseCash: () => void;
   onSendGift: () => void;
 }) {
+  const styles = useRewardStyles();
+  const tokens = useBrandTokens();
   const entries = cashEntries(ledger);
   return (
     <>
@@ -30,7 +32,7 @@ export function CashTab({
         style={({ pressed }) => [styles.cashCard, pressed && styles.cashCardPressed]}
       >
         <LinearGradient
-          colors={[colors.brand200, colors.brand300]}
+          colors={[tokens.surface, tokens.secondary]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={StyleSheet.absoluteFill}
@@ -50,18 +52,18 @@ export function CashTab({
         onPress={onUseCash}
         style={({ pressed }) => [styles.actionRow, pressed && styles.rowPressed]}
       >
-        <AppIcon name="calendar" size={24} tintColor={colors.ink900} />
+        <AppIcon name="calendar" size={24} tintColor={tokens.textPrimary} />
         <Text style={styles.actionRowLabel}>Order with Brew Bucks on hand</Text>
-        <AppIcon name="chevron.right" size={17} tintColor={colors.ink900} />
+        <AppIcon name="chevron.right" size={17} tintColor={tokens.textPrimary} />
       </Pressable>
       <Pressable
         accessibilityRole="button"
         onPress={onSendGift}
         style={({ pressed }) => [styles.actionRow, pressed && styles.rowPressed]}
       >
-        <AppIcon name="gift" size={25} tintColor={colors.ink900} />
+        <AppIcon name="gift" size={25} tintColor={tokens.textPrimary} />
         <Text style={styles.actionRowLabel}>Send a Digital Gift Card</Text>
-        <AppIcon name="chevron.right" size={17} tintColor={colors.ink900} />
+        <AppIcon name="chevron.right" size={17} tintColor={tokens.textPrimary} />
       </Pressable>
       <Text style={styles.sectionTitle}>Activity</Text>
       <View style={styles.cashActivity}>
@@ -111,6 +113,7 @@ function CashActivityRow({
   amount: string;
   positive: boolean;
 }) {
+  const styles = useRewardStyles();
   return (
     <View style={styles.activityRow}>
       <View style={styles.activityCopy}>

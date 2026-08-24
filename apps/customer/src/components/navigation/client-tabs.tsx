@@ -3,9 +3,9 @@ import { useDeferredTabBar } from '@/components/navigation/use-deferred-tab-bar'
 import { useTabAvatar } from '@/lib/tab-avatar';
 import { CLIENT_TAB_LABELS } from '@/state/navigation-state';
 import { useAuth } from '@/state/auth-context';
-import { colors } from '@/theme/tokens';
 
 import rewardsCup from '../../../assets/tabs/cup.png';
+import { useTokens as useBrandTokens } from '@platform/ui';
 
 /**
  * The client bottom bar is a real `UITabBar`, not a JavaScript replica.
@@ -21,6 +21,7 @@ import rewardsCup from '../../../assets/tabs/cup.png';
  * The web build keeps the pill — see `client-tabs.web.tsx`.
  */
 export function ClientTabs() {
+  const tokens = useBrandTokens();
   // See useDeferredTabBar: mounting after the first layout window is what
   // keeps the labels on one baseline while the two image icons load. The
   // avatar hook gates the same mount while a freshly chosen photo is cropped.
@@ -32,8 +33,8 @@ export function ClientTabs() {
     <NativeTabs
       // The UIKit equivalent of SwiftUI's .tint(): sets the selected item's
       // icon and label colour in one place.
-      tintColor={colors.brand700}
-      iconColor={colors.ink500}
+      tintColor={tokens.primary}
+      iconColor={tokens.textMuted}
       // No labelStyle on purpose. Supplying a fontFamily without a size drops
       // the compact metric UIKit uses for tab labels, and they render at body
       // size and collide. System typography is the point of using the real

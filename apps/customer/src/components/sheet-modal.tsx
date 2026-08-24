@@ -19,9 +19,9 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { useReducedMotion } from '@/hooks/use-reduced-motion';
-import { motion, scrim } from '@/theme/tokens';
 
 import { scrimOpacity, sheetOffset } from './sheet-presentation';
+import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 /**
  * A bottom sheet whose scrim fades while the sheet itself slides.
@@ -58,6 +58,8 @@ export function SheetModal({
   keyboardAvoiding?: boolean;
   sheetStyle?: StyleProp<ViewStyle>;
 }>) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const reducedMotion = useReducedMotion();
   const { height } = useWindowDimensions();
   // 0 = fully dismissed, 1 = fully presented.
@@ -80,21 +82,21 @@ export function SheetModal({
   useEffect(() => {
     if (visible) {
       progress.value = withTiming(1, {
-        duration: reducedMotion ? 0 : motion.enterMs,
+        duration: reducedMotion ? 0 : tokens.motion.slow,
         easing: Easing.out(Easing.cubic),
       });
       return;
     }
     progress.value = withTiming(
       0,
-      { duration: reducedMotion ? 0 : motion.exitMs, easing: Easing.in(Easing.cubic) },
+      { duration: reducedMotion ? 0 : tokens.motion.base, easing: Easing.in(Easing.cubic) },
       (finished) => {
         if (finished) runOnJS(markExited)();
       },
     );
-  }, [visible, reducedMotion, progress, markExited]);
+  }, [visible, reducedMotion, progress, markExited, tokens.motion.base, tokens.motion.slow]);
 
-  const scrimStyle = useAnimatedStyle(() => ({ opacity: scrimOpacity(progress.value, scrim.opacity) }));
+  const scrimStyle = useAnimatedStyle(() => ({ opacity: scrimOpacity(progress.value, tokens.elevation.raised) }));
   const slideStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: sheetOffset(progress.value, sheetHeight.value) }],
   }));
@@ -150,7 +152,7 @@ export function SheetModal({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (tokens: BrandTokens) => StyleSheet.create({
   root: { flex: 1, justifyContent: 'flex-end' },
-  scrim: { backgroundColor: scrim.color },
+  scrim: { backgroundColor: tokens.textPrimary },
 });

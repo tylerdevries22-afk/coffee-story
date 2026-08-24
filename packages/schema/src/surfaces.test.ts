@@ -355,12 +355,63 @@ describe('curbside arrival', () => {
 });
 
 describe('realtime propagation', () => {
-  it('publishes the tables a running screen depends on', () => {
+  function publicationTables(): string[] {
     const sql = allSql();
-    for (const table of ['menu_items', 'menu_categories', 'drops', 'prep_batches']) {
-      assert.match(sql, new RegExp(`add table public\\.${table}`),
-        `${table} must be in supabase_realtime or a live screen never sees a change`);
+    const tables = new Set<string>();
+    for (const match of sql.matchAll(
+      /alter publication supabase_realtime\s+(add|drop) table public\.([a-z_]+)/gi,
+    )) {
+      const table = match[2];
+      if (!table) continue;
+      if (match[1]?.toLowerCase() === 'add') tables.add(table);
+      else tables.delete(table);
     }
+    return [...tables].sort();
+  }
+
+  function subscriberCounts(): Record<string, number> {
+    const data = join(MIGRATIONS, '..', '..', 'packages', 'data', 'src');
+    const source = readdirSync(data)
+      .filter((name) => name.endsWith('.ts') && !name.endsWith('.test.ts'))
+      .map((name) => readFileSync(join(data, name), 'utf8'))
+      .join('\n');
+    const counts: Record<string, number> = {};
+    for (const match of source.matchAll(
+      /['"]postgres_changes['"]\s*,\s*\{[\s\S]*?table:\s*['"]([a-z_]+)['"]/g,
+    )) {
+      const table = match[1];
+      if (table) counts[table] = (counts[table] ?? 0) + 1;
+    }
+    return counts;
+  }
+
+  it('has the exact subscriber set for every table still in the publication', () => {
+    const counts = subscriberCounts();
+    assert.deepEqual(publicationTables(), [
+      'board_change_signals',
+      'drops',
+      'location_setting_signals',
+      'menu_categories',
+      'menu_items',
+      'orders',
+      'prep_batches',
+    ]);
+    assert.deepEqual(counts, {
+      orders: 2,
+      board_change_signals: 1,
+      location_setting_signals: 1,
+      menu_items: 1,
+      menu_categories: 1,
+      drops: 1,
+      prep_batches: 1,
+    });
+  });
+});
+
+describe('the crew roster', () => {
+  it('stores a staff-facing display name instead of rendering auth UUIDs', () => {
+    assert.match(allSql(), /alter table public\.brand_users\s+add column display_name text not null default ''/);
+    assert.match(typesSource(), /display_name: string/);
   });
 });
 

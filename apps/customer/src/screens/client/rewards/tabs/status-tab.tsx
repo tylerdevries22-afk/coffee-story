@@ -6,13 +6,13 @@ import { GlassCup } from '@/components/rewards/glass-cup';
 import { annualPeriodYear, POINTS_LABEL, rewardProgress } from '@/features/rewards/presentation';
 import { nextTier, REWARD_TIERS, rewardMilestoneStates, tierForAnnualPoints } from '@platform/domain';
 import type { RewardTierName , RewardAccount } from '@platform/domain';
-import { colors } from '@/theme/tokens';
 
 import { RewardMark } from '../reward-mark';
 import { DemoTierToggle } from '../demo-tier-toggle';
 import { perkDescription } from '../sheets';
-import { styles } from '../styles';
+import { useRewardStyles } from '../styles';
 import type { PerkDetail } from '../types';
+import { useTokens as useBrandTokens } from '@platform/ui';
 
 export function StatusTab({
   account,
@@ -29,6 +29,8 @@ export function StatusTab({
   tierValue: RewardTierName;
   onTierChange: (tier: RewardTierName) => void;
 }) {
+  const styles = useRewardStyles();
+  const tokens = useBrandTokens();
   const tier = tierForAnnualPoints(account.annualPoints);
   const upcoming = nextTier(account.annualPoints);
   const progress = upcoming
@@ -77,7 +79,7 @@ export function StatusTab({
           <AppIcon
             name="chevron.down"
             size={17}
-            tintColor={colors.ink500}
+            tintColor={tokens.textMuted}
             style={progressOpen ? styles.progressChevronOpen : undefined}
           />
         </Pressable>
@@ -147,7 +149,7 @@ export function StatusTab({
                 {upcoming.minimumAnnualPoints.toLocaleString()} {POINTS_LABEL} Earned in {periodYear}
               </Text>
             </View>
-            <AppIcon name="lock.fill" size={23} tintColor={colors.brand600} />
+            <AppIcon name="lock.fill" size={23} tintColor={tokens.primary} />
           </View>
           <View style={styles.rewardList}>
             {upcoming.perks.map((label) => (
@@ -181,6 +183,8 @@ export function StatusTab({
 }
 
 function ProgressHalo({ progress, reducedMotion, tier }: { progress: number; reducedMotion: boolean; tier: RewardTierName }) {
+  const styles = useRewardStyles();
+  const tokens = useBrandTokens();
   const { width } = useWindowDimensions();
   const size = Math.min(310, width - 86);
   const center = size / 2;
@@ -210,7 +214,7 @@ function ProgressHalo({ progress, reducedMotion, tier }: { progress: number; red
               {
                 left: center + Math.cos(radians) * radiusValue - 3,
                 top: center + Math.sin(radians) * radiusValue - 9,
-                backgroundColor: active ? colors.gold300 : colors.ink200,
+                backgroundColor: active ? tokens.accent : tokens.secondary,
                 opacity: animation,
                 transform: [
                   { rotate: `${angle + 90}deg` },
@@ -235,6 +239,8 @@ function ProgressHalo({ progress, reducedMotion, tier }: { progress: number; red
 }
 
 function PerkRow({ label, locked, onPress }: { label: string; locked: boolean; onPress: () => void }) {
+  const styles = useRewardStyles();
+  const tokens = useBrandTokens();
   return (
     <Pressable
       accessibilityRole="button"
@@ -246,7 +252,7 @@ function PerkRow({ label, locked, onPress }: { label: string; locked: boolean; o
         <Text style={styles.perkIconText}>{locked ? '♕' : '✦'}</Text>
       </View>
       <Text style={styles.perkLabel}>{label}</Text>
-      <AppIcon name="chevron.right" size={17} tintColor={colors.ink500} />
+      <AppIcon name="chevron.right" size={17} tintColor={tokens.textMuted} />
     </Pressable>
   );
 }

@@ -1,7 +1,7 @@
 import { useEffect, useReducer, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
-import { formatMoney, orderSubtotalCents, orderTotals } from '@platform/domain';
+import { formatMoney, orderSubtotalCents, orderTotals, ticketCallout } from '@platform/domain';
 import { useTokens } from '@platform/ui';
 
 import { KioskPressable } from '@/components/chrome/kiosk-pressable';
@@ -37,7 +37,7 @@ export default function ProcessingStep() {
   const { cart, setCommitted } = useKioskSession();
   const device = useDevice();
   const { guestLabel } = useGuest();
-  const [ticket, setTicket] = useState<number | null>(null);
+  const [ticket, setTicket] = useState<string | null>(null);
   const [state, dispatch] = useReducer(checkoutReducer, IDLE_CHECKOUT);
   const started = useRef(false);
 
@@ -81,7 +81,7 @@ export default function ProcessingStep() {
             attemptKey,
           );
           orderId = placed.orderId;
-          setTicket(placed.dailyNumber ?? null);
+          setTicket(ticketCallout(placed.dailyNumber, guestLabel));
         } catch {
           clearTimeout(timer);
           dispatch({ type: 'failed', code: 'order_rejected' });
@@ -124,7 +124,7 @@ export default function ProcessingStep() {
           {ticket !== null ? (
             <>
               <Text style={[styles.status, { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: tokens.type.lg }]}>
-                Your order number
+                Your order call-out
               </Text>
               {/* The number the DATABASE assigned, not one this screen invented.
                   `app.assign_daily_number` restarts it per location per service

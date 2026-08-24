@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 
 import { boardQueue, type BoardConfig, type BoardEntry } from '@platform/domain';
 import type { BoardTicketRow } from '@platform/schema';
@@ -13,22 +13,12 @@ const STALE_AFTER_MS = 90_000;
 /**
  * The reconcile interval.
  *
- * Deliberately a poll and not a Realtime subscription, which is the reverse of
- * what this file used to claim. `orders` is in the `supabase_realtime`
- * publication with `replica identity full`, so a socket on that table delivers
- * the *whole row* -- customer_id, totals, the note -- to whatever subscribed.
- * Since 0030 a display device has no read on `orders` at all, so it would
- * receive nothing anyway; and the version where it could receive something is
- * precisely the version that puts a cart snapshot in a browser sitting in a
- * public room. Five seconds of latency is the cheaper side of that trade.
- *
- * Five seconds is also the sync budget against `apps/operator`: a barista taps
- * "Ready" and the check appears here within one interval. The transition
- * itself is not this app's to make -- the operator writes an `order_events`
- * row, the trigger projects it onto `orders.status`, and this board reads the
- * result through `board_tickets`. One writer, one projection, one read.
+ * Realtime is the fast path, but it carries only a payload-free revision from
+ * `board_change_signals`. The browser then reconciles through `board_tickets`;
+ * it never receives an orders row. This minute heartbeat is the recovery path
+ * for a dropped socket, a suspended browser, or a missed notification.
  */
-const RECONCILE_MS = 5_000;
+const RECONCILE_MS = 60_000;
 
 export type BoardViewProps = {
   initialTickets: BoardTicketRow[];
@@ -59,6 +49,35 @@ export function BoardView({ initialTickets, config, copy, live, degraded }: Boar
     return () => clearInterval(id);
   }, []);
 
+  const reconcile = useCallback(async () => {
+    try {
+      const response = await fetch(`${window.location.pathname}/tickets`, {
+        cache: 'no-store',
+        headers: { accept: 'application/json' },
+      });
+      if (!response.ok) return;
+      const next = (await response.json()) as BoardTicketRow[];
+      if (!mounted.current || !Array.isArray(next)) return;
+      // Replace outright. A missing ticket was collected; keeping it would
+      // leave a stranger's name on the wall after they walked out.
+      setTickets(next);
+      setLastRead(Date.now());
+    } catch {
+      // Keep the last good board. The freshness line reports the failure.
+    }
+  }, []);
+
+  // Fast path: the server owns the paired device token and forwards only an
+  // invalidation event. EventSource reconnects itself when the route rotates.
+  useEffect(() => {
+    if (!live) return undefined;
+    const events = new EventSource(`${window.location.pathname}/events`);
+    events.onmessage = (event) => {
+      if (event.data !== 'heartbeat') void reconcile();
+    };
+    return () => events.close();
+  }, [live, reconcile]);
+
   // Nothing on a wall is watching for a failed fetch, so the board re-reads on
   // a timer and reports its own staleness rather than assuming it is current.
   //
@@ -67,29 +86,9 @@ export function BoardView({ initialTickets, config, copy, live, degraded }: Boar
   // in a repo with no component renderer, making the demo the only place this
   // loop is ever executed before a shop depends on it.
   useEffect(() => {
-    let cancelled = false;
-    const reconcile = async () => {
-      try {
-        const response = await fetch(`${window.location.pathname}/tickets`, {
-          cache: 'no-store',
-          headers: { accept: 'application/json' },
-        });
-        if (!response.ok) return;
-        const next = (await response.json()) as BoardTicketRow[];
-        if (cancelled || !mounted.current || !Array.isArray(next)) return;
-        // Replace outright. A ticket that has left the read has been collected
-        // -- the guest has their order in hand -- and holding it on screen
-        // would leave a stranger's name up after they walked out.
-        setTickets(next);
-        setLastRead(Date.now());
-      } catch {
-        // Keep the last good board on screen. A dark screen is worse than a
-        // slightly stale one, and the freshness line already says so.
-      }
-    };
     const id = setInterval(() => void reconcile(), RECONCILE_MS);
-    return () => { cancelled = true; clearInterval(id); };
-  }, []);
+    return () => clearInterval(id);
+  }, [reconcile]);
 
   const queue = useMemo(() => boardQueue(tickets, config), [tickets, config]);
 
@@ -138,7 +137,7 @@ export function BoardView({ initialTickets, config, copy, live, degraded }: Boar
 }
 
 /**
- * The mark at the head of a row: a place in line, or a check.
+ * The mark at the head of a row: the order call-out, plus a ready check.
  *
  * Both are mounted at once and swapped with a transition rather than a
  * keyframe animation. A CSS transition settles at its end state; a keyframe
@@ -153,10 +152,10 @@ function QueueMark({ entry, copy }: { entry: BoardEntry; copy: BrandCopy }) {
       data-ready={entry.ready}
       role="img"
       aria-label={entry.ready
-        ? formatCopy(copy, 'boardReady')
-        : formatCopy(copy, 'boardPosition', { position: entry.position ?? 0 })}
+        ? `${entry.callout}, ${formatCopy(copy, 'boardReady')}`
+        : entry.callout}
     >
-      <span className="ticket-position" aria-hidden="true">{entry.position ?? ''}</span>
+      <span className="ticket-position" aria-hidden="true">{entry.callout}</span>
       <svg className="ticket-check" viewBox="0 0 24 24" aria-hidden="true">
         <circle className="ticket-check-ring" cx="12" cy="12" r="10.5" />
         <path className="ticket-check-tick" d="M6.8 12.4l3.4 3.4 6.9-7.3" />

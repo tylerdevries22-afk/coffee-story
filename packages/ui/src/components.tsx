@@ -24,7 +24,6 @@ import type { BrandTokens } from './tokens';
 
 function toneColor(tokens: BrandTokens, tone: StatusTone): string {
   switch (tone) {
-    case 'accent': return tokens.accent;
     case 'success': return tokens.success;
     case 'warning': return tokens.warning;
     case 'danger': return tokens.danger;
@@ -80,11 +79,11 @@ export function Button({
         },
       ]}
     >
-      <Text style={{ flex: trailing ? 1 : 0, textAlign: 'center', color: disabled ? tokens.textMuted : color, fontFamily: tokens.fontBody, fontWeight: '700', fontSize: 16 }}>
+      <Text style={{ flex: trailing ? 1 : 0, textAlign: 'center', color: disabled ? tokens.textMuted : color, fontFamily: tokens.fontBody, fontWeight: '700', fontSize: tokens.type.md }}>
         {label}
       </Text>
       {trailing ? (
-        <Text style={{ color: disabled ? tokens.textMuted : color, fontFamily: tokens.fontBody, fontWeight: '700', fontSize: 16 }}>{trailing}</Text>
+        <Text style={{ color: disabled ? tokens.textMuted : color, fontFamily: tokens.fontBody, fontWeight: '700', fontSize: tokens.type.md }}>{trailing}</Text>
       ) : null}
     </Pressable>
   );
@@ -100,7 +99,7 @@ export function Card({ children, style }: PropsWithChildren<{ style?: StyleProp<
           borderRadius: tokens.radius.md,
           padding: tokens.spacing.lg,
           shadowColor: tokens.textPrimary,
-          shadowOpacity: 0.08,
+          shadowOpacity: tokens.elevation.card,
           shadowRadius: 12,
           shadowOffset: { width: 0, height: 4 },
           elevation: 2,
@@ -128,7 +127,7 @@ export function Badge({ label, tone = 'neutral' }: { label: string; tone?: Statu
         backgroundColor: withAlpha(color, 0.12),
       }}
     >
-      <Text style={{ color, fontFamily: tokens.fontBody, fontWeight: '700', fontSize: 11, letterSpacing: 0.3 }}>{label}</Text>
+      <Text style={{ color, fontFamily: tokens.fontBody, fontWeight: '700', fontSize: tokens.type.xs, letterSpacing: 0.3 }}>{label}</Text>
     </View>
   );
 }
@@ -174,7 +173,7 @@ export function QuantityStepper({
         opacity: pressed ? 0.7 : 1,
       })}
     >
-      <Text style={{ color: enabled ? tokens.textPrimary : tokens.textMuted, fontSize: 20, fontFamily: tokens.fontBody }}>
+      <Text style={{ color: enabled ? tokens.textPrimary : tokens.textMuted, fontSize: tokens.type.lg, fontFamily: tokens.fontBody }}>
         {label === 'Increase' ? '+' : minusRemoves && label === 'Decrease' ? '×' : '−'}
       </Text>
     </Pressable>
@@ -184,7 +183,7 @@ export function QuantityStepper({
       {control('Decrease', canDecrease, () => onChange(value - 1), minusRemoves ? removeHint : undefined)}
       <Text
         accessibilityLiveRegion="polite"
-        style={{ minWidth: 24, textAlign: 'center', fontFamily: tokens.fontBody, fontWeight: '700', fontSize: 17, color: tokens.textPrimary }}
+        style={{ minWidth: 24, textAlign: 'center', fontFamily: tokens.fontBody, fontWeight: '700', fontSize: tokens.type.md, color: tokens.textPrimary }}
       >
         {value}
       </Text>
@@ -214,7 +213,7 @@ export function LoyaltyMeter({
       <View style={{ height: 10, borderRadius: tokens.radius.pill, backgroundColor: withAlpha(tokens.accent, 0.18), overflow: 'hidden' }}>
         <View style={{ width: `${Math.round(progress.fraction * 100)}%`, height: '100%', backgroundColor: tokens.accent }} />
       </View>
-      <Text style={{ color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 13 }}>
+      <Text style={{ color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: tokens.type.xs }}>
         {progress.pointsToNext} {pointsName} to your next reward
       </Text>
     </View>
@@ -293,9 +292,9 @@ export function EmptyState({
   const tokens = useTokens();
   return (
     <View style={{ alignItems: 'center', gap: tokens.spacing.sm, paddingVertical: tokens.spacing.xxl, paddingHorizontal: tokens.spacing.xl }}>
-      <Text style={{ fontFamily: tokens.fontDisplay, fontSize: 20, color: tokens.textPrimary, textAlign: 'center' }}>{title}</Text>
+      <Text style={{ fontFamily: tokens.fontDisplay, fontSize: tokens.type.lg, color: tokens.textPrimary, textAlign: 'center' }}>{title}</Text>
       {message ? (
-        <Text style={{ fontFamily: tokens.fontBody, fontSize: 14, lineHeight: 20, color: tokens.textMuted, textAlign: 'center' }}>{message}</Text>
+        <Text style={{ fontFamily: tokens.fontBody, fontSize: tokens.type.sm, lineHeight: tokens.type.lg, color: tokens.textMuted, textAlign: 'center' }}>{message}</Text>
       ) : null}
       {action}
     </View>

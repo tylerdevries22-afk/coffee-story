@@ -123,9 +123,8 @@ describe('board fixtures', () => {
   });
 
   it('moves, and drops a ticket off the read the way a collection does', () => {
-    // The linger only ever runs when a ticket leaves the read. If the demo
-    // never dropped one, the client's linger would be untested code shipped
-    // to a wall.
+    // A collected ticket must leave the authoritative replacement set. If the
+    // demo never dropped one, that removal path would go unexercised.
     const first = demoBoardAt(0).map((t) => t.id);
     const later = demoBoardAt(DEMO_STEP_MS * 3).map((t) => t.id);
     assert.notDeepEqual(first, later, 'the demo board must move');

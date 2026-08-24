@@ -128,6 +128,9 @@ jobs:
       #   - The denylist and this workflow are excluded from their own scan.
       #     A gate that cannot name what it looks for without failing itself is
       #     a gate nobody can run.
+      #   - Only tracked file CONTENT is scanned. Git history is deliberately
+      #     excluded: an old commit message cannot be edited without rewriting
+      #     shared history, and a release gate must never demand that rewrite.
       - name: Originality gate (CLAUDE.md rule 6)
         run: |
           set -uo pipefail

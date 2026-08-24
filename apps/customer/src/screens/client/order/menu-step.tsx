@@ -7,7 +7,7 @@
  * when it is wanted and where it is going — and stay put, because that is the
  * pair a guest re-checks most while they browse.
  */
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Pressable,
@@ -25,16 +25,22 @@ import { AppIcon } from '@/components/icon';
 import { MenuImage } from '@/components/menu-image';
 import { CategoryStrip } from '@/components/order/category-strip';
 import { CartPill, Ribbon } from '@/components/order/order-chrome';
-import { disabledState } from '@/lib/a11y-state';
+import { disabledState } from '@platform/ui';
 import { useTabBarClearance } from '@/components/navigation/tab-screen';
 import type { MenuItem } from '@/data/catalog';
 import { fulfillmentDetail, fulfillmentLabel, type OrderFulfillment } from '@platform/domain';
+import {
+  fetchMenuTree, subscribeToLocationSettings, subscribeToMenu,
+} from '@platform/data';
 import { describePickupWindow } from '@/features/order/pickup';
 import { menuPriceLabel } from '@platform/domain';
-import { colors, fonts, radius, spacing } from '@/theme/tokens';
 import { TENANT } from '@/tenant';
+import { liveBrand } from '@/lib/live-portal';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/state/auth-context';
 
 import { menuSections } from './menu-data';
+import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 /** How far below the strip a section has to reach before it counts as current. */
 const SECTION_ACTIVATION_OFFSET = 140;
@@ -75,7 +81,12 @@ export function MenuStep({
   onSelectItem: (item: MenuItem) => void;
   onOpenBag: () => void;
 }) {
-  const sections = useMemo(menuSections, []);
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
+  const { isDemo } = useAuth();
+  const [liveSoldOutIds, setLiveSoldOutIds] = useState<ReadonlySet<string> | null>(null);
+  const [orderingPaused, setOrderingPaused] = useState(false);
+  const sections = useMemo(() => menuSections(liveSoldOutIds), [liveSoldOutIds]);
   const tabs = useMemo(
     () => sections.map((section) => ({ id: section.id, label: section.title })),
     [sections],
@@ -87,10 +98,59 @@ export function MenuStep({
   // Set while a tap-driven scroll is in flight, so the strip does not flicker
   // through every section the animation passes over on its way.
   const pending = useRef<string | null>(null);
-  const clearance = useTabBarClearance(spacing.xxl);
+  const clearance = useTabBarClearance(tokens.spacing.xxl);
 
   const window = windowValue ? describePickupWindow(windowValue, new Date()) : null;
   const isDelivery = fulfillment.mode === 'delivery';
+
+  useEffect(() => {
+    if (isDemo || !supabase) {
+      setLiveSoldOutIds(null);
+      setOrderingPaused(false);
+      return undefined;
+    }
+    const database = supabase;
+    let active = true;
+    let unsubscribeMenu = () => {};
+    let unsubscribeLocation = () => {};
+    void liveBrand(database).then(async (brand) => {
+      const location = brand?.locations[0];
+      if (!active || !brand || !location) return;
+      const readMenu = async () => {
+        try {
+          const menu = await fetchMenuTree(database, brand.brand.id);
+          if (active) {
+            setLiveSoldOutIds(new Set(
+              menu.categories.flatMap((category) => category.items)
+                .filter((item) => item.is_86d)
+                .map((item) => item.slug),
+            ));
+          }
+        } catch {
+          // Keep the last lineup; Realtime or the next mount retries.
+        }
+      };
+      const readLocation = async () => {
+        const result = await database
+          .from('locations')
+          .select('ordering_paused')
+          .eq('id', location.id)
+          .maybeSingle<{ ordering_paused: boolean }>();
+        if (active && result.data) setOrderingPaused(result.data.ordering_paused);
+      };
+      await Promise.all([readMenu(), readLocation()]);
+      if (!active) return;
+      unsubscribeMenu = subscribeToMenu(database, brand.brand.id, () => void readMenu());
+      unsubscribeLocation = subscribeToLocationSettings(database, location.id, () => void readLocation());
+    }).catch(() => {
+      // The compiled catalog remains usable while storefront bootstrap retries.
+    });
+    return () => {
+      active = false;
+      unsubscribeMenu();
+      unsubscribeLocation();
+    };
+  }, [isDemo]);
 
   const measureSection = useCallback((id: string, event: LayoutChangeEvent) => {
     offsets.current[id] = event.nativeEvent.layout.y;
@@ -118,8 +178,8 @@ export function MenuStep({
     setActiveId(id);
     if (top === undefined) return;
     pending.current = id;
-    scrollRef.current?.scrollTo({ y: Math.max(0, top - STRIP_HEIGHT - spacing.sm), animated: true });
-  }, []);
+    scrollRef.current?.scrollTo({ y: Math.max(0, top - STRIP_HEIGHT - tokens.spacing.md), animated: true });
+  }, [tokens.spacing.md]);
 
   return (
     <View style={styles.shell}>
@@ -129,8 +189,8 @@ export function MenuStep({
         onBack={onBack}
         backLabel="Order"
         scrollY={scrollY}
-        backgroundColor={colors.brand200}
-        borderColor={colors.brand200}
+        backgroundColor={tokens.surface}
+        borderColor={tokens.surface}
       />
 
       <View style={styles.pills}>
@@ -147,6 +207,12 @@ export function MenuStep({
           action="Edit"
         />
       </View>
+
+      {orderingPaused ? (
+        <View accessibilityRole="alert" style={styles.pausedBanner}>
+          <Text style={styles.pausedText}>Ordering is temporarily paused at this shop.</Text>
+        </View>
+      ) : null}
 
       <ScrollView
           ref={scrollRef}
@@ -174,6 +240,7 @@ export function MenuStep({
                 <MenuRow
                   key={item.id}
                   item={item}
+                  orderingPaused={orderingPaused}
                   highlighted={item.id === highlightItemId}
                   onPress={() => onSelectItem(item)}
                 />
@@ -200,6 +267,8 @@ function ContextPill({
   action?: string;
   onPress: () => void;
 }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   return (
     <Pressable
       accessibilityRole="button"
@@ -207,7 +276,7 @@ function ContextPill({
       onPress={onPress}
       style={({ pressed }) => [styles.pill, pressed && styles.pressed]}
     >
-      <AppIcon name={icon} size={16} tintColor={colors.brand700} />
+      <AppIcon name={icon} size={16} tintColor={tokens.primary} />
       <Text numberOfLines={1} style={styles.pillLabel}>
         {label}
         {detail ? <Text style={styles.pillDetail}>{`  ${detail}`}</Text> : null}
@@ -219,21 +288,30 @@ function ContextPill({
 
 function MenuRow({
   item,
+  orderingPaused,
   highlighted,
   onPress,
 }: {
   item: MenuItem;
+  orderingPaused: boolean;
   highlighted: boolean;
   onPress: () => void;
 }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const price = menuPriceLabel(item.sizes);
   const soldOut = Boolean(item.soldOutToday);
+  const unavailable = soldOut || orderingPaused;
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={soldOut ? `${item.name}, sold out today` : `${item.name}, ${price}. ${item.description}`}
-      {...disabledState(soldOut)}
-      disabled={soldOut}
+      accessibilityLabel={soldOut
+        ? `${item.name}, sold out today`
+        : orderingPaused
+          ? `${item.name}, ordering is temporarily paused`
+          : `${item.name}, ${price}. ${item.description}`}
+      {...disabledState(unavailable)}
+      disabled={unavailable}
       onPress={onPress}
       style={({ pressed }) => [styles.row, highlighted && styles.rowHighlighted, pressed && styles.pressed, soldOut && styles.rowSoldOut]}
     >
@@ -245,55 +323,61 @@ function MenuRow({
         <Text style={styles.rowPrice}>{price}</Text>
         <Text numberOfLines={2} style={styles.rowDescription}>{item.description}</Text>
       </View>
-      <AppIcon name="chevron.right" size={16} tintColor={colors.ink400} />
+      <AppIcon name="chevron.right" size={16} tintColor={tokens.textMuted} />
     </Pressable>
   );
 }
 
-const styles = StyleSheet.create({
-  shell: { flex: 1, backgroundColor: colors.surface },
+const createStyles = (tokens: BrandTokens) => StyleSheet.create({
+  shell: { flex: 1, backgroundColor: tokens.surface },
   pressed: { opacity: 0.72 },
 
   pills: {
-    gap: spacing.xs,
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.sm,
-    backgroundColor: colors.brand200,
+    gap: tokens.spacing.sm,
+    paddingHorizontal: tokens.spacing.xl,
+    paddingBottom: tokens.spacing.md,
+    backgroundColor: tokens.surface,
   },
+  pausedBanner: {
+    paddingHorizontal: tokens.spacing.xl,
+    paddingVertical: tokens.spacing.md,
+    backgroundColor: tokens.surface,
+  },
+  pausedText: { color: tokens.danger, fontFamily: tokens.fontBody, fontSize: 14 },
   pill: {
     minHeight: 46,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.md,
-    backgroundColor: colors.white,
+    gap: tokens.spacing.md,
+    paddingHorizontal: tokens.spacing.lg,
+    borderRadius: tokens.radius.lg,
+    backgroundColor: tokens.surfaceElevated,
   },
-  pillLabel: { flex: 1, color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 13 },
-  pillDetail: { color: colors.ink600, fontFamily: fonts.sans, fontSize: 12 },
-  pillAction: { color: colors.brand700, fontFamily: fonts.sansMedium, fontSize: 13 },
+  pillLabel: { flex: 1, color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 13 },
+  pillDetail: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 12 },
+  pillAction: { color: tokens.primary, fontFamily: tokens.fontBody, fontSize: 13 },
 
-  scroll: { paddingBottom: spacing.xxl },
+  scroll: { paddingBottom: tokens.spacing.xxl },
 
-  section: { paddingTop: spacing.lg },
-  sectionHeader: { paddingHorizontal: spacing.lg, paddingBottom: spacing.sm, gap: 2 },
-  sectionTitle: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 22, lineHeight: 28 },
-  sectionTagline: { color: colors.ink600, fontFamily: fonts.sans, fontSize: 13 },
+  section: { paddingTop: tokens.spacing.xl },
+  sectionHeader: { paddingHorizontal: tokens.spacing.xl, paddingBottom: tokens.spacing.md, gap: 2 },
+  sectionTitle: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 22, lineHeight: 28 },
+  sectionTagline: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 13 },
 
   rowSoldOut: { opacity: 0.55 },
   row: {
     minHeight: 96,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
+    gap: tokens.spacing.lg,
+    paddingHorizontal: tokens.spacing.xl,
+    paddingVertical: tokens.spacing.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.ink200,
+    borderBottomColor: tokens.secondary,
   },
-  rowHighlighted: { backgroundColor: colors.brand50 },
+  rowHighlighted: { backgroundColor: tokens.surface },
   rowCopy: { flex: 1, gap: 2 },
-  rowName: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 16 },
-  rowPrice: { color: colors.ink600, fontFamily: fonts.sansMedium, fontSize: 13 },
-  rowDescription: { color: colors.ink600, fontFamily: fonts.sans, fontSize: 13, lineHeight: 18 },
+  rowName: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 16 },
+  rowPrice: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 13 },
+  rowDescription: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 13, lineHeight: 18 },
 });

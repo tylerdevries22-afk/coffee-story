@@ -3,7 +3,7 @@ import { Inter_400Regular } from '@expo-google-fonts/inter/400Regular';
 import { Inter_600SemiBold } from '@expo-google-fonts/inter/600SemiBold';
 import { Inter_700Bold } from '@expo-google-fonts/inter/700Bold';
 import { fontGateReady } from '@/lib/font-gate';
-import { initMonitoring } from '@/lib/monitoring';
+import { initMobileMonitoring } from '@platform/monitoring';
 import { liveConfigFromEnv, missingLiveConfig, type MobileLiveConfig } from '@/lib/runtime-config';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
@@ -21,12 +21,11 @@ import { brandCache } from '@/lib/brand-cache';
 import { AppStateProvider } from '@/state/app-context';
 import { AuthProvider, useAuth } from '@/state/auth-context';
 import { DemoProvider, useDemo } from '@/state/demo-context';
-import { colors } from '@/theme/tokens';
-import { ThemeProvider, useTokens } from '@platform/ui';
+import { ThemeProvider, useTokens, useTokens as useBrandTokens } from '@platform/ui';
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
-initMonitoring();
+void initMobileMonitoring();
 
 export default function RootLayout() {
   const [loaded, fontError] = useFonts({ Inter_400Regular, Inter_600SemiBold, Inter_700Bold, Fraunces_700Bold });
@@ -121,9 +120,7 @@ function BrandedShell({ children }: PropsWithChildren) {
 }
 
 function OperatorStack() {
-  // The page ground is the tenant's, not a constant. Everything else in this
-  // app still reads the compiled `theme/tokens`; this is the first consumer
-  // and the seam the rest move through.
+  // The page ground and every screen token resolve from the signed-in tenant.
   const tokens = useTokens();
   return (
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: tokens.surface } }}>
@@ -147,16 +144,17 @@ function OperatorStack() {
  * validate and its Stripe placeholder does not.
  */
 function RuntimeConfigError({ missing, onUseDemo }: { missing: string[]; onUseDemo: () => void }) {
+  const tokens = useBrandTokens();
   return (
-    <View style={{ flex: 1, justifyContent: 'center', padding: 32, gap: 16, backgroundColor: colors.surface }}>
-      <Text style={{ color: colors.ink900, fontSize: 24, fontWeight: '700' }}>
+    <View style={{ flex: 1, justifyContent: 'center', padding: 32, gap: 16, backgroundColor: tokens.surface }}>
+      <Text style={{ color: tokens.textPrimary, fontSize: 24, fontWeight: '700' }}>
         Secure setup is incomplete
       </Text>
-      <Text style={{ color: colors.ink600, fontSize: 16, lineHeight: 24 }}>
+      <Text style={{ color: tokens.textMuted, fontSize: 16, lineHeight: 24 }}>
         This build is missing the payment or account configuration live mode needs. You can still
         explore the whole app in Demo.
       </Text>
-      <Text accessibilityRole="text" style={{ color: colors.ink500, fontSize: 12 }}>
+      <Text accessibilityRole="text" style={{ color: tokens.textMuted, fontSize: 12 }}>
         Missing: {missing.join(', ')}
       </Text>
       <Button label="Continue in Demo" onPress={onUseDemo} />

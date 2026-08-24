@@ -95,6 +95,17 @@ type BrandFile = {
   };
 };
 
+function tenantPrivacyPolicyUrl(website: string | undefined): string {
+  if (!website) return '';
+  try {
+    const origin = new URL(website);
+    if (origin.protocol !== 'https:') return '';
+    return new URL('/privacy-policy', origin).toString();
+  } catch {
+    return '';
+  }
+}
+
 function argValue(flag: string): string | null {
   const index = process.argv.indexOf(flag);
   return index >= 0 ? process.argv[index + 1] ?? null : null;
@@ -324,6 +335,7 @@ async function run() {
   const appStoreDir = join(tenantDir, 'app-store');
   mkdirSync(appStoreDir, { recursive: true });
   const pointsName = brand.copy.pointsName ?? 'Points';
+  const privacyPolicyUrl = tenantPrivacyPolicyUrl(brand.business.website);
   writeFileSync(join(appStoreDir, 'listing.md'), `# ${brand.identity.name} — App Store listing draft
 
 **Subtitle (30 chars):** Order ahead. Earn ${pointsName}.
@@ -347,8 +359,12 @@ ${(brand.features.catering ? '- Catering requests for your events\n' : '')}
 
 **Category:** Food & Drink
 
-Fill in before submission: support URL (${brand.business.website ?? ''}),
-privacy policy URL, and the marketing URL.
+**Support URL:** ${brand.business.website ?? ''}
+
+**Privacy policy URL:** ${privacyPolicyUrl}
+
+Fill in the marketing URL before submission. Publish a counsel-reviewed copy
+of docs/legal/privacy-policy.md at the privacy policy URL above.
 `);
   writeFileSync(join(appStoreDir, 'screenshots-checklist.md'), `# Screenshots checklist — ${brand.identity.name}
 

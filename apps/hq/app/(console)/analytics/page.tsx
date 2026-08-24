@@ -1,5 +1,5 @@
 import { loadDrops, loadKpis } from '@/lib/data';
-import { formatMoney, formatShare, rollupByLocation } from '@/lib/kpi';
+import { formatMoney, rollupByLocation } from '@/lib/kpi';
 // The console is live data behind a session: never prerender a fixture
 // snapshot at build time and serve it as if it were today's numbers.
 export const dynamic = 'force-dynamic';
@@ -17,7 +17,7 @@ export default async function AnalyticsPage() {
         <h2>Store vs store — last 7 days</h2>
         <table>
           <thead>
-            <tr><th>Location</th><th className="num">Revenue</th><th className="num">Orders</th><th className="num">AOV</th><th className="num">In-app share</th></tr>
+            <tr><th>Location</th><th className="num">Revenue</th><th className="num">Orders</th><th className="num">AOV</th><th className="num">App</th><th className="num">Web</th><th className="num">Kiosk</th><th className="num">POS</th></tr>
           </thead>
           <tbody>
             {byLocation.map((row) => (
@@ -26,7 +26,10 @@ export default async function AnalyticsPage() {
                 <td className="num">{formatMoney(row.revenueCents)}</td>
                 <td className="num">{row.ordersCount.toLocaleString('en-US')}</td>
                 <td className="num">{formatMoney(row.aovCents)}</td>
-                <td className="num">{formatShare(row.inAppShare)}</td>
+                <td className="num">{formatMoney(row.channelRevenueCents.app)}</td>
+                <td className="num">{formatMoney(row.channelRevenueCents.web)}</td>
+                <td className="num">{formatMoney(row.channelRevenueCents.kiosk)}</td>
+                <td className="num">{formatMoney(row.channelRevenueCents.pos)}</td>
               </tr>
             ))}
           </tbody>

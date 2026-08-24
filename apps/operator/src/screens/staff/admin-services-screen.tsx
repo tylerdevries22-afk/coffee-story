@@ -7,7 +7,7 @@ import { formatMoney, sizeLabelFor, sizePriceCents } from '@platform/domain';
 import { DEMO_ADD_ONS, MENU_ITEMS } from '@/data/catalog';
 import { workspaceTone } from '@/features/staff/workspace';
 import { useAuth } from '@/state/auth-context';
-import { colors, fonts, radius, spacing } from '@/theme/tokens';
+import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 /**
  * The item menu, read from the catalog the app actually ships.
@@ -20,6 +20,8 @@ import { colors, fonts, radius, spacing } from '@/theme/tokens';
  * somewhere, so these are derived.
  */
 export function AdminServicesScreen({ onBack }: { onBack: () => void }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   const { role } = useAuth();
   const sizes = MENU_ITEMS.flatMap((item) => item.sizes);
   const averageCents = sizes.length > 0
@@ -72,6 +74,8 @@ export function AdminServicesScreen({ onBack }: { onBack: () => void }) {
 }
 
 function Metric({ label, value }: { label: string; value: string }) {
+  const tokens = useBrandTokens();
+  const styles = createStyles(tokens);
   return (
     <View style={styles.metric}>
       <Text style={styles.metricValue}>{value}</Text>
@@ -80,26 +84,26 @@ function Metric({ label, value }: { label: string; value: string }) {
   );
 }
 
-const styles = StyleSheet.create({
-  metrics: { flexDirection: 'row', gap: spacing.sm },
+const createStyles = (tokens: BrandTokens) => StyleSheet.create({
+  metrics: { flexDirection: 'row', gap: tokens.spacing.md },
   metric: {
     flex: 1,
     gap: 2,
-    paddingVertical: spacing.sm,
+    paddingVertical: tokens.spacing.md,
     alignItems: 'center',
-    borderRadius: radius.md,
-    backgroundColor: colors.brand50,
+    borderRadius: tokens.radius.lg,
+    backgroundColor: tokens.surface,
   },
-  metricValue: { color: colors.ink900, fontFamily: fonts.display, fontSize: 20 },
+  metricValue: { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: 20 },
   metricLabel: {
-    color: colors.brand600,
-    fontFamily: fonts.sansBold,
+    color: tokens.primary,
+    fontFamily: tokens.fontBody,
     fontSize: 10,
     letterSpacing: 1.1,
     textTransform: 'uppercase',
   },
-  card: { gap: spacing.xs, padding: spacing.md },
-  name: { color: colors.ink900, fontFamily: fonts.display, fontSize: 18 },
+  card: { gap: tokens.spacing.sm, padding: tokens.spacing.lg },
+  name: { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: 18 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -108,6 +112,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: 'rgba(70,48,78,0.12)',
   },
-  rowLabel: { color: colors.ink700, fontFamily: fonts.sans, fontSize: 15 },
-  rowValue: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 16 },
+  rowLabel: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 15 },
+  rowValue: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 16 },
 });
