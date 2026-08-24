@@ -160,10 +160,47 @@ export type Database = {
   }
   public: {
     Tables: {
+      board_change_signals: {
+        Row: {
+          brand_id: string
+          changed_at: string
+          location_id: string
+          revision: number
+        }
+        Insert: {
+          brand_id: string
+          changed_at?: string
+          location_id: string
+          revision?: number
+        }
+        Update: {
+          brand_id?: string
+          changed_at?: string
+          location_id?: string
+          revision?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "board_change_signals_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "board_change_signals_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: true
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brand_users: {
         Row: {
           brand_id: string
           created_at: string
+          display_name: string
           id: string
           location_ids: string[]
           role: Database["app"]["Enums"]["brand_role"]
@@ -172,6 +209,7 @@ export type Database = {
         Insert: {
           brand_id: string
           created_at?: string
+          display_name?: string
           id?: string
           location_ids?: string[]
           role: Database["app"]["Enums"]["brand_role"]
@@ -180,6 +218,7 @@ export type Database = {
         Update: {
           brand_id?: string
           created_at?: string
+          display_name?: string
           id?: string
           location_ids?: string[]
           role?: Database["app"]["Enums"]["brand_role"]
@@ -588,6 +627,42 @@ export type Database = {
             columns: ["item_id"]
             isOneToOne: false
             referencedRelation: "menu_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      location_setting_signals: {
+        Row: {
+          brand_id: string
+          changed_at: string
+          location_id: string
+          revision: number
+        }
+        Insert: {
+          brand_id: string
+          changed_at?: string
+          location_id: string
+          revision?: number
+        }
+        Update: {
+          brand_id?: string
+          changed_at?: string
+          location_id?: string
+          revision?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "location_setting_signals_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_setting_signals_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: true
+            referencedRelation: "locations"
             referencedColumns: ["id"]
           },
         ]
@@ -1694,6 +1769,7 @@ export type Database = {
           location_id: string | null
           loyalty_redemption_rate: number | null
           orders_count: number | null
+          revenue_by_channel: Json | null
           revenue_cents: number | null
         }
         Relationships: [
@@ -1763,6 +1839,10 @@ export type Database = {
       }
     }
     Functions: {
+      anonymize_customer_account: {
+        Args: { p_user_id: string }
+        Returns: undefined
+      }
       loyalty_adjust: {
         Args: { account: string; delta: number }
         Returns: number
@@ -1801,6 +1881,10 @@ export type Database = {
           target_order: string
         }
         Returns: boolean
+      }
+      set_brand_settings_config: {
+        Args: { config: Json; expected_updated_at?: string }
+        Returns: string
       }
     }
     Enums: {

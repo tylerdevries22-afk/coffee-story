@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
 
-import { shortCodeOf } from '../../../apps/operator/src/features/operator/live-board.ts';
+import { ticketCallout } from '@platform/domain/src/board-display.ts';
 
 import { clickLabel, clickText, closeBrowser, fillLabel, openApp, waitText } from './driver.ts';
 import { latestOtpFor } from './mailpit.ts';
@@ -133,8 +133,15 @@ describe('three apps, one stack', { skip: skipUnlessConfigured }, () => {
       await customer.shot('03-customer-confirmation');
 
       // ---- The database is the truth the confirmation rendered.
-      const placed = await sql<{ id: string; status: string; total_cents: number; subtotal_cents: number }>(
-        `select id, status, total_cents, subtotal_cents from public.orders
+      const placed = await sql<{
+        id: string;
+        status: string;
+        total_cents: number;
+        subtotal_cents: number;
+        daily_number: number | null;
+        guest_label: string | null;
+      }>(
+        `select id, status, total_cents, subtotal_cents, daily_number, guest_label from public.orders
          where brand_id = $1 order by created_at desc limit 1`,
         [brand.brandId],
       );
@@ -142,7 +149,7 @@ describe('three apps, one stack', { skip: skipUnlessConfigured }, () => {
       assert.ok(order, 'the order reached the database');
       assert.equal(order.status, 'paid', 'pay_at_pickup lands on the board immediately');
       await waitText(customer.page, money(Number(order.total_cents)));
-      const callOut = shortCodeOf(order.id);
+      const callOut = ticketCallout(order.daily_number, order.guest_label);
 
       // ---- The barista sees it and works it; the guest watches it move.
       await fillLabel(operator.page, 'Email', staff.email);
@@ -163,7 +170,13 @@ describe('three apps, one stack', { skip: skipUnlessConfigured }, () => {
 
       // ---- A rival brand's order never reaches this board (RLS isolation).
       const rival = await seedRivalBrandOrder();
-      const rivalCallOut = shortCodeOf(rival.orderId);
+      const rivalRow = await sql<{ daily_number: number | null; guest_label: string | null }>(
+        'select daily_number, guest_label from public.orders where id = $1',
+        [rival.orderId],
+      );
+      const rivalTicket = rivalRow.rows[0];
+      assert.ok(rivalTicket, 'rival order exists');
+      const rivalCallOut = ticketCallout(rivalTicket.daily_number, rivalTicket.guest_label);
       await operator.page.goto(`${OPERATOR_URL}/staff/orders`, { waitUntil: 'load' });
       await operator.page.waitForTimeout(4000);
       assert.equal(

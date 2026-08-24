@@ -1,6 +1,7 @@
 /**
  * Tenant onboarding: `pnpm onboard --tenant <slug>` (add `--apply` to point
- * the customer app's bundled tenant at this slug).
+ * the customer app's bundled tenant at this slug, and optionally pass an
+ * existing Supabase identity with `--owner-user-id <uuid>`).
  *
  * Idempotent by construction: brand upserts on slug, the location on
  * (brand, name), menu items on (menu, slug); generated files overwrite their
@@ -112,10 +113,15 @@ function argValue(flag: string): string | null {
 }
 
 const slug = argValue('--tenant');
+const ownerUserId = argValue('--owner-user-id');
 const apply = process.argv.includes('--apply');
 const requireDatabase = process.argv.includes('--require-db');
 if (!slug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
-  console.error('Usage: pnpm onboard --tenant <slug> [--apply]');
+  console.error('Usage: pnpm onboard --tenant <slug> [--apply] [--owner-user-id <uuid>]');
+  process.exit(1);
+}
+if (ownerUserId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(ownerUserId)) {
+  console.error('--owner-user-id must be a valid UUID.');
   process.exit(1);
 }
 
@@ -187,8 +193,8 @@ async function run() {
   // 2. Database ------------------------------------------------------------
   const supabaseUrl = process.env.SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (requireDatabase && (!supabaseUrl || !serviceKey)) {
-    throw new Error('--require-db needs SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.');
+  if ((requireDatabase || ownerUserId) && (!supabaseUrl || !serviceKey)) {
+    throw new Error('--require-db and --owner-user-id need SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.');
   }
   if (supabaseUrl && serviceKey) {
     const { createClient } = await import('@supabase/supabase-js');
@@ -243,6 +249,19 @@ async function run() {
     if (locationError) throw locationError;
     const locationId = location.id;
 
+    if (ownerUserId) {
+      const { error: ownerError } = await db.from('brand_users').upsert(
+        {
+          user_id: ownerUserId,
+          brand_id: brandRow.id,
+          role: 'brand_owner',
+          location_ids: [locationId],
+        },
+        { onConflict: 'user_id,brand_id' },
+      );
+      if (ownerError) throw ownerError;
+    }
+
     if (menu.rows.length > 0) {
       const { data: savedMenu, error: menuError } = await db
         .from('menus')
@@ -291,7 +310,8 @@ async function run() {
         if (error) throw error;
       }
     }
-    console.log(`2. database: brand + location ${locationId} + ${menu.rows.length} menu items upserted`);
+    const ownerSummary = ownerUserId ? ` + owner ${ownerUserId} assigned` : '';
+    console.log(`2. database: brand + location ${locationId} + ${menu.rows.length} menu items upserted${ownerSummary}`);
   } else {
     console.log('2. database: skipped (set SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY to seed rows)');
   }

@@ -1,6 +1,11 @@
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import type { NextConfig } from 'next';
 import { withSentryConfig } from '@sentry/nextjs';
 import { securityHeaders } from '@platform/web-config';
+
+const workspaceRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 
 /**
  * The console handles a brand's menu, its customers and the platform's own
@@ -13,6 +18,7 @@ import { securityHeaders } from '@platform/web-config';
  * page policy has nothing to say about a JSON response.
  */
 const config: NextConfig = {
+  outputFileTracingRoot: workspaceRoot,
   // Workspace packages ship TypeScript source; Next compiles them in place.
   transpilePackages: ['@platform/schema', '@platform/domain', '@platform/engine', '@platform/api-client'],
   // `pnpm lint` is the authoritative zero-warning gate and runs before build.

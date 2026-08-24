@@ -2,9 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { BoardTicketRow } from '@platform/schema';
-
-import type { OrderRow } from '@platform/schema';
+import type { BoardTicketRow, OrderRow } from '@platform/schema';
 
 import { fetchBoardTickets, orderBoardEntryFromRow, orderCallout } from './board';
 

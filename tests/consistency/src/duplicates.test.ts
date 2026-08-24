@@ -40,6 +40,9 @@ const DIVERGENT_BY_DESIGN = [
   'components/bottom-nav.tsx',
   'components/collapsing-page-header.tsx',
   'components/icon-map.ts',
+  // Each install prompt is dismissed independently; sharing this key would
+  // let installing one persona suppress the other app's prompt.
+  'components/install-prompt.web.tsx',
   'components/navigation/client-tabs.tsx',
   'components/navigation/native-tabs-compat.tsx',
   'components/navigation/staff-tabs.tsx',
@@ -47,6 +50,9 @@ const DIVERGENT_BY_DESIGN = [
   'components/push-from-right.tsx',
   'components/siri/siri-assistant.tsx',
   'data/business.ts',
+  // The customer validates its generated tenant menu; the neutral operator
+  // validates the platform demo fallback it can use before staff sign-in.
+  'data/catalog.test.ts',
   'data/catalog.ts',
   'data/demo.ts',
   'features/drops.test.ts',
@@ -81,6 +87,9 @@ const DIVERGENT_BY_DESIGN = [
   // reads the demo fallback. Two lines, and they cannot be the same line.
   'state/demo-state.ts',
   'state/demo-state.test.ts',
+  // Demo persistence must be namespaced per installed app for the same reason
+  // as the install prompt: one persona cannot overwrite the other's mode.
+  'state/demo-storage-keys.ts',
   // The operator's staff bar lost calendar/quick-actions/clients/checkout with
   // the booking workspace, so its route vocabulary is genuinely smaller than the
   // customer copy's. Promoting the module to packages/* retires all three.

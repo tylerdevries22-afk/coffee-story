@@ -120,12 +120,14 @@ describe('order state machine (SQL trigger)', { skip: skipUnlessConfigured }, ()
     );
   });
 
-  it('realtime publication includes orders and order_events (0013)', async () => {
+  it('realtime publishes order projections and narrow invalidation signals, not private events', async () => {
     const published = await sql<{ tablename: string }>(
       `select tablename from pg_publication_tables where pubname = 'supabase_realtime'`,
     );
     const names = published.rows.map((row) => row.tablename);
     assert.ok(names.includes('orders'), 'orders published');
-    assert.ok(names.includes('order_events'), 'order_events published');
+    assert.ok(names.includes('board_change_signals'), 'board invalidations published');
+    assert.ok(names.includes('location_setting_signals'), 'location invalidations published');
+    assert.ok(!names.includes('order_events'), 'private order events are not published');
   });
 });

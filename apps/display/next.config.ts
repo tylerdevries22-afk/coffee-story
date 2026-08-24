@@ -1,6 +1,11 @@
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import type { NextConfig } from 'next';
 import { withSentryConfig } from '@sentry/nextjs';
 import { securityHeaders } from '@platform/web-config';
+
+const workspaceRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 
 /**
  * The storefront display.
@@ -20,6 +25,7 @@ import { securityHeaders } from '@platform/web-config';
  */
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  outputFileTracingRoot: workspaceRoot,
   // The lint gate is `pnpm lint` (eslint.config.mjs), which runs before
   // typecheck, tests and this build in `pnpm verify`. Next's own build-time
   // pass looks for its plugin, does not find it, and prints a warning about a
