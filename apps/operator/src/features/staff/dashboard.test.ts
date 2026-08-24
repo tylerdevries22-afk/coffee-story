@@ -34,16 +34,16 @@ describe('applyDemoBlockTime', () => {
 });
 
 describe('applyDemoGuestNote', () => {
-  it('prepends the note so care records show the newest first', () => {
+  it('prepends the note so a guest\'s notes show the newest first', () => {
     const next = applyDemoGuestNote(DEMO_STAFF, {
       kind: 'guest-note',
       note: 'Usual: pistachio latte, oat, half-sweet.',
       customerId: 'client-1',
       guestName: 'Alex Rivera',
-    }, 'demo-soap-test', '2026-07-31T18:00:00.000Z');
+    }, 'demo-note-test', '2026-07-31T18:00:00.000Z');
 
     const notes = notesForGuest(next, 'client-1');
-    assert.equal(notes[0]?.id, 'demo-soap-test');
+    assert.equal(notes[0]?.id, 'demo-note-test');
     assert.equal(notes.length, notesForGuest(DEMO_STAFF, 'client-1').length + 1);
     assert.equal(notesForGuest(next, 'client-2').length, notesForGuest(DEMO_STAFF, 'client-2').length);
   });
