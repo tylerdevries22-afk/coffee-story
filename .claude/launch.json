@@ -55,7 +55,7 @@
         "4180"
       ],
       "port": 4180,
-      "autoPort": false
+      "autoPort": true
     },
     {
       "name": "operator-web",
