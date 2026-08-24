@@ -919,3 +919,33 @@ one that blocks legitimate work and gets deleted.
 This unblocks the largest remaining franchise defect on that surface: the
 kiosk ships a compiled 181-line catalog, so today a second tenant cannot
 change a price without a store release, and an 86 reaches no screen.
+
+### The guard went vacuous, and the fix has a stated limit
+
+Routing the kiosk's menu read through `@platform/data` — the right call, since
+it means one assembly of the tree rather than a fourth — left zero `.from(`
+calls in `apps/kiosk/src`. The allowlist then inspected nothing and would have
+passed just as happily on `fetchCustomerOrders`. A guard that is green because
+it found nothing to check is the failure mode both of us have now hit twice.
+
+The kiosk session extended it to attribute a `@platform/data` module's
+relations to every export from that module, and it failed immediately on their
+own work: `subscribeToMenu` had been placed in `realtime.ts` beside
+`subscribeToOrderStatus` and `subscribeToLocationOrders`, which read `orders`.
+They split the module rather than widen the list, which is the right response
+to an over-approximating guard.
+
+Two hardenings and one honest limit from this side:
+
+- **Namespace imports are now refused.** `import * as data from
+  '@platform/data'` defeats the clause parsing entirely — the check would pass
+  while the read happened. Named imports are a precondition for the guard
+  seeing anything, so they are required rather than worked around.
+- **Probe-verified in three directions**, not one: a namespace import fails, a
+  named import of `fetchCustomerOrders` fails naming the relation, and a named
+  import of `fetchMenuTree` passes.
+- **It follows one hop, and says so.** A kiosk file importing a *local* module
+  that itself imports `@platform/data` is not attributed. This is a speed bump
+  against accident, not a proof against intent; closing it needs a module-graph
+  walk. The direct and one-hop paths are the ones anyone reaches for by
+  accident, which is what a guard on this surface is for.

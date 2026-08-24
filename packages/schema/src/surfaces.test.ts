@@ -242,6 +242,12 @@ describe('the lobby kiosk read', () => {
     // function next door can fail the check -- and that is the bias a guard on
     // a public tablet should have. Splitting the module is the fix, not
     // widening the list.
+    //
+    // Known limit, stated rather than implied: this follows one hop. A kiosk
+    // file importing a *local* module that itself imports @platform/data is
+    // not attributed, so this is a speed bump against accident, not a proof
+    // against intent. Closing it needs a module-graph walk; the direct and
+    // one-hop-delegated paths are the ones anyone reaches for by accident.
     const dataSrc = join(MIGRATIONS, '..', '..', 'packages', 'data', 'src');
     const relationsByExport = new Map<string, Set<string>>();
     for (const entry of readdirSync(dataSrc)) {
@@ -257,6 +263,17 @@ describe('the lobby kiosk read', () => {
 
     for (const file of files) {
       const source = readFileSync(file, 'utf8');
+
+      // A namespace import defeats the clause parsing below: `import * as data`
+      // then `data.fetchCustomerOrders(...)` names nothing this can attribute,
+      // so the check would pass while the read happened. Named imports are a
+      // precondition for the guard being able to see anything, so require them
+      // rather than trying to resolve member expressions.
+      assert.doesNotMatch(source, /import\s+\*\s+as\s+\w+\s+from\s*'@platform\/data'/,
+        `${file} namespace-imports @platform/data. Use named imports here: the `
+        + 'allowlist attributes a reader\'s relations by name, and a namespace '
+        + 'import hides which ones are used.');
+
       for (const [, clause] of source.matchAll(/import\s*\{([^}]*)\}\s*from\s*'@platform\/data'/g)) {
         for (const raw of (clause ?? '').split(',')) {
           const name = raw.replace(/^\s*type\s+/, '').split(/\s+as\s+/)[0]?.trim() ?? '';
