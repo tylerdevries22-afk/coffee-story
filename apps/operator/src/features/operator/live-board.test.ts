@@ -13,6 +13,7 @@ const ROW: OrderRow = {
   status: 'paid',
   fulfillment_type: 'pickup',
   channel: 'app',
+  device_id: null,
   scheduled_for: null,
   totals: { lines: [{ name: 'Latte', quantity: 2, unit_price_cents: 600, options: ['16 oz', 'Oat Milk'] }] },
   subtotal_cents: 1200,

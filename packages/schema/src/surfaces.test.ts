@@ -238,3 +238,53 @@ describe('realtime propagation', () => {
     }
   });
 });
+
+describe('device pairing became issuable (0038)', () => {
+  /**
+   * 0022 built the readers and 0009's hook never emitted the claims they read,
+   * so `app.device_is_active()` was false for every token the platform could
+   * issue. These assert the schema half of the fix; the minter itself is
+   * covered by packages/engine/src/devices.test.ts.
+   */
+  it('stores a pairing code hashed, and no longer stores it in the clear', () => {
+    const sql = allSql();
+    assert.match(sql, /add column pairing_code_hash text/, 'the hash column must exist');
+    assert.match(sql, /drop column pairing_code\b/, 'the plaintext column must be dropped');
+    // devices_select is brand-wide and includes role 'staff', so a readable
+    // code let any barista pair hardware at any of the brand's stores.
+    assert.match(typesSource(), /pairing_code_hash: string \| null/);
+    assert.doesNotMatch(typesSource(), /^\s+pairing_code: string/m, 'types must not resurrect the plaintext column');
+  });
+
+  it('carries a token version, so revocation bites on the service-role path', () => {
+    assert.match(allSql(), /add column token_version integer not null default 1/);
+    assert.match(typesSource(), /token_version: number/);
+  });
+
+  it('protects a device lifecycle from a signed-in client', () => {
+    const sql = allSql();
+    assert.match(sql, /create or replace function app\.protect_device_lifecycle\(\)/);
+    assert.match(sql, /create trigger devices_protect_lifecycle\s+before insert or update on public\.devices/);
+    // Same shape as app.protect_fee_terms: the service role has no jwt_role,
+    // so the engine is unaffected and only a person is constrained.
+    assert.match(sql, /if app\.jwt_role\(\) is not null then/);
+    for (const column of ['revoked_at', 'paired_at', 'token_version', 'pairing_code_hash']) {
+      assert.ok(
+        new RegExp(`new\\.${column} is distinct from old\\.${column}`).test(sql),
+        `${column} must be protected from a client write`,
+      );
+    }
+  });
+
+  it('narrows a kiosk read to its own orders, matching what 0023 claimed', () => {
+    const sql = allSql();
+    assert.match(sql, /add column device_id uuid references public\.devices/);
+    assert.match(typesSource(), /device_id: string \| null/);
+    // The in-force policy is the LAST definition, since 0038 redefines 0023's.
+    const policies = [...sql.matchAll(/create policy orders_kiosk_select on public\.orders for select\s+using \(([\s\S]*?)\);/g)];
+    const inForce = policies.at(-1)?.[1] ?? '';
+    assert.ok(inForce.length > 0, 'orders_kiosk_select must exist');
+    assert.match(inForce, /device_id = app\.jwt_device_id\(\)/,
+      'a kiosk must read only its own orders, not every order at the location');
+  });
+});

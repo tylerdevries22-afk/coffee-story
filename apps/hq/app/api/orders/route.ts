@@ -9,12 +9,13 @@ import {
 } from '@platform/engine';
 
 import { parseGuestLabel, resolveOrderChannel } from '@platform/domain';
+import { canPlaceOrders } from '@platform/engine';
 
 import { squareRuntimeFor, type BrandFeeRow } from '../../../lib/square-runtime';
 import { isTenantRedirect, tenantSchemeOf } from '../../../lib/tenant-redirect';
 
 import {
-  authenticate,
+  authenticateAny,
   corsPreflight,
   idempotencyKeyOf,
   jsonError,
@@ -78,14 +79,29 @@ export async function POST(request: Request): Promise<Response> {
   if (!env) return notConfigured();
   const db = serviceDb(env);
 
-  const auth = await authenticate(request, db);
-  if (auth instanceof Response) return auth;
+  const caller = await authenticateAny(request, db);
+  if (caller instanceof Response) return caller;
+
+  // A display or a prep tablet must never ring a sale. `postureFor` says so in
+  // the app; the server says it too rather than trusting the app to.
+  if (caller.kind === 'device' && !canPlaceOrders(caller.device.role)) {
+    return jsonError(403, 'device_role_unsupported', 'This device may not place orders.');
+  }
+  const callerBrandId = caller.kind === 'device' ? caller.device.brand_id : caller.claims.brand_id;
+  const callerStaffRole = caller.kind === 'user' ? caller.claims.role ?? null : null;
+  const callerUserId = caller.kind === 'user' ? caller.userId : null;
 
   const body = await parseJsonBody<PlaceOrderRequest>(request);
   if (body instanceof Response) return body;
 
   if (typeof body.locationId !== 'string' || body.locationId.length === 0) {
     return jsonError(400, 'invalid_request', 'locationId is required.');
+  }
+  // A kiosk misconfigured to another store would otherwise book orders at the
+  // wrong location with no error at all. Refuse loudly rather than override:
+  // silently rewriting the location would hide a mis-paired tablet for weeks.
+  if (caller.kind === 'device' && body.locationId !== caller.device.location_id) {
+    return jsonError(403, 'location_mismatch', 'This device is paired to a different location.');
   }
   if (!FULFILLMENT_TYPES.has(body.fulfillmentType)) {
     return jsonError(400, 'invalid_request', 'fulfillmentType must be pickup, curbside, catering or delivery.');
@@ -132,7 +148,7 @@ export async function POST(request: Request): Promise<Response> {
   const brand = await db
     .from('brands')
     .select('id, brand_config, fee_bps, fee_bps_tier2, tier_threshold_cents')
-    .eq('id', auth.claims.brand_id)
+    .eq('id', callerBrandId)
     .single<{ id: string; brand_config: unknown } & BrandFeeRow>();
   if (brand.error) return jsonError(500, 'internal', 'Could not load the brand.');
 
@@ -142,7 +158,7 @@ export async function POST(request: Request): Promise<Response> {
   if (body.tenderType === 'square_link') {
     try {
       square = await squareRuntimeFor(db, {
-        brandId: auth.claims.brand_id,
+        brandId: callerBrandId,
         locationId: body.locationId,
         brand: brand.data,
       });
@@ -169,14 +185,19 @@ export async function POST(request: Request): Promise<Response> {
     return jsonError(500, 'config_invalid', error instanceof Error ? error.message : 'Bad tax config.');
   }
 
-  const customer = await resolveCustomer(db, auth);
+  // A device has no auth user behind it, so it has no customer and no actor.
+  // `orders.customer_id` is nullable (0005) and the loyalty earn already
+  // short-circuits on null, so an anonymous kiosk sale is a first-class case
+  // rather than a hole to paper over.
+  const customer = caller.kind === 'user' ? await resolveCustomer(db, caller) : null;
 
   try {
     const result = await createOrder({ db }, {
-      brandId: auth.claims.brand_id,
+      brandId: callerBrandId,
       locationId: body.locationId,
-      customerId: customer.id,
-      actorUserId: auth.userId,
+      customerId: customer?.id ?? null,
+      actorUserId: callerUserId,
+      deviceId: caller.kind === 'device' ? caller.device.id : null,
       fulfillmentType: body.fulfillmentType,
       scheduledFor: body.scheduledFor ?? null,
       note: body.note ?? '',
@@ -188,7 +209,10 @@ export async function POST(request: Request): Promise<Response> {
       // dashboard. `resolveOrderChannel` is tested and takes a device role, so
       // a paired kiosk attributes correctly the moment pairing lands -- the
       // ternary this replaces could not emit 'kiosk' at all.
-      channel: resolveOrderChannel({ staffRole: auth.claims.role }),
+      channel: resolveOrderChannel({
+        deviceRole: caller.kind === 'device' ? caller.device.role : null,
+        staffRole: callerStaffRole,
+      }),
       guestLabel,
       clientKey,
       taxJurisdictions,
@@ -212,7 +236,7 @@ export async function POST(request: Request): Promise<Response> {
         {
           orderId: result.orderId,
           ...(body.redirectUrl ? { redirectUrl: body.redirectUrl } : {}),
-          ...(auth.email ? { buyerEmail: auth.email } : {}),
+          ...(caller.kind === 'user' && caller.email ? { buyerEmail: caller.email } : {}),
         },
       );
       response.checkoutUrl = link.checkoutUrl;

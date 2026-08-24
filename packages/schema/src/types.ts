@@ -255,6 +255,8 @@ export type OrderRow = {
   square_payment_id: string | null;
   created_at: string;
   updated_at: string;
+  /** Which paired device took the order (0038). Null for app and web. */
+  device_id: string | null;
 };
 
 export type OrderEventRow = {
@@ -308,8 +310,11 @@ export type DeviceRow = {
   location_id: string;
   role: DeviceRole;
   label: string;
-  pairing_code: string | null;
+  /** HMAC of the pairing code (0038). The code itself is never stored. */
+  pairing_code_hash: string | null;
   pairing_expires_at: string | null;
+  /** Bumped on revoke and re-pair; compared on every API request (0038). */
+  token_version: number;
   paired_at: string | null;
   revoked_at: string | null;
   last_seen_at: string | null;

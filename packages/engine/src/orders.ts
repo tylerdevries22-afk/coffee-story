@@ -94,6 +94,12 @@ export type CreateOrderInput = {
    * directly.
    */
   guestLabel: string | null;
+  /**
+   * The paired device that took the order (0038). Null for app and web. It is
+   * what narrows `orders_kiosk_select` to the device's own orders rather than
+   * every order at that location in the past hour.
+   */
+  deviceId: string | null;
   /** The Idempotency-Key the client sent; persisted as orders.client_key. */
   clientKey: string | null;
   taxJurisdictions: readonly TaxJurisdiction[];
@@ -291,6 +297,7 @@ export async function createOrder(deps: CreateOrderDeps, input: CreateOrderInput
       tender_type: input.tenderType,
       channel: input.channel,
       guest_label: input.guestLabel,
+      device_id: input.deviceId,
       client_key: input.clientKey,
     })
     .select('id, status, subtotal_cents, tax_cents, tip_cents, total_cents, daily_number')

@@ -15,6 +15,11 @@ import type { ApiErrorBody } from '@platform/api-client';
 import { parseTenantClaims, type TenantClaims } from '@platform/schema';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
+import {
+  loadActiveDevice, loadDeviceSigningKey, verifyDeviceToken,
+  type DeviceClaims, type DeviceRowLike, type DeviceSigningKey,
+} from '@platform/engine';
+
 export type ServerEnv = {
   url: string;
   serviceRoleKey: string;
@@ -111,6 +116,59 @@ export async function authenticate(
     return jsonError(403, 'no_tenant', 'This account belongs to no brand yet. Sign in through a brand app.');
   }
   return { userId: verified.data.user.id, email: verified.data.user.email ?? null, claims };
+}
+
+/**
+ * A caller that may be a PERSON or a paired DEVICE.
+ *
+ * `authenticate` above is deliberately left alone. Six routes call it --
+ * loyalty redeem, profile, push tokens, referrals, order cancel, order refund
+ * -- and every one of them must stay users-only. Widening it would opt all six
+ * into device access by default, which is the wrong direction for a default:
+ * the platform should be users-only unless a route says otherwise, and exactly
+ * one route (POST /api/orders) says otherwise.
+ */
+export type Caller =
+  | { kind: 'user'; userId: string; email: string | null; claims: TenantClaims }
+  | { kind: 'device'; device: DeviceRowLike; claims: DeviceClaims };
+
+export async function authenticateAny(
+  request: Request,
+  db: SupabaseClient,
+): Promise<Caller | Response> {
+  const header = request.headers.get('authorization') ?? '';
+  const token = header.startsWith('Bearer ') ? header.slice('Bearer '.length) : '';
+  if (!token) return jsonError(401, 'unauthorized', 'Send an access token as a Bearer token.');
+
+  // The device path is tried first, but it can only match a token that carries
+  // a device_id AND no `sub` -- `verifyDeviceToken` enforces both. That matters
+  // because a GoTrue staff token is also HS256 with the same project secret, so
+  // a signature check alone does not tell the two issuers apart.
+  let key: DeviceSigningKey | null = null;
+  try {
+    key = loadDeviceSigningKey();
+  } catch {
+    // Device pairing is not configured on this deployment; fall through to the
+    // user path rather than failing a request that never needed it.
+    key = null;
+  }
+  if (key) {
+    const claims = verifyDeviceToken(token, key, Date.now());
+    if (claims) {
+      // Re-read the row. This is the ONLY check on the service-role path, where
+      // RLS does not apply -- without it a revoked kiosk keeps ringing sales
+      // for the remaining life of its token.
+      const device = await loadActiveDevice({ db, key }, claims);
+      if (!device) {
+        return jsonError(401, 'unauthorized', 'This device is no longer paired.');
+      }
+      return { kind: 'device', device, claims };
+    }
+  }
+
+  const user = await authenticate(request, db);
+  if (user instanceof Response) return user;
+  return { kind: 'user', ...user };
 }
 
 /** Body parse that answers 400 instead of throwing on junk. */
