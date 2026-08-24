@@ -130,7 +130,7 @@ export function cancelDemoOrder(portal: PortalBundle, orderId: string): PortalBu
  *
  * Without this the demo branch of `saveVisitReview` persisted nothing while
  * still alerting "Review saved" -- the same fake-success shape already fixed for
- * staff block-time and SOAP notes. Rating is clamped to the 1-5 range the UI
+ * staff block-time and guest notes. Rating is clamped to the 1-5 range the UI
  * offers so a caller cannot store an out-of-range score.
  */
 export function reviewDemoOrder(
