@@ -250,3 +250,23 @@ describe('demoLocationName', () => {
     assert.equal(demoLocationName('whatever'), 'Downtown');
   });
 });
+
+/**
+ * The failure this surface must never have.
+ *
+ * A wall board reporting an empty queue with a green "Live" chip, while eight
+ * people wait, is worse than a dark screen: every signal it shows says it is
+ * working. The anon key produces exactly that against a gated view, so it is
+ * not an acceptable credential here.
+ */
+describe('the display credential', () => {
+  it('requires a device token and never falls back to the anon key', () => {
+    const source = readFileSync(join(process.cwd(), 'lib', 'board.ts'), 'utf8');
+    const fn = /function client\(\)[\s\S]*?\n}/.exec(source);
+    assert.ok(fn, 'client() is not defined');
+    assert.match(fn[0], /DISPLAY_DEVICE_TOKEN/);
+    assert.ok(!fn[0].includes('ANON_KEY'),
+      'the anon key satisfies app.can_read_board for nothing: it reads zero '
+      + 'rows and the board calls that "Live"');
+  });
+});

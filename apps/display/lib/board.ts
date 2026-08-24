@@ -22,9 +22,27 @@ import { displayTheme, type DisplayTheme } from './theme';
  * where anyone can open devtools, and a token it does not have is a token
  * nobody can lift.
  */
+/**
+ * The device token, and only the device token.
+ *
+ * This used to fall back to `NEXT_PUBLIC_SUPABASE_ANON_KEY`, which was
+ * harmless while `board_tickets` was `security_invoker` and became a silent
+ * failure the moment 0033 gated the view on `app.can_read_board`. The anon key
+ * carries no device claim and no staff role, so it satisfies the gate for
+ * nothing: the read succeeds, returns zero rows, and the board renders an
+ * empty queue with a green "Live" chip beside it.
+ *
+ * That is the worst shape a failure can take on this surface. A shop with a
+ * queue of eight sees a board confidently reporting nobody is waiting, and
+ * every signal the screen has says it is working. Falling back to fixtures
+ * instead makes a misconfiguration look like what it is.
+ *
+ * Found by the session working device pairing, whose 0038 issues the real
+ * tokens this now requires.
+ */
 function client(): SupabaseClient | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.DISPLAY_DEVICE_TOKEN ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const key = process.env.DISPLAY_DEVICE_TOKEN;
   if (!url || !key) return null;
   return createClient(url, key, { auth: { persistSession: false } });
 }

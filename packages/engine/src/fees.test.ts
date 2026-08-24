@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { computeAppFeeCents, feeMonthKey, feeMonthRange } from './fees';
+import { computeAppFeeCents, feeMonthKey, feeMonthRange, resolveFeeConfig } from './fees';
 
 const CONFIG = { feeBps: 300, feeBpsTier2: 150, tierThresholdCents: 2_000_000 };
 
@@ -75,5 +75,60 @@ describe('feeMonthRange', () => {
     const { startIso, endIso } = feeMonthRange(new Date('2026-08-15T12:00:00Z'), 'UTC');
     assert.equal(startIso, '2026-08-01T00:00:00.000Z');
     assert.equal(endIso, '2026-09-01T00:00:00.000Z');
+  });
+});
+
+/**
+ * A franchise does not have one fee schedule.
+ *
+ * Rule 3 put the take on the brand, which is right for a shop and wrong the
+ * moment the brand carries franchisees on separately negotiated terms. These
+ * pin the inheritance, because the failure mode is silent money: a location
+ * that should be billing 250bps quietly billing 300 looks like nothing at all
+ * until a franchisee reconciles an invoice.
+ */
+describe('resolveFeeConfig', () => {
+  const brand = { fee_bps: 300, fee_bps_tier2: 150, tier_threshold_cents: 2_000_000 };
+
+  it('uses the brand when the location negotiated nothing', () => {
+    assert.deepEqual(resolveFeeConfig(brand, null), {
+      feeBps: 300, feeBpsTier2: 150, tierThresholdCents: 2_000_000,
+    });
+    assert.deepEqual(resolveFeeConfig(brand, {}), {
+      feeBps: 300, feeBpsTier2: 150, tierThresholdCents: 2_000_000,
+    });
+  });
+
+  it('overrides field by field, not wholesale', () => {
+    // The point of per-field: a franchisee who negotiated a rate but not a
+    // threshold still moves with the brand when the threshold changes. A
+    // wholesale override would freeze them at whatever the brand happened to
+    // be on the day they signed.
+    const config = resolveFeeConfig(brand, { fee_bps: 250 });
+    assert.equal(config.feeBps, 250, 'the negotiated rate wins');
+    assert.equal(config.feeBpsTier2, 150, 'the rest still follow the brand');
+    assert.equal(config.tierThresholdCents, 2_000_000);
+  });
+
+  it('honours a zero override rather than treating it as absent', () => {
+    // A location on a free trial is exactly 0, and `||` would have read that
+    // as "unset" and billed them the brand rate.
+    assert.equal(resolveFeeConfig(brand, { fee_bps: 0 }).feeBps, 0);
+  });
+
+  it('falls back rather than propagating a malformed value', () => {
+    for (const bad of [Number.NaN, undefined, null]) {
+      assert.equal(
+        resolveFeeConfig(brand, { fee_bps: bad as number | null | undefined }).feeBps,
+        300,
+        `${String(bad)} must not reach a fee calculation`,
+      );
+    }
+  });
+
+  it('produces a config computeAppFeeCents can charge against', () => {
+    const config = resolveFeeConfig(brand, { fee_bps: 250 });
+    const { feeCents } = computeAppFeeCents(config, 0, 10_000);
+    assert.equal(feeCents, 250, '250bps of $100 is $2.50');
   });
 });

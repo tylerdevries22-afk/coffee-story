@@ -84,6 +84,15 @@ export type LocationRow = {
   timezone: string;
   square_connection_id: string | null;
   ordering_paused: boolean;
+  /**
+   * Per-location overrides of rule 3's brand fee terms (0039). NULL inherits.
+   * Readable by the service role only -- 0040 revokes these columns from the
+   * client roles, because `locations_select` is `using (true)` and a
+   * franchise platform must not publish what each franchisee pays.
+   */
+  fee_bps: number | null;
+  fee_bps_tier2: number | null;
+  tier_threshold_cents: number | null;
   created_at: string;
   updated_at: string;
 };
@@ -383,6 +392,24 @@ export type CrewTaskCompletionRow = {
   completed_by: string | null;
   completed_at: string;
 };
+
+/**
+ * The columns of `locations` a client role may read (0040).
+ *
+ * `locations_select` is `using (true)` because a shop's address and hours are
+ * storefront data, and RLS cannot hide a column -- so the fee terms 0039 added
+ * are revoked at column level instead. A client asking for `*` gets an error,
+ * not a redacted row, which is why this type exists: it is the column list, so
+ * the type and the grant cannot drift.
+ */
+export type LocationStorefrontRow = Omit<
+  LocationRow,
+  'fee_bps' | 'fee_bps_tier2' | 'tier_threshold_cents' | 'square_connection_id'
+>;
+
+/** The storefront columns, as a select list PostgREST accepts. */
+export const LOCATION_STOREFRONT_COLUMNS =
+  'id, brand_id, name, address, hours, timezone, ordering_paused, created_at, updated_at';
 
 /**
  * public.loyalty_standing -- annual and lifetime, named separately (0035).

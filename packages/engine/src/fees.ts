@@ -15,6 +15,53 @@ export type FeeConfig = {
   tierThresholdCents: number;
 };
 
+/** Rule 3's numbers as the brand row carries them. */
+export type BrandFeeTerms = {
+  fee_bps: number;
+  fee_bps_tier2: number;
+  tier_threshold_cents: number;
+};
+
+/**
+ * A location's negotiated overrides. Every field nullable: NULL inherits.
+ */
+export type LocationFeeTerms = {
+  fee_bps?: number | null;
+  fee_bps_tier2?: number | null;
+  tier_threshold_cents?: number | null;
+};
+
+/**
+ * The terms one payment is actually charged at.
+ *
+ * Rule 3 puts the take on the brand, which is right for a shop and for a chain
+ * a brand owns outright, and wrong the moment the brand carries franchisees:
+ * terms are negotiated per franchisee, and expressing that with brand columns
+ * alone would mean a second brand -- splitting the menu, the loyalty ladder
+ * and the guest's account along a line that exists purely for billing.
+ *
+ * So the location overrides field by field rather than wholesale (0039). A
+ * franchisee who negotiated a rate but not a threshold still moves with the
+ * brand when the threshold changes, which is what "we renegotiated the rate"
+ * actually means and what a wholesale override would quietly break.
+ *
+ * Lives here rather than beside the Square runtime that used to own it: which
+ * numbers apply to a payment is rule 3, not HTTP plumbing, and `apps/hq` was
+ * the only caller purely because it was the only one that had needed it yet.
+ */
+export function resolveFeeConfig(
+  brand: BrandFeeTerms,
+  location?: LocationFeeTerms | null,
+): FeeConfig {
+  const override = (value: number | null | undefined, fallback: number): number =>
+    (typeof value === 'number' && Number.isFinite(value) ? value : Number(fallback));
+  return {
+    feeBps: override(location?.fee_bps, brand.fee_bps),
+    feeBpsTier2: override(location?.fee_bps_tier2, brand.fee_bps_tier2),
+    tierThresholdCents: override(location?.tier_threshold_cents, brand.tier_threshold_cents),
+  };
+}
+
 export function computeAppFeeCents(
   config: FeeConfig,
   monthGrossBeforeCents: number,

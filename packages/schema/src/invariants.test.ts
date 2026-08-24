@@ -25,6 +25,20 @@ function orderedSql(): string {
   return migrationFiles().map((name) => readFileSync(join(MIGRATIONS, name), 'utf8')).join('\n');
 }
 
+/**
+ * The same, with `--` comments removed.
+ *
+ * These migrations explain themselves at length, and the explanations quote
+ * the statements they are warning about -- 0039's comment contains the exact
+ * `grant select on public.locations` it exists to forbid. Scanning raw text
+ * therefore finds the warning and reports it as the violation. Twice now: the
+ * view guard below first failed on `comment on view`, and the locations guard
+ * failed on its own prose. Strip the commentary, scan the statements.
+ */
+function statementsOnly(): string {
+  return orderedSql().replace(/--[^\n]*/g, '');
+}
+
 describe('migration numbering', () => {
   it('gives every migration a unique sequence number', () => {
     // Two branches in flight both claimed 0030. Nothing failed: the second one
@@ -146,5 +160,49 @@ describe('typescript strictness is a workspace property, not a per-package one',
     }
     assert.deepEqual(offenders, [],
       `these compile under their own rules rather than the workspace's: ${offenders.join(', ')}`);
+  });
+});
+
+/**
+ * Commission is not storefront data.
+ *
+ * `locations_select` is `using (true)` on purpose -- a shop's address and
+ * hours have to be readable before anyone signs in -- and RLS is row-level, so
+ * that policy exposes every column of every row to `anon`. 0039 put each
+ * franchisee's negotiated fee terms on that table; 0039 revoked those columns
+ * from the client roles.
+ *
+ * The revoke is column-level, and a later bare `grant select on
+ * public.locations` would replace the column set and silently undo it. That is
+ * a one-line mistake with no symptom, on the table that decides what every
+ * franchisee pays, so it is pinned here.
+ */
+describe('a public table does not publish private columns', () => {
+  const PRIVATE = ['fee_bps', 'fee_bps_tier2', 'tier_threshold_cents', 'square_connection_id'];
+
+  it('revokes the fee terms and the payments FK from client roles', () => {
+    const sql = statementsOnly();
+    const revoke = /revoke\s+select\s*\(([^)]*)\)\s*\n?\s*on\s+public\.locations\s+from\s+([^;]+);/is.exec(sql);
+    assert.ok(revoke, 'no column-level revoke on public.locations');
+    const columns = (revoke[1] ?? '').split(',').map((c) => c.trim());
+    for (const column of PRIVATE) {
+      assert.ok(columns.includes(column), `locations.${column} is readable by anon`);
+    }
+    for (const role of ['anon', 'authenticated']) {
+      assert.match(revoke[2] ?? '', new RegExp(`\\b${role}\\b`), `not revoked from ${role}`);
+    }
+  });
+
+  it('never re-grants the whole table afterwards', () => {
+    const sql = statementsOnly();
+    const revokeAt = sql.search(/revoke\s+select\s*\([^)]*\)\s*\n?\s*on\s+public\.locations/is);
+    assert.ok(revokeAt >= 0);
+    // A table-level grant replaces the column set. Anything after the revoke
+    // that names the whole table puts the fee terms back.
+    const after = sql.slice(revokeAt);
+    assert.ok(!/grant\s+select\s+on\s+public\.locations\b/i.test(after),
+      'a later table-level grant on public.locations undoes the column revoke');
+    assert.ok(!/grant\s+all\s+on\s+public\.locations\b/i.test(after),
+      'a later table-level grant on public.locations undoes the column revoke');
   });
 });
