@@ -1,4 +1,6 @@
 
+import { TENANT } from '@/tenant';
+
 export type NativeFlowResult = {
   simulated: boolean;
   message: string;
@@ -33,12 +35,12 @@ export async function addOrderToCalendar(
   if (!permission.granted) throw new Error('Allow calendar access in Settings to add this order.');
   const calendar = await Calendar.getDefaultCalendarAsync();
   await Calendar.createEventAsync(calendar.id, {
-    title: `${order.summary} at Coffee Story`,
+    title: `${order.summary} at ${TENANT.identity.name}`,
     startDate: date,
     endDate: new Date(date.getTime() + order.durationMin * 60_000),
-    timeZone: 'America/Denver',
-    location: 'Coffee Story',
-    notes: 'Your Coffee Story order is confirmed. See you at the bar.',
+    timeZone: TENANT.location.timezone,
+    location: `${TENANT.location.name}, ${TENANT.location.address.street}`,
+    notes: `Your ${TENANT.identity.name} order is confirmed. See you at the bar.`,
     alarms: [{ relativeOffset: -60 }],
   });
   return { simulated: false, message: 'Your order is saved with a one-hour reminder.' };

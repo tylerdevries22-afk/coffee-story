@@ -21,7 +21,6 @@ import { MAX_LINE_QUANTITY, buildOrderLine, type OrderLine ,
   defaultOptionSelection,
   missingRequiredGroups,
   optionDeltaCents,
-  optionGroupsFor,
   toggleOptionChoice,
   visibleOptionGroups,
   type OptionSelection,
@@ -66,7 +65,7 @@ function ItemSheetBody({
   onAdd: (line: OrderLine) => number;
 }) {
   const bottom = useCoveringBottomInset();
-  const groups = useMemo(() => optionGroupsFor(item.id, item.category), [item.id, item.category]);
+  const groups = useMemo(() => [...item.optionGroups], [item.optionGroups]);
   const [sizeSlug, setSizeSlug] = useState(() => defaultSizeSlug(item.sizes));
   const [selection, setSelection] = useState<OptionSelection>(() => defaultOptionSelection(groups));
   const [quantity, setQuantity] = useState(1);

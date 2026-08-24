@@ -32,6 +32,7 @@ import { fulfillmentDetail, fulfillmentLabel, type OrderFulfillment } from '@pla
 import { describePickupWindow } from '@/features/order/pickup';
 import { menuPriceLabel } from '@platform/domain';
 import { colors, fonts, radius, spacing } from '@/theme/tokens';
+import { TENANT } from '@/tenant';
 
 import { menuSections } from './menu-data';
 
@@ -124,7 +125,7 @@ export function MenuStep({
     <View style={styles.shell}>
       <CollapsingPageHeader
         title={isDelivery ? 'Delivery' : 'Pickup'}
-        eyebrow="Coffee Story menu"
+        eyebrow={`${TENANT.identity.name} menu`}
         onBack={onBack}
         backLabel="Order"
         scrollY={scrollY}

@@ -70,7 +70,7 @@ docs/               AUDIT, ARCHITECTURE, RUNBOOK, BUILD-REPORT, legal/
 - **Menu photographs are a contract too** (`docs/MENU-IMAGERY.md`): stored
   square, graded into one band, drawn only through `MenuImage` with a named
   variant — never a hand-rolled `<Image>` with its own size. Run
-  `pnpm normalize-menu-images` after adding or replacing an asset.
+  `pnpm normalize-menu-images --tenant <slug>` after adding or replacing an asset.
 - Accessibility: use the `a11y-state` helpers so `accessibilityState` and the
   matching `aria-*` attribute are both emitted (react-native-web drops
   `accessibilityState` on `Pressable`).

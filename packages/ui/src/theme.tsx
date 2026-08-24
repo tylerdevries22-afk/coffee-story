@@ -10,6 +10,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type PropsWithChildren } from 'react';
 
 import { formatCopy, resolveCopy, type BrandCopy } from './copy';
+import { resolveAppTokens, type AppTokens } from './app-tokens';
 import { resolveTokens, type BrandTokens, DEFAULT_TOKENS } from './tokens';
 
 export type TokenStorage = {
@@ -21,6 +22,7 @@ const CACHE_KEY = 'platform.brand-config.v1';
 
 type ThemeValue = {
   tokens: BrandTokens;
+  appTokens: AppTokens;
   copy: BrandCopy;
   /** True once either the cache or a live config has been applied. */
   hydrated: boolean;
@@ -28,6 +30,7 @@ type ThemeValue = {
 
 const ThemeContext = createContext<ThemeValue>({
   tokens: DEFAULT_TOKENS,
+  appTokens: resolveAppTokens(DEFAULT_TOKENS),
   copy: resolveCopy(null),
   hydrated: false,
 });
@@ -75,6 +78,7 @@ export function ThemeProvider({
     const source = (typeof active === 'object' && active !== null ? active : {}) as Record<string, unknown>;
     return {
       tokens: resolveTokens(source.tokens),
+      appTokens: resolveAppTokens(source.tokens),
       copy: resolveCopy(source.copy),
       hydrated: active != null || cacheChecked,
     };
@@ -89,6 +93,11 @@ export function useTheme(): ThemeValue {
 
 export function useTokens(): BrandTokens {
   return useContext(ThemeContext).tokens;
+}
+
+/** The full palette used by the legacy native screens during their migration. */
+export function useAppTokens(): AppTokens {
+  return useContext(ThemeContext).appTokens;
 }
 
 /** `copyText('earnBanner', { points: 96 })` bound to the active dictionary. */

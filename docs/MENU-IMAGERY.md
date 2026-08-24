@@ -64,8 +64,8 @@ That was a real bug in the first cut of this pipeline.
 ## The normaliser
 
 ```sh
-pnpm normalize-menu-images          # normalise in place, refresh the manifest
-pnpm normalize-menu-images --check  # CI gate: fail if any asset has drifted
+pnpm normalize-menu-images --tenant <slug>          # normalise tenant source
+pnpm normalize-menu-images --tenant <slug> --check  # CI gate for drift
 ```
 
 For each asset it centre-crops to square (biased slightly low, because a drink
@@ -80,10 +80,11 @@ sits below centre and its saucer matters more than the ceiling), resizes to
   needing a reshoot. Half-applying a clamped correction is worse than doing
   nothing: it neither matches the house look nor stays honest to the original.
 
-Both apps carry byte-identical menu assets, so the customer copy is the source
-and the operator copy is written from it.
+The tenant folder is the source. `pnpm onboard --tenant <slug> --apply` copies
+the normalised assets into the per-brand customer bundle and generates the
+static Metro image map.
 
-Idempotency comes from `apps/customer/assets/menu/.normalized.json`, which
+Idempotency comes from `tenants/<slug>/assets/menu/.normalized.json`, which
 records the hash of what the script last produced. An unchanged file is skipped;
 a newly dropped photograph misses the hash and gets normalised.
 
@@ -132,8 +133,8 @@ height, clear headroom above, table edge below. Absolutely no text, no signage,
 no logos, no labels, no packaging, no hands, no people.
 ```
 
-Drop the result into `apps/customer/assets/menu/<slug>.webp` and run
-`pnpm normalize-menu-images`; the manifest hash will miss and it will be
+Drop the result into `tenants/<tenant>/assets/menu/<item-slug>.webp` and run
+`pnpm normalize-menu-images --tenant <tenant>`; the manifest hash will miss and it will be
 squared, measured and mirrored to the operator app.
 
 ## Outstanding

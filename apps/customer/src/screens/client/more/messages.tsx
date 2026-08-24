@@ -6,6 +6,7 @@ import { Body, Button } from '@/components/ui';
 import { mobileApi } from '@/lib/mobile-api';
 import { useAuth } from '@/state/auth-context';
 import { useDemo } from '@/state/demo-context';
+import { TENANT } from '@/tenant';
 
 import { styles } from './information-page';
 import { Field } from './profile-and-preferences';
@@ -39,7 +40,7 @@ export function Messages({ onBack }: { onBack: () => void }) {
     <CollapsingScreen title="Messages" eyebrow="Private conversation" onBack={onBack} keyboardShouldPersistTaps="handled">
       {(portal.messages ?? []).map((message) => (
         <View key={message.id} style={[styles.message, message.sender === 'client' && styles.myMessage]}>
-          <Text style={styles.messageSender}>{message.sender === 'client' ? 'You' : 'Coffee Story'}</Text>
+          <Text style={styles.messageSender}>{message.sender === 'client' ? 'You' : TENANT.identity.name}</Text>
           <Body>{message.body}</Body>
         </View>
       ))}

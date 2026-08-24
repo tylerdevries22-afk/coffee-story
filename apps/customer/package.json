@@ -74,8 +74,7 @@
     "lint": "expo lint --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test \"src/**/*.test.ts\"",
-    "verify": "pnpm lint && pnpm typecheck && pnpm test && npx expo export --platform ios",
-    "emit:menu": "tsx scripts/emit-menu.ts"
+    "verify": "pnpm lint && pnpm typecheck && pnpm test && npx expo export --platform ios"
   },
   "private": true
 }

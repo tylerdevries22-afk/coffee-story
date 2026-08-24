@@ -52,7 +52,7 @@ export function AuthScreen() {
   return (
     <Screen keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
       <View style={styles.intro}>
-        <Eyebrow>Coffee Story · by Barakah Brews</Eyebrow>
+        <Eyebrow>Operator Console</Eyebrow>
         <Title>{view === 'reset' ? 'Reset your password.' : 'Welcome back.'}</Title>
         <Body muted>The order board, the day&rsquo;s numbers, and the menu — sign in with your staff account.</Body>
       </View>

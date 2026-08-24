@@ -36,6 +36,7 @@ import { formatMoney , DELIVERY_FEE_CENTS } from '@platform/domain';
 import { pickupWindows, shopStatus, type PickupWindow } from '@/features/order/pickup';
 import { choiceState } from '@/lib/a11y-state';
 import { colors, fonts, radius, shadow, spacing } from '@/theme/tokens';
+import { TENANT } from '@/tenant';
 
 /** Enough windows to fill a scroll without pretending the shop is limitless. */
 const WINDOW_COUNT = 12;
@@ -114,7 +115,7 @@ function PickupLocationStep({
       ) : null}
 
       {matches.length === 0 ? (
-        <Body muted>No Coffee Story shop matches “{query.trim()}”.</Body>
+        <Body muted>No {TENANT.identity.name} shop matches “{query.trim()}”.</Body>
       ) : (
         matches.map((location) => (
           <LocationCard

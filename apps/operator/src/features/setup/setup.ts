@@ -90,7 +90,7 @@ const INITIAL_ADMIN: RoleSetup<AdminSetupAnswers> = {
   status: 'not_started',
   step: 0,
   answers: {
-    businessName: 'Coffee Story',
+    businessName: 'Your shop',
     openDays: [],
     menuConfirmed: false,
     teamConfirmed: false,

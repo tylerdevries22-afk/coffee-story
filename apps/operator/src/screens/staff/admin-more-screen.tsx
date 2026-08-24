@@ -206,7 +206,7 @@ export function AdminMoreScreen({ dashboard }: { dashboard: StaffDashboard }) {
       <MoreFooter
         onPrivacy={() => void openWebPath('/privacy')}
         onTerms={() => void openWebPath('/privacy')}
-        version="Coffee Story 1.0"
+        version="Operator 1.0"
         caption={isDemo ? 'Explicit Demo mode · changes are saved on this device' : 'Connected securely to live services'}
         iconSrc={rewardsCup}
       />

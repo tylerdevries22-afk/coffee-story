@@ -18,7 +18,7 @@ import { buildClientNotifications , projectFirstVariants } from '@platform/domai
 import { searchClientAccount, type ClientSearchResult , OrderableItem } from '@platform/domain';
 import { summarizeGiftCardOwnership } from '@/features/gifts/ownership';
 import { useAppState, type MoreView } from '@/state/app-context';
-import { tenantFeature } from '@/tenant';
+import { TENANT, tenantFeature } from '@/tenant';
 import { useAuth } from '@/state/auth-context';
 import { useDemo } from '@/state/demo-context';
 import { colors } from '@/theme/tokens';
@@ -250,7 +250,7 @@ export function MoreScreen() {
       <MoreFooter
         onPrivacy={() => openMore('privacy')}
         onTerms={() => openMore('privacy')}
-        version="Coffee Story 1.0"
+        version={`${TENANT.identity.name} 1.0`}
         caption={isDemo ? 'Explicit Demo mode · changes are saved on this device' : 'Connected securely to live items'}
         iconSrc={rewardsCup}
       />

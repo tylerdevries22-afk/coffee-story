@@ -50,7 +50,7 @@ test('portalSetup sanitizes hostile stored values', () => {
   assert.equal(setup.client.answers.pressure, 'medium');
   assert.deepEqual(setup.client.answers.preferredTimes, []);
   assert.equal(setup.admin.status, 'completed');
-  assert.equal(setup.admin.answers.businessName, 'Coffee Story');
+  assert.equal(setup.admin.answers.businessName, 'Your shop');
   assert.deepEqual(setup.admin.answers.openDays, ['Mon']);
   assert.equal(setup.admin.answers.menuConfirmed, false);
 });

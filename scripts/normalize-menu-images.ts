@@ -1,5 +1,6 @@
 /**
- * Menu image normaliser: `pnpm normalize-menu-images` (add `--check` for CI).
+ * Menu image normaliser: `pnpm normalize-menu-images --tenant <slug>`
+ * (add `--check` for CI).
  *
  * The menu shipped 61 photographs that agreed on nothing. Subject scale varied
  * 2-3x, whole-frame luminance spanned 30-158, warmth spanned -3 to +100, and
@@ -40,10 +41,19 @@ import {
   type MenuImageMeasurement,
 } from '@platform/ui/src/menu-image';
 
-const CUSTOMER_MENU = join(process.cwd(), 'apps/customer/assets/menu');
-const OPERATOR_MENU = join(process.cwd(), 'apps/operator/assets/menu');
-const MANIFEST = join(CUSTOMER_MENU, '.normalized.json');
-const CONTACT_SHEET = join(process.cwd(), 'apps/customer/assets-library/menu-images-contact-sheet.png');
+function argValue(flag: string): string | null {
+  const index = process.argv.indexOf(flag);
+  return index >= 0 ? process.argv[index + 1] ?? null : null;
+}
+
+const tenantSlug = argValue('--tenant') ?? 'coffee-story';
+const TENANT_DIR = join(process.cwd(), 'tenants', tenantSlug);
+const MENU_DIR = join(TENANT_DIR, 'assets', 'menu');
+const MANIFEST = join(MENU_DIR, '.normalized.json');
+const CONTACT_SHEET = join(TENANT_DIR, 'assets', 'menu-images-contact-sheet.png');
+const brand = JSON.parse(readFileSync(join(TENANT_DIR, 'brand.json'), 'utf8')) as {
+  identity?: { name?: string };
+};
 
 /** Contact sheet layout. The sheet is how a human checks the one thing the
  *  grade cannot measure: whether the subject is framed like its neighbours. */
@@ -71,6 +81,12 @@ type ManifestEntry = {
 
 const sha = (buffer: Buffer | Uint8Array) => createHash('sha256').update(buffer).digest('hex');
 const round = (n: number, places = 3) => Number(n.toFixed(places));
+const escapeXml = (value: string) => value
+  .replaceAll('&', '&amp;')
+  .replaceAll('<', '&lt;')
+  .replaceAll('>', '&gt;')
+  .replaceAll('"', '&quot;')
+  .replaceAll("'", '&apos;');
 
 /**
  * Whole-frame measurement, matching what `menuImageCorrection` expects.
@@ -127,14 +143,14 @@ async function writeContactSheet(sharp: (typeof import('sharp'))['default'], nam
     const left = pad + column * (cell + pad);
     const top = header + row * (cell + label + pad);
     composites.push({
-      input: await sharp(join(CUSTOMER_MENU, `${name}.webp`)).resize(cell, cell).png().toBuffer(),
+      input: await sharp(join(MENU_DIR, `${name}.webp`)).resize(cell, cell).png().toBuffer(),
       left,
       top,
     });
     composites.push({
       input: Buffer.from(
         `<svg width="${cell}" height="${label}">` +
-        `<text x="0" y="11" font-family="monospace" font-size="9" fill="#57483B">${name}</text></svg>`,
+        `<text x="0" y="11" font-family="monospace" font-size="9" fill="#57483B">${escapeXml(name)}</text></svg>`,
       ),
       left,
       top: top + cell,
@@ -144,7 +160,7 @@ async function writeContactSheet(sharp: (typeof import('sharp'))['default'], nam
     input: Buffer.from(
       `<svg width="${width}" height="${header}">` +
       `<text x="${pad}" y="22" font-family="sans-serif" font-size="16" fill="#241710">` +
-      `Coffee Story — menu image library (${names.length} items, ${MENU_IMAGE_SPEC.edge}px square)</text></svg>`,
+      `${escapeXml(brand.identity?.name ?? tenantSlug)} — menu image library (${names.length} items, ${MENU_IMAGE_SPEC.edge}px square)</text></svg>`,
     ),
     left: 0,
     top: 0,
@@ -164,9 +180,9 @@ async function run() {
     ? (JSON.parse(readFileSync(MANIFEST, 'utf8')) as Record<string, ManifestEntry>)
     : {};
 
-  const files = readdirSync(CUSTOMER_MENU).filter((f) => f.endsWith('.webp')).sort();
+  const files = readdirSync(MENU_DIR).filter((f) => f.endsWith('.webp')).sort();
   if (files.length === 0) {
-    console.error(`No .webp files in ${CUSTOMER_MENU}`);
+    console.error(`No .webp files in ${MENU_DIR}`);
     process.exit(1);
   }
 
@@ -177,7 +193,7 @@ async function run() {
 
   for (const file of files) {
     const name = file.replace(/\.webp$/, '');
-    const path = join(CUSTOMER_MENU, file);
+    const path = join(MENU_DIR, file);
     const current = readFileSync(path);
 
     const cached = manifest[name];
@@ -195,7 +211,7 @@ async function run() {
     //    that looks plausible in a diff.
     if (!(await sharp(current).stats()).isOpaque) {
       console.error(`${name} carries transparency, so it is not a menu photograph.`);
-      console.error(`Move it to apps/customer/assets/products/ and run \`pnpm normalize-product-cutouts\`.`);
+      console.error(`Move it to tenants/${tenantSlug}/assets/products/ and run \`pnpm normalize-product-cutouts --tenant ${tenantSlug}\`.`);
       process.exit(1);
     }
 
@@ -234,8 +250,6 @@ async function run() {
     }
 
     writeFileSync(path, bytes);
-    // The operator app carries a byte-identical copy of the menu assets.
-    writeFileSync(join(OPERATOR_MENU, file), bytes);
     manifest[name] = {
       hash: sha(bytes),
       measured,
@@ -254,7 +268,7 @@ async function run() {
   if (check) {
     if (drifted.length > 0) {
       console.error(`${drifted.length} menu image(s) are not normalised:\n  ${drifted.join('\n  ')}`);
-      console.error('\nRun `pnpm normalize-menu-images` and commit the result.');
+      console.error(`\nRun \`pnpm normalize-menu-images --tenant ${tenantSlug}\` and commit the result.`);
       process.exit(1);
     }
     console.log(`All ${files.length} menu images match the spec.`);

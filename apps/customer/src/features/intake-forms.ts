@@ -18,6 +18,8 @@
  * Kept honest by `lib/preferences-forms-catalog.test.ts` in the web app, which fails
  * CI if this list stops matching the rows the migration seeds.
  */
+import { TENANT } from '@/tenant';
+
 export type IntakeFormCatalogEntry = {
   id: string;
   title: string;
@@ -62,7 +64,7 @@ export const INTAKE_FORM_CATALOG: readonly IntakeFormCatalogEntry[] = [
   {
     id: 'gift-card-terms',
     eyebrow: 'Purchase and redemption',
-    summary: 'Record the purchaser, intended recipient, delivery details, and the terms for using or transferring a Coffee Story gift card.',
+    summary: `Record the purchaser, intended recipient, delivery details, and the terms for using or transferring a ${TENANT.identity.name} gift card.`,
     title: 'Gift Card Terms',
     stage: 'With purchase',
     version: 'GCT-2026.08',

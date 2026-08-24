@@ -9,7 +9,7 @@ import type {
   RewardEntry,
 } from '@platform/domain';
 
-import { TENANT_TAX_JURISDICTIONS } from '@/tenant';
+import { TENANT, TENANT_TAX_JURISDICTIONS } from '@/tenant';
 
 // Sanitized, production-scale demo dataset. All names/emails/phones are fictional
 // (example.com, 555 numbers). Every date is relative to portal creation so
@@ -31,7 +31,7 @@ function addMinutes(startsAt: string, minutes: number): string {
   return new Date(new Date(startsAt).getTime() + minutes * 60_000).toISOString();
 }
 
-const SHOP_LABEL = 'Coffee Story · 2222 S Havana St';
+const SHOP_LABEL = `${TENANT.identity.name} · ${TENANT.location.address.street}`;
 const DELIVERY_LABEL = 'Delivery';
 const DELIVERY_DETAIL = '123 Dayton St, Aurora, CO 80010';
 
@@ -279,4 +279,3 @@ export const DEMO_PORTAL: PortalBundle = {
     creditsAvailable: 4,
   },
 };
-
