@@ -21,6 +21,8 @@ import { useAuth } from '@/state/auth-context';
 import { useBusiness } from '@/state/business';
 import type { OrderableItem, StaffDashboard } from '@platform/domain';
 
+import { DEMO_TAX_JURISDICTIONS } from '@/data/business';
+
 /**
  * Everything the staff workspace's screens used to reach through
  * `StaffShell`'s props and local state.
@@ -194,7 +196,7 @@ export function StaffWorkspaceProvider({ children }: PropsWithChildren) {
       const item = orderableItems.find((entry) => entry.slug === submission.itemSlug);
       const placedAt = new Date(submission.startsAt);
       const priceCents = item?.priceCents ?? 0;
-      const taxCents = taxCentsFor(priceCents);
+      const taxCents = taxCentsFor(priceCents, DEMO_TAX_JURISDICTIONS);
       setDashboard((current) => ({
         ...current,
         orders: [...current.orders, {

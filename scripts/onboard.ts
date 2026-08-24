@@ -38,6 +38,13 @@ type BrandFile = {
    * are the private ones: absent means no status badge on a public wall.
    */
   board?: Record<string, unknown>;
+  /**
+   * The lobby kiosk's flow (packages/domain/src/kiosk-flow.ts). Optional: the
+   * resolver derives a working first screen from the menu when it is absent,
+   * which is what makes a new franchise zero-config. Typed here so the DB write
+   * below cannot silently omit it.
+   */
+  kiosk?: Record<string, unknown>;
   location: {
     name: string;
     address: Record<string, string>;
@@ -134,6 +141,7 @@ async function run() {
             copy: brand.copy,
             business: brand.business,
             ...(brand.tax ? { tax: brand.tax } : {}),
+            ...(brand.kiosk ? { kiosk: brand.kiosk } : {}),
             ...(brand.loyalty ? { loyalty: brand.loyalty } : {}),
             // app.loyalty_tier_for reads board.tiers and board.showGuestStatus
             // straight out of this column, so onboarding is the only place a
@@ -289,12 +297,21 @@ own colors, type, and photography (docs/DO-NOT-RESEMBLE.md).
 `);
   console.log(`4. listing: listing.md + screenshots-checklist.md -> tenants/${slug}/app-store/`);
 
-  // 5. Apply to the customer app -------------------------------------------
+  // 5. Apply to the bundled copies ------------------------------------------
+  //
+  // Two apps bundle the brand file because Metro cannot require a
+  // runtime-chosen path. The kiosk's copy was hand-maintained and unwritten by
+  // anything, so it silently fell a key behind the moment `board` was added.
+  // Both are refreshed here and both are pinned by a drift test.
+  const BUNDLED_COPIES = [
+    join(process.cwd(), 'apps', 'customer', 'src', 'tenant', 'brand.json'),
+    join(process.cwd(), 'apps', 'kiosk', 'src', 'tenant', 'brand.json'),
+  ];
   if (apply) {
-    copyFileSync(brandPath, join(process.cwd(), 'apps', 'customer', 'src', 'tenant', 'brand.json'));
-    console.log(`5. applied: apps/customer now bundles ${slug} (build with TENANT=${slug})`);
+    for (const destination of BUNDLED_COPIES) copyFileSync(brandPath, destination);
+    console.log(`5. applied: apps/customer and apps/kiosk now bundle ${slug} (build with TENANT=${slug})`);
   } else {
-    console.log(`5. not applied: pass --apply to point apps/customer at this tenant`);
+    console.log(`5. not applied: pass --apply to point apps/customer and apps/kiosk at this tenant`);
   }
 
   // 6. Product cut-outs ------------------------------------------------------

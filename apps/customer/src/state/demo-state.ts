@@ -16,6 +16,8 @@ import {
   AppRole} from '@platform/domain';
 import { taxCentsFor } from '@platform/domain';
 
+import { TENANT_TAX_JURISDICTIONS } from '@/tenant';
+
 export type DemoOrderInput = {
   id: string;
   item: OrderableItem;
@@ -86,7 +88,7 @@ export function addDemoOrder(portal: PortalBundle, input: DemoOrderInput): Porta
   const addOnCents = input.addOns.reduce((total, addOn) => total + addOn.priceCents, 0);
   const addOnMinutes = input.addOns.reduce((total, addOn) => total + addOn.durationMin, 0);
   const subtotalCents = input.item.priceCents + addOnCents;
-  const taxCents = taxCentsFor(subtotalCents);
+  const taxCents = taxCentsFor(subtotalCents, TENANT_TAX_JURISDICTIONS);
   const order: PortalOrder = {
     id: input.id,
     summary: input.addOns.length

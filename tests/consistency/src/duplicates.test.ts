@@ -70,6 +70,12 @@ const DIVERGENT_BY_DESIGN = [
   // whatever the signed-in staff member's brand row says. Same hook name, same
   // return type, two answers that cannot be the same code.
   'state/business.ts',
+  // The same rule-7 split as state/business.ts, one layer down: demo data needs
+  // a tax list, and where that list comes from is exactly what differs. The
+  // customer binary is one brand, so it reads the tenant it bundles; the
+  // operator is tenanted by login and has no bundled tenant, so its demo mode
+  // reads the demo fallback. Two lines, and they cannot be the same line.
+  'state/demo-state.ts',
   'state/demo-state.test.ts',
   // The operator's staff bar lost calendar/quick-actions/clients/checkout with
   // the booking workspace, so its route vocabulary is genuinely smaller than the

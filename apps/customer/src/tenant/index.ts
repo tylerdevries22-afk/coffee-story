@@ -34,6 +34,12 @@ type TenantFile = {
   copy: Record<string, string>;
   features: TenantFeatures;
   business: TenantBusiness;
+  /**
+   * The shop's sales-tax authorities. The bundled brand.json has always carried
+   * these; only this type omitted them, which is why every screen fell back to
+   * a Colorado default that lived in packages/domain.
+   */
+  tax?: { jurisdictions: { id: string; label: string; rate: number }[] };
   location: {
     name: string;
     address: { street: string; city: string; region: string; postal: string };
@@ -50,3 +56,14 @@ export const TENANT_BRAND_CONFIG: unknown = brandJson;
 export function tenantFeature(flag: keyof TenantFeatures): boolean {
   return Boolean(TENANT.features?.[flag]);
 }
+
+/**
+ * The tenant's tax authorities, for the screens that render a breakdown.
+ *
+ * Empty for a tenant that has not declared any -- which renders no tax rows and
+ * charges no tax on screen, rather than quietly showing another shop's. The
+ * server is the authority either way: it recomputes every cent from
+ * `brand_config` and the app renders what comes back.
+ */
+export const TENANT_TAX_JURISDICTIONS: readonly { id: string; label: string; rate: number }[] =
+  TENANT.tax?.jurisdictions ?? [];

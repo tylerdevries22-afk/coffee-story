@@ -139,5 +139,51 @@
     "website": "https://example.com",
     "giftCodePrefix": "YB",
     "monogram": "YB"
+  },
+  "kiosk": {
+    "$docs": "The lobby kiosk's flow. Shape and rules: packages/domain/src/kiosk-flow.ts. EVERY FIELD IS OPTIONAL -- delete this whole block and a device still opens on a first screen derived from your menu.csv categories. Fill it in when you want a say over the order.",
+    "attract": {
+      "$docs": "What the kiosk shows for most of its life, so it is the shop's face more than a menu is. headline null falls back to the brand name.",
+      "headline": null,
+      "invite": "Touch anywhere to order",
+      "showLogo": true
+    },
+    "entry": {
+      "$docs": "The first screen. `nodes` is YOUR call -- a coffee shop leads with drinks, a bakery leads with box sizes. categoryId is the category TITLE exactly as it appears in menu.csv, because menu_categories has no slug. A tile pointing at a category you later rename is dropped and reported rather than rendered as a dead button. Leave `nodes` out entirely to have them derived from your menu. Max 12; emphasis is hero | standard | minor and is drawn as size.",
+      "prompt": "What would you like today?",
+      "nodes": []
+    },
+    "$familyDocs": "'item' for a shop whose SKU is a drink or a dish (size, then options). 'pack' for a shop whose SKU is a container the guest fills -- a box of six. Never inferred from your menu: changing the metaphor is a decision, not a guess.",
+    "family": "item",
+    "utilities": [],
+    "$identifyDocs": "An optional identify step that must never block an anonymous purchase. mode off | optional; methods phone | scan.",
+    "identify": {
+      "mode": "off",
+      "methods": []
+    },
+    "$tendersDocs": "card | cash settle an order; stored_value | gift_card reduce what is due and need the brand's stored_value feature switched on. A list with no settling tender has card added to it.",
+    "tenders": [
+      "card"
+    ],
+    "$tipDocs": "Integer cents, never float dollars. Leave disabled unless you want a tip prompt.",
+    "tip": {
+      "enabled": false,
+      "presetsCents": []
+    },
+    "guestName": {
+      "mode": "optional"
+    },
+    "$surveyDocs": "An optional post-order attribution question. Groups need at least one option each or the survey turns itself off.",
+    "survey": {
+      "enabled": false,
+      "prompt": "",
+      "groups": []
+    },
+    "$idleDocs": "How long an abandoned session survives. Warn first, then clear -- the next guest must never inherit a stranger's bag. A container shop should give longer: filling a twelve-box takes longer than picking one latte. Clamped to 15s-10min, and the reset is always pushed clear of the warning.",
+    "idle": {
+      "warnMs": 60000,
+      "resetMs": 90000
+    },
+    "motion": "full"
   }
 }

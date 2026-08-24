@@ -20,21 +20,20 @@ export type TaxJurisdiction = {
 export type TaxRow = TaxJurisdiction & { amountCents: number };
 
 /**
- * The four authorities that stack on a sale at 2222 S Havana St, Aurora CO
- * 80014 (Arapahoe County): 2.90 + 3.75 + 1.00 + 0.25 = 7.90%.
+ * There is deliberately no default jurisdiction list here.
  *
- * They are broken out rather than summed because the guest sees each one on
- * the checkout screen, and because a change from any single authority should
- * be a one-line edit here. The owner must confirm these against their current
- * Colorado sales-tax licence before the app charges live money — this module
- * is the only place they are stated.
+ * There used to be: Aurora, Colorado's four authorities, as the DEFAULT
+ * PARAMETER of every function below and of `orderTotals`. The server was always
+ * data-driven (`parseTaxJurisdictions` reads `brand_config`), so a second
+ * tenant was never charged Colorado's rates -- but every client screen that
+ * omitted the argument RENDERED them, by name. A Texas franchise showed
+ * "City of Aurora Sales Tax" on its checkout and was charged something else.
+ *
+ * A shop's tax authorities are tenant data (`brand.json` -> `tax.jurisdictions`),
+ * and the list is now a required argument so that omitting it is a type error
+ * rather than a silently wrong screen. Coffee Story's own four live in
+ * `tenants/coffee-story/brand.json`, where every other tenant fact lives.
  */
-export const TAX_JURISDICTIONS: readonly TaxJurisdiction[] = [
-  { id: 'state', label: 'State Sales Tax', rate: 0.029 },
-  { id: 'city', label: 'City of Aurora Sales Tax', rate: 0.0375 },
-  { id: 'rtd', label: 'Regional Transportation District Tax', rate: 0.01 },
-  { id: 'county', label: 'Arapahoe County Tax', rate: 0.0025 },
-] as const;
 
 /**
  * Tax owed on a taxable base, one row per authority.
@@ -46,7 +45,7 @@ export const TAX_JURISDICTIONS: readonly TaxJurisdiction[] = [
  */
 export function taxRowsFor(
   taxableCents: number,
-  jurisdictions: readonly TaxJurisdiction[] = TAX_JURISDICTIONS,
+  jurisdictions: readonly TaxJurisdiction[],
 ): TaxRow[] {
   const base = Number.isFinite(taxableCents) ? Math.max(0, Math.round(taxableCents)) : 0;
   return jurisdictions.map((jurisdiction) => ({
@@ -58,10 +57,56 @@ export function taxRowsFor(
 /** Exactly the sum of `taxRowsFor`, so a receipt and a register agree. */
 export function taxCentsFor(
   taxableCents: number,
-  jurisdictions: readonly TaxJurisdiction[] = TAX_JURISDICTIONS,
+  jurisdictions: readonly TaxJurisdiction[],
 ): number {
   return taxRowsFor(taxableCents, jurisdictions).reduce((total, row) => total + row.amountCents, 0);
 }
 
 /** The combined rate, for anywhere that needs to state one number. */
-export const COMBINED_TAX_RATE = TAX_JURISDICTIONS.reduce((total, tax) => total + tax.rate, 0);
+/** The stacked rate for a given list. Never a constant: it is per tenant. */
+export function combinedTaxRate(jurisdictions: readonly TaxJurisdiction[]): number {
+  return jurisdictions.reduce((total, tax) => total + Math.max(0, tax.rate), 0);
+}
+
+/**
+ * The tenant's authorities, read from a brand config.
+ *
+ * The client twin of `parseTaxJurisdictions` in packages/engine, and
+ * deliberately NOT the same function: the engine THROWS on a malformed list,
+ * because the alternative there is undercharging real money. A screen has
+ * nowhere to put that exception, so this drops bad entries and returns what
+ * survives -- a checkout that renders one fewer tax row is recoverable; one
+ * that crashes is not. The server recomputes every cent regardless, so the
+ * screen is never the authority.
+ *
+ * Accepts the whole config (a `brand.json` or a `brand_config` row) and reaches
+ * `.tax.jurisdictions`, so callers do not each re-derive the path.
+ */
+export function taxJurisdictionsFromBrandConfig(config: unknown): TaxJurisdiction[] {
+  const root = asRecord(config);
+  const tax = asRecord(root?.tax);
+  const raw = tax?.jurisdictions;
+  if (!Array.isArray(raw)) return [];
+  const jurisdictions: TaxJurisdiction[] = [];
+  const seen = new Set<string>();
+  for (const candidate of raw) {
+    const entry = asRecord(candidate);
+    if (!entry) continue;
+    const id = typeof entry.id === 'string' ? entry.id.trim() : '';
+    const label = typeof entry.label === 'string' ? entry.label.trim() : '';
+    const rate = entry.rate;
+    // A rate above 1 is a percentage someone forgot to divide; charging it
+    // would be a 290% tax line. Refuse rather than guess what was meant.
+    if (!id || !label || seen.has(id)) continue;
+    if (typeof rate !== 'number' || !Number.isFinite(rate) || rate < 0 || rate > 1) continue;
+    seen.add(id);
+    jurisdictions.push({ id, label, rate });
+  }
+  return jurisdictions;
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}

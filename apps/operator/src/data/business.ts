@@ -14,6 +14,7 @@
  *
  * Pure — no asset imports — so both the app and `node:test` can read it.
  */
+import { taxJurisdictionsFromBrandConfig, type TaxJurisdiction } from '@platform/domain';
 
 export const BUSINESS = {
   name: 'Coffee Story',
@@ -57,6 +58,21 @@ export type BusinessLocationSource = {
   address?: { street?: string; city?: string; region?: string; postal?: string } | null;
   timezone?: string | null;
 } | null;
+
+/**
+ * The demo shop's tax authorities.
+ *
+ * Demo mode is Coffee Story's shop, so these are Coffee Story's -- stated here
+ * beside the rest of the demo fallback rather than defaulted inside
+ * packages/domain, which is how they used to reach every other tenant's screen.
+ * A signed-in brand replaces them via `setCurrentTaxJurisdictions`.
+ */
+export const DEMO_TAX_JURISDICTIONS: readonly TaxJurisdiction[] = [
+  { id: 'state', label: 'State Sales Tax', rate: 0.029 },
+  { id: 'city', label: 'City of Aurora Sales Tax', rate: 0.0375 },
+  { id: 'rtd', label: 'Regional Transportation District Tax', rate: 0.01 },
+  { id: 'county', label: 'Arapahoe County Tax', rate: 0.0025 },
+];
 
 export const DEMO_BUSINESS: BusinessDetails = {
   ...BUSINESS,
@@ -169,4 +185,22 @@ export function setCurrentBusiness(next: BusinessDetails): void {
 
 export function currentBusiness(): BusinessDetails {
   return current;
+}
+
+/**
+ * The signed-in brand's tax authorities.
+ *
+ * Held the way `currentBusiness()` is, and for the same reason: this app is one
+ * listing tenanted by login, so its shop -- and its tax -- is a runtime answer.
+ * Empty until a brand row lands, which shows no tax rather than another shop's.
+ * The server recomputes every cent regardless, so this only drives display.
+ */
+let taxJurisdictions: readonly TaxJurisdiction[] = [];
+
+export function setCurrentTaxJurisdictions(config: unknown): void {
+  taxJurisdictions = taxJurisdictionsFromBrandConfig(config);
+}
+
+export function currentTaxJurisdictions(): readonly TaxJurisdiction[] {
+  return taxJurisdictions;
 }

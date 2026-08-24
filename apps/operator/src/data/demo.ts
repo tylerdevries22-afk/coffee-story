@@ -9,6 +9,8 @@ import type {
   StaffDashboard,
 } from '@platform/domain';
 
+import { DEMO_TAX_JURISDICTIONS } from '@/data/business';
+
 // Sanitized, production-scale demo dataset. All names/emails/phones are fictional
 // (example.com, 555 numbers). Every date is relative to portal creation so
 // "upcoming" stays upcoming no matter when the app launches.
@@ -57,7 +59,7 @@ type OrderSeed = {
  */
 function order(seed: OrderSeed): PortalOrder {
   const placedAt = isoAt(seed.days, seed.hour, seed.minute);
-  const taxCents = taxCentsFor(seed.priceCents);
+  const taxCents = taxCentsFor(seed.priceCents, DEMO_TAX_JURISDICTIONS);
   return {
     id: seed.id,
     status: seed.status,

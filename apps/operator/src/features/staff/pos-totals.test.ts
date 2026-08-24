@@ -5,7 +5,7 @@ import {
   ADD_ONS,
   DISCOUNT_CODE_CENTS,
   MEMBERSHIP_CREDIT_CENTS,
-  TAX_RATE,
+  taxRateFor,
   TIP_RATES,
   VISIT_LINE_ID,
   addCartLine,
@@ -16,7 +16,29 @@ import {
   visitLines,
   type CartLine,
 } from './pos-totals';
-import { orderTotals , COMBINED_TAX_RATE, taxCentsFor } from '@platform/domain';
+import { orderTotals , combinedTaxRate, taxCentsFor } from '@platform/domain';
+
+/**
+ * A fixture, not the platform's rates. The register takes its tenant's list as
+ * an argument now; these numbers match Coffee Story's only because the
+ * assertions below are pinned to them.
+ */
+const FOUR_AUTHORITIES = [
+  { id: 'state', label: 'State Sales Tax', rate: 0.029 },
+  { id: 'city', label: 'City Sales Tax', rate: 0.0375 },
+  { id: 'rtd', label: 'Transit District Tax', rate: 0.01 },
+  { id: 'county', label: 'County Tax', rate: 0.0025 },
+];
+
+/**
+ * Every case below is about discounts, tips and rounding -- not about which
+ * jurisdiction the shop is in -- so the tenant's list is supplied once here
+ * rather than restated in twenty call sites.
+ */
+const totalsFor = (
+  input: Omit<Parameters<typeof registerTotals>[0], 'jurisdictions'>,
+) => registerTotals({ ...input, jurisdictions: FOUR_AUTHORITIES });
+
 
 const order = { serviceName: 'Deep Tissue Massage', balanceCents: 11000 };
 const line = (over: Partial<CartLine> = {}): CartLine => ({
@@ -24,7 +46,7 @@ const line = (over: Partial<CartLine> = {}): CartLine => ({
 });
 
 test('an empty ticket totals zero rather than NaN', () => {
-  const totals = registerTotals({ cart: [] });
+  const totals = totalsFor({ cart: [] });
   assert.deepEqual(
     [totals.subtotalCents, totals.taxCents, totals.baseCents, totals.tipCents, totals.totalCents],
     [0, 0, 0, 0, 0],
@@ -32,18 +54,18 @@ test('an empty ticket totals zero rather than NaN', () => {
 });
 
 test('quantities multiply into the subtotal', () => {
-  const totals = registerTotals({ cart: [line({ qty: 3 }), line({ id: 'l2', priceCents: 2000 })] });
+  const totals = totalsFor({ cart: [line({ qty: 3 }), line({ id: 'l2', priceCents: 2000 })] });
   assert.equal(totals.subtotalCents, 1500 * 3 + 2000);
 });
 
 test('the two discounts stack on a ticket large enough to absorb them', () => {
-  const totals = registerTotals({ cart: [line({ priceCents: 20000 })], codeApplied: true, membershipCredit: true });
+  const totals = totalsFor({ cart: [line({ priceCents: 20000 })], codeApplied: true, membershipCredit: true });
   assert.equal(totals.discountCents, DISCOUNT_CODE_CENTS + MEMBERSHIP_CREDIT_CENTS);
   assert.equal(totals.taxableCents, 20000 - 4000);
 });
 
 test('a discount larger than the ticket is clamped rather than creating money', () => {
-  const totals = registerTotals({ cart: [line({ priceCents: 500 })], membershipCredit: true });
+  const totals = totalsFor({ cart: [line({ priceCents: 500 })], membershipCredit: true });
   assert.equal(totals.discountCents, 500, 'the discount cannot exceed the subtotal');
   assert.equal(totals.taxableCents, 0);
   assert.equal(totals.taxCents, 0);
@@ -51,8 +73,8 @@ test('a discount larger than the ticket is clamped rather than creating money', 
 });
 
 test('tip rides on the pre-discount subtotal, so a studio discount does not cut it', () => {
-  const withDiscount = registerTotals({ cart: [line({ priceCents: 10000 })], codeApplied: true, tipRate: TIP_RATES['20%'] });
-  const without = registerTotals({ cart: [line({ priceCents: 10000 })], tipRate: TIP_RATES['20%'] });
+  const withDiscount = totalsFor({ cart: [line({ priceCents: 10000 })], codeApplied: true, tipRate: TIP_RATES['20%'] });
+  const without = totalsFor({ cart: [line({ priceCents: 10000 })], tipRate: TIP_RATES['20%'] });
   assert.equal(withDiscount.tipCents, without.tipCents);
   assert.equal(withDiscount.tipCents, 2000);
 });
@@ -60,9 +82,9 @@ test('tip rides on the pre-discount subtotal, so a studio discount does not cut 
 test('tip and tax round to whole cents', () => {
   // 3333 * 0.15 = 499.95, and the four Aurora rows on 3333 are 96.657, 124.9875,
   // 33.33 and 8.3325: every one must land on an integer.
-  const totals = registerTotals({ cart: [line({ priceCents: 3333 })], tipRate: TIP_RATES['15%'] });
+  const totals = totalsFor({ cart: [line({ priceCents: 3333 })], tipRate: TIP_RATES['15%'] });
   assert.equal(totals.tipCents, 500);
-  assert.equal(totals.taxCents, taxCentsFor(3333));
+  assert.equal(totals.taxCents, taxCentsFor(3333, FOUR_AUTHORITIES));
   assert.equal(totals.taxCents, 97 + 125 + 33 + 8);
   assert.ok(Number.isInteger(totals.totalCents));
 });
@@ -70,9 +92,9 @@ test('tip and tax round to whole cents', () => {
 test('tax follows the discount, so a discounted ticket is not overtaxed', () => {
   // The regression this file was written for. Previously tax was computed on
   // the full subtotal, so the customer overpaid on every discounted ticket.
-  const totals = registerTotals({ cart: [line({ priceCents: 11000 })], codeApplied: true });
+  const totals = totalsFor({ cart: [line({ priceCents: 11000 })], codeApplied: true });
   assert.equal(totals.taxableCents, 11000 - DISCOUNT_CODE_CENTS);
-  assert.equal(totals.taxCents, taxCentsFor(9500));
+  assert.equal(totals.taxCents, taxCentsFor(9500, FOUR_AUTHORITIES));
   assert.equal(totals.baseCents, 9500 + totals.taxCents);
 });
 
@@ -82,28 +104,28 @@ test('the register charges the same tax the client checkout prints', () => {
   // rung up at the bar than ordered from the app. Both now read
   // features/tax.ts. NOTE: the web register at lib/booking/pos-totals.ts is
   // still on the flat rate and has to follow -- see PRODUCTION_SETUP.md.
-  const totals = registerTotals({ cart: [line({ priceCents: 11000 })], codeApplied: true });
-  const fromCheckout = orderTotals({ subtotalCents: 9500 });
+  const totals = totalsFor({ cart: [line({ priceCents: 11000 })], codeApplied: true });
+  const fromCheckout = orderTotals({ subtotalCents: 9500, jurisdictions: FOUR_AUTHORITIES });
   assert.equal(totals.taxCents, fromCheckout.taxCents);
-  assert.equal(TAX_RATE, COMBINED_TAX_RATE);
+  assert.equal(taxRateFor(FOUR_AUTHORITIES), combinedTaxRate(FOUR_AUTHORITIES));
 });
 
 test('a card tender settles the order balance plus tip, never the ticket total', () => {
   const cart = [...visitLines(order), line({ id: 'addon', priceCents: 2500 })];
-  const totals = registerTotals({ cart, tipRate: TIP_RATES['20%'], visitBalanceCents: order.balanceCents });
+  const totals = totalsFor({ cart, tipRate: TIP_RATES['20%'], visitBalanceCents: order.balanceCents });
   assert.equal(totals.cardChargeCents, order.balanceCents + totals.tipCents);
   assert.ok(totals.cardChargeCents < totals.totalCents);
   assert.equal(totals.extrasCents, totals.totalCents - totals.cardChargeCents);
 });
 
 test('with no order attached the card is asked for the whole ticket and nothing is extra', () => {
-  const totals = registerTotals({ cart: [line()], tipRate: TIP_RATES['10%'] });
+  const totals = totalsFor({ cart: [line()], tipRate: TIP_RATES['10%'] });
   assert.equal(totals.cardChargeCents, totals.totalCents);
   assert.equal(totals.extrasCents, 0);
 });
 
 test('extras never go negative when the balance exceeds the ticket', () => {
-  const totals = registerTotals({ cart: [line({ priceCents: 100 })], visitBalanceCents: 50000 });
+  const totals = totalsFor({ cart: [line({ priceCents: 100 })], visitBalanceCents: 50000 });
   assert.equal(totals.extrasCents, 0);
 });
 

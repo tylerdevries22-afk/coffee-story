@@ -12,7 +12,7 @@
  * the rounding the cents representation exists to avoid.
  */
 
-import { COMBINED_TAX_RATE, taxCentsFor } from '@platform/domain';
+import { combinedTaxRate, taxCentsFor, type TaxJurisdiction } from '@platform/domain';
 
 export type CartLine = {
   id: string;
@@ -38,13 +38,17 @@ export type RegisterTotals = {
 };
 
 /**
- * The combined Aurora rate, kept for callers that need one number. The tax a
- * ticket actually owes comes from `features/tax.ts`, which the client checkout
- * also reads -- the register used to charge a flat 8% while the app charged
- * 7.90%, so the same order cost a different amount depending on where it was
- * rung up.
+ * The combined rate for a tenant, for callers that need one number.
+ *
+ * A function rather than a constant: it used to be Aurora's 7.90% baked into
+ * packages/domain, so a second tenant's register quoted a rate it does not
+ * charge. The tax a ticket actually owes is still itemised by `taxCentsFor` --
+ * the register once charged a flat 8% while the app charged 7.90%, so the same
+ * order cost a different amount depending on where it was rung up.
  */
-export const TAX_RATE = COMBINED_TAX_RATE;
+export function taxRateFor(jurisdictions: readonly TaxJurisdiction[]): number {
+  return combinedTaxRate(jurisdictions);
+}
 export const DISCOUNT_CODE_CENTS = 1500;
 export const MEMBERSHIP_CREDIT_CENTS = 2500;
 
@@ -92,12 +96,15 @@ export function registerTotals({
   membershipCredit = false,
   tipRate = 0,
   visitBalanceCents = null,
+  jurisdictions,
 }: {
   cart: readonly CartLine[];
   codeApplied?: boolean;
   membershipCredit?: boolean;
   tipRate?: number;
   visitBalanceCents?: number | null;
+  /** The tenant's authorities; the register must not assume a jurisdiction. */
+  jurisdictions: readonly TaxJurisdiction[];
 }): RegisterTotals {
   const subtotalCents = cart.reduce((sum, line) => sum + line.priceCents * line.qty, 0);
   // Clamped to the subtotal: an unclamped discount drives the taxable base
@@ -112,7 +119,7 @@ export function registerTotals({
   // billed $6.80 instead of $4.80. lib/booking/pos-totals.ts fixed exactly this
   // on the web register; the mobile one kept the original shape until now.
   const taxableCents = subtotalCents - discountCents;
-  const taxCents = taxCentsFor(taxableCents);
+  const taxCents = taxCentsFor(taxableCents, jurisdictions);
   const baseCents = taxableCents + taxCents;
   // Tip rides on the PRE-discount subtotal on purpose: it is the barista's,
   // and a shop-side discount should not quietly reduce it. Same rule as

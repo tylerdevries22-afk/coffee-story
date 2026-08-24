@@ -33,7 +33,7 @@ import {
 import { POINTS_LABEL } from '@/features/rewards/presentation';
 import { simulateProgress, trackingView } from '@/features/tracking';
 import { sizeSuffix } from '@/data/menu-export';
-import { tenantFeature } from '@/tenant';
+import { TENANT_TAX_JURISDICTIONS, tenantFeature } from '@/tenant';
 import { newIdempotencyKey } from '@platform/api-client';
 import { subscribeToOrderStatus } from '@platform/data';
 import type { OrderStatus } from '@platform/schema';
@@ -108,6 +108,7 @@ export function OrderScreen() {
     deliveryFeeCents: order.deliveryFeeCents,
     discountCents: redeemCents,
     tipCents: order.tipCents,
+    jurisdictions: TENANT_TAX_JURISDICTIONS,
   }), [order.deliveryFeeCents, order.subtotalCents, order.tipCents, redeemCents]);
 
   const annualPoints = portal.rewardAccount.annualPoints;

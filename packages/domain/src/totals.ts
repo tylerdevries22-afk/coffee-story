@@ -12,9 +12,8 @@
  * breakdown the guest can read line by line.
  */
 import { pointsForPurchase, REWARD_TIERS, type PurchaseBreakdown, type RewardTier } from './rules';
-import { TAX_JURISDICTIONS, taxRowsFor, type TaxJurisdiction, type TaxRow } from './tax';
+import { taxRowsFor, type TaxJurisdiction, type TaxRow } from './tax';
 
-export { TAX_JURISDICTIONS };
 export type { TaxJurisdiction, TaxRow };
 
 export type OrderTotals = {
@@ -44,7 +43,12 @@ export type OrderTotalsInput = {
   discountCents?: number;
   /** A fixed amount, not a rate: the tip chips are dollar amounts. */
   tipCents?: number;
-  jurisdictions?: readonly TaxJurisdiction[];
+  /**
+   * The tenant's own authorities, from `brand_config.tax.jurisdictions`.
+   * Required: a default here rendered one shop's tax on every other shop's
+   * screen.
+   */
+  jurisdictions: readonly TaxJurisdiction[];
 };
 
 function wholeCents(value: number | undefined): number {
@@ -57,7 +61,7 @@ export function orderTotals({
   deliveryFeeCents,
   discountCents,
   tipCents,
-  jurisdictions = TAX_JURISDICTIONS,
+  jurisdictions,
 }: OrderTotalsInput): OrderTotals {
   const goodsCents = wholeCents(subtotalCents);
   const deliveryCents = wholeCents(deliveryFeeCents);
