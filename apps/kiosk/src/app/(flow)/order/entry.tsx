@@ -16,9 +16,10 @@ import TENANT from '@/tenant/brand.json';
  * franchise onboarded this morning opens on something a guest can press.
  */
 export default function EntryStep() {
-  const { flow, learn, goTo, goNext } = useFlow();
+  const { flow, learn, goTo, goNext, select } = useFlow();
 
-  function select(node: KioskEntryNode) {
+  function choose(node: KioskEntryNode) {
+    select(node);
     switch (node.target.kind) {
       case 'group':
         learn({ inGroup: true });
@@ -40,7 +41,7 @@ export default function EntryStep() {
       <Constellation
         nodes={flow.entry.nodes}
         monogram={TENANT.business?.monogram}
-        onSelect={select}
+        onSelect={choose}
       />
     </View>
   );

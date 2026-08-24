@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { createContext, useCallback, useContext, useMemo, useState, type PropsWithChildren } from 'react';
 
-import { resolveKioskFlow, type KioskFlow, type KioskMenuFacts } from '@platform/domain';
+import { resolveKioskFlow, type KioskEntryNode, type KioskFlow, type KioskMenuFacts } from '@platform/domain';
 
 import {
   EMPTY_FACTS, STEP_ROUTES, backStep, canAdvance, nextStep, recoveryStep, stepsFor,
@@ -20,13 +20,25 @@ import {
 type FlowValue = {
   flow: KioskFlow;
   facts: FlowFacts;
+  /** The tile the guest tapped on the first screen, and any group under it. */
+  selected: KioskEntryNode | null;
+  group: readonly KioskEntryNode[];
+  select: (node: KioskEntryNode) => void;
   step: KioskStepId;
   steps: readonly KioskStepId[];
   canAdvance: boolean;
   backTarget: KioskStepId | null;
   /** Merge in what the guest just did. */
   learn: (facts: Partial<FlowFacts>) => void;
-  goNext: () => void;
+  /**
+   * Advance, optionally carrying facts learned in the same handler.
+   *
+   * `learn()` is a state update, so a screen that called `learn()` and then
+   * `goNext()` advanced using the PREVIOUS facts -- which silently skipped the
+   * options step for every drink, because `hasOptions` had not landed yet.
+   * Passing them through here makes the two atomic.
+   */
+  goNext: (learned?: Partial<FlowFacts>) => void;
   goBack: () => void;
   goTo: (step: KioskStepId) => void;
   startOver: () => void;
@@ -46,8 +58,9 @@ export function FlowProvider({
   storedValue: boolean;
 }>) {
   const router = useRouter();
-  const [facts, setFacts] = useState<FlowFacts>(EMPTY_FACTS);
+  const [rawFacts, setFacts] = useState<FlowFacts>(EMPTY_FACTS);
   const [step, setStep] = useState<KioskStepId>('entry');
+  const [selected, setSelected] = useState<KioskEntryNode | null>(null);
 
   const flow = useMemo(
     () => resolveKioskFlow(brandConfig, { menu, features: { stored_value: storedValue } }),
@@ -63,6 +76,14 @@ export function FlowProvider({
   }, [router]);
 
   const value = useMemo<FlowValue>(() => {
+    /**
+     * Facts the TENANT decides, rather than the guest.
+     *
+     * Whether a name is asked for is `brand_config.kiosk.guestName.mode`, so
+     * deriving it here means no screen has to remember to announce it -- and a
+     * tenant switching it off removes the step everywhere at once.
+     */
+    const facts: FlowFacts = { ...rawFacts, wantsName: flow.guestName.mode !== 'off' };
     const steps = stepsFor(flow, facts);
     // A guest who deep-links or lands somewhere the facts no longer support is
     // moved, rather than left on a screen whose only action is dead.
@@ -70,13 +91,17 @@ export function FlowProvider({
     return {
       flow,
       facts,
+      selected,
+      group: selected?.target.kind === 'group' ? selected.target.nodes : [],
+      select: setSelected,
       step: safeStep,
       steps,
       canAdvance: canAdvance(flow, facts, safeStep),
       backTarget: backStep(flow, facts, safeStep),
       learn: (next) => setFacts((current) => ({ ...current, ...next })),
-      goNext: () => {
-        const target = nextStep(flow, facts, safeStep);
+      goNext: (learned) => {
+        if (learned) setFacts((current) => ({ ...current, ...learned }));
+        const target = nextStep(flow, { ...facts, ...learned }, safeStep);
         if (target) navigate(target);
       },
       goBack: () => {
@@ -86,11 +111,12 @@ export function FlowProvider({
       goTo: navigate,
       startOver: () => {
         setFacts(EMPTY_FACTS);
+        setSelected(null);
         setStep('entry');
         router.replace('/');
       },
     };
-  }, [flow, facts, step, navigate, router]);
+  }, [flow, rawFacts, selected, step, navigate, router]);
 
   return <FlowContext.Provider value={value}>{children}</FlowContext.Provider>;
 }

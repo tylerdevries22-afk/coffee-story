@@ -13,7 +13,9 @@ import TENANT_BRAND_CONFIG from '@/tenant/brand.json';
 import { IdleNotice } from '@/components/idle-notice';
 import { menuFactsFromCatalog } from '@/data/menu-source';
 import { DeviceProvider } from '@/state/device';
+import { BuilderProvider } from '@/state/builder';
 import { FlowProvider, useFlow } from '@/state/flow';
+import { GuestProvider } from '@/state/guest';
 import { KioskSessionProvider } from '@/state/session';
 
 /** Stable identity: rebuilding this each render would re-resolve the flow. */
@@ -72,6 +74,11 @@ function KioskSurface() {
   const { flow } = useFlow();
   return (
     <KioskSessionProvider timing={flow.idle}>
+      {/* Innermost, because they are the hot state: every tap on a size, an
+          option or a pack choice writes to the builder, and the cart and the
+          chrome must not re-render with it. */}
+      <GuestProvider>
+      <BuilderProvider>
       <StatusBar hidden />
       {/* The step transition is ours (see step-stage.tsx), so the stack must
           not add one of its own on top of it. */}
@@ -80,6 +87,8 @@ function KioskSurface() {
           screen, which is why an abandoned session at tender had its cart
           cleared under a live Pay button. */}
       <IdleNotice />
+      </BuilderProvider>
+      </GuestProvider>
     </KioskSessionProvider>
   );
 }
