@@ -14,6 +14,10 @@ import { describe, it } from 'node:test';
  */
 const MIGRATIONS = join(dirname(fileURLToPath(import.meta.url)), '../../../supabase/migrations');
 
+function migrationNames(): string[] {
+  return readdirSync(MIGRATIONS).filter((name) => name.endsWith('.sql')).sort();
+}
+
 function allSql(): string {
   return readdirSync(MIGRATIONS)
     .filter((name) => name.endsWith('.sql'))
@@ -276,15 +280,37 @@ describe('device pairing became issuable (0038)', () => {
     }
   });
 
-  it('narrows a kiosk read to its own orders, matching what 0023 claimed', () => {
-    const sql = allSql();
-    assert.match(sql, /add column device_id uuid references public\.devices/);
+  it('records which device took an order, without granting the device access', () => {
+    // The column is ATTRIBUTION -- which till rang which sale. It is not a
+    // grant, and the next assertion is what keeps those two apart.
+    assert.match(allSql(), /add column device_id uuid references public\.devices/);
     assert.match(typesSource(), /device_id: string \| null/);
-    // The in-force policy is the LAST definition, since 0038 redefines 0023's.
-    const policies = [...sql.matchAll(/create policy orders_kiosk_select on public\.orders for select\s+using \(([\s\S]*?)\);/g)];
-    const inForce = policies.at(-1)?.[1] ?? '';
-    assert.ok(inForce.length > 0, 'orders_kiosk_select must exist');
-    assert.match(inForce, /device_id = app\.jwt_device_id\(\)/,
-      'a kiosk must read only its own orders, not every order at the location');
+  });
+
+  it('leaves no client policy granting a device access to public.orders', () => {
+    /**
+     * A policy on `orders` grants every COLUMN of the rows it matches, so a
+     * kiosk token would carry customer_id, totals, note and square_payment_id
+     * for those rows -- on a tablet bolted to a counter in a public room. 0034
+     * replaced the policy with a projection for exactly that reason; 0038
+     * re-created it by accident, and 0041 drops it again.
+     *
+     * The kiosk needs nothing here: it holds no Supabase client and reads its
+     * ticket from the placeOrder response. This asserts the LAST statement
+     * touching the policy is a drop, which is the only way to state "no grant"
+     * in a tree of additive migrations.
+     */
+    const events: { kind: 'create' | 'drop'; at: number }[] = [];
+    for (const [index, name] of migrationNames().entries()) {
+      const sql = readFileSync(join(MIGRATIONS, name), 'utf8');
+      for (const match of sql.matchAll(/(create|drop)\s+policy(?:\s+if\s+exists)?\s+orders_kiosk_select/gi)) {
+        events.push({ kind: match[1]!.toLowerCase() as 'create' | 'drop', at: index });
+      }
+    }
+    assert.ok(events.length > 0, 'expected the policy to appear in the history at all');
+    assert.equal(
+      events.at(-1)?.kind, 'drop',
+      'the last word on orders_kiosk_select must be a drop: a device gets no row-level access to orders',
+    );
   });
 });
