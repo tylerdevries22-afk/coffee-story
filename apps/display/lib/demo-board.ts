@@ -164,10 +164,10 @@ export const DEMO_BRAND_CONFIG = {
     maxLines: 9,
     appUrl: 'https://coffeestoryco.com',
     tiers: [
-      { slug: 'first-sip', label: 'First Sip', minLifetimePoints: 0, tone: 'muted' },
-      { slug: 'daily-ritual', label: 'Daily Ritual', minLifetimePoints: 500, tone: 'accent' },
-      { slug: 'house-regular', label: 'House Regular', minLifetimePoints: 1500, tone: 'success' },
-      { slug: 'coffee-legend', label: 'Coffee Legend', minLifetimePoints: 2500, tone: 'primary' },
+      { slug: 'first-sip', label: 'First Sip', minLifetimePoints: 0, tone: 'muted', color: '#8C7A6B', icon: '◇' },
+      { slug: 'daily-ritual', label: 'Daily Ritual', minLifetimePoints: 500, tone: 'accent', color: '#B08D57', icon: '◆' },
+      { slug: 'house-regular', label: 'House Regular', minLifetimePoints: 1500, tone: 'success', color: '#3E6B4F', icon: '✦' },
+      { slug: 'coffee-legend', label: 'Coffee Legend', minLifetimePoints: 2500, tone: 'primary', color: '#2E211A', icon: '★' },
     ],
   },
 } as const;

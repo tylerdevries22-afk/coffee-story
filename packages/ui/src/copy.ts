@@ -35,7 +35,7 @@ export const DEFAULT_COPY: BrandCopy = {
   // The board's own name, above the location. A tenant that calls it
   // something else ("Order Up", "Collection") overrides this like any other
   // brand string rather than editing a component.
-  boardTitle: 'Pickup Queue',
+  boardTitle: 'Order Queue',
   boardReady: 'Ready',
   /** Read out by assistive tech in place of the bare digit. */
   boardPosition: 'Number {position} in line',
@@ -45,8 +45,25 @@ export const DEFAULT_COPY: BrandCopy = {
   boardLive: 'Live',
   boardStale: 'Reconnecting',
   boardOffline: 'Sample board',
-  boardQrTitle: 'Perks, status and rewards',
+  /**
+   * The rewards pitch. `\n` is a hard line break, honoured by the board.
+   *
+   * Set as three stops rather than a sentence because it is read at a glance
+   * from across a room: three short words each landing on their own beat are
+   * legible in the time somebody spends looking up, where a clause is not.
+   * The break is in the copy rather than left to the container so a tenant
+   * controls where their own headline turns.
+   */
+  boardQrTitle: 'Perks. Status.\nRewards',
   boardQrBody: 'Scan to get {appName} and start earning {pointsName}.',
+  /**
+   * How a tier reads on a badge. `{tier}` is the rung's own label.
+   *
+   * A template because the wording is brand voice: a ladder of single words
+   * ("Silver") wants "Silver Status", while one of phrases ("House Regular")
+   * does not. Neither is the platform's call.
+   */
+  boardTierBadge: '{tier}',
 };
 
 export function resolveCopy(config: unknown): BrandCopy {

@@ -44,11 +44,27 @@ export type BoardTier = {
   /** Lifetime points at which a guest reaches this rung. */
   minLifetimePoints: number;
   /**
-   * Which semantic token tints the badge. A ladder is a ranking, and the
-   * token palette is the only place a colour may come from (rule 4), so a
-   * tier names a role rather than a hex value.
+   * Which semantic token tints the badge when no explicit colour is set. A
+   * ladder is a ranking, and the token palette is where a colour comes from
+   * by default (rule 4), so a tier names a role rather than a hex value.
    */
   tone: TierTone;
+  /**
+   * An explicit badge colour, overriding `tone`.
+   *
+   * Rule 4 says no *component* hard-codes a colour; it does not say a brand
+   * cannot choose one. A status ladder is exactly where a brand wants to --
+   * the rungs are a ranking people are supposed to recognise across a room,
+   * and four steps of one accent do not read as four steps. This comes from
+   * `brand_config`, same as every token, and is null until a brand sets it.
+   */
+  color: string | null;
+  /**
+   * The mark in front of the label, or null to fall back to the brand's own
+   * `rewardMark`. Per rung so a ladder can escalate its marks the way it
+   * escalates its colours.
+   */
+  icon: string | null;
 };
 
 export type TierTone = 'muted' | 'accent' | 'success' | 'primary';
@@ -89,6 +105,10 @@ export function boardLadderFrom(tiers: readonly RewardTier[] = REWARD_TIERS): re
     label: tier.name,
     minLifetimePoints: Math.max(0, Math.round(tier.minimumAnnualPoints)),
     tone: TIER_TONES[Math.min(index, TIER_TONES.length - 1)] ?? 'muted',
+    // Unset by default: a derived ladder inherits the token palette, and a
+    // brand that wants four distinguishable rungs says so explicitly.
+    color: null,
+    icon: null,
   }));
 }
 
@@ -146,9 +166,12 @@ export function isDisplayableAppUrl(value: unknown): value is string {
   return parsed.protocol === 'https:' && parsed.hostname.length > 0;
 }
 
+/** #RRGGBB only. Same rule `resolveTokens` applies, for the same reason. */
+const HEX = /^#[0-9a-fA-F]{6}$/;
+
 function resolveTier(value: unknown, index: number): BoardTier | null {
   if (!isRecord(value)) return null;
-  const { slug, label, minLifetimePoints, tone } = value;
+  const { slug, label, minLifetimePoints, tone, color, icon } = value;
   if (typeof slug !== 'string' || slug.length === 0 || slug.length > 64) return null;
   if (typeof label !== 'string' || label.length === 0 || label.length > 32) return null;
   if (typeof minLifetimePoints !== 'number'
@@ -164,6 +187,15 @@ function resolveTier(value: unknown, index: number): BoardTier | null {
     tone: TIER_TONES.includes(tone as TierTone)
       ? (tone as TierTone)
       : (TIER_TONES[Math.min(index, TIER_TONES.length - 1)] ?? 'muted'),
+    // A bad hex drops to the tone rather than rejecting the rung: one typo in
+    // HQ must not remove a guest's badge from the wall.
+    color: typeof color === 'string' && HEX.test(color) ? color : null,
+    // Capped short because this is one mark, not a sentence -- and because a
+    // long string here would push the label off a badge sized for a glance.
+    // Graphemes, not code units: most marks worth using here are multi-unit.
+    icon: typeof icon === 'string' && icon.trim().length > 0 && [...icon.trim()].length <= 2
+      ? icon.trim()
+      : null,
   };
 }
 

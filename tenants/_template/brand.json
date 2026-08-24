@@ -79,7 +79,7 @@
     "rewards": []
   },
   "board": {
-    "$docs": "Optional. The in-store pickup display. showGuestStatus defaults to false -- a tier badge on a screen the whole room can read is guest information, so a brand opts in rather than inheriting it. tiers is the ladder app.loyalty_tier_for matches against loyalty_accounts.lifetime_points; slug is the stable key (never rename it), label is what the badge says, tone picks a semantic token (muted | accent | success | primary). appUrl must be absolute https -- it is encoded into the QR panel and scanned by strangers who cannot see where it points.",
+    "$docs": "Optional. The in-store order board. showGuestStatus defaults to false -- a tier badge on a screen the whole room can read is guest information, so a brand opts in rather than inheriting it. tiers is the ladder app.loyalty_tier_for matches against loyalty_accounts.lifetime_points; slug is the stable key (never rename it), label is what the badge says, tone picks a semantic token (muted | accent | success | primary) and color overrides it with an explicit #RRGGBB, icon is the single mark drawn in front of the label (falls back to copy.rewardMark). Both are editable in HQ under Brand config. appUrl must be absolute https -- it is encoded into the QR panel and scanned by strangers who cannot see where it points.",
     "showGuestStatus": false,
     "showChannel": true,
     "maxLines": 9,

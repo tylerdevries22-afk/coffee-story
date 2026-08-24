@@ -115,7 +115,7 @@
     ]
   },
   "board": {
-    "$note": "The in-store pickup display (0030). showGuestStatus is opt-in per brand because a tier badge on a public wall tells the room roughly what someone spends. tiers mirror the REWARD_TIERS ladder's names, read against loyalty_accounts.lifetime_points; slug is the stable key the SQL projection emits, so renaming a label never orphans a badge. appUrl is what the QR panel encodes -- point it at the app-download landing page once the store listings are live.",
+    "$note": "The in-store order board (0030). showGuestStatus is opt-in per brand because a tier badge on a public wall tells the room roughly what someone spends. tiers mirror the REWARD_TIERS ladder's names, read against loyalty_accounts.lifetime_points; slug is the stable key the SQL projection emits, so renaming a label never orphans a badge. color and icon draw the badge -- both optional, both editable in HQ (Brand config -> Status badges), and both fall back to the tier's semantic token role and the brand's rewardMark when unset. appUrl is what the QR panel encodes -- point it at the app-download landing page once the store listings are live.",
     "showGuestStatus": true,
     "showChannel": true,
     "maxLines": 9,
@@ -125,25 +125,33 @@
         "slug": "first-sip",
         "label": "First Sip",
         "minLifetimePoints": 0,
-        "tone": "muted"
+        "tone": "muted",
+        "color": "#8C7A6B",
+        "icon": "\u25c7"
       },
       {
         "slug": "daily-ritual",
         "label": "Daily Ritual",
         "minLifetimePoints": 500,
-        "tone": "accent"
+        "tone": "accent",
+        "color": "#B08D57",
+        "icon": "\u25c6"
       },
       {
         "slug": "house-regular",
         "label": "House Regular",
         "minLifetimePoints": 1500,
-        "tone": "success"
+        "tone": "success",
+        "color": "#3E6B4F",
+        "icon": "\u2726"
       },
       {
         "slug": "coffee-legend",
         "label": "Coffee Legend",
         "minLifetimePoints": 2500,
-        "tone": "primary"
+        "tone": "primary",
+        "color": "#2E211A",
+        "icon": "\u2605"
       }
     ]
   },

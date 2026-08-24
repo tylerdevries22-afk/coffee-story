@@ -308,3 +308,40 @@ Three ways out, none of them obviously right, all of them somebody's call:
   wrong within a minute and is the worst of the three.
 
 Recorded rather than decided.
+
+## Follow-up — the badge became configurable
+
+The status badge is the one thing on this screen a brand is most likely to want
+to control precisely, and it was the one thing they could not: every rung drew
+a wash of the same accent, distinguished only by a token role most tenants will
+never read. Four steps of one colour do not read as four steps across a room,
+which is the only place these are ever seen.
+
+- `BoardTier` gains `color` and `icon`, both optional, both per rung, both
+  resolved with the same field-by-field forgiveness as every other tenant
+  value: a bad hex falls back to the rung's semantic token and a mark longer
+  than two graphemes is dropped, so one typo in HQ costs a brand its colour
+  and never a guest their badge.
+- The mark leads the label. A rung is recognised by its mark before anyone has
+  read a word of it, which is the whole reason a ladder has marks.
+- The badge is a soft-cornered tag, not a pill. A pill reads as a control —
+  something to press — and nothing on this screen can be pressed.
+- The fill is a 26% wash of the rung's colour and the type stays ink. At
+  fifteen feet dark-on-tint holds its contrast whatever colour a tenant picks;
+  light-on-saturated depends entirely on which colour that was, and the point
+  of making this configurable is that we do not get to know.
+- HQ's brand-config editor grows a **Status badges** card: colour and mark per
+  rung, preview-first, with the board's own row rendered in the live phone
+  preview so an edit is read as a change to the thing rather than to a string.
+
+The preview deliberately duplicates the board's CSS rather than importing it:
+that stylesheet belongs to a wall screen and this one to a desk console, and
+coupling them would mean a board tweak silently restyling the admin. What must
+not drift is the *rule* — 26% wash, 42% border, ink type, mark leads — and it
+is stated in both places.
+
+Two smaller things in the same pass: the board is now the **Order Queue**, and
+the rewards headline breaks where the brand's copy says it breaks (`\n` in
+`boardQrTitle`) rather than wherever the viewport happens to put it — a
+three-stop headline that lands "Perks." / "Status. Rewards" has lost the rhythm
+that made it three stops.

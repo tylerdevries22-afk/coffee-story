@@ -165,21 +165,41 @@ function QueueMark({ entry, copy }: { entry: BoardEntry; copy: BrandCopy }) {
   );
 }
 
+/**
+ * The status badge.
+ *
+ * The mark leads, then the label -- a rung is recognised by its mark before
+ * anyone has read a word of it, which is the whole reason a ladder has marks.
+ *
+ * Colour comes from the tier when the brand set one and from the tier's
+ * semantic token role when it did not, so a brand gets four distinguishable
+ * rungs if it wants them and a coherent default if it does not. The fill is a
+ * wash and the type stays ink: at fifteen feet, dark-on-tint holds and
+ * light-on-saturated does not, whatever colour a tenant picks.
+ */
+function TierBadge({ tier, copy }: { tier: NonNullable<BoardEntry['tier']>; copy: BrandCopy }) {
+  return (
+    <span
+      className="ticket-tier"
+      style={{
+        '--tier-tone': tier.color ?? TIER_TONE_VARIABLE[tier.tone],
+      } as CSSProperties}
+    >
+      <i className="ticket-tier-mark" aria-hidden="true">
+        {tier.icon ?? formatCopy(copy, 'rewardMark')}
+      </i>
+      {formatCopy(copy, 'boardTierBadge', { tier: tier.label })}
+    </span>
+  );
+}
+
 function Ticket({ entry, copy }: { entry: BoardEntry; copy: BrandCopy }) {
   return (
     <li className="ticket" data-ready={entry.ready}>
       <QueueMark entry={entry} copy={copy} />
       {entry.name ? <span className="ticket-name">{entry.name}</span> : <span />}
       <span className="ticket-marks">
-        {entry.tier ? (
-          <span
-            className="ticket-tier"
-            style={{ '--tier-tone': TIER_TONE_VARIABLE[entry.tier.tone] } as CSSProperties}
-          >
-            {entry.tier.label}
-            <i className="ticket-tier-mark" aria-hidden="true">{formatCopy(copy, 'rewardMark')}</i>
-          </span>
-        ) : null}
+        {entry.tier ? <TierBadge tier={entry.tier} copy={copy} /> : null}
         {entry.arrived ? (
           <span className="ticket-arrived">{formatCopy(copy, 'boardArrived')}</span>
         ) : null}

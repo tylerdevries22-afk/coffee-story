@@ -47,7 +47,18 @@ export function QrPanel({ url, copy }: { url: string; copy: BrandCopy }) {
         <path d={path} fill="var(--board-primary)" />
       </svg>
       <div className="board-invite-words">
-        <p className="board-invite-title">{formatCopy(copy, 'boardQrTitle')}</p>
+        {/*
+          The headline breaks where the brand says it breaks.
+          Left to the container it would turn wherever the viewport happened
+          to put it, which on a portrait screen is a different place than on a
+          landscape one -- and a three-stop headline that lands "Perks." /
+          "Status. Rewards" has lost the rhythm that made it three stops.
+        */}
+        <p className="board-invite-title">
+          {formatCopy(copy, 'boardQrTitle').split('\n').map((line, index) => (
+            <span className="board-invite-line" key={index}>{line}</span>
+          ))}
+        </p>
         <p className="board-invite-body">
           {formatCopy(copy, 'boardQrBody', {
             appName: formatCopy(copy, 'appName'),

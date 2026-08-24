@@ -65,7 +65,10 @@ describe('tierFor', () => {
   });
 
   it('says nothing below the first rung instead of badging everyone', () => {
-    const ladder = [{ slug: 'a', label: 'A', minLifetimePoints: 100, tone: 'muted' as const }];
+    const ladder = [{
+      slug: 'a', label: 'A', minLifetimePoints: 100, tone: 'muted' as const,
+      color: null, icon: null,
+    }];
     assert.equal(tierFor(99, ladder), null);
     assert.equal(tierFor(100, ladder)?.slug, 'a');
   });
@@ -322,5 +325,52 @@ describe('boardQueue', () => {
 
   it('is empty for an empty board', () => {
     assert.deepEqual(boardQueue([], config), { entries: [], overflow: 0 });
+  });
+});
+
+/**
+ * The badge is the one thing on the board a brand is likely to want to control
+ * pixel by pixel: four rungs of one accent do not read as four rungs across a
+ * room. So colour and mark are per-tier config, and the resolver has to be as
+ * forgiving about them as it is about everything else — a typo in HQ must cost
+ * a brand its colour, never a guest their badge.
+ */
+describe('tier colour and icon', () => {
+  const withTiers = (tier: Record<string, unknown>) => resolveBoardConfig({
+    board: { tiers: [{ slug: 'a', label: 'A', minLifetimePoints: 0, ...tier }] },
+  }).ladder[0];
+
+  it('takes an explicit hex so a ladder can read as a ladder', () => {
+    assert.equal(withTiers({ color: '#B08D57' })?.color, '#B08D57');
+  });
+
+  it('falls back to the semantic tone on a malformed colour', () => {
+    for (const bad of ['B08D57', '#GGG', 'red', '#B08D5', 42, null]) {
+      const tier = withTiers({ color: bad });
+      assert.equal(tier?.color, null, `${String(bad)} must not reach a style attribute`);
+      assert.ok(tier?.tone, 'the rung keeps a tone to fall back to');
+    }
+  });
+
+  it('carries a mark, and refuses a sentence dressed up as one', () => {
+    assert.equal(withTiers({ icon: '★' })?.icon, '★');
+    assert.equal(withTiers({ icon: '  ◆  ' })?.icon, '◆', 'trimmed');
+    assert.equal(withTiers({ icon: 'Silver Status' })?.icon, null);
+    assert.equal(withTiers({ icon: '' })?.icon, null);
+  });
+
+  it('counts a mark in graphemes, not code units', () => {
+    // An emoji is two code units and one mark. Measuring `.length` would have
+    // refused most of the marks anyone would actually pick.
+    assert.equal(withTiers({ icon: '💎' })?.icon, '💎');
+  });
+
+  it('leaves both unset on a ladder derived from the earn tiers', () => {
+    // A derived ladder inherits the token palette; explicit colour is a
+    // decision a brand makes, not one this code makes for them.
+    for (const tier of boardLadderFrom(REWARD_TIERS)) {
+      assert.equal(tier.color, null);
+      assert.equal(tier.icon, null);
+    }
   });
 });

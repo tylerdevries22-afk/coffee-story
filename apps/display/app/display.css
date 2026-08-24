@@ -269,39 +269,42 @@ html, body {
 }
 
 /*
- * The status badge, matching the customer app's rewards chip.
+ * The status badge: a mark, then the rung.
  *
- * Same shape as `styles.tierChip` in apps/customer: a pill, a translucent tint
- * of its own tone rather than a flat fill, the label, then the brand's reward
- * mark. Same glyph too -- both surfaces read `rewardMark` from the copy
- * dictionary, so a brand that changes its mark changes both and neither can
- * drift. The tone comes from the tier's token role (rule 4), never a hex.
+ * A soft-cornered tag rather than a pill, because a pill reads as a control --
+ * something to press -- and nothing on this screen can be pressed. The tag
+ * shape says label.
+ *
+ * `--tier-tone` is the rung's own colour when the brand configured one and the
+ * matching semantic token when it did not, so the same rules draw a
+ * four-colour ladder and a single-accent one. The fill is a wash of it and the
+ * type stays ink: at fifteen feet dark-on-tint holds its contrast whatever
+ * colour a tenant picks, while light-on-saturated depends entirely on which
+ * colour that was.
  */
 .ticket-tier {
   display: inline-flex;
   align-items: center;
-  gap: 0.45em;
-  font-size: clamp(13px, 1.6vmin, 26px);
+  gap: 0.4em;
+  font-size: clamp(13px, 1.7vmin, 28px);
   font-weight: 700;
-  letter-spacing: 0.02em;
-  color: var(--tier-tone, var(--board-ink-muted, #57534e));
-  background: color-mix(in srgb, var(--tier-tone, currentcolor) 12%, transparent);
-  border-radius: var(--board-radius-pill, 999px);
-  padding: 0.35em 0.7em 0.35em 0.95em;
+  letter-spacing: 0.01em;
+  color: var(--board-ink, #1c1917);
+  background: color-mix(in srgb, var(--tier-tone, currentcolor) 26%, var(--board-raised, #fff));
+  border: 1px solid color-mix(in srgb, var(--tier-tone, currentcolor) 42%, transparent);
+  border-radius: calc(var(--board-radius, 22px) * 0.32);
+  padding: 0.28em 0.7em;
   white-space: nowrap;
 }
 
-/* The mark rides in its own disc, as it does on the rewards chip. */
+/* In front of the label: a rung is recognised by its mark before it is read. */
 .ticket-tier-mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.5em;
-  height: 1.5em;
-  border-radius: 50%;
   font-style: normal;
-  font-size: 0.85em;
-  background: color-mix(in srgb, var(--tier-tone, currentcolor) 20%, transparent);
+  font-size: 1.05em;
+  line-height: 1;
+  /* The mark keeps the rung's own colour at full strength -- it is the one
+     part of the badge whose job is to be identifiable, not legible. */
+  color: color-mix(in srgb, var(--tier-tone, currentcolor) 78%, var(--board-ink, #1c1917));
 }
 
 /*
@@ -414,12 +417,16 @@ html, body {
  */
 .board-invite-title {
   font-family: var(--board-font-display, Georgia, serif);
-  font-size: clamp(30px, 4.6vmin, 76px);
-  line-height: 1.02;
-  letter-spacing: -0.01em;
-  margin: 0 0 0.18em;
+  font-size: clamp(34px, 5.4vmin, 92px);
+  font-weight: 700;
+  line-height: 1.0;
+  letter-spacing: -0.015em;
+  margin: 0 0 0.24em;
   color: var(--board-ink, #1c1917);
 }
+
+/* One stop per line, where the brand's copy put the break. */
+.board-invite-line { display: block; }
 
 .board-invite-body {
   margin: 0;
@@ -460,6 +467,6 @@ html, body {
   .ticket-mark { width: clamp(42px, 5.6vmin, 92px); height: clamp(42px, 5.6vmin, 92px); }
   .ticket-position { font-size: clamp(26px, 3.6vmin, 62px); }
   .board-invite { gap: 4vw; }
-  .board-invite-title { font-size: clamp(32px, 5.4vmin, 88px); }
+  .board-invite-title { font-size: clamp(36px, 6.2vmin, 104px); }
   .board-invite-body { font-size: clamp(19px, 2.9vmin, 48px); }
 }
