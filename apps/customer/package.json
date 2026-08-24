@@ -14,7 +14,6 @@
     "@platform/ui": "workspace:*",
     "@sentry/react-native": "^8.23.0",
     "@shopify/react-native-skia": "2.2.12",
-    "@stripe/stripe-react-native": "0.50.3",
     "@supabase/supabase-js": "^2.111.0",
     "expo": "~54.0.0",
     "expo-calendar": "~15.0.8",
