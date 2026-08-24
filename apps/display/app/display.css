@@ -54,6 +54,18 @@ html, body {
   border-bottom: 1px solid var(--board-line, #e7e5e4);
 }
 
+/*
+ * The title, on the brand's own block.
+ *
+ * `primary` and not `accent`: docs/DESIGN.md is explicit that brass is the
+ * highlight and "never used for large fills", and a header block is the
+ * largest fill on the screen. Ink carrying white type is the same pairing the
+ * apps' primary buttons use, so the wall reads as the same product as the
+ * phone in the guest's hand -- which is the entire argument for a shared token
+ * set. A tenant whose `primary` is not dark still gets a legible title: the
+ * text is `surfaceElevated`, the same paper the cards are, so the pairing
+ * stays the brand's own decision rather than an assumption made here.
+ */
 .board-title {
   font-family: var(--board-font-display, Georgia, serif);
   font-size: clamp(30px, 4.4vmin, 68px);
@@ -63,6 +75,10 @@ html, body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  color: var(--board-raised, #fff);
+  background: var(--board-primary, #1c1917);
+  border-radius: calc(var(--board-radius, 22px) * 0.6);
+  padding: 0.22em 0.7em 0.3em;
 }
 
 /*
@@ -349,13 +365,23 @@ html, body {
  * desk. Hence a band sized in vmin with a hard floor, rather than a fixed
  * pixel panel that looks right on a laptop and vanishes on a wall.
  */
+/*
+ * The panel is the brand's, not the platform's.
+ *
+ * A tint of `accent` rather than a flat neutral: this band is the rewards
+ * pitch, brass is the token that already marks value everywhere else in the
+ * product, and a low-alpha wash is a highlight rather than the large fill the
+ * design language rules out. It also separates the band from the queue without
+ * a second hairline, which matters on a screen where every rule competes with
+ * the names for attention.
+ */
 .board-invite {
   display: flex;
   align-items: center;
   gap: 2.4vw;
-  padding: 2vh 2.6vw 2.4vh;
-  border-top: 1px solid var(--board-line, #e7e5e4);
-  background: color-mix(in srgb, var(--board-raised, #fff) 60%, transparent);
+  padding: 2.4vh 2.6vw 2.8vh;
+  border-top: 1px solid color-mix(in srgb, var(--board-accent, #8a7350) 30%, transparent);
+  background: color-mix(in srgb, var(--board-accent, #8a7350) 11%, var(--board-surface, #fafaf9));
 }
 
 .board-qr {
@@ -368,23 +394,37 @@ html, body {
   border-radius: calc(var(--board-radius, 22px) / 2);
   /* The quiet zone is drawn inside the viewBox; the padding here is optical,
      so the code does not sit flush against a border and lose it. */
-  padding: 0.5vmin;
+  /* White ground inside the tinted panel: a QR needs the contrast between its
+     modules and their surround, and reading it off a wash costs scan range. */
+  padding: 1vmin;
   background: var(--board-raised, #fff);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 10%);
 }
 
 .board-invite-words { min-width: 0; }
 
+/*
+ * The pitch, at headline size.
+ *
+ * This is the only line on the board asking anyone to do something, and it has
+ * to carry across the room to somebody who is not looking for it -- unlike the
+ * queue, which people actively search. Sized to sit just under the board's own
+ * title rather than under the names: an invitation smaller than the thing it
+ * is attached to reads as a footnote, and nobody scans a wall for footnotes.
+ */
 .board-invite-title {
   font-family: var(--board-font-display, Georgia, serif);
-  font-size: clamp(24px, 3.6vmin, 60px);
-  line-height: 1.05;
-  margin: 0 0 0.2em;
+  font-size: clamp(30px, 4.6vmin, 76px);
+  line-height: 1.02;
+  letter-spacing: -0.01em;
+  margin: 0 0 0.18em;
+  color: var(--board-ink, #1c1917);
 }
 
 .board-invite-body {
   margin: 0;
-  font-size: clamp(16px, 2.2vmin, 36px);
-  line-height: 1.3;
+  font-size: clamp(18px, 2.5vmin, 42px);
+  line-height: 1.28;
   color: var(--board-ink-muted, #57534e);
 }
 
@@ -420,4 +460,6 @@ html, body {
   .ticket-mark { width: clamp(42px, 5.6vmin, 92px); height: clamp(42px, 5.6vmin, 92px); }
   .ticket-position { font-size: clamp(26px, 3.6vmin, 62px); }
   .board-invite { gap: 4vw; }
+  .board-invite-title { font-size: clamp(32px, 5.4vmin, 88px); }
+  .board-invite-body { font-size: clamp(19px, 2.9vmin, 48px); }
 }

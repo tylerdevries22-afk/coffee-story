@@ -16,6 +16,7 @@
     "@platform/domain": "workspace:*",
     "@platform/schema": "workspace:*",
     "@platform/ui": "workspace:*",
+    "@sentry/nextjs": "^10.70.0",
     "@supabase/supabase-js": "^2.111.0",
     "next": "~15.5.6",
     "react": "19.1.0",

@@ -237,18 +237,25 @@ left open with a reason.
   and a lobby kiosk is as public as a wall. Same class as item 1, different
   surface. Out of scope here because the kiosk's receipt screen reads through
   it and would need its own narrow projection first.
-- **`apps/hq` carries the same `|| echo` lint escape hatch** the display just
-  lost. Its `pnpm lint` cannot fail either.
-- **The display has no instrumentation.** HQ has `instrumentation.ts` and a
-  DSN-gated Sentry init; the display has none, so a wall that goes dark or
-  starts degrading reports nothing to anyone. It also has no `vercel.json`.
-- **The display has no deploy target defined.** It builds and runs; where it
-  runs is not written down anywhere (`docs/RUNBOOK.md` predates the app).
-- **The originality gate fails on its own documentation.** The command in
-  `.claude/skills/audit-originality/SKILL.md` returns exactly one hit, in that
-  file, where it quotes the name to explain the substring pitfall. The gate as
-  written can therefore never pass. Worth an exclusion for the skill's own
-  prose, or a rephrasing that does not name it.
+- **The display has no deploy target defined.** It now carries a `vercel.json`
+  with the headers this surface needs, but *where* it deploys is still written
+  down nowhere (`docs/RUNBOOK.md` predates the app).
+
+### Closed since
+
+- **HQ's lint gate.** It carried the same `|| echo` escape hatch; it is now a
+  real flat config over 50 files, and `verify` runs it first.
+- **The display's instrumentation.** DSN-gated Sentry, as HQ has, at a lower
+  trace rate: this app is a handful of screens polling every five seconds, so
+  a high sample buys volume and nothing else. It also gained a `vercel.json`
+  carrying `X-Robots-Tag: noindex` (a board of guest names must never be
+  indexed), `frame-ancestors 'none'`, and a same-origin CSP — the page loads
+  no third-party anything, and the QR is an inline path rather than a fetched
+  image.
+- **The originality gate could never pass.** The command in
+  `.claude/skills/audit-originality/SKILL.md` returned exactly one hit, in that
+  file, which quoted the name to illustrate the substring trap. Rephrased to
+  make the same point without spelling it; the gate now returns zero.
 
 ## Follow-up — the board became one queue
 

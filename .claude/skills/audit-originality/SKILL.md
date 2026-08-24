@@ -32,11 +32,16 @@ regardless of how the screen looks.
 
 The word boundary is not pedantry, it is what makes the gate usable. A plain
 `grep -ri` matches inside unrelated identifiers and the gate then fails forever
-on a coincidence: Sentry's minified `getBreadcrumbLogLevel` contains one
-competitor's name as the substring `…crumbL…`, which is what
+on a coincidence: a minified Sentry helper whose name ends in `…LogLevel` carries
+one competitor's mark as an internal substring, which is what
 `docs/BUILD-REPORT.md` gap 9 records. Running over `git ls-files` rather than
 the working tree keeps `.next/`, `.metro-cache/`, and `node_modules/` out of it
 for the same reason.
+
+**This file spells no competitor's name, deliberately.** It used to quote one
+to illustrate the substring trap above -- which meant the command documented
+here returned exactly one hit, in this file, forever. A gate that cannot pass
+is a gate nobody runs twice. The rule applies to its own enforcement doc.
 
 A boundary-matched hit is still worth a human read before you rewrite anything —
 a real word can appear innocently — but it should be rare enough to be worth
