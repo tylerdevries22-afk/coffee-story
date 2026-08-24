@@ -99,6 +99,51 @@ jobs:
         working-directory: apps/operator
         run: npx expo export --platform ios
 
+      # The kiosk and the display were in neither the lint list nor the bundle
+      # list: this workflow did not contain the word "kiosk" or "display" at
+      # all, so two of the five surfaces could break in a way only Metro or
+      # Next sees and CI would stay green. Both pass today -- this is a guard,
+      # not a repair.
+      - name: Bundle the kiosk for iOS
+        working-directory: apps/kiosk
+        run: npx expo export --platform ios
+
+      # Web too: the kiosk's static export is the surface
+      # scripts/capture-surfaces.mjs drives, so a broken web bundle silently
+      # turns every committed capture into an error page.
+      - name: Bundle the kiosk for web
+        working-directory: apps/kiosk
+        run: npx expo export --platform web
+
+      - name: Build the pickup display
+        run: pnpm --filter @platform/display build
+
+      # The one release gate in CLAUDE.md, and it existed only as a manual
+      # skill. Two details make it runnable rather than theatrical:
+      #
+      #   - WORD BOUNDARIES, not substrings. A plain `grep -ri` matches inside
+      #     unrelated identifiers and then fails forever on a coincidence; a
+      #     minified Sentry helper carries one of these names inside a longer
+      #     name, which docs/BUILD-REPORT.md gap 9 records.
+      #   - The denylist and this workflow are excluded from their own scan.
+      #     A gate that cannot name what it looks for without failing itself is
+      #     a gate nobody can run.
+      - name: Originality gate (CLAUDE.md rule 6)
+        run: |
+          set -uo pipefail
+          pattern=$(grep -vE '^\s*(#|$)' .github/originality-denylist.txt \
+            | paste -sd '|' -)
+          hits=$(git ls-files \
+            | grep -vE '\.(png|jpg|jpeg|webp|mp4|ico|lock)$' \
+            | grep -vE '^(\.github/originality-denylist\.txt|\.github/workflows/verify\.yml)$' \
+            | xargs grep -iEn "\\b(${pattern})\\b" 2>/dev/null || true)
+          if [ -n "$hits" ]; then
+            echo "FAIL: a competitor's name is in the tree (CLAUDE.md rule 6)." >&2
+            echo "$hits" >&2
+            exit 1
+          fi
+          echo "PASS: no competitor name in any tracked file."
+
   # Everything above is static; this job is the only place the schema's SQL
   # actually executes. `supabase start` (Docker lives on the hosted runners;
   # the dev container has no daemon) applies supabase/migrations/ and the

@@ -14,7 +14,8 @@
 import { pointsForPurchase, REWARD_TIERS, type PurchaseBreakdown, type RewardTier } from './rules';
 import { taxRowsFor, type TaxJurisdiction, type TaxRow } from './tax';
 
-export type { TaxJurisdiction, TaxRow };
+// TaxJurisdiction and TaxRow are ./tax's to export; re-exporting them here
+// made `export *` from both ambiguous in the barrel.
 
 export type OrderTotals = {
   subtotalCents: number;

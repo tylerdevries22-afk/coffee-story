@@ -1,0 +1,17 @@
+# CLAUDE.md rule 6: no competitor's name appears anywhere in the tree.
+#
+# One name per line; blank lines and # comments are ignored. Matched on WORD
+# BOUNDARIES, because a plain substring match fails forever on a coincidence --
+# a minified Sentry helper contains one of these inside a longer identifier,
+# which is what docs/BUILD-REPORT.md gap 9 records.
+#
+# This file is excluded from its own scan. A gate that cannot state what it
+# looks for without failing itself is a gate nobody can run, and both the audit
+# skill and the first version of the CI step tripped exactly that way.
+crumbl
+blue bottle
+starbucks
+dunkin
+dutch bros
+philz
+peet's
