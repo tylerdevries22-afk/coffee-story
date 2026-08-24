@@ -9,6 +9,7 @@
     "@platform/api-client": "workspace:*",
     "@platform/data": "workspace:*",
     "@platform/domain": "workspace:*",
+    "@platform/monitoring": "workspace:*",
     "@platform/schema": "workspace:*",
     "@platform/ui": "workspace:*",
     "@react-native-async-storage/async-storage": "2.2.0",

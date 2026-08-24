@@ -6,7 +6,10 @@
  */
 import { ApiCheck, AssertionBuilder } from 'checkly/constructs';
 
+import { alertChannels } from '../checkly.config';
+
 const base = '{{PLATFORM_BASE_URL}}';
+const displayBase = '{{DISPLAY_BASE_URL}}';
 
 new ApiCheck('hq-console-up', {
   name: 'HQ console responds',
@@ -16,6 +19,32 @@ new ApiCheck('hq-console-up', {
     followRedirects: true,
     assertions: [AssertionBuilder.statusCode().equals(200)],
   },
+  alertChannels,
+});
+
+new ApiCheck('platform-deep-health', {
+  name: 'HQ database dependency is healthy',
+  request: {
+    method: 'GET',
+    url: `${base}/api/health?deep=1`,
+    headers: [{ key: 'x-health-check-token', value: '{{HEALTH_CHECK_TOKEN}}' }],
+    assertions: [
+      AssertionBuilder.statusCode().equals(200),
+      AssertionBuilder.jsonBody('$.ok').equals(true),
+    ],
+  },
+  alertChannels,
+});
+
+new ApiCheck('pickup-display-up', {
+  name: 'Pickup display board responds',
+  request: {
+    method: 'GET',
+    url: `${displayBase}/board/{{DISPLAY_CHECK_LOCATION_ID}}`,
+    followRedirects: false,
+    assertions: [AssertionBuilder.statusCode().equals(200)],
+  },
+  alertChannels,
 });
 
 new ApiCheck('square-webhook-verifies', {
@@ -29,4 +58,5 @@ new ApiCheck('square-webhook-verifies', {
     // 200 would mean an unsigned event was accepted: alarm.
     assertions: [AssertionBuilder.statusCode().equals(401)],
   },
+  alertChannels,
 });

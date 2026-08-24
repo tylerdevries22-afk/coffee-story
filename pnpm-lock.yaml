@@ -70,6 +70,9 @@ importers:
       '@platform/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@platform/monitoring':
+        specifier: workspace:*
+        version: link:../../packages/monitoring
       '@platform/schema':
         specifier: workspace:*
         version: link:../../packages/schema
@@ -218,6 +221,9 @@ importers:
       '@platform/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@platform/web-config':
+        specifier: workspace:*
+        version: link:../../packages/web-config
       '@sentry/nextjs':
         specifier: ^10.70.0
         version: 10.70.0(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.10.0(@opentelemetry/api@1.9.1))(next@15.5.23(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(@types/node@26.2.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react@19.1.0)(webpack@5.109.2)
@@ -264,6 +270,9 @@ importers:
       '@platform/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@platform/web-config':
+        specifier: workspace:*
+        version: link:../../packages/web-config
       '@sentry/nextjs':
         specifier: ^10.70.0
         version: 10.70.0(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.10.0(@opentelemetry/api@1.9.1))(next@15.5.23(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(@types/node@26.2.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react@19.1.0)(webpack@5.109.2)
@@ -313,6 +322,9 @@ importers:
       '@platform/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@platform/monitoring':
+        specifier: workspace:*
+        version: link:../../packages/monitoring
       '@platform/schema':
         specifier: workspace:*
         version: link:../../packages/schema
@@ -446,6 +458,9 @@ importers:
       '@platform/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@platform/monitoring':
+        specifier: workspace:*
+        version: link:../../packages/monitoring
       '@platform/schema':
         specifier: workspace:*
         version: link:../../packages/schema
@@ -640,6 +655,15 @@ importers:
         specifier: ^2.111.0
         version: 2.112.3(@opentelemetry/api@1.9.1)
 
+  packages/monitoring:
+    dependencies:
+      '@sentry/react-native':
+        specifier: ^8.23.0
+        version: 8.23.0(@expo/env@2.0.12)(dotenv@17.4.2)(expo@54.0.37)(react-native@0.81.5(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)(rollup@4.62.5)(webpack@5.109.2)
+      expo-constants:
+        specifier: ~18.0.14
+        version: 18.0.14(expo@54.0.37)(react-native@0.81.5(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0))
+
   packages/schema:
     dependencies:
       '@supabase/supabase-js':
@@ -667,6 +691,8 @@ importers:
       react-native:
         specifier: 0.81.5
         version: 0.81.5(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0)
+
+  packages/web-config: {}
 
   tests/consistency:
     dependencies:

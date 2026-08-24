@@ -19,3 +19,5 @@ export async function register() {
     tracesSampleRate: 0.05,
   });
 }
+
+export { captureRequestError as onRequestError } from '@sentry/nextjs';

@@ -15,6 +15,7 @@
     "@platform/api-client": "workspace:*",
     "@platform/domain": "workspace:*",
     "@platform/engine": "workspace:*",
+    "@platform/web-config": "workspace:*",
     "@platform/schema": "workspace:*",
     "@platform/ui": "workspace:*",
     "@sentry/nextjs": "^10.70.0",

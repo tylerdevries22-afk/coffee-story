@@ -7,6 +7,7 @@ import { Platform, View } from 'react-native';
 import * as ScreenOrientation from 'expo-screen-orientation';
 
 import { DEFAULT_TOKENS, ThemeProvider } from '@platform/ui';
+import { initMobileMonitoring } from '@platform/monitoring';
 
 import TENANT_BRAND_CONFIG from '@/tenant/brand.json';
 
@@ -21,6 +22,8 @@ import { GuestProvider } from '@/state/guest';
 import { KioskSessionProvider } from '@/state/session';
 
 const SPLASH_GROUND = TENANT_BRAND_CONFIG.tokens?.surface ?? DEFAULT_TOKENS.surface;
+
+void initMobileMonitoring();
 
 export default function KioskLayout() {
   const [loaded] = useFonts({
