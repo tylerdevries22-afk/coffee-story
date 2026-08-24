@@ -56,7 +56,15 @@ export const MENU_IMAGE_SPEC = {
   maxCorrection: { brightness: 0.45, saturation: 0.25, warmth: 0.1 },
 } as const;
 
-/** Where a menu image is allowed to appear, and how big it is there. */
+/**
+ * Where a menu image is allowed to appear, and how big it is there.
+ *
+ * The `kiosk*` frames are circular and much larger than the phone's, for the
+ * reason docs/FIVE-SURFACES.md gives: a standing guest two to three feet away
+ * with a queue behind them. `radius: 'circle'` means half the frame -- a new
+ * radius value rather than a new field, so the existing frames keep their exact
+ * shape and the tests that pin them stay untouched.
+ */
 export type MenuImageVariant =
   /** Home screen menu row. */
   | 'thumb'
@@ -67,10 +75,22 @@ export type MenuImageVariant =
   /** Drop row on the drops page. */
   | 'tile'
   /** Item sheet hero and the services card -- both full bleed, both square. */
-  | 'hero';
+  | 'hero'
+  /** Kiosk first screen, the anchor tile. */
+  | 'kioskHero'
+  /** Kiosk first screen, an ordinary tile. */
+  | 'kioskNode'
+  /** Kiosk first screen, a secondary tile -- gift cards, catering. */
+  | 'kioskMinor'
+  /** A choice in the kiosk's item or pack-fill grid. */
+  | 'kioskChoice'
+  /** One filled slot in the kiosk's pack tray. */
+  | 'kioskSlot'
+  /** A row in the kiosk's bag. */
+  | 'kioskLine';
 
 export type MenuImageFrame =
-  | { kind: 'fixed'; size: number; radius: 'sm' | 'md' }
+  | { kind: 'fixed'; size: number; radius: 'sm' | 'md' | 'circle' }
   | { kind: 'fill'; radius: 'sm' | 'md' | 'none' };
 
 const FRAMES = {
@@ -79,6 +99,12 @@ const FRAMES = {
   tile: { kind: 'fixed', size: 72, radius: 'md' },
   row: { kind: 'fixed', size: 76, radius: 'md' },
   hero: { kind: 'fill', radius: 'none' },
+  kioskHero: { kind: 'fixed', size: 300, radius: 'circle' },
+  kioskNode: { kind: 'fixed', size: 200, radius: 'circle' },
+  kioskMinor: { kind: 'fixed', size: 132, radius: 'circle' },
+  kioskChoice: { kind: 'fixed', size: 172, radius: 'circle' },
+  kioskSlot: { kind: 'fixed', size: 96, radius: 'circle' },
+  kioskLine: { kind: 'fixed', size: 88, radius: 'md' },
 } as const satisfies Record<MenuImageVariant, MenuImageFrame>;
 
 /**

@@ -9,6 +9,10 @@ import * as ScreenOrientation from 'expo-screen-orientation';
 import { ThemeProvider } from '@platform/ui';
 
 import TENANT_BRAND_CONFIG from '@/tenant/brand.json';
+import { IdleNotice } from '@/components/idle-notice';
+import { menuFactsFromCatalog } from '@/data/menu-source';
+import { DeviceProvider } from '@/state/device';
+import { FlowProvider } from '@/state/flow';
 import { KioskSessionProvider } from '@/state/session';
 
 export default function KioskLayout() {
@@ -34,10 +38,24 @@ export default function KioskLayout() {
 
   return (
     <ThemeProvider brandConfig={TENANT_BRAND_CONFIG}>
-      <KioskSessionProvider>
-        <StatusBar hidden />
-        <Stack screenOptions={{ headerShown: false, animation: 'fade' }} />
-      </KioskSessionProvider>
+      <DeviceProvider>
+        <KioskSessionProvider>
+          <FlowProvider
+            brandConfig={TENANT_BRAND_CONFIG.kiosk}
+            menu={menuFactsFromCatalog()}
+            storedValue={TENANT_BRAND_CONFIG.features?.stored_value === true}
+          >
+            <StatusBar hidden />
+            {/* The step transition is ours (see step-stage.tsx), so the stack
+                must not add one of its own on top of it. */}
+            <Stack screenOptions={{ headerShown: false, animation: 'none' }} />
+            {/* Mounted once, at the root: the notice used to live only on the
+                order screen, which is why an abandoned session at tender had
+                its cart cleared under a live Pay button. */}
+            <IdleNotice />
+          </FlowProvider>
+        </KioskSessionProvider>
+      </DeviceProvider>
     </ThemeProvider>
   );
 }

@@ -48,7 +48,13 @@ export function MenuImage({
         frame.kind === 'fixed'
           ? { width: frame.size, height: frame.size }
           : styles.fill,
-        frame.radius !== 'none' && { borderRadius: radius[frame.radius] },
+        // 'circle' is half the frame rather than a scale step, which is why it
+        // cannot be looked up. The kiosk's circular variants are the only users
+        // today; handling it here keeps this component total over the contract
+        // rather than over the subset this app happens to render.
+        frame.radius === 'circle'
+          ? { borderRadius: frame.size / 2 }
+          : frame.radius !== 'none' && { borderRadius: radius[frame.radius] },
         style,
       ]}
     />

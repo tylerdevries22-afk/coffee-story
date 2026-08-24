@@ -123,5 +123,74 @@
     "website": "https://demo-roastery.test",
     "giftCodePrefix": "DR",
     "monogram": "DR"
+  },
+  "kiosk": {
+    "$docs": "The container family: the sellable SKU is a box and the guest allocates its slots. Exercises migration 0029's pack path.",
+    "attract": {
+      "headline": "Build a box",
+      "invite": "Tap to start",
+      "showLogo": true
+    },
+    "entry": {
+      "prompt": "How many would you like?",
+      "nodes": [
+        {
+          "id": "brew-bar",
+          "label": "Brew Bar",
+          "emphasis": "hero",
+          "target": {
+            "kind": "category",
+            "categoryId": "Brew Bar"
+          }
+        },
+        {
+          "id": "espresso",
+          "label": "Espresso",
+          "emphasis": "standard",
+          "target": {
+            "kind": "category",
+            "categoryId": "Espresso"
+          }
+        },
+        {
+          "id": "pastry",
+          "label": "Pastry",
+          "emphasis": "standard",
+          "target": {
+            "kind": "category",
+            "categoryId": "Pastry"
+          }
+        }
+      ]
+    },
+    "family": "pack",
+    "utilities": [
+      "allergens"
+    ],
+    "identify": {
+      "mode": "off",
+      "methods": []
+    },
+    "tenders": [
+      "card"
+    ],
+    "tip": {
+      "enabled": false,
+      "presetsCents": []
+    },
+    "guestName": {
+      "mode": "required"
+    },
+    "survey": {
+      "enabled": false,
+      "prompt": "",
+      "groups": []
+    },
+    "$idleDocs": "Longer than Coffee Story's: filling a box takes longer than picking one latte, and a reset mid-box is the worst thing a container kiosk can do.",
+    "idle": {
+      "warnMs": 90000,
+      "resetMs": 150000
+    },
+    "motion": "full"
   }
 }

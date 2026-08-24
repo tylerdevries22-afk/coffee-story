@@ -1,4 +1,6 @@
 export * from './tokens';
+export * from './motion';
+export * from './reduced-motion';
 export * from './copy';
 export * from './theme';
 export * from './components';

@@ -1,6 +1,9 @@
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useTokens } from '@platform/ui';
+
+import { secondsUntilReset } from '@/features/idle';
 
 import { useKioskSession } from '@/state/session';
 
@@ -14,8 +17,27 @@ import { useKioskSession } from '@/state/session';
  */
 export function IdleNotice() {
   const tokens = useTokens();
-  const { idle, secondsLeft, touch, reset } = useKioskSession();
-  if (idle !== 'warning') return null;
+  const { idle, touch, reset, idleMsNow } = useKioskSession();
+  const warning = idle === 'warning';
+  const [secondsLeft, setSecondsLeft] = useState(() => secondsUntilReset(idleMsNow()));
+
+  /**
+   * The countdown is local state here rather than in the session, and it only
+   * exists while the notice is on screen.
+   *
+   * Keeping the seconds in the session meant rebuilding its context value once
+   * a second for the whole life of a session -- every consumer re-rendering at
+   * 1Hz to serve a number that is visible for thirty seconds of it. This
+   * component is unmounted the other 99% of the time.
+   */
+  useEffect(() => {
+    if (!warning) return;
+    setSecondsLeft(secondsUntilReset(idleMsNow()));
+    const id = setInterval(() => setSecondsLeft(secondsUntilReset(idleMsNow())), 1_000);
+    return () => clearInterval(id);
+  }, [warning, idleMsNow]);
+
+  if (!warning) return null;
 
   return (
     <View style={[styles.scrim, { backgroundColor: `${tokens.textPrimary}D9` }]}>

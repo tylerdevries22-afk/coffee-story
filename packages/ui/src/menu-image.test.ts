@@ -124,3 +124,23 @@ test('the stored master is big enough for a full-bleed hero', () => {
   // shrinks the master into visible softness on the hero.
   assert.ok(MENU_IMAGE_SPEC.edge >= 900);
 });
+
+test('the kiosk frames are circular and sized for a standing guest, not a phone', () => {
+  // docs/FIVE-SURFACES.md: read at two to three feet with a queue behind, so
+  // every kiosk frame must clear the 60pt touch target the surface promises --
+  // and clear the phone's 56pt thumb by a wide margin, or the redesign has
+  // quietly shipped phone geometry on a lobby screen.
+  const kioskVariants = ['kioskHero', 'kioskNode', 'kioskMinor', 'kioskChoice', 'kioskSlot'] as const;
+  for (const variant of kioskVariants) {
+    const frame = menuImageFrame(variant);
+    assert.equal(frame.kind, 'fixed', `${variant} must be a fixed frame`);
+    assert.equal(frame.radius, 'circle', `${variant} must be circular`);
+    assert.ok(frame.size >= 60, `${variant} is below the kiosk touch target`);
+    assert.ok(frame.size > menuImageFrame('thumb').size, `${variant} is phone-sized`);
+  }
+});
+
+test('emphasis is expressed as size, so the first screen has a readable hierarchy', () => {
+  assert.ok(menuImageFrame('kioskHero').size > menuImageFrame('kioskNode').size);
+  assert.ok(menuImageFrame('kioskNode').size > menuImageFrame('kioskMinor').size);
+});

@@ -23,7 +23,7 @@ export default function AttractScreen() {
     <Pressable
       accessibilityRole="button"
       accessibilityLabel="Start an order"
-      onPress={() => { reset(); router.push('/order'); }}
+      onPress={() => { reset(); router.replace('/order/entry'); }}
       style={[styles.root, { backgroundColor: tokens.surface }]}
     >
       <View style={styles.center}>
@@ -31,7 +31,7 @@ export default function AttractScreen() {
           {copy('appName')}
         </Text>
         <Text style={[styles.invite, { color: tokens.textMuted, fontFamily: tokens.fontBody }]}>
-          Touch anywhere to order
+          {copy('orderCta')}
         </Text>
       </View>
       <View style={[styles.rule, { backgroundColor: tokens.accent }]} />

@@ -5,6 +5,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import { formatMoney, orderSubtotalCents, orderTotals } from '@platform/domain';
 import { useTokens } from '@platform/ui';
 
+import { useDevice } from '@/state/device';
 import { useKioskSession } from '@/state/session';
 
 /**
@@ -23,7 +24,8 @@ import { useKioskSession } from '@/state/session';
 export default function TenderScreen() {
   const tokens = useTokens();
   const router = useRouter();
-  const { cart, posture, touch } = useKioskSession();
+  const { cart, touch } = useKioskSession();
+  const { posture } = useDevice();
   const [phase, setPhase] = useState<'ready' | 'reading' | 'failed'>('ready');
 
   const totals = useMemo(

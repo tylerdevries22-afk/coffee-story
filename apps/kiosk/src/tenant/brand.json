@@ -179,5 +179,156 @@
     "website": "https://coffeestoryco.com",
     "giftCodePrefix": "CS",
     "monogram": "CS"
+  },
+  "kiosk": {
+    "$docs": "The kiosk's lobby flow. Shape and rules: packages/domain/src/kiosk-flow.ts. Every field is optional -- delete this whole block and a device still opens on a first screen derived from menu.csv.",
+    "attract": {
+      "headline": "A Blessing In Every Cup",
+      "invite": "Touch anywhere to order",
+      "showLogo": true
+    },
+    "entry": {
+      "prompt": "What would you like today?",
+      "$docs": "categoryId is the category TITLE from menu.csv -- menu_categories has no slug.",
+      "nodes": [
+        {
+          "id": "signature",
+          "label": "Signature Lattes",
+          "emphasis": "hero",
+          "caption": "The drinks that made us famous",
+          "target": {
+            "kind": "category",
+            "categoryId": "Signature Lattes"
+          }
+        },
+        {
+          "id": "coffee",
+          "label": "Coffee & Espresso",
+          "emphasis": "standard",
+          "target": {
+            "kind": "category",
+            "categoryId": "Coffee & Espresso"
+          }
+        },
+        {
+          "id": "tea",
+          "label": "Tea & Matcha",
+          "emphasis": "standard",
+          "target": {
+            "kind": "category",
+            "categoryId": "Tea & Matcha"
+          }
+        },
+        {
+          "id": "boba",
+          "label": "Boba",
+          "emphasis": "standard",
+          "target": {
+            "kind": "category",
+            "categoryId": "Boba"
+          }
+        },
+        {
+          "id": "ades",
+          "label": "Sparkling Ades & Smoothies",
+          "emphasis": "minor",
+          "target": {
+            "kind": "category",
+            "categoryId": "Sparkling Ades & Smoothies"
+          }
+        },
+        {
+          "id": "food",
+          "label": "Sandwiches",
+          "emphasis": "minor",
+          "target": {
+            "kind": "category",
+            "categoryId": "Sandwiches"
+          }
+        },
+        {
+          "id": "sweets",
+          "label": "Sweets & Desserts",
+          "emphasis": "minor",
+          "target": {
+            "kind": "category",
+            "categoryId": "Sweets & Desserts"
+          }
+        }
+      ]
+    },
+    "family": "item",
+    "utilities": [
+      "rewards",
+      "allergens"
+    ],
+    "identify": {
+      "mode": "optional",
+      "methods": [
+        "phone"
+      ]
+    },
+    "tenders": [
+      "card",
+      "stored_value"
+    ],
+    "tip": {
+      "enabled": true,
+      "presetsCents": [
+        100,
+        200,
+        300
+      ]
+    },
+    "guestName": {
+      "mode": "optional"
+    },
+    "survey": {
+      "enabled": true,
+      "prompt": "How did you hear about us?",
+      "groups": [
+        {
+          "id": "local",
+          "label": "Around town",
+          "options": [
+            {
+              "id": "walk-by",
+              "label": "Walked past"
+            },
+            {
+              "id": "friend",
+              "label": "A friend"
+            },
+            {
+              "id": "event",
+              "label": "An event"
+            }
+          ]
+        },
+        {
+          "id": "online",
+          "label": "Online",
+          "options": [
+            {
+              "id": "instagram",
+              "label": "Instagram"
+            },
+            {
+              "id": "maps",
+              "label": "Maps"
+            },
+            {
+              "id": "search",
+              "label": "Search"
+            }
+          ]
+        }
+      ]
+    },
+    "idle": {
+      "warnMs": 60000,
+      "resetMs": 90000
+    },
+    "motion": "full"
   }
 }

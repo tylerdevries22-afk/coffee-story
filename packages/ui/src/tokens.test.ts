@@ -35,7 +35,42 @@ describe('resolveTokens', () => {
 
   it('never mutates the defaults', () => {
     const before = JSON.stringify(DEFAULT_TOKENS);
-    resolveTokens({ radius: { sm: 2 }, spacing: { xs: 1 }, motion: { fast: 90 } });
+    resolveTokens({
+      radius: { sm: 2 }, spacing: { xs: 1 }, motion: { fast: 90 },
+      elevation: { card: 0.2 }, type: { md: 18 },
+    });
     assert.equal(JSON.stringify(DEFAULT_TOKENS), before);
+  });
+
+  /**
+   * The idempotence check. A key added to BrandTokens but forgotten in the
+   * validator loop silently reverts to its default on every hydration, which
+   * looks like "the tenant never set it" rather than like a bug.
+   */
+  it('round-trips its own defaults, so no token group is silently unvalidated', () => {
+    assert.deepEqual(resolveTokens(DEFAULT_TOKENS), DEFAULT_TOKENS);
+  });
+
+  it('accepts the new motion and type rungs a kiosk needs', () => {
+    const tokens = resolveTokens({ motion: { stagger: 60, celebrate: 800 }, type: { lg: 22, ticket: 200 } });
+    assert.equal(tokens.motion.stagger, 60);
+    assert.equal(tokens.motion.celebrate, 800);
+    assert.equal(tokens.type.lg, 22);
+    assert.equal(tokens.type.ticket, 200);
+    assert.equal(tokens.motion.fast, DEFAULT_TOKENS.motion.fast);
+  });
+
+  it('holds elevation to a fraction, because it is an opacity and not a length', () => {
+    // The shared 0..1000 ceiling would have accepted 500 here and painted an
+    // opaque slab over the card the shadow was meant to lift.
+    const tokens = resolveTokens({ elevation: { card: 500, raised: 0.3 } });
+    assert.equal(tokens.elevation.card, DEFAULT_TOKENS.elevation.card);
+    assert.equal(tokens.elevation.raised, 0.3);
+  });
+
+  it('ignores a group key it does not already know', () => {
+    const tokens = resolveTokens({ motion: { warp: 10 }, type: { gigantic: 400 } });
+    assert.equal('warp' in tokens.motion, false);
+    assert.equal('gigantic' in tokens.type, false);
   });
 });
