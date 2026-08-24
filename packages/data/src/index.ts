@@ -15,7 +15,10 @@
 export { createSupabaseClient, type AuthStorage, type SupabaseClientConfig } from './client';
 export { isValidSupabasePublishableKey, isValidSupabaseUrl } from './config';
 export { fetchBrandBySlug, type BrandSummary } from './brand';
-export { fetchMenuTree, type MenuTree, type MenuTreeCategory, type MenuTreeItem } from './menu';
+export {
+  fetchMenuTree, subscribeToMenu,
+  type MenuTree, type MenuTreeCategory, type MenuTreeItem,
+} from './menu';
 export {
   fetchActiveLocationOrders,
   fetchCustomerOrders,

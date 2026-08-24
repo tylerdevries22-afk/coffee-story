@@ -17,7 +17,20 @@ import { formatMoney } from './money';
  * per-tenant content, but what a size *is* -- a slug, an optional volume, and
  * a price in integer cents -- is the same on every surface that prices one.
  */
-export type CatalogSize = { slug: string; ounces?: number; priceCents: number };
+export type CatalogSize = {
+  slug: string;
+  ounces?: number;
+  priceCents: number;
+  /**
+   * What the menu row calls this size, when the database says so.
+   *
+   * Stored sizes carry an explicit label and a bare slug (`'12'`), which
+   * `sizeLabelFor` reads as "Each" because it looks for a `-12` suffix. A live
+   * menu therefore has to carry its label rather than re-derive one. Absent on
+   * compiled catalogs, where the slug still tells the truth.
+   */
+  label?: string;
+};
 
 /** "16 oz", "Single", "Each". */
 export function sizeLabelFor(slug: string): string {
@@ -28,6 +41,19 @@ export function sizeLabelFor(slug: string): string {
   if (slug.endsWith('-trio')) return 'Trio';
   if (slug.endsWith('-slice')) return 'Slice';
   return 'Each';
+}
+
+/**
+ * The label to print for a size: what the menu says, else what the slug says.
+ *
+ * Prefer this to `sizeLabelFor` anywhere a size may have come from the
+ * database.
+ */
+export function sizeLabel(size: CatalogSize): string {
+  const stored = size.label?.trim();
+  if (stored) return stored;
+  if (typeof size.ounces === 'number' && Number.isFinite(size.ounces)) return `${size.ounces} oz`;
+  return sizeLabelFor(size.slug);
 }
 
 /** Kept as the single read point now that the catalog itself carries cents. */

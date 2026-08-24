@@ -2,8 +2,10 @@ import { StyleSheet, View } from 'react-native';
 
 import type { KioskEntryNode } from '@platform/domain';
 
+import { MenuUnavailable } from '@/components/chrome/menu-unavailable';
 import { StepHeading } from '@/components/chrome/step-heading';
 import { Constellation } from '@/components/circle/constellation';
+import { useKioskMenu } from '@/data/menu-store';
 import { useFlow } from '@/state/flow';
 import TENANT from '@/tenant/brand.json';
 
@@ -17,6 +19,7 @@ import TENANT from '@/tenant/brand.json';
  */
 export default function EntryStep() {
   const { flow, learn, goTo, goNext, select } = useFlow();
+  const { status, refresh } = useKioskMenu();
 
   function choose(node: KioskEntryNode) {
     select(node);
@@ -33,6 +36,14 @@ export default function EntryStep() {
       case 'utility':
         return;
     }
+  }
+
+  // A configured kiosk that cannot read its menu says so. Rendering the
+  // constellation anyway would draw whatever the resolver could derive from an
+  // empty menu -- a screen with nothing on it, or worse, a screen that looks
+  // like a shop with nothing to sell.
+  if (status !== 'live' && status !== 'demo') {
+    return <MenuUnavailable status={status} onRetry={refresh} />;
   }
 
   return (

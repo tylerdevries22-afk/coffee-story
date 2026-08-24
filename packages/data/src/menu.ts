@@ -64,3 +64,59 @@ export async function fetchMenuTree(client: SupabaseClient, brandId: string): Pr
     drops: drops.data ?? [],
   };
 }
+
+/**
+ * The menu, as it changes under a running screen.
+ *
+ * It lives beside the read rather than in `realtime.ts` because
+ * `surfaces.test.ts` attributes a module's relations to every export from it,
+ * and `realtime.ts` also carries the order subscriptions -- so a kiosk
+ * importing a menu subscription from there read as a kiosk that could reach
+ * `orders`. Splitting the module was the fix; widening the allowlist would
+ * have been the bug.
+ *
+ * Migration 0027 put `menu_items`, `menu_categories` and `drops` in the
+ * publication with the stated intent that "a change made once should appear on
+ * every kiosk and display at once". Until this existed, nothing subscribed:
+ * 86'ing an item reached no screen, and a guest could order something the shop
+ * ran out of an hour earlier.
+ *
+ * It reports THAT the menu changed, not what changed. A menu is a tree
+ * assembled from three tables — an item moving category, a category being
+ * reordered and a drop opening are all edits to the same picture — so
+ * patching rows individually means reimplementing `fetchMenuTree`'s assembly
+ * in a second place. The caller refetches, which is one round trip on an edit
+ * that happens a few times a day.
+ *
+ * Bursts are coalesced: re-pricing a category is one edit to a manager and
+ * twenty messages on the wire.
+ */
+export function subscribeToMenu(
+  client: SupabaseClient | null,
+  brandId: string,
+  onChanged: () => void,
+  settleMs = 400,
+): () => void {
+  if (!client) return () => {};
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let live = true;
+  const settle = () => {
+    if (!live) return;
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => {
+      timer = null;
+      if (live) onChanged();
+    }, settleMs);
+  };
+  const filter = `brand_id=eq.${brandId}`;
+  const channel = client.channel(`menu-${brandId}`);
+  for (const table of ['menu_items', 'menu_categories', 'drops'] as const) {
+    channel.on('postgres_changes', { event: '*', schema: 'public', table, filter }, settle);
+  }
+  channel.subscribe();
+  return () => {
+    live = false;
+    if (timer) clearTimeout(timer);
+    void client.removeChannel(channel);
+  };
+}

@@ -227,6 +227,49 @@ describe('the lobby kiosk read', () => {
           + 'genuinely storefront data, add it to ALLOWED here deliberately.');
       }
     }
+
+    // The same allowlist, applied to reads the kiosk delegates.
+    //
+    // The direct-`.from` check above went vacuous the moment the kiosk started
+    // reading through `@platform/data` -- which is the RIGHT way to read, since
+    // it means one assembly of the menu tree instead of a fourth, but it also
+    // means zero `.from(` calls in this app and a guard inspecting nothing. It
+    // would have passed just as happily on `fetchCustomerOrders`.
+    //
+    // So the reader's own relations are attributed to it. Granularity is the
+    // file: every relation named in a `@platform/data` module counts against
+    // every export from that module. That over-approximates -- an unrelated
+    // function next door can fail the check -- and that is the bias a guard on
+    // a public tablet should have. Splitting the module is the fix, not
+    // widening the list.
+    const dataSrc = join(MIGRATIONS, '..', '..', 'packages', 'data', 'src');
+    const relationsByExport = new Map<string, Set<string>>();
+    for (const entry of readdirSync(dataSrc)) {
+      if (!/\.ts$/.test(entry) || /\.test\.ts$/.test(entry)) continue;
+      const source = readFileSync(join(dataSrc, entry), 'utf8');
+      const relations = new Set(
+        [...source.matchAll(/\.from\('([a-z_]+)'\)/g)].map(([, name]) => name ?? ''),
+      );
+      for (const [, name] of source.matchAll(/export\s+(?:async\s+)?function\s+(\w+)/g)) {
+        if (name) relationsByExport.set(name, relations);
+      }
+    }
+
+    for (const file of files) {
+      const source = readFileSync(file, 'utf8');
+      for (const [, clause] of source.matchAll(/import\s*\{([^}]*)\}\s*from\s*'@platform\/data'/g)) {
+        for (const raw of (clause ?? '').split(',')) {
+          const name = raw.replace(/^\s*type\s+/, '').split(/\s+as\s+/)[0]?.trim() ?? '';
+          if (name === '') continue;
+          for (const relation of relationsByExport.get(name) ?? []) {
+            assert.ok(ALLOWED.has(relation),
+              `${file} imports ${name} from @platform/data, which reads `
+              + `'${relation}'. A kiosk is a public tablet: reading through a `
+              + 'shared package does not widen what it may read.');
+          }
+        }
+      }
+    }
   });
 });
 
