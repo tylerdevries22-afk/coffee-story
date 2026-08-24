@@ -234,3 +234,15 @@ in Expo, never in this repository, never in `packages/data`.
   a tenant palette reaches the app -- and stops at the page ground. The other
   92 files still import the compiled `theme/tokens`, which is where the rest of
   the sweep goes.
+
+- **The prep board's day is not chosen yet, and the obvious choice is wrong.**
+  `fetchPrepBoard(client, locationId, serviceDate)` takes the day as a
+  parameter and has no callers — the prep screen renders a fixture. Whoever
+  writes the first one must pass the *location's* date, not the device's and
+  not the server's: `prep_batches.service_date` is a bare `date` with no
+  trigger behind it, unlike `orders.service_date`, which migration 0023 stamps
+  in the location's timezone. A caller reaching for `new Date()` or
+  `current_date` gives a Denver bench tomorrow's empty bake list from 18:00
+  onward. This is exactly the bug CI caught in the five-surface trace
+  (`34e7b44`), and the reason it is written down rather than fixed is that
+  there is no caller to fix.
