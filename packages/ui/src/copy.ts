@@ -35,6 +35,12 @@ export const DEFAULT_COPY: BrandCopy = {
   // The board's own name, above the location. A tenant that calls it
   // something else ("Order Up", "Collection") overrides this like any other
   // brand string rather than editing a component.
+  /**
+   * The kiosk's handoff line. Here rather than in the component because it
+   * describes how a particular shop actually hands orders over -- some call
+   * names, some only light the board -- and that is the brand's to say.
+   */
+  handoffPromise: "We'll call your name when it's ready.",
   boardTitle: 'Order Queue',
   boardReady: 'Ready',
   /** Read out by assistive tech in place of the bare digit. */

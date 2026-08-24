@@ -484,3 +484,95 @@ Two things follow, neither done here:
 - A skipped suite reporting the same green as a passing one is the underlying
   problem. `skipUnlessConfigured` is right for `pnpm -r test`, but a
   pre-promotion check should say out loud which suites did not run.
+
+## Follow-up — the loyalty ladder, a live metric bug, and what a dead-code sweep actually found
+
+### Two ladders, both computable (0035)
+
+`rules.ts` keys the reward ladder on ANNUAL points and decides the earn rate
+from it; `loyalty_accounts` stored only `points_balance` and `lifetime_points`.
+So every server-side rung was either uncomputable or a lifetime number wearing
+an annual name, and 0033's board badge documented itself as the second.
+
+They are two different promises and the product wants both:
+
+- **Annual** — the trailing twelve months. It can fall. It sets the earn rate,
+  which is an *entitlement*: a benefit held while it keeps being earned.
+- **Lifetime** — everything ever earned. It cannot fall. It sets the in-store
+  badge, which is *recognition* — and taking someone's recognition away in
+  front of a room because they travelled for a quarter is a thing no shop
+  wants to do.
+
+`app.annual_points_for` computes the window rather than storing it: a stored
+column needs a job to age points out, and a job that does not run leaves a
+guest holding a tier they stopped qualifying for — silently, in the guest's
+favour, which is the direction nobody audits. Only `earn` and `reverse` count;
+a redemption spends the balance without unmaking the spend that earned it.
+Verified against the database: a guest with earns at 2 and 11 months, an earn
+at 18 months, a reversal, a redemption and an adjustment scores 1400 annual
+(900+600-100) against 5000 lifetime.
+
+One correction to the record: an earlier comment here called reading annual
+thresholds against lifetime points an "approximation". It is exact. Lifetime is
+a running total and annual is the trailing window of the same series, so
+lifetime >= annual always — a rung at 1500 means "reached 1500 in a year" on
+one ladder and "reached 1500 ever" on the other. The badge is the easier to
+earn and cannot be lost, which is what recognition should be.
+
+### in_app_share was measuring the opposite of its name (0036)
+
+`order-channel.ts` landed the corrected definition — `isOwnedChannel`, true for
+app, web AND kiosk — and said it was "exported so the view and the report can
+be reconciled against one definition instead of a SQL literal". **The view was
+never changed.** `location_daily_metrics.in_app_share` still filtered on
+`('app','web')`, so the database held the wrong definition and the TypeScript
+one was consumed by nothing at all.
+
+A kiosk is the most owned channel a shop has. Excluding it put every
+self-service sale in the denominator and never the numerator, so the number an
+owner reads as "how much comes through our own platform" *fell* as more guests
+used the platform's own hardware. On a franchise dashboard that inverts the
+ranking between a franchisee who installed kiosks and one who did not.
+
+Fixed by giving SQL the same rule as a function (`app.is_owned_channel`) and
+having the view call it. Verified: 1000 app + 1000 kiosk of 4000 total now
+reports 0.5, where it previously reported 0.25. `IN_APP_CHANNELS`, which
+existed only to mirror the old literal and had a test asserting the divergence
+"is the point", is deleted — it had no callers and documented a disagreement
+that no longer exists.
+
+`tests/consistency/src/one-rule-two-languages.test.ts` now reads both
+definitions and fails when they disagree. It lives there, not in
+`packages/schema`, because schema is what domain is built on: a test needing
+both belongs where both are already dependencies rather than in one that would
+have to take a circular dependency to reach the other.
+
+### The dead-code sweep, and why almost nothing was deleted
+
+A mechanical sweep over every `.ts`/`.tsx` in the workspace found 322 exports
+with no non-test consumer. Narrowed to runtime values referenced nowhere at all
+— excluding types, which usually document a local API rather than sit unused —
+it came down to 27.
+
+Then the check that mattered: **every one of the nine "dead" components in
+`apps/operator/src/components/staff/workspace-ui.tsx` is referenced by operator
+screens on five or six other remote branches.** They are not dead; they are
+in flight. Deleting them on main would have conflicted with every one of those
+branches and broken some.
+
+That is the finding, and it is worth more than the cleanup would have been:
+**in a repo with five concurrent branches, "unused on main right now" is not a
+synonym for dead.** The same reasoning already cost this branch once, when
+`splitBoard` was removed as unused and turned out to be imported by an
+integration suite that had not landed yet.
+
+So nothing of another session's was deleted. What was removed is what could be
+verified dead across every branch: `IN_APP_CHANNELS`. The remaining 26 are an
+inventory, not a backlog — several (`useTheme`, `useToast`, `useDevice`,
+`refreshOAuthToken`, `revokeOAuthToken`) are deliberate public API or
+token-rotation machinery the runbook depends on, and removing them would be a
+regression dressed as tidying.
+
+The reusable lesson: a dead-code pass in a multi-branch repo needs
+`git grep` across `refs/remotes/*` before anything is deleted, not just a
+workspace search.

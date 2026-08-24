@@ -45,16 +45,23 @@ export function resolveOrderChannel(principal: OrderPrincipal): OrderChannel {
   return principal.staffRole ? 'pos' : 'app';
 }
 
-/** Channels that `in_app_share` counts as the brand's own platform. */
-export const IN_APP_CHANNELS: readonly OrderChannel[] = ['app', 'web'];
-
 /**
  * Whether a channel is the brand's own platform rather than a third party.
  *
  * A kiosk IS the brand's own platform -- arguably the most owned channel there
  * is -- so any share metric that excludes it is measuring something other than
- * what its name says. Exported so the view and the report can be reconciled
- * against one definition instead of a SQL literal.
+ * what its name says.
+ *
+ * `app.is_owned_channel` (0036) is this same rule in SQL, and
+ * `location_daily_metrics.in_app_share` calls it. Two languages cannot share
+ * one function, so they share a name and a test that reads both and fails when
+ * they disagree -- `packages/schema/src/invariants.test.ts`.
+ *
+ * There used to be an `IN_APP_CHANNELS` constant here mirroring the view's old
+ * `('app','web')` literal, with a test asserting that the divergence from this
+ * function "is the point". It was consumed by nothing, and once 0036 fixed the
+ * view it documented a disagreement that no longer existed. Deleted rather
+ * than updated: it had no callers to serve.
  */
 export function isOwnedChannel(channel: OrderChannel): boolean {
   return channel === 'app' || channel === 'web' || channel === 'kiosk';

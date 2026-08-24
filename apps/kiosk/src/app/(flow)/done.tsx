@@ -42,7 +42,7 @@ export default function DoneStep() {
           {guestLabel ? `Thank you, ${guestLabel}` : copy('orderPlaced')}
         </Text>
         <Text style={[styles.detail, { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: tokens.type.xl }]}>
-          We&apos;ll call your name when it&apos;s ready.
+          {copy('handoffPromise')}
         </Text>
         <KioskPressable label="Start a new order" onPress={() => { reset(); startOver(); }} />
       </View>

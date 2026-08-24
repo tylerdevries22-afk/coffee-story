@@ -92,12 +92,23 @@ export function tierSlug(name: string): string {
 /**
  * The board's rungs, derived from the brand's earn ladder.
  *
- * The thresholds carry across unchanged and are then read as lifetime points.
- * That is a deliberate, stated approximation and not a claim the two metrics
- * are the same: it puts a guest on the rung they have *ever* reached rather
- * than the one they hold this year, which for a badge in a shop -- where the
- * point is recognition, not entitlement -- is the kinder of the two errors.
- * A brand that wants different cut-offs sets `board.tiers` explicitly.
+ * The thresholds carry across unchanged and are then read against LIFETIME
+ * points. An earlier version of this comment called that an approximation. It
+ * is not — it is exact, and the reason is worth stating because it is the
+ * whole argument for having two ladders:
+ *
+ *   Lifetime points are a running total of every point ever earned. Annual
+ *   points are the trailing twelve months of the same series. Lifetime is
+ *   therefore always >= annual, for every guest, at every moment.
+ *
+ * So a rung set at 1500 means "reached 1500 in a year" on the earn ladder and
+ * "reached 1500 ever" here. The badge is the easier of the two to earn and,
+ * once earned, cannot be lost — which is exactly what recognition should be,
+ * and exactly what an entitlement should not.
+ *
+ * A brand that wants the badge to be harder than the rate sets `board.tiers`
+ * explicitly with its own lifetime thresholds; 0035 makes both figures
+ * computable server-side, so neither ladder has to stand in for the other.
  */
 export function boardLadderFrom(tiers: readonly RewardTier[] = REWARD_TIERS): readonly BoardTier[] {
   return sortedTiers(tiers.length > 0 ? tiers : REWARD_TIERS).map((tier, index) => ({
