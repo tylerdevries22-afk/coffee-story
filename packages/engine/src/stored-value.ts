@@ -18,8 +18,9 @@ export function nextLedgerBalance(currentBalanceCents: number, entry: LedgerEntr
   return next;
 }
 
-/** How much of a total the balance can cover; the split the checkout applies. */
-export function coverageFor(totalCents: number, balanceCents: number): { coveredCents: number; remainderCents: number } {
-  const covered = Math.max(0, Math.min(Math.trunc(totalCents), Math.trunc(balanceCents)));
-  return { coveredCents: covered, remainderCents: Math.max(0, Math.trunc(totalCents) - covered) };
-}
+/**
+ * The split moved to packages/domain so the kiosk can show the same arithmetic
+ * the server applies -- a guest surface must not import this module, which is
+ * service-role code. Re-exported here so existing callers are unchanged.
+ */
+export { coverageFor, type StoredValueCoverage } from '@platform/domain';

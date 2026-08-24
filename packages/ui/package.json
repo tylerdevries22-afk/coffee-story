@@ -12,7 +12,7 @@
     "./src/*": "./src/*.ts"
   },
   "scripts": {
-    "lint": "echo 'lint: runs under each consuming app eslint'",
+    "lint": "eslint src --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test \"src/**/*.test.ts\"",
     "verify": "pnpm typecheck && pnpm test"

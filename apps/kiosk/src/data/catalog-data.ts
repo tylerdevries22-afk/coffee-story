@@ -42,6 +42,17 @@ export type CatalogItemData = {
   sizes: readonly CatalogSize[];
   /** 86'd: out for the day. Listed, visible, not orderable. */
   soldOutToday?: boolean;
+  /**
+   * A container the guest fills, mirroring migration 0029's `menu_items`
+   * columns. Null on everything here -- this tenant sells drinks -- but the
+   * client model has to be able to EXPRESS a pack or the container family has
+   * nothing to render. `packSize` is an exact count, not a maximum.
+   */
+  packSize?: number;
+  /** 'lineup' follows this week's drops; 'static' is a fixed list. */
+  choiceSource?: 'lineup' | 'static';
+  /** The single this pack is built from, for the derived "Save N%" badge. */
+  singleItemId?: string;
 };
 
 export const MENU_CATEGORY_META: readonly { id: MenuCategoryId; title: string; tagline: string }[] = [

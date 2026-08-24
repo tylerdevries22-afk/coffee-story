@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { combinedTaxRate, taxCentsFor, taxJurisdictionsFromBrandConfig, taxRowsFor } from './tax';
+import { taxCentsFor, taxJurisdictionsFromBrandConfig, taxRowsFor } from './tax';
 
 const FOUR: { id: string; label: string; rate: number }[] = [
   { id: 'state', label: 'State Sales Tax', rate: 0.029 },
