@@ -99,9 +99,10 @@ export function createApiClient(config: ApiClientConfig) {
     /**
      * Staff only. Every other status change is a direct order_events insert
      * under RLS, but a refund moves money at Square first, so it goes through
-     * the server that holds the location's token.
+     * the server that holds the location's token. The caller owns this key and
+     * must reuse it until the user-visible attempt has a conclusive outcome.
      */
-    refundOrder: (input: RefundOrderRequest, idempotencyKey?: string) =>
+    refundOrder: (input: RefundOrderRequest, idempotencyKey: string) =>
       request<RefundOrderResponse>(API_ROUTES.ordersRefund, input, idempotencyKey),
     registerPushToken: (input: RegisterPushTokenRequest) =>
       request<{ ok: true }>(API_ROUTES.pushTokens, input),

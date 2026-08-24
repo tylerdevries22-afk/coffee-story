@@ -1,10 +1,11 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import {
-  formatMoney, itemsInCategoryOf, packsInCategoryOf, sizePriceCents,
+  formatMoney, itemsForTarget, sizePriceCents,
 } from '@platform/domain';
 import { useTokens } from '@platform/ui';
 
+import { FlowRecovery } from '@/components/chrome/flow-recovery';
 import { StepHeading } from '@/components/chrome/step-heading';
 import { CircleTile } from '@/components/circle/circle-tile';
 import { packSavingBps } from '@/features/pack-fill';
@@ -23,31 +24,20 @@ import TENANT from '@/tenant/brand.json';
  */
 export default function PackStep() {
   const tokens = useTokens();
-  const { selected, goNext } = useFlow();
+  const { selected, goNext, goTo } = useFlow();
   const builder = useBuilder();
   const { menu } = useKioskMenu();
 
-  const categoryTitle = selected?.target.kind === 'category' ? selected.target.categoryId : '';
-  const packs = packsInCategoryOf(menu, categoryTitle);
-  const singles = itemsInCategoryOf(menu, categoryTitle);
+  const packs = itemsForTarget(menu, selected?.target).filter((item) => item.packSize !== undefined);
 
-  if (packs.length === 0) {
-    return (
-      <View style={styles.empty}>
-        <StepHeading
-          title="Nothing to build here yet"
-          hint="This shop has not set up any boxes."
-        />
-      </View>
-    );
-  }
+  if (packs.length === 0) return <FlowRecovery onRecover={() => goTo('entry')} />;
 
   return (
     <View style={styles.root}>
       <StepHeading title="How many would you like?" />
       <View style={styles.grid}>
         {packs.map((pack, index) => {
-          const single = singles.find((item) => item.id === pack.singleItemId);
+          const single = menu.items.find((item) => item.id === pack.singleItemId);
           const singlePrice = single?.sizes[0] ? sizePriceCents(single.sizes[0]) : 0;
           const packPrice = pack.sizes[0] ? sizePriceCents(pack.sizes[0]) : 0;
           const savingBps = packSavingBps(singlePrice, packPrice, pack.packSize ?? 0);
@@ -58,7 +48,12 @@ export default function PackStep() {
                 label={pack.name}
                 caption={formatMoney(packPrice)}
                 variant="kioskNode"
-                request={{ imageSlug: pack.id, monogram: TENANT.business?.monogram, label: pack.name }}
+                request={{
+                  imageSlug: pack.id,
+                  imageUrl: pack.imageUrl,
+                  monogram: TENANT.business?.monogram,
+                  label: pack.name,
+                }}
                 onPress={() => { builder.choose(pack); goNext(); }}
               />
               {savingBps > 0 ? (
@@ -76,7 +71,6 @@ export default function PackStep() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, paddingHorizontal: 32 },
-  empty: { flex: 1, justifyContent: 'center' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 48, justifyContent: 'center', paddingTop: 12 },
   cell: { alignItems: 'center', gap: 6 },
   saving: { fontWeight: '700', letterSpacing: 0.6 },

@@ -4,6 +4,7 @@ import { describe, it } from 'node:test';
 import {
   EMPTY_FILL, allocate, allocated, isComplete, packFingerprint, packSavingBps,
   packSummary, release, remaining, setQuantity, type PackFill,
+  retainAllowedChoices,
 } from './pack-fill';
 
 const SIX = { packSize: 6 };
@@ -41,6 +42,13 @@ describe('allocation', () => {
     assert.deepEqual(release({ a: 1 }, 'missing'), { a: 1 });
   });
 
+  it('removes a choice that becomes unavailable during a live fill', () => {
+    const fill = { available: 2, soldOut: 4 };
+    assert.deepEqual(retainAllowedChoices(fill, ['available']), { available: 2 });
+    assert.equal(isComplete(SIX, retainAllowedChoices(fill, ['available'])), false);
+    assert.equal(retainAllowedChoices(fill, ['available', 'soldOut']), fill);
+  });
+
   it('clamps a typed quantity to what the box can still hold', () => {
     assert.deepEqual(setQuantity(SIX, { a: 2 }, 'b', 99), { a: 2, b: 4 });
     assert.deepEqual(setQuantity(SIX, { a: 2, b: 4 }, 'b', 0), { a: 2 });
@@ -52,6 +60,12 @@ describe('allocation', () => {
     assert.equal(remaining({ packSize: Number.NaN }, {}), 0);
     assert.deepEqual(allocate({ packSize: 0 }, {}, 'a'), {});
     assert.equal(isComplete({ packSize: 0 }, {}), false);
+  });
+
+  it('never treats fractional, negative, or empty-id state as complete', () => {
+    assert.equal(isComplete(SIX, { a: 7, b: -1 }), false);
+    assert.equal(isComplete(SIX, { a: 5.5, b: 0.5 }), false);
+    assert.equal(isComplete(SIX, { '': 6 }), false);
   });
 });
 

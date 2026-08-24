@@ -21,6 +21,8 @@ export type PlaceOrderLine = {
   /** Modifier choice slugs, priced server-side from the item's modifiers. */
   modifierSlugs?: string[];
   note?: string;
+  /** Exact contents for one pack unit. The server validates slugs and count. */
+  packContents?: { itemSlug: string; quantity: number }[];
 };
 
 export type PlaceOrderRequest = {
@@ -30,6 +32,8 @@ export type PlaceOrderRequest = {
   scheduledFor?: string | null;
   lines: PlaceOrderLine[];
   tipCents: number;
+  /** The most the guest approved; the server rejects a higher repriced total. */
+  maximumTotalCents?: number;
   loyaltyRedeemPoints?: number;
   note?: string;
   tenderType: TenderType;

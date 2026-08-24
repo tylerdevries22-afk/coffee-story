@@ -4,11 +4,11 @@ import { describe, it } from 'node:test';
 import { postureFor } from './kiosk-mode';
 
 describe('postureFor', () => {
-  it('gives a lobby kiosk no cash and no order lookup', () => {
+  it('lets a lobby kiosk offer staff-collected pay-at-counter without order lookup', () => {
     const posture = postureFor('kiosk');
     assert.ok(posture);
     assert.equal(posture.unattended, true);
-    assert.equal(posture.allowsCashTender, false);
+    assert.equal(posture.allowsCashTender, true);
     // Looking an order up shows a guest's name to whoever is standing there.
     assert.equal(posture.allowsOrderLookup, false);
     assert.equal(posture.channel, 'kiosk');

@@ -1,15 +1,19 @@
 import { useEffect, useReducer, useRef, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
 
+import { newIdempotencyKey } from '@platform/api-client';
 import { formatMoney, orderSubtotalCents, orderTotals, ticketCallout } from '@platform/domain';
 import { useTokens } from '@platform/ui';
 
 import { KioskPressable } from '@/components/chrome/kiosk-pressable';
 import { CheckDraw } from '@/components/feedback/check-draw';
 import { IDLE_CHECKOUT, checkoutReducer, recoveryAdvice } from '@/features/checkout';
+import {
+  checkoutAttemptKey, checkoutPreflight, paymentAmountCents, placeCheckoutOrder,
+} from '@/features/checkout-runtime';
 import { toPlaceOrderRequest } from '@/features/order-request';
 import { deviceApiClient } from '@/lib/api';
-import { authorize } from '@/lib/card-reader';
+import { authorize, CARD_READER_IS_SIMULATED } from '@/lib/card-reader';
 import * as haptics from '@/lib/haptics';
 import { useDevice } from '@/state/device';
 import { useFlow } from '@/state/flow';
@@ -34,64 +38,107 @@ const TIMEOUT_MS = 20_000;
 export default function ProcessingStep() {
   const tokens = useTokens();
   const { goNext, goTo } = useFlow();
-  const { cart, setCommitted } = useKioskSession();
+  const { cart, reset: resetCheckout, setCommitted, tender, tipCents } = useKioskSession();
   const device = useDevice();
   const { guestLabel } = useGuest();
   const [ticket, setTicket] = useState<string | null>(null);
+  const [blockedCode, setBlockedCode] = useState<string | null>(null);
+  const [placementRejected, setPlacementRejected] = useState(false);
+  const [priceIncrease, setPriceIncrease] = useState(false);
   const [state, dispatch] = useReducer(checkoutReducer, IDLE_CHECKOUT);
-  const started = useRef(false);
+  const [runSequence, rerun] = useReducer((value: number) => value + 1, 0);
+  const committedKey = useRef<string | null>(null);
 
-  const totals = orderTotals({ subtotalCents: orderSubtotalCents(cart), jurisdictions: TENANT_TAX });
+  const totals = orderTotals({ subtotalCents: orderSubtotalCents(cart), tipCents, jurisdictions: TENANT_TAX });
+  const [displayTotalCents, setDisplayTotalCents] = useState(totals.totalCents);
+  const attempt = useRef({ cart, device, guestLabel, setCommitted, tender, tipCents, totalCents: totals.totalCents, state });
+  attempt.current = { cart, device, guestLabel, setCommitted, tender, tipCents, totalCents: totals.totalCents, state };
 
   useEffect(() => {
-    if (started.current) return;
-    started.current = true;
+    const snapshot = attempt.current;
+    const preflight = checkoutPreflight(snapshot.tender, snapshot.device, deviceApiClient, {
+      platform: Platform.OS,
+      readerIsSimulated: CARD_READER_IS_SIMULATED,
+    });
+    if (preflight.kind === 'blocked') {
+      // Nothing has been sent, so this remains a normal cancellable checkout.
+      // Keeping this before both the key and `setCommitted(true)` is what
+      // prevents a configuration error from trapping a guest on processing.
+      snapshot.setCommitted(false);
+      setBlockedCode(preflight.code);
+      return undefined;
+    }
+    setBlockedCode(null);
+    // Keep the key outside React state as well: development Strict Mode may
+    // start an effect twice before the reducer's first `place` event renders.
+    // Both requests must still hit the server under one key.
+    const attemptKey = committedKey.current
+      ?? checkoutAttemptKey(snapshot.state, newIdempotencyKey);
+    committedKey.current = attemptKey;
+    let active = true;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
     // Past this point the idle clock must never clear the session: a guest who
     // has paid and stepped back for a moment has not abandoned anything.
-    setCommitted(true);
+    snapshot.setCommitted(true);
+    dispatch({ type: 'place', attemptKey });
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
     void (async () => {
-      const attemptKey = newAttemptKey();
-      dispatch({ type: 'place', attemptKey });
+      const placement = await placeCheckoutOrder(preflight.target, attemptKey, (locationId) =>
+        toPlaceOrderRequest({
+          cart: snapshot.cart,
+          locationId,
+          // The reader is the tender; the order is created first so a timeout
+          // leaves a row to settle rather than an orphan charge.
+          tenderType: preflight.tender.tenderType,
+          tipCents: snapshot.tipCents,
+          maximumTotalCents: snapshot.totalCents,
+          guestLabel: snapshot.guestLabel,
+        }));
+      if (!active) return;
+      if (placement.kind === 'ambiguous') {
+        dispatch({ type: 'timedOut' });
+        return;
+      }
+      if (placement.kind === 'failed') {
+        // ApiError is a definite server rejection: no order was created. It is
+        // therefore safe to unlock the kiosk and let the guest revise or end
+        // this checkout. Ambiguous failures intentionally stay committed.
+        snapshot.setCommitted(false);
+        setPlacementRejected(true);
+        dispatch({ type: 'failed', code: placement.code });
+        return;
+      }
 
-      /**
-       * A paired kiosk places a REAL order; an unpaired one runs the demo
-       * plane. The branch is on the device rather than on a build flag, so the
-       * same binary is a working till in a shop and a walkable demo on the web
-       * export the captures use.
-       */
-      let orderId = attemptKey;
-      const api = device.accessToken ? deviceApiClient(device.accessToken) : null;
-      if (api && device.locationId) {
-        try {
-          const placed = await api.placeOrder(
-            toPlaceOrderRequest({
-              cart,
-              locationId: device.locationId,
-              // The reader is the tender; the order is created first so a
-              // timeout leaves a row to settle rather than an orphan charge.
-              tenderType: 'pay_at_pickup',
-              guestLabel,
-            }),
-            // The SAME key the reducer is holding, so a retry of a request that
-            // may already have created an order returns that order rather than
-            // making a second one.
-            attemptKey,
-          );
-          orderId = placed.orderId;
-          setTicket(ticketCallout(placed.dailyNumber, guestLabel));
-        } catch {
-          clearTimeout(timer);
-          dispatch({ type: 'failed', code: 'order_rejected' });
-          return;
-        }
+      setPlacementRejected(false);
+      const orderId = placement.kind === 'placed' ? placement.order.orderId : placement.orderId;
+      const amountCents = paymentAmountCents(placement, snapshot.totalCents);
+      setDisplayTotalCents(amountCents);
+      if (placement.kind === 'placed') {
+        setTicket(ticketCallout(placement.order.dailyNumber, snapshot.guestLabel));
       }
       dispatch({ type: 'placed', orderId });
 
-      const result = await authorize({ amountCents: totals.totalCents, orderId }, controller.signal);
-      clearTimeout(timer);
+      // A rolling deployment may briefly pair this client with an API that
+      // predates maximumTotalCents. Never let that compatibility window turn
+      // a stale menu into an unapproved higher card authorization.
+      if (amountCents > snapshot.totalCents) {
+        setPriceIncrease(true);
+        dispatch({ type: 'failed', code: 'price_changed' });
+        return;
+      }
+
+      if (!preflight.tender.requiresReader) {
+        haptics.completed();
+        dispatch({ type: 'authorized' });
+        return;
+      }
+
+      timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+      const result = await authorize({ amountCents, orderId }, controller.signal);
+      if (timer) clearTimeout(timer);
+      if (!active) return;
       if (result.ok) {
         haptics.completed();
         dispatch({ type: 'authorized' });
@@ -100,11 +147,16 @@ export default function ProcessingStep() {
       } else {
         dispatch({ type: 'failed', code: result.code });
       }
-    })();
+    })().catch(() => {
+      if (active) dispatch({ type: 'timedOut' });
+    });
 
-    return () => { clearTimeout(timer); controller.abort(); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [totals.totalCents, setCommitted]);
+    return () => {
+      active = false;
+      if (timer) clearTimeout(timer);
+      controller.abort();
+    };
+  }, [runSequence]);
 
   const advice = recoveryAdvice(state);
   const done = state.phase === 'succeeded';
@@ -112,14 +164,41 @@ export default function ProcessingStep() {
   return (
     <View style={styles.root}>
       <Text style={[styles.total, { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: tokens.type.mega }]}>
-        {formatMoney(totals.totalCents)}
+        {formatMoney(displayTotalCents)}
       </Text>
 
-      {done ? (
+      {displayTotalCents < totals.totalCents ? (
+        <Text accessibilityRole="alert" style={[styles.repriced, { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: tokens.type.md }]}>
+          Your total decreased to the current menu price.
+        </Text>
+      ) : null}
+
+      {blockedCode !== null ? (
+        <>
+          <Text accessibilityRole="alert" style={[styles.status, { color: tokens.danger, fontFamily: tokens.fontBody, fontSize: tokens.type.xl }]}>
+            Checkout is not ready on this kiosk. No order was sent and no payment was taken.
+          </Text>
+          <KioskPressable label="Back to payment" onPress={() => goTo('pay')} />
+        </>
+      ) : priceIncrease ? (
+        <>
+          <Text accessibilityRole="alert" style={[styles.status, { color: tokens.danger, fontFamily: tokens.fontBody, fontSize: tokens.type.xl }]}>
+            The menu price changed. No payment was taken; please ask staff to clear this checkout.
+          </Text>
+          <KioskPressable label="Staff: clear checkout" onPress={resetCheckout} />
+        </>
+      ) : placementRejected ? (
+        <>
+          <Text accessibilityRole="alert" style={[styles.status, { color: tokens.danger, fontFamily: tokens.fontBody, fontSize: tokens.type.xl }]}>
+            We could not place this order. No payment was taken.
+          </Text>
+          <KioskPressable label="Review order" onPress={() => goTo('bag')} />
+        </>
+      ) : done ? (
         <>
           <CheckDraw />
           <Text style={[styles.status, { color: tokens.success, fontFamily: tokens.fontBody, fontSize: tokens.type.xl }]}>
-            Payment complete
+            {tender === 'cash' ? 'Order sent — pay at the counter' : 'Payment complete'}
           </Text>
           {ticket !== null ? (
             <>
@@ -140,7 +219,7 @@ export default function ProcessingStep() {
         <>
           <ActivityIndicator size="large" color={tokens.accent} />
           <Text style={[styles.status, { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: tokens.type.xl }]}>
-            Taking your payment…
+            {tender === 'cash' ? 'Sending your order…' : 'Taking your payment…'}
           </Text>
         </>
       ) : (
@@ -152,10 +231,12 @@ export default function ProcessingStep() {
                 ? 'We did not hear back. Nothing has been charged twice.'
                 : 'That payment was declined.'}
           </Text>
-          {advice === 'choose-another-tender' ? (
-            <KioskPressable label="Try another way to pay" onPress={() => { dispatch({ type: 'retry' }); goTo('pay'); }} />
+          {advice === 'retry-payment' ? (
+            <KioskPressable label="Try card again" onPress={() => { dispatch({ type: 'retry' }); rerun(); }} />
           ) : advice === 'retry' ? (
-            <KioskPressable label="Try again" onPress={() => { started.current = false; dispatch({ type: 'retry' }); }} />
+            <KioskPressable label="Try again" onPress={() => { dispatch({ type: 'retry' }); rerun(); }} />
+          ) : advice === 'see-staff' ? (
+            <KioskPressable label="Staff: clear checkout" onPress={resetCheckout} />
           ) : null}
         </>
       )}
@@ -163,24 +244,9 @@ export default function ProcessingStep() {
   );
 }
 
-/**
- * A UUID per attempt, which becomes `orders.client_key`.
- *
- * `crypto.randomUUID` is not on Hermes, so this falls back rather than throwing
- * on the one device class the kiosk actually runs on.
- */
-function newAttemptKey(): string {
-  const globalCrypto = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
-  if (typeof globalCrypto?.randomUUID === 'function') return globalCrypto.randomUUID();
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (character) => {
-    const random = Math.floor(Math.random() * 16);
-    const value = character === 'x' ? random : (random & 0x3) | 0x8;
-    return value.toString(16);
-  });
-}
-
 const styles = StyleSheet.create({
   root: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 28 },
   total: {},
+  repriced: { textAlign: 'center' },
   status: { textAlign: 'center', maxWidth: 720 },
 });

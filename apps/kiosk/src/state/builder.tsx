@@ -1,15 +1,19 @@
-import { createContext, useCallback, useContext, useMemo, useReducer, type PropsWithChildren } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, type PropsWithChildren } from 'react';
 
 import {
   buildOrderLine, defaultOptionSelection, missingRequiredGroups, optionDeltaCents,
-  optionGroupsFor, pruneHiddenGroups, sizeLabelFor, sizePriceCents, toggleOptionChoice,
+  pruneHiddenGroups, sizeLabel, sizePriceCents, toggleOptionChoice,
   visibleOptionGroups,
-  type KioskMenuItem as MenuItem, type MenuCategoryId, type OptionGroup,
+  type KioskMenuItem as MenuItem, type OptionGroup,
   type OptionSelection, type OrderLine,
 } from '@platform/domain';
 
-import { optionCategoryIdFor } from '@/data/menu-source';
-import { EMPTY_FILL, allocate, isComplete, packSummary, release, remaining, type PackFill } from '@/features/pack-fill';
+import {
+  EMPTY_FILL, allocate, isComplete, packSummary, release, remaining, retainAllowedChoices,
+  type PackFill,
+} from '@/features/pack-fill';
+import { withPackFill } from '@/features/pack-order-line';
+import { useKioskSession } from '@/state/session';
 
 /**
  * The line a guest is currently building.
@@ -37,6 +41,7 @@ type BuilderEvent =
   | { type: 'quantity'; delta: number }
   | { type: 'allocate'; choiceId: string; packSize: number }
   | { type: 'release'; choiceId: string }
+  | { type: 'retainPackChoices'; choiceIds: readonly string[] }
   | { type: 'reset' };
 
 /** Max 20 per line, matching `MAX_LINE_QUANTITY` in the domain cart. */
@@ -70,6 +75,10 @@ function reducer(state: BuilderState, event: BuilderEvent): BuilderState {
       return { ...state, fill: allocate({ packSize: event.packSize }, state.fill, event.choiceId) };
     case 'release':
       return { ...state, fill: release(state.fill, event.choiceId) };
+    case 'retainPackChoices': {
+      const fill = retainAllowedChoices(state.fill, event.choiceIds);
+      return fill === state.fill ? state : { ...state, fill };
+    }
     case 'reset':
       return EMPTY;
     default:
@@ -78,8 +87,7 @@ function reducer(state: BuilderState, event: BuilderEvent): BuilderState {
 }
 
 function groupsOf(item: MenuItem): OptionGroup[] {
-  const categoryId = optionCategoryIdFor(item);
-  return categoryId === null ? [] : optionGroupsFor(item.id, categoryId as MenuCategoryId);
+  return [...item.optionGroups];
 }
 
 type BuilderValue = {
@@ -95,13 +103,14 @@ type BuilderValue = {
   packComplete: (packSize: number) => boolean;
   packSummaryText: (nameOf: (id: string) => string) => string;
   /** The line to add, or null when it is not yet answerable. */
-  toOrderLine: () => OrderLine | null;
+  toOrderLine: (nameOfPackChoice?: (choiceId: string) => string) => OrderLine | null;
   choose: (item: MenuItem) => void;
   setSize: (sizeSlug: string) => void;
   toggle: (groupId: string, choiceId: string) => void;
   changeQuantity: (delta: number) => void;
   allocateChoice: (choiceId: string, packSize: number) => void;
   releaseChoice: (choiceId: string) => void;
+  retainPackChoices: (choiceIds: readonly string[]) => void;
   reset: () => void;
 };
 
@@ -109,6 +118,12 @@ const BuilderContext = createContext<BuilderValue | null>(null);
 
 export function BuilderProvider({ children }: PropsWithChildren) {
   const [state, dispatch] = useReducer(reducer, EMPTY);
+  const { setBuilding } = useKioskSession();
+
+  useEffect(() => {
+    setBuilding(state.item !== null || Object.keys(state.fill).length > 0);
+    return () => setBuilding(false);
+  }, [state.item, state.fill, setBuilding]);
 
   const groups = useMemo(() => (state.item ? groupsOf(state.item) : []), [state.item]);
   const visible = useMemo(() => visibleOptionGroups(groups, state.selection), [groups, state.selection]);
@@ -122,20 +137,27 @@ export function BuilderProvider({ children }: PropsWithChildren) {
     ? sizePriceCents(size) + optionDeltaCents(groups, state.selection)
     : 0;
 
-  const toOrderLine = useCallback((): OrderLine | null => {
+  const toOrderLine = useCallback((nameOfPackChoice: (choiceId: string) => string = (id) => id): OrderLine | null => {
     if (!state.item || !size) return null;
     if (missing.length > 0) return null;
-    return buildOrderLine({
+    const line = buildOrderLine({
       itemId: state.item.id,
       name: state.item.name,
       sizeSlug: size.slug,
-      sizeLabel: sizeLabelFor(size.slug),
+      sizeSlugIsSynthetic: size.synthetic === true,
+      sizeLabel: sizeLabel(size),
       basePriceCents: sizePriceCents(size),
       groups,
       selection: state.selection,
       quantity: state.quantity,
     });
-  }, [state.item, state.selection, state.quantity, size, groups, missing.length]);
+    return state.item.packSize
+      ? withPackFill(line, state.item.packSize, state.fill, nameOfPackChoice)
+      : line;
+  }, [state.item, state.selection, state.quantity, state.fill, size, groups, missing.length]);
+  const retainPackChoices = useCallback((choiceIds: readonly string[]) => {
+    dispatch({ type: 'retainPackChoices', choiceIds });
+  }, []);
 
   const value = useMemo<BuilderValue>(() => ({
     state,
@@ -153,8 +175,9 @@ export function BuilderProvider({ children }: PropsWithChildren) {
     changeQuantity: (delta) => dispatch({ type: 'quantity', delta }),
     allocateChoice: (choiceId, packSize) => dispatch({ type: 'allocate', choiceId, packSize }),
     releaseChoice: (choiceId) => dispatch({ type: 'release', choiceId }),
+    retainPackChoices,
     reset: () => dispatch({ type: 'reset' }),
-  }), [state, visible, missing, unitPriceCents, toOrderLine]);
+  }), [state, visible, missing, unitPriceCents, toOrderLine, retainPackChoices]);
 
   return <BuilderContext.Provider value={value}>{children}</BuilderContext.Provider>;
 }

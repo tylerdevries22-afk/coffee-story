@@ -134,6 +134,21 @@ describe('addOrderLine', () => {
     assert.equal(cart.lines.length, 2);
   });
 
+  it('never merges different live items that share a size slug and options', () => {
+    const first = buildOrderLine({
+      itemId: 'latte', name: 'Latte', sizeSlug: '16', sizeLabel: '16 oz',
+      basePriceCents: 500, groups: [], selection: {},
+    });
+    const second = buildOrderLine({
+      itemId: 'matcha', name: 'Matcha', sizeSlug: '16', sizeLabel: '16 oz',
+      basePriceCents: 600, groups: [], selection: {},
+    });
+    const cart = addOrderLine(addOrderLine(EMPTY_CART, first), second);
+
+    assert.notEqual(first.id, second.id);
+    assert.deepEqual(cart.lines.map((line) => line.itemId), ['latte', 'matcha']);
+  });
+
   it('caps a merged line rather than letting it climb past the maximum', () => {
     const line = latte({ serve: ['serve-hot'] }, MAX_LINE_QUANTITY);
     const cart = addOrderLine(addOrderLine(EMPTY_CART, line), line);

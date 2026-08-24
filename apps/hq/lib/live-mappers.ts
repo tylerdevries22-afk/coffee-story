@@ -13,6 +13,7 @@ import type {
   LocationSummary,
   MenuItemSummary,
 } from './demo-data';
+import { isRevenueOrderStatus } from '@platform/schema';
 
 export type MetricsRow = {
   location_id: string;
@@ -201,7 +202,7 @@ export function customerSummariesOf(
   const lifetime = new Map<string, number>();
   const lastOrder = new Map<string, string>();
   for (const order of orders) {
-    if (!order.customer_id || order.status === 'cancelled' || order.status === 'refunded') continue;
+    if (!order.customer_id || !isRevenueOrderStatus(order.status)) continue;
     lifetime.set(order.customer_id, (lifetime.get(order.customer_id) ?? 0) + order.total_cents);
     const seen = lastOrder.get(order.customer_id);
     if (!seen || order.created_at > seen) lastOrder.set(order.customer_id, order.created_at);

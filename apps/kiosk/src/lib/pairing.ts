@@ -6,6 +6,7 @@
  * tablet does not have one yet.
  */
 import type { StoredDeviceToken } from '@/lib/device-token';
+import { parseStoredDeviceToken } from '@/lib/device-token';
 import { apiBaseUrl } from '@/lib/api';
 
 const TIMEOUT_MS = 15_000;
@@ -14,15 +15,20 @@ export type PairResult =
   | { ok: true; token: StoredDeviceToken }
   | { ok: false; error: string; revoked?: boolean };
 
-export async function pairDevice(code: string): Promise<PairResult> {
-  return post('/api/devices/pair', { code }, undefined);
+export async function pairDevice(code: string, tenantSlug: string): Promise<PairResult> {
+  return post('/api/devices/pair', { code, tenantSlug }, undefined, tenantSlug);
 }
 
-export async function refreshDevice(token: string): Promise<PairResult> {
-  return post('/api/devices/refresh', {}, token);
+export async function refreshDevice(token: string, tenantSlug: string): Promise<PairResult> {
+  return post('/api/devices/refresh', {}, token, tenantSlug);
 }
 
-async function post(path: string, body: unknown, token: string | undefined): Promise<PairResult> {
+async function post(
+  path: string,
+  body: unknown,
+  token: string | undefined,
+  tenantSlug: string,
+): Promise<PairResult> {
   const base = apiBaseUrl();
   if (!base) return { ok: false, error: 'This kiosk has no platform API configured.' };
 
@@ -47,7 +53,14 @@ async function post(path: string, body: unknown, token: string | undefined): Pro
       const detail = (await response.json().catch(() => null)) as { message?: string } | null;
       return { ok: false, error: detail?.message ?? 'That code did not work.' };
     }
-    return { ok: true, token: (await response.json()) as StoredDeviceToken };
+    const payload = await response.json() as unknown;
+    const record = typeof payload === 'object' && payload !== null && !Array.isArray(payload)
+      ? payload as Record<string, unknown>
+      : {};
+    const parsed = parseStoredDeviceToken({ ...record, tenantSlug });
+    return parsed
+      ? { ok: true, token: parsed }
+      : { ok: false, error: 'The platform returned an invalid device credential.' };
   } catch {
     return { ok: false, error: 'Could not reach the platform. Check the shop network.' };
   } finally {

@@ -1,12 +1,15 @@
+import { useEffect, useMemo, useRef } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { formatMoney } from '@platform/domain';
+import { addOrderLine, formatMoney } from '@platform/domain';
 import { useTokens } from '@platform/ui';
 
 import { KioskPressable } from '@/components/chrome/kiosk-pressable';
 import { KioskStepper } from '@/components/chrome/kiosk-stepper';
+import { FlowRecovery } from '@/components/chrome/flow-recovery';
 import { StepHeading } from '@/components/chrome/step-heading';
 import { KioskMenuImage } from '@/components/menu-image';
+import { useKioskMenu } from '@/data/menu-store';
 import * as haptics from '@/lib/haptics';
 import { useBuilder } from '@/state/builder';
 import { useFlow } from '@/state/flow';
@@ -22,22 +25,51 @@ import TENANT from '@/tenant/brand.json';
  */
 export default function ReviewStep() {
   const tokens = useTokens();
-  const { goNext } = useFlow();
+  const { goTo, learn, openCart } = useFlow();
   const builder = useBuilder();
   const { addLine, cart } = useKioskSession();
+  const { menu } = useKioskMenu();
+  const submitted = useRef(false);
   const item = builder.state.item;
+  const packChoiceNames = useMemo(
+    () => new Map(menu.items.map((entry) => [entry.id, entry.name])),
+    [menu.items],
+  );
+  const line = item
+    ? builder.toOrderLine((choiceId) => packChoiceNames.get(choiceId) ?? choiceId)
+    : null;
+  const recoveryTarget = submitted.current ? null : !item
+    ? 'entry'
+    : !line && item.packSize && !builder.packComplete(item.packSize)
+      ? 'fill'
+      : !line && builder.visibleGroups.length > 0
+        ? 'options'
+        : !line ? 'entry' : null;
 
-  if (!item) return null;
+  useEffect(() => {
+    if (recoveryTarget) goTo(recoveryTarget);
+  }, [goTo, recoveryTarget]);
+
+  if (!item || !line) {
+    if (submitted.current) return <View style={styles.root} />;
+    return <FlowRecovery onRecover={() => goTo(recoveryTarget ?? 'entry')} />;
+  }
 
   function addToBag() {
-    const line = builder.toOrderLine();
     if (!line) return;
+    // Clearing the builder re-renders this page before Router finishes its
+    // replace. Mark the intentional clear so the missing-item recovery effect
+    // cannot race the bag navigation and send the guest back to the menu.
+    submitted.current = true;
     haptics.landed();
+    const nextCart = addOrderLine(cart, line);
     addLine(line);
+    learn({ bagCount: nextCart.lines.length, hasOptions: false });
     builder.reset();
-    // The bag count is what makes checkout reachable, so it rides the advance:
-    // set separately, `canAdvance` would still see an empty bag.
-    goNext({ bagCount: cart.lines.length + 1, hasOptions: false });
+    // Preserve the menu underneath the transient cart rail. Navigating to a
+    // full-stage bag here is what erased the reference interaction.
+    goTo('entry');
+    openCart();
   }
 
   return (
@@ -46,7 +78,12 @@ export default function ReviewStep() {
 
       <View style={styles.stage}>
         <KioskMenuImage
-          request={{ imageSlug: item.id, monogram: TENANT.business?.monogram, label: item.name }}
+          request={{
+            imageSlug: item.id,
+            imageUrl: item.imageUrl,
+            monogram: TENANT.business?.monogram,
+            label: item.name,
+          }}
           variant="kioskHero"
           alt={item.name}
         />
@@ -54,7 +91,7 @@ export default function ReviewStep() {
           {item.name}
         </Text>
         <Text style={[styles.summary, { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: tokens.type.lg }]}>
-          {builder.toOrderLine()?.optionSummary || 'As it comes'}
+          {line.optionSummary || 'As it comes'}
         </Text>
       </View>
 
@@ -70,7 +107,7 @@ export default function ReviewStep() {
 
       <View style={styles.footer}>
         <KioskPressable
-          label="Add to bag"
+          label="Add to cart"
           trailing={formatMoney(builder.lineTotalCents)}
           onPress={addToBag}
         />

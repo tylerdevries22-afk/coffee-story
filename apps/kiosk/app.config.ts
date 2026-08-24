@@ -9,9 +9,27 @@ type KioskBrand = {
     name: string;
     kioskBundleId: string;
     kioskScheme: string;
+    kioskEasProjectId: string;
   };
   tokens?: { primary?: string; surface?: string };
 };
+
+type KioskEasConfig = {
+  extra: { router: Record<string, never>; eas?: { projectId: string } };
+  updates?: { url: string };
+};
+
+/** An empty project id is valid until this tenant's kiosk runs `eas init`. */
+export function kioskEasConfig(projectId: string | undefined): KioskEasConfig {
+  const normalized = projectId?.trim() ?? '';
+  return {
+    extra: {
+      router: {},
+      ...(normalized ? { eas: { projectId: normalized } } : {}),
+    },
+    ...(normalized ? { updates: { url: `https://u.expo.dev/${normalized}` } } : {}),
+  };
+}
 
 const brand = JSON.parse(
   readFileSync(join(__dirname, 'src', 'tenant', 'brand.json'), 'utf8'),
@@ -27,9 +45,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   icon: './assets/images/icon.png',
   scheme: brand.identity.kioskScheme,
   runtimeVersion: 'exposdk:54.0.0',
-  updates: { url: 'https://u.expo.dev/965cd044-8020-41d0-b719-337f6c9f6f72' },
   userInterfaceStyle: 'light',
   ios: {
+    icon: './assets/expo.icon',
     bundleIdentifier: brand.identity.kioskBundleId,
     supportsTablet: true,
     requireFullScreen: true,
@@ -40,6 +58,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     adaptiveIcon: {
       backgroundColor: brand.tokens?.primary ?? '#1C1917',
       foregroundImage: './assets/images/android-icon-foreground.png',
+      backgroundImage: './assets/images/android-icon-background.png',
       monochromeImage: './assets/images/android-icon-monochrome.png',
     },
     predictiveBackGestureEnabled: false,
@@ -57,9 +76,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     ],
   ],
   experiments: { typedRoutes: true },
-  extra: {
-    router: {},
-    eas: { projectId: '965cd044-8020-41d0-b719-337f6c9f6f72' },
-  },
+  ...kioskEasConfig(brand.identity.kioskEasProjectId),
   owner: 'tylerdevries222',
 });

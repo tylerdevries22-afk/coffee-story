@@ -1,20 +1,25 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { optionGroupsFor } from '@platform/domain';
+import { MENU_ITEMS } from '@/data/catalog';
 
-import { demoMenu, optionCategoryIdFor } from './menu-source';
+import { demoMenu } from './menu-source';
 
-describe('optionCategoryIdFor', () => {
-  it('keeps database category titles compatible with the option engine', () => {
-    const item = demoMenu().items.find((candidate) => candidate.id === 'tiramisu-latte');
-    assert.ok(item);
-    const categoryId = optionCategoryIdFor(item);
-    assert.equal(categoryId, 'signature');
-    assert.ok(categoryId && optionGroupsFor(item.id, categoryId).some((group) => group.id === 'serve'));
+describe('demoMenu', () => {
+  it('keeps every generated item when its option contract is valid', () => {
+    assert.equal(demoMenu().items.length, MENU_ITEMS.length);
   });
 
-  it('fails closed for a tenant category with no option contract', () => {
-    assert.equal(optionCategoryIdFor({ categoryId: 'Seasonal Specials' }), null);
+  it('carries the generated tenant option groups onto kiosk items', () => {
+    const item = demoMenu().items.find((candidate) => candidate.id === 'tiramisu-latte');
+    assert.ok(item);
+    assert.ok(item.optionGroups.some((group) => group.id === 'serve'));
+    assert.ok(item.optionGroups.some((group) => group.id === 'ice'));
+  });
+
+  it('keeps an explicit empty option contract empty', () => {
+    const item = demoMenu().items.find((candidate) => candidate.id === 'strawberry-nutella-croissant');
+    assert.ok(item);
+    assert.deepEqual(item.optionGroups, []);
   });
 });

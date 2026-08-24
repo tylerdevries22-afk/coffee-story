@@ -30,6 +30,16 @@ function typesSource(): string {
   return readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'types.ts'), 'utf8');
 }
 
+/** The last CREATE OR REPLACE body is what PostgreSQL keeps after migrations. */
+function functionInForce(schema: string, name: string): string {
+  const definitions = [...allSql().matchAll(new RegExp(
+    `create or replace function ${schema}\\.${name}\\b[\\s\\S]*?\\$\\$;`,
+    'g',
+  ))];
+  assert.ok(definitions.length > 0, `${schema}.${name} is not defined`);
+  return definitions[definitions.length - 1]?.[0] ?? '';
+}
+
 describe('device pairing', () => {
   it('declares every device role the TS union carries', () => {
     const sql = allSql();
@@ -324,12 +334,180 @@ describe('packs', () => {
     assert.match(allSql(), /\(pack_size is null\) = \(choice_source is null\)/);
   });
 
-  it('excludes 86d items from a pack\'s choices', () => {
+  it('stores a bounded, non-empty, duplicate-free authored choice set only on packs', () => {
     const sql = allSql();
-    const fn = /create or replace function app\.pack_choices[\s\S]*?\$\$;/.exec(sql);
-    assert.ok(fn, 'app.pack_choices is not defined');
-    assert.match(fn[0], /not mi\.is_86d/,
+    assert.match(sql,
+      /\(pack_size is null\) = \(cardinality\(pack_choice_slugs\) = 0\)/,
+      'packs must have choices and ordinary items must not carry them');
+    assert.match(sql, /cardinality\(pack_choice_slugs\) <= 100/);
+    assert.match(sql, /app\.valid_slug_set\(pack_choice_slugs\)/,
+      'the database must reject empty, whitespace-padded and duplicate slugs');
+  });
+
+  it('excludes 86d items from a pack\'s choices', () => {
+    const fn = functionInForce('app', 'pack_choices');
+    assert.match(fn, /not mi\.is_86d/,
       'a sold-out item must not be selectable inside a pack');
+  });
+
+  it('intersects live availability with the exact authored set and tenant', () => {
+    const fn = functionInForce('app', 'pack_choices');
+    assert.match(fn, /mi\.slug = any\(pack\.pack_choice_slugs\)/,
+      'unrelated permanent items must never become pack choices');
+    assert.match(fn, /mi\.brand_id = pack\.brand_id/,
+      'a malformed cross-tenant menu row must fail closed');
+    assert.match(fn, /d\.brand_id = pack\.brand_id/,
+      'a drop from another tenant must not make a choice orderable');
+  });
+});
+
+describe('atomic order commit', () => {
+  it('writes the order and initial events inside one service-role invoker function', () => {
+    const commit = functionInForce('public', 'commit_order');
+    assert.match(commit, /security invoker/);
+    assert.doesNotMatch(commit, /security definer/);
+    assert.match(commit, /set search_path = ''/);
+    assert.match(commit, /insert into public\.orders/);
+    assert.match(commit, /insert into public\.order_events/);
+    assert.match(commit,
+      /on conflict \(brand_id, client_key\) where client_key is not null do nothing/);
+    const sql = allSql();
+    assert.match(sql, /revoke all on function public\.commit_order\([\s\S]*?from public, anon, authenticated;/);
+    assert.match(sql, /grant execute on function public\.commit_order\([\s\S]*?to service_role;/);
+  });
+
+  it('resolves an immutable replay under a tenant-key transaction lock', () => {
+    const resolver = functionInForce('public', 'resolve_order_replay');
+    assert.match(resolver, /security invoker/);
+    assert.match(resolver, /pg_advisory_xact_lock\(hashtextextended\(/,
+      'a retry must wait for an in-flight winner before it reads mutable state');
+    assert.match(resolver,
+      /committed\.totals ->> 'request_fingerprint'[\s\S]*?is distinct from p_request_fingerprint/);
+    assert.match(resolver, /created event is missing/,
+      'a legacy partial row must never replay as a successful checkout');
+    assert.match(resolver, /external settlement event is missing/);
+    assert.match(allSql(),
+      /revoke all on function public\.resolve_order_replay\(uuid, uuid, text\)[\s\S]*?to service_role;/);
+  });
+
+  it('resolves before money and tenant checks and binds the snapshot fingerprint', () => {
+    const commit = functionInForce('public', 'commit_order');
+    assert.match(commit, /if p_client_key is null then[\s\S]*?idempotency key is required/,
+      'a checkout without a key cannot be safely retried');
+    assert.match(commit, /p_request_fingerprint !~ '\^\[0-9a-f\]\{64\}\$'/);
+    assert.match(commit,
+      /public\.resolve_order_replay\([\s\S]*?if replayed is not null then return replayed; end if;[\s\S]*?if p_subtotal_cents/,
+      'a committed retry must resolve before current money validation');
+    assert.match(commit,
+      /p_totals ->> 'request_fingerprint' is distinct from p_request_fingerprint/);
+    assert.match(allSql(),
+      /uuid, uuid, text, uuid\s*\) from public, anon, authenticated;/,
+      'the commit_order revoke signature must include the fingerprint argument');
+  });
+
+  it('rejects inconsistent money snapshots and cross-tenant references', () => {
+    const fn = functionInForce('public', 'commit_order');
+    assert.match(fn, /total must equal subtotal \+ tax \+ tip/);
+    for (const relation of ['locations', 'customers', 'devices']) {
+      assert.match(fn, new RegExp(`from public\\.${relation}`),
+        `commit_order must validate ${relation} inside its privileged boundary`);
+    }
+    assert.match(fn, /device\.brand_id = p_brand_id/);
+    assert.match(fn, /device\.location_id = p_location_id/);
+  });
+
+  it('leaves pay at pickup unpaid and limits execution to the service role', () => {
+    const fn = functionInForce('public', 'commit_order');
+    assert.match(fn, /if committed\.tender_type = 'external' then[\s\S]*?'paid'/);
+    assert.doesNotMatch(fn, /committed\.tender_type = 'pay_at_pickup'/,
+      'cash is paid only when an operator records collection');
+  });
+
+  it('limits staff paid and cancelled events to unpaid pay-at-pickup orders', () => {
+    const sql = allSql();
+    assert.match(sql,
+      /order_events\.type in \('paid', 'cancelled'\)[\s\S]*?target\.tender_type = 'pay_at_pickup'/,
+      'operator RLS must reject card and external money-state events');
+    const transition = functionInForce('app', 'apply_order_event');
+    assert.match(transition, /security definer/);
+    assert.match(transition, /set search_path = ''/);
+    assert.match(transition,
+      /new\.source = 'operator'[\s\S]*?new\.square_refund_id is null[\s\S]*?new\.type in \('paid', 'cancelled'\)[\s\S]*?current_tender <> 'pay_at_pickup' or current_status <> 'created'/,
+      'the locked pre-transition row must be unpaid pay at pickup');
+    assert.match(transition, /from public\.orders target[\s\S]*?for update/,
+      'concurrent operator money events must serialize on the order');
+    assert.match(sql, /revoke all on function app\.apply_order_event\(\)[\s\S]*?service_role;/);
+    for (const column of ['square_refund_id', 'refund_cents', 'refund_request_key']) {
+      assert.match(sql, new RegExp(`${column} is null`),
+        `operator RLS must reject caller-authored ${column}`);
+    }
+    assert.match(sql, /not \(snapshot \?\| array\[[\s\S]*?'refund_id'[\s\S]*?'request_key'/,
+      'operator RLS must reject general JSON shaped like a refund');
+  });
+
+  it('canonicalizes trusted refunds into typed, unique accounting fields', () => {
+    const sql = allSql();
+    assert.match(sql, /add column refund_cents bigint/);
+    assert.match(sql, /add column refund_request_key uuid/);
+    assert.match(sql,
+      /unique index order_events_refund_request_idx[\s\S]*?\(brand_id, refund_request_key\)[\s\S]*?where refund_request_key is not null/);
+    assert.match(sql, /source = 'operator' and refund_request_key is not null/,
+      'manual refund rows must always carry an attended request key');
+    assert.match(sql,
+      /snapshot ->> 'request_key' = refund_request_key::text[\s\S]*?snapshot -> 'requested_amount' = to_jsonb\(refund_cents\)/,
+      'the typed key must stay paired with the exact snapshot intent');
+    const canonicalizer = functionInForce('app', 'canonicalize_order_refund_event');
+    assert.match(canonicalizer, /security invoker/);
+    assert.match(canonicalizer, /current_user::text <> 'service_role'/);
+    assert.doesNotMatch(canonicalizer, /auth\.role\(\)/);
+    assert.match(canonicalizer, /new\.source <> 'webhook'/);
+    assert.match(canonicalizer, /new\.refund_cents := refund_cents_text::bigint/);
+    assert.match(canonicalizer, /new\.refund_request_key := request_key/);
+    assert.match(sql, /create trigger order_events_00_refund_canonicalize/,
+      'refund trust checks must run before the privileged state-transition trigger');
+  });
+
+  it('lets only the service role claim an exact webhook-first refund winner', () => {
+    const claim = functionInForce('public', 'claim_refund_request');
+    assert.match(claim, /security invoker/);
+    assert.match(claim, /where event\.square_refund_id = p_square_refund_id[\s\S]*?for update/);
+    for (const field of ['brand_id', 'order_id', 'refund_cents']) {
+      assert.match(claim, new RegExp(`claimed\\.${field} is distinct from p_${field}`),
+        `claim must validate ${field}`);
+    }
+    assert.match(claim, /claimed\.source <> 'webhook'/);
+    assert.match(claim,
+      /snapshot = event\.snapshot \|\| jsonb_build_object\([\s\S]*?'request_key'[\s\S]*?'requested_amount'/);
+    assert.match(claim, /exception when unique_violation then[\s\S]*?errcode = '22023'/);
+    const sql = allSql();
+    assert.match(sql, /revoke update on public\.order_events from public, anon, authenticated;/);
+    assert.match(sql,
+      /revoke all on function public\.claim_refund_request\(uuid, uuid, text, bigint, uuid, jsonb\)[\s\S]*?to service_role;/);
+  });
+
+  it('uses typed refunds for webhook totals and atomic loyalty reversal', () => {
+    const webhook = functionInForce('public', 'process_square_refund');
+    assert.match(webhook, /security invoker/);
+    assert.match(webhook, /sum\(event\.refund_cents\)/,
+      'webhooks must count attended and webhook refunds through one typed ledger');
+    assert.doesNotMatch(webhook, /snapshot ->> 'refunded_cents'/);
+    assert.doesNotMatch(webhook, /public\.loyalty_reverse_earn/,
+      'the one AFTER trigger owns loyalty reversal');
+
+    const sideEffects = functionInForce('app', 'apply_order_event_side_effects');
+    assert.match(sideEffects, /security definer/);
+    assert.match(sideEffects, /set search_path = ''/);
+    assert.match(sideEffects, /public\.loyalty_record_earn/);
+    assert.match(sideEffects, /public\.loyalty_reverse_earn/);
+    assert.match(sideEffects, /new\.refund_cents/);
+    assert.match(sideEffects, /'square_refund:' \|\| new\.square_refund_id/,
+      'manual and webhook refund replays must share one reversal cause');
+    assert.doesNotMatch(sideEffects, /new\.snapshot/,
+      'loyalty must not trust caller-authored general event JSON');
+    assert.match(sideEffects, /candidate\.brand_id = new\.brand_id/);
+    assert.match(allSql(),
+      /revoke all on function app\.apply_order_event_side_effects\(\)[\s\S]*?service_role;/,
+      'trigger execution does not require a callable definer helper');
   });
 });
 

@@ -24,6 +24,7 @@ export type KioskStepId =
   | 'fill'
   | 'review'
   | 'bag'
+  | 'tip'
   | 'pay'
   | 'identify'
   | 'keypad'
@@ -76,8 +77,8 @@ export const EMPTY_FACTS: FlowFacts = {
  * cannot configure away.
  */
 const SPINES: Record<KioskStepFamily, readonly KioskStepId[]> = {
-  item: ['entry', 'node', 'item', 'options', 'review', 'bag', 'pay', 'identify', 'keypad', 'balance', 'processing', 'name', 'done'],
-  pack: ['entry', 'node', 'pack', 'fill', 'review', 'bag', 'pay', 'identify', 'keypad', 'balance', 'processing', 'name', 'done'],
+  item: ['entry', 'node', 'item', 'options', 'review', 'bag', 'tip', 'pay', 'identify', 'keypad', 'balance', 'name', 'processing', 'done'],
+  pack: ['entry', 'node', 'pack', 'fill', 'review', 'bag', 'tip', 'pay', 'identify', 'keypad', 'balance', 'name', 'processing', 'done'],
 };
 
 export function stepSpine(family: KioskStepFamily): readonly KioskStepId[] {
@@ -101,6 +102,8 @@ export function stepsFor(flow: KioskFlow, facts: FlowFacts): readonly KioskStepI
         return facts.inGroup;
       case 'options':
         return facts.hasOptions;
+      case 'tip':
+        return flow.tip.enabled && flow.tip.presetsCents.length > 0;
       // Identify is not part of paying by card. It appears only once the guest
       // has chosen a tender that needs an account behind it.
       case 'identify':
@@ -148,6 +151,11 @@ export function nextStep(flow: KioskFlow, facts: FlowFacts, current: KioskStepId
   return steps[index + 1] ?? null;
 }
 
+/** Merge facts learned by the same tap before choosing that tap's route. */
+export function factsForAdvance(facts: FlowFacts, learned?: Partial<FlowFacts>): FlowFacts {
+  return learned ? { ...facts, ...learned } : facts;
+}
+
 /**
  * Where the back chevron goes, or null to hide it.
  *
@@ -160,6 +168,10 @@ export function backStep(flow: KioskFlow, facts: FlowFacts, current: KioskStepId
   // Nothing after the order exists may be re-entered. A half-authorised
   // payment with a back button beside it is how a shop refunds by hand.
   if (current === 'processing' || current === 'done') return null;
+  // Review has already committed its line and reset the builder by the time the
+  // guest reaches the bag. Returning there would be a blank configurator, so
+  // Back from the bag means "keep ordering" and returns to the menu.
+  if (current === 'bag') return 'entry';
   const steps = stepsFor(flow, facts);
   const index = steps.indexOf(current);
   if (index <= 0) return null;
@@ -169,8 +181,13 @@ export function backStep(flow: KioskFlow, facts: FlowFacts, current: KioskStepId
 /** Whether the guest could legitimately be standing on this step. */
 export function isStepReachable(flow: KioskFlow, facts: FlowFacts, current: KioskStepId): boolean {
   if (!stepsFor(flow, facts).includes(current)) return false;
-  // Checkout with nothing in the bag is a screen whose only action is dead.
-  if ((current === 'pay' || current === 'bag') && facts.bagCount === 0) return false;
+  // Checkout with nothing in the bag is either a dead control or, for
+  // processing, a dangerous deep link into the money-moving page.
+  const needsBag = current === 'bag' || current === 'tip' || current === 'pay'
+    || current === 'identify' || current === 'keypad' || current === 'balance'
+    || current === 'name' || current === 'processing';
+  if (needsBag && facts.bagCount === 0) return false;
+  if (current === 'done' && !facts.placed) return false;
   return true;
 }
 
@@ -216,6 +233,7 @@ export const STEP_ROUTES = {
   fill: '/order/fill',
   review: '/order/review',
   bag: '/bag',
+  tip: '/checkout/tip',
   pay: '/checkout/pay',
   identify: '/checkout/identify',
   keypad: '/checkout/keypad',
@@ -224,3 +242,21 @@ export const STEP_ROUTES = {
   name: '/checkout/name',
   done: '/done',
 } as const satisfies Record<KioskStepId, string>;
+
+function normalizedPath(pathname: string): string {
+  return pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname;
+}
+
+/** Resolve navigation state from the URL so route and flow cannot drift. */
+export function stepForRoute(pathname: string): KioskStepId | null {
+  const normalized = normalizedPath(pathname);
+  for (const [step, route] of Object.entries(STEP_ROUTES) as [KioskStepId, string][]) {
+    if (route === normalized) return step;
+  }
+  return null;
+}
+
+/** True when Expo Router is rendering the page the state machine selected. */
+export function routeMatchesStep(pathname: string, step: KioskStepId): boolean {
+  return stepForRoute(pathname) === step;
+}

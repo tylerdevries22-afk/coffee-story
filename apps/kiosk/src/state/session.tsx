@@ -2,12 +2,17 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { PropsWithChildren } from 'react';
 
 import { EMPTY_CART, addOrderLine, changeOrderLineQuantity, removeOrderLine } from '@platform/domain';
-import type { OrderCart, OrderLine } from '@platform/domain';
+import type { KioskTender, OrderCart, OrderLine } from '@platform/domain';
 
 import { DEFAULT_IDLE_TIMING, idlePhase, type IdlePhase, type IdleTiming } from '@/features/idle';
 
 type SessionValue = {
   cart: OrderCart;
+  tipCents: number;
+  tender: KioskTender | null;
+  /** True only after checkout has crossed a side-effect boundary. */
+  committed: boolean;
+  idleTiming: IdleTiming;
   idle: IdlePhase;
   /** Bumped by every reset, so navigation can follow one without a callback. */
   resetSeq: number;
@@ -16,6 +21,8 @@ type SessionValue = {
   addLine: (line: OrderLine) => void;
   changeQuantity: (id: string, delta: number) => void;
   removeLine: (id: string) => void;
+  setTipCents: (tipCents: number) => void;
+  setTender: (tender: KioskTender) => void;
   reset: () => void;
   /**
    * Progress that is not yet a cart line -- a half-built pack. Without this the
@@ -32,9 +39,13 @@ const SessionContext = createContext<SessionValue | null>(null);
 
 export function KioskSessionProvider({
   timing = DEFAULT_IDLE_TIMING,
+  idleResets = true,
   children,
-}: PropsWithChildren<{ timing?: IdleTiming }>) {
+}: PropsWithChildren<{ timing?: IdleTiming; idleResets?: boolean }>) {
   const [cart, setCart] = useState<OrderCart>(EMPTY_CART);
+  const [tipCents, setTipCentsState] = useState(0);
+  const [tender, setTenderState] = useState<KioskTender | null>(null);
+  const [isCommitted, setIsCommitted] = useState(false);
   const [idle, setIdle] = useState<IdlePhase>('active');
   const [resetSeq, setResetSeq] = useState(0);
 
@@ -64,8 +75,11 @@ export function KioskSessionProvider({
 
   const reset = useCallback(() => {
     setCart(EMPTY_CART);
+    setTipCentsState(0);
+    setTenderState(null);
     building.current = false;
     committed.current = false;
+    setIsCommitted(false);
     setResetSeq((value) => value + 1);
     touch();
   }, [touch]);
@@ -73,6 +87,11 @@ export function KioskSessionProvider({
   const idleMsNow = useCallback(() => Date.now() - lastTouch.current, []);
 
   useEffect(() => {
+    if (!idleResets) {
+      phase.current = 'active';
+      setIdle('active');
+      return undefined;
+    }
     const id = setInterval(() => {
       const next = idlePhase(Date.now() - lastTouch.current, timing, {
         hasProgress: building.current || hasLines.current,
@@ -84,7 +103,7 @@ export function KioskSessionProvider({
       }
     }, 1_000);
     return () => clearInterval(id);
-  }, [timing]);
+  }, [timing, idleResets]);
 
   // Read by the interval without making the cart a dependency of it.
   const hasLines = useRef(false);
@@ -93,22 +112,34 @@ export function KioskSessionProvider({
   // The reset is the point of the whole clock: the next guest must never find
   // a stranger's session waiting for them.
   useEffect(() => {
-    if (idle === 'reset') reset();
-  }, [idle, reset]);
+    if (idleResets && idle === 'reset') reset();
+  }, [idle, idleResets, reset]);
 
   const value = useMemo<SessionValue>(() => ({
     cart,
+    tipCents,
+    tender,
+    committed: isCommitted,
+    idleTiming: timing,
     idle,
     resetSeq,
     touch,
     addLine: (line) => { touch(); setCart((current) => addOrderLine(current, line)); },
     changeQuantity: (id, delta) => { touch(); setCart((current) => changeOrderLineQuantity(current, id, delta)); },
     removeLine: (id) => { touch(); setCart((current) => removeOrderLine(current, id)); },
+    setTipCents: (next) => {
+      touch();
+      setTipCentsState(Math.max(0, Math.trunc(next)));
+    },
+    setTender: (next) => { touch(); setTenderState(next); },
     reset,
     setBuilding: (next) => { building.current = next; },
-    setCommitted: (next) => { committed.current = next; },
+    setCommitted: (next) => {
+      committed.current = next;
+      setIsCommitted(next);
+    },
     idleMsNow,
-  }), [cart, idle, resetSeq, touch, reset, idleMsNow]);
+  }), [cart, tipCents, tender, isCommitted, timing, idle, resetSeq, touch, reset, idleMsNow]);
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }

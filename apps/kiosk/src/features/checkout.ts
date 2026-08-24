@@ -83,7 +83,7 @@ export function reusesAttemptKey(state: CheckoutState): boolean {
   return state.attemptKey !== null;
 }
 
-export type CheckoutAdvice = 'none' | 'retry' | 'choose-another-tender' | 'see-staff';
+export type CheckoutAdvice = 'none' | 'retry' | 'retry-payment' | 'see-staff';
 
 export function recoveryAdvice(state: CheckoutState): CheckoutAdvice {
   if (state.phase === 'timedOut') {
@@ -91,7 +91,12 @@ export function recoveryAdvice(state: CheckoutState): CheckoutAdvice {
     // through, and a second tender would charge twice.
     return state.attempts >= 2 ? 'see-staff' : 'retry';
   }
-  if (state.phase === 'failed') return 'choose-another-tender';
+  if (state.phase === 'failed') {
+    // Only a definite processor decline is safe for a guest-visible retry.
+    // Configuration, device and order errors need staff, and an unknown payment
+    // failure must never invite another charge.
+    return state.errorCode === 'declined' ? 'retry-payment' : 'see-staff';
+  }
   return 'none';
 }
 

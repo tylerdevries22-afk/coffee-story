@@ -1,23 +1,29 @@
 /**
  * Where a kiosk photograph comes from, in order of preference.
  *
- * `docs/FIVE-SURFACES.md` records the decision this implements: the kiosk does
- * not carry a third copy of the ~60 bundled menu assets. `menu_items.image_url`
- * exists so imagery arrives with the rows, and a franchise onboarded next month
- * should be able to change a photograph without a rebuild.
+ * Onboarding gives the customer and kiosk the same generated menu-media map.
+ * Known tenant slugs therefore stay pixel-identical and work offline; a remote
+ * URL is reserved for a live item that was added after this binary shipped.
  *
  * Three tiers, and the last one always succeeds -- a circle on the first screen
  * is a target a guest is about to press, so it can be unphotographed but never
  * empty.
  */
 
-export type BundledArt = Record<string, number>;
+/** Metro uses numeric asset ids on native and source objects on web. */
+export type BundledImageSource = number | string | {
+  readonly uri?: string;
+  readonly width?: number | null;
+  readonly height?: number | null;
+};
+
+export type BundledArt = Readonly<Record<string, BundledImageSource>>;
 
 export type ResolvedImage =
   /** A photograph from the row. Cached to disk by the renderer. */
   | { kind: 'remote'; uri: string }
-  /** One of the handful shipped in the binary, for the first screen. */
-  | { kind: 'bundled'; source: number }
+  /** Tenant artwork shipped in the binary. */
+  | { kind: 'bundled'; source: BundledImageSource }
   /** Token-drawn from the brand's monogram. Never fails, never fetches. */
   | { kind: 'monogram'; initials: string };
 
@@ -41,15 +47,22 @@ function usableUrl(value: string | null | undefined): string | null {
   }
 }
 
-export function resolveImage(request: ImageRequest, bundled: BundledArt = {}): ResolvedImage {
-  const remote = usableUrl(request.imageUrl);
-  if (remote) return { kind: 'remote', uri: remote };
-
+export function resolveImage(
+  request: ImageRequest,
+  bundled: BundledArt = {},
+  failedRemoteUri: string | null = null,
+): ResolvedImage {
   const slug = request.imageSlug;
   if (slug) {
     const source = bundled[slug];
-    if (typeof source === 'number') return { kind: 'bundled', source };
+    // Static imports are numbers on iOS/Android but `{ uri, width, height }`
+    // objects in Expo's web bundle. Treat the generated map as the trust
+    // boundary instead of guessing which Metro representation is active.
+    if (source !== undefined) return { kind: 'bundled', source };
   }
+
+  const remote = usableUrl(request.imageUrl);
+  if (remote && remote !== failedRemoteUri) return { kind: 'remote', uri: remote };
 
   return { kind: 'monogram', initials: initialsFor(request) };
 }

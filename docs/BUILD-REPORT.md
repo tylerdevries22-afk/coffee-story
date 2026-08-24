@@ -136,7 +136,7 @@ All documented with comments in the root `.env.example`:
 | Resend email | `RESEND_API_KEY`, `RESEND_FROM` |
 | Sentry | `SENTRY_DSN` (hq), `EXPO_PUBLIC_SENTRY_DSN` (each app) |
 | Checkly | `CHECKLY_API_KEY`, `CHECKLY_ACCOUNT_ID`, `PLATFORM_BASE_URL` |
-| Apple/EAS | Apple team + a real operator bundle id; `EXPO_TOKEN` as a CI repository secret; per-tenant `easProjectId` in brand.json |
+| Apple/EAS | Apple team + a real operator bundle id; `EXPO_TOKEN` as a CI repository secret; per-tenant customer `easProjectId` and `kioskEasProjectId` in brand.json |
 | Build selection | `TENANT` (defaults to coffee-story) |
 
 ## Runtime verification appendix (browser-driven)

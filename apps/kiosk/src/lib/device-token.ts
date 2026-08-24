@@ -14,17 +14,13 @@
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 
-const KEY = 'platform.device-token.v1';
+import { parseStoredDeviceToken, type StoredDeviceToken } from '@/lib/device-credential';
 
-export type StoredDeviceToken = {
-  token: string;
-  expiresAt: string;
-  deviceId: string;
-  role: string;
-  brandId: string;
-  locationId: string;
-  label: string;
-};
+export {
+  isExpired, needsRefresh, parseStoredDeviceToken, type StoredDeviceToken,
+} from '@/lib/device-credential';
+
+const KEY = 'platform.device-token.v1';
 
 const supported = Platform.OS !== 'web';
 
@@ -32,7 +28,7 @@ export async function readDeviceToken(): Promise<StoredDeviceToken | null> {
   if (!supported) return null;
   try {
     const raw = await SecureStore.getItemAsync(KEY);
-    return raw ? (JSON.parse(raw) as StoredDeviceToken) : null;
+    return raw ? parseStoredDeviceToken(JSON.parse(raw) as unknown) : null;
   } catch {
     // A corrupt entry is the same as no entry: the tablet re-pairs rather than
     // refusing to start, because a kiosk that will not boot is out of service.
@@ -57,11 +53,4 @@ export async function clearDeviceToken(): Promise<void> {
   } catch {
     // Same reasoning.
   }
-}
-
-/** Refresh well before expiry: a shop's wifi is not a data centre's. */
-export function needsRefresh(value: StoredDeviceToken, nowMs: number): boolean {
-  const expires = Date.parse(value.expiresAt);
-  if (!Number.isFinite(expires)) return true;
-  return expires - nowMs < 60 * 60 * 1000;
 }

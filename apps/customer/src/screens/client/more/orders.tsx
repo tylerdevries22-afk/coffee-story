@@ -4,7 +4,7 @@ import { Alert, Pressable, Text, View } from 'react-native';
 
 import { CollapsingScreen } from '@/components/collapsing-screen';
 import { Body, Button, Card, Segmented } from '@/components/ui';
-import { requestKey , formatMoney } from '@platform/domain';
+import { formatMoney, requestKey } from '@platform/domain';
 import { trackingView } from '@/features/tracking';
 import { mobileApi } from '@/lib/mobile-api';
 import { addOrderToCalendar } from '@/lib/native-adapters';
@@ -113,6 +113,9 @@ function UpcomingOrderCard({
   return (
     <Card style={styles.detailCard}>
       <Text style={styles.detailTitle}>{order.summary}</Text>
+      {packRecipeLines(order).map((recipe, index) => (
+        <Body key={`${order.id}-pack-${index}`} muted>{recipe}</Body>
+      ))}
       <Body muted>{formatOrderDate(order.placedAt)}</Body>
       {order.locationLabel ? <Body>{order.locationLabel} · {order.locationDetail}</Body> : null}
       <Body>{order.status.replace("_", " ")} · ${(order.totalCents / 100).toFixed(2)}</Body>
@@ -155,6 +158,9 @@ function OrderTrackingCard({ order }: { order: PortalOrder }) {
   return (
     <Card style={styles.detailCard}>
       <Text style={styles.detailTitle}>{order.summary}</Text>
+      {packRecipeLines(order).map((recipe, index) => (
+        <Body key={`${order.id}-pack-${index}`} muted>{recipe}</Body>
+      ))}
       <Body muted>{formatOrderDate(order.scheduledFor ?? order.placedAt)}</Body>
       <Body>{statusLine} · {formatMoney(order.totalCents)}</Body>
       {active ? (
@@ -165,6 +171,12 @@ function OrderTrackingCard({ order }: { order: PortalOrder }) {
       {order.note ? <Body muted>“{order.note}”</Body> : null}
     </Card>
   );
+}
+
+function packRecipeLines(order: PortalOrder): string[] {
+  return order.lines.flatMap((line) => line.packContents && line.packContents.length > 0
+    ? [`Inside each ${line.name}: ${line.packContents.map((content) => `${content.quantity}× ${content.name}`).join(' · ')}`]
+    : []);
 }
 
 function formatOrderDate(value: string) {

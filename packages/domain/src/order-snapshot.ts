@@ -32,6 +32,7 @@ export type OrderSnapshotLine = {
   unit_price_cents: number;
   options: string[];
   note: string;
+  pack_contents: { item_slug: string; name: string; quantity: number }[];
 };
 
 export type OrderSnapshotTaxRow = {
@@ -59,6 +60,7 @@ export type ReadSnapshotLine = {
   unitPriceCents: number;
   options: string[];
   note: string;
+  packContents: { itemSlug: string; name: string; quantity: number }[];
 };
 
 const FALLBACK_NAME = 'Item';
@@ -91,9 +93,22 @@ export function readSnapshotLines(totals: unknown): ReadSnapshotLine[] {
         ? line.options.filter((option): option is string => typeof option === 'string')
         : [],
       note: text(line.note) ?? '',
+      packContents: readPackContents(line.pack_contents),
     });
   }
   return lines;
+}
+
+function readPackContents(value: unknown): ReadSnapshotLine['packContents'] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((candidate) => {
+    const content = asRecord(candidate);
+    if (!content) return [];
+    const itemSlug = text(content.item_slug) ?? '';
+    const name = text(content.name) ?? itemSlug;
+    const quantity = positiveCount(content.quantity);
+    return name && quantity !== null ? [{ itemSlug, name, quantity }] : [];
+  });
 }
 
 /** The printable name for a line, for a caller that only needs that. */
@@ -117,4 +132,10 @@ function count(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0
     ? Math.trunc(value)
     : fallback;
+}
+
+function positiveCount(value: unknown): number | null {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0
+    ? value
+    : null;
 }

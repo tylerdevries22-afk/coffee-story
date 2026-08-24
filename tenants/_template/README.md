@@ -10,6 +10,11 @@ Copy this folder to `tenants/<slug>/` to onboard a brand. The full file list:
   taglines shown above each menu section; titles must match `menu.csv`
 - `modifiers.json` — option groups per item slug, in the engine's
   menu-pricing shape; optional per item, and every key must exist in menu.csv
+- `packs.json` — optional pack items keyed by their `menu.csv` slug; each entry
+  declares `packSize`, `choiceSource` (`lineup` or `static`), and the
+  `singleItemSlug` used to derive its savings claim. `eligibleItemSlugs` is the
+  complete authored set the guest may put inside; live 86/drop state can only
+  narrow that set, never add unrelated menu items
 - `assets/` — the brand's own artwork:
   - `logo.svg` (preferred) or `logo.png` — the master onboarding generates
     icons and splash art from

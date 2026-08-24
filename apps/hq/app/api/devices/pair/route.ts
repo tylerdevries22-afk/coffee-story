@@ -26,15 +26,22 @@ export async function POST(request: Request) {
   if (!env) return notConfigured();
   const db = serviceDb(env);
 
-  const body = await parseJsonBody<{ code?: unknown }>(request);
+  const body = await parseJsonBody<{ code?: unknown; tenantSlug?: unknown }>(request);
   if (body instanceof Response) return body;
   const code = typeof body.code === 'string' ? body.code : '';
+  const tenantSlug = typeof body.tenantSlug === 'string' ? body.tenantSlug : '';
   if (code.length === 0 || code.length > 32) {
     return jsonError(400, 'invalid_request', 'code is required.');
   }
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(tenantSlug) || tenantSlug.length > 80) {
+    return jsonError(400, 'invalid_request', 'tenantSlug is required.');
+  }
 
   try {
-    const token = await redeemPairingCode({ db, key: loadDeviceSigningKey() }, { code });
+    const token = await redeemPairingCode(
+      { db, key: loadDeviceSigningKey() },
+      { code, expectedBrandSlug: tenantSlug },
+    );
     return jsonWithCors(token, 200);
   } catch (error) {
     if (error instanceof DeviceError) {

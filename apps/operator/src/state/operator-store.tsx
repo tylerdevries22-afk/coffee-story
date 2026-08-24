@@ -33,7 +33,7 @@ import {
 import { canTransition, type OrderRow, type OrderStatus } from '@platform/schema';
 
 import { initialDemoOrders, spawnDemoOrder } from '@/data/demo-orders';
-import { newOrderIds, type BoardOrder } from '@/features/operator/board';
+import { canCancelWithoutRefund, newOrderIds, type BoardOrder } from '@/features/operator/board';
 import { upsertBoardOrder } from '@/features/operator/live-board';
 import {
   enqueueTransition,
@@ -45,6 +45,11 @@ import {
   loadTransitionQueue,
   saveTransitionQueue,
 } from '@/features/operator/persistent-queue';
+import {
+  RefundAttemptError,
+  refundFailureIsConclusive,
+  runRefundAttempt,
+} from '@/features/operator/refund-attempt';
 import { platformApi } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/state/auth-context';
@@ -120,6 +125,7 @@ export function OperatorProvider({ children }: PropsWithChildren) {
   const spawnIndex = useRef(0);
   const seenRef = useRef<Set<string>>(new Set(initialDemoOrders().map((order) => order.id)));
   const ordersRef = useRef<BoardOrder[]>([]);
+  const refundInFlightRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     ordersRef.current = orders;
   }, [orders]);
@@ -358,6 +364,17 @@ export function OperatorProvider({ children }: PropsWithChildren) {
   }, [applyTransition]);
 
   const cancel = useCallback((orderId: string) => {
+    const order = ordersRef.current.find((candidate) => candidate.id === orderId);
+    if (!order || !canCancelWithoutRefund(order)) {
+      setConflicts((existing) => [
+        ...existing,
+        {
+          orderId,
+          message: 'Only unpaid pay-at-pickup orders can be cancelled directly. Refund a paid card order instead.',
+        },
+      ]);
+      return;
+    }
     applyTransition(orderId, 'cancelled');
   }, [applyTransition]);
 
@@ -370,30 +387,38 @@ export function OperatorProvider({ children }: PropsWithChildren) {
     // server holds the location's token — so unlike every other transition
     // this one is a request, and the board waits for its answer rather than
     // advancing optimistically.
-    if (!platformApi) {
+    const api = platformApi;
+    if (!api) {
       setConflicts((existing) => [
         ...existing,
         { orderId, message: 'This device has no payments connection configured. Nothing was changed.' },
       ]);
       return;
     }
-    void platformApi
-      .refundOrder({ orderId, amountCents })
-      .then(() => {
-        // The refunded event the server wrote arrives over Realtime like any
-        // other transition; nothing to apply here.
-      })
-      .catch((error: unknown) => {
-        setConflicts((existing) => [
-          ...existing,
-          {
-            orderId,
-            message: error instanceof Error
-              ? `${error.message} Nothing was changed.`
-              : 'That refund did not go through. Nothing was changed.',
-          },
-        ]);
-      });
+    if (refundInFlightRef.current.has(orderId)) return;
+    refundInFlightRef.current.add(orderId);
+    void runRefundAttempt(
+      AsyncStorage,
+      { orderId, amountCents },
+      (idempotencyKey) => api.refundOrder({ orderId, amountCents }, idempotencyKey),
+    ).catch((error: unknown) => {
+      const conclusive = refundFailureIsConclusive(error);
+      setConflicts((existing) => [
+        ...existing,
+        {
+          orderId,
+          message: error instanceof RefundAttemptError
+            ? error.message
+            : error instanceof Error
+              ? conclusive
+              ? `${error.message} No refund was submitted.`
+              : `${error.message} The outcome is uncertain; retry the same amount to safely check it.`
+            : 'The refund outcome is uncertain; retry the same amount to safely check it.',
+        },
+      ]);
+    }).finally(() => {
+      refundInFlightRef.current.delete(orderId);
+    });
   }, [applyTransition, live]);
 
   const updateSettings = useCallback((patch: Partial<OperatorSettings>) => {

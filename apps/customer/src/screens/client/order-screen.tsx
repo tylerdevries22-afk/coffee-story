@@ -94,7 +94,13 @@ export function OrderScreen() {
   // instead would show the confirmation screen the totals of the bag that
   // `clearBag()` has just emptied -- "Paid $0", earning 0 Beans.
   // orderId is present for live orders only; it drives realtime tracking.
-  const [placed, setPlaced] = useState<{ summary: string; totalCents: number; points: number; orderId?: string } | null>(null);
+  const [placed, setPlaced] = useState<{
+    summary: string;
+    totalCents: number;
+    points: number;
+    status: OrderStatus;
+    orderId?: string;
+  } | null>(null);
   // One key per checkout ATTEMPT: held across retries of the same order so
   // the server returns the already-created order instead of ringing twice;
   // released only once placement succeeds.
@@ -247,6 +253,7 @@ export function OrderScreen() {
             // renders its own totals for a live order.
             totalCents: result.totalCents,
             points: Math.floor(result.subtotalCents / 10),
+            status: result.status,
             orderId: result.orderId,
           });
           order.clearBag();
@@ -280,7 +287,7 @@ export function OrderScreen() {
         description: order.cart.note || undefined,
       };
       demo.book({ item, addOns: [], placedAt: order.windowValue, fulfillment: order.fulfillment });
-      setPlaced({ summary, totalCents: totals.totalCents, points: pointsEarned });
+      setPlaced({ summary, totalCents: totals.totalCents, points: pointsEarned, status: 'paid' });
       order.clearBag();
       order.setTipCents(0);
       setRedeemCents(0);
@@ -403,6 +410,7 @@ export function OrderScreen() {
             totalCents={placed?.totalCents ?? 0}
             pointsEarned={placed?.points ?? 0}
             orderId={placed?.orderId ?? null}
+            initialStatus={placed?.status ?? 'paid'}
             isDelivery={order.fulfillment.mode === 'delivery'}
             onViewVisits={() => {
               editOrder();
@@ -696,6 +704,7 @@ function OrderPlaced({
   totalCents,
   pointsEarned,
   orderId,
+  initialStatus,
   isDelivery,
   onViewVisits,
   onDone,
@@ -707,6 +716,7 @@ function OrderPlaced({
   pointsEarned: number;
   /** Present for live orders: drives realtime tracking instead of the simulator. */
   orderId: string | null;
+  initialStatus: OrderStatus;
   isDelivery: boolean;
   onViewVisits: () => void;
   onDone: () => void;
@@ -717,7 +727,7 @@ function OrderPlaced({
   // A live order streams rule-2's states over Realtime; the demo shop makes
   // the drink in front of you on believable delays. Both render the same
   // timeline.
-  const [status, setStatus] = useState<OrderStatus>('paid');
+  const [status, setStatus] = useState<OrderStatus>(initialStatus);
   useEffect(() => {
     if (orderId) return subscribeToOrderStatus(supabase, orderId, setStatus);
     return simulateProgress(setStatus);
@@ -767,7 +777,7 @@ function OrderPlaced({
         </Text>
         {summary ? <Text style={styles.placedSummary}>{summary}</Text> : null}
         <View style={styles.placedTotalRow}>
-          <Text style={styles.placedTotalLabel}>Paid</Text>
+          <Text style={styles.placedTotalLabel}>{status === 'created' ? 'Due at counter' : 'Paid'}</Text>
           <Text style={styles.placedTotalValue}>{formatMoney(totalCents)}</Text>
         </View>
         <Text style={styles.placedNote}>

@@ -15,6 +15,8 @@ const ROW: OrderRow = {
   fulfillment_type: 'pickup',
   channel: 'app',
   device_id: null,
+  client_key: null,
+  tender_type: 'square_card',
   scheduled_for: null,
   totals: { lines: [{ name: 'Latte', quantity: 2, unit_price_cents: 600, options: ['16 oz', 'Oat Milk'] }] },
   subtotal_cents: 1200,
@@ -30,6 +32,7 @@ const ROW: OrderRow = {
   arrived_at: null,
   square_order_id: null,
   square_payment_id: null,
+  square_checkout_url: null,
   created_at: '2026-08-22T10:00:00Z',
   updated_at: '2026-08-22T10:00:00Z',
 };

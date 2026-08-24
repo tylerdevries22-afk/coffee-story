@@ -81,8 +81,8 @@ sits below centre and its saucer matters more than the ceiling), resizes to
   nothing: it neither matches the house look nor stays honest to the original.
 
 The tenant folder is the source. `pnpm onboard --tenant <slug> --apply` copies
-the normalised assets into the per-brand customer bundle and generates the
-static Metro image map.
+the normalised assets into both per-brand customer and kiosk bundles and
+generates an identical static Metro image map for each app.
 
 Idempotency comes from `tenants/<slug>/assets/menu/.normalized.json`, which
 records the hash of what the script last produced. An unchanged file is skipped;
@@ -98,8 +98,10 @@ contact sheet.
 
 ## Rendering
 
-`apps/customer/src/components/menu-image.tsx` is the only place a menu
-photograph may be drawn. It takes a `variant`, never a size:
+`apps/customer/src/components/menu-image.tsx` and
+`apps/kiosk/src/components/menu-image.tsx` are the only places a menu
+photograph may be drawn on their respective surfaces. Both take a `variant`,
+never a size:
 
 | Variant | Frame | Used by |
 | --- | --- | --- |
@@ -108,6 +110,12 @@ photograph may be drawn. It takes a `variant`, never a size:
 | `tile` | 72², radius md | drop row |
 | `row` | 76², radius md | order flow menu list |
 | `hero` | full width, 1:1 | item sheet hero, services card |
+| `kioskHero` | 300², circle | first-screen anchor tile |
+| `kioskNode` | 200², circle | first-screen standard tile |
+| `kioskMinor` | 132², circle | first-screen secondary tile |
+| `kioskChoice` | 172², circle | item and pack-fill choice |
+| `kioskSlot` | 96², circle | filled pack slot |
+| `kioskLine` | 88², radius md | kiosk bag line |
 
 `hero` is square by aspect ratio rather than a fixed height, which is what makes
 the hero show the identical framing the thumbnails do. Its containers must not

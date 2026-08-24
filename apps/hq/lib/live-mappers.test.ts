@@ -83,19 +83,24 @@ describe('campaignSummariesOf', () => {
 });
 
 describe('customerSummariesOf', () => {
-  it('aggregates lifetime spend and last order, skipping cancellations', () => {
+  it('counts only collected revenue in lifetime spend and last order', () => {
     const rows = customerSummariesOf(
       [{ id: 'g1', full_name: 'Maya', phone: null }],
       [{ customer_id: 'g1', points_balance: '340' }],
       [
         { customer_id: 'g1', total_cents: 1200, status: 'picked_up', created_at: '2026-08-20T10:00:00Z' },
         { customer_id: 'g1', total_cents: 900, status: 'paid', created_at: '2026-08-22T10:00:00Z' },
+        { customer_id: 'g1', total_cents: 400, status: 'in_progress', created_at: '2026-08-23T10:00:00Z' },
+        { customer_id: 'g1', total_cents: 300, status: 'ready', created_at: '2026-08-24T10:00:00Z' },
+        { customer_id: 'g1', total_cents: 7000, status: 'created', created_at: '2026-08-25T10:00:00Z' },
         { customer_id: 'g1', total_cents: 5000, status: 'cancelled', created_at: '2026-08-23T10:00:00Z' },
+        { customer_id: 'g1', total_cents: 6000, status: 'refunded', created_at: '2026-08-26T10:00:00Z' },
+        { customer_id: 'g1', total_cents: 8000, status: 'future_unpaid_state', created_at: '2026-08-27T10:00:00Z' },
       ],
     );
     assert.equal(rows[0]!.points, 340);
-    assert.equal(rows[0]!.lifetimeCents, 2100);
-    assert.equal(rows[0]!.lastOrderAt, '2026-08-22T10:00:00Z');
+    assert.equal(rows[0]!.lifetimeCents, 2800);
+    assert.equal(rows[0]!.lastOrderAt, '2026-08-24T10:00:00Z');
     assert.equal(rows[0]!.phone, '—');
   });
 });

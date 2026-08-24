@@ -17,9 +17,9 @@ import { useKioskSession } from '@/state/session';
  */
 export function IdleNotice() {
   const tokens = useTokens();
-  const { idle, touch, reset, idleMsNow } = useKioskSession();
+  const { idle, idleTiming, touch, reset, idleMsNow } = useKioskSession();
   const warning = idle === 'warning';
-  const [secondsLeft, setSecondsLeft] = useState(() => secondsUntilReset(idleMsNow()));
+  const [secondsLeft, setSecondsLeft] = useState(() => secondsUntilReset(idleMsNow(), idleTiming));
 
   /**
    * The countdown is local state here rather than in the session, and it only
@@ -32,15 +32,19 @@ export function IdleNotice() {
    */
   useEffect(() => {
     if (!warning) return;
-    setSecondsLeft(secondsUntilReset(idleMsNow()));
-    const id = setInterval(() => setSecondsLeft(secondsUntilReset(idleMsNow())), 1_000);
+    setSecondsLeft(secondsUntilReset(idleMsNow(), idleTiming));
+    const id = setInterval(() => setSecondsLeft(secondsUntilReset(idleMsNow(), idleTiming)), 1_000);
     return () => clearInterval(id);
-  }, [warning, idleMsNow]);
+  }, [warning, idleMsNow, idleTiming]);
 
   if (!warning) return null;
 
   return (
-    <View style={[styles.scrim, { backgroundColor: `${tokens.textPrimary}D9` }]}>
+    <View
+      accessibilityRole="alert"
+      aria-live="assertive"
+      style={[styles.scrim, { backgroundColor: `${tokens.textPrimary}D9` }]}
+    >
       <View style={[styles.card, { backgroundColor: tokens.surfaceElevated, borderRadius: tokens.radius.lg, padding: tokens.spacing.xxl, gap: tokens.spacing.lg }]}>
         <Text style={[styles.title, { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: tokens.type.display }]}>
           Still ordering?

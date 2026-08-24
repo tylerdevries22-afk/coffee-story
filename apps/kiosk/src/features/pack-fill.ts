@@ -27,7 +27,9 @@ export const EMPTY_FILL: PackFill = {};
 /** How many units are in the box. */
 export function allocated(fill: PackFill): number {
   let total = 0;
-  for (const quantity of Object.values(fill)) total += quantity;
+  for (const quantity of Object.values(fill)) {
+    if (Number.isInteger(quantity) && quantity > 0) total += quantity;
+  }
   return total;
 }
 
@@ -37,7 +39,11 @@ export function remaining(spec: PackSpec, fill: PackFill): number {
 }
 
 export function isComplete(spec: PackSpec, fill: PackFill): boolean {
-  return safeSize(spec) > 0 && allocated(fill) === safeSize(spec);
+  const entries = Object.entries(fill);
+  return safeSize(spec) > 0
+    && entries.length > 0
+    && entries.every(([choiceId, quantity]) => choiceId.length > 0 && Number.isInteger(quantity) && quantity > 0)
+    && allocated(fill) === safeSize(spec);
 }
 
 /**
@@ -60,6 +66,14 @@ export function release(fill: PackFill, choiceId: string): PackFill {
   if (current === 1) delete next[choiceId];
   else next[choiceId] = current - 1;
   return next;
+}
+
+/** Drop choices that are no longer orderable after a live menu update. */
+export function retainAllowedChoices(fill: PackFill, allowedChoiceIds: readonly string[]): PackFill {
+  const allowed = new Set(allowedChoiceIds);
+  const entries = Object.entries(fill).filter(([choiceId]) => allowed.has(choiceId));
+  if (entries.length === Object.keys(fill).length) return fill;
+  return Object.fromEntries(entries);
 }
 
 /** Set an exact quantity, clamped to what the box can still hold. */
@@ -89,7 +103,7 @@ export function setQuantity(
  */
 export function packFingerprint(fill: PackFill): string {
   return Object.entries(fill)
-    .filter(([, quantity]) => quantity > 0)
+    .filter(([id, quantity]) => id.length > 0 && Number.isInteger(quantity) && quantity > 0)
     .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
     .map(([id, quantity]) => `${id}x${quantity}`)
     .join('|');
@@ -98,7 +112,7 @@ export function packFingerprint(fill: PackFill): string {
 /** The box's contents in reading order, for a bag row or a receipt line. */
 export function packSummary(fill: PackFill, nameOf: (choiceId: string) => string): string {
   return Object.entries(fill)
-    .filter(([, quantity]) => quantity > 0)
+    .filter(([id, quantity]) => id.length > 0 && Number.isInteger(quantity) && quantity > 0)
     .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
     .map(([id, quantity]) => (quantity === 1 ? nameOf(id) : `${quantity} × ${nameOf(id)}`))
     .join(', ');

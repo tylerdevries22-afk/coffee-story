@@ -54,9 +54,10 @@ and posture.
 **Customer** — phone portrait, thumb-reachable. Money rides the primary action.
 
 **Kiosk** — a *standing* guest, 2–3 feet away, with a queue behind them. Targets
-start at 60pt, the bag is a permanent rail, and the task is linear with no tab
-bar. An idle clock resets an abandoned bag at 90 seconds but never counts down
-an untouched attract screen.
+start at 60pt. A filled black cart control opens an editable right-side rail over
+the menu; payment then becomes a linear full-stage task with no tab bar. An idle
+clock resets an abandoned cart at 90 seconds but never counts down an untouched
+attract screen.
 
 **Pickup display** — read at 15 feet, glanced at for under two seconds, running
 unattended for fourteen hours. The ticket number dominates. Motion is reserved
@@ -91,16 +92,18 @@ on every authorized read or order placement.
 1. **Native card-reader authorization.** The kiosk creates real orders when
    paired, but `apps/kiosk/src/lib/card-reader.ts` is the explicit simulated
    seam. Square's Reader SDK requires a dev client/store build and production
-   credentials, not Expo Go.
+   credentials, not Expo Go. Until those are provisioned, the paired kiosk
+   offers pay at counter and the operator records collection before production
+   begins; it never labels that order paid at placement.
 2. **Hosted cutover.** The EAS projects and release channels exist, but the
    owner must provision the hosted Supabase/Vercel/Square environments, apply
    migrations, connect locations, and run the real-stack acceptance checklist.
 3. **Owner-controlled production facts.** Tax jurisdictions and legal text
    need owner/counsel approval; campaign delivery needs a push/SMS provider.
-4. **Kiosk photography pipeline.** Live rows already prefer HTTPS
-   `menu_items.image_url` and safely fall back to the tenant monogram. The
-   current seed has no remote menu image URLs, so captures intentionally show
-   monograms rather than borrowed or hard-coded art.
+4. **Menu photography quality.** Onboarding gives the customer and kiosk the
+   same normalized WebPs and generated media map; live-only kiosk rows may use
+   HTTPS `menu_items.image_url` with a monogram fallback. Eleven Coffee Story
+   source frames still need the reshoots tracked in `docs/MENU-IMAGERY.md`.
 
 The remaining product/accounting caveats are maintained in
 `docs/PRODUCTION.md`; dated audit documents preserve the state they measured

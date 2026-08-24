@@ -1,6 +1,13 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import type { DropRow, MenuCategoryRow, MenuItemRow } from '@platform/schema';
+import {
+  requireSinglePublishedMenuId,
+  type DropRow,
+  type MenuCategoryRow,
+  type MenuItemRow,
+} from '@platform/schema';
+
+import { readWithRetry } from './read-retry';
 
 export type MenuTreeItem = MenuItemRow;
 
@@ -22,46 +29,57 @@ export type MenuTree = {
  * flip intraday and clients honour here.
  */
 export async function fetchMenuTree(client: SupabaseClient, brandId: string): Promise<MenuTree> {
+  const menus = await readWithRetry('fetchMenuTree published menu', (signal) => client
+    .from('menus')
+    .select('id')
+    .eq('brand_id', brandId)
+    .eq('is_published', true)
+    .abortSignal(signal)
+    .returns<{ id: string }[]>());
+  const menuId = requireSinglePublishedMenuId(menus ?? []);
   const [categories, items, drops] = await Promise.all([
-    client
+    readWithRetry('fetchMenuTree categories', (signal) => client
       .from('menu_categories')
       .select('*')
       .eq('brand_id', brandId)
+      .eq('menu_id', menuId)
       .order('sort_order')
-      .returns<MenuCategoryRow[]>(),
-    client
+      .abortSignal(signal)
+      .returns<MenuCategoryRow[]>()),
+    readWithRetry('fetchMenuTree items', (signal) => client
       .from('menu_items')
       .select('*')
       .eq('brand_id', brandId)
+      .eq('menu_id', menuId)
       .eq('is_listed', true)
       .order('sort_order')
-      .returns<MenuItemRow[]>(),
-    client
+      .abortSignal(signal)
+      .returns<MenuItemRow[]>()),
+    readWithRetry('fetchMenuTree drops', (signal) => client
       .from('drops')
       .select('*')
       .eq('brand_id', brandId)
       .in('status', ['scheduled', 'live', 'ended'])
       .order('starts_at', { ascending: false })
-      .returns<DropRow[]>(),
+      .abortSignal(signal)
+      .returns<DropRow[]>()),
   ]);
-  if (categories.error) throw new Error(`fetchMenuTree categories: ${categories.error.message}`);
-  if (items.error) throw new Error(`fetchMenuTree items: ${items.error.message}`);
-  if (drops.error) throw new Error(`fetchMenuTree drops: ${drops.error.message}`);
 
   const byCategory = new Map<string, MenuTreeItem[]>();
-  for (const item of items.data ?? []) {
+  for (const item of items ?? []) {
     const bucket = byCategory.get(item.category_id) ?? [];
     bucket.push(item);
     byCategory.set(item.category_id, bucket);
   }
-  const tree = (categories.data ?? []).map((category) => ({
+  const tree = (categories ?? []).map((category) => ({
     ...category,
     items: byCategory.get(category.id) ?? [],
   }));
+  const itemIds = new Set((items ?? []).map((item) => item.id));
   return {
-    menuId: categories.data?.[0]?.menu_id ?? null,
+    menuId,
     categories: tree,
-    drops: drops.data ?? [],
+    drops: (drops ?? []).filter((drop) => itemIds.has(drop.item_id)),
   };
 }
 

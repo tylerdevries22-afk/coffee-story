@@ -23,7 +23,10 @@ import { featuredDrop, dropStatus } from '@/features/drops';
 import { endOfDaySummary } from '@/features/operator/eod';
 import {
   boardColumns,
+  canCancelWithoutRefund,
+  isPaymentDue,
   nextActionFor,
+  packContentsLabel,
   type BoardOrder,
 } from '@/features/operator/board';
 import {
@@ -262,7 +265,9 @@ function OrderCard({
 }) {
   const tokens = useBrandTokens();
   const styles = createStyles(tokens);
-  const action = nextActionFor(order.status);
+  const action = nextActionFor(order);
+  const paymentDue = isPaymentDue(order);
+  const actionLabel = paymentDue ? `Collect ${formatMoney(order.totalCents)}` : action?.label;
   return (
     <Pressable
       accessibilityRole="button"
@@ -285,23 +290,32 @@ function OrderCard({
         ) : null}
         <Text style={styles.cardAge}>{ageLabel(order.placedAt, now)}</Text>
       </View>
-      {order.lines.map((line, index) => (
-        <Text key={index} style={[styles.cardLine, kds && styles.cardLineKds]} numberOfLines={2}>
-          {line.quantity}× {line.name}
-          {line.options.length > 0 ? ` · ${line.options.join(', ')}` : ''}
-        </Text>
-      ))}
+      {order.lines.map((line, index) => {
+        const packLabel = packContentsLabel(line.packContents ?? []);
+        return (
+        <View key={index}>
+          <Text style={[styles.cardLine, kds && styles.cardLineKds]} numberOfLines={2}>
+            {line.quantity}× {line.name}
+            {line.options.length > 0 ? ` · ${line.options.join(', ')}` : ''}
+          </Text>
+          {packLabel ? <Text style={styles.cardNote}>{packLabel}</Text> : null}
+          {line.note ? <Text style={styles.cardNote}>“{line.note}”</Text> : null}
+        </View>
+        );
+      })}
       {order.note ? <Text style={styles.cardNote}>“{order.note}”</Text> : null}
       <View style={styles.cardBottom}>
-        {kds ? <View /> : <Text style={styles.cardTotal}>{formatMoney(order.totalCents)}</Text>}
+        {kds ? <View /> : (
+          <Text style={styles.cardTotal}>{paymentDue ? 'Due ' : ''}{formatMoney(order.totalCents)}</Text>
+        )}
         {action ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`${action.label} order ${order.shortCode}`}
+            accessibilityLabel={`${actionLabel} for order ${order.shortCode}`}
             onPress={() => onAdvance(action.to)}
             style={({ pressed }) => [styles.advance, pressed && styles.pressed]}
           >
-            <Text style={styles.advanceText}>{action.label}</Text>
+            <Text style={styles.advanceText}>{actionLabel}</Text>
           </Pressable>
         ) : null}
       </View>
@@ -357,19 +371,26 @@ function OrderDetail({
     }
   }, [order]);
   if (!order) return null;
-  const action = nextActionFor(order.status);
+  const action = nextActionFor(order);
+  const paymentDue = isPaymentDue(order);
+  const actionLabel = paymentDue ? `Collect ${formatMoney(order.totalCents)}` : action?.label;
   const partialCents = Math.round(Number.parseFloat(refundAmount.replace(/[^0-9.]/g, '') || '0') * 100);
   return (
     <SheetShell visible title={`Order ${order.shortCode} · ${order.guestName}`} onClose={onClose}>
-      {order.lines.map((line, index) => (
+      {order.lines.map((line, index) => {
+        const packLabel = packContentsLabel(line.packContents ?? []);
+        return (
         <View key={index} style={styles.detailLine}>
           <Text style={styles.detailLineName}>{line.quantity}× {line.name}</Text>
           {line.options.length > 0 ? <Text style={styles.detailLineOptions}>{line.options.join(' · ')}</Text> : null}
+          {packLabel ? <Text style={styles.detailLineOptions}>{packLabel}</Text> : null}
+          {line.note ? <Text style={styles.detailLineOptions}>“{line.note}”</Text> : null}
         </View>
-      ))}
+        );
+      })}
       {order.note ? <Text style={styles.cardNote}>“{order.note}”</Text> : null}
       <View style={styles.detailTotalRow}>
-        <Text style={styles.detailTotalLabel}>Paid</Text>
+        <Text style={styles.detailTotalLabel}>{paymentDue ? 'Due at pickup' : 'Paid'}</Text>
         <Text style={styles.detailTotalValue}>{formatMoney(order.totalCents)}</Text>
       </View>
 
@@ -379,25 +400,27 @@ function OrderDetail({
           onPress={() => { onAdvance(action.to); onClose(); }}
           style={({ pressed }) => [styles.detailPrimary, pressed && styles.pressed]}
         >
-          <Text style={styles.detailPrimaryText}>{action.label}</Text>
+          <Text style={styles.detailPrimaryText}>{actionLabel}</Text>
         </Pressable>
       ) : null}
 
       {order.status !== 'refunded' && order.status !== 'cancelled' ? (
         <View style={styles.detailDangerRow}>
-          {order.status === 'paid' ? (
+          {canCancelWithoutRefund(order) ? (
             <Pressable accessibilityRole="button" onPress={onCancel} style={({ pressed }) => [styles.detailQuiet, pressed && styles.pressed]}>
               <Text style={styles.detailQuietText}>Cancel order</Text>
             </Pressable>
           ) : null}
-          <Pressable
-            accessibilityRole="button"
-            {...toggleState(refundOpen)}
-            onPress={() => setRefundOpen((open) => !open)}
-            style={({ pressed }) => [styles.detailQuiet, pressed && styles.pressed]}
-          >
-            <Text style={styles.detailQuietText}>Refund…</Text>
-          </Pressable>
+          {!paymentDue ? (
+            <Pressable
+              accessibilityRole="button"
+              {...toggleState(refundOpen)}
+              onPress={() => setRefundOpen((open) => !open)}
+              style={({ pressed }) => [styles.detailQuiet, pressed && styles.pressed]}
+            >
+              <Text style={styles.detailQuietText}>Refund…</Text>
+            </Pressable>
+          ) : null}
         </View>
       ) : null}
 

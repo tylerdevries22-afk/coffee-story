@@ -21,6 +21,8 @@ export type CatalogSize = {
   slug: string;
   ounces?: number;
   priceCents: number;
+  /** Client-only display size synthesized for a DB row whose sizes are empty. */
+  synthetic?: boolean;
   /**
    * What the menu row calls this size, when the database says so.
    *

@@ -1,18 +1,20 @@
 import { Image } from 'expo-image';
+import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { menuImageFrame, useTokens, type MenuImageVariant } from '@platform/ui';
 
 import { resolveImage, type BundledArt, type ImageRequest } from '@/imagery/resolve-image';
+import { TENANT_MENU_MEDIA } from '@/tenant/menu-media';
 
 /**
  * The one way a menu photograph is drawn on the kiosk.
  *
  * Same contract as the customer app's: it takes a `variant`, never a size, so
  * the geometry lives in `@platform/ui` and the only thing that changes between
- * surfaces is how big the square is. What is different here is the source --
- * the kiosk resolves a remote url first and degrades to a token-drawn
- * monogram, because it deliberately does not bundle the menu.
+ * surfaces is how big the square is. The generated tenant bundle wins for
+ * known slugs, while live-only rows can use a remote URL and degrade to the
+ * token-drawn monogram after one retry.
  *
  * View-layer on purpose (it touches `expo-image`), which is why it sits beside
  * the screens rather than in the package.
@@ -20,7 +22,7 @@ import { resolveImage, type BundledArt, type ImageRequest } from '@/imagery/reso
 export function KioskMenuImage({
   request,
   variant,
-  bundled = {},
+  bundled = TENANT_MENU_MEDIA,
   alt,
 }: {
   request: ImageRequest;
@@ -30,6 +32,7 @@ export function KioskMenuImage({
   alt: string;
 }) {
   const tokens = useTokens();
+  const [remoteFailure, setRemoteFailure] = useState<{ uri: string; attempts: number } | null>(null);
   const frame = menuImageFrame(variant);
   const size = frame.kind === 'fixed' ? frame.size : undefined;
   const radius = frame.radius === 'circle'
@@ -39,7 +42,13 @@ export function KioskMenuImage({
     ? { width: frame.size, height: frame.size }
     : styles.fill;
 
-  const resolved = resolveImage(request, bundled);
+  const remoteAttempts = remoteFailure !== null && remoteFailure.uri === request.imageUrl
+    ? remoteFailure.attempts
+    : 0;
+  const failedRemoteUri = remoteAttempts >= 2 && typeof request.imageUrl === 'string'
+    ? request.imageUrl
+    : null;
+  const resolved = resolveImage(request, bundled, failedRemoteUri);
 
   if (resolved.kind === 'monogram') {
     return (
@@ -64,12 +73,18 @@ export function KioskMenuImage({
 
   return (
     <Image
+      key={resolved.kind === 'remote' ? `${resolved.uri}:${remoteAttempts}` : undefined}
       source={resolved.kind === 'remote' ? { uri: resolved.uri } : resolved.source}
       // A shop network is not a data centre. Disk caching is what stops the
       // first screen showing holes every time the kiosk returns to attract.
       cachePolicy="disk"
       contentFit="cover"
       alt={alt}
+      onError={resolved.kind === 'remote' ? () => {
+        setRemoteFailure((current) => current?.uri === resolved.uri
+          ? { uri: resolved.uri, attempts: current.attempts + 1 }
+          : { uri: resolved.uri, attempts: 1 });
+      } : undefined}
       style={[box, { borderRadius: radius, backgroundColor: tokens.secondary }]}
     />
   );

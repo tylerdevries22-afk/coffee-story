@@ -20,6 +20,7 @@ export function KioskPressable({
   onPress,
   disabled = false,
   variant = 'primary',
+  compact = false,
 }: {
   label: string;
   /** Usually the money, so a choice shows its cost where the hand already is. */
@@ -27,6 +28,8 @@ export function KioskPressable({
   onPress: () => void;
   disabled?: boolean;
   variant?: 'primary' | 'secondary';
+  /** Setup keypads keep the same 60pt target without taking action-button width. */
+  compact?: boolean;
 }) {
   const tokens = useTokens();
   const reduced = useReducedMotion();
@@ -50,6 +53,7 @@ export function KioskPressable({
         onPress={onPress}
         style={[
           styles.pill,
+          compact ? styles.compact : null,
           {
             backgroundColor: disabled ? tokens.textMuted : background,
             borderRadius: tokens.radius.pill,
@@ -78,5 +82,6 @@ const styles = StyleSheet.create({
     minHeight: 88, minWidth: 320, paddingHorizontal: 44,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 16,
   },
+  compact: { minHeight: 64, minWidth: 64, paddingHorizontal: 12 },
   label: { fontWeight: '700' },
 });

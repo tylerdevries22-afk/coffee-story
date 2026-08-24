@@ -1,6 +1,5 @@
 import {
   mapSquareEvent,
-  recordLoyaltyEarn,
   recordPlatformFee,
   verifySquareSignature,
   type SquareEvent,
@@ -89,8 +88,8 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const orderQuery = mapped.squareOrderId
-    ? db.from('orders').select('id, brand_id, location_id, customer_id, status, total_cents, subtotal_cents, stored_value_applied_cents').eq('square_order_id', mapped.squareOrderId)
-    : db.from('orders').select('id, brand_id, location_id, customer_id, status, total_cents, subtotal_cents, stored_value_applied_cents').eq('square_payment_id', mapped.squarePaymentId ?? '');
+    ? db.from('orders').select('id, brand_id, location_id, status, total_cents, stored_value_applied_cents').eq('square_order_id', mapped.squareOrderId)
+    : db.from('orders').select('id, brand_id, location_id, status, total_cents, stored_value_applied_cents').eq('square_payment_id', mapped.squarePaymentId ?? '');
   const { data: order, error: orderError } = await orderQuery.maybeSingle();
   if (orderError) return new Response('Could not resolve order', { status: 503 });
   if (!order) return new Response('Order not known (yet); Square will retry', { status: 404 });
@@ -114,9 +113,9 @@ export async function POST(request: Request): Promise<Response> {
     return new Response(processed.data ? 'OK' : 'Already handled', { status: 200 });
   }
 
-  // The order-event insert is idempotent. If an earlier attempt wrote it but
-  // failed before its side effects, the unstamped delivery continues below;
-  // the fee and loyalty operations have their own database constraints.
+  // The order-event insert is idempotent. Loyalty follows that event in the
+  // same database transaction; the fee remains an external-settlement
+  // receipt and has its own unique payment constraint.
   const { data: written, error: insertError } = await db.from('order_events').upsert(
     {
       brand_id: order.brand_id,
@@ -136,21 +135,11 @@ export async function POST(request: Request): Promise<Response> {
   const isNewDelivery = (written?.length ?? 0) > 0;
 
   // A hosted-checkout order earns nothing until the money actually lands:
-  // createSquareCheckoutLink deliberately leaves the order 'created', so this
-  // is the only place a square_link guest's points and the platform's own fee
-  // row are ever written. Without it a card order earned no points at all,
-  // and platform_fees stayed empty — which also meant the volume tier could
-  // never trip, so the brand paid tier-1 forever (rule 3).
+  // createSquareCheckoutLink deliberately leaves the order 'created'. The
+  // event trigger grants points atomically; this route records the platform's
+  // fee so the volume tier and platform revenue stay complete (rule 3).
   try {
     if (mapped.orderStatus === 'paid') {
-      if (order.customer_id) {
-        await recordLoyaltyEarn(db, {
-          brandId: order.brand_id,
-          customerId: order.customer_id,
-          orderId: order.id,
-          subtotalCents: order.subtotal_cents,
-        });
-      }
       if (mapped.squarePaymentId) {
         await recordPlatformFee(db, {
           brandId: order.brand_id,

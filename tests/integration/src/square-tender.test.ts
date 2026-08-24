@@ -290,8 +290,10 @@ describe('square_link tender and refunds', { skip: skipUnlessConfigured }, () =>
       [brandId, orderId],
     );
 
+    const refundKey = randomUUID();
     const response = await post(refundPost, '/api/orders/refund', {
       token: staffToken,
+      idempotencyKey: refundKey,
       body: { orderId, amountCents: 'full', reason: 'Spilled it' },
     });
     assert.equal(response.status, 200);
@@ -303,15 +305,39 @@ describe('square_link tender and refunds', { skip: skipUnlessConfigured }, () =>
     assert.equal(call.authorization, `Bearer ${MERCHANT_TOKEN}`);
     assert.equal((call.body.amount_money as { amount: number }).amount, 500);
     assert.equal(call.body.payment_id, 'SQ-PAYMENT-1');
+    assert.equal(call.body.idempotency_key, `refund-${refundKey}`);
 
     const state = await sql<{ status: string }>(`select status from public.orders where id = $1`, [orderId]);
     assert.equal(state.rows[0]!.status, 'refunded', 'the event moved the order');
-    const event = await sql<{ source: string; snapshot: { refund_id: string } }>(
-      `select source, snapshot from public.order_events where order_id = $1 and type = 'refunded'`,
+    const event = await sql<{
+      source: string;
+      square_refund_id: string;
+      refund_cents: string;
+      refund_request_key: string;
+      snapshot: { refund_id: string };
+    }>(
+      `select source, square_refund_id, refund_cents::text, refund_request_key::text, snapshot
+         from public.order_events where order_id = $1 and type = 'refunded'`,
       [orderId],
     );
     assert.equal(event.rows[0]!.source, 'operator');
     assert.equal(event.rows[0]!.snapshot.refund_id, refunded.refundId);
+    assert.equal(event.rows[0]!.square_refund_id, refunded.refundId);
+    assert.equal(event.rows[0]!.refund_cents, '500');
+    assert.equal(event.rows[0]!.refund_request_key, refundKey);
+  });
+
+  it('requires staff to supply a UUID refund attempt key', async () => {
+    const before = captured.length;
+    const response = await post(refundPost, '/api/orders/refund', {
+      token: staffToken,
+      body: { orderId: randomUUID(), amountCents: 'full' },
+    });
+    assert.equal(response.status, 400);
+    const body = await response.json() as { error: { code: string; message: string } };
+    assert.equal(body.error.code, 'invalid_request');
+    assert.match(body.error.message, /Idempotency-Key/);
+    assert.equal(captured.length, before, 'Square was not contacted without a durable attempt key');
   });
 
   it('tells the barista to use the register when no card was charged', async () => {
@@ -326,6 +352,7 @@ describe('square_link tender and refunds', { skip: skipUnlessConfigured }, () =>
     );
     const response = await post(refundPost, '/api/orders/refund', {
       token: staffToken,
+      idempotencyKey: randomUUID(),
       body: { orderId: order.rows[0]!.id },
     });
     assert.equal(response.status, 409);
@@ -392,6 +419,7 @@ describe('square_link tender and refunds', { skip: skipUnlessConfigured }, () =>
     );
     const response = await post(refundPost, '/api/orders/refund', {
       token: guestToken,
+      idempotencyKey: randomUUID(),
       body: { orderId: order.rows[0]!.id },
     });
     assert.equal(response.status, 403);

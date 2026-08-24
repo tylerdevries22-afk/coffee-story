@@ -9,7 +9,8 @@
     "scheme": "coffeestory",
     "kioskBundleId": "com.coffeestory.kiosk",
     "kioskScheme": "coffee-kiosk",
-    "easProjectId": "3dcaf174-4065-4c3b-8c57-35ce0a4bad19"
+    "easProjectId": "3dcaf174-4065-4c3b-8c57-35ce0a4bad19",
+    "kioskEasProjectId": "965cd044-8020-41d0-b719-337f6c9f6f72"
   },
   "tokens": {
     "primary": "#2E211A",
@@ -273,6 +274,7 @@
           "id": "signature",
           "label": "Signature Lattes",
           "emphasis": "hero",
+          "imageSlug": "tiramisu-latte",
           "caption": "The drinks that made us famous",
           "target": {
             "kind": "category",
@@ -283,6 +285,7 @@
           "id": "coffee",
           "label": "Coffee & Espresso",
           "emphasis": "standard",
+          "imageSlug": "espresso",
           "target": {
             "kind": "category",
             "categoryId": "Coffee & Espresso"
@@ -292,6 +295,7 @@
           "id": "tea",
           "label": "Tea & Matcha",
           "emphasis": "standard",
+          "imageSlug": "strawberry-matcha",
           "target": {
             "kind": "category",
             "categoryId": "Tea & Matcha"
@@ -301,6 +305,7 @@
           "id": "boba",
           "label": "Boba",
           "emphasis": "standard",
+          "imageSlug": "boba-brown-sugar",
           "target": {
             "kind": "category",
             "categoryId": "Boba"
@@ -310,6 +315,7 @@
           "id": "ades",
           "label": "Sparkling Ades & Smoothies",
           "emphasis": "minor",
+          "imageSlug": "ade-mango",
           "target": {
             "kind": "category",
             "categoryId": "Sparkling Ades & Smoothies"
@@ -319,6 +325,7 @@
           "id": "food",
           "label": "Sandwiches",
           "emphasis": "minor",
+          "imageSlug": "sandwich-teriyaki",
           "target": {
             "kind": "category",
             "categoryId": "Sandwiches"
@@ -328,6 +335,7 @@
           "id": "sweets",
           "label": "Sweets & Desserts",
           "emphasis": "minor",
+          "imageSlug": "honeycomb-cheese-bread",
           "target": {
             "kind": "category",
             "categoryId": "Sweets & Desserts"
@@ -348,7 +356,8 @@
     },
     "tenders": [
       "card",
-      "stored_value"
+      "stored_value",
+      "cash"
     ],
     "tip": {
       "enabled": true,

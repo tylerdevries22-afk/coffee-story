@@ -52,6 +52,7 @@ export type PortalOrderLine = {
   quantity: number;
   unitPriceCents: number;
   options: readonly string[];
+  packContents?: readonly { name: string; quantity: number }[];
 };
 
 /**
@@ -377,4 +378,3 @@ export type OrderFulfillmentPayload =
       postalCode: string; instructions: string;
     };
   };
-

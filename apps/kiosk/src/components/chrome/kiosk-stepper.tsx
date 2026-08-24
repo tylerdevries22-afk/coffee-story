@@ -2,6 +2,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useTokens, withAlpha } from '@platform/ui';
 
+import { stepperDecreaseLabel } from '@/features/kiosk-stepper';
 import * as haptics from '@/lib/haptics';
 
 /**
@@ -37,7 +38,9 @@ export function KioskStepper({
   const control = (name: 'Decrease' | 'Increase', enabled: boolean, next: number) => (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${name} ${label.toLowerCase()}`}
+      accessibilityLabel={name === 'Decrease'
+        ? stepperDecreaseLabel(value, min, label)
+        : `Increase ${label.toLowerCase()}`}
       accessibilityState={{ disabled: !enabled }}
       aria-disabled={!enabled}
       disabled={!enabled}
