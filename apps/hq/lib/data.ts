@@ -124,13 +124,34 @@ export async function loadMenu(): Promise<MenuItemSummary[]> {
 export async function loadLocations(): Promise<LocationSummary[]> {
   const client = await serverClient();
   if (!client) return DEMO_LOCATIONS;
-  const rows = await client
-    .from('locations')
-    .select('id, name, address, timezone, square_connection_id, ordering_paused, hours')
-    .order('created_at')
-    .returns<LocationRowLike[]>();
+  // `square_connection_id` is NOT selected: 0040 revokes it from
+  // `authenticated` at column level, and this client is the signed-in user, so
+  // naming it here makes the whole query fail with "permission denied for
+  // column". Whether a location can take a card comes from the view built for
+  // it -- `location_square_status` is a security-barrier view over
+  // square_connections, filtered by `app.is_brand_staff`, and only its WRITES
+  // were revoked.
+  const [rows, square] = await Promise.all([
+    client
+      .from('locations')
+      .select('id, name, address, timezone, ordering_paused, hours')
+      .order('created_at')
+      .returns<Omit<LocationRowLike, 'square_connection_id'>[]>(),
+    client
+      .from('location_square_status')
+      .select('location_id')
+      .returns<{ location_id: string }[]>(),
+  ]);
   if (rows.error) throw new Error(`locations: ${rows.error.message}`);
-  return locationSummariesOf(rows.data ?? []);
+  if (square.error) throw new Error(`location_square_status: ${square.error.message}`);
+
+  const connected = new Set((square.data ?? []).map((row) => row.location_id));
+  return locationSummariesOf(
+    (rows.data ?? []).map((row) => ({
+      ...row,
+      square_connection_id: connected.has(row.id) ? row.id : null,
+    })),
+  );
 }
 
 export async function loadCampaigns(): Promise<CampaignSummary[]> {
