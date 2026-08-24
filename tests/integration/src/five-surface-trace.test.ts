@@ -14,7 +14,7 @@ import {
 } from '@platform/domain/src/board-display.ts';
 
 import {
-  anonClient, createSignedInUser, seedBrand, serviceClient, skipUnlessConfigured, sql, stack,
+  anonClient, asPrincipal, createSignedInUser, seedBrand, serviceClient, skipUnlessConfigured, sql, stack, userClient,
 } from './stack.ts';
 
 /**
@@ -40,6 +40,9 @@ describe('one order across five surfaces', { skip: skipUnlessConfigured }, () =>
   let guestToken = '';
   let menuItemId = '';
   let recipeId = '';
+  /** The wall tablet, and a shift lead. Both may read the board; nothing else may. */
+  let displayDeviceId = '';
+  let staffToken = '';
 
   before(async () => {
     if (skipUnlessConfigured) return;
@@ -74,6 +77,25 @@ describe('one order across five surfaces', { skip: skipUnlessConfigured }, () =>
       [brandId, menuItemId],
     );
     recipeId = recipe.rows[0]!.id;
+
+    // The wall tablet the display runs on, and the shift lead who works the
+    // board. `can_read_board` (0033) admits exactly these two and the owner.
+    const display = await sql<{ id: string }>(
+      `insert into public.devices (brand_id, location_id, role, label, paired_at)
+       values ($1, $2, 'display', 'Trace wall display', now()) returning id`,
+      [brandId, locationId],
+    );
+    displayDeviceId = display.rows[0]!.id;
+    const staff = await createSignedInUser({
+      before: async (userId) => {
+        await sql(
+          `insert into public.brand_users (user_id, brand_id, role, location_ids)
+           values ($1, $2, 'staff', array[$3::uuid])`,
+          [userId, brandId, locationId],
+        );
+      },
+    });
+    staffToken = staff.accessToken;
 
     const guest = await createSignedInUser({ userMetadata: { brand_slug: SLUG } });
     guestToken = guest.accessToken;
@@ -118,13 +140,46 @@ describe('one order across five surfaces', { skip: skipUnlessConfigured }, () =>
 
     // 2. THE DISPLAY sees it, through its own read -- the view, not the table.
     const service = serviceClient();
-    let board = await fetchBoardTickets(service, locationId);
+
+    /**
+     * The board is read by someone the gate actually admits.
+     *
+     * Migration 0033 made `board_tickets` security definer behind
+     * `app.can_read_board`, which wants a paired display device, a brand owner,
+     * or staff at the location -- and dropped the policy that let a display
+     * touch `orders` directly. The service role holds none of those claims, so
+     * this used to read the board with a principal the surface never uses and
+     * only passed because the view was security_invoker. It returns nothing
+     * now, which is the migration working.
+     */
+    const board_ = () => fetchBoardTickets(userClient(staffToken), locationId);
+    let board = await board_();
     let mine = board.find((t) => t.id === orderId);
     assert.ok(mine, 'the display must see the order the kiosk just took');
     assert.equal(mine!.daily_number, ticket.daily_number);
     assert.equal(mine!.guest_label, 'Sara D.');
     assert.ok(!('customer_id' in mine!), 'and must not be handed the guest record with it');
     assert.ok(!('total_cents' in mine!), 'nor what they paid');
+
+    // And the wall tablet itself, not just the shift lead standing next to it.
+    // This is the principal 0033 exists for: a device claim carries no `role`,
+    // so it can satisfy `can_read_board` and nothing else.
+    const onTheWall = await asPrincipal<{ id: string; daily_number: number }>(
+      {
+        app_metadata: {
+          brand_id: brandId,
+          device_id: displayDeviceId,
+          device_role: 'display',
+          device_location_id: locationId,
+        },
+      },
+      `select id, daily_number from public.board_tickets where location_id = $1`,
+      [locationId],
+    );
+    assert.ok(
+      onTheWall.rows.some((row) => row.id === orderId),
+      'a paired display device must see the ticket on its own claims',
+    );
     // The board is one queue now, not two columns: a paid order takes a place
     // in line, and only a ready one gets the check that replaces the number.
     const queued = boardQueue(board, DEFAULT_BOARD_CONFIG)
@@ -159,7 +214,7 @@ describe('one order across five surfaces', { skip: skipUnlessConfigured }, () =>
     );
     assert.equal(afterArrival.rows[0]!.status, 'in_progress', 'arriving must not move the state machine');
 
-    board = await fetchBoardTickets(service, locationId);
+    board = await board_();
     mine = board.find((t) => t.id === orderId);
     assert.ok(mine!.arrived_at, 'and the display badges the arrival');
 
@@ -194,7 +249,7 @@ describe('one order across five surfaces', { skip: skipUnlessConfigured }, () =>
     assert.equal(collected.rows[0]!.status, 'picked_up');
 
     // 7. THE DISPLAY drops it. A collected order is not a queue any more.
-    board = await fetchBoardTickets(service, locationId);
+    board = await board_();
     assert.equal(
       board.find((t) => t.id === orderId), undefined,
       'a collected order must leave the board on its own',
