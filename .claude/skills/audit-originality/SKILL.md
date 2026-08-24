@@ -33,7 +33,7 @@ regardless of how the screen looks.
 The word boundary is not pedantry, it is what makes the gate usable. A plain
 `grep -ri` matches inside unrelated identifiers and the gate then fails forever
 on a coincidence: Sentry's minified `getBreadcrumbLogLevel` contains one
-competitor's name as the substring `…crumbL…`, which is what
+competitor's name as an internal substring, which is what
 `docs/BUILD-REPORT.md` gap 9 records. Running over `git ls-files` rather than
 the working tree keeps `.next/`, `.metro-cache/`, and `node_modules/` out of it
 for the same reason.

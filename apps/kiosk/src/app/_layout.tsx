@@ -9,11 +9,16 @@ import * as ScreenOrientation from 'expo-screen-orientation';
 import { ThemeProvider } from '@platform/ui';
 
 import TENANT_BRAND_CONFIG from '@/tenant/brand.json';
+
 import { IdleNotice } from '@/components/idle-notice';
 import { menuFactsFromCatalog } from '@/data/menu-source';
 import { DeviceProvider } from '@/state/device';
-import { FlowProvider } from '@/state/flow';
+import { FlowProvider, useFlow } from '@/state/flow';
 import { KioskSessionProvider } from '@/state/session';
+
+/** Stable identity: rebuilding this each render would re-resolve the flow. */
+const MENU_FACTS = menuFactsFromCatalog();
+const SPLASH_GROUND = TENANT_BRAND_CONFIG.tokens?.surface ?? '#FAFAF9';
 
 export default function KioskLayout() {
   const [loaded] = useFonts({
@@ -34,28 +39,47 @@ export default function KioskLayout() {
       .catch(() => undefined);
   }, []);
 
-  if (!loaded) return <View style={{ flex: 1, backgroundColor: '#FAF5EF' }} />;
+  // The splash ground is the tenant's, read before the theme mounts. Rule 4
+  // has no exception for a loading state -- a shop whose kiosk flashes another
+  // brand's cream for a beat has been unbranded for that beat.
+  if (!loaded) return <View style={{ flex: 1, backgroundColor: SPLASH_GROUND }} />;
 
   return (
     <ThemeProvider brandConfig={TENANT_BRAND_CONFIG}>
       <DeviceProvider>
-        <KioskSessionProvider>
-          <FlowProvider
-            brandConfig={TENANT_BRAND_CONFIG.kiosk}
-            menu={menuFactsFromCatalog()}
-            storedValue={TENANT_BRAND_CONFIG.features?.stored_value === true}
-          >
-            <StatusBar hidden />
-            {/* The step transition is ours (see step-stage.tsx), so the stack
-                must not add one of its own on top of it. */}
-            <Stack screenOptions={{ headerShown: false, animation: 'none' }} />
-            {/* Mounted once, at the root: the notice used to live only on the
-                order screen, which is why an abandoned session at tender had
-                its cart cleared under a live Pay button. */}
-            <IdleNotice />
-          </FlowProvider>
-        </KioskSessionProvider>
+        {/*
+          FlowProvider sits ABOVE the session on purpose: the session's idle
+          clock is tenant-configured (`brand_config.kiosk.idle`), so the flow
+          has to be resolved before the thing that consumes it is constructed.
+          With the session on the outside it silently fell back to the platform
+          defaults, and a container tenant's longer window -- the whole reason
+          the field exists -- never took effect.
+        */}
+        <FlowProvider
+          brandConfig={TENANT_BRAND_CONFIG.kiosk}
+          menu={MENU_FACTS}
+          storedValue={TENANT_BRAND_CONFIG.features?.stored_value === true}
+        >
+          <KioskSurface />
+        </FlowProvider>
       </DeviceProvider>
     </ThemeProvider>
+  );
+}
+
+/** Inside FlowProvider, so the session can be built from the resolved flow. */
+function KioskSurface() {
+  const { flow } = useFlow();
+  return (
+    <KioskSessionProvider timing={flow.idle}>
+      <StatusBar hidden />
+      {/* The step transition is ours (see step-stage.tsx), so the stack must
+          not add one of its own on top of it. */}
+      <Stack screenOptions={{ headerShown: false, animation: 'none' }} />
+      {/* Mounted once, at the root: the notice used to live only on the order
+          screen, which is why an abandoned session at tender had its cart
+          cleared under a live Pay button. */}
+      <IdleNotice />
+    </KioskSessionProvider>
   );
 }

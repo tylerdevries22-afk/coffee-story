@@ -1,5 +1,5 @@
 import { Slot } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { useTokens } from '@platform/ui';
@@ -21,12 +21,23 @@ export default function FlowLayout() {
   const { flow, step, backTarget, goBack, startOver } = useFlow();
   const { touch, resetSeq } = useKioskSession();
 
-  // The idle reset has to navigate as well as clear. Without this a guest whose
-  // session timed out is left looking at a fill screen with an empty tray.
+  /**
+   * An idle reset has to navigate as well as clear, or a guest whose session
+   * timed out is left looking at a fill screen with an empty tray.
+   *
+   * It watches for a CHANGE, not for a non-zero value. Testing `resetSeq > 0`
+   * made the kiosk impossible to enter: the attract screen calls `reset()`
+   * before navigating, so the counter was already 1 by the time this layout
+   * first mounted, the mount effect fired, and every tap bounced straight back
+   * to attract. The seed is taken on mount for exactly that reason.
+   */
+  const seenReset = useRef(resetSeq);
   useEffect(() => {
-    if (resetSeq > 0) startOver();
-    // startOver is stable enough for this; re-running on every identity change
-    // would bounce the guest out of the flow they are in.
+    if (resetSeq === seenReset.current) return;
+    seenReset.current = resetSeq;
+    startOver();
+    // `startOver` is recreated whenever the flow's facts change; depending on it
+    // would throw a guest out of the step they are standing in.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resetSeq]);
 

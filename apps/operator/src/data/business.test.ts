@@ -62,7 +62,7 @@ describe('businessFromBrandConfig', () => {
   });
 
   it('derives a mark and a gift prefix for a brand that set neither', () => {
-    const business = businessFromBrandConfig({ copy: { appName: 'Blue Bottle Works' } }, null, null);
+    const business = businessFromBrandConfig({ copy: { appName: 'Bright Boat Works' } }, null, null);
     assert.equal(business.monogram, 'BBW');
     assert.equal(business.giftCodePrefix, 'BBW');
   });

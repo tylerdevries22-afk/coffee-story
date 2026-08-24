@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
+import { StyleSheet, View, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
 
 import type { KioskEntryNode } from '@platform/domain';
 import { menuImageFrame, type MenuImageVariant } from '@platform/ui';
@@ -19,9 +19,13 @@ const VARIANT_FOR: Record<KioskEntryNode['emphasis'], MenuImageVariant> = {
  *
  * Measured rather than assumed: the layout is a function of the real canvas, so
  * the same config draws correctly on an iPad and in the 1366x1024 web export
- * `scripts/capture-surfaces.mjs` drives. Nothing renders until the measurement
- * lands, which avoids a first frame at the wrong size that the entrance
- * animation would then animate away from.
+ * `scripts/capture-surfaces.mjs` drives.
+ *
+ * The measurement REFINES an estimate; it is not a precondition. Gating the
+ * render on `onLayout` shipped an empty first screen -- the event does not
+ * reliably fire for this subtree on react-native-web, and a lobby kiosk showing
+ * nothing because a layout callback did not arrive is the worst failure this
+ * screen has. The window is always known, so there is always a canvas.
  */
 export function Constellation({
   nodes,
@@ -34,17 +38,28 @@ export function Constellation({
   bundled?: BundledArt;
   onSelect: (node: KioskEntryNode) => void;
 }) {
-  const [canvas, setCanvas] = useState<{ width: number; height: number } | null>(null);
+  const window = useWindowDimensions();
+  const [measured, setMeasured] = useState<{ width: number; height: number } | null>(null);
 
   function measure(event: LayoutChangeEvent) {
     const { width, height } = event.nativeEvent.layout;
-    setCanvas((current) =>
+    if (width <= 0 || height <= 0) return;
+    setMeasured((current) =>
       current && current.width === width && current.height === height ? current : { width, height });
   }
 
-  const placed = canvas
-    ? layoutConstellation(nodes.map((node) => ({ id: node.id, emphasis: node.emphasis })), canvas)
-    : [];
+  // Chrome bar plus the step heading, so the estimate is close enough that the
+  // refinement does not visibly reflow.
+  const CHROME_AND_HEADING = 190;
+  const canvas = measured ?? {
+    width: Math.max(320, window.width - 64),
+    height: Math.max(320, window.height - CHROME_AND_HEADING),
+  };
+
+  const placed = layoutConstellation(
+    nodes.map((node) => ({ id: node.id, emphasis: node.emphasis })),
+    canvas,
+  );
   const byId = new Map(nodes.map((node) => [node.id, node]));
 
   return (

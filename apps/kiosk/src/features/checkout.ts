@@ -66,9 +66,21 @@ export function isCancellable(phase: CheckoutPhase): boolean {
   return phase === 'idle';
 }
 
-/** Whether a retry from here must present the key the last attempt used. */
-export function reusesAttemptKey(phase: CheckoutPhase): boolean {
-  return phase === 'timedOut' || phase === 'failed';
+/**
+ * Whether there is a key an in-flight cart is already committed to.
+ *
+ * This used to ask the PHASE -- true for 'timedOut' and 'failed' -- and that was
+ * wrong in the one sequence a guest actually produces. The failure screen offers
+ * a Retry, `retry` returns the machine to 'idle', and only then does the screen
+ * re-send; by that point the phase is 'idle', the old predicate said false, and
+ * the re-send minted a fresh key. A timed-out request that HAD created the order
+ * would then create a second one.
+ *
+ * The key belongs to the CART, not to a phase. It is minted once and retired by
+ * exactly one event, `cartChanged`.
+ */
+export function reusesAttemptKey(state: CheckoutState): boolean {
+  return state.attemptKey !== null;
 }
 
 export type CheckoutAdvice = 'none' | 'retry' | 'choose-another-tender' | 'see-staff';
@@ -94,11 +106,10 @@ export function checkoutReducer(state: CheckoutState, event: CheckoutEvent): Che
       return {
         ...state,
         phase: 'placing',
-        // A retry keeps the key the failed attempt used, so the server can
-        // recognise it as the same order rather than making a second one.
-        attemptKey: reusesAttemptKey(state.phase) && state.attemptKey
-          ? state.attemptKey
-          : event.attemptKey,
+        // The cart's key wins whenever there is one, so a re-send after a
+        // timeout or a decline replays as the same order rather than making a
+        // second. Only `cartChanged` clears it.
+        attemptKey: state.attemptKey ?? event.attemptKey,
         errorCode: null,
         attempts: state.attempts + 1,
       };
