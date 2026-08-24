@@ -381,3 +381,78 @@ keep doing it that way.
   and failed immediately under `noUncheckedIndexedAccess`. Fixed rather than
   suppressed. This will keep happening to anything merged in until every
   package extends `tsconfig.base.json`; that it happens loudly is the point.
+
+## Follow-up — a sweep for the whole vulnerability class, and guards so it stops
+
+0031 and 0033 each closed one definer-view write path. Two incidents of one
+shape is a class, so this pass looked for the rest of it against a live
+database rather than by reading SQL, and then replaced the comment that had
+been holding the line with tests.
+
+### The sweep
+
+Asked the database, not the migrations, because the migrations are what would
+be wrong:
+
+- **Every view, is it updatable and does a client role hold writes?** Three did:
+  `brand_daily_metrics`, `location_daily_metrics` and `drop_performance` each
+  granted INSERT, UPDATE and DELETE to both `anon` and `authenticated`. All
+  three are aggregates, and Postgres refuses writes to a view that is not
+  automatically updatable, so the privilege was never reachable — a trap rather
+  than a hole, and one that arms itself the day somebody simplifies one of them
+  or hangs an INSTEAD OF trigger on it. Revoked in 0034. Every view in the tree
+  now shows `(none)` for client writes.
+- **Every public table, is RLS on?** All of them. With 0014 granting ALL to
+  `authenticated`, a table with RLS off would be wide open; none is.
+- **Every SECURITY DEFINER function, is `search_path` pinned?** All of them.
+  An unpinned definer function is a search-path hijack waiting for someone with
+  CREATE on a schema earlier in the path.
+- **Any policy that is unconditionally `true`?** One: `locations_select`. That
+  is deliberate — a shop's name, address and hours are storefront data. Noted
+  below rather than changed.
+
+### The kiosk had the display's hole
+
+`orders_kiosk_select` (0023) granted SELECT on `orders` — every column, every
+row at that location, for a rolling hour — to any paired kiosk or POS device,
+so a tablet bolted to a counter in a public room could read strangers'
+`customer_id`, `totals`, `note` and `square_payment_id`. Exactly the shape 0033
+dropped for the wall, on a surface just as reachable.
+
+0034 drops it for `kiosk_receipts`: a number, a name, a status, gated by
+`app.can_read_receipt` and bounded to ten minutes. The window is the
+containment — a kiosk does not authenticate a guest and so cannot prove which
+order is its own, and a receipt is read seconds after checkout. An hour was a
+whole breakfast service. Nothing consumed the old policy yet, so this cost
+nothing to change.
+
+### The guards
+
+`packages/schema/src/invariants.test.ts`, because each of these was an incident
+before it was a test and a comment is not a control:
+
+- **No view is a write path.** Every view in the tree must revoke INSERT,
+  UPDATE and DELETE from both client roles, and the revoke must come *after*
+  the last `create` — `create or replace view` preserves grants but
+  `drop`+`create` does not, so a revoke written before a later recreate is
+  undone by it. (The first version of this test asserted against the wrong
+  offset because `comment on view public.x` also contains the view's name. It
+  failed on a view that was fine, which is the more expensive kind of wrong.)
+- **Migration versions are unique, well-formed, and sort in apply order.** Two
+  branches in flight both claimed 0030 and nothing failed loudly.
+- **Every workspace tsconfig extends `tsconfig.base.json`.** This one found
+  five more: `apps/display`, `apps/hq`, `tests/consistency`, `tests/e2e` and
+  `tests/integration` all compiled under their own rules. All now extend the
+  base and the workspace still typechecks clean.
+
+### Still open
+
+- **`locations` is world-readable including `square_connection_id`.** An
+  internal FK to the encrypted-token table on a public read surface. Minor —
+  `square_connections` has no policies at all, so the id does not dereference —
+  but a storefront read has no business carrying a payments FK. Changing it
+  means a projection and updating everything that reads `locations`, which is a
+  lot of blast radius for a low-severity disclosure; recorded rather than done.
+- The kiosk receipt / board numbering conflict, `REWARD_TIERS` carrying one
+  tenant's ladder in a shared package, and the annual-vs-lifetime points
+  mismatch all stand as previously recorded.

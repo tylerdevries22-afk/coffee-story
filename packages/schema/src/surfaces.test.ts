@@ -141,6 +141,36 @@ describe('the pickup display read', () => {
   });
 });
 
+describe('the lobby kiosk read', () => {
+  it('leaves an ordering device no route to orders either', () => {
+    // Same shape as the display policy 0033 dropped, on a surface just as
+    // public: `orders_kiosk_select` granted SELECT on `orders` -- every column,
+    // every row at that location, for a rolling hour -- to a tablet bolted to
+    // a counter anyone can reach. 0034 replaced it with a projection.
+    assert.match(allSql(), /drop policy if exists orders_kiosk_select on public\.orders/);
+  });
+
+  it('hands a receipt a number and a name, and nothing that costs money', () => {
+    const views = [...allSql().matchAll(
+      /create (?:or replace )?view public\.kiosk_receipts[\s\S]*?;/g)];
+    assert.ok(views.length > 0, 'kiosk_receipts is not defined');
+    const columns = projectedColumns(views[views.length - 1]![0]);
+    assert.ok(columns.includes('daily_number'));
+    for (const forbidden of ['customer_id', 'totals', 'total_cents', 'note', 'square_payment_id']) {
+      assert.ok(!columns.includes(forbidden), `kiosk_receipts must not expose ${forbidden}`);
+    }
+  });
+
+  it('bounds the window, because a kiosk cannot prove which order is its own', () => {
+    const fn = /create or replace function app\.can_read_receipt[\s\S]*?\$\$;/.exec(allSql());
+    assert.ok(fn, 'app.can_read_receipt is not defined');
+    assert.match(fn[0], /device_is_active\('kiosk'\)/);
+    assert.match(fn[0], /jwt_device_location\(\)/, 'must be scoped to the device location');
+    assert.match(allSql(), /created_at > now\(\) - interval '10 minutes'/,
+      'the receipt window is the containment; it must stay short');
+  });
+});
+
 describe('the lineup', () => {
   it('agrees with the TS DropStatus union', () => {
     const sql = allSql();
