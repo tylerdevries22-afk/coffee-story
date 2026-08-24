@@ -97,8 +97,26 @@ export const PRODUCT_CUTOUT_SPEC = {
      * base measures an inner body 30 points brighter than its own glass rim,
      * with nothing wrong with it at all. Both pale drinks in the first batch
      * tripped it before this was fixed.
+     *
+     * Measured, not guessed, same as the grade bands below — and it took three
+     * attempts to get the *measurement* right before the number could mean
+     * anything. The locked template asks for "gentle rim light down the right
+     * edge", a genuine specular streak on the glass, and that streak sits at
+     * literally the same pixels a residual matte fringe would: right at the
+     * silhouette edge, for the full height of the glass wall. No spatial
+     * measurement (distance from background, distance from the silhouette
+     * boundary) can separate "expected highlight" from "matte defect" when
+     * they occupy the same location by construction of the photography brief.
+     * A luminance-only check can only bound how much brighter the edge is
+     * allowed to get, not explain why. Across the ten-item batch this template
+     * actually produced, the real specular streak measured 3-33 points; the
+     * bound is set just past that, with a matte defect bad enough to be worth
+     * refusing expected to clear it by a wide margin. A future redesign that
+     * compares edge pixel colour against the *known* background colour
+     * (rather than luminance against the interior) could separate the two
+     * properly; this bound is the honest interim.
      */
-    haloLuminance: 18,
+    haloLuminance: 40,
     /**
      * How far the edge colour is bled outward under the transparency.
      *

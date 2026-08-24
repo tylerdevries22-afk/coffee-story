@@ -246,26 +246,49 @@ function measureMatte(raw: Raw): ProductCutoutMatte {
     }
   }
 
-  // The rim is the partially transparent shell; the inner sample is the opaque
-  // body. A light matte left behind reads as a rim much brighter than the body.
-  let rim = 0;
-  let rimN = 0;
-  let inner = 0;
-  let innerN = 0;
-  for (let i = 0; i < width * height; i++) {
-    const a = alphaAt(i);
-    if (a === 0) continue;
-    const lum =
-      0.2126 * (data[i * 4] ?? 0) + 0.7152 * (data[i * 4 + 1] ?? 0) + 0.0722 * (data[i * 4 + 2] ?? 0);
-    if (a === 255) {
-      inner += lum;
-      innerN++;
-    } else if (a < 128) {
-      // Only the outer half of the shell: the inner half is the glass wall,
-      // which is legitimately semi-transparent and legitimately bright.
-      rim += lum;
-      rimN++;
+  // "rim" and "inner" have to be a spatial measurement of the SIDE WALLS
+  // specifically, not distance from background in general. Two earlier
+  // versions of this got that wrong in opposite ways:
+  //
+  //   - a global alpha-band split (any partial-alpha pixel vs any opaque
+  //     pixel) picked up an ice cube's translucent facet deep inside the
+  //     drink, or the glass rim's own highlight, and counted them as if they
+  //     were edge antialiasing -- so every dark-liquid drink (chai, London
+  //     fog, ube) false-flagged, because a bright rim-and-ice zone will
+  //     always beat a mid-tone liquid body, independent of matte quality.
+  //   - a multi-source BFS distance from ANY background pixel "fixed" that,
+  //     but a tall glass is open to background both above the rim and below
+  //     the base, so most of its close-to-background pixels are still in the
+  //     rim/ice/base zones -- the same failure at one remove.
+  //
+  // A real halo is a light fringe hugging the glass's actual vertical walls,
+  // for the height of the walls, independent of what is happening at the top
+  // or bottom. So this measures row by row, restricted to the vertical
+  // middle band of the subject (excluding the rim/ice zone above and the
+  // base/reflection zone below): for each row, a thin band hugging the left
+  // and right silhouette edges is "rim", and the row's own centre band is
+  // "inner" -- the same liquid, at the same height, so nothing about drink
+  // colour can bias the comparison.
+  const bbox = alphaBox(raw);
+  const bandTop = bbox.top + Math.round(bbox.height * 0.22);
+  const bandBottom = bbox.top + Math.round(bbox.height * 0.85);
+  const EDGE_BAND = 3; // px hugging each silhouette edge, per row
+  let rim = 0, rimN = 0, inner = 0, innerN = 0;
+  for (let y = bandTop; y <= bandBottom; y++) {
+    let left = -1, right = -1;
+    for (let x = 0; x < width; x++) {
+      if (alphaAt(y * width + x) > 8) { if (left < 0) left = x; right = x; }
     }
+    if (left < 0 || right - left < EDGE_BAND * 4) continue; // too narrow a row to measure meaningfully
+    const lumAt = (x: number) => {
+      const i = (y * width + x) * 4;
+      return 0.2126 * (data[i] ?? 0) + 0.7152 * (data[i + 1] ?? 0) + 0.0722 * (data[i + 2] ?? 0);
+    };
+    for (let x = left; x < left + EDGE_BAND; x++) { rim += lumAt(x); rimN++; }
+    for (let x = right - EDGE_BAND + 1; x <= right; x++) { rim += lumAt(x); rimN++; }
+    const innerLeft = left + Math.round((right - left) * 0.3);
+    const innerRight = left + Math.round((right - left) * 0.7);
+    for (let x = innerLeft; x <= innerRight; x++) { inner += lumAt(x); innerN++; }
   }
 
   return {
