@@ -21,6 +21,8 @@ import {
   type KpiDay,
   type LocationSummary,
   type MenuItemSummary,
+  DEMO_KIOSK_FLOW,
+  DEMO_KIOSK_MENU,
 } from './demo-data';
 import {
   campaignSummariesOf,
@@ -41,6 +43,8 @@ import {
   type PlatformFeeRowLike,
   type PointsRow,
 } from './live-mappers';
+import type { KioskMenuFacts } from '@platform/domain';
+
 import { serverClient } from './supabase-server';
 
 function sevenDaysAgo(): string {
@@ -183,3 +187,48 @@ export async function loadFees(): Promise<FeeRow[]> {
   return feeRowsOf(rows.data ?? [], names);
 }
 
+
+export type KioskConfigView = {
+  /** The raw `brand_config.kiosk`, or null when the brand has none. */
+  kiosk: unknown;
+  /** What the resolver needs to tell a live tile from a dead one. */
+  menu: KioskMenuFacts;
+  /** For optimistic concurrency on save; null when unknown. */
+  updatedAt: string | null;
+};
+
+/**
+ * The kiosk flow, plus enough of the menu to validate it against.
+ *
+ * The menu is loaded because `resolveKioskFlow` drops a tile pointing at a
+ * category that no longer exists -- the most likely way this config goes wrong,
+ * and completely invisible to any check that only reads the config. Categories
+ * are keyed by TITLE because `menu_categories` (0003) has no slug and a uuid
+ * differs per environment, so a title is the only thing a tenant file can name
+ * a category by.
+ */
+export async function loadKioskConfig(): Promise<KioskConfigView> {
+  const client = await serverClient();
+  if (!client) return { kiosk: DEMO_KIOSK_FLOW, menu: DEMO_KIOSK_MENU, updatedAt: null };
+
+  const [brand, categories, items] = await Promise.all([
+    client.from('brands').select('brand_config, updated_at').maybeSingle<{
+      brand_config: Record<string, unknown> | null;
+      updated_at: string;
+    }>(),
+    client.from('menu_categories').select('title').returns<{ title: string }[]>(),
+    client.from('menu_items').select('slug').returns<{ slug: string }[]>(),
+  ]);
+  if (brand.error) throw new Error(`brands: ${brand.error.message}`);
+  if (categories.error) throw new Error(`menu_categories: ${categories.error.message}`);
+  if (items.error) throw new Error(`menu_items: ${items.error.message}`);
+
+  return {
+    kiosk: brand.data?.brand_config?.kiosk ?? null,
+    menu: {
+      categories: (categories.data ?? []).map((row) => ({ id: row.title, title: row.title })),
+      itemSlugs: (items.data ?? []).map((row) => row.slug),
+    },
+    updatedAt: brand.data?.updated_at ?? null,
+  };
+}

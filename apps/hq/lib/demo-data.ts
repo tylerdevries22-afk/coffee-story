@@ -151,3 +151,25 @@ export const DEMO_FEES: FeeRow[] = [
   { month: '2026-07', locationId: 'loc-downtown', locationName: 'Downtown', grossCents: 2_401_100, feeCents: 68_100, payments: 2105 },
 ];
 
+
+/**
+ * A kiosk flow for the demo console.
+ *
+ * Deliberately sparse: it exercises the DERIVED path, so the preview shows what
+ * a brand that has configured nothing actually gets rather than a hand-made
+ * screen that flatters the feature.
+ */
+export const DEMO_KIOSK_FLOW: unknown = {
+  attract: { invite: 'Touch anywhere to order' },
+  family: 'item',
+  tenders: ['card'],
+};
+
+export const DEMO_KIOSK_MENU = {
+  categories: [
+    { id: 'Signature Lattes', title: 'Signature Lattes' },
+    { id: 'Coffee & Espresso', title: 'Coffee & Espresso' },
+    { id: 'Sweets & Desserts', title: 'Sweets & Desserts' },
+  ],
+  itemSlugs: ['tiramisu-latte', 'cortado', 'mochi-donut'],
+};

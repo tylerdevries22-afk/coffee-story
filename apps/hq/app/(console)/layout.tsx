@@ -28,6 +28,7 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
         <NavLink href="/analytics">Analytics</NavLink>
         {hasRole(session, 'platform_admin') ? <NavLink href="/fees">Platform fees</NavLink> : null}
         {hasRole(session, 'brand_owner') ? <NavLink href="/brand">Brand config</NavLink> : null}
+        {hasRole(session, 'brand_owner') ? <NavLink href="/kiosk">Kiosk</NavLink> : null}
         {hasRole(session, 'platform_admin') ? <NavLink href="/onboarding">Onboarding</NavLink> : null}
         <div className="session">
           {session ? (
