@@ -22,5 +22,9 @@ app — with a countdown, so you never miss one.
 
 **Category:** Food & Drink
 
-Fill in before submission: support URL (https://coffeestoryco.com),
-privacy policy URL, and the marketing URL.
+**Support URL:** https://coffeestoryco.com
+
+**Privacy policy URL:** https://coffeestoryco.com/privacy-policy
+
+Fill in the marketing URL before submission. Publish a counsel-reviewed copy
+of docs/legal/privacy-policy.md at the privacy policy URL above.

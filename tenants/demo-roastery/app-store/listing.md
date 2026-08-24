@@ -22,5 +22,9 @@ app — with a countdown, so you never miss one.
 
 **Category:** Food & Drink
 
-Fill in before submission: support URL (https://demo-roastery.test),
-privacy policy URL, and the marketing URL.
+**Support URL:** https://demo-roastery.test
+
+**Privacy policy URL:** https://demo-roastery.test/privacy-policy
+
+Fill in the marketing URL before submission. Publish a counsel-reviewed copy
+of docs/legal/privacy-policy.md at the privacy policy URL above.

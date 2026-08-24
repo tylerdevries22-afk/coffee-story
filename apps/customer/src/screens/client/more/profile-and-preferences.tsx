@@ -82,11 +82,12 @@ export function Profile({
 }) {
   const tokens = useBrandTokens();
   const profileStyles = createProfileStyles(tokens);
-  const { portal, isDemo, refresh, role } = useAuth();
+  const { portal, isDemo, refresh, role, signOut } = useAuth();
   const demo = useDemo();
   const [profile, setProfile] = useState<PortalProfile>(portal.profile);
   const [saving, setSaving] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   async function chooseProfilePhoto() {
     try {
@@ -161,6 +162,28 @@ export function Profile({
       setSaving(false);
     }
   }
+
+  async function deleteAccount() {
+    setDeleting(true);
+    try {
+      await mobileApi.deleteProfile();
+      await signOut();
+    } catch (error) {
+      Alert.alert('Account not deleted', error instanceof Error ? error.message : 'Try again later.');
+      setDeleting(false);
+    }
+  }
+
+  function confirmAccountDeletion() {
+    Alert.alert(
+      'Delete account?',
+      'This permanently removes your sign-in and personal details. Order history stays anonymized for shop records.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete account', style: 'destructive', onPress: () => void deleteAccount() },
+      ],
+    );
+  }
   return (
     <CollapsingScreen title="Profile" eyebrow="My account" onBack={onBack} keyboardShouldPersistTaps="handled">
       <View style={profileStyles.avatarHeader}>
@@ -188,6 +211,19 @@ export function Profile({
       <Field label="Phone" value={profile.phone ?? ''} keyboardType="phone-pad" onChangeText={(phone) => setProfile({ ...profile, phone })} />
       <Field label="Birthday" value={profile.birthday ?? ''} placeholder="YYYY-MM-DD" onChangeText={(birthday) => setProfile({ ...profile, birthday })} />
       <Button label="Save profile" loading={saving} onPress={() => void saveProfile()} />
+      {!isDemo && role === 'client' ? (
+        <Card style={profileStyles.accessCard}>
+          <SectionTitle>Delete account</SectionTitle>
+          <Body muted>Your personal details and sign-in will be removed. An anonymized order record remains with the shop.</Body>
+          <Button
+            label="Delete my account"
+            variant="secondary"
+            loading={deleting}
+            disabled={deleting}
+            onPress={confirmAccountDeletion}
+          />
+        </Card>
+      ) : null}
       {role !== 'client' ? (
         <Card style={profileStyles.accessCard}>
           <SectionTitle>Workspace access</SectionTitle>

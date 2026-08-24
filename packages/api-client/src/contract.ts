@@ -85,6 +85,8 @@ export type UpdateProfileRequest = {
   smsOptIn?: boolean;
 };
 
+export type DeleteProfileResponse = { ok: true };
+
 export type MintReferralResponse = {
   code: string;
 };

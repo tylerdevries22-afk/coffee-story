@@ -6,7 +6,7 @@ import { GET as healthGet } from '../../../apps/hq/app/api/health/route.ts';
 import { POST as jobsPost } from '../../../apps/hq/app/api/jobs/run/route.ts';
 import { POST as redeemPost } from '../../../apps/hq/app/api/loyalty/redeem/route.ts';
 import { POST as ordersPost } from '../../../apps/hq/app/api/orders/route.ts';
-import { POST as profilePost } from '../../../apps/hq/app/api/profile/route.ts';
+import { DELETE as profileDelete, POST as profilePost } from '../../../apps/hq/app/api/profile/route.ts';
 import { POST as pushTokensPost } from '../../../apps/hq/app/api/push-tokens/route.ts';
 import { POST as referralsPost } from '../../../apps/hq/app/api/referrals/route.ts';
 import { POST as squareWebhookPost } from '../../../apps/hq/app/api/webhooks/square/route.ts';
@@ -427,6 +427,59 @@ describe('platform API routes', { skip: skipUnlessConfigured }, () => {
     });
     assert.equal(conflict.status, 409);
     assert.equal(((await conflict.json()) as { error: { code: string } }).error.code, 'phone_in_use');
+  });
+
+  it('anonymizes a customer, revokes push delivery, and deletes the auth identity', async () => {
+    const departing = await createSignedInUser({ userMetadata: { brand_slug: SLUG } });
+    const profile = await post(profilePost, '/api/profile', {
+      token: departing.accessToken,
+      body: { fullName: 'Departing Guest', phone: `+1${String(Date.now() + 1).slice(-10)}` },
+    });
+    assert.equal(profile.status, 200);
+    const customer = await sql<{ id: string }>(
+      `select id from public.customers where user_id = $1`,
+      [departing.userId],
+    );
+    const customerId = customer.rows[0]!.id;
+    await sql(
+      `insert into public.push_tokens (brand_id, customer_id, token, platform)
+       values ($1, $2, $3, 'ios')`,
+      [brandId, customerId, `ExponentPushToken[${randomUUID()}]`],
+    );
+    const order = await sql<{ id: string }>(
+      `insert into public.orders
+        (brand_id, location_id, customer_id, status, subtotal_cents, total_cents, tender_type)
+       values ($1, $2, $3, 'created', 500, 500, 'pay_at_pickup') returning id`,
+      [brandId, locationId, customerId],
+    );
+
+    const response = await profileDelete(new Request('http://hq.test/api/profile', {
+      method: 'DELETE',
+      headers: { authorization: `Bearer ${departing.accessToken}` },
+    }));
+    assert.equal(response.status, 200);
+
+    const anonymized = await sql<{
+      full_name: string; email: string | null; phone: string | null; user_id: string | null;
+    }>(`select full_name, email, phone, user_id from public.customers where id = $1`, [customerId]);
+    assert.deepEqual(anonymized.rows[0], {
+      full_name: 'Deleted account', email: null, phone: null, user_id: null,
+    });
+    const retained = await sql<{ customer_id: string }>(
+      `select customer_id from public.orders where id = $1`,
+      [order.rows[0]!.id],
+    );
+    assert.equal(retained.rows[0]!.customer_id, customerId);
+    const delivery = await sql<{ count: string }>(
+      `select count(*)::text as count from public.push_tokens where customer_id = $1`,
+      [customerId],
+    );
+    assert.equal(delivery.rows[0]!.count, '0');
+    const authUser = await sql<{ count: string }>(
+      `select count(*)::text as count from auth.users where id = $1`,
+      [departing.userId],
+    );
+    assert.equal(authUser.rows[0]!.count, '0');
   });
 
   it('mints one referral code per guest and re-surfaces it', async () => {

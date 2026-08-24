@@ -44,6 +44,13 @@ function notAvailable(what: string): never {
 }
 
 export const mobileApi = {
+  deleteProfile: async (): Promise<void> => {
+    try {
+      await requireApi().deleteProfile();
+    } catch (error) {
+      rethrow(error);
+    }
+  },
   updateProfile: async (
     payload: Pick<PortalProfile, 'fullName' | 'phone' | 'birthday'>,
     _idempotencyKey: string,

@@ -5,7 +5,7 @@
  */
 const DEFAULT_TIMEOUT_MS = 10_000;
 const DEFAULT_ATTEMPTS = 2;
-const SAFE_RETRY_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+const SAFE_RETRY_METHODS = new Set(['DELETE', 'GET', 'HEAD', 'OPTIONS']);
 
 export class AppNetworkError extends Error {
   readonly code: 'timeout' | 'request_failed';

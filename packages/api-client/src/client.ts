@@ -2,6 +2,7 @@ import {
   API_ROUTES,
   type CancelOrderRequest,
   type CancelOrderResponse,
+  type DeleteProfileResponse,
   type MintReferralResponse,
   type PlaceOrderRequest,
   type PlaceOrderResponse,
@@ -60,11 +61,16 @@ export function resolveApiUrl(
 }
 
 export function createApiClient(config: ApiClientConfig) {
-  async function request<T>(path: string, body: unknown, idempotencyKey?: string): Promise<T> {
+  async function request<T>(
+    path: string,
+    body: unknown,
+    idempotencyKey?: string,
+    method: 'POST' | 'DELETE' = 'POST',
+  ): Promise<T> {
     const token = await config.getAccessToken();
     if (!token) throw new Error('Sign in before calling the platform API.');
     const response = await fetchWithRetry(resolveApiUrl(path, config), {
-      method: 'POST',
+      method,
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
@@ -101,6 +107,7 @@ export function createApiClient(config: ApiClientConfig) {
       request<{ ok: true }>(API_ROUTES.pushTokens, input),
     updateProfile: (input: UpdateProfileRequest) =>
       request<{ ok: true }>(API_ROUTES.profile, input),
+    deleteProfile: () => request<DeleteProfileResponse>(API_ROUTES.profile, undefined, undefined, 'DELETE'),
     mintReferral: () => request<MintReferralResponse>(API_ROUTES.referrals, {}),
   };
 }
