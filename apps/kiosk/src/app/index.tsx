@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useCopy, useTokens } from '@platform/ui';
 
+import { useDevice } from '@/state/device';
 import { useKioskSession } from '@/state/session';
 
 /**
@@ -18,6 +19,7 @@ export default function AttractScreen() {
   const copy = useCopy();
   const router = useRouter();
   const { reset } = useKioskSession();
+  const device = useDevice();
 
   return (
     <Pressable
@@ -34,6 +36,21 @@ export default function AttractScreen() {
           {copy('orderCta')}
         </Text>
       </View>
+      {/* Offered only while the tablet is unpaired, and deliberately small: a
+          guest walking up should see an invitation to order, not a setup task.
+          Once paired it disappears entirely. */}
+      {device.status === 'unpaired' ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Set up this kiosk"
+          onPress={() => router.push('/pair')}
+          style={styles.setup}
+        >
+          <Text style={[styles.setupLabel, { color: tokens.textMuted, fontFamily: tokens.fontBody }]}>
+            Set up this kiosk
+          </Text>
+        </Pressable>
+      ) : null}
       <View style={[styles.rule, { backgroundColor: tokens.accent }]} />
     </Pressable>
   );
@@ -46,4 +63,6 @@ const styles = StyleSheet.create({
   brand: { fontSize: 96, letterSpacing: -1 },
   invite: { fontSize: 34 },
   rule: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 6 },
+  setup: { position: 'absolute', bottom: 28, right: 28, minHeight: 60, paddingHorizontal: 20, justifyContent: 'center' },
+  setupLabel: { fontSize: 16 },
 });

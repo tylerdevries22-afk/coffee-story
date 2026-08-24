@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useRef } from 'react';
+import { useEffect, useReducer, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import { formatMoney, orderSubtotalCents, orderTotals } from '@platform/domain';
@@ -7,9 +7,13 @@ import { useTokens } from '@platform/ui';
 import { KioskPressable } from '@/components/chrome/kiosk-pressable';
 import { CheckDraw } from '@/components/feedback/check-draw';
 import { IDLE_CHECKOUT, checkoutReducer, recoveryAdvice } from '@/features/checkout';
+import { toPlaceOrderRequest } from '@/features/order-request';
+import { deviceApiClient } from '@/lib/api';
 import { authorize } from '@/lib/card-reader';
 import * as haptics from '@/lib/haptics';
+import { useDevice } from '@/state/device';
 import { useFlow } from '@/state/flow';
+import { useGuest } from '@/state/guest';
 import { useKioskSession } from '@/state/session';
 import { TENANT_TAX } from '@/tenant/tax';
 
@@ -31,6 +35,9 @@ export default function ProcessingStep() {
   const tokens = useTokens();
   const { goNext, goTo } = useFlow();
   const { cart, setCommitted } = useKioskSession();
+  const device = useDevice();
+  const { guestLabel } = useGuest();
+  const [ticket, setTicket] = useState<number | null>(null);
   const [state, dispatch] = useReducer(checkoutReducer, IDLE_CHECKOUT);
   const started = useRef(false);
 
@@ -48,10 +55,39 @@ export default function ProcessingStep() {
     void (async () => {
       const attemptKey = newAttemptKey();
       dispatch({ type: 'place', attemptKey });
-      // The seam's other half: placement is not wired to the API yet (the kiosk
-      // holds no device token), so the order id is local. Everything the
-      // reducer does with it is real.
-      const orderId = attemptKey;
+
+      /**
+       * A paired kiosk places a REAL order; an unpaired one runs the demo
+       * plane. The branch is on the device rather than on a build flag, so the
+       * same binary is a working till in a shop and a walkable demo on the web
+       * export the captures use.
+       */
+      let orderId = attemptKey;
+      const api = device.accessToken ? deviceApiClient(device.accessToken) : null;
+      if (api && device.locationId) {
+        try {
+          const placed = await api.placeOrder(
+            toPlaceOrderRequest({
+              cart,
+              locationId: device.locationId,
+              // The reader is the tender; the order is created first so a
+              // timeout leaves a row to settle rather than an orphan charge.
+              tenderType: 'pay_at_pickup',
+              guestLabel,
+            }),
+            // The SAME key the reducer is holding, so a retry of a request that
+            // may already have created an order returns that order rather than
+            // making a second one.
+            attemptKey,
+          );
+          orderId = placed.orderId;
+          setTicket(placed.dailyNumber ?? null);
+        } catch {
+          clearTimeout(timer);
+          dispatch({ type: 'failed', code: 'order_rejected' });
+          return;
+        }
+      }
       dispatch({ type: 'placed', orderId });
 
       const result = await authorize({ amountCents: totals.totalCents, orderId }, controller.signal);
@@ -67,6 +103,7 @@ export default function ProcessingStep() {
     })();
 
     return () => { clearTimeout(timer); controller.abort(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [totals.totalCents, setCommitted]);
 
   const advice = recoveryAdvice(state);
@@ -84,6 +121,19 @@ export default function ProcessingStep() {
           <Text style={[styles.status, { color: tokens.success, fontFamily: tokens.fontBody, fontSize: tokens.type.xl }]}>
             Payment complete
           </Text>
+          {ticket !== null ? (
+            <>
+              <Text style={[styles.status, { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: tokens.type.lg }]}>
+                Your order number
+              </Text>
+              {/* The number the DATABASE assigned, not one this screen invented.
+                  `app.assign_daily_number` restarts it per location per service
+                  date, which is what lets the board and the barista agree. */}
+              <Text style={[styles.total, { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: tokens.type.ticket }]}>
+                {ticket}
+              </Text>
+            </>
+          ) : null}
           <KioskPressable label="Continue" onPress={() => goNext({ placed: true })} />
         </>
       ) : advice === 'none' ? (
