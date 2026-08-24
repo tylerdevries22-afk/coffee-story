@@ -27,3 +27,28 @@ export function itemsInCategory(title: string) {
   if (!meta) return [];
   return MENU_ITEMS.filter((item) => item.category === meta.id);
 }
+
+/**
+ * The containers a tenant sells, if any.
+ *
+ * Empty for a shop whose SKU is a drink, which is why the container family is
+ * a per-tenant choice and never inferred from the menu: a coffee shop that adds
+ * one box of pastries has not changed what it is.
+ */
+export function packsInCategory(title: string) {
+  return itemsInCategory(title).filter((item) => typeof item.packSize === 'number' && item.packSize > 0);
+}
+
+/**
+ * What may go in a pack right now.
+ *
+ * The client mirror of `app.pack_choices` (0029): everything listed, not 86'd,
+ * and not itself a pack. The SQL additionally narrows a 'lineup' source to
+ * items that are permanent or in an orderable drop -- that part needs the live
+ * rows, so a compiled catalog returns the permanent set and the server remains
+ * the authority.
+ */
+export function packChoicesFor(pack: { packSize?: number; choiceSource?: 'lineup' | 'static' }) {
+  return MENU_ITEMS.filter((item) =>
+    item.soldOutToday !== true && typeof item.packSize !== 'number');
+}

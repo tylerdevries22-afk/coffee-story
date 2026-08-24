@@ -31,5 +31,6 @@ export * from './kiosk-flow';
 export * from './guest-label';
 export * from './order-channel';
 export * from './order-snapshot';
+export * from './stored-value';
 export * from './board-display';
 export * from './qr';
