@@ -10,6 +10,7 @@ const migration = readFileSync(
 
 describe('Stage 7 settings write', () => {
   it('is RLS-scoped, concurrency checked, and preserves unrelated config sections', () => {
+    assert.match(migration, /function public\.set_brand_settings_config/);
     assert.match(migration, /security invoker/i);
     assert.match(migration, /brand_config_stale/);
     assert.match(migration, /coalesce\(brand_config -> 'tokens'/);

@@ -1,6 +1,6 @@
 -- Stage 7: complete HQ's settings write and show revenue by order channel.
 
-create or replace function app.set_brand_settings_config(
+create or replace function public.set_brand_settings_config(
   config jsonb,
   expected_updated_at timestamptz default null
 )
@@ -49,8 +49,8 @@ begin
   return target.updated_at;
 end $$;
 
-revoke execute on function app.set_brand_settings_config(jsonb, timestamptz) from anon, public;
-grant execute on function app.set_brand_settings_config(jsonb, timestamptz) to authenticated;
+revoke execute on function public.set_brand_settings_config(jsonb, timestamptz) from anon, public;
+grant execute on function public.set_brand_settings_config(jsonb, timestamptz) to authenticated;
 
 create or replace view public.location_daily_metrics
 with (security_invoker = true) as
