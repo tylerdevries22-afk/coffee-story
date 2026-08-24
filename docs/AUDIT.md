@@ -805,3 +805,57 @@ these, and each is named in `.env.example` with what it is for:
 The migrations in `supabase/migrations/` are the schema of record and CI
 applies them to a hosted stack; `supabase/config.toml` configures only the
 local development stack and has no bearing on a deployed project.
+
+## Correction — 0040 broke a page I had already been shown
+
+`apps/hq/lib/data.ts` `loadLocations()` selected `square_connection_id` and
+runs on `serverClient()` — a signed-in user, role `authenticated`. A
+column-level revoke does not redact; it fails the entire query with
+`permission denied for column`. So 0040 would have taken the HQ Locations page
+down for every brand owner.
+
+The part worth recording is not the bug, it is how it got past. When I went
+looking for callers I ran a grep for `from('locations')` and **that exact line
+was in the output**, column list and all. I read it, decided the risk was
+`select('*')`, fixed the one caller in `packages/data/src/brand.ts`, and moved
+on — never checking the explicit column lists for the columns I was about to
+revoke. I then wrote in the commit message that I had fixed "the one caller".
+The evidence was on screen and I had already formed the conclusion.
+
+Found and fixed on main by the kiosk session (`9a89282`): connectivity now
+comes from `location_square_status` (a security-barrier view over
+`square_connections`, of which 0031 revoked only the writes) and the
+`locations` query no longer names a revoked column. They also added
+`tests/consistency/src/revoked-columns.test.ts`, which reads every
+column-level revoke out of the migrations and fails if any app source names
+one in a `.select()` on that table — keyed by *table and column*, because
+keying on column alone flagged `brands.fee_bps` and a guard that cries wolf
+gets ignored within a week.
+
+`apps/hq/lib/square-runtime.ts` is allow-listed there: it selects all three
+fee columns from `locations` but takes its client as a parameter and every
+caller passes the service role. That allowlist is load-bearing — routing it
+through a user session would break silently.
+
+## Open decision — `kiosk_receipts` is dead schema I introduced
+
+0034 (mine) dropped 0023's `orders_kiosk_select` and replaced it with a narrow
+view. 0038 (theirs) drops that policy again and re-creates it scoped to
+`device_id = app.jwt_device_id()`. Theirs is the better containment — "the
+orders this device took" beats "orders at this location in the last hour", and
+they have the pairing infrastructure to support it. Nothing reads my view.
+
+But their policy sits on `orders`, so it grants every column of the matching
+rows: a kiosk token can read `customer_id`, `totals`, `note` and
+`square_payment_id` for the orders that till created. Far narrower than 0023,
+and still broader than a receipt needs — on a tablet bolted to a counter in a
+public room. It is the same argument that made `board_tickets` a projection
+rather than a policy: the projection is the privilege.
+
+Referred to them, since the receipt path is theirs, with three options: fold
+`device_id` into `kiosk_receipts` and drop the policy (strictest, and
+consistent with the display); keep the policy and drop my view; or keep the
+policy and revoke columns on `orders` — which carries exactly the failure mode
+above, on a table with far more readers. Default if they do not reply: drop
+the view, because leaving an unread view in the schema is the one option that
+is wrong either way.
