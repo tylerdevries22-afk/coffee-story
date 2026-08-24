@@ -31,7 +31,7 @@ describe('order state machine (SQL trigger)', { skip: skipUnlessConfigured }, ()
     }
   });
 
-  it('rejects an illegal transition from a non-webhook source', async () => {
+  it('rejects operator payment after the unpaid collection edge has passed', async () => {
     const { brandId, locationId } = await seedBrand('machine-illegal');
     const orderId = await createOrder(brandId, locationId, 'in_progress');
     await assert.rejects(
@@ -39,7 +39,7 @@ describe('order state machine (SQL trigger)', { skip: skipUnlessConfigured }, ()
         `insert into public.order_events (brand_id, order_id, type, source) values ($1, $2, 'paid', 'operator')`,
         [brandId, orderId],
       ),
-      /illegal order transition/,
+      /operator paid\/cancelled requires an unpaid pay-at-pickup order/,
     );
     assert.equal(await orderStatus(orderId), 'in_progress');
   });

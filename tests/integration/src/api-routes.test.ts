@@ -153,6 +153,7 @@ describe('platform API routes', { skip: skipUnlessConfigured }, () => {
         { itemSlug: 'cookie', quantity: 3 },
       ],
       tipCents: 111,
+      maximumTotalCents: 2_724,
       tenderType: 'pay_at_pickup',
       note: 'extra hot please',
     };
@@ -166,20 +167,46 @@ describe('platform API routes', { skip: skipUnlessConfigured }, () => {
     // Per-row rounding: round(2450*.029)=71, round(2450*.0375)=92.
     assert.equal(order.taxCents, 163);
     assert.equal(order.totalCents, 2450 + 163 + 111);
-    assert.equal(order.status, 'paid', 'pay_at_pickup lands on the board immediately');
+    assert.equal(order.status, 'created', 'pay_at_pickup remains unpaid until staff collects it');
 
     const row = await sql<{ status: string; tender_type: string; client_key: string; total_cents: string }>(
       `select status, tender_type, client_key, total_cents from public.orders where id = $1`,
       [order.orderId],
     );
-    assert.equal(row.rows[0]!.status, 'paid');
+    assert.equal(row.rows[0]!.status, 'created');
     assert.equal(row.rows[0]!.tender_type, 'pay_at_pickup');
     assert.equal(row.rows[0]!.client_key, key);
-    const events = await sql<{ type: string; source: string }>(
+    let events = await sql<{ type: string; source: string }>(
+      `select type, source from public.order_events where order_id = $1 order by created_at`,
+      [order.orderId],
+    );
+    assert.deepEqual(events.rows.map((event) => event.type), ['created']);
+
+    const beforeCollection = await sql<{ count: string }>(
+      `select count(*)::text as count from public.loyalty_accounts a
+       join public.customers c on c.id = a.customer_id where c.user_id = $1`,
+      [userId],
+    );
+    assert.equal(beforeCollection.rows[0]!.count, '0', 'an unpaid order earns no loyalty');
+
+    // Pay-at-pickup is settled by an explicit operator event at collection.
+    // This is the money-state edge that earns loyalty; creation alone is not.
+    await sql(
+      `insert into public.order_events (brand_id, order_id, type, source)
+       values ($1, $2, 'paid', 'operator')`,
+      [brandId, order.orderId],
+    );
+    const collected = await sql<{ status: string }>(
+      `select status from public.orders where id = $1`,
+      [order.orderId],
+    );
+    assert.equal(collected.rows[0]!.status, 'paid');
+    events = await sql<{ type: string; source: string }>(
       `select type, source from public.order_events where order_id = $1 order by created_at`,
       [order.orderId],
     );
     assert.deepEqual(events.rows.map((event) => event.type), ['created', 'paid']);
+    assert.equal(events.rows[1]!.source, 'operator');
 
     // The guest's first order created their customer row and earned points.
     const account = await sql<{ points_balance: string }>(
@@ -201,21 +228,33 @@ describe('platform API routes', { skip: skipUnlessConfigured }, () => {
   });
 
   it('refuses what the menu does not sell', async () => {
-    const base = { locationId, fulfillmentType: 'pickup', tipCents: 0, tenderType: 'pay_at_pickup' };
+    const base = {
+      locationId,
+      fulfillmentType: 'pickup',
+      tipCents: 0,
+      maximumTotalCents: 10_000,
+      tenderType: 'pay_at_pickup',
+    };
     const ghost = await post(ordersPost, '/api/orders', {
-      token, body: { ...base, lines: [{ itemSlug: 'off-menu', quantity: 1 }] },
+      token,
+      idempotencyKey: randomUUID(),
+      body: { ...base, lines: [{ itemSlug: 'off-menu', quantity: 1 }] },
     });
     assert.equal(ghost.status, 409);
     assert.equal(((await ghost.json()) as { error: { code: string } }).error.code, 'item_unavailable');
 
     const rigged = await post(ordersPost, '/api/orders', {
-      token, body: { ...base, lines: [{ itemSlug: 'cookie', quantity: 1, modifierSlugs: ['extra-free-everything'] }] },
+      token,
+      idempotencyKey: randomUUID(),
+      body: { ...base, lines: [{ itemSlug: 'cookie', quantity: 1, modifierSlugs: ['extra-free-everything'] }] },
     });
     assert.equal(rigged.status, 400);
     assert.equal(((await rigged.json()) as { error: { code: string } }).error.code, 'modifier_unknown');
 
     const card = await post(ordersPost, '/api/orders', {
-      token, body: { ...base, lines: [{ itemSlug: 'cookie', quantity: 1 }], tenderType: 'square_link' },
+      token,
+      idempotencyKey: randomUUID(),
+      body: { ...base, lines: [{ itemSlug: 'cookie', quantity: 1 }], tenderType: 'square_link' },
     });
     assert.equal(card.status, 503);
     assert.equal(((await card.json()) as { error: { code: string } }).error.code, 'tender_unavailable');
@@ -226,8 +265,10 @@ describe('platform API routes', { skip: skipUnlessConfigured }, () => {
     try {
       const paused = await post(ordersPost, '/api/orders', {
         token,
+        idempotencyKey: randomUUID(),
         body: {
-          locationId, fulfillmentType: 'pickup', tipCents: 0, tenderType: 'pay_at_pickup',
+          locationId, fulfillmentType: 'pickup', tipCents: 0, maximumTotalCents: 1_000,
+          tenderType: 'pay_at_pickup',
           lines: [{ itemSlug: 'cookie', quantity: 1 }],
         },
       });

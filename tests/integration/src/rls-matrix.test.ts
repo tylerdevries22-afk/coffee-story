@@ -102,8 +102,17 @@ describe('RLS matrix', { skip: skipUnlessConfigured }, () => {
       source: 'operator',
       actor_user_id: staff.userId,
     });
-    assert.match(forged.error?.message ?? '', /row-level security/,
-      'a brand_id that does not match the order must be denied by POLICY');
+    assert.match(
+      forged.error?.message ?? '',
+      /order event brand does not match its order/,
+      'the brand-integrity trigger must reject a forged order event before RLS',
+    );
+    const forgedRows = await sql<{ count: string }>(
+      `select count(*)::text as count from public.order_events
+       where order_id = $1 and brand_id = $2`,
+      [order.rows[0]!.id, foreign.brandId],
+    );
+    assert.equal(forgedRows.rows[0]!.count, '0', 'the denied event must leave no forged row behind');
   });
 
   it('staff cannot re-point customers.user_id, and cannot edit prices — but can 86 (0010 fixes)', async () => {
