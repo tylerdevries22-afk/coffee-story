@@ -189,9 +189,19 @@ describe('one order across five surfaces', { skip: skipUnlessConfigured }, () =>
 
     // 8. THE CREW still counts it. The shift's own record is the whole history,
     //    not what happens to be on a screen.
+    //    "Today" is the shop's day, not the server's. `current_date` here is
+    //    the database's UTC date, and the trigger in 0023 assigns service_date
+    //    in the location's timezone -- so between 18:00 and midnight in Denver
+    //    the two disagree and the shift's own takings look empty. This assertion
+    //    used `current_date` and passed locally in the afternoon; CI ran it at
+    //    01:22 UTC, which is still the previous evening in the shop, and caught
+    //    it. The expression below is the trigger's, verbatim.
     const counted = await sql<{ n: string }>(
-      `select count(*) as n from public.orders
-        where location_id = $1 and service_date = current_date and status = 'picked_up'`,
+      `select count(*) as n from public.orders o
+        where o.location_id = $1
+          and o.status = 'picked_up'
+          and o.service_date = (now() at time zone coalesce(
+                (select l.timezone from public.locations l where l.id = $1), 'UTC'))::date`,
       [locationId],
     );
     assert.ok(Number(counted.rows[0]!.n) >= 1, 'the day’s takings include the order that just left');
