@@ -7,7 +7,7 @@
  * when it is wanted and where it is going — and stay put, because that is the
  * pair a guest re-checks most while they browse.
  */
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Pressable,
@@ -29,9 +29,15 @@ import { disabledState } from '@/lib/a11y-state';
 import { useTabBarClearance } from '@/components/navigation/tab-screen';
 import type { MenuItem } from '@/data/catalog';
 import { fulfillmentDetail, fulfillmentLabel, type OrderFulfillment } from '@platform/domain';
+import {
+  fetchMenuTree, subscribeToLocationSettings, subscribeToMenu,
+} from '@platform/data';
 import { describePickupWindow } from '@/features/order/pickup';
 import { menuPriceLabel } from '@platform/domain';
 import { colors, fonts, radius, spacing } from '@/theme/tokens';
+import { liveBrand } from '@/lib/live-portal';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/state/auth-context';
 
 import { menuSections } from './menu-data';
 
@@ -74,7 +80,10 @@ export function MenuStep({
   onSelectItem: (item: MenuItem) => void;
   onOpenBag: () => void;
 }) {
-  const sections = useMemo(menuSections, []);
+  const { isDemo } = useAuth();
+  const [liveSoldOutIds, setLiveSoldOutIds] = useState<ReadonlySet<string> | null>(null);
+  const [orderingPaused, setOrderingPaused] = useState(false);
+  const sections = useMemo(() => menuSections(liveSoldOutIds), [liveSoldOutIds]);
   const tabs = useMemo(
     () => sections.map((section) => ({ id: section.id, label: section.title })),
     [sections],
@@ -90,6 +99,55 @@ export function MenuStep({
 
   const window = windowValue ? describePickupWindow(windowValue, new Date()) : null;
   const isDelivery = fulfillment.mode === 'delivery';
+
+  useEffect(() => {
+    if (isDemo || !supabase) {
+      setLiveSoldOutIds(null);
+      setOrderingPaused(false);
+      return undefined;
+    }
+    const database = supabase;
+    let active = true;
+    let unsubscribeMenu = () => {};
+    let unsubscribeLocation = () => {};
+    void liveBrand(database).then(async (brand) => {
+      const location = brand?.locations[0];
+      if (!active || !brand || !location) return;
+      const readMenu = async () => {
+        try {
+          const menu = await fetchMenuTree(database, brand.brand.id);
+          if (active) {
+            setLiveSoldOutIds(new Set(
+              menu.categories.flatMap((category) => category.items)
+                .filter((item) => item.is_86d)
+                .map((item) => item.slug),
+            ));
+          }
+        } catch {
+          // Keep the last lineup; Realtime or the next mount retries.
+        }
+      };
+      const readLocation = async () => {
+        const result = await database
+          .from('locations')
+          .select('ordering_paused')
+          .eq('id', location.id)
+          .maybeSingle<{ ordering_paused: boolean }>();
+        if (active && result.data) setOrderingPaused(result.data.ordering_paused);
+      };
+      await Promise.all([readMenu(), readLocation()]);
+      if (!active) return;
+      unsubscribeMenu = subscribeToMenu(database, brand.brand.id, () => void readMenu());
+      unsubscribeLocation = subscribeToLocationSettings(database, location.id, () => void readLocation());
+    }).catch(() => {
+      // The compiled catalog remains usable while storefront bootstrap retries.
+    });
+    return () => {
+      active = false;
+      unsubscribeMenu();
+      unsubscribeLocation();
+    };
+  }, [isDemo]);
 
   const measureSection = useCallback((id: string, event: LayoutChangeEvent) => {
     offsets.current[id] = event.nativeEvent.layout.y;
@@ -147,6 +205,12 @@ export function MenuStep({
         />
       </View>
 
+      {orderingPaused ? (
+        <View accessibilityRole="alert" style={styles.pausedBanner}>
+          <Text style={styles.pausedText}>Ordering is temporarily paused at this shop.</Text>
+        </View>
+      ) : null}
+
       <ScrollView
           ref={scrollRef}
           stickyHeaderIndices={[0]}
@@ -173,6 +237,7 @@ export function MenuStep({
                 <MenuRow
                   key={item.id}
                   item={item}
+                  orderingPaused={orderingPaused}
                   highlighted={item.id === highlightItemId}
                   onPress={() => onSelectItem(item)}
                 />
@@ -218,21 +283,28 @@ function ContextPill({
 
 function MenuRow({
   item,
+  orderingPaused,
   highlighted,
   onPress,
 }: {
   item: MenuItem;
+  orderingPaused: boolean;
   highlighted: boolean;
   onPress: () => void;
 }) {
   const price = menuPriceLabel(item.sizes);
   const soldOut = Boolean(item.soldOutToday);
+  const unavailable = soldOut || orderingPaused;
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={soldOut ? `${item.name}, sold out today` : `${item.name}, ${price}. ${item.description}`}
-      {...disabledState(soldOut)}
-      disabled={soldOut}
+      accessibilityLabel={soldOut
+        ? `${item.name}, sold out today`
+        : orderingPaused
+          ? `${item.name}, ordering is temporarily paused`
+          : `${item.name}, ${price}. ${item.description}`}
+      {...disabledState(unavailable)}
+      disabled={unavailable}
       onPress={onPress}
       style={({ pressed }) => [styles.row, highlighted && styles.rowHighlighted, pressed && styles.pressed, soldOut && styles.rowSoldOut]}
     >
@@ -259,6 +331,12 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
     backgroundColor: colors.brand200,
   },
+  pausedBanner: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.brand100,
+  },
+  pausedText: { color: colors.danger, fontFamily: fonts.sansBold, fontSize: 14 },
   pill: {
     minHeight: 46,
     flexDirection: 'row',

@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { CrewTaskCompletionRow, CrewTaskRow, ShiftRow, TaskRecurrence } from '@platform/schema';
 
-export type RosterEntry = ShiftRow & { staffName: string };
+export type RosterEntry = ShiftRow & { staffName: string; staffRole: string };
 
 /**
  * Who is on at a location, for one day.
@@ -19,14 +19,18 @@ export async function fetchShiftRoster(
   const dayEnd = `${serviceDate}T23:59:59.999Z`;
   const result = await client
     .from('shifts')
-    .select('*, brand_users(user_id)')
+    .select('*, brand_users(display_name, role)')
     .eq('location_id', locationId)
     .gte('starts_at', dayStart)
     .lte('starts_at', dayEnd)
     .order('starts_at')
-    .returns<(ShiftRow & { brand_users?: { user_id?: string } })[]>();
+    .returns<(ShiftRow & { brand_users?: { display_name?: string; role?: string } })[]>();
   if (result.error) throw new Error(`fetchShiftRoster: ${result.error.message}`);
-  return (result.data ?? []).map((row) => ({ ...row, staffName: row.brand_users?.user_id ?? '' }));
+  return (result.data ?? []).map((row) => ({
+    ...row,
+    staffName: row.brand_users?.display_name?.trim() || 'Team member',
+    staffRole: row.brand_users?.role ?? 'staff',
+  }));
 }
 
 export type ChecklistItem = CrewTaskRow & {

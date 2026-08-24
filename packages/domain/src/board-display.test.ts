@@ -277,6 +277,18 @@ describe('boardQueue', () => {
     assert.deepEqual(queue.entries.map((e) => e.position), [null, 1, 2]);
   });
 
+  it('uses one database-backed call-out with a name and generic fallback', () => {
+    const queue = boardQueue([
+      ticket({ id: 'number', daily_number: 47, guest_label: 'Sara D.' }),
+      ticket({ id: 'name', daily_number: null, guest_label: '  Sara D.  ' }),
+      ticket({ id: 'guest', daily_number: null, guest_label: ' ' }),
+    ], config);
+    assert.deepEqual(
+      Object.fromEntries(queue.entries.map((entry) => [entry.id, entry.callout])),
+      { number: '47', name: 'Sara D.', guest: 'Guest' },
+    );
+  });
+
   it('keeps the longest-ready order at the very top', () => {
     // Re-sorting finished tickets as newer ones land would move a guest's own
     // line while they are walking toward it.

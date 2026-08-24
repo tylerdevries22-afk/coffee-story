@@ -1,5 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+
+import {
+  fetchChecklist, fetchShiftRoster, type ChecklistItem as DataChecklistItem,
+  type RosterEntry,
+} from '@platform/data';
+import { localIsoDate } from '@platform/domain';
 
 import { CollapsingScreen } from '@/components/collapsing-screen';
 import { Body, Card, SectionTitle } from '@/components/ui';
@@ -7,8 +13,13 @@ import { DEMO_CHECKLIST, DEMO_CREW_MEMBER, DEMO_SHIFTS } from '@/data/crew-demo'
 import {
   itemsFor, outstandingAtClose, progressOf, toggleItem, type ChecklistItem, type ChecklistRecurrence,
 } from '@/features/crew/checklist';
-import { leavingSoon, minutesRemaining, shiftState, sortRoster } from '@/features/crew/shift';
+import {
+  leavingSoon, minutesRemaining, shiftState, sortRoster, type Shift,
+} from '@/features/crew/shift';
 import { choiceState } from '@/lib/a11y-state';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/state/auth-context';
+import { useOperator } from '@/state/operator-store';
 import { colors, fonts, radius, spacing } from '@/theme/tokens';
 
 /**
@@ -21,18 +32,78 @@ import { colors, fonts, radius, spacing } from '@/theme/tokens';
  * Two questions, in the order a shift asks them: who is here, and what is left.
  */
 export function CrewScreen() {
-  const [checklist, setChecklist] = useState<readonly ChecklistItem[]>(DEMO_CHECKLIST);
+  const { isDemo, portal, tenant, user } = useAuth();
+  const { location } = useOperator();
+  const [checklist, setChecklist] = useState<readonly ChecklistItem[]>(() => isDemo ? DEMO_CHECKLIST : []);
+  const [shifts, setShifts] = useState<readonly Shift[]>(() => isDemo ? DEMO_SHIFTS : []);
   // One clock for the whole render, so the roster and the "leaving soon" cue
   // can never disagree about what time it is.
   const now = useMemo(() => new Date(), []);
 
-  const roster = useMemo(() => sortRoster(DEMO_SHIFTS, now), [now]);
-  const soon = useMemo(() => leavingSoon(DEMO_SHIFTS, now), [now]);
+  const serviceDate = useMemo(() => localIsoDate(now), [now]);
+  const roster = useMemo(() => sortRoster(shifts, now), [now, shifts]);
+  const soon = useMemo(() => leavingSoon(shifts, now), [now, shifts]);
   const outstanding = useMemo(() => outstandingAtClose(checklist), [checklist]);
   const onNow = roster.filter((shift) => shiftState(shift, now) === 'on');
 
+  useEffect(() => {
+    if (isDemo) {
+      setChecklist(DEMO_CHECKLIST);
+      setShifts(DEMO_SHIFTS);
+      return undefined;
+    }
+    if (!supabase || !user) return undefined;
+    const database = supabase;
+    let active = true;
+    const load = async () => {
+      try {
+        const [rosterRows, opening, closing, daily] = await Promise.all([
+          fetchShiftRoster(database, location.id, serviceDate),
+          fetchChecklist(database, location.id, serviceDate, 'opening'),
+          fetchChecklist(database, location.id, serviceDate, 'closing'),
+          fetchChecklist(database, location.id, serviceDate, 'daily'),
+        ]);
+        if (!active) return;
+        setShifts(rosterRows.map(shiftFromRow));
+        setChecklist([...opening, ...closing, ...daily].map((item) =>
+          checklistFromRow(item, user.id, portal.profile.fullName)));
+      } catch {
+        // Keep the last roster and retry on the heartbeat.
+      }
+    };
+    void load();
+    const heartbeat = setInterval(() => void load(), 60_000);
+    return () => {
+      active = false;
+      clearInterval(heartbeat);
+    };
+  }, [isDemo, location.id, portal.profile.fullName, serviceDate, user]);
+
   function tick(id: string) {
-    setChecklist((current) => toggleItem(current, id, DEMO_CREW_MEMBER, new Date().toISOString()));
+    const previous = checklist.find((item) => item.id === id);
+    if (!previous) return;
+    const crewMember = isDemo ? DEMO_CREW_MEMBER : portal.profile.fullName || 'Team member';
+    setChecklist((current) => toggleItem(current, id, crewMember, new Date().toISOString()));
+    if (isDemo || !supabase || !tenant || !user) return;
+    const request = previous.completedAt === null
+      ? supabase.from('crew_task_completions').insert({
+        brand_id: tenant.brand_id,
+        location_id: location.id,
+        task_id: id,
+        service_date: serviceDate,
+        completed_by: user.id,
+      })
+      : supabase
+        .from('crew_task_completions')
+        .delete()
+        .eq('task_id', id)
+        .eq('location_id', location.id)
+        .eq('service_date', serviceDate);
+    void request.then((result) => {
+      if (result.error) {
+        setChecklist((current) => current.map((item) => item.id === id ? previous : item));
+      }
+    });
   }
 
   return (
@@ -74,6 +145,34 @@ export function CrewScreen() {
       <Checklist title="Through the day" recurrence="daily" items={checklist} onToggle={tick} />
     </CollapsingScreen>
   );
+}
+
+function shiftFromRow(row: RosterEntry): Shift {
+  return {
+    id: row.id,
+    staffName: row.staffName,
+    role: row.staffRole.replaceAll('_', ' '),
+    startsAt: row.starts_at,
+    endsAt: row.ends_at,
+  };
+}
+
+function checklistFromRow(
+  row: DataChecklistItem,
+  userId: string,
+  userName: string,
+): ChecklistItem {
+  return {
+    id: row.id,
+    title: row.title,
+    detail: row.detail,
+    recurrence: row.recurrence === 'weekly' ? 'daily' : row.recurrence,
+    sortOrder: row.sort_order,
+    completedAt: row.completedAt,
+    completedBy: row.completedBy
+      ? row.completedBy === userId ? userName || 'You' : 'Crew member'
+      : null,
+  };
 }
 
 function Checklist({

@@ -6,6 +6,7 @@
  * stay free of asset imports so `node:test` can reach them.
  */
 import { MENU_CATEGORY_META, MENU_ITEMS, type MenuCategoryId, type MenuItem } from '@/data/catalog';
+import { isItemSoldOut } from '@/features/order/menu-availability';
 
 export type MenuSection = {
   id: MenuCategoryId;
@@ -15,12 +16,17 @@ export type MenuSection = {
 };
 
 /** Categories in menu order, with the empty ones dropped. */
-export function menuSections(): MenuSection[] {
+export function menuSections(liveSoldOutIds: ReadonlySet<string> | null = null): MenuSection[] {
   return MENU_CATEGORY_META.map((category) => ({
     id: category.id,
     title: category.title,
     tagline: category.tagline,
-    items: MENU_ITEMS.filter((item) => item.category === category.id),
+    items: MENU_ITEMS
+      .filter((item) => item.category === category.id)
+      .map((item) => ({
+        ...item,
+        soldOutToday: isItemSoldOut(item.id, item.soldOutToday, liveSoldOutIds),
+      })),
   })).filter((section) => section.items.length > 0);
 }
 

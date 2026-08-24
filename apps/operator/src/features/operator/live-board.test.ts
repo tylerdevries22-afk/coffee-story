@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
+import { orderBoardEntryFromRow } from '@platform/data';
 import type { OrderRow } from '@platform/schema';
 
-import { boardOrderFromRow, shortCodeOf, upsertBoardOrder } from './live-board';
+import { upsertBoardOrder } from './live-board';
 
 const ROW: OrderRow = {
   id: '5d9a4c7e-0000-4000-8000-000000000001',
@@ -33,44 +34,19 @@ const ROW: OrderRow = {
   updated_at: '2026-08-22T10:00:00Z',
 };
 
-describe('shortCodeOf', () => {
-  it('is stable per id and letter+two-digits shaped', () => {
-    const code = shortCodeOf(ROW.id);
-    assert.equal(code, shortCodeOf(ROW.id));
-    assert.match(code, /^[A-Z]\d{2}$/);
-    assert.notEqual(code, shortCodeOf('another-id'));
-  });
-});
-
-describe('boardOrderFromRow', () => {
-  it('maps the row and its snapshot lines', () => {
-    const order = boardOrderFromRow(ROW, 'Yusuf');
-    assert.equal(order.guestName, 'Yusuf');
-    assert.equal(order.status, 'paid');
-    assert.equal(order.totalCents, 1395);
-    assert.deepEqual(order.lines, [{ name: 'Latte', quantity: 2, options: ['16 oz', 'Oat Milk'] }]);
-    assert.equal(order.note, 'extra hot');
-  });
-
-  it('survives a snapshot with no lines', () => {
-    const order = boardOrderFromRow({ ...ROW, totals: {} }, '');
-    assert.deepEqual(order.lines, []);
-  });
-});
-
 describe('upsertBoardOrder', () => {
-  it('replaces by id and keeps a resolved guest name over a blank one', () => {
-    const first = boardOrderFromRow(ROW, 'Yusuf');
-    const updated = boardOrderFromRow({ ...ROW, status: 'in_progress' }, '');
+  it('replaces by id with the authoritative shared mapping', () => {
+    const first = orderBoardEntryFromRow({ ...ROW, guest_label: 'Yusuf' });
+    const updated = orderBoardEntryFromRow({ ...ROW, status: 'in_progress', guest_label: '' });
     const next = upsertBoardOrder([first], updated);
     assert.equal(next.length, 1);
     assert.equal(next[0]!.status, 'in_progress');
-    assert.equal(next[0]!.guestName, 'Yusuf');
+    assert.equal(next[0]!.guestName, 'Guest');
   });
 
   it('appends an unknown id', () => {
-    const first = boardOrderFromRow(ROW, 'Yusuf');
-    const other = boardOrderFromRow({ ...ROW, id: 'ffffffff-0000-4000-8000-000000000002' }, 'Maya');
+    const first = orderBoardEntryFromRow({ ...ROW, guest_label: 'Yusuf' });
+    const other = orderBoardEntryFromRow({ ...ROW, id: 'ffffffff-0000-4000-8000-000000000002', guest_label: 'Maya' });
     assert.equal(upsertBoardOrder([first], other).length, 2);
   });
 });

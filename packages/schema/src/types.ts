@@ -103,6 +103,7 @@ export type BrandUserRow = {
   brand_id: string;
   role: BrandRole;
   location_ids: string[];
+  display_name: string;
   created_at: string;
 };
 

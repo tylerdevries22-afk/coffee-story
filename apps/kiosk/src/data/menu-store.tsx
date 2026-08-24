@@ -21,7 +21,7 @@
  * to know. A kiosk that cannot read its menu says so and keeps retrying.
  */
 import {
-  fetchBrandBySlug, fetchMenuTree, subscribeToMenu,
+  fetchBrandBySlug, fetchMenuTree, subscribeToLocationSettings, subscribeToMenu,
 } from '@platform/data';
 import { EMPTY_KIOSK_MENU, type KioskMenu } from '@platform/domain';
 import {
@@ -34,7 +34,7 @@ import { hasSupabaseConfig, supabase } from '@/lib/supabase';
 import { useDevice } from '@/state/device';
 import TENANT_BRAND_CONFIG from '@/tenant/brand.json';
 
-export type KioskMenuStatus = 'demo' | 'loading' | 'live' | 'unavailable';
+export type KioskMenuStatus = 'demo' | 'loading' | 'live' | 'paused' | 'unavailable';
 
 export type KioskMenuValue = {
   menu: KioskMenu;
@@ -53,7 +53,7 @@ const MenuContext = createContext<KioskMenuValue>({
 const RETRY_MS = [1_000, 4_000, 15_000, 60_000] as const;
 
 export function MenuProvider({ children }: PropsWithChildren) {
-  const { brandId: deviceBrandId } = useDevice();
+  const { brandId: deviceBrandId, locationId: deviceLocationId } = useDevice();
   const [menu, setMenu] = useState<KioskMenu>(hasSupabaseConfig ? EMPTY_KIOSK_MENU : DEMO_MENU);
   const [status, setStatus] = useState<KioskMenuStatus>(hasSupabaseConfig ? 'loading' : 'demo');
   const [nonce, setNonce] = useState(0);
@@ -68,14 +68,19 @@ export function MenuProvider({ children }: PropsWithChildren) {
   // tenant — this binary is built per brand — so the slug resolves one, which
   // is what lets a kiosk be set up and previewed before it is paired.
   const [resolvedBrandId, setResolvedBrandId] = useState<string | null>(null);
+  const [resolvedLocationId, setResolvedLocationId] = useState<string | null>(null);
   const brandId = deviceBrandId ?? resolvedBrandId;
+  const locationId = deviceLocationId ?? resolvedLocationId;
 
   useEffect(() => {
     if (!supabase || deviceBrandId !== null || resolvedBrandId !== null) return;
     let alive = true;
     void fetchBrandBySlug(supabase, TENANT_BRAND_CONFIG.identity.slug)
       .then((summary) => {
-        if (alive && summary) setResolvedBrandId(summary.brand.id);
+        if (alive && summary) {
+          setResolvedBrandId(summary.brand.id);
+          setResolvedLocationId(summary.locations[0]?.id ?? null);
+        }
       })
       .catch(() => undefined);
     return () => { alive = false; };
@@ -86,6 +91,7 @@ export function MenuProvider({ children }: PropsWithChildren) {
     if (!client || brandId === null) return;
     let alive = true;
     let retry: ReturnType<typeof setTimeout> | null = null;
+    let orderingPaused = false;
 
     const read = () => {
       void fetchMenuTree(client, brandId)
@@ -97,7 +103,7 @@ export function MenuProvider({ children }: PropsWithChildren) {
             items: tree.categories.flatMap((category) => category.items),
             drops: tree.drops,
           }));
-          setStatus('live');
+          setStatus(orderingPaused ? 'paused' : 'live');
         })
         .catch(() => {
           if (!alive) return;
@@ -119,12 +125,33 @@ export function MenuProvider({ children }: PropsWithChildren) {
 
     read();
     const unsubscribe = subscribeToMenu(client, brandId, read);
+    const readLocation = () => {
+      if (!locationId) return;
+      void client
+        .from('locations')
+        .select('ordering_paused')
+        .eq('id', locationId)
+        .maybeSingle<{ ordering_paused: boolean }>()
+        .then((result) => {
+          if (!alive || !result.data) return;
+          orderingPaused = result.data.ordering_paused;
+          setStatus((current) => {
+            if (current === 'loading' || current === 'unavailable') return current;
+            return orderingPaused ? 'paused' : 'live';
+          });
+        });
+    };
+    readLocation();
+    const unsubscribeLocation = locationId
+      ? subscribeToLocationSettings(client, locationId, readLocation)
+      : () => {};
     return () => {
       alive = false;
       if (retry) clearTimeout(retry);
       unsubscribe();
+      unsubscribeLocation();
     };
-  }, [brandId, nonce]);
+  }, [brandId, locationId, nonce]);
 
   const value = useMemo<KioskMenuValue>(() => ({ menu, status, refresh }), [menu, status, refresh]);
   return <MenuContext.Provider value={value}>{children}</MenuContext.Provider>;

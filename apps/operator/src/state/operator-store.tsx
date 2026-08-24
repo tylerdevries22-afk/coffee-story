@@ -21,21 +21,30 @@ import {
   useState,
   type PropsWithChildren,
 } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import {
   fetchActiveLocationOrders,
+  orderBoardEntryFromRow,
+  subscribeToLocationSettings,
   subscribeToLocationOrders,
+  subscribeToMenu,
 } from '@platform/data';
 import { canTransition, type OrderRow, type OrderStatus } from '@platform/schema';
 
 import { initialDemoOrders, spawnDemoOrder } from '@/data/demo-orders';
 import { newOrderIds, type BoardOrder } from '@/features/operator/board';
-import { boardOrderFromRow, upsertBoardOrder } from '@/features/operator/live-board';
+import { upsertBoardOrder } from '@/features/operator/live-board';
 import {
   enqueueTransition,
   reconcileQueue,
   type QueuedTransition,
 } from '@/features/operator/offline-queue';
+import {
+  drainTransitionQueue,
+  loadTransitionQueue,
+  saveTransitionQueue,
+} from '@/features/operator/persistent-queue';
 import { platformApi } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/state/auth-context';
@@ -108,7 +117,6 @@ export function OperatorProvider({ children }: PropsWithChildren) {
   const queueRef = useRef<QueuedTransition[]>([]);
   const spawnIndex = useRef(0);
   const seenRef = useRef<Set<string>>(new Set(initialDemoOrders().map((order) => order.id)));
-  const namesRef = useRef<Map<string, string>>(new Map());
   const ordersRef = useRef<BoardOrder[]>([]);
   useEffect(() => {
     ordersRef.current = orders;
@@ -134,27 +142,11 @@ export function OperatorProvider({ children }: PropsWithChildren) {
     }
   }, []);
 
-  /** Live board fetch: rows, then the guests' names staff RLS allows. */
+  /** Live board fetch, mapped once by the shared KDS projection. */
   const fetchLiveBoard = useCallback(async (): Promise<BoardOrder[] | null> => {
     if (!supabase || !tenant) return null;
     const rows = await fetchActiveLocationOrders(supabase, location.id);
-    const unknownCustomers = [...new Set(
-      rows.map((row) => row.customer_id).filter((id): id is string => Boolean(id && !namesRef.current.has(id))),
-    )];
-    if (unknownCustomers.length > 0) {
-      const named = await supabase
-        .from('customers')
-        .select('id, full_name')
-        .in('id', unknownCustomers)
-        .returns<{ id: string; full_name: string }[]>();
-      for (const customer of named.data ?? []) {
-        namesRef.current.set(customer.id, customer.full_name || 'Guest');
-      }
-    }
-    return rows.map((row) => boardOrderFromRow(
-      row,
-      row.customer_id ? namesRef.current.get(row.customer_id) ?? 'Guest' : 'Guest',
-    ));
+    return rows.map(orderBoardEntryFromRow);
   }, [location.id, tenant]);
 
   /**
@@ -164,52 +156,45 @@ export function OperatorProvider({ children }: PropsWithChildren) {
    */
   const flushQueue = useCallback(async (serverStatus: ReadonlyMap<string, OrderStatus>) => {
     if (!supabase || !tenant || queueRef.current.length === 0) return;
-    const { apply, conflicts: dropped } = reconcileQueue(queueRef.current, serverStatus);
-    queueRef.current = [];
-    if (dropped.length > 0) {
+    const database = supabase;
+    const brandId = tenant.brand_id;
+    const drained = await drainTransitionQueue(
+      queueRef.current,
+      serverStatus,
+      async (transition) => {
+        const inserted = await database.from('order_events').insert({
+          brand_id: brandId,
+          order_id: transition.orderId,
+          type: transition.to,
+          source: 'operator',
+          actor_user_id: user?.id ?? null,
+        });
+        if (!inserted.error) return { outcome: 'confirmed' };
+        return inserted.error.code
+          ? { outcome: 'rejected', message: `The change was rejected: ${inserted.error.message}` }
+          : { outcome: 'retry' };
+      },
+    );
+    queueRef.current = drained.remaining;
+    void saveTransitionQueue(AsyncStorage, location.id, queueRef.current);
+    if (drained.conflicts.length > 0) {
       setConflicts((existing) => [
         ...existing,
-        ...dropped.map((conflict) => ({
+        ...drained.conflicts.map((conflict) => ({
           orderId: conflict.transition.orderId,
           message: conflict.serverStatus
-            ? `Order moved to ${conflict.serverStatus} elsewhere; your change was dropped.`
-            : 'Order no longer exists; your change was dropped.',
+            ? `${conflict.message} Server status: ${conflict.serverStatus}.`
+            : `${conflict.message} The order no longer exists.`,
         })),
       ]);
+      // Put optimistic rows back where the server said they were. A later
+      // reconcile reads again if an earlier hop in a collapsed run succeeded.
+      setOrders((current) => current.map((order) => {
+        const conflict = drained.conflicts.find((entry) => entry.transition.orderId === order.id);
+        return conflict?.serverStatus ? { ...order, status: conflict.serverStatus } : order;
+      }));
     }
-    for (const transition of apply) {
-      const inserted = await supabase.from('order_events').insert({
-        brand_id: tenant.brand_id,
-        order_id: transition.orderId,
-        type: transition.to,
-        source: 'operator',
-        actor_user_id: user?.id ?? null,
-      });
-      if (inserted.error) {
-        // A trigger/RLS rejection is final; anything else (network) retries
-        // on the next reconcile tick.
-        if (inserted.error.code) {
-          setConflicts((existing) => [
-            ...existing,
-            { orderId: transition.orderId, message: `The change was rejected: ${inserted.error.message}` },
-          ]);
-          // Put the board back where the server actually is, now. The
-          // optimistic advance stood until the next heartbeat otherwise —
-          // up to a minute of a KDS reading "Ready" for an order the
-          // database still had at paid, and a drink handed over that was
-          // never started.
-          const known = serverStatus.get(transition.orderId);
-          if (known) {
-            setOrders((current) => current.map((order) => (
-              order.id === transition.orderId ? { ...order, status: known } : order
-            )));
-          }
-        } else {
-          queueRef.current = enqueueTransition(queueRef.current, transition);
-        }
-      }
-    }
-  }, [tenant, user?.id]);
+  }, [location.id, tenant, user?.id]);
 
   const reconcileLive = useCallback(async () => {
     try {
@@ -233,14 +218,20 @@ export function OperatorProvider({ children }: PropsWithChildren) {
     if (!live) return undefined;
     setOrders([]);
     seenRef.current = new Set();
-    void reconcileLive();
+    queueRef.current = [];
+    let active = true;
+    void loadTransitionQueue(AsyncStorage, location.id).then((stored) => {
+      if (!active) return;
+      queueRef.current = stored;
+      return reconcileLive();
+    });
     const unsubscribe = subscribeToLocationOrders(supabase, location.id, (event) => {
       if (event.kind !== 'order') return;
       const row = event.order as OrderRow;
       setOrders((current) => {
         const next = upsertBoardOrder(
           current,
-          boardOrderFromRow(row, row.customer_id ? namesRef.current.get(row.customer_id) ?? '' : 'Guest'),
+          orderBoardEntryFromRow(row),
         );
         trackFresh(next);
         return next;
@@ -248,6 +239,7 @@ export function OperatorProvider({ children }: PropsWithChildren) {
     });
     const timer = setInterval(() => void reconcileLive(), LIVE_RECONCILE_MS);
     return () => {
+      active = false;
       unsubscribe();
       clearInterval(timer);
     };
@@ -257,25 +249,36 @@ export function OperatorProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     if (!live || !supabase || !tenant) return undefined;
     let active = true;
-    void supabase
-      .from('menu_items')
-      .select('slug, is_86d')
-      .eq('brand_id', tenant.brand_id)
-      .eq('is_86d', true)
-      .returns<{ slug: string; is_86d: boolean }[]>()
-      .then((result) => {
-        if (active && result.data) setEightySixed(new Set(result.data.map((item) => item.slug)));
-      });
-    void supabase
-      .from('locations')
-      .select('ordering_paused')
-      .eq('id', location.id)
-      .maybeSingle<{ ordering_paused: boolean }>()
-      .then((result) => {
-        if (active && result.data) setOrderingPausedState(result.data.ordering_paused);
-      });
+    const database = supabase;
+    const readMenu = () => {
+      void database
+        .from('menu_items')
+        .select('slug, is_86d')
+        .eq('brand_id', tenant.brand_id)
+        .eq('is_86d', true)
+        .returns<{ slug: string; is_86d: boolean }[]>()
+        .then((result) => {
+          if (active && result.data) setEightySixed(new Set(result.data.map((item) => item.slug)));
+        });
+    };
+    const readLocation = () => {
+      void database
+        .from('locations')
+        .select('ordering_paused')
+        .eq('id', location.id)
+        .maybeSingle<{ ordering_paused: boolean }>()
+        .then((result) => {
+          if (active && result.data) setOrderingPausedState(result.data.ordering_paused);
+        });
+    };
+    readMenu();
+    readLocation();
+    const unsubscribeMenu = subscribeToMenu(database, tenant.brand_id, readMenu);
+    const unsubscribeLocation = subscribeToLocationSettings(database, location.id, readLocation);
     return () => {
       active = false;
+      unsubscribeMenu();
+      unsubscribeLocation();
     };
   }, [live, location.id, tenant]);
 
@@ -307,6 +310,7 @@ export function OperatorProvider({ children }: PropsWithChildren) {
       queuedAt: new Date().toISOString(),
     });
     if (live) {
+      void saveTransitionQueue(AsyncStorage, location.id, queueRef.current);
       const serverStatus = new Map(ordersRef.current.map((order) => [order.id, order.status] as const));
       setOrders((current) => current.map((order) => (
         order.id === orderId && canTransition(order.status, to)
@@ -339,7 +343,7 @@ export function OperatorProvider({ children }: PropsWithChildren) {
           : order;
       });
     });
-  }, [flushQueue, live]);
+  }, [flushQueue, live, location.id]);
 
   const advance = useCallback((orderId: string, to: OrderStatus) => {
     applyTransition(orderId, to);

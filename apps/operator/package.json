@@ -11,6 +11,7 @@
     "@platform/domain": "workspace:*",
     "@platform/schema": "workspace:*",
     "@platform/ui": "workspace:*",
+    "@react-native-async-storage/async-storage": "2.2.0",
     "@sentry/react-native": "^8.23.0",
     "@shopify/react-native-skia": "2.2.12",
     "@supabase/supabase-js": "^2.111.0",

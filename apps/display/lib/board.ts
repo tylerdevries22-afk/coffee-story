@@ -204,7 +204,7 @@ export async function loadBoard(locationId: string): Promise<BoardSnapshot> {
  * The reconcile read: tickets only, since nothing else changes mid-shift.
  *
  * On fixtures this answers from the demo cycle rather than a frozen array, so
- * the poll, the reconcile and the linger all run for real with no database
+ * the heartbeat and reconcile run for real with no database
  * behind them. A demo that skips those is a demo that cannot show the board
  * working, and cannot catch it when it stops.
  */

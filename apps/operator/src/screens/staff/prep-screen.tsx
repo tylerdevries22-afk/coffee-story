@@ -1,12 +1,20 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { CollapsingScreen } from '@/components/collapsing-screen';
 import { Body, Card, SectionTitle } from '@/components/ui';
-import { DEMO_BAKE_LIST, DEMO_RECIPE_STEPS } from '@/data/prep-demo';
 import {
-  bakeProgress, multiplierLabel, scaleQuantity, sortBakeList, type BakeBatch,
+  batchScale, fetchPrepBoard, subscribeToPrepBatches, type PrepBoardEntry,
+} from '@platform/data';
+import { localIsoDate } from '@platform/domain';
+
+import { DEMO_BAKE_LIST } from '@/data/prep-demo';
+import {
+  bakeProgress, multiplierLabel, recipeSteps, sortBakeList,
 } from '@/features/prep/bake-list';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/state/auth-context';
+import { useOperator } from '@/state/operator-store';
 import { colors, fonts, radius, spacing } from '@/theme/tokens';
 
 /**
@@ -20,22 +28,75 @@ import { colors, fonts, radius, spacing } from '@/theme/tokens';
  * looking at their finger.
  */
 export function PrepScreen() {
-  const [batches, setBatches] = useState<readonly BakeBatch[]>(DEMO_BAKE_LIST);
+  const { isDemo } = useAuth();
+  const { location } = useOperator();
+  const [batches, setBatches] = useState<readonly PrepBoardEntry[]>(() => isDemo ? DEMO_BAKE_LIST : []);
   const [openId, setOpenId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isDemo) {
+      setBatches(DEMO_BAKE_LIST);
+      return undefined;
+    }
+    if (!supabase) return undefined;
+    const database = supabase;
+    let active = true;
+    const serviceDate = localIsoDate(new Date());
+    const load = async () => {
+      try {
+        const rows = await fetchPrepBoard(database, location.id, serviceDate);
+        if (active) setBatches(rows);
+      } catch {
+        // Keep the last good bench list; the heartbeat retries.
+      }
+    };
+    void load();
+    const unsubscribe = subscribeToPrepBatches(database, location.id, () => void load());
+    const heartbeat = setInterval(() => void load(), 60_000);
+    return () => {
+      active = false;
+      unsubscribe();
+      clearInterval(heartbeat);
+    };
+  }, [isDemo, location.id]);
 
   const sorted = useMemo(() => sortBakeList(batches), [batches]);
   const progress = useMemo(() => bakeProgress(batches), [batches]);
   const open = sorted.find((batch) => batch.id === openId) ?? null;
 
   function advance(id: string) {
+    const current = batches.find((batch) => batch.id === id);
+    if (!current) return;
+    const nextStatus = current.status === 'pending'
+      ? 'in_progress'
+      : current.status === 'in_progress' ? 'done' : current.status;
     setBatches((current) => current.map((batch) => {
       if (batch.id !== id) return batch;
       if (batch.status === 'pending') return { ...batch, status: 'in_progress' };
       if (batch.status === 'in_progress') {
-        return { ...batch, status: 'done', producedQty: batch.targetQty };
+        return { ...batch, status: 'done', produced_qty: batch.target_qty };
       }
       return batch;
     }));
+    if (!isDemo && supabase && nextStatus !== current.status) {
+      const completed = nextStatus === 'done';
+      void supabase
+        .from('prep_batches')
+        .update({
+          status: nextStatus,
+          ...(nextStatus === 'in_progress' ? { started_at: new Date().toISOString() } : {}),
+          ...(completed ? {
+            completed_at: new Date().toISOString(),
+            produced_qty: current.target_qty,
+          } : {}),
+        })
+        .eq('id', id)
+        .then((result) => {
+          if (result.error) {
+            setBatches((rows) => rows.map((batch) => batch.id === id ? current : batch));
+          }
+        });
+    }
   }
 
   if (open) return <RecipeDetail batch={open} onBack={() => setOpenId(null)} onAdvance={advance} />;
@@ -46,7 +107,7 @@ export function PrepScreen() {
         <Pressable
           key={batch.id}
           accessibilityRole="button"
-          accessibilityLabel={`${batch.itemName}, ${batch.targetQty} ${batch.yieldUnit}, ${STATUS_LABEL[batch.status]}`}
+          accessibilityLabel={`${batch.itemName}, ${batch.target_qty} ${batch.recipe.yield_unit}, ${STATUS_LABEL[batch.status]}`}
           onPress={() => setOpenId(batch.id)}
           style={({ pressed }) => [styles.batchRow, pressed && styles.pressed]}
         >
@@ -54,9 +115,9 @@ export function PrepScreen() {
             <View style={styles.batchCopy}>
               <Text style={styles.batchName}>{batch.itemName}</Text>
               <Body muted>
-                {batch.targetQty} {batch.yieldUnit}
-                {multiplierLabel(batch.targetQty / Math.max(batch.yieldQty, 1))
-                  ? ` · ${multiplierLabel(batch.targetQty / Math.max(batch.yieldQty, 1))} recipe`
+                {batch.target_qty} {batch.recipe.yield_unit}
+                {multiplierLabel(batchScale(batch.recipe, batch.target_qty))
+                  ? ` · ${multiplierLabel(batchScale(batch.recipe, batch.target_qty))} recipe`
                   : ''}
               </Body>
             </View>
@@ -75,25 +136,26 @@ export function PrepScreen() {
 function RecipeDetail({
   batch, onBack, onAdvance,
 }: {
-  batch: BakeBatch;
+  batch: PrepBoardEntry;
   onBack: () => void;
   onAdvance: (id: string) => void;
 }) {
-  const steps = DEMO_RECIPE_STEPS[batch.id] ?? [];
-  const multiplier = multiplierLabel(batch.targetQty / Math.max(batch.yieldQty, 1));
+  const steps = recipeSteps(batch.recipe.steps);
+  const scale = batchScale(batch.recipe, batch.target_qty);
+  const multiplier = multiplierLabel(scale);
 
   return (
     <CollapsingScreen
       title={batch.itemName}
-      eyebrow={`${batch.targetQty} ${batch.yieldUnit}${multiplier ? ` · ${multiplier} recipe` : ''}`}
+      eyebrow={`${batch.target_qty} ${batch.recipe.yield_unit}${multiplier ? ` · ${multiplier} recipe` : ''}`}
       onBack={onBack}
     >
       {/* Pinned and not dismissible. Someone else's allergy is not a detail a
           baker should be able to scroll past. */}
-      {batch.allergens.length > 0 ? (
+      {batch.recipe.allergens.length > 0 ? (
         <View style={styles.allergens}>
           <Text style={styles.allergensLabel}>Contains</Text>
-          <Text style={styles.allergensList}>{batch.allergens.join(' · ')}</Text>
+          <Text style={styles.allergensList}>{batch.recipe.allergens.join(' · ')}</Text>
         </View>
       ) : null}
 
@@ -101,7 +163,7 @@ function RecipeDetail({
       <ScrollView contentContainerStyle={styles.steps}>
         {steps.map((step) => {
           const scaled = step.quantity !== undefined
-            ? scaleQuantity(step.quantity, batch)
+            ? Math.round(step.quantity * scale * 100) / 100
             : null;
           return (
             <Card key={step.n} style={styles.step}>
@@ -110,10 +172,10 @@ function RecipeDetail({
                 <Text style={styles.stepText}>{step.text}</Text>
                 {scaled ? (
                   <Text style={styles.stepQuantity}>
-                    {scaled.batch} {step.unit}
+                    {scaled} {step.unit}
                     {/* The recipe's own figure stays visible: a scaled number
                         alone cannot be checked against the card on the wall. */}
-                    {scaled.multiplier !== 1 ? `  (recipe ${scaled.recipe} ${step.unit})` : ''}
+                    {scale !== 1 ? `  (recipe ${step.quantity} ${step.unit})` : ''}
                   </Text>
                 ) : null}
                 {step.minutes ? <Body muted>{step.minutes} min</Body> : null}

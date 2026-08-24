@@ -33,12 +33,18 @@ export {
   subscribeToOrderStatus,
   type LocationOrdersEvent,
 } from './realtime';
+export { subscribeToLocationSettings, type LocationSettings } from './location';
+export { subscribeToBoardChanges } from './board-realtime';
 // How a board splits into columns is a display decision and lives in
 // @platform/domain (boardColumns), which also caps and lingers. This
 // package's job is the read.
-export { fetchBoardTickets } from './board';
 export {
-  fetchPrepBoard, fetchRecipe, batchScale, subscribeToPrepBatches, type PrepBoardEntry,
+  fetchBoardTickets, orderBoardEntryFromRow, orderCallout,
+  type OrderBoardEntry,
+} from './board';
+export {
+  fetchPrepBoard, fetchRecipe, batchScale, mergePrepBoardEntry,
+  subscribeToPrepBatches, type PrepBoardEntry,
 } from './prep';
 export {
   fetchShiftRoster, fetchChecklist, checklistProgress,

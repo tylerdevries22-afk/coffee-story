@@ -26,6 +26,7 @@ export function MenuUnavailable({
 }) {
   const tokens = useTokens();
   const loading = status === 'loading';
+  const paused = status === 'paused';
 
   return (
     <View style={[styles.root, { gap: tokens.spacing.md, paddingHorizontal: tokens.spacing.xxl }]}>
@@ -35,7 +36,7 @@ export function MenuUnavailable({
           color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: tokens.type.display,
         }]}
       >
-        {loading ? 'One moment' : 'Ordering is offline'}
+        {loading ? 'One moment' : paused ? 'Ordering is paused' : 'Ordering is offline'}
       </Text>
       <Text
         style={[styles.body, {
@@ -44,9 +45,11 @@ export function MenuUnavailable({
       >
         {loading
           ? 'Loading today’s menu.'
-          : 'This kiosk cannot reach the menu right now. Please order at the counter — we’ll keep trying.'}
+          : paused
+            ? 'The shop has temporarily paused new orders. Please ask at the counter.'
+            : 'This kiosk cannot reach the menu right now. Please order at the counter — we’ll keep trying.'}
       </Text>
-      {loading ? null : <KioskPressable label="Try again" onPress={onRetry} />}
+      {loading || paused ? null : <KioskPressable label="Try again" onPress={onRetry} />}
     </View>
   );
 }

@@ -26,8 +26,8 @@ flowchart LR
   E --> SQ
   SQ -->|webhooks| W
   W -->|order_events\nidempotent on event id| DB
-  DB -->|Realtime\norder_events inserts| C
-  DB -->|Realtime| O
+  DB -->|Realtime\norders + storefront signals| C
+  DB -->|Realtime\norders, menu, prep + settings| O
   E --> N
 ```
 
@@ -50,12 +50,14 @@ flowchart LR
    verified, mapped to a state, appended idempotently on
    `square_event_id UNIQUE` (a replay dies at the constraint). Refunds also
    reverse the loyalty earn proportionally.
-5. Supabase Realtime fans `order_events` inserts out: the customer app's
-   tracking timeline and the operator's board both re-render from the same
-   events. RLS decides who receives which rows.
-6. The operator advances orders from the board; changes ride an offline
-   queue that reconciles against server state on reconnect (illegal moves are
-   dropped and surfaced, not replayed).
+5. Supabase Realtime fans the projected `orders` row to the customer tracker
+   and location-scoped operator board. Menu and prep rows have their own
+   subscriptions. Public screens that must not receive a source row subscribe
+   to payload-free revision tables, then reconcile through their narrow read.
+   RLS decides who receives each change.
+6. The operator advances orders from the board; changes ride a location-keyed,
+   persistent offline queue that reconciles against server state on reconnect
+   (illegal moves are dropped and surfaced, not replayed).
 
 ## Tenancy
 

@@ -1,31 +1,31 @@
+import type { PrepBoardEntry } from '@platform/data';
 import type { PrepStatus } from '@platform/schema';
 
-/**
- * The bench's view of a batch.
- *
- * Kept structural rather than importing PrepBatchRow: the station runs on demo
- * data today and live rows after C1, and the screen should not care which.
- */
-export type BakeBatch = {
-  id: string;
-  itemName: string;
-  targetQty: number;
-  producedQty: number;
-  status: PrepStatus;
-  /** Allergens on the recipe, surfaced as a pinned banner. */
-  allergens: readonly string[];
-  yieldQty: number;
-  yieldUnit: string;
+export type RecipeStep = {
+  n: number;
+  text: string;
+  quantity?: number;
+  unit?: string;
+  minutes?: number;
 };
 
-/**
- * The order a bake list is worked in.
- *
- * In progress first, because a tray already in the oven is the thing most
- * likely to need looking at; then pending, largest target first, because a
- * bigger batch needs starting sooner to be out on time; then everything
- * finished, which is a record rather than a task.
- */
+/** Tolerant read of the versioned recipe JSON stored on PrepBoardEntry. */
+export function recipeSteps(value: unknown): RecipeStep[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((candidate) => {
+    if (!candidate || typeof candidate !== 'object') return [];
+    const row = candidate as Record<string, unknown>;
+    if (!Number.isInteger(row.n) || typeof row.text !== 'string' || !row.text.trim()) return [];
+    return [{
+      n: row.n as number,
+      text: row.text.trim(),
+      ...(typeof row.quantity === 'number' && Number.isFinite(row.quantity) ? { quantity: row.quantity } : {}),
+      ...(typeof row.unit === 'string' && row.unit.trim() ? { unit: row.unit.trim() } : {}),
+      ...(typeof row.minutes === 'number' && Number.isFinite(row.minutes) ? { minutes: row.minutes } : {}),
+    }];
+  });
+}
+
 const RANK: Readonly<Record<PrepStatus, number>> = {
   in_progress: 0,
   pending: 1,
@@ -33,41 +33,22 @@ const RANK: Readonly<Record<PrepStatus, number>> = {
   abandoned: 3,
 };
 
-export function sortBakeList(batches: readonly BakeBatch[]): BakeBatch[] {
+/** Work in progress first, then largest pending batch, then completed work. */
+export function sortBakeList(batches: readonly PrepBoardEntry[]): PrepBoardEntry[] {
   return [...batches].sort((a, b) => {
     const rank = RANK[a.status] - RANK[b.status];
     if (rank !== 0) return rank;
-    if (a.status === 'pending') return b.targetQty - a.targetQty;
+    if (a.status === 'pending') return b.target_qty - a.target_qty;
     return a.itemName.localeCompare(b.itemName);
   });
 }
 
 /** How far through the day's baking the shift is, for the header. */
-export function bakeProgress(batches: readonly BakeBatch[]): { done: number; total: number } {
-  const counted = batches.filter((b) => b.status !== 'abandoned');
-  return { done: counted.filter((b) => b.status === 'done').length, total: counted.length };
-}
-
-/**
- * A step's quantity, scaled to the batch actually being made.
- *
- * Returns both numbers rather than replacing one with the other. A baker
- * doubling a tray needs to see the recipe's own figure beside the scaled one,
- * because a silently-rewritten quantity cannot be checked against the card on
- * the wall -- and the card is what they will reach for when the tablet sleeps.
- */
-export type ScaledQuantity = { recipe: number; batch: number; multiplier: number };
-
-export function scaleQuantity(
-  recipeQty: number,
-  batch: Pick<BakeBatch, 'targetQty' | 'yieldQty'>,
-): ScaledQuantity {
-  const multiplier = batch.yieldQty > 0 ? batch.targetQty / batch.yieldQty : 1;
+export function bakeProgress(batches: readonly PrepBoardEntry[]): { done: number; total: number } {
+  const counted = batches.filter((batch) => batch.status !== 'abandoned');
   return {
-    recipe: recipeQty,
-    // Two decimals: a third would imply a precision no kitchen scale has.
-    batch: Math.round(recipeQty * multiplier * 100) / 100,
-    multiplier,
+    done: counted.filter((batch) => batch.status === 'done').length,
+    total: counted.length,
   };
 }
 
