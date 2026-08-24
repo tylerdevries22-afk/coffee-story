@@ -15,6 +15,52 @@ dropped rather than softened, so the absence of a concern is meaningful.
 
 ---
 
+## Open decision: how the kiosk gets its menu
+
+Recorded here because a test assertion currently settles it, and it should be a
+decision instead.
+
+**The state.** `apps/kiosk/src/data/catalog-data.ts` is a 181-line compiled
+menu. A second tenant cannot change a price, add an item or 86 something without
+a rebuild and a store release, which is the largest remaining franchise blocker
+on this surface.
+
+**The constraint.** `packages/schema/src/surfaces.test.ts` now asserts that
+`apps/kiosk/src` contains no `createClient(` and no `from('orders')`. The
+orders half is right and I asked for it. The client half is broader than the
+danger it names.
+
+**The tension.** `docs/FIVE-SURFACES.md`'s device table says a `kiosk` token
+**may "read the menu"** and may not "read other orders, read customers" -- so a
+direct menu read is the documented design, not an oversight. Migration 0027 goes
+further: it added `menu_items`, `menu_categories` and `drops` to the Realtime
+publication with the stated rationale that "a change made once should appear on
+every kiosk and display at once". Realtime needs a client. Today nothing
+subscribes, so 86'ing an item propagates to no screen at all.
+
+**The two ways out.**
+
+*Direct read.* The kiosk builds a Supabase client with its device token and
+reads `menu_items` under RLS, subscribing for changes. Matches FIVE-SURFACES and
+0027, needs no new endpoint, and is the only option that makes an 86 reach a
+lobby screen without a poll. Requires narrowing the guard from "no client" to
+"no `from('orders')` / `from('customers')`" -- a rule about WHAT is read rather
+than whether a client exists.
+
+*Server projection.* A menu endpoint on the platform API, the way
+`lib/identify.ts` is already shaped. Keeps a public tablet free of a database
+client and leaves the guard as-is, at the cost of a poll for freshness and a
+divergence from the documented device table.
+
+I lean to the direct read, because the 86 propagation is a real operational
+failure -- a guest ordering something the shop ran out of an hour ago -- and
+because the device token was built to be exactly this narrow. But it widens what
+a lifted tablet can read, so it is a judgement call and it is not mine alone.
+
+Neither is blocked on the other work; both are blocked on someone choosing.
+
+---
+
 All load-bearing claims verified against the tree. One new defect surfaced during verification that was not a first-class finding. Here is the report.
 
 ---
