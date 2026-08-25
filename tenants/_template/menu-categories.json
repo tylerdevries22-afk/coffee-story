@@ -1,0 +1,12 @@
+[
+  {
+    "id": "coffee",
+    "title": "Coffee",
+    "tagline": "Brewed your way"
+  },
+  {
+    "id": "bakery",
+    "title": "Bakery",
+    "tagline": "Fresh from the case"
+  }
+]

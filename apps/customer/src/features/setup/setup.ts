@@ -9,6 +9,8 @@ import type {
   StaffSetupAnswers,
 } from '@platform/domain';
 
+import { TENANT } from '@/tenant';
+
 /**
  * Pure setup/onboarding logic for the demo portal — the native counterpart of
  * the web portal's setup flow. Progress lives on the persisted PortalBundle
@@ -103,7 +105,7 @@ const INITIAL_ADMIN: RoleSetup<AdminSetupAnswers> = {
   status: 'not_started',
   step: 0,
   answers: {
-    businessName: 'Coffee Story',
+    businessName: TENANT.identity.name,
     openDays: [],
     menuConfirmed: false,
     teamConfirmed: false,

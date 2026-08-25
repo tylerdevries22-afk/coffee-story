@@ -51,6 +51,10 @@ const DIVERGENT_BY_DESIGN = [
   'data/demo.ts',
   'features/drops.test.ts',
   'features/drops.ts',
+  // The setup defaults assert the same rule-7 split as the implementations:
+  // a customer binary names its bundled tenant, while the pre-login operator
+  // must stay neutral until a staff session identifies the brand.
+  'features/setup/setup.test.ts',
   'features/setup/setup.ts',
   // The live planes are persona-different by design: the customer bundle is
   // a guest's world through the platform API, the operator's is staff claims

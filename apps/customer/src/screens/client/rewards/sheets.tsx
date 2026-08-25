@@ -89,7 +89,7 @@ export function RewardSheet({
       </View>
       <Text style={styles.sheetTitle}>{detail?.reward.name}</Text>
       <Text style={styles.sheetBody}>
-        {detail?.reward.description ?? 'Apply this reward to an eligible Coffee Story order.'}
+        {detail?.reward.description ?? `Apply this reward to an eligible ${TENANT.identity.name} order.`}
       </Text>
       {detail?.locked ? (
         <View style={styles.referralEmpty}>
@@ -154,7 +154,7 @@ export function ReferralSheet({
     try {
       await Share.share({
         title: 'A little care, shared',
-        message: `I think you’ll love Coffee Story. Use my invitation to get started: ${shareUrl}`,
+        message: `I think you’ll love ${TENANT.identity.name}. Use my invitation to get started: ${shareUrl}`,
         url: shareUrl,
       });
       hapticSuccess();
@@ -268,5 +268,5 @@ export function perkDescription(label: string): string {
   if (label.includes('size upgrade')) {
     return 'Order any size, pay for the smaller one — one free upgrade per eligible order.';
   }
-  return 'Receive thoughtful offers selected for your current Coffee Story rewards status.';
+  return `Receive thoughtful offers selected for your current ${TENANT.identity.name} rewards status.`;
 }

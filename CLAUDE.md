@@ -70,7 +70,7 @@ docs/               AUDIT, ARCHITECTURE, RUNBOOK, BUILD-REPORT, legal/
 - **Menu photographs are a contract too** (`docs/MENU-IMAGERY.md`): stored
   square, graded into one band, drawn only through `MenuImage` with a named
   variant — never a hand-rolled `<Image>` with its own size. Run
-  `pnpm normalize-menu-images` after adding or replacing an asset.
+  `pnpm normalize-menu-images --tenant <slug>` after adding or replacing an asset.
 - Accessibility: use the `a11y-state` helpers so `accessibilityState` and the
   matching `aria-*` attribute are both emitted (react-native-web drops
   `accessibilityState` on `Pressable`).
@@ -90,12 +90,13 @@ docs/               AUDIT, ARCHITECTURE, RUNBOOK, BUILD-REPORT, legal/
 ## How to onboard a tenant
 
 1. Copy `tenants/_template/` to `tenants/<slug>/`; fill `brand.json`
-   (identity, palette, type pairing, feature flags, copy dictionary, fees)
-   and `menu.csv`; drop `assets/logo.svg` and hero imagery.
+   (customer and kiosk identity, palette, type pairing, feature flags, copy
+   dictionary, fees) and `menu.csv`; provide every asset named in the template.
 2. Run `pnpm onboard --tenant <slug>` (idempotent): creates the brand +
    location rows, seeds the menu, generates icons/splash, writes the Expo
-   config (bundle id, name, scheme), and emits app-store listing copy and a
-   screenshots checklist to `tenants/<slug>/app-store/`.
+   inputs (bundle id, name, scheme), and emits app-store listing copy and a
+   screenshots checklist to `tenants/<slug>/app-store/`. Add `--apply` to
+   refresh the checked-in customer and kiosk bundles from the tenant folder.
 3. Connect Square per location from the HQ console (Locations → Connect
    Square); tokens are stored encrypted server-side, never in an app bundle.
 4. Build the customer binary for the tenant with EAS from `apps/customer`

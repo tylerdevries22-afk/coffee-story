@@ -11,12 +11,12 @@ import { menuCsv, menuModifiersJson, sizeSuffix } from './menu-export';
 const TENANT_DIR = join(__dirname, '../../../../tenants/coffee-story');
 
 describe('menu export', () => {
-  it('tenants/coffee-story/menu.csv matches the app catalog (run `pnpm emit:menu` after menu edits)', () => {
+  it('the generated app catalog preserves tenants/coffee-story/menu.csv', () => {
     const committed = readFileSync(join(TENANT_DIR, 'menu.csv'), 'utf8');
     assert.equal(committed, menuCsv());
   });
 
-  it('tenants/coffee-story/modifiers.json matches the option model (run `pnpm emit:menu` after option edits)', () => {
+  it('the generated app catalog preserves tenants/coffee-story/modifiers.json', () => {
     const committed = readFileSync(join(TENANT_DIR, 'modifiers.json'), 'utf8');
     assert.equal(committed, menuModifiersJson());
   });

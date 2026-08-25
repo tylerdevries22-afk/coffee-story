@@ -15,6 +15,7 @@ import { BUSINESS, BUSINESS_MONOGRAM } from '@/data/business';
 import { colors, fonts, radius, spacing } from '@/theme/tokens';
 import type { GiftCard } from '@platform/domain';
 import { choiceState } from '@/lib/a11y-state';
+import { TENANT } from '@/tenant';
 
 const AMOUNTS = [50, 75, 100, 150, 200] as const;
 
@@ -260,7 +261,7 @@ type PurchaseProps = {
 function Purchase({ amount, recipientName, recipient, message, delivery, loading, setAmount, setRecipientName, setRecipient, setMessage, setDelivery, onBack, onPay }: PurchaseProps) {
   return (
     <CollapsingScreen title="Send a digital gift" eyebrow="Gift cards" onBack={onBack} backLabel="Gift cards" keyboardShouldPersistTaps="handled">
-      <View style={styles.preview}><LinearGradient colors={[colors.brand300, colors.brand700]} style={StyleSheet.absoluteFill} /><Text style={styles.previewMark}>Coffee Story</Text><Text style={styles.previewAmount}>${amount}</Text></View>
+      <View style={styles.preview}><LinearGradient colors={[colors.brand300, colors.brand700]} style={StyleSheet.absoluteFill} /><Text style={styles.previewMark}>{TENANT.identity.name}</Text><Text style={styles.previewAmount}>${amount}</Text></View>
       <SectionTitle>Choose an amount</SectionTitle>
       <View accessibilityRole="radiogroup" style={styles.amounts}>{AMOUNTS.map((value) => (
         <Pressable
@@ -352,7 +353,7 @@ function RecipientExperience({ initialToken, isDemo, onBook, onBack }: { initial
       onBack={onBack}
       backLabel="Gift cards"
     >
-      <View style={styles.preview}><LinearGradient colors={[colors.gold300, colors.brand600]} style={StyleSheet.absoluteFill} /><Text style={styles.previewMark}>Coffee Story</Text><Text style={styles.previewAmount}>{claimed ? `$${(claimed.balanceCents / 100).toFixed(0)}` : 'A gift'}</Text></View>
+      <View style={styles.preview}><LinearGradient colors={[colors.gold300, colors.brand600]} style={StyleSheet.absoluteFill} /><Text style={styles.previewMark}>{TENANT.identity.name}</Text><Text style={styles.previewAmount}>{claimed ? `$${(claimed.balanceCents / 100).toFixed(0)}` : 'A gift'}</Text></View>
       {claimed ? (
         <>
           <PillRow title={claimed.code} subtitle={`$${(claimed.balanceCents / 100).toFixed(2)} available · never expires`} symbol="creditcard" />

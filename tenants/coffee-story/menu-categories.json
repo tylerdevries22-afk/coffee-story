@@ -1,0 +1,9 @@
+[
+  { "id": "coffee", "title": "Coffee & Espresso", "tagline": "Corvus Coffee, pulled with care" },
+  { "id": "signature", "title": "Signature Lattes", "tagline": "The drinks that made us famous" },
+  { "id": "tea-matcha", "title": "Tea & Matcha", "tagline": "Whisked, brewed, and spiced" },
+  { "id": "boba", "title": "Boba", "tagline": "Bubble tea with brown sugar boba" },
+  { "id": "ades-smoothies", "title": "Sparkling Ades & Smoothies", "tagline": "Bright, cold, and refreshing" },
+  { "id": "sandwiches", "title": "Sandwiches", "tagline": "Halal-friendly, made to order" },
+  { "id": "sweets", "title": "Sweets & Desserts", "tagline": "Late-night cravings, sorted" }
+]

@@ -34,7 +34,7 @@ if (!url || !serviceKey) {
 }
 
 type BrandFile = {
-  name?: string;
+  identity?: { name?: string };
   location?: { name?: string; address?: Record<string, unknown>; timezone?: string; hours?: Record<string, unknown> };
 };
 
@@ -53,7 +53,7 @@ async function run() {
 
   const { data: brand, error: brandError } = await db
     .from('brands')
-    .upsert({ slug, name: brandFile.name ?? slug }, { onConflict: 'slug' })
+    .upsert({ slug, name: brandFile.identity?.name ?? slug }, { onConflict: 'slug' })
     .select('id, slug, name')
     .single();
   if (brandError) throw brandError;

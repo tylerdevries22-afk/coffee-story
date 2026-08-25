@@ -33,7 +33,7 @@ import { cutoutFeatureLineup, formatMoney, resolveProductMedia } from '@platform
 import { MenuImage } from '@/components/menu-image';
 import { SiriAssistant, type SiriCommand } from '@/components/siri/siri-assistant';
 import { useReducedMotion } from '@/hooks/use-reduced-motion';
-import { tenantFeature } from '@/tenant';
+import { TENANT, tenantFeature } from '@/tenant';
 import { DropCountdown } from '@platform/ui';
 import { ProductCutout, productCutoutSource, type ProductCutoutSource } from '@/components/product-cutout';
 import { TENANT_PRODUCT_MEDIA } from '@/tenant/product-media';
@@ -280,14 +280,14 @@ export function HomeScreen() {
                       style={StyleSheet.absoluteFill}
                       contentFit="cover"
                       nativeControls={false}
-                      accessibilityLabel="Inside the Coffee Story café on Havana Street"
+                      accessibilityLabel={`Inside the ${TENANT.identity.name} café`}
                     />
                   ) : (
                     <Image
                       source={slide === 'packages' ? packagesMedia : giftingMedia}
                       style={StyleSheet.absoluteFill}
                       contentFit="cover"
-                      alt={slide === 'packages' ? 'Coffee beans and bundles ready for pickup' : 'A Coffee Story gift card design'}
+                      alt={slide === 'packages' ? 'Coffee beans and bundles ready for pickup' : `A ${TENANT.identity.name} gift card design`}
                     />
                   )}
                 </Animated.View>
@@ -337,7 +337,7 @@ export function HomeScreen() {
                     <Text style={styles.storyBody}>Digital gift cards arrive beautifully and never expire.</Text>
                     <Pressable
                       accessibilityRole="button"
-                      accessibilityLabel="Send a Coffee Story gift card"
+                      accessibilityLabel={`Send a ${TENANT.identity.name} gift card`}
                       onPress={() => setClientTab('gift')}
                       style={({ pressed }) => [styles.storyButton, pressed && styles.pressed]}
                     >

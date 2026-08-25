@@ -1,0 +1,5 @@
+slug,name,category,description,base_price_cents,sizes
+house-latte,House Latte,Espresso,"Espresso, steamed milk, and a thin cap of foam.",450,12:450|16:525
+drip-coffee,Drip Coffee,Brew Bar,Batch-brewed every hour.,300,
+cold-brew,Cold Brew,Brew Bar,Slow-steeped for 18 hours.,475,16:475
+banana-bread,Banana Bread,Bakery,Baked fresh every morning.,375,

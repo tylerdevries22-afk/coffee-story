@@ -26,6 +26,7 @@ import {
 import { colors, fonts, radius, shadow, spacing } from '@/theme/tokens';
 import { AppIcon, type AppIconName } from '@/components/icon';
 import { disabledState, expandedState } from '@/lib/a11y-state';
+import { TENANT } from '@/tenant';
 import type { PaymentMethod } from '@platform/domain';
 
 /** Gift-card artwork is 3:2, matching the generated art. */
@@ -333,7 +334,7 @@ const HOW_IT_WORKS: readonly { symbol: AppIconName; title: string; body: string 
   {
     symbol: 'paperplane',
     title: 'Send as a Gift',
-    body: 'Share with anyone by link — they can redeem it as a guest or add it to their Coffee Story account.',
+    body: `Share with anyone by link — they can redeem it as a guest or add it to their ${TENANT.identity.name} account.`,
   },
 ];
 
