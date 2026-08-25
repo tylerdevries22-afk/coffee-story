@@ -98,3 +98,32 @@ describe('refundOrder', () => {
     assert.equal(observedKey, '11111111-1111-4111-8111-111111111111');
   });
 });
+
+describe('submitTrainingQuiz', () => {
+  it('reuses the caller-owned attempt id in the header and body', async () => {
+    const originalFetch = globalThis.fetch;
+    let observed: { key: string | null; body: unknown } = { key: null, body: null };
+    globalThis.fetch = async (_input, init) => {
+      observed = {
+        key: new Headers(init?.headers).get('idempotency-key'),
+        body: JSON.parse(String(init?.body)) as unknown,
+      };
+      return Response.json({ score: 100, passed: true, attemptCount: 1 });
+    };
+    const attemptId = '22222222-2222-4222-8222-222222222222';
+    try {
+      const client = createApiClient({ ...config, getAccessToken: async () => 'staff-token' });
+      await client.submitTrainingQuiz({
+        releaseId: 'release-1', moduleSlug: 'coffee-foundations',
+        lessonSlug: 'espresso-basics', answers: [1, 0],
+      }, attemptId);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+    assert.equal(observed.key, attemptId);
+    assert.deepEqual(observed.body, {
+      releaseId: 'release-1', moduleSlug: 'coffee-foundations',
+      lessonSlug: 'espresso-basics', answers: [1, 0], attemptId,
+    });
+  });
+});

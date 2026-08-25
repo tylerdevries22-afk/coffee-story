@@ -26,7 +26,6 @@ const MORE_VIEWS: readonly MoreView[] = [
   'privacy', 'admin',
 ];
 const STAFF_TABS: readonly StaffTab[] = [...STAFF_TAB_ORDER];
-const ADMIN_PATHS_ON_A_TAB = ['/admin/dashboard'];
 const ADMIN_DETAIL_PATHS = ['/admin/reviews', '/admin/staff', '/admin/talent-acquisition', '/proposal'];
 
 function pick<T>(items: readonly T[], random: () => number): T {
@@ -58,14 +57,6 @@ test('every staff tab href reports the same tab back', () => {
     // A tab is never also a detail page -- its href is a fixed route, not a
     // captured admin path.
     assert.equal(staffDetailPathFromPathname(href), null);
-  });
-});
-
-test('an admin path that maps to a tab never becomes a detail page', () => {
-  forAll(0x57B00, 500, (random) => pick(ADMIN_PATHS_ON_A_TAB, random), (path: string) => {
-    const href = staffDestinationHref(path);
-    assert.notEqual(staffTabFromPathname(href), 'more');
-    assert.equal(staffDetailPathFromPathname(href), path === '/admin/pos' ? '/admin/pos' : null);
   });
 });
 

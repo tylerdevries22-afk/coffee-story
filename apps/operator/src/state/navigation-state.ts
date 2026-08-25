@@ -2,8 +2,7 @@
  * The single map between the app's navigation vocabulary and its route paths.
  *
  * The shells used to hold their position in React state and render whichever
- * screen matched. Now the router holds it, and the tab bars are real
- * `UITabBar`s (see `components/navigation/`), so every destination the product
+ * screen matched. Now the router holds it, so every destination the product
  * talks about — a client tab, a More sub-page, a staff admin path — has to
  * name an actual route. This module owns that translation in both directions
  * and nothing else: it is pure, so it stays unit-testable without a navigator.
@@ -15,7 +14,7 @@
  */
 
 export type ClientTab = 'home' | 'book' | 'gift' | 'rewards' | 'more';
-export type StaffTab = 'orders' | 'prep' | 'crew' | 'more';
+export type StaffTab = 'orders' | 'prep' | 'calendar' | 'training' | 'more';
 export type MoreView =
   | 'menu' | 'services' | 'orders' | 'profile' | 'preferences' | 'messages' | 'membership'
   | 'payments' | 'gift-balance' | 'location' | 'resources' | 'faq' | 'care-policy'
@@ -37,11 +36,12 @@ export const CLIENT_TAB_LABELS: Readonly<Record<ClientTab, string>> = {
  * The board is first: this app is a KDS, and the tab a device lands on when it
  * wakes should be the one a barista is already looking at.
  */
-export const STAFF_TAB_ORDER: readonly StaffTab[] = ['orders', 'prep', 'crew', 'more'];
+export const STAFF_TAB_ORDER: readonly StaffTab[] = ['orders', 'prep', 'calendar', 'training', 'more'];
 export const STAFF_TAB_LABELS: Readonly<Record<StaffTab, string>> = {
   orders: 'Orders',
   prep: 'Prep',
-  crew: 'Crew',
+  calendar: 'Calendar',
+  training: 'Training',
   more: 'More',
 };
 
@@ -52,9 +52,7 @@ const STAFF_ROOT = '/staff';
  * Admin paths the web portal uses that land on a staff *tab* rather than on a
  * pushed detail page. Everything not listed here is a detail page.
  */
-const STAFF_TAB_PATHS: Readonly<Record<string, StaffTab>> = {
-  '/admin/dashboard': 'crew',
-};
+const STAFF_TAB_PATHS: Readonly<Record<string, StaffTab>> = {};
 
 export function clientTabHref(tab: ClientTab): string {
   return `${CLIENT_ROOT}/${tab}`;
@@ -71,8 +69,8 @@ export function staffTabHref(tab: StaffTab): string {
 /**
  * Where an admin path from the web portal opens in the app.
  *
- * Four of them are tabs; the rest push onto the More stack under their own
- * path, so the URL a therapist deep-links to survives into the app and the
+ * Explicit mappings may land on a tab; everything else pushes onto the More
+ * stack, so the URL a staff member deep-links to survives into the app and the
  * back gesture behaves like every other pushed page.
  */
 export function staffDestinationHref(path: string): string {
@@ -95,6 +93,7 @@ export function clientMoreViewFromPathname(pathname: string): MoreView {
 
 export function staffTabFromPathname(pathname: string): StaffTab {
   const [first] = segmentsOf(pathname, STAFF_ROOT);
+  if (first === 'crew') return 'more';
   return STAFF_TAB_ORDER.find((tab) => tab === first) ?? 'orders';
 }
 

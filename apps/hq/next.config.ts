@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import type { NextConfig } from 'next';
 import { withSentryConfig } from '@sentry/nextjs';
 import { securityHeaders } from '@platform/web-config';
+import { withWorkflow } from 'workflow/next';
 
 const workspaceRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -31,7 +32,7 @@ const config: NextConfig = {
   ],
 };
 
-export default withSentryConfig(config, {
+export default withSentryConfig(withWorkflow(config), {
   silent: true,
   webpack: { treeshake: { removeDebugLogging: true } },
   org: process.env.SENTRY_ORG,
