@@ -116,6 +116,10 @@ export async function seedBrand(slug: string): Promise<{ brandId: string; locati
 
   // Dependent rows, most-dependent first. Everything else cascades from these.
   for (const table of [
+    'training_quiz_attempts', 'training_lesson_progress', 'training_releases',
+    'training_bootstrap_runs', 'availability_blockouts',
+    'calendar_entry_assignments', 'calendar_entries',
+    'workforce_role_assignments', 'workforce_profiles', 'workforce_roles',
     'order_events', 'platform_fees', 'orders',
     'loyalty_events', 'loyalty_accounts', 'stored_value_ledger', 'referrals', 'customers',
     'prep_batches', 'recipes', 'crew_task_completions', 'crew_tasks', 'shifts', 'devices',

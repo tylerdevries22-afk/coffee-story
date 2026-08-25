@@ -4,6 +4,11 @@
 -- training assignments stay authoritative and are projected into the calendar
 -- by application adapters; calendar_entries stores only standalone events.
 
+-- Close the only mutable-search-path warning inherited from the preceding
+-- pack migration so a fresh franchise database passes the security advisor.
+alter function app.pack_choices(public.menu_items, timestamptz)
+  set search_path = '';
+
 create or replace function app.is_brand_manager(target_brand uuid) returns boolean
 language sql stable set search_path = '' as $$
   select coalesce(
