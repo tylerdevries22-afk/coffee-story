@@ -1,63 +1,52 @@
 import * as Haptics from 'expo-haptics';
-import { useMemo, useState } from 'react';
-import { Alert, Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { router, type Href } from 'expo-router';
+import { useMemo, useState, type ReactNode } from 'react';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { CollapsingPageHeader } from '@/components/collapsing-page-header';
-import { HeaderIconButton } from '@/components/more-page-header';
+import { AppIcon, type AppIconName } from '@/components/icon';
 import { MoreSearchTakeover } from '@/components/more-search-takeover';
-import { PortalProfileCard } from '@/components/portal-profile-card';
 import { PreviewRolePicker } from '@/components/preview-role-picker';
-import { SetupProgressCard } from '@/components/setup/setup-progress-card';
-import { Body, Card, MoreFooter, PillRow, Screen, SectionTitle } from '@/components/ui';
+import { ProfileAvatar } from '@/components/profile-avatar';
+import { Body, PillRow, Screen } from '@/components/ui';
 import {
   adminNavigationGroupsForRole,
   searchAdminWorkspace,
   type AdminSearchResult,
 } from '@/features/admin/admin-navigation';
-import { buildStaffNotifications } from '@platform/domain';
-import { portalSetup } from '@/features/setup/setup';
-import { workspaceTone } from '@/features/staff/workspace';
+import { portalSetup, setupProgressPercent } from '@/features/setup/setup';
 import { openWebPath } from '@/lib/web-navigation';
+import { Profile } from '@/screens/staff/profile';
 import { useAppState } from '@/state/app-context';
 import { useAuth } from '@/state/auth-context';
 import { colors, fonts, radius, spacing } from '@/theme/tokens';
-import type { PortalOrder, StaffDashboard } from '@platform/domain';
-import { AppIcon } from '@/components/icon';
-import { Profile } from '@/screens/staff/profile';
-
-import rewardsCup from '../../../assets/tabs/cup.png';
+import { buildStaffNotifications, type StaffDashboard } from '@platform/domain';
 
 type HeaderSurface = 'profile' | null;
 
+/** Compact role-aware directory, matching the reference More hierarchy. */
 export function AdminMoreScreen({ dashboard }: { dashboard: StaffDashboard }) {
   const {
-    exitStaff,
-    openNotifications,
-    openStaffDestination,
-    queueSetupPrompt,
-    readNotificationIds,
-    selectRole,
+    exitStaff, openNotifications, openStaffDestination, queueSetupPrompt,
+    readNotificationIds, selectRole,
   } = useAppState();
   const { isDemo, portal, role, signOut } = useAuth();
   const [surface, setSurface] = useState<HeaderSurface>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const [scrollY] = useState(() => new Animated.Value(0));
   const groups = adminNavigationGroupsForRole(role);
-  const configurationGroup = groups.find((group) => group.title === 'Configuration');
-  const secondaryGroups = groups.filter((group) => group.title !== 'Configuration');
   const notifications = useMemo(() => buildStaffNotifications(dashboard, new Date()), [dashboard]);
   const unreadCount = notifications.filter((item) => !readNotificationIds.has(item.id)).length;
-  const profileMetrics = [
-    { label: 'Revenue', value: `$${Math.round(dashboard.projectedCents / 100)}` },
-    { label: 'Appts today', value: String(countToday(dashboard.orders)) },
-    { label: 'Open hours', value: `${Math.round(dashboard.openMinutes / 60)}h` },
-  ] as const;
   const setup = portalSetup(portal)[role];
   const searchResults = useMemo(
     () => searchAdminWorkspace(query, role, dashboard.clients),
     [dashboard.clients, query, role],
   );
+  const profileName = portal.profile.fullName || 'Team member';
+
+  function openRoute(href: string) {
+    void Haptics.selectionAsync();
+    router.push(href as Href);
+  }
 
   function openDestination(path: string) {
     setSurface(null);
@@ -65,184 +54,158 @@ export function AdminMoreScreen({ dashboard }: { dashboard: StaffDashboard }) {
     openStaffDestination(path);
   }
 
-  function toggleSurface(next: Exclude<HeaderSurface, null>) {
-    setSurface((current) => (current === next ? null : next));
-    void Haptics.selectionAsync();
+  function handleSignOut() {
+    if (isDemo) {
+      exitStaff();
+      return;
+    }
+    void signOut().catch((error: unknown) => {
+      Alert.alert('Sign out failed', error instanceof Error ? error.message : 'Try again.');
+    });
   }
 
   if (surface === 'profile') {
-    return (
-      <Profile
-        onBack={() => setSurface(null)}
-        onExit={exitStaff}
-        onSignOut={!isDemo ? () => void signOut().catch((error: unknown) => {
-          Alert.alert('Sign out failed', error instanceof Error ? error.message : 'Try again.');
-        }) : undefined}
-      />
-    );
+    return <Profile onBack={() => setSurface(null)} onExit={exitStaff} onSignOut={!isDemo ? handleSignOut : undefined} />;
   }
 
   return (
     <MoreSearchTakeover
       searching={searchOpen}
-      onClose={() => {
-        setSearchOpen(false);
-        setQuery('');
-      }}
+      onClose={() => { setSearchOpen(false); setQuery(''); }}
       query={query}
       onQueryChange={setQuery}
       placeholder="Guests, schedule, reports…"
-      accessibilityLabel="Search guests and administration"
-      surfaceColor={role === 'admin' ? colors.brand600 : colors.brand400}
-      results={(
-        <WorkspaceSearchResults
-          tone={workspaceTone(role)}
-          query={query}
-          results={searchResults}
-          onResult={(result) => {
-            setSearchOpen(false);
-            setQuery('');
-            openDestination(result.path);
-          }}
-        />
-      )}
+      accessibilityLabel="Search operator tools"
+      surfaceColor={colors.warm}
+      results={<WorkspaceSearchResults query={query} results={searchResults} onResult={(result) => {
+        setSearchOpen(false);
+        openDestination(result.path);
+      }} />}
     >
-    {/* Plum, matching the web admin drawer. Owner and staff each get their own
-        shade so the two workspaces read apart; the client More page stays light. */}
-    <Screen
-      tone={workspaceTone(role)}
-      keyboardShouldPersistTaps="handled"
-      stickyHeaderIndices={[0]}
-      contentContainerStyle={{ paddingTop: 0 }}
-      onScroll={(event) => scrollY.setValue(event.nativeEvent.contentOffset.y)}
-      scrollEventThrottle={16}
-    >
-      <CollapsingPageHeader
-        title="More"
-        scrollY={scrollY}
-        backgroundColor={role === 'admin' ? colors.brand100 : colors.brand50}
-        actions={(
-          <>
-            <HeaderIconButton
-              label="Search workspace"
-              symbol="magnifyingglass"
-              onPress={() => setSearchOpen(true)}
-            />
-            <HeaderIconButton
-              label="Notifications"
-              symbol="bell"
-              badge={unreadCount}
-              onPress={() => openNotifications(notifications.map((item) => item.id))}
-            />
-          </>
-        )}
-      />
+      <Screen contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <Text accessibilityRole="header" style={styles.pageTitle}>More</Text>
 
-      {isDemo ? <PreviewRolePicker role={role} onChange={selectRole} /> : null}
-      <PortalProfileCard
-        name={portal.profile.fullName || 'Pharin J.'}
-        avatarUrl={portal.profile.avatarUrl}
-        roleLabel={role === 'admin' ? 'Owner' : 'Team member'}
-        previewLabel={isDemo ? `${role} preview` : 'Live workspace'}
-        metrics={profileMetrics}
-        profileLabel="Open staff profile"
-        onProfile={() => toggleSurface('profile')}
-        settingsLabel="Business settings"
-        onSettings={() => openDestination('/admin/settings')}
-      />
-      {isDemo ? <SetupProgressCard setup={setup} onPress={() => queueSetupPrompt(role)} /> : null}
+        <MoreGroup>
+          <MoreRow
+            title={profileName}
+            subtitle={role === 'admin' ? 'Owner' : 'Team member'}
+            leading={<ProfileAvatar name={profileName} avatarUrl={portal.profile.avatarUrl} size={48} />}
+            onPress={() => setSurface('profile')}
+            first
+          />
+        </MoreGroup>
 
-      <View style={styles.group}>
-        <SectionTitle>My account</SectionTitle>
-        <PillRow
-          title="My Rewards"
-          subtitle="Tiers, earning rules, points, and expiry"
-          iconSrc={rewardsCup}
-          onPress={() => openDestination('/admin/rewards')}
-        />
-        <PillRow
-          title="Account settings"
-          subtitle={portal.profile.fullName}
-          symbol="person.crop.circle"
-          onPress={() => toggleSurface('profile')}
-        />
-        <PillRow
-          title="Messages"
-          subtitle="Guest conversations"
-          symbol="message"
-          onPress={() => openDestination('/admin/clients')}
-        />
-      </View>
+        <MoreGroup label="Daily Work">
+          <MoreRow title="Crew" symbol="person.2" onPress={() => openRoute('/staff/crew')} first />
+          <MoreRow title="Calendar" symbol="calendar" onPress={() => openRoute('/staff/calendar')} />
+          <MoreRow title="Training" symbol="doc.text" onPress={() => openRoute('/staff/training')} />
+          <MoreRow
+            title="Notifications"
+            subtitle={unreadCount > 0 ? `${unreadCount} unread` : undefined}
+            symbol="bell"
+            onPress={() => openNotifications(notifications.map((item) => item.id))}
+          />
+        </MoreGroup>
 
-      {secondaryGroups.map((group) => (
-        <View key={group.title} style={styles.group}>
-          <SectionTitle>{group.title}</SectionTitle>
-          {(group.title === 'Operations' && configurationGroup
-            ? [...configurationGroup.destinations, ...group.destinations]
-            : group.destinations
-          ).map((destination) => (
-            <PillRow
-              key={destination.path}
-              title={destination.title}
-              subtitle={destinationDescription(destination.path)}
-              symbol={destinationSymbol(destination.path)}
-              onPress={() => openDestination(destination.path)}
+        <MoreGroup label="My Account">
+          <MoreRow title="My Rewards" symbol="cup.and.saucer" onPress={() => openDestination('/admin/rewards')} first />
+          <MoreRow title="Account settings" symbol="person.crop.circle" onPress={() => setSurface('profile')} />
+          <MoreRow title="Messages" symbol="message" onPress={() => openDestination('/admin/clients')} />
+          <MoreRow title="Search tools" symbol="magnifyingglass" onPress={() => setSearchOpen(true)} />
+        </MoreGroup>
+
+        {groups.map((group) => {
+          const destinations = group.destinations.filter((destination) => (
+            destination.path !== '/admin/calendar' && destination.path !== '/admin/rewards'
+          ));
+          if (destinations.length === 0) return null;
+          return (
+            <MoreGroup key={group.title} label={group.title}>
+              {destinations.map((destination, index) => (
+                <MoreRow
+                  key={destination.path}
+                  title={destination.title}
+                  symbol={destinationSymbol(destination.path)}
+                  onPress={() => openDestination(destination.path)}
+                  first={index === 0}
+                />
+              ))}
+            </MoreGroup>
+          );
+        })}
+
+        <MoreGroup>
+          <MoreRow title="Website Proposal" symbol="doc.text" onPress={() => openDestination('/proposal')} first />
+        </MoreGroup>
+
+        {isDemo ? (
+          <MoreGroup label="Demo">
+            <MoreRow
+              title="Continue setup"
+              subtitle={`${setupProgressPercent(setup)}% complete`}
+              symbol="gearshape"
+              onPress={() => queueSetupPrompt(role)}
+              first
             />
-          ))}
-        </View>
-      ))}
-      {/* The proposal is a shortcut, not a section: a heading over a single
-          card said less than the card already does. */}
-      <Card style={styles.proposalCard}>
-        <View style={styles.proposalIcon}><AppIcon name="doc.text" size={20} tintColor={colors.brand700} /></View>
-        <View style={styles.proposalCopy}>
-          <Text style={styles.proposalTitle}>Website Proposal</Text>
-          <Text style={styles.proposalDetail}>Approved scope and launch handoff.</Text>
-        </View>
-        <Pressable accessibilityRole="button" accessibilityLabel="Open Website Proposal" onPress={() => openDestination('/proposal')} style={({ pressed }) => [styles.roundButton, pressed && styles.pressed]}>
-          <AppIcon name="chevron.right" size={16} tintColor={colors.brand700} />
-        </Pressable>
-      </Card>
-      <MoreFooter
-        onPrivacy={() => void openWebPath('/privacy')}
-        onTerms={() => void openWebPath('/privacy')}
-        version="Coffee Story 1.0"
-        caption={isDemo ? 'Explicit Demo mode · changes are saved on this device' : 'Connected securely to live services'}
-        iconSrc={rewardsCup}
-      />
-    </Screen>
+            <View style={styles.previewPicker}><PreviewRolePicker role={role} onChange={selectRole} /></View>
+          </MoreGroup>
+        ) : null}
+
+        <MoreGroup label="Support">
+          <MoreRow title="Privacy" symbol="lock" onPress={() => void openWebPath('/privacy')} first />
+          <MoreRow title="Terms" symbol="doc.plaintext" onPress={() => void openWebPath('/privacy')} />
+          <MoreRow title={isDemo ? 'Exit operator mode' : 'Sign out'} symbol="arrow.up.right" onPress={handleSignOut} />
+        </MoreGroup>
+
+        <Text style={styles.version}>Operator 1.0</Text>
+      </Screen>
     </MoreSearchTakeover>
   );
 }
 
-function countToday(orders: readonly PortalOrder[]): number {
-  const today = new Date().toDateString();
-  return orders.filter((order) => new Date(order.placedAt).toDateString() === today).length;
+function MoreGroup({ label, children }: { label?: string; children: ReactNode }) {
+  return (
+    <View style={styles.groupWrap}>
+      {label ? <Text style={styles.groupLabel}>{label}</Text> : null}
+      <View style={styles.group}>{children}</View>
+    </View>
+  );
 }
 
-/**
- * The whole search page: results fill the view, with a prompt before the
- * member has typed anything and an honest empty state after.
- */
-function WorkspaceSearchResults({
-  tone,
-  query,
-  results,
-  onResult,
-}: {
-  tone: 'admin' | 'staff';
+function MoreRow({ title, subtitle, symbol, leading, onPress, first = false }: {
+  title: string;
+  subtitle?: string;
+  symbol?: AppIconName;
+  leading?: ReactNode;
+  onPress: () => void;
+  first?: boolean;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={subtitle ? `${title}, ${subtitle}` : title}
+      onPress={onPress}
+      style={({ pressed }) => [styles.row, !first && styles.rowDivider, pressed && styles.pressed]}
+    >
+      {leading ?? (symbol ? <View style={styles.rowIcon}><AppIcon name={symbol} size={19} tintColor={colors.ink700} /></View> : null)}
+      <View style={styles.rowCopy}>
+        <Text numberOfLines={1} style={styles.rowTitle}>{title}</Text>
+        {subtitle ? <Text numberOfLines={1} style={styles.rowSubtitle}>{subtitle}</Text> : null}
+      </View>
+      <AppIcon name="chevron.right" size={16} tintColor={colors.ink400} />
+    </Pressable>
+  );
+}
+
+function WorkspaceSearchResults({ query, results, onResult }: {
   query: string;
   results: readonly AdminSearchResult[];
   onResult: (result: AdminSearchResult) => void;
 }) {
   return (
-    <Screen tone={tone} keyboardShouldPersistTaps="handled">
-      {!query.trim() ? (
-        <Body muted>Search clients, schedule, reports and settings.</Body>
-      ) : null}
-      {query.trim() && !results.length ? (
-        <Body muted>Nothing matches “{query.trim()}”.</Body>
-      ) : null}
+    <Screen keyboardShouldPersistTaps="handled">
+      {!query.trim() ? <Body muted>Search guests, schedule, reports and settings.</Body> : null}
+      {query.trim() && !results.length ? <Body muted>Nothing matches “{query.trim()}”.</Body> : null}
       {results.map((result) => (
         <PillRow
           key={result.id}
@@ -256,79 +219,30 @@ function WorkspaceSearchResults({
   );
 }
 
-function destinationDescription(path: string): string {
-  const descriptions: Readonly<Record<string, string>> = {
-    '/admin/dashboard': 'Today, revenue, schedule, and care actions',
-    '/admin/calendar': 'Schedule, availability, and order status',
-    '/admin/clients': 'Profiles, care records, and communication',
-    '/admin/pos': 'Checkout, tips, and payment collection',
-    '/admin/items': 'Menu items, sizes, pricing, and add-ons',
-    '/admin/talent-acquisition': 'Applicants, interviews, and hiring',
-    '/admin/staff': 'Team access, permissions, and availability',
-    '/admin/rewards': 'Tiers, earning rules, points, and expiry',
-    '/admin/reviews': 'Feedback, replies, and reputation',
-    '/admin/marketing': 'Campaigns, promotions, gifts, and automations',
-    '/admin/analytics': 'Traffic, conversions, and content',
-    '/admin/ads': 'Campaigns, keywords, spend, and bookings',
-    '/admin/settings': 'Availability, booking rules, payments, and forms',
-    '/admin/reports': 'Sales, income, payouts, and service mix',
-  };
-  return descriptions[path] ?? 'Administration';
-}
-
-function destinationSymbol(path: string): 'person.crop.circle' | 'calendar' | 'creditcard' | 'star' | 'message' | 'doc.text' | 'heart' | 'gearshape' | 'square.grid.2x2' {
+function destinationSymbol(path: string): AppIconName {
   if (path.includes('calendar')) return 'calendar';
   if (path.includes('client') || path.includes('staff') || path.includes('talent')) return 'person.crop.circle';
   if (path.includes('pos')) return 'creditcard';
   if (path.includes('review')) return 'star';
-  if (path.includes('marketing') || path.includes('analytics') || path.includes('ads') || path.includes('reports')) return 'message';
   if (path.includes('settings')) return 'gearshape';
   if (path.includes('dashboard')) return 'square.grid.2x2';
-  if (path.includes('service')) return 'heart';
+  if (path.includes('marketing') || path.includes('analytics') || path.includes('ads')) return 'message';
   return 'doc.text';
 }
 
 const styles = StyleSheet.create({
-  header: { gap: spacing.md, padding: spacing.md },
-  headerTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 54 },
-  identity: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 54 },
-  // Gold monogram on plum, exactly as the web ProfileCard renders it.
-  avatar: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.gold400 },
-  avatarText: { color: colors.ink900, fontFamily: fonts.display, fontSize: 17 },
-  identityCopy: { flex: 1, minWidth: 0 },
-  identityName: { color: colors.ink900, fontFamily: fonts.display, fontSize: 17 },
-  identityMeta: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 3 },
-  statusDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.success },
-  identityRole: { color: colors.ink700, fontFamily: fonts.sansBold, fontSize: 10 },
-  identityPreview: { color: colors.ink500, fontFamily: fonts.sans, fontSize: 11, textTransform: 'capitalize' },
-  metrics: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: 'rgba(70,48,78,0.14)', paddingTop: spacing.sm },
-  metric: { flex: 1, alignItems: 'center' },
-  metricValue: { color: colors.ink900, fontFamily: fonts.display, fontSize: 15 },
-  metricLabel: { color: colors.ink500, fontFamily: fonts.sans, fontSize: 9, letterSpacing: 0.6, textTransform: 'uppercase', marginTop: 3 },
-  headerButton: { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.28)' },
-  headerButtonActive: { backgroundColor: colors.brand600 },
-  badge: { position: 'absolute', top: -3, right: -2, minWidth: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.danger, borderWidth: 2, borderColor: colors.surface },
-  badgeText: { color: colors.white, fontFamily: fonts.sansBold, fontSize: 10 },
-  group: { gap: spacing.sm },
-  surface: { gap: spacing.md },
-  surfaceTitle: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 20 },
-  profileName: { color: colors.ink900, fontFamily: fonts.display, fontSize: 25 },
-  permission: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  permissionText: { flex: 1, color: colors.ink700, fontFamily: fonts.sansMedium, fontSize: 13 },
-  search: { minHeight: 52, borderRadius: radius.pill, borderWidth: 1, borderColor: 'rgba(255,255,255,0.24)', paddingHorizontal: spacing.md, backgroundColor: 'rgba(0,0,0,0.22)', color: colors.white, fontFamily: fonts.sans, fontSize: 16 },
-  result: { minHeight: 62, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderBottomWidth: 1, borderBottomColor: 'rgba(70,48,78,0.12)' },
-  resultCopy: { flex: 1 },
-  resultTitle: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 14 },
-  resultDetail: { color: colors.ink500, fontFamily: fonts.sans, fontSize: 11, lineHeight: 16, marginTop: 2 },
-  notification: { minHeight: 60, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  notificationDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.danger },
-  // The single gold surface in a plum workspace -- the web comment calls this
-  // out deliberately: it is a document to show a client, not another nav row.
-  proposalCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.sm, backgroundColor: colors.gold400, borderColor: colors.gold300 },
-  proposalIcon: { width: 38, height: 38, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.gold50 },
-  proposalCopy: { flex: 1 },
-  proposalTitle: { color: colors.ink900, fontFamily: fonts.display, fontSize: 17 },
-  proposalDetail: { color: colors.ink700, fontFamily: fonts.sans, fontSize: 12, lineHeight: 16, marginTop: 1 },
-  roundButton: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.gold50 },
-  pressed: { opacity: 0.72, transform: [{ scale: 0.98 }] },
+  content: { gap: spacing.md, paddingHorizontal: spacing.md, paddingBottom: spacing.xxl, backgroundColor: colors.warm },
+  pageTitle: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 24, marginBottom: spacing.xs },
+  groupWrap: { gap: spacing.xs },
+  groupLabel: { color: colors.ink700, fontFamily: fonts.sansBold, fontSize: 13, paddingHorizontal: spacing.xs },
+  group: { overflow: 'hidden', borderWidth: 1, borderColor: colors.ink200, borderRadius: radius.sm, backgroundColor: colors.white },
+  row: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md, backgroundColor: colors.white },
+  rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.ink200 },
+  rowIcon: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
+  rowCopy: { flex: 1, minWidth: 0 },
+  rowTitle: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 16 },
+  rowSubtitle: { color: colors.ink600, fontFamily: fonts.sans, fontSize: 13, marginTop: 2 },
+  pressed: { backgroundColor: colors.brand50 },
+  previewPicker: { padding: spacing.sm },
+  version: { color: colors.ink400, fontFamily: fonts.sans, fontSize: 12, paddingHorizontal: spacing.xs },
 });

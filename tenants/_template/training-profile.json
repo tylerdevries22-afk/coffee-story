@@ -1,0 +1,14 @@
+{
+  "businessName": "Example Business",
+  "industry": "Replace with the tenant industry",
+  "locale": "en-US",
+  "website": "https://example.com",
+  "products": [],
+  "services": [],
+  "complianceTopics": [
+    "workplace safety",
+    "customer privacy",
+    "incident reporting"
+  ],
+  "brandVoice": "Clear, practical, welcoming, and concise"
+}

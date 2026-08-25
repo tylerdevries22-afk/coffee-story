@@ -14,7 +14,7 @@ import { AppIcon } from '@/components/icon';
 /** SF Symbol names, plus the one mark the app draws itself. */
 type NavIcon =
   | 'house' | 'calendar' | 'gift' | 'ellipsis' | 'sun.max' | 'person.2' | 'creditcard'
-  | 'cup' | 'rectangle.grid.2x2' | 'flame';
+  | 'cup' | 'rectangle.grid.2x2' | 'flame' | 'book.closed';
 
 const CLIENT_ITEMS: readonly { key: ClientTab; label: string; icon: NavIcon }[] = [
   { key: 'home', label: CLIENT_TAB_LABELS.home, icon: 'house' },
@@ -25,17 +25,14 @@ const CLIENT_ITEMS: readonly { key: ClientTab; label: string; icon: NavIcon }[] 
 ];
 
 /**
- * The web bar's own list.
- *
- * It has to be written out rather than derived, because each row carries an
- * icon the native UITabBar declares at its own trigger. That duplication is
- * exactly how this bar once shipped without an Orders tab at all
- * (docs/BUILD-REPORT.md), so a test now pins it to STAFF_TAB_ORDER.
+ * Staff destinations pair navigation keys with their tenant-neutral icons.
+ * A test pins this list to STAFF_TAB_ORDER so every route remains visible.
  */
 const STAFF_ITEMS: readonly { key: StaffTab; label: string; icon: NavIcon }[] = [
   { key: 'orders', label: STAFF_TAB_LABELS.orders, icon: 'rectangle.grid.2x2' },
   { key: 'prep', label: STAFF_TAB_LABELS.prep, icon: 'flame' },
-  { key: 'crew', label: STAFF_TAB_LABELS.crew, icon: 'person.2' },
+  { key: 'calendar', label: STAFF_TAB_LABELS.calendar, icon: 'calendar' },
+  { key: 'training', label: STAFF_TAB_LABELS.training, icon: 'book.closed' },
   { key: 'more', label: STAFF_TAB_LABELS.more, icon: 'ellipsis' },
 ];
 
@@ -55,6 +52,28 @@ export function BottomNav({
   function select(key: ClientTab | StaffTab) {
     if (staff) setStaffTab(key as StaffTab);
     else setClientTab(key as ClientTab);
+  }
+
+  if (staff) {
+    return (
+      <View
+        accessibilityRole="tablist"
+        style={[styles.staffWrap, { paddingBottom: insets.bottom }]}
+      >
+        <View style={styles.staffContent}>
+          {STAFF_ITEMS.map((item) => (
+            <NavItem
+              key={item.key}
+              label={item.label}
+              icon={item.icon}
+              selected={active === item.key}
+              onPress={() => select(item.key)}
+              flat
+            />
+          ))}
+        </View>
+      </View>
+    );
   }
 
   return (
@@ -97,11 +116,13 @@ function NavItem({
   icon,
   selected,
   onPress,
+  flat = false,
 }: {
   label: string;
   icon: NavIcon;
   selected: boolean;
   onPress: () => void;
+  flat?: boolean;
 }) {
   return (
     <Pressable
@@ -109,9 +130,9 @@ function NavItem({
       accessibilityLabel={label}
       {...tabState(selected)}
       onPress={onPress}
-      style={({ pressed }) => [styles.item, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.item, flat && styles.staffItem, pressed && styles.pressed]}
     >
-      {selected ? (
+      {selected && !flat ? (
         <GlassView
           pointerEvents="none"
           glassEffectStyle={{ style: 'regular', animate: true, animationDuration: 0.22 }}
@@ -124,10 +145,15 @@ function NavItem({
         {icon === 'cup' ? (
           <CupIcon size={22} color={colors.ink900} />
         ) : (
-          <AppIcon name={icon} size={22} tintColor={colors.ink900} weight={selected ? 'semibold' : 'regular'} />
+          <AppIcon
+            name={icon}
+            size={22}
+            tintColor={selected || !flat ? colors.ink900 : colors.ink400}
+            weight={selected ? 'semibold' : 'regular'}
+          />
         )}
       </View>
-      <Text style={[styles.label, selected && styles.labelSelected]}>{label}</Text>
+      <Text style={[styles.label, flat && styles.staffLabel, selected && styles.labelSelected]}>{label}</Text>
     </Pressable>
   );
 }
@@ -155,4 +181,12 @@ const styles = StyleSheet.create({
   label: { color: colors.ink900, fontFamily: fonts.sansMedium, fontSize: 10 },
   labelSelected: { fontFamily: fonts.sansBold },
   pressed: { opacity: 0.68 },
+  staffWrap: {
+    backgroundColor: colors.white,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.ink200,
+  },
+  staffContent: { height: 58, flexDirection: 'row', paddingHorizontal: 4 },
+  staffItem: { minHeight: 52, borderRadius: radius.sm },
+  staffLabel: { color: colors.ink500 },
 });

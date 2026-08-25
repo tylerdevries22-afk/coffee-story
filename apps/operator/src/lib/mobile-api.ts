@@ -11,12 +11,14 @@
  */
 import type { IntakeFormCatalogEntry } from '@/features/admin/preferences-forms';
 import { supabase } from '@/lib/supabase';
+import { tenantClaimsFromSession } from '@/lib/live-portal';
 import type {
   OrderableCatalog,
   PortalProfile,
   StaffDashboard,
   StaffSettings,
   StaffActionPayload,
+  TrainingManifest,
 } from '@platform/domain';
 import { parseTenantClaims } from '@platform/schema';
 
@@ -44,6 +46,25 @@ function startOfToday(): string {
 }
 
 export const mobileApi = {
+  trainingRelease: async (): Promise<{ id: string; manifest: TrainingManifest } | null> => {
+    if (!supabase) throw new MobileApiError('Live mode is not configured in this build.', 503, 'configuration_missing');
+    const session = await supabase.auth.getSession();
+    const claims = session.data.session ? tenantClaimsFromSession(session.data.session) : null;
+    if (!claims?.role) throw new MobileApiError('This account has no tenant training access.', 403, 'no_staff_access');
+    const release = await supabase.from('training_releases')
+      .select('id, manifest')
+      .eq('brand_id', claims.brand_id)
+      .eq('status', 'published')
+      .maybeSingle<{ id: string; manifest: unknown }>();
+    if (release.error) throw new MobileApiError('Training could not be loaded.', 500, 'load_failed');
+    const manifest = release.data?.manifest;
+    if (!manifest || typeof manifest !== 'object') return null;
+    const candidate = manifest as Partial<TrainingManifest>;
+    if (candidate.schemaVersion !== 1 || !Array.isArray(candidate.modules) || !Array.isArray(candidate.sources)) {
+      throw new MobileApiError('The published training release is invalid.', 500, 'invalid_release');
+    }
+    return { id: release.data?.id ?? '', manifest: candidate as TrainingManifest };
+  },
   /**
    * The workspace headline, from the live plane: today's orders at the
    * locations this staff JWT may see (RLS scopes the select).

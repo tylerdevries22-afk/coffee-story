@@ -1,0 +1,29 @@
+{
+  "businessName": "Coffee Story",
+  "industry": "Specialty coffee shop and quick-service food",
+  "locale": "en-US",
+  "products": [
+    "espresso drinks",
+    "signature lattes",
+    "matcha and tea",
+    "boba drinks",
+    "smoothies",
+    "sandwiches",
+    "desserts"
+  ],
+  "services": [
+    "counter service",
+    "mobile pickup",
+    "curbside pickup",
+    "catering"
+  ],
+  "complianceTopics": [
+    "food safety and allergen communication",
+    "espresso machine and grinder safety",
+    "milk steaming and burn prevention",
+    "cleaning and sanitizing",
+    "cash handling and customer privacy",
+    "incident and equipment issue reporting"
+  ],
+  "brandVoice": "Warm, confident, practical, inclusive, and hospitality-first"
+}

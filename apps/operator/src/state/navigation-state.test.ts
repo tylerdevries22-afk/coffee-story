@@ -13,7 +13,6 @@ import {
   staffDestinationHref,
   staffDetailPathFromPathname,
   staffTabFromPathname,
-  staffTabHref,
   STAFF_TAB_ORDER,
 } from './navigation-state';
 
@@ -40,19 +39,19 @@ test('an unrecognised More segment falls back to the menu rather than throwing',
 });
 
 test('the order board leads the bar', () => {
-  assert.deepEqual(STAFF_TAB_ORDER, ['orders', 'prep', 'crew', 'more']);
-  // Four triggers, still inside the five a UITabBar shows before it collapses
-  // the rest into a system More overflow -- worth watching, because a fifth
-  // would push Profile into that overflow. The board is first because that is
-  // the tab a mounted device should wake on.
+  assert.deepEqual(STAFF_TAB_ORDER, ['orders', 'prep', 'calendar', 'training', 'more']);
   assert.equal(STAFF_TAB_ORDER[0], 'orders');
 });
 
-test('primary admin paths route to their matching staff tab, not a detail page', () => {
+test('Crew admin destinations live under More instead of occupying a tab', () => {
   const href = staffDestinationHref('/admin/dashboard');
-  assert.equal(href, staffTabHref('crew'));
-  assert.equal(staffTabFromPathname(href), 'crew');
-  assert.equal(staffDetailPathFromPathname(href), null);
+  assert.equal(href, '/staff/more/admin/dashboard');
+  assert.equal(staffTabFromPathname(href), 'more');
+  assert.equal(staffDetailPathFromPathname(href), '/admin/dashboard');
+});
+
+test('the pushed Crew route keeps More highlighted', () => {
+  assert.equal(staffTabFromPathname('/staff/crew'), 'more');
 });
 
 test('secondary admin paths push a native More detail page', () => {
@@ -69,11 +68,7 @@ test('the Website Proposal opens as a native More detail page', () => {
 });
 
 
-test('the web bar shows every staff tab the native bar does', () => {
-  // The web bar writes its own list because each row carries an icon the
-  // native UITabBar declares at its trigger instead. That duplication once
-  // shipped a staff bar with no Orders tab at all (docs/BUILD-REPORT.md), so
-  // the two lists are pinned to each other here.
+test('the custom bar shows every staff tab', () => {
   const source = readFileSync(
     join(dirname(fileURLToPath(import.meta.url)), '..', 'components', 'bottom-nav.tsx'),
     'utf8',

@@ -94,6 +94,19 @@ export type HealthResponse = {
   version: string;
 };
 
+export type SubmitTrainingQuizRequest = {
+  releaseId: string;
+  moduleSlug: string;
+  lessonSlug: string;
+  answers: number[];
+};
+
+export type SubmitTrainingQuizResponse = {
+  score: number;
+  passed: boolean;
+  idempotent: boolean;
+};
+
 /** Route table: one place the paths live. */
 export type CancelOrderRequest = {
   orderId: string;
@@ -129,4 +142,5 @@ export const API_ROUTES = {
   profile: '/api/profile',
   referrals: '/api/referrals',
   health: '/api/health',
+  trainingProgress: '/api/training/progress',
 } as const;

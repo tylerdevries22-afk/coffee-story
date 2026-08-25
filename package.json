@@ -10,7 +10,8 @@
     "preview": "tsx scripts/preview.ts",
     "onboard": "tsx scripts/onboard.ts",
     "normalize-menu-images": "tsx scripts/normalize-menu-images.ts",
-    "normalize-product-cutouts": "tsx scripts/normalize-product-cutouts.ts"
+    "normalize-product-cutouts": "tsx scripts/normalize-product-cutouts.ts",
+    "training:bootstrap": "tsx scripts/training-bootstrap.ts"
   },
   "devDependencies": {
     "@types/node": "^26.1.2",

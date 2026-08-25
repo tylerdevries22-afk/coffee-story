@@ -1,4 +1,5 @@
 import type { NextConfig } from 'next';
+import { withWorkflow } from 'workflow/next';
 
 /**
  * The console handles a brand's menu, its customers and the platform's own
@@ -49,4 +50,4 @@ const config: NextConfig = {
   ],
 };
 
-export default config;
+export default withWorkflow(config);
