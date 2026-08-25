@@ -37,14 +37,33 @@ test('reports every missing live dependency', () => {
   }), [
     'EXPO_PUBLIC_SUPABASE_URL',
     'EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY',
+    'EXPO_PUBLIC_API_URL',
+    'EXPO_PUBLIC_ALLOWED_API_HOST',
   ]);
 });
 
-test('runs live without the platform API: only refunds need it', () => {
+test('requires the platform API for refunds and training submissions', () => {
   assert.deepEqual(missingLiveConfig({
     supabaseUrl: 'https://example.supabase.co',
     supabasePublishableKey: ANON_JWT,
     apiUrl: undefined,
+    allowedApiHost: undefined,
+  }), ['EXPO_PUBLIC_API_URL', 'EXPO_PUBLIC_ALLOWED_API_HOST']);
+});
+
+test('accepts a pinned production API and an unpinned localhost API', () => {
+  const shared = {
+    supabaseUrl: 'https://example.supabase.co',
+    supabasePublishableKey: ANON_JWT,
+  };
+  assert.deepEqual(missingLiveConfig({
+    ...shared,
+    apiUrl: 'https://hq.example.com',
+    allowedApiHost: 'hq.example.com',
+  }), []);
+  assert.deepEqual(missingLiveConfig({
+    ...shared,
+    apiUrl: 'http://localhost:3000',
     allowedApiHost: undefined,
   }), []);
 });

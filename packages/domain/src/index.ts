@@ -35,3 +35,5 @@ export * from './order-snapshot';
 export * from './stored-value';
 export * from './board-display';
 export * from './qr';
+export * from './calendar';
+export * from './training';

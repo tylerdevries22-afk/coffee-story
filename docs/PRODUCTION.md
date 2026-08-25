@@ -102,9 +102,8 @@ bundle**):
 - `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` — `sb_publishable_` key or legacy
   anon JWT; `packages/data` rejects anything with database authority
 - `EXPO_PUBLIC_API_URL` + `EXPO_PUBLIC_ALLOWED_API_HOST` — the HQ
-  deployment; API clients fail closed when they disagree. Required by the
-  customer and kiosk apps; optional for the operator app, whose board works
-  entirely under staff RLS — set it there to enable refunds
+  deployment; API clients fail closed when they disagree. Required by all
+  apps; the operator uses it for refunds and server-scored training quizzes
 
 Pickup display (server environment; see `apps/display/.env.example`):
 

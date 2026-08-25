@@ -11,6 +11,8 @@ import {
   type RefundOrderRequest,
   type RefundOrderResponse,
   type RegisterPushTokenRequest,
+  type SubmitTrainingQuizRequest,
+  type SubmitTrainingQuizResponse,
   type UpdateProfileRequest,
 } from './contract';
 import { throwForResponse } from './errors';
@@ -110,5 +112,7 @@ export function createApiClient(config: ApiClientConfig) {
       request<{ ok: true }>(API_ROUTES.profile, input),
     deleteProfile: () => request<DeleteProfileResponse>(API_ROUTES.profile, undefined, undefined, 'DELETE'),
     mintReferral: () => request<MintReferralResponse>(API_ROUTES.referrals, {}),
+    submitTrainingQuiz: (input: SubmitTrainingQuizRequest, attemptId = newIdempotencyKey()) =>
+      request<SubmitTrainingQuizResponse>(API_ROUTES.trainingProgress, { ...input, attemptId }, attemptId),
   };
 }
