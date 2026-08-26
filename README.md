@@ -125,8 +125,9 @@ npm audit --omit=dev --audit-level=high
 
 `.github/workflows/verify.yml` runs the same gate on every pull request, plus
 a web bundle and a full-graph audit. On a merge to `main` it then publishes the
-Expo Go demo to the preview channel and prints the QR in the run summary — see
-`IPHONE_EXPO_GO_DEMO.md`.
+Expo Go demo to the preview channel and prints the QR in the run summary when
+the publish workflow is dispatched. For the operator iPad flow, see
+[`docs/OPERATOR_IPAD_EXPO_GO.md`](docs/OPERATOR_IPAD_EXPO_GO.md).
 
 `verify` runs `expo lint --max-warnings=0`, `tsc --noEmit`, the `node:test`
 suite, and a full `expo export --platform ios`. The test suite covers the pure

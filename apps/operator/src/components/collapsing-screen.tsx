@@ -6,10 +6,12 @@ import {
   type ScrollViewProps,
   type StyleProp,
   type TextStyle,
+  useWindowDimensions,
 } from 'react-native';
 
 import { CollapsingPageHeader } from '@/components/collapsing-page-header';
 import { Screen, type SurfaceTone } from '@/components/ui';
+import { operatorLayout } from '@/lib/responsive-layout';
 import { useTokens as useBrandTokens } from '@platform/ui';
 
 type CollapsingScreenProps = PropsWithChildren<
@@ -47,6 +49,8 @@ export function CollapsingScreen({
   ...props
 }: CollapsingScreenProps) {
   const tokens = useBrandTokens();
+  const { width, height } = useWindowDimensions();
+  const layout = operatorLayout(width, height);
   const headerSurfaces: Record<SurfaceTone, string> = {
     light: tokens.surface,
     deep: tokens.primary,
@@ -64,7 +68,15 @@ export function CollapsingScreen({
       {...props}
       tone={tone}
       stickyHeaderIndices={[0]}
-      contentContainerStyle={[{ paddingTop: 0 }, contentContainerStyle]}
+      contentContainerStyle={[
+        { paddingTop: 0 },
+        layout.isTablet && {
+          width: '100%',
+          maxWidth: layout.contentMaxWidth,
+          alignSelf: 'center',
+        },
+        contentContainerStyle,
+      ]}
       onScroll={handleScroll}
       scrollEventThrottle={scrollEventThrottle ?? 16}
     >
