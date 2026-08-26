@@ -79,7 +79,7 @@ function RuntimeProviders() {
     <ThemeProvider brandConfig={TENANT_BRAND_CONFIG} storage={brandCache}>
       <ToastProvider>
         <AppErrorBoundary>
-          <DemoProvider>
+          <DemoProvider synchronizeOrders>
             <ConfiguredApp config={config} />
           </DemoProvider>
         </AppErrorBoundary>

@@ -9,6 +9,7 @@ import { checkoutPreflight } from '@/features/checkout-runtime';
 import { availableTenders } from '@/features/tenders';
 import { deviceApiClient } from '@/lib/api';
 import { CARD_READER_IS_SIMULATED } from '@/lib/card-reader';
+import { demoSyncClient, demoSyncPreview } from '@/lib/demo-sync';
 import { GUEST_LOOKUP_IS_STUBBED } from '@/lib/identify';
 import { useDevice } from '@/state/device';
 import { useFlow } from '@/state/flow';
@@ -49,7 +50,13 @@ export default function PayStep() {
     tender,
     device,
     deviceApiClient,
-    { platform: Platform.OS, readerIsSimulated: CARD_READER_IS_SIMULATED },
+    {
+      platform: Platform.OS,
+      readerIsSimulated: CARD_READER_IS_SIMULATED,
+      demoClient: demoSyncClient,
+      demoLocationId: 'demo',
+      forceDemo: demoSyncPreview,
+    },
   ).kind === 'ready');
 
   function choose(tender: KioskTender) {

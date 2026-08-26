@@ -16,7 +16,7 @@ Start the servers from `.claude/launch.json` — one entry per surface — and o
 | --- | --- | --- |
 | Customer | `customer-web` | http://localhost:4170 |
 | Kiosk / POS | `kiosk-web` | http://localhost:4180 |
-| Operator | `operator-web` | http://localhost:4190 |
+| Operator | `operator-web` | http://localhost:4191 |
 | Pickup display | `display` | http://localhost:3200/board/demo |
 | HQ console | `hq` | http://localhost:3300 |
 
@@ -38,6 +38,14 @@ broken app rather than a missing build — which is what `.claude/launch.json`
 used to do. `pnpm preview` derives which apps to export from the launch configs
 themselves, so there is no second list to forget.
 
+**Why the wall stays isolated.** The preview command bakes an explicit wall
+flag and the loopback broker URL into the three Expo exports. The HQ and display
+launch entries carry matching server-only flags. Together they force every
+surface onto the same in-memory demo order plane even when the shell, browser,
+or laptop also has valid production credentials. The flags are accepted only
+with the non-production loopback broker, so they cannot silently disable live
+data in a deployed build.
+
 **Where the wall is served from.** It is copied into `apps/customer/dist-web/`
 as `wall.html` + `wall-surfaces.json` rather than given a server of its own: the
 preview tooling caps a worktree at five dev servers and all five are apps.
@@ -58,6 +66,7 @@ a deployed console still refuses outright.
 cd apps/kiosk && npx expo export --platform web --output-dir dist-web
 ```
 
-The three can run concurrently — each app has its own Metro `FileStore` cache
-root. They did not always, and a shared cache once had an operator export
-serving the customer's route tree.
+The three exports run serially because each Metro already fans out across its
+own workers. Every app still has a separate `FileStore` cache root; without
+that separation an operator export can accidentally serve the customer route
+tree.

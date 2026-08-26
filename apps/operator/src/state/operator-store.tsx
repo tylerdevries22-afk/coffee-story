@@ -23,8 +23,10 @@ import {
 } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { ApiError } from '@platform/api-client';
 import {
   fetchActiveLocationOrders,
+  fetchLocationOrderStatuses,
   orderBoardEntryFromRow,
   subscribeToLocationSettings,
   subscribeToLocationOrders,
@@ -34,16 +36,20 @@ import { canTransition, type OrderRow, type OrderStatus } from '@platform/schema
 
 import { initialDemoOrders, spawnDemoOrder } from '@/data/demo-orders';
 import { canCancelWithoutRefund, newOrderIds, type BoardOrder } from '@/features/operator/board';
-import { upsertBoardOrder } from '@/features/operator/live-board';
+import { normalizeBoardOrderGuest, upsertBoardOrder } from '@/features/operator/live-board';
 import {
   enqueueTransition,
-  reconcileQueue,
   type QueuedTransition,
 } from '@/features/operator/offline-queue';
 import {
   drainTransitionQueue,
+  enqueueSharedTransition,
+  finalizeTransitionDrain,
   loadTransitionQueue,
+  refreshTransitionStatuses,
+  runQueueOperation,
   saveTransitionQueue,
+  transitionQueueNeedsRefresh,
 } from '@/features/operator/persistent-queue';
 import {
   RefundAttemptError,
@@ -51,6 +57,7 @@ import {
   runRefundAttempt,
 } from '@/features/operator/refund-attempt';
 import { platformApi } from '@/lib/api';
+import { demoSyncClient, demoSyncEnabled } from '@/lib/demo-sync';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/state/auth-context';
 
@@ -65,6 +72,8 @@ export const DEMO_LOCATIONS: readonly OperatorLocation[] = [
 /** How often the live board re-fetches to catch missed realtime messages
  * and to flush transitions queued while offline. */
 const LIVE_RECONCILE_MS = 60_000;
+const DEMO_SYNC_RECONCILE_MS = 1_000;
+const QUEUE_REQUEST_TIMEOUT_MS = 5_000;
 
 export type OperatorSettings = {
   newOrderAlert: boolean;
@@ -126,9 +135,23 @@ export function OperatorProvider({ children }: PropsWithChildren) {
   const seenRef = useRef<Set<string>>(new Set(initialDemoOrders().map((order) => order.id)));
   const ordersRef = useRef<BoardOrder[]>([]);
   const refundInFlightRef = useRef<Set<string>>(new Set());
+  const syncedDemoIdsRef = useRef<Set<string>>(new Set());
+  const demoModeRef = useRef(isDemo);
+  const demoReconcileInFlightRef = useRef(false);
+  const queueFlushInFlightRef = useRef(false);
   useEffect(() => {
     ordersRef.current = orders;
   }, [orders]);
+  useEffect(() => {
+    demoModeRef.current = isDemo;
+  }, [isDemo]);
+  useEffect(() => {
+    if (isDemo || live) return;
+    setOrders([]);
+    seenRef.current = new Set();
+    syncedDemoIdsRef.current = new Set();
+    queueRef.current = [];
+  }, [isDemo, live]);
 
   const locations = useMemo<readonly OperatorLocation[]>(() => live
     ? liveLocations.map((entry) => ({
@@ -158,7 +181,10 @@ export function OperatorProvider({ children }: PropsWithChildren) {
   /** Live board fetch, mapped once by the shared KDS projection. */
   const fetchLiveBoard = useCallback(async (): Promise<BoardOrder[] | null> => {
     if (!supabase || !tenant || !locationReady) return null;
-    const rows = await fetchActiveLocationOrders(supabase, location.id);
+    const rows = await fetchActiveLocationOrders(supabase, location.id, {
+      attempts: 2,
+      timeoutMs: QUEUE_REQUEST_TIMEOUT_MS,
+    });
     return rows.map(orderBoardEntryFromRow);
   }, [location.id, locationReady, tenant]);
 
@@ -168,44 +194,70 @@ export function OperatorProvider({ children }: PropsWithChildren) {
    * on a network error stay queued; server rejections become conflicts.
    */
   const flushQueue = useCallback(async (serverStatus: ReadonlyMap<string, OrderStatus>) => {
-    if (!supabase || !tenant || queueRef.current.length === 0) return;
+    if (!supabase || !tenant || queueRef.current.length === 0 || queueFlushInFlightRef.current) return;
+    queueFlushInFlightRef.current = true;
     const database = supabase;
     const brandId = tenant.brand_id;
-    const drained = await drainTransitionQueue(
-      queueRef.current,
-      serverStatus,
-      async (transition) => {
-        const inserted = await database.from('order_events').insert({
-          brand_id: brandId,
-          order_id: transition.orderId,
-          type: transition.to,
-          source: 'operator',
-          actor_user_id: user?.id ?? null,
+    let knownStatus = new Map(serverStatus);
+    try {
+      while (queueRef.current.length > 0) {
+        const started = queueRef.current;
+        // An action can be queued for a realtime arrival while the previous
+        // drain awaits the database. Refresh this immutable batch before a
+        // missing status is interpreted as a deleted order and discarded.
+        const refreshed = await refreshTransitionStatuses(
+          started,
+          knownStatus,
+          () => fetchLocationOrderStatuses(
+            database,
+            location.id,
+            started.map((transition) => transition.orderId),
+            {
+              attempts: 2,
+              timeoutMs: QUEUE_REQUEST_TIMEOUT_MS,
+            },
+          ),
+        );
+        if (!refreshed) break;
+        knownStatus = refreshed;
+        const drained = await drainTransitionQueue(started, knownStatus, async (transition) => {
+          try {
+            const inserted = await runQueueOperation((signal) => database
+              .from('order_events')
+              .insert({
+                brand_id: brandId, order_id: transition.orderId, type: transition.to,
+                source: 'operator', actor_user_id: user?.id ?? null,
+              })
+              .abortSignal(signal), QUEUE_REQUEST_TIMEOUT_MS);
+            if (inserted.error) {
+              return inserted.error.code
+                ? { outcome: 'rejected', message: `The change was rejected: ${inserted.error.message}` }
+                : { outcome: 'retry' };
+            }
+            knownStatus.set(transition.orderId, transition.to);
+            return { outcome: 'confirmed' };
+          } catch {
+            return { outcome: 'retry' };
+          }
         });
-        if (!inserted.error) return { outcome: 'confirmed' };
-        return inserted.error.code
-          ? { outcome: 'rejected', message: `The change was rejected: ${inserted.error.message}` }
-          : { outcome: 'retry' };
-      },
-    );
-    queueRef.current = drained.remaining;
-    void saveTransitionQueue(AsyncStorage, location.id, queueRef.current);
-    if (drained.conflicts.length > 0) {
-      setConflicts((existing) => [
-        ...existing,
-        ...drained.conflicts.map((conflict) => ({
-          orderId: conflict.transition.orderId,
-          message: conflict.serverStatus
-            ? `${conflict.message} Server status: ${conflict.serverStatus}.`
-            : `${conflict.message} The order no longer exists.`,
-        })),
-      ]);
-      // Put optimistic rows back where the server said they were. A later
-      // reconcile reads again if an earlier hop in a collapsed run succeeded.
-      setOrders((current) => current.map((order) => {
-        const conflict = drained.conflicts.find((entry) => entry.transition.orderId === order.id);
-        return conflict?.serverStatus ? { ...order, status: conflict.serverStatus } : order;
-      }));
+        queueRef.current = finalizeTransitionDrain(queueRef.current, started, drained.remaining);
+        void saveTransitionQueue(AsyncStorage, location.id, queueRef.current);
+        if (drained.conflicts.length > 0) {
+          setConflicts((existing) => [...existing, ...drained.conflicts.map((conflict) => ({
+            orderId: conflict.transition.orderId,
+            message: conflict.serverStatus
+              ? `${conflict.message} Server status: ${conflict.serverStatus}.`
+              : `${conflict.message} The order no longer exists.`,
+          }))]);
+          setOrders((current) => current.map((order) => {
+            const conflict = drained.conflicts.find((entry) => entry.transition.orderId === order.id);
+            return conflict?.serverStatus ? { ...order, status: conflict.serverStatus } : order;
+          }));
+        }
+        if (drained.remaining.length > 0) break;
+      }
+    } finally {
+      queueFlushInFlightRef.current = false;
     }
   }, [location.id, tenant, user?.id]);
 
@@ -298,7 +350,7 @@ export function OperatorProvider({ children }: PropsWithChildren) {
 
   // The demo shop stays busy: a new order lands every couple of minutes.
   useEffect(() => {
-    if (live) return undefined;
+    if (!isDemo) return undefined;
     const timer = setInterval(() => {
       const next = spawnDemoOrder(spawnIndex.current++);
       setOrders((current) => {
@@ -308,9 +360,71 @@ export function OperatorProvider({ children }: PropsWithChildren) {
       });
     }, 120_000);
     return () => clearInterval(timer);
-  }, [live, trackFresh]);
+  }, [isDemo, trackFresh]);
 
   const markSeen = useCallback(() => setUnseenIds(new Set()), []);
+
+  const reconcileDemoSync = useCallback(async () => {
+    const client = demoSyncClient;
+    if (!client || !demoModeRef.current || demoReconcileInFlightRef.current) return;
+    demoReconcileInFlightRef.current = true;
+    try {
+      let snapshot = await client.orders();
+      if (queueRef.current.length > 0) {
+        const started = queueRef.current;
+        let knownStatus = new Map(snapshot.orders.map((order) => [order.id, order.status] as const));
+        if (transitionQueueNeedsRefresh(started)) {
+          snapshot = await client.orders();
+          knownStatus = new Map(snapshot.orders.map((order) => [order.id, order.status] as const));
+        }
+        const drained = await drainTransitionQueue(
+          started,
+          knownStatus,
+          async (transition) => {
+            try {
+              await client.transition(transition.orderId, transition.to);
+              return { outcome: 'confirmed' };
+            } catch (error) {
+              return error instanceof ApiError
+                ? { outcome: 'rejected', message: error.message }
+                : { outcome: 'retry' };
+            }
+          },
+        );
+        queueRef.current = finalizeTransitionDrain(queueRef.current, started, drained.remaining);
+        if (drained.conflicts.length > 0) {
+          setConflicts((existing) => [...existing, ...drained.conflicts.map((conflict) => ({
+            orderId: conflict.transition.orderId,
+            message: `${conflict.message} The shared demo kept its server status.`,
+          }))]);
+        }
+        if (drained.remaining.length === 0) snapshot = await client.orders();
+      }
+      if (!demoModeRef.current) return;
+      const nextIds = new Set(snapshot.orders.map((order) => order.id));
+      setOrders((current) => {
+        const local = current.filter((order) => !syncedDemoIdsRef.current.has(order.id));
+        const merged = [...local, ...snapshot.orders.map(normalizeBoardOrderGuest)];
+        syncedDemoIdsRef.current = nextIds;
+        trackFresh(merged);
+        return merged;
+      });
+    } catch {
+      // The wall may be launching; keep the last good snapshot and retry.
+    } finally {
+      demoReconcileInFlightRef.current = false;
+    }
+  }, [trackFresh]);
+
+  useEffect(() => {
+    if (!demoSyncEnabled(isDemo)) return undefined;
+    void reconcileDemoSync();
+    const timer = setInterval(() => void reconcileDemoSync(), DEMO_SYNC_RECONCILE_MS);
+    return () => {
+      demoModeRef.current = false;
+      clearInterval(timer);
+    };
+  }, [isDemo, reconcileDemoSync]);
 
   /**
    * Queue then apply. Demo's "server" is local state, so the queue reconciles
@@ -318,12 +432,13 @@ export function OperatorProvider({ children }: PropsWithChildren) {
    * and lets the reconcile heartbeat repair anything the server refused.
    */
   const applyTransition = useCallback((orderId: string, to: OrderStatus) => {
-    queueRef.current = enqueueTransition(queueRef.current, {
+    const transition: QueuedTransition = {
       orderId,
       to,
       queuedAt: new Date().toISOString(),
-    });
+    };
     if (live && locationReady) {
+      queueRef.current = enqueueTransition(queueRef.current, transition);
       void saveTransitionQueue(AsyncStorage, location.id, queueRef.current);
       const serverStatus = new Map(ordersRef.current.map((order) => [order.id, order.status] as const));
       setOrders((current) => current.map((order) => (
@@ -334,30 +449,24 @@ export function OperatorProvider({ children }: PropsWithChildren) {
       void flushQueue(serverStatus);
       return;
     }
-    setOrders((current) => {
-      const serverStatus = new Map(current.map((order) => [order.id, order.status] as const));
-      const { apply, conflicts: dropped } = reconcileQueue(queueRef.current, serverStatus);
-      queueRef.current = [];
-      if (dropped.length > 0) {
-        setConflicts((existing) => [
-          ...existing,
-          ...dropped.map((conflict) => ({
-            orderId: conflict.transition.orderId,
-            message: conflict.serverStatus
-              ? `Order moved to ${conflict.serverStatus} elsewhere; your change was dropped.`
-              : 'Order no longer exists; your change was dropped.',
-          })),
-        ]);
-      }
-      if (apply.length === 0) return current;
-      return current.map((order) => {
-        const change = apply.find((entry) => entry.orderId === order.id);
-        return change && canTransition(order.status, change.to)
-          ? { ...order, status: change.to }
-          : order;
-      });
-    });
-  }, [flushQueue, live, location.id, locationReady]);
+    if (demoSyncClient && syncedDemoIdsRef.current.has(orderId)) {
+      queueRef.current = enqueueSharedTransition(queueRef.current, transition, true);
+      setOrders((current) => current.map((order) => (
+        order.id === orderId && canTransition(order.status, to) ? { ...order, status: to } : order
+      )));
+      // `reconcileDemoSync` removes this intent only after the broker confirms
+      // it. A transport failure leaves it queued for the one-second heartbeat.
+      void reconcileDemoSync();
+      return;
+    }
+    // Fixture transitions are local-only. In particular, they never inspect or
+    // clear the broker queue, which may contain a synchronized tap still in flight.
+    setOrders((current) => current.map((order) => (
+      order.id === orderId && canTransition(order.status, to)
+        ? { ...order, status: to }
+        : order
+    )));
+  }, [flushQueue, live, location.id, locationReady, reconcileDemoSync]);
 
   const advance = useCallback((orderId: string, to: OrderStatus) => {
     applyTransition(orderId, to);

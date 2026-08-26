@@ -63,6 +63,10 @@ export type PortalOrderLine = {
 export type PortalOrder = {
   id: string;
   status: OrderStatus;
+  /** True only for a local wall order whose status is reconciled from HQ. */
+  demoSynced?: boolean;
+  /** Local broker process that owns a synchronized preview order. */
+  demoSyncSessionId?: string;
   /** "2× Latte, Cookie" — what a list row shows. */
   summary: string;
   lines: PortalOrderLine[];

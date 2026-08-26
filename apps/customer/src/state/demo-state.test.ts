@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   addDemoOrder,
+  addSyncedDemoOrder,
   addDemoGift,
   addDemoMessage,
   cancelDemoOrder,
@@ -13,6 +14,7 @@ import {
   isValidIsoSlot,
   migrateDemoPortalState,
   redeemDemoReward,
+  reconcileSyncedDemoOrders,
   removeDemoPaymentMethod,
   rescheduleDemoOrder,
   setDemoRole,
@@ -49,10 +51,32 @@ test('migrates old demo state and persists one global setup dismissal', () => {
   const initial = createInitialDemoPortal();
   const oldPortal = { ...initial, demoStateVersion: undefined, autoPromptDismissed: undefined };
   const migrated = migrateDemoPortalState(oldPortal);
-  assert.equal(migrated.demoStateVersion, 4);
+  assert.equal(migrated.demoStateVersion, 5);
   assert.equal(migrated.autoPromptDismissed, false);
   assert.equal(migrated.profile.avatarUrl, null);
   assert.equal(dismissDemoSetupAutoPrompt(migrated).autoPromptDismissed, true);
+});
+
+test('migrates v4 pickup-window endings to v5 pickup starts', () => {
+  const initial = createInitialDemoPortal();
+  const first = initial.orders[0];
+  const second = initial.orders[1];
+  assert.ok(first && second);
+  const v4: PortalBundle = {
+    ...initial,
+    demoStateVersion: 4,
+    orders: [
+      { ...first, placedAt: '2026-08-04T19:30:00.000Z', scheduledFor: '2026-08-04T20:30:00.000Z' },
+      { ...second, scheduledFor: null },
+    ],
+  };
+
+  const migrated = migrateDemoPortalState(v4);
+
+  assert.equal(migrated.demoStateVersion, 5);
+  assert.equal(migrated.orders[0]?.scheduledFor, '2026-08-04T19:30:00.000Z');
+  assert.equal(migrated.orders[1]?.scheduledFor, null);
+  assert.equal(v4.orders[0]?.scheduledFor, '2026-08-04T20:30:00.000Z');
 });
 
 test('migrates an invalid persisted avatar back to the initials fallback', () => {
@@ -83,7 +107,7 @@ test('validates ISO slots and converts demo labels into ISO values', () => {
   assert.equal(demoSlotFor('bad-date', '1:30 PM'), null);
 });
 
-test('adds a demo booking with add-on totals and duration', () => {
+test('adds a demo booking with add-on totals and the selected pickup start', () => {
   const portal = addDemoOrder(createInitialDemoPortal(), {
     id: 'order-new',
     item,
@@ -103,12 +127,7 @@ test('adds a demo booking with add-on totals and duration', () => {
   const order = portal.orders[0];
   assert.equal(order.id, 'order-new');
   assert.equal(order.subtotalCents, 12500);
-  // Prep time stands in for the pickup window: scheduledFor sits that far
-  // past placedAt.
-  assert.equal(
-    new Date(order.scheduledFor ?? '').getTime() - new Date(order.placedAt).getTime(),
-    65 * 60_000,
-  );
+  assert.equal(order.scheduledFor, order.placedAt, 'scheduledFor is the selected window start');
   assert.equal(order.fulfillmentType, 'pickup');
   assert.equal(order.locationLabel, 'Greenwood Village');
   assert.match(order.locationDetail ?? '', /5650 Greenwood Plaza/);
@@ -123,6 +142,44 @@ test('rejects a demo order without a valid ISO slot', () => {
     addOns: [],
     placedAt: '11:30 AM',
   }));
+});
+
+test('persists one shared order identity and reconciles its status only', () => {
+  const initial = createInitialDemoPortal();
+  const local = addDemoOrder(initial, {
+    id: 'local-template', item, addOns: [], placedAt: '2026-08-04T19:30:00.000Z',
+  }).orders[0];
+  const synced = addSyncedDemoOrder(initial, {
+    ...local, id: 'shared-1', status: 'paid', demoSyncSessionId: 'session-a',
+  });
+  const reconciled = reconcileSyncedDemoOrders(synced, {
+    sessionId: 'session-a',
+    orders: [{
+      id: 'shared-1', sessionId: 'session-a', status: 'ready', scheduledFor: local.scheduledFor,
+    }],
+  });
+  assert.equal(reconciled.orders[0].id, 'shared-1');
+  assert.equal(reconciled.orders[0].demoSynced, true);
+  assert.equal(reconciled.orders[0].demoSyncSessionId, 'session-a');
+  assert.equal(reconciled.orders[0].status, 'ready');
+  assert.equal(reconciled.orders[1], initial.orders[0]);
+  assert.equal(reconcileSyncedDemoOrders(reconciled, {
+    sessionId: 'session-a', orders: [],
+  }), reconciled);
+});
+
+test('retires an active shared order when its broker process has restarted', () => {
+  const initial = createInitialDemoPortal();
+  const local = addDemoOrder(initial, {
+    id: 'local-template', item, addOns: [], placedAt: '2026-08-04T19:30:00.000Z',
+  }).orders[0];
+  const synced = addSyncedDemoOrder(initial, {
+    ...local, id: 'shared-1', status: 'ready', demoSyncSessionId: 'session-a',
+  });
+  const reconciled = reconcileSyncedDemoOrders(synced, {
+    sessionId: 'session-b', orders: [],
+  });
+  assert.equal(reconciled.orders[0].status, 'cancelled');
 });
 
 test('cancels only the selected order', () => {
@@ -140,6 +197,8 @@ test('reschedules only the selected order, moving pickup and not placement', () 
   // Rescheduling moves when the order is due, never when it was placed.
   assert.equal(next.orders[0].placedAt, order.placedAt);
   assert.equal(next.orders[1]?.scheduledFor, initial.orders[1]?.scheduledFor);
+  const followingWeek = '2026-08-25T19:30:00.000Z';
+  assert.equal(rescheduleDemoOrder(next, order.id, followingWeek).orders[0].scheduledFor, followingWeek);
 });
 
 test('redeems an affordable cash reward and adds a ledger entry', () => {

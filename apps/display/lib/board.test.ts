@@ -4,8 +4,12 @@ import { join } from 'node:path';
 import { describe, it } from 'node:test';
 
 import { resolveBoardConfig, toEntry } from '@platform/domain';
+import type { BoardTicketRow } from '@platform/schema';
 
-import { demoAllowed, isLocationId } from './board';
+import {
+  demoAllowed, isLocationId, previewWallEnabled, prioritizeSynchronizedTickets,
+  synchronizedFixtureTickets,
+} from './board';
 import {
   DEMO_BRAND_CONFIG, DEMO_STEP_MS, DEMO_TICKETS, demoBoardAt, demoLocationName,
 } from './demo-board';
@@ -178,6 +182,45 @@ describe('board fixtures', () => {
 });
 
 describe('the board read', () => {
+  it('isolates the wall only when its local broker is configured', () => {
+    assert.equal(previewWallEnabled('1', true), true);
+    assert.equal(previewWallEnabled('1', false), false);
+    assert.equal(previewWallEnabled(undefined, true), false);
+  });
+
+  it('keeps a configured broker failure visible to the reconcile route', async () => {
+    await assert.rejects(() => synchronizedFixtureTickets('demo', {
+      board: async () => { throw new Error('broker offline'); },
+    }, 0), /broker offline/);
+    assert.ok((await synchronizedFixtureTickets('demo', null, 0)).length > 0);
+  });
+
+  it('uses fixtures only for rows not occupied by synchronized sales', () => {
+    const fixtures = demoBoardAt(0);
+    const first = fixtures[0];
+    const second = fixtures[1];
+    assert.ok(first && second);
+    const synchronized: BoardTicketRow[] = [
+      { ...first, id: 'shared-1', daily_number: 46 },
+      { ...second, id: 'shared-2', daily_number: 47 },
+    ];
+    const merged = prioritizeSynchronizedTickets(fixtures, synchronized, 5);
+    assert.equal(merged.length, 5);
+    assert.deepEqual(merged.slice(-2).map((ticket) => ticket.id), ['shared-1', 'shared-2']);
+    assert.deepEqual(prioritizeSynchronizedTickets(fixtures, synchronized, 0), [
+      ...fixtures, ...synchronized,
+    ]);
+  });
+
+  it('replaces viewport-tested fixture rows even when maxLines claims spare capacity', () => {
+    const fixtures = demoBoardAt(0);
+    const synchronized = [{ ...fixtures[0]!, id: 'shared-visible', daily_number: 46 }];
+    const merged = prioritizeSynchronizedTickets(fixtures, synchronized, 9);
+
+    assert.equal(merged.length, fixtures.length);
+    assert.equal(merged.at(-1)?.id, 'shared-visible');
+  });
+
   it('is gated by the view, not by the app remembering to ask nicely', () => {
     const view = boardTicketsView();
     assert.match(view, /app\.can_read_board/,

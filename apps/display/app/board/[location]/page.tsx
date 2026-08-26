@@ -48,6 +48,7 @@ export default async function BoardPage({ params }: { params: Promise<{ location
         copy={board.copy}
         live={board.live}
         degraded={board.degraded}
+        demoSynced={board.demoSynced}
       />
       {board.config.appUrl ? <QrPanel url={board.config.appUrl} copy={board.copy} /> : null}
     </div>

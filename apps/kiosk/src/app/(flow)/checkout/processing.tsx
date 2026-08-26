@@ -9,11 +9,13 @@ import { KioskPressable } from '@/components/chrome/kiosk-pressable';
 import { CheckDraw } from '@/components/feedback/check-draw';
 import { IDLE_CHECKOUT, checkoutReducer, recoveryAdvice } from '@/features/checkout';
 import {
-  checkoutAttemptKey, checkoutPreflight, paymentAmountCents, placeCheckoutOrder,
+  checkoutAttemptKey, checkoutPreflight, demoReplayOutcome, paymentAmountCents,
+  placeCheckoutOrder,
 } from '@/features/checkout-runtime';
 import { toPlaceOrderRequest } from '@/features/order-request';
 import { deviceApiClient } from '@/lib/api';
 import { authorize, CARD_READER_IS_SIMULATED } from '@/lib/card-reader';
+import { demoSyncClient, demoSyncPreview } from '@/lib/demo-sync';
 import * as haptics from '@/lib/haptics';
 import { useDevice } from '@/state/device';
 import { useFlow } from '@/state/flow';
@@ -45,6 +47,8 @@ export default function ProcessingStep() {
   const [blockedCode, setBlockedCode] = useState<string | null>(null);
   const [placementRejected, setPlacementRejected] = useState(false);
   const [priceIncrease, setPriceIncrease] = useState(false);
+  const [terminalReplay, setTerminalReplay] = useState(false);
+  const [recoveredPayment, setRecoveredPayment] = useState(false);
   const [state, dispatch] = useReducer(checkoutReducer, IDLE_CHECKOUT);
   const [runSequence, rerun] = useReducer((value: number) => value + 1, 0);
   const committedKey = useRef<string | null>(null);
@@ -59,6 +63,9 @@ export default function ProcessingStep() {
     const preflight = checkoutPreflight(snapshot.tender, snapshot.device, deviceApiClient, {
       platform: Platform.OS,
       readerIsSimulated: CARD_READER_IS_SIMULATED,
+      demoClient: demoSyncClient,
+      demoLocationId: 'demo',
+      forceDemo: demoSyncPreview,
     });
     if (preflight.kind === 'blocked') {
       // Nothing has been sent, so this remains a normal cancellable checkout.
@@ -129,6 +136,21 @@ export default function ProcessingStep() {
         return;
       }
 
+      const replay = preflight.target.kind === 'demo' && placement.kind === 'placed'
+        ? demoReplayOutcome(placement.order.status)
+        : 'continue';
+      if (replay === 'terminal') {
+        setTerminalReplay(true);
+        dispatch({ type: 'failed', code: 'order_terminal' });
+        return;
+      }
+      if (replay === 'already_authorized') {
+        setRecoveredPayment(true);
+        haptics.completed();
+        dispatch({ type: 'authorized' });
+        return;
+      }
+
       if (!preflight.tender.requiresReader) {
         haptics.completed();
         dispatch({ type: 'authorized' });
@@ -140,6 +162,12 @@ export default function ProcessingStep() {
       if (timer) clearTimeout(timer);
       if (!active) return;
       if (result.ok) {
+        // Placement precedes card authorization. The shared demo follows the
+        // same lifecycle, so Operator/Display see paid only after this succeeds.
+        if (preflight.target.kind === 'demo' && demoSyncClient) {
+          await demoSyncClient.transition(orderId, 'paid');
+        }
+        if (!active) return;
         haptics.completed();
         dispatch({ type: 'authorized' });
       } else if (result.code === 'cancelled') {
@@ -180,6 +208,13 @@ export default function ProcessingStep() {
           </Text>
           <KioskPressable label="Back to payment" onPress={() => goTo('pay')} />
         </>
+      ) : terminalReplay ? (
+        <>
+          <Text accessibilityRole="alert" style={[styles.status, { color: tokens.danger, fontFamily: tokens.fontBody, fontSize: tokens.type.xl }]}>
+            This checkout was already cancelled or refunded. No new payment was taken.
+          </Text>
+          <KioskPressable label="Staff: clear checkout" onPress={resetCheckout} />
+        </>
       ) : priceIncrease ? (
         <>
           <Text accessibilityRole="alert" style={[styles.status, { color: tokens.danger, fontFamily: tokens.fontBody, fontSize: tokens.type.xl }]}>
@@ -198,7 +233,9 @@ export default function ProcessingStep() {
         <>
           <CheckDraw />
           <Text style={[styles.status, { color: tokens.success, fontFamily: tokens.fontBody, fontSize: tokens.type.xl }]}>
-            {tender === 'cash' ? 'Order sent — pay at the counter' : 'Payment complete'}
+            {recoveredPayment
+              ? 'Payment already confirmed'
+              : (tender === 'cash' ? 'Order sent — pay at the counter' : 'Payment complete')}
           </Text>
           {ticket !== null ? (
             <>

@@ -92,6 +92,8 @@ function isOrder(value: unknown): boolean {
     // null is meaningful here: an asap order has no pickup window.
     && (value.scheduledFor === null || isDateString(value.scheduledFor))
     && isOneOf(value.status, ORDER_STATUSES)
+    && (value.demoSynced === undefined || typeof value.demoSynced === 'boolean')
+    && (value.demoSyncSessionId === undefined || typeof value.demoSyncSessionId === 'string')
     && isOneOf(value.fulfillmentType, FULFILLMENT_TYPES)
     && isFiniteNumber(value.subtotalCents)
     && isFiniteNumber(value.taxCents)

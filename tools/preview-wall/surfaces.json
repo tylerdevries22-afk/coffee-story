@@ -35,7 +35,7 @@
       "launch": "operator-web",
       "name": "Operator",
       "device": "iPad landscape",
-      "port": 4190,
+      "port": 4191,
       "path": "/",
       "width": 1180,
       "height": 820,
