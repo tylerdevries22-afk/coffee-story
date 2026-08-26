@@ -162,6 +162,11 @@ const ownerFlagProvided = process.argv.includes('--owner-user-id');
 const ownerUserId = argValue('--owner-user-id');
 const apply = process.argv.includes('--apply');
 const requireDatabase = process.argv.includes('--require-db');
+// The legacy demo-roastery schema fixture intentionally has no photography.
+// Production tenants never receive this escape hatch: --require-db otherwise
+// guarantees one source image and one uploaded immutable object per menu row.
+const imageLessSchemaFixture = process.argv.includes('--allow-imageless-schema-fixture')
+  && slug === 'demo-roastery';
 if (!slug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
   console.error('Usage: pnpm onboard --tenant <slug> [--apply] [--owner-user-id <uuid>]');
   process.exit(1);
@@ -236,7 +241,9 @@ async function run() {
   problems.push(...compiled.errors);
   validatePackFlow(brand.kiosk, compiled.menu, problems);
   validateTokens(brand.tokens, problems);
-  if (apply || requireDatabase) validateMenuAssets(tenantDir, compiled.menu, problems);
+  if (apply || (requireDatabase && !imageLessSchemaFixture)) {
+    validateMenuAssets(tenantDir, compiled.menu, problems);
+  }
   if (apply) validateCustomerShellAssets(tenantDir, problems);
   if (problems.length > 0) {
     console.error(`tenants/${slug} does not validate:`);
