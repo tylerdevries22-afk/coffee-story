@@ -63,7 +63,11 @@ begin
   if not found then
     raise exception using errcode = 'P0002', message = 'training_draft_not_found';
   end if;
-  if selected.updated_at is distinct from expected_updated_at then
+  -- JavaScript database drivers normalize timestamps to milliseconds, while
+  -- Postgres stores microseconds. Compare at the precision every supported HQ
+  -- client can faithfully round-trip so an unchanged draft is not rejected.
+  if date_trunc('milliseconds', selected.updated_at)
+     is distinct from date_trunc('milliseconds', expected_updated_at) then
     raise exception using errcode = '40001', message = 'training_draft_stale';
   end if;
   if jsonb_typeof(selected.manifest) <> 'object'

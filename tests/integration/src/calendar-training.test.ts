@@ -175,6 +175,14 @@ describe('calendar and training tenancy', { skip: skipUnlessConfigured }, () => 
       [tenant.brandId, JSON.stringify(manifest), ownerMemberId],
     );
 
+    const staleAttempt = await serviceClient().rpc('publish_manual_training_release', {
+      target_brand: tenant.brandId,
+      target_release: draft.rows[0]!.id,
+      target_editor: ownerMemberId,
+      expected_updated_at: new Date(new Date(draft.rows[0]!.updated_at).getTime() - 1_000).toISOString(),
+    });
+    assert.equal(staleAttempt.error?.message, 'training_draft_stale');
+
     const browserAttempt = await userClient(owner.accessToken).rpc('publish_manual_training_release', {
       target_brand: tenant.brandId,
       target_release: draft.rows[0]!.id,
