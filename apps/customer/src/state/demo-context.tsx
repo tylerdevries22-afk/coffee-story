@@ -14,6 +14,7 @@ import Constants from 'expo-constants';
 import { hasCompleteLiveConfig } from '@/lib/runtime-config';
 import {
   addDemoOrder,
+  addSyncedDemoOrder,
   addDemoGift,
   addDemoMessage,
   cancelDemoOrder,
@@ -21,6 +22,7 @@ import {
   createInitialDemoPortal,
   dismissDemoSetupAutoPrompt,
   redeemDemoReward,
+  reconcileSyncedDemoOrders,
   removeDemoPaymentMethod,
   rescheduleDemoOrder,
   reviewDemoOrder,
@@ -38,11 +40,14 @@ import {
   saveStoredAppMode,
   saveStoredPortal,
 } from '@/state/demo-storage';
+import { demoSyncClient, demoSyncPreview } from '@/lib/demo-sync';
+import { startSerializedPolling } from '@platform/api-client';
 import type {
   GiftCard,
   AppRole,
   GuestPreferences,
   PortalBundle,
+  PortalOrder,
   PortalProfile,
   RewardCatalogItem,
 } from '@platform/domain';
@@ -65,7 +70,8 @@ type DemoState = {
   resetDemo: () => Promise<void>;
   setRole: (role: AppRole) => void;
   book: (input: Omit<DemoOrderInput, 'id'>) => void;
-  cancelOrder: (orderId: string) => void;
+  bookSynced: (order: PortalOrder) => void;
+  cancelOrder: (orderId: string) => Promise<void>;
   rescheduleOrder: (orderId: string, placedAt: string) => void;
   reviewOrder: (orderId: string, rating: number, note: string) => void;
   redeemReward: (reward: RewardCatalogItem) => void;
@@ -86,11 +92,14 @@ function uniqueId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-export function DemoProvider({ children }: PropsWithChildren) {
+export function DemoProvider({
+  children,
+  synchronizeOrders = false,
+}: PropsWithChildren<{ synchronizeOrders?: boolean }>) {
   // Expo Go cannot run the native payment flows live mode needs, so it is
   // never the startup default there. See `parseStoredAppMode`.
   const isExpoGo = Constants.appOwnership === 'expo';
-  const canGoLive = hasCompleteLiveConfig();
+  const canGoLive = !demoSyncPreview && hasCompleteLiveConfig();
   const [mode, setMode] = useState<AppMode>(() => parseStoredAppMode(null, canGoLive, isExpoGo));
   const [portal, setPortal] = useState<PortalBundle>(createInitialDemoPortal);
   const [isHydrating, setIsHydrating] = useState(true);
@@ -115,12 +124,24 @@ export function DemoProvider({ children }: PropsWithChildren) {
   const savePortal = useCallback((transform: (current: PortalBundle) => PortalBundle) => {
     setPortal((current) => {
       const next = transform(current);
+      if (next === current) return current;
       void saveStoredPortal(next).catch((persistError: unknown) => {
         console.warn('Demo portal changes could not be saved and will not survive a restart.', persistError);
       });
       return next;
     });
   }, []);
+
+  useEffect(() => {
+    const client = demoSyncClient;
+    if (!synchronizeOrders || mode !== 'demo' || !client) return undefined;
+    let active = true;
+    const stop = startSerializedPolling(async () => {
+      const snapshot = await client.orders();
+      if (active) savePortal((current) => reconcileSyncedDemoOrders(current, snapshot));
+    }, 1_000);
+    return () => { active = false; stop(); };
+  }, [mode, savePortal, synchronizeOrders]);
 
   const chooseDemo = useCallback(async () => {
     setMode('demo');
@@ -148,7 +169,18 @@ export function DemoProvider({ children }: PropsWithChildren) {
     resetDemo,
     setRole: (role) => savePortal((current) => setDemoRole(current, role)),
     book: (input) => savePortal((current) => addDemoOrder(current, { ...input, id: uniqueId('order') })),
-    cancelOrder: (orderId) => savePortal((current) => cancelDemoOrder(current, orderId)),
+    bookSynced: (order) => savePortal((current) => addSyncedDemoOrder(current, order)),
+    cancelOrder: async (orderId) => {
+      const order = portal.orders.find((entry) => entry.id === orderId);
+      if (order?.demoSynced) {
+        if (order.status !== 'created') {
+          throw new Error('This order can no longer be cancelled. Ask the shop for help.');
+        }
+        if (!demoSyncClient) throw new Error('The shared demo is not connected.');
+        await demoSyncClient.transition(orderId, 'cancelled');
+      }
+      savePortal((current) => cancelDemoOrder(current, orderId));
+    },
     rescheduleOrder: (orderId, startsAt) => savePortal((current) => (
       rescheduleDemoOrder(current, orderId, startsAt)
     )),

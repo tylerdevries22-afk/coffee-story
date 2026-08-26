@@ -2,11 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 
+import { fetchWithRetry, startSerializedPolling } from '@platform/api-client';
 import { boardQueue, type BoardConfig, type BoardEntry } from '@platform/domain';
 import type { BoardTicketRow } from '@platform/schema';
 import { formatCopy, type BrandCopy } from '@platform/ui/copy';
 
 import { TIER_TONE_VARIABLE } from '@/lib/theme';
+import { boardFreshness, type BoardFreshness } from '@/lib/board-freshness';
 
 /** Past this without a successful read, the freshness line admits it may be stale. */
 const STALE_AFTER_MS = 90_000;
@@ -19,6 +21,8 @@ const STALE_AFTER_MS = 90_000;
  * for a dropped socket, a suspended browser, or a missed notification.
  */
 const RECONCILE_MS = 60_000;
+const DEMO_SYNC_RECONCILE_MS = 1_000;
+const TICKET_READ_TIMEOUT_MS = 5_000;
 
 export type BoardViewProps = {
   initialTickets: BoardTicketRow[];
@@ -28,15 +32,16 @@ export type BoardViewProps = {
   live: boolean;
   /** True when the server's own read failed and this is a degraded board. */
   degraded: boolean;
+  demoSynced: boolean;
 };
 
-type Freshness = 'live' | 'stale' | 'fixtures';
-
-export function BoardView({ initialTickets, config, copy, live, degraded }: BoardViewProps) {
+export function BoardView({ initialTickets, config, copy, live, degraded, demoSynced }: BoardViewProps) {
   const [tickets, setTickets] = useState<BoardTicketRow[]>(initialTickets);
   const [lastRead, setLastRead] = useState(() => Date.now());
+  const [readDegraded, setReadDegraded] = useState(degraded);
   const [now, setNow] = useState(() => Date.now());
   const mounted = useRef(true);
+  const reconcileInFlight = useRef<Promise<void> | null>(null);
 
   useEffect(() => {
     mounted.current = true;
@@ -50,20 +55,33 @@ export function BoardView({ initialTickets, config, copy, live, degraded }: Boar
   }, []);
 
   const reconcile = useCallback(async () => {
+    if (reconcileInFlight.current) return reconcileInFlight.current;
+    const request = (async () => {
+      try {
+        const response = await fetchWithRetry(`${window.location.pathname}/tickets`, {
+          cache: 'no-store',
+          headers: { accept: 'application/json' },
+        }, TICKET_READ_TIMEOUT_MS, 2);
+        if (!response.ok) {
+          if (mounted.current) setReadDegraded(true);
+          return;
+        }
+        const next = (await response.json()) as BoardTicketRow[];
+        if (!mounted.current || !Array.isArray(next)) return;
+        // Replace outright. A missing ticket was collected; keeping it would
+        // leave a stranger's name on the wall after they walked out.
+        setTickets(next);
+        setLastRead(Date.now());
+        setReadDegraded(false);
+      } catch {
+        if (mounted.current) setReadDegraded(true);
+      }
+    })();
+    reconcileInFlight.current = request;
     try {
-      const response = await fetch(`${window.location.pathname}/tickets`, {
-        cache: 'no-store',
-        headers: { accept: 'application/json' },
-      });
-      if (!response.ok) return;
-      const next = (await response.json()) as BoardTicketRow[];
-      if (!mounted.current || !Array.isArray(next)) return;
-      // Replace outright. A missing ticket was collected; keeping it would
-      // leave a stranger's name on the wall after they walked out.
-      setTickets(next);
-      setLastRead(Date.now());
-    } catch {
-      // Keep the last good board. The freshness line reports the failure.
+      await request;
+    } finally {
+      if (reconcileInFlight.current === request) reconcileInFlight.current = null;
     }
   }, []);
 
@@ -86,9 +104,8 @@ export function BoardView({ initialTickets, config, copy, live, degraded }: Boar
   // in a repo with no component renderer, making the demo the only place this
   // loop is ever executed before a shop depends on it.
   useEffect(() => {
-    const id = setInterval(() => void reconcile(), RECONCILE_MS);
-    return () => clearInterval(id);
-  }, [reconcile]);
+    return startSerializedPolling(reconcile, demoSynced ? DEMO_SYNC_RECONCILE_MS : RECONCILE_MS);
+  }, [demoSynced, reconcile]);
 
   const queue = useMemo(() => boardQueue(tickets, config), [tickets, config]);
 
@@ -96,9 +113,13 @@ export function BoardView({ initialTickets, config, copy, live, degraded }: Boar
   // measuring staleness against it would put "Reconnecting" on a demo board
   // and leave it there -- announcing a failure of a connection that was never
   // supposed to exist. The three states are distinct on purpose.
-  const freshness: Freshness = !live
-    ? 'fixtures'
-    : (now - lastRead > STALE_AFTER_MS || degraded ? 'stale' : 'live');
+  const freshness: BoardFreshness = boardFreshness(
+    live,
+    readDegraded,
+    lastRead,
+    now,
+    STALE_AFTER_MS,
+  );
 
   // Always through formatCopy: it is the one accessor that falls back to the
   // key rather than to `undefined`, so a dictionary missing an entry shows a
@@ -210,4 +231,4 @@ function Ticket({ entry, copy }: { entry: BoardEntry; copy: BrandCopy }) {
   );
 }
 
-export { STALE_AFTER_MS, RECONCILE_MS };
+export { STALE_AFTER_MS, RECONCILE_MS, DEMO_SYNC_RECONCILE_MS };

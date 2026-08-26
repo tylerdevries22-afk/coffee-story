@@ -1,5 +1,7 @@
 import { loadDrops, loadKpis } from '@/lib/data';
 import { formatMoney, formatShare, rollupByLocation, rollupKpis } from '@/lib/kpi';
+import { demoSyncRuntimeEnabled } from '@/lib/demo-sync-http';
+import { DemoLiveActivity } from './demo-live-activity';
 // The console is live data behind a session: never prerender a fixture
 // snapshot at build time and serve it as if it were today's numbers.
 export const dynamic = 'force-dynamic';
@@ -14,6 +16,8 @@ export default async function DashboardPage() {
     <>
       <h1>This week</h1>
       <p className="subtitle">All locations · last 7 days</p>
+
+      {demoSyncRuntimeEnabled() ? <DemoLiveActivity /> : null}
 
       <div className="kpi-row">
         <div className="kpi-card">

@@ -8,8 +8,11 @@ import { createServerClient } from '@supabase/ssr';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 
+import { previewWallRuntimeEnabled } from './demo-sync-http';
+
 export function isConfigured(): boolean {
-  return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+  return !previewWallRuntimeEnabled()
+    && Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 }
 
 /** Null when the deployment carries no Supabase env — pages fall back to fixtures. */

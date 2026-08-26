@@ -6,6 +6,7 @@ import { CollapsingScreen } from '@/components/collapsing-screen';
 import { Body, Button, Card, Segmented } from '@/components/ui';
 import { formatMoney, requestKey } from '@platform/domain';
 import { trackingView } from '@/features/tracking';
+import { isGuestCancellableDemoOrder, isUpcomingDemoOrder } from '@/features/order-history';
 import { mobileApi } from '@/lib/mobile-api';
 import { addOrderToCalendar } from '@/lib/native-adapters';
 import { useAuth } from '@/state/auth-context';
@@ -49,8 +50,8 @@ export function Orders({ onBack, onBook }: { onBack: () => void; onBook: () => v
   }
   const orders = portal.orders.filter((order) => (
     tab === 'Upcoming'
-      ? new Date(order.placedAt).getTime() >= referenceTime && order.status !== 'cancelled'
-      : new Date(order.placedAt).getTime() < referenceTime || ['picked_up', 'cancelled', 'refunded'].includes(order.status)
+      ? isUpcomingDemoOrder(order, referenceTime)
+      : !isUpcomingDemoOrder(order, referenceTime)
   ));
 
   return (
@@ -61,17 +62,18 @@ export function Orders({ onBack, onBook }: { onBack: () => void; onBook: () => v
           key={order.id}
           order={order}
           isDemo={isDemo}
-          upcoming={new Date(order.placedAt).getTime() >= referenceTime
-            && order.status !== 'cancelled'}
+          upcoming={isUpcomingDemoOrder(order, referenceTime)}
+          cancellable={isGuestCancellableDemoOrder(order)}
+          reschedulable={!order.demoSynced}
           onCancel={async () => {
-            if (isDemo) demo.cancelOrder(order.id);
+            if (isDemo) await demo.cancelOrder(order.id);
             else {
               await mobileApi.cancelOrder(order.id, requestKey('order-cancel'));
               await refresh();
             }
           }}
           onReschedule={async () => {
-            const next = new Date(order.placedAt);
+            const next = new Date(order.scheduledFor ?? order.placedAt);
             next.setDate(next.getDate() + 7);
             if (isDemo) {
               demo.rescheduleOrder(order.id, next.toISOString());
@@ -93,6 +95,8 @@ function UpcomingOrderCard({
   order,
   isDemo,
   upcoming,
+  cancellable,
+  reschedulable,
   onCancel,
   onReschedule,
   onReviewed,
@@ -100,6 +104,8 @@ function UpcomingOrderCard({
   order: PortalOrder;
   isDemo: boolean;
   upcoming: boolean;
+  cancellable: boolean;
+  reschedulable: boolean;
   onCancel: () => Promise<void>;
   onReschedule: () => Promise<void>;
   onReviewed: () => Promise<void>;
@@ -116,14 +122,14 @@ function UpcomingOrderCard({
       {packRecipeLines(order).map((recipe, index) => (
         <Body key={`${order.id}-pack-${index}`} muted>{recipe}</Body>
       ))}
-      <Body muted>{formatOrderDate(order.placedAt)}</Body>
+      <Body muted>{formatOrderDate(order.scheduledFor ?? order.placedAt)}</Body>
       {order.locationLabel ? <Body>{order.locationLabel} · {order.locationDetail}</Body> : null}
       <Body>{order.status.replace("_", " ")} · ${(order.totalCents / 100).toFixed(2)}</Body>
       <Button label="Add to calendar" variant="secondary" onPress={() => void addOrderReminder(order, isDemo)} />
-      {upcoming ? (
+      {upcoming && (reschedulable || cancellable) ? (
         <View style={styles.orderActions}>
-          <Button label="Reschedule one week" variant="secondary" loading={busy === 'reschedule'} style={styles.orderAction} onPress={() => void runOrderAction('reschedule', setBusy, onReschedule)} />
-          <Button label="Cancel" variant="secondary" loading={busy === 'cancel'} style={styles.orderAction} onPress={() => confirmCancellation(setBusy, onCancel)} />
+          {reschedulable ? <Button label="Reschedule one week" variant="secondary" loading={busy === 'reschedule'} style={styles.orderAction} onPress={() => void runOrderAction('reschedule', setBusy, onReschedule)} /> : null}
+          {cancellable ? <Button label="Cancel" variant="secondary" loading={busy === 'cancel'} style={styles.orderAction} onPress={() => confirmCancellation(setBusy, onCancel)} /> : null}
         </View>
       ) : order.status === 'picked_up' ? (
         <>

@@ -362,6 +362,17 @@ describe('packs', () => {
 });
 
 describe('atomic order commit', () => {
+  it('makes deep health fail closed on missing commit or realtime contracts', () => {
+    const readiness = functionInForce('public', 'platform_release_readiness');
+    assert.match(readiness, /security invoker/);
+    assert.match(readiness, /procedure\.proname = 'commit_order'/);
+    assert.match(readiness, /procedure\.pronargs = 18/);
+    assert.match(readiness, /tablename = 'orders'/);
+    assert.match(readiness, /tablename = 'board_change_signals'/);
+    assert.match(allSql(),
+      /revoke all on function public\.platform_release_readiness\(\)[\s\S]*?to service_role;/);
+  });
+
   it('writes the order and initial events inside one service-role invoker function', () => {
     const commit = functionInForce('public', 'commit_order');
     assert.match(commit, /security invoker/);

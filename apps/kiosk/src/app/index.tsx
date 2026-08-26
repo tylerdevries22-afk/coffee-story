@@ -5,6 +5,7 @@ import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { disabledState, useCopy, useTokens } from '@platform/ui';
 
 import { resetExperience } from '@/features/experience-reset';
+import { demoSyncConfigured } from '@/lib/demo-sync';
 import { useBuilder } from '@/state/builder';
 import { useDevice } from '@/state/device';
 import { useFlow } from '@/state/flow';
@@ -74,7 +75,9 @@ export default function AttractScreen() {
           </Text>
           {preview ? (
             <Text style={[styles.preview, { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: tokens.type.md }]}>
-              Local preview · orders are not sent
+              {demoSyncConfigured
+                ? 'Shared demo · orders sync to operator and pickup display'
+                : 'Local preview · orders are not sent'}
             </Text>
           ) : null}
         </View>

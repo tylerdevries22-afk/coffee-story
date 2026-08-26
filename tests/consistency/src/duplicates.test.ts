@@ -65,6 +65,7 @@ const DIVERGENT_BY_DESIGN = [
   // The live planes are persona-different by design: the customer bundle is
   // a guest's world through the platform API, the operator's is staff claims
   // and direct-RLS board writes; their live-config needs differ the same way.
+  'lib/demo-sync.ts',
   'lib/live-portal.ts',
   'lib/mobile-api.ts',
   'lib/runtime-config.test.ts',

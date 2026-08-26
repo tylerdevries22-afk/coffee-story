@@ -2,6 +2,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { OrderRow } from '@platform/schema';
 
+import { readWithRetry, type DataReadOptions } from './read-retry';
+
 /**
  * The operator board's working set: everything at the location that needs
  * hands, oldest first, plus the scheduled lane's future pickups. RLS scopes
@@ -10,8 +12,9 @@ import type { OrderRow } from '@platform/schema';
 export async function fetchActiveLocationOrders(
   client: SupabaseClient,
   locationId: string,
+  options: DataReadOptions = {},
 ): Promise<OrderRow[]> {
-  const result = await client
+  const rows = await readWithRetry('fetchActiveLocationOrders', (signal) => client
     .from('orders')
     .select('*')
     .eq('location_id', locationId)
@@ -19,9 +22,32 @@ export async function fetchActiveLocationOrders(
     // pay-at-pickup row is actionable: staff must explicitly collect it.
     .or('status.in.(paid,in_progress,ready),and(status.eq.created,tender_type.eq.pay_at_pickup)')
     .order('created_at')
-    .returns<OrderRow[]>();
-  if (result.error) throw new Error(`fetchActiveLocationOrders: ${result.error.message}`);
-  return result.data ?? [];
+    .abortSignal(signal)
+    .returns<OrderRow[]>(), options);
+  return rows ?? [];
+}
+
+export type LocationOrderStatus = Pick<OrderRow, 'id' | 'status'>;
+
+/**
+ * Authoritative status read for queued operator actions, including terminal
+ * rows that intentionally disappear from the active board.
+ */
+export async function fetchLocationOrderStatuses(
+  client: SupabaseClient,
+  locationId: string,
+  orderIds: readonly string[],
+  options: DataReadOptions = {},
+): Promise<LocationOrderStatus[]> {
+  if (orderIds.length === 0) return [];
+  const rows = await readWithRetry('fetchLocationOrderStatuses', (signal) => client
+    .from('orders')
+    .select('id, status')
+    .eq('location_id', locationId)
+    .in('id', [...new Set(orderIds)])
+    .abortSignal(signal)
+    .returns<LocationOrderStatus[]>(), options);
+  return rows ?? [];
 }
 
 export type CustomerOrders = {
