@@ -612,10 +612,10 @@ function FeatureRow({
   const from = item.sizes[0]?.priceCents;
   return (
     <View style={[styles.feature, flip && styles.featureFlip]}>
-      <Image
+      <MenuImage
         source={item.image}
+        variant="hero"
         style={[styles.featureImage, flip ? styles.featureImageRight : styles.featureImageLeft]}
-        contentFit="cover"
         alt={item.name}
       />
       <View style={styles.featureCopy}>
@@ -651,10 +651,10 @@ function DropFeatureRow({
   const live = dropStatus(drop, new Date()) === 'live';
   return (
     <View style={[styles.feature, flip && styles.featureFlip]}>
-      <Image
+      <MenuImage
         source={item.image}
+        variant="hero"
         style={[styles.featureImage, flip ? styles.featureImageRight : styles.featureImageLeft]}
-        contentFit="cover"
         alt={drop.title}
       />
       <View style={styles.featureCopy}>
