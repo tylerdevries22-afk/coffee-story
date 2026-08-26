@@ -73,7 +73,12 @@ describe('pickupWindows', () => {
   it('labels the first windows of the day Today', () => {
     const [first] = pickupWindows(wednesday(12), 1);
     assert.equal(first.dayLabel, 'Today');
-    assert.equal(first.timeLabel, '12:15 – 12:45 PM');
+    assert.equal(first.timeLabel, '12:30 – 1:00 PM');
+  });
+
+  it('leaves enough time to complete checkout before lead-time revalidation', () => {
+    const [first] = pickupWindows(wednesday(12), 1);
+    assert.equal(isWindowStillBookable(first.value, wednesday(12, 4)), true);
   });
 
   it('waits for opening when the shop is still shut', () => {

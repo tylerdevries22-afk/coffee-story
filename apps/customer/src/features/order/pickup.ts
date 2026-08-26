@@ -27,6 +27,8 @@ export const SHOP_HOURS: readonly ShopDayHours[] = [
 
 /** How long the bar needs before the earliest window it will promise. */
 export const PICKUP_LEAD_MINUTES = 15;
+/** Time reserved for a guest to finish the menu and checkout before revalidation. */
+const PICKUP_CHECKOUT_BUFFER_MINUTES = 5;
 /** Length of one window. */
 export const PICKUP_WINDOW_MINUTES = 30;
 /** Windows start on this grid, so the list reads 5:15, 5:30, 5:45. */
@@ -92,7 +94,9 @@ export function pickupTimeLabel(start: Date, minutes = PICKUP_WINDOW_MINUTES): s
 export function pickupWindows(now: Date, count: number): PickupWindow[] {
   if (Number.isNaN(now.getTime()) || !Number.isFinite(count) || count < 1) return [];
   const windows: PickupWindow[] = [];
-  let cursor = roundUpToStep(new Date(now.getTime() + PICKUP_LEAD_MINUTES * 60_000));
+  const earliest = now.getTime()
+    + (PICKUP_LEAD_MINUTES + PICKUP_CHECKOUT_BUFFER_MINUTES) * 60_000;
+  let cursor = roundUpToStep(new Date(earliest));
 
   for (let dayOffset = 0; dayOffset <= PICKUP_HORIZON_DAYS && windows.length < count; dayOffset += 1) {
     const day = addLocalDays(now, dayOffset);
