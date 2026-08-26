@@ -1,11 +1,12 @@
 import { router, type Href } from 'expo-router';
 import { useMemo } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon } from '@/components/icon';
 import { TrainingArtwork } from '@/components/training-artwork';
+import { operatorLayout } from '@/lib/responsive-layout';
 import { useTrainingRelease } from '@/features/training/use-training-release';
 import { useBusiness } from '@/state/business';
 import { useAppTokens, type AppTokens } from '@platform/ui';
@@ -19,16 +20,22 @@ const TRACKS = [
 
 export function TrainingScreen() {
   const { colors, styles } = useTrainingTheme();
+  const { width, height } = useWindowDimensions();
+  const layout = operatorLayout(width, height);
   const business = useBusiness();
   const { release, loading, error, isDemo } = useTrainingRelease();
   const modules = useMemo(() => release?.manifest.modules ?? [], [release]);
   return (
     <SafeAreaView edges={['top']} style={styles.safe}>
-      <View style={styles.header}>
+      <View style={[styles.header, layout.isTablet && { maxWidth: layout.contentMaxWidth, width: '100%', alignSelf: 'center' }]}>
         <Text style={styles.title}>Training</Text>
         <Text style={styles.subtitle}>{business.name || 'Your workspace'}</Text>
       </View>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={layout.isTablet ? { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center' } : undefined}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.trackRail}>
           {(modules.length > 0
             ? modules.map((module) => ({ key: module.slug, label: module.title, icon: moduleIcon(module.icon.symbol), imageUrl: module.icon.url }))
@@ -102,7 +109,7 @@ function ProgressRing({ progress }: { progress: number }) {
   return (
     <View accessible accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: 100, now: progress }} style={styles.ring}>
       <Svg width={64} height={64} viewBox="0 0 64 64">
-        <Circle cx="32" cy="32" r={radius} fill="none" stroke="#ECEAE7" strokeWidth="7" />
+        <Circle cx="32" cy="32" r={radius} fill="none" stroke={colors.ink200} strokeWidth="7" />
         <Circle cx="32" cy="32" r={radius} fill="none" stroke={colors.brand400} strokeWidth="7" strokeLinecap="round" strokeDasharray={`${circumference} ${circumference}`} strokeDashoffset={circumference * (1 - progress / 100)} transform="rotate(-90 32 32)" />
       </Svg>
       <Text style={styles.ringText}>{progress}%</Text>
@@ -117,7 +124,7 @@ function useTrainingTheme() {
 
 function createStyles({ colors, fonts, spacing }: AppTokens) {
   return StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F1F0EE' },
+  safe: { flex: 1, backgroundColor: colors.warm },
   header: { minHeight: 74, justifyContent: 'center', paddingHorizontal: spacing.lg, backgroundColor: colors.white, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.ink200 },
   title: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 25, letterSpacing: -0.5 },
   subtitle: { color: colors.ink500, fontFamily: fonts.sans, fontSize: 12, marginTop: 2 },
@@ -128,14 +135,14 @@ function createStyles({ colors, fonts, spacing }: AppTokens) {
   trackLabel: { color: colors.ink600, fontFamily: fonts.sansMedium, fontSize: 10, textAlign: 'center' },
   section: { paddingHorizontal: spacing.md, paddingTop: spacing.lg, gap: spacing.sm },
   sectionTitle: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 20, letterSpacing: -0.2 },
-  card: { minHeight: 106, flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.md, backgroundColor: colors.white, borderRadius: 12, borderWidth: 1, borderColor: '#E9E6E2' },
+  card: { minHeight: 106, flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.md, backgroundColor: colors.white, borderRadius: 12, borderWidth: 1, borderColor: colors.ink200 },
   pressed: { opacity: 0.72 },
   cardCopy: { flex: 1, gap: 3 },
   cardTitle: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 18 },
   cardSubtitle: { color: colors.ink500, fontFamily: fonts.sans, fontSize: 13 },
   ring: { width: 64, height: 64, alignItems: 'center', justifyContent: 'center' },
   ringText: { position: 'absolute', color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 11 },
-  statusCard: { margin: spacing.md, minHeight: 150, padding: spacing.lg, borderRadius: 12, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center', gap: spacing.sm, borderWidth: 1, borderColor: '#E9E6E2' },
+  statusCard: { margin: spacing.md, minHeight: 150, padding: spacing.lg, borderRadius: 12, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center', gap: spacing.sm, borderWidth: 1, borderColor: colors.ink200 },
   statusTitle: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 17, textAlign: 'center' },
   statusDetail: { color: colors.ink500, fontFamily: fonts.sans, fontSize: 13, lineHeight: 19, textAlign: 'center' },
   });

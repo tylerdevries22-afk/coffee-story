@@ -25,7 +25,9 @@ deploy.
 
 **Operator app:** built once, not per tenant, from `apps/operator`; its EAS
 project and `com.devries.platform.operator` identity are linked. Use the
-preview or production scripts in its `package.json` only on owner request.
+preview or production scripts in its `package.json` only on owner request. To
+open the preview in Expo Go on a physical iPad, follow
+[`OPERATOR_IPAD_EXPO_GO.md`](OPERATOR_IPAD_EXPO_GO.md).
 
 **Kiosk app:** built from `apps/kiosk`; its EAS project and
 `com.coffeestory.kiosk` identity are linked. Set the four public Supabase/API
