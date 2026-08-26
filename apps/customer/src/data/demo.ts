@@ -27,10 +27,6 @@ function isoAt(daysFromNow: number, hour: number, minute = 0): string {
   return dayAt(daysFromNow, hour, minute).toISOString();
 }
 
-function addMinutes(startsAt: string, minutes: number): string {
-  return new Date(new Date(startsAt).getTime() + minutes * 60_000).toISOString();
-}
-
 const SHOP_LABEL = `${TENANT.identity.name} · ${TENANT.location.address.street}`;
 const DELIVERY_LABEL = 'Delivery';
 const DELIVERY_DETAIL = `Demo delivery · ${TENANT.location.address.city}, ${TENANT.location.address.region}`;
@@ -42,7 +38,6 @@ type OrderSeed = {
   days: number;
   hour: number;
   minute?: number;
-  durationMin?: number;
   priceCents: number;
   status: OrderStatus;
   /** Display-safe guest name; becomes the order's guestLabel. */
@@ -67,7 +62,7 @@ function order(seed: OrderSeed): PortalOrder {
     summary: seed.item,
     lines: [{ name: seed.item, quantity: 1, unitPriceCents: seed.priceCents, options: [] }],
     fulfillmentType: seed.mobile ? 'delivery' : 'pickup',
-    scheduledFor: addMinutes(placedAt, seed.durationMin ?? 15),
+    scheduledFor: placedAt,
     placedAt,
     subtotalCents: seed.priceCents,
     taxCents,
@@ -232,7 +227,7 @@ const messages: PortalMessage[] = [
 ];
 
 export const DEMO_PORTAL: PortalBundle = {
-  demoStateVersion: 4,
+  demoStateVersion: 5,
   autoPromptDismissed: false,
   profile: {
     id: 'demo-client',

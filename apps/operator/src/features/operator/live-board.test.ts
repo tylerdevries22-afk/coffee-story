@@ -4,7 +4,7 @@ import { describe, it } from 'node:test';
 import { orderBoardEntryFromRow } from '@platform/data';
 import type { OrderRow } from '@platform/schema';
 
-import { upsertBoardOrder } from './live-board';
+import { normalizeBoardOrderGuest, upsertBoardOrder } from './live-board';
 
 const ROW: OrderRow = {
   id: '5d9a4c7e-0000-4000-8000-000000000001',
@@ -51,5 +51,10 @@ describe('upsertBoardOrder', () => {
     const first = orderBoardEntryFromRow({ ...ROW, guest_label: 'Yusuf' });
     const other = orderBoardEntryFromRow({ ...ROW, id: 'ffffffff-0000-4000-8000-000000000002', guest_label: 'Maya' });
     assert.equal(upsertBoardOrder([first], other).length, 2);
+  });
+
+  it('normalizes an unnamed synchronized order like a live database row', () => {
+    const unnamed = { ...orderBoardEntryFromRow(ROW), guestName: '   ' };
+    assert.equal(normalizeBoardOrderGuest(unnamed).guestName, 'Guest');
   });
 });

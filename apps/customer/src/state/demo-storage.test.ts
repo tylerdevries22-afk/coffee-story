@@ -71,7 +71,7 @@ test('parseStoredPortal migrates automatic setup dismissal safely', () => {
   delete portal.demoStateVersion;
   delete portal.autoPromptDismissed;
   const migrated = parseStoredPortal(JSON.stringify(portal));
-  assert.equal(migrated?.demoStateVersion, 4);
+  assert.equal(migrated?.demoStateVersion, 5);
   assert.equal(migrated?.profile.avatarUrl, null);
   assert.equal(migrated?.autoPromptDismissed, false);
 });

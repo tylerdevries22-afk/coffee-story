@@ -47,6 +47,14 @@ const LAUNCH_FILE = join(ROOT, '.claude', 'launch.json');
 /** Where the wall is published, and therefore which app must be exported last. */
 const HOST_APP = 'customer';
 const HOST_DIST = join(ROOT, 'apps', HOST_APP, 'dist-web');
+const BROWSER_BLOCKED_PORTS = new Set([
+  0, 1, 7, 9, 11, 13, 15, 17, 19, 20, 21, 22, 23, 25, 37, 42, 43, 53, 69,
+  77, 79, 87, 95, 101, 102, 103, 104, 109, 110, 111, 113, 115, 117, 119, 123,
+  135, 137, 139, 143, 161, 179, 389, 427, 465, 512, 513, 514, 515, 526, 530,
+  531, 532, 540, 548, 554, 556, 563, 587, 601, 636, 989, 990, 993, 995, 1719,
+  1720, 1723, 2049, 3659, 4045, 4190, 5060, 5061, 6000, 6566, 6665, 6666,
+  6667, 6668, 6669, 6697, 10080,
+]);
 
 const wallOnly = process.argv.slice(2).some((a) => a === '--wall' || a === '--wall-only');
 
@@ -75,6 +83,9 @@ function assertPortsAgree(surfaces: Surface[], configs: LaunchConfig[]): void {
   const problems: string[] = [];
 
   for (const surface of surfaces) {
+    if (BROWSER_BLOCKED_PORTS.has(surface.port)) {
+      problems.push(`${surface.name}: port ${surface.port} is blocked by browsers`);
+    }
     const config = byName.get(surface.launch);
     if (!config) {
       problems.push(`${surface.name}: no "${surface.launch}" entry in .claude/launch.json`);
@@ -100,12 +111,20 @@ function assertPortsAgree(surfaces: Surface[], configs: LaunchConfig[]): void {
  * together; they were not always, and a shared cache once had an operator
  * export serving the customer's route tree.
  */
-function exportWeb(app: string): Promise<void> {
+function exportWeb(app: string, demoSyncUrl: string): Promise<void> {
   return new Promise((resolvePromise, rejectPromise) => {
     const child = spawn(
       'npx',
       ['expo', 'export', '--platform', 'web', '--output-dir', 'dist-web'],
-      { cwd: join(ROOT, 'apps', app), stdio: 'pipe' },
+      {
+        cwd: join(ROOT, 'apps', app),
+        stdio: 'pipe',
+        env: {
+          ...process.env,
+          EXPO_PUBLIC_DEMO_SYNC_URL: demoSyncUrl,
+          EXPO_PUBLIC_PREVIEW_WALL: '1',
+        },
+      },
     );
 
     let tail = '';
@@ -132,11 +151,17 @@ async function main(): Promise<void> {
   const { configurations } = readJson<{ configurations: LaunchConfig[] }>(LAUNCH_FILE);
 
   assertPortsAgree(surfaces, configurations);
+  const hq = configurations.find((config) => config.name === 'hq');
+  if (!hq?.port) throw new Error('The preview needs an hq launch entry with a fixed port.');
+  const demoSyncUrl = `http://localhost:${hq.port}/api/demo-sync`;
 
   if (!wallOnly) {
     const apps = exportTargets(configurations);
     console.log(`Exporting for web: ${apps.join(', ')}`);
-    await Promise.all(apps.map(exportWeb));
+    // Metro already fans each export across worker processes. Running three
+    // Metros together exhausts memory on a normal demo laptop and can make a
+    // 20-second bundle take minutes, so keep the app-level queue serial.
+    for (const app of apps) await exportWeb(app, demoSyncUrl);
   }
 
   if (!existsSync(HOST_DIST)) {

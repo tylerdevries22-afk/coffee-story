@@ -14,6 +14,7 @@ import {
   type TenderType,
 } from '@platform/api-client';
 import type { KioskTender } from '@platform/domain';
+import { isTerminal, type OrderStatus } from '@platform/schema';
 
 import type { CheckoutState } from '@/features/checkout';
 
@@ -26,7 +27,7 @@ export type CheckoutDeviceSnapshot = {
 type OrderClient = Pick<ApiClient, 'placeOrder'>;
 
 export type CheckoutTarget =
-  | { kind: 'demo' }
+  | { kind: 'demo'; client?: OrderClient; locationId?: string }
   | { kind: 'live'; client: OrderClient; locationId: string }
   | { kind: 'blocked'; code: string };
 
@@ -34,6 +35,9 @@ export type CheckoutRuntime = {
   platform: string;
   readerIsSimulated: boolean;
   requiresReader: boolean;
+  demoClient?: OrderClient | null;
+  demoLocationId?: string;
+  forceDemo?: boolean;
 };
 
 /** Resolve a checkout plane without ever treating a broken paired device as demo. */
@@ -42,9 +46,19 @@ export function checkoutTarget(
   createClient: (accessToken: string) => OrderClient | null,
   runtime: CheckoutRuntime,
 ): CheckoutTarget {
+  if (runtime.forceDemo) {
+    if (runtime.platform !== 'web' || !runtime.demoClient || !runtime.demoLocationId) {
+      return { kind: 'blocked', code: 'demo_sync_not_configured' };
+    }
+    return { kind: 'demo', client: runtime.demoClient, locationId: runtime.demoLocationId };
+  }
   if (device.status === 'unpaired') {
     return runtime.platform === 'web'
-      ? { kind: 'demo' }
+      ? {
+          kind: 'demo',
+          ...(runtime.demoClient ? { client: runtime.demoClient } : {}),
+          ...(runtime.demoLocationId ? { locationId: runtime.demoLocationId } : {}),
+        }
       : { kind: 'blocked', code: 'device_unpaired' };
   }
   if (device.status !== 'ready') return { kind: 'blocked', code: `device_${device.status}` };
@@ -122,6 +136,14 @@ export type CheckoutPlacement =
 
 export type PlacedCheckout = Extract<CheckoutPlacement, { kind: 'demo' | 'placed' }>;
 
+export type DemoReplayOutcome = 'continue' | 'already_authorized' | 'terminal';
+
+/** A replay may prove payment already happened, but never resurrect a dead order. */
+export function demoReplayOutcome(status: OrderStatus): DemoReplayOutcome {
+  if (isTerminal(status)) return 'terminal';
+  return status === 'created' ? 'continue' : 'already_authorized';
+}
+
 /** The live API's repriced total wins; local math is only for the web preview. */
 export function paymentAmountCents(placement: PlacedCheckout, demoTotalCents: number): number {
   return placement.kind === 'placed' ? placement.order.totalCents : demoTotalCents;
@@ -133,18 +155,20 @@ export async function placeCheckoutOrder(
   attemptKey: string,
   request: (locationId: string) => PlaceOrderRequest,
 ): Promise<CheckoutPlacement> {
-  if (target.kind === 'demo') return { kind: 'demo', orderId: attemptKey };
+  if (target.kind === 'demo' && !target.client) return { kind: 'demo', orderId: attemptKey };
   if (target.kind === 'blocked') return { kind: 'failed', code: target.code };
+  const client = target.client;
+  if (!client) return { kind: 'failed', code: 'demo_sync_not_configured' };
 
   let input: PlaceOrderRequest;
   try {
-    input = request(target.locationId);
+    input = request(target.locationId ?? 'demo');
   } catch {
     return { kind: 'failed', code: 'invalid_order' };
   }
 
   try {
-    return { kind: 'placed', order: await target.client.placeOrder(input, attemptKey) };
+    return { kind: 'placed', order: await client.placeOrder(input, attemptKey) };
   } catch (error) {
     return placementFailure(error);
   }

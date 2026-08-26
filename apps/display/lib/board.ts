@@ -1,5 +1,8 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
+import {
+  createDemoSyncClient, type DemoSyncBoardTicket, type DemoSyncClient,
+} from '@platform/api-client';
 import { fetchBoardTickets } from '@platform/data';
 import { resolveBoardConfig, type BoardConfig } from '@platform/domain';
 import type { BoardTicketRow } from '@platform/schema';
@@ -7,6 +10,17 @@ import { resolveCopy, type BrandCopy } from '@platform/ui/copy';
 
 import { DEMO_BRAND_CONFIG, demoBoardAt, demoLocationName } from './demo-board';
 import { displayTheme, type DisplayTheme } from './theme';
+
+const demoSyncClient = createDemoSyncClient(process.env.DEMO_SYNC_URL, 'pos');
+
+export function previewWallEnabled(flag: string | undefined, syncConfigured: boolean): boolean {
+  return flag === '1' && syncConfigured;
+}
+
+const synchronizedPreview = previewWallEnabled(
+  process.env.PREVIEW_WALL,
+  demoSyncClient !== null,
+);
 
 /**
  * The display's read.
@@ -41,6 +55,7 @@ import { displayTheme, type DisplayTheme } from './theme';
  * tokens this now requires.
  */
 function client(): SupabaseClient | null {
+  if (synchronizedPreview) return null;
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.DISPLAY_DEVICE_TOKEN;
   if (!url || !key) return null;
@@ -106,6 +121,7 @@ export type BoardSnapshot = {
    * is not paired to a location, so there is nothing honest to draw.
    */
   unpaired: boolean;
+  demoSynced: boolean;
 };
 
 type BrandBits = { name: string; config: unknown };
@@ -131,16 +147,21 @@ async function loadBrandBits(db: SupabaseClient, locationId: string): Promise<Br
   return { name: location.data.name, config: brand.data?.brand_config ?? {} };
 }
 
-function fixtures(locationId: string, degraded: boolean): BoardSnapshot {
+function fixtures(
+  locationId: string,
+  degraded: boolean,
+  tickets = demoBoardAt(Date.now(), locationId),
+): BoardSnapshot {
   return {
     locationName: demoLocationName(locationId),
-    tickets: demoBoardAt(Date.now(), locationId),
+    tickets,
     config: resolveBoardConfig(DEMO_BRAND_CONFIG),
     copy: resolveCopy((DEMO_BRAND_CONFIG as { copy?: unknown }).copy),
     theme: displayTheme(DEMO_BRAND_CONFIG),
     live: false,
     degraded,
     unpaired: false,
+    demoSynced: demoSyncClient !== null,
   };
 }
 
@@ -162,7 +183,52 @@ function unpaired(): BoardSnapshot {
     live: false,
     degraded: false,
     unpaired: true,
+    demoSynced: false,
   };
+}
+
+const ACTIVE_BOARD_STATUSES = new Set(['paid', 'in_progress', 'ready']);
+
+function demoSyncTickets(tickets: DemoSyncBoardTicket[], locationId: string): BoardTicketRow[] {
+  return tickets.filter((ticket) => ACTIVE_BOARD_STATUSES.has(ticket.status)).map((ticket) => ({
+    id: ticket.id, brand_id: 'brand-demo', location_id: locationId,
+    daily_number: ticket.dailyNumber, guest_label: ticket.guestName,
+    status: ticket.status as BoardTicketRow['status'],
+    fulfillment_type: ticket.fulfillmentType, channel: ticket.channel,
+    arrived_at: null, loyalty_tier: null, updated_at: ticket.updatedAt,
+  }));
+}
+
+/** Keep synchronized sales visible by using fixtures only for otherwise empty board rows. */
+export function prioritizeSynchronizedTickets(
+  fixtureTickets: readonly BoardTicketRow[],
+  synchronizedTickets: readonly BoardTicketRow[],
+  maxLines: number,
+): BoardTicketRow[] {
+  if (maxLines <= 0) return [...fixtureTickets, ...synchronizedTickets];
+  // `maxLines` is an upper bound, not proof that every tenant row shape fits
+  // the physical screen. The fixture roster is the viewport-tested baseline,
+  // so replace one of those rows for every real demo sale instead of filling
+  // nominal spare slots that may sit below the clipped list.
+  const testedCapacity = Math.min(fixtureTickets.length, maxLines);
+  const fixtureLimit = Math.max(0, testedCapacity - synchronizedTickets.length);
+  return [...fixtureTickets.slice(0, fixtureLimit), ...synchronizedTickets];
+}
+
+/** Build a fixture board around broker orders; a configured broker failure stays a failure. */
+export async function synchronizedFixtureTickets(
+  locationId: string,
+  syncClient: Pick<DemoSyncClient, 'board'> | null = demoSyncClient,
+  now = Date.now(),
+): Promise<BoardTicketRow[]> {
+  const base = demoBoardAt(now, locationId);
+  if (!syncClient) return base;
+  const synchronized = demoSyncTickets(await syncClient.board(), locationId);
+  return prioritizeSynchronizedTickets(
+    base,
+    synchronized,
+    resolveBoardConfig(DEMO_BRAND_CONFIG).maxLines,
+  );
 }
 
 /**
@@ -175,7 +241,11 @@ function unpaired(): BoardSnapshot {
  */
 export async function loadBoard(locationId: string): Promise<BoardSnapshot> {
   const db = client();
-  if (!db) return demoAllowed() ? fixtures(locationId, false) : unpaired();
+  if (!db) {
+    if (!demoAllowed()) return unpaired();
+    try { return fixtures(locationId, false, await synchronizedFixtureTickets(locationId)); }
+    catch { return fixtures(locationId, demoSyncClient !== null); }
+  }
 
   try {
     const [tickets, brand] = await Promise.all([
@@ -191,6 +261,7 @@ export async function loadBoard(locationId: string): Promise<BoardSnapshot> {
       live: true,
       degraded: false,
       unpaired: false,
+      demoSynced: false,
     };
   } catch (error) {
     console.error('display: board read failed', error);
@@ -210,6 +281,9 @@ export async function loadBoard(locationId: string): Promise<BoardSnapshot> {
  */
 export async function loadBoardTickets(locationId: string): Promise<BoardTicketRow[]> {
   const db = client();
-  if (!db) return demoAllowed() ? demoBoardAt(Date.now(), locationId) : [];
+  if (!db) {
+    if (!demoAllowed()) return [];
+    return synchronizedFixtureTickets(locationId);
+  }
   return fetchBoardTickets(db, locationId);
 }

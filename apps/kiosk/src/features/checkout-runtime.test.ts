@@ -9,6 +9,7 @@ import {
   checkoutPreflight,
   checkoutTender,
   checkoutTarget,
+  demoReplayOutcome,
   paymentAmountCents,
   placeCheckoutOrder,
   placementFailure,
@@ -80,6 +81,45 @@ describe('checkoutTarget', () => {
       return client;
     }, NATIVE_CASH);
     assert.deepEqual(target, { kind: 'live', client, locationId: 'location-1' });
+  });
+
+  it('forces a paired preview kiosk onto the synchronized demo plane', () => {
+    const demoClient = { placeOrder: async () => RESPONSE };
+    let liveClientCalls = 0;
+    const target = checkoutTarget(READY, () => {
+      liveClientCalls += 1;
+      return { placeOrder: async () => RESPONSE };
+    }, {
+      ...WEB_CARD,
+      demoClient,
+      demoLocationId: 'demo',
+      forceDemo: true,
+    });
+
+    assert.deepEqual(target, { kind: 'demo', client: demoClient, locationId: 'demo' });
+    assert.equal(liveClientCalls, 0);
+  });
+
+  it('fails closed when a forced preview has no synchronized broker', () => {
+    assert.deepEqual(
+      checkoutTarget(READY, () => ({ placeOrder: async () => RESPONSE }), {
+        ...WEB_CARD,
+        forceDemo: true,
+      }),
+      { kind: 'blocked', code: 'demo_sync_not_configured' },
+    );
+  });
+});
+
+describe('demoReplayOutcome', () => {
+  it('continues only an unpaid order and never revives cancelled or refunded work', () => {
+    assert.equal(demoReplayOutcome('created'), 'continue');
+    assert.equal(demoReplayOutcome('paid'), 'already_authorized');
+    assert.equal(demoReplayOutcome('in_progress'), 'already_authorized');
+    assert.equal(demoReplayOutcome('ready'), 'already_authorized');
+    assert.equal(demoReplayOutcome('picked_up'), 'already_authorized');
+    assert.equal(demoReplayOutcome('cancelled'), 'terminal');
+    assert.equal(demoReplayOutcome('refunded'), 'terminal');
   });
 });
 
@@ -166,6 +206,17 @@ describe('idempotent placement', () => {
       () => { throw new Error('demo must not build a live request'); },
     );
     assert.deepEqual(result, { kind: 'demo', orderId: 'demo-key' });
+  });
+
+  it('posts an explicitly configured web demo and uses the returned ticket', async () => {
+    const requests: PlaceOrderRequest[] = [];
+    const client = { placeOrder: async (input: PlaceOrderRequest) => { requests.push(input); return RESPONSE; } };
+    const target = checkoutTarget(UNPAIRED, () => null, {
+      ...WEB_CARD, demoClient: client, demoLocationId: 'demo',
+    });
+    const result = await placeCheckoutOrder(target, 'demo-key', (locationId) => ({ ...REQUEST, locationId }));
+    assert.deepEqual(result, { kind: 'placed', order: RESPONSE });
+    assert.equal(requests[0]?.locationId, 'demo');
   });
 });
 

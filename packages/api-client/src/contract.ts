@@ -8,7 +8,7 @@
  * Idempotency-Key header; POST /orders additionally persists it as
  * orders.client_key so a retry returns the same order.
  */
-import type { FulfillmentType, OrderStatus, OrderTenderType } from '@platform/schema';
+import type { FulfillmentType, OrderChannel, OrderStatus, OrderTenderType } from '@platform/schema';
 
 /** The wire name for `@platform/schema`'s `OrderTenderType`; one definition. */
 export type TenderType = OrderTenderType;
@@ -68,6 +68,47 @@ export type PlaceOrderResponse = {
    */
   dailyNumber?: number | null;
 };
+
+/** One order shared by the explicitly local five-surface sales demo. */
+export type DemoSyncOrder = {
+  /** Identifies the local HQ process that owns this ephemeral order. */
+  sessionId: string;
+  id: string;
+  shortCode: string;
+  guestName: string;
+  status: OrderStatus;
+  placedAt: string;
+  dailyNumber: number;
+  updatedAt: string;
+  scheduledFor: string | null;
+  lines: {
+    name: string;
+    quantity: number;
+    options: string[];
+    note?: string;
+    packContents?: { itemSlug: string; name: string; quantity: number }[];
+  }[];
+  totalCents: number;
+  note: string;
+  tenderType: TenderType;
+  channel: OrderChannel;
+  fulfillmentType: FulfillmentType;
+};
+
+export type DemoSyncSnapshot = {
+  /** Changes when the local HQ broker restarts and loses its in-memory orders. */
+  sessionId: string;
+  revision: number;
+  orders: DemoSyncOrder[];
+};
+
+/** The only demo-order fields a public pickup display is allowed to receive. */
+export type DemoSyncBoardTicket = Pick<
+  DemoSyncOrder,
+  'channel' | 'dailyNumber' | 'fulfillmentType' | 'guestName' | 'id' | 'status' | 'updatedAt'
+>;
+
+export type DemoSyncTransitionRequest = { status: OrderStatus };
 
 export type RedeemRewardRequest = {
   rewardSlug: string;

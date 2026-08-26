@@ -7,10 +7,12 @@
 import { parseTenantClaims, type BrandRole } from '@platform/schema';
 
 import { DEMO_SESSION, type SessionInfo } from './demo-data';
+import { previewWallRuntimeEnabled } from './demo-sync-http';
 import { brandNameFromMetadata, tokenAppMetadata } from './token-claims';
 
 export function isConfigured(): boolean {
-  return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+  return !previewWallRuntimeEnabled()
+    && Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 }
 
 /** Server-side: the current session, or the demo one when unconfigured. */

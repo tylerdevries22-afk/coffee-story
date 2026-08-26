@@ -208,6 +208,9 @@ importers:
 
   apps/display:
     dependencies:
+      '@platform/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
       '@platform/data':
         specifier: workspace:*
         version: link:../../packages/data

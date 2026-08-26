@@ -22,8 +22,17 @@ import { PushFromRight } from '@/components/push-from-right';
 import { Body } from '@/components/ui';
 import type { MenuItem } from '@/data/catalog';
 import type { OrderFulfillment, FulfillmentMode , OrderableItem } from '@platform/domain';
-import { formatMoney , orderTotals, pointsForOrder , REWARD_TIERS, tierForAnnualPoints } from '@platform/domain';
+import {
+  formatMoney, fulfillmentDetail, fulfillmentLabel, orderTotals, pointsForOrder,
+  REWARD_TIERS, tierForAnnualPoints,
+} from '@platform/domain';
 import { PICKUP_WINDOW_MINUTES, describePickupWindow, isWindowStillBookable } from '@/features/order/pickup';
+import {
+  checkoutAttemptSignature,
+  checkoutGuestLabel,
+  completeDemoCardOrder,
+  demoConfirmationStatus,
+} from '@/features/order/demo-checkout';
 import { summarizeGiftCardOwnership } from '@/features/gifts/ownership';
 import {
   maxRedeemableCents,
@@ -34,11 +43,17 @@ import { POINTS_LABEL } from '@/features/rewards/presentation';
 import { simulateProgress, trackingView } from '@/features/tracking';
 import { sizeSuffix } from '@/data/menu-export';
 import { TENANT_TAX_JURISDICTIONS, tenantFeature } from '@/tenant';
-import { newIdempotencyKey } from '@platform/api-client';
+import {
+  newIdempotencyKey,
+  startSerializedPolling,
+  type DemoSyncOrder,
+  type PlaceOrderResponse,
+} from '@platform/api-client';
 import { subscribeToOrderStatus } from '@platform/data';
 import type { OrderStatus } from '@platform/schema';
 import { choiceState, disabledState } from '@platform/ui';
 import { platformApi } from '@/lib/api';
+import { demoSyncClient } from '@/lib/demo-sync';
 import { liveOrderContext } from '@/lib/live-portal';
 import { usesSimulatedNativeFlows } from '@/lib/native-adapters';
 import { supabase } from '@/lib/supabase';
@@ -100,6 +115,8 @@ export function OrderScreen() {
     points: number;
     status: OrderStatus;
     orderId?: string;
+    demoSynced?: boolean;
+    demoSyncSessionId?: string;
   } | null>(null);
   // One key per checkout ATTEMPT: held across retries of the same order so
   // the server returns the already-created order instead of ringing twice;
@@ -138,14 +155,17 @@ export function OrderScreen() {
   // server replayed the original order, the app cleared the bag and said
   // "Order placed", and the croissant was never ordered. Anything that
   // changes what is being bought retires the key.
-  const cartSignature = JSON.stringify([
-    order.cart.lines.map((line) => [line.id, line.quantity, line.unitPriceCents]),
-    order.tipCents,
-    order.deliveryFeeCents,
+  const cartSignature = checkoutAttemptSignature({
+    cart: order.cart,
+    deliveryFeeCents: order.deliveryFeeCents,
+    fulfillmentMode: order.fulfillment?.mode ?? null,
+    guestName,
     redeemCents,
-    order.fulfillment?.mode ?? null,
-    order.windowValue,
-  ]);
+    tipCents: order.tipCents,
+    windowValue: order.windowValue,
+  });
+  const cartSignatureRef = useRef(cartSignature);
+  cartSignatureRef.current = cartSignature;
   useEffect(() => {
     checkoutKey.current = null;
   }, [cartSignature]);
@@ -196,6 +216,14 @@ export function OrderScreen() {
   const placeOrder = useCallback(() => {
     if (placing.current) return;
     if (!order.fulfillment || !order.windowValue || order.isEmpty) return;
+    const submittedFulfillment = order.fulfillment;
+    const submittedWindowValue = order.windowValue;
+    const submittedCart = order.cart;
+    const submittedTipCents = order.tipCents;
+    const submittedTotals = totals;
+    const submittedSignature = cartSignature;
+    const submittedGuestLabel = checkoutGuestLabel(guestName);
+    const syncClient = demoSyncClient;
     setPayError(null);
 
     // Re-checked here, not just in the picker: browsing a sixty-item menu
@@ -235,15 +263,21 @@ export function OrderScreen() {
           const result = await platformApi.placeOrder({
             locationId: context.locationId,
             fulfillmentType: fulfillment.mode === 'pickup' ? 'pickup' : 'delivery',
-            scheduledFor: order.windowValue,
-            lines: order.cart.lines.map((line) => ({
+            scheduledFor: submittedWindowValue,
+            lines: submittedCart.lines.map((line) => ({
               itemSlug: line.itemId,
               sizeSlug: sizeSuffix(line.itemId, line.sizeSlug),
               quantity: line.quantity,
               modifierSlugs: [...line.optionIds],
+              ...(line.note ? { note: line.note } : {}),
+              ...(line.packContents ? {
+                packContents: line.packContents.map((content) => ({
+                  itemSlug: content.itemSlug, quantity: content.quantity,
+                })),
+              } : {}),
             })),
-            tipCents: order.tipCents,
-            note: order.cart.note,
+            tipCents: submittedTipCents,
+            note: submittedCart.note,
             tenderType: 'pay_at_pickup',
           }, checkoutKey.current);
           checkoutKey.current = null;
@@ -256,10 +290,12 @@ export function OrderScreen() {
             status: result.status,
             orderId: result.orderId,
           });
-          order.clearBag();
-          order.setTipCents(0);
-          setRedeemCents(0);
-          setUseGiftBalance(false);
+          if (cartSignatureRef.current === submittedSignature) {
+            order.clearBag();
+            order.setTipCents(0);
+            setRedeemCents(0);
+            setUseGiftBalance(false);
+          }
           setOverlay('placed');
           void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
         } catch (placeError) {
@@ -275,29 +311,92 @@ export function OrderScreen() {
 
     placing.current = true;
     setPaying(true);
-    try {
-      const item: OrderableItem = {
-        slug: `order-${order.windowValue}`,
-        name: summary,
-        category: 'specialty',
-        durationMin: PICKUP_WINDOW_MINUTES,
-        priceCents: totals.totalCents,
-        // Paid in full at checkout, so nothing is left owing on the ticket.
-        depositCents: totals.totalCents,
-        description: order.cart.note || undefined,
-      };
-      demo.book({ item, addOns: [], placedAt: order.windowValue, fulfillment: order.fulfillment });
-      setPlaced({ summary, totalCents: totals.totalCents, points: pointsEarned, status: 'paid' });
-      order.clearBag();
-      order.setTipCents(0);
-      setRedeemCents(0);
-      setUseGiftBalance(false);
-      setOverlay('placed');
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
-    } finally {
-      setPaying(false);
-    }
-  }, [demo, isDemo, order, pointsEarned, totals.totalCents]);
+    void (async () => {
+      try {
+        let syncedOrder: PlaceOrderResponse | null = null;
+        let sharedOrder: DemoSyncOrder | null = null;
+        if (syncClient) {
+          checkoutKey.current ??= newIdempotencyKey();
+          syncedOrder = await syncClient.placeOrder({
+            locationId: 'demo', fulfillmentType: submittedFulfillment.mode,
+            scheduledFor: submittedWindowValue,
+            lines: submittedCart.lines.map((line) => ({
+              itemSlug: line.itemId, sizeSlug: sizeSuffix(line.itemId, line.sizeSlug),
+              quantity: line.quantity, modifierSlugs: [...line.optionIds],
+              ...(line.note ? { note: line.note } : {}),
+              ...(line.packContents ? {
+                packContents: line.packContents.map((content) => ({
+                  itemSlug: content.itemSlug, quantity: content.quantity,
+                })),
+              } : {}),
+            })),
+            tipCents: submittedTipCents, maximumTotalCents: submittedTotals.totalCents,
+            note: submittedCart.note, tenderType: 'square_card', guestLabel: submittedGuestLabel,
+          }, checkoutKey.current);
+          sharedOrder = await completeDemoCardOrder(syncClient, syncedOrder);
+          syncedOrder = { ...syncedOrder, status: sharedOrder.status };
+          checkoutKey.current = null;
+        }
+        if (syncedOrder && sharedOrder) {
+          demo.bookSynced({
+            id: syncedOrder.orderId,
+            demoSyncSessionId: sharedOrder.sessionId,
+            status: sharedOrder.status,
+            summary,
+            lines: submittedCart.lines.map((line) => ({
+              name: line.name,
+              quantity: line.quantity,
+              unitPriceCents: line.unitPriceCents,
+              options: line.optionSummary ? [line.optionSummary] : [],
+              ...(line.packContents ? {
+                packContents: line.packContents.map((content) => ({
+                  name: content.name, quantity: content.quantity,
+                })),
+              } : {}),
+            })),
+            fulfillmentType: submittedFulfillment.mode,
+            scheduledFor: sharedOrder.scheduledFor,
+            placedAt: sharedOrder.placedAt,
+            subtotalCents: syncedOrder.subtotalCents,
+            taxCents: syncedOrder.taxCents,
+            tipCents: syncedOrder.tipCents,
+            totalCents: syncedOrder.totalCents,
+            note: submittedCart.note,
+            ...(submittedGuestLabel ? { guestLabel: submittedGuestLabel } : {}),
+            locationLabel: fulfillmentLabel(submittedFulfillment),
+            locationDetail: fulfillmentDetail(submittedFulfillment),
+          });
+        } else {
+          const item: OrderableItem = {
+            slug: `order-${submittedWindowValue}`, name: summary, category: 'specialty',
+            durationMin: PICKUP_WINDOW_MINUTES, priceCents: submittedTotals.totalCents,
+            depositCents: submittedTotals.totalCents, description: submittedCart.note || undefined,
+          };
+          demo.book({ item, addOns: [], placedAt: submittedWindowValue, fulfillment: submittedFulfillment });
+        }
+        setPlaced({
+          summary, totalCents: syncedOrder?.totalCents ?? submittedTotals.totalCents,
+          points: pointsEarned, status: syncedOrder?.status ?? 'paid',
+          ...(syncedOrder && sharedOrder ? {
+            orderId: syncedOrder.orderId,
+            demoSynced: true,
+            demoSyncSessionId: sharedOrder.sessionId,
+          } : {}),
+        });
+        if (cartSignatureRef.current === submittedSignature) {
+          order.clearBag(); order.setTipCents(0); setRedeemCents(0); setUseGiftBalance(false);
+        }
+        setOverlay('placed');
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
+      } catch (error) {
+        setPayError(error instanceof Error ? error.message : 'The shared demo could not place the order.');
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => undefined);
+      } finally {
+        placing.current = false;
+        setPaying(false);
+      }
+    })();
+  }, [cartSignature, demo, guestName, isDemo, order, pointsEarned, totals]);
 
   // The web tab bar hides while a covering page is up (see app-context).
   // hub and menu keep the bar, exactly like native.
@@ -369,7 +468,11 @@ export function OrderScreen() {
           />
         </PushFromRight>
 
-        <PushFromRight visible={overlayAtLeast('checkout')} onDismiss={() => setOverlay('note')}>
+        <PushFromRight
+          visible={overlayAtLeast('checkout')}
+          dismissDisabled={paying}
+          onDismiss={() => { if (!paying) setOverlay('note'); }}
+        >
           <CheckoutStep
             totals={totals}
             pointsEarned={pointsEarned}
@@ -386,19 +489,19 @@ export function OrderScreen() {
               appliedCents: redeemCents,
               pointsCharged: pointsForRedemption(redeemCents),
               pointsName: POINTS_LABEL,
-              onToggle: () => setRedeemCents((current) => (current > 0 ? 0 : redeemableCents)),
+              onToggle: () => { if (!paying) setRedeemCents((current) => (current > 0 ? 0 : redeemableCents)); },
             } : null}
             storedValue={giftBalanceCents > 0 ? {
               balanceCents: giftBalanceCents,
               appliedCents: split.storedValueAppliedCents,
               enabled: useGiftBalance,
-              onToggle: () => setUseGiftBalance((current) => !current),
+              onToggle: () => { if (!paying) setUseGiftBalance((current) => !current); },
             } : null}
             cardChargeCents={split.cardChargeCents}
-            onBack={() => setOverlay('note')}
-            onTipChange={order.setTipCents}
+            onBack={() => { if (!paying) setOverlay('note'); }}
+            onTipChange={(cents) => { if (!paying) order.setTipCents(cents); }}
             onPlaceOrder={placeOrder}
-            onManagePayment={() => openMore('payments')}
+            onManagePayment={() => { if (!paying) openMore('payments'); }}
           />
         </PushFromRight>
 
@@ -410,6 +513,8 @@ export function OrderScreen() {
             totalCents={placed?.totalCents ?? 0}
             pointsEarned={placed?.points ?? 0}
             orderId={placed?.orderId ?? null}
+            demoSynced={placed?.demoSynced === true}
+            demoSyncSessionId={placed?.demoSyncSessionId ?? null}
             initialStatus={placed?.status ?? 'paid'}
             isDelivery={order.fulfillment.mode === 'delivery'}
             onViewVisits={() => {
@@ -704,6 +809,8 @@ function OrderPlaced({
   totalCents,
   pointsEarned,
   orderId,
+  demoSynced,
+  demoSyncSessionId,
   initialStatus,
   isDelivery,
   onViewVisits,
@@ -716,6 +823,8 @@ function OrderPlaced({
   pointsEarned: number;
   /** Present for live orders: drives realtime tracking instead of the simulator. */
   orderId: string | null;
+  demoSynced: boolean;
+  demoSyncSessionId: string | null;
   initialStatus: OrderStatus;
   isDelivery: boolean;
   onViewVisits: () => void;
@@ -729,22 +838,42 @@ function OrderPlaced({
   // timeline.
   const [status, setStatus] = useState<OrderStatus>(initialStatus);
   useEffect(() => {
+    const syncClient = demoSyncClient;
+    if (orderId && demoSynced && demoSyncSessionId && syncClient) {
+      let active = true;
+      const stop = startSerializedPolling(async () => {
+        const snapshot = await syncClient.orders();
+        if (active) {
+          setStatus((current) => demoConfirmationStatus(
+            current, orderId, demoSyncSessionId, snapshot,
+          ));
+        }
+      }, 1_000);
+      return () => { active = false; stop(); };
+    }
     if (orderId) return subscribeToOrderStatus(supabase, orderId, setStatus);
     return simulateProgress(setStatus);
-  }, [orderId]);
+  }, [demoSyncSessionId, demoSynced, orderId]);
   const tracking = trackingView(status);
 
   // Calling it off is only offered while it is still true: once the shop
   // starts the drink the button disappears rather than failing on tap.
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
-  const canCancel = Boolean(orderId) && (status === 'created' || status === 'paid');
+  const canCancel = Boolean(orderId) && status === 'created';
   const onCancel = useCallback(() => {
-    if (!orderId || !platformApi) return;
+    if (!orderId) return;
     setCancelling(true);
     setCancelError(null);
-    platformApi
-      .cancelOrder({ orderId })
+    const cancellation = demoSynced && demoSyncClient
+      ? demoSyncClient.transition(orderId, 'cancelled')
+      : platformApi?.cancelOrder({ orderId });
+    if (!cancellation) {
+      setCancelling(false);
+      setCancelError('Cancellation is not configured.');
+      return;
+    }
+    cancellation
       .then(() => setStatus('cancelled'))
       .catch((error: unknown) => {
         setCancelError(error instanceof Error
@@ -752,7 +881,7 @@ function OrderPlaced({
           : 'That did not go through. Try again, or ask the shop.');
       })
       .finally(() => setCancelling(false));
-  }, [orderId]);
+  }, [demoSynced, orderId]);
   return (
     <CollapsingScreen
       title="Order placed"

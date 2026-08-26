@@ -35,9 +35,10 @@ const SETTLE_SPRING = { damping: 22, stiffness: 220 } as const;
  */
 export function PushFromRight({
   visible,
+  dismissDisabled = false,
   onDismiss,
   children,
-}: PropsWithChildren<{ visible: boolean; onDismiss: () => void }>) {
+}: PropsWithChildren<{ visible: boolean; dismissDisabled?: boolean; onDismiss: () => void }>) {
   const tokens = useBrandTokens();
   const styles = createStyles(tokens);
   const reducedMotion = useReducedMotion();
@@ -84,7 +85,7 @@ export function PushFromRight({
       Gesture.Pan()
         // Rightward only, and only after a deliberate 12pt drag, so a vertical
         // scroll inside the page still wins the gesture.
-        .enabled(!reducedMotion)
+        .enabled(!reducedMotion && !dismissDisabled)
         .activeOffsetX([-12, 12])
         .cancelsTouchesInView(false)
         .onUpdate((event) => {
@@ -106,7 +107,7 @@ export function PushFromRight({
           }
           translateX.value = withSpring(0, SETTLE_SPRING);
         }),
-    [reducedMotion, width, translateX, onDismiss, tokens.motion.base],
+    [dismissDisabled, reducedMotion, width, translateX, onDismiss, tokens.motion.base],
   );
 
   const slide = useAnimatedStyle(() => ({ transform: [{ translateX: translateX.value }] }));
@@ -124,9 +125,11 @@ export function PushFromRight({
       style={[StyleSheet.absoluteFill, styles.overlay, slide]}
     >
       {children}
-      <GestureDetector gesture={gesture}>
-        <Animated.View accessibilityElementsHidden style={styles.swipeZone} />
-      </GestureDetector>
+      {!dismissDisabled ? (
+        <GestureDetector gesture={gesture}>
+          <Animated.View accessibilityElementsHidden style={styles.swipeZone} />
+        </GestureDetector>
+      ) : null}
     </Animated.View>
   );
 }

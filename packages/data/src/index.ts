@@ -22,7 +22,8 @@ export {
 export {
   fetchActiveLocationOrders,
   fetchCustomerOrders,
-  type CustomerOrders,
+  fetchLocationOrderStatuses,
+  type CustomerOrders, type LocationOrderStatus,
 } from './orders';
 export {
   fetchLoyaltySummary, fetchLoyaltyStanding, type LoyaltySummary,
