@@ -5,6 +5,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon } from '@/components/icon';
+import { TrainingArtwork } from '@/components/training-artwork';
 import { useTrainingRelease } from '@/features/training/use-training-release';
 import { platformApi } from '@/lib/api';
 import { useAppTokens, type AppTokens } from '@platform/ui';
@@ -40,7 +41,7 @@ export function TrainingLessonScreen({ moduleSlug, lessonSlug }: { moduleSlug: s
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.eyebrow}>{lesson.estimatedMinutes} MINUTE LESSON</Text><Text style={styles.title}>{lesson.title}</Text><Text style={styles.objective}>{lesson.objective}</Text>
         <View style={styles.card}><Text style={styles.body}>{lesson.content}</Text></View>
-        {lesson.media.map((media) => <Pressable key={media.url} accessibilityRole="link" onPress={() => { if (media.url.startsWith('https://')) void Linking.openURL(media.url); }} style={styles.media}><AppIcon name={media.kind === 'video' ? 'play.fill' : 'photo'} size={19} tintColor={colors.brand700} /><View style={styles.mediaCopy}><Text style={styles.mediaTitle}>{media.title}</Text><Text style={styles.mediaNote}>{media.rightsNote}</Text></View><AppIcon name="arrow.up.right" size={15} tintColor={colors.ink500} /></Pressable>)}
+        {lesson.media.map((media) => <Pressable key={media.url} accessibilityRole="link" onPress={() => { if (media.url.startsWith('https://')) void Linking.openURL(media.url); }} style={styles.media}><TrainingArtwork url={media.kind === 'image' ? media.url : undefined} alt={media.title} fallback={media.kind === 'video' ? 'play.fill' : 'photo'} size={48} radius={9} tintColor={colors.brand700} backgroundColor={colors.brand50} /><View style={styles.mediaCopy}><Text style={styles.mediaTitle}>{media.title}</Text><Text style={styles.mediaNote}>{media.rightsNote}</Text></View><AppIcon name="arrow.up.right" size={15} tintColor={colors.ink500} /></Pressable>)}
         <Text style={styles.sectionTitle}>Knowledge check</Text>
         {lesson.quiz.map((question, questionIndex) => <View key={question.prompt} style={styles.card}><Text style={styles.question}>{questionIndex + 1}. {question.prompt}</Text>{question.choices.map((choice, choiceIndex) => <Pressable key={choice} accessibilityRole="radio" accessibilityState={{ checked: answers[questionIndex] === choiceIndex }} onPress={() => setAnswers((current) => ({ ...current, [questionIndex]: choiceIndex }))} style={[styles.choice, answers[questionIndex] === choiceIndex && styles.choiceSelected]}><Text style={styles.choiceText}>{choice}</Text></Pressable>)}</View>)}
         {result ? <View style={[styles.result, result.passed ? styles.resultPassed : styles.resultRetry]}><Text style={styles.resultTitle}>{result.passed ? 'Lesson complete' : 'Review and try again'}</Text><Text style={styles.resultText}>{result.score}%</Text></View> : null}

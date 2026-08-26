@@ -18,21 +18,11 @@ export function isConfigured(): boolean {
 /** Server-side: the current session, or the demo one when unconfigured. */
 export async function currentSession(): Promise<SessionInfo | null> {
   if (!isConfigured()) return DEMO_SESSION;
-  // Cookie-based Supabase SSR wiring lands with real deployments; the shape
-  // it must produce is exactly SessionInfo, via parseTenantClaims.
-  const { createServerClient } = await import('@supabase/ssr');
-  const { cookies } = await import('next/headers');
-  const store = await cookies();
-  const client = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll: () => store.getAll(),
-        setAll: () => { /* read-only in server components */ },
-      },
-    },
-  );
+  // Reuse the request-bound client so authentication and page reads share the
+  // same cookie handling, ten-second deadline, and bounded safe-read retry.
+  const { serverClient } = await import('./supabase-server');
+  const client = await serverClient();
+  if (!client) return null;
   // getUser verifies the token with GoTrue; the claims themselves have to come
   // out of the token's own payload. The hook mints them into the token it
   // issues and never onto the user row, so reading `data.user.app_metadata`
@@ -49,6 +39,7 @@ export async function currentSession(): Promise<SessionInfo | null> {
   return {
     email: data.user.email ?? '',
     role: claims.role,
+    brandId: claims.brand_id,
     brandName: brandNameFromMetadata(metadata) ?? 'Your brand',
   };
 }

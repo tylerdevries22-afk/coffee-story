@@ -18,8 +18,11 @@
  *   5. With --apply: refresh the generated customer and kiosk tenant bundles
  *      so both binaries ship this tenant (drift tests pin every copy).
  */
+import { createHash } from 'node:crypto';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 import {
   buildTenantMenu,
@@ -46,6 +49,46 @@ async function resilientFetch(input: RequestInfo | URL, init?: RequestInit): Pro
     }
   }
   throw lastError instanceof Error ? lastError : new Error('Supabase request failed');
+}
+
+async function syncMenuImage(
+  db: SupabaseClient,
+  brandId: string,
+  itemId: string,
+  itemSlug: string,
+  tenantDirectory: string,
+): Promise<boolean> {
+  const imagePath = join(tenantDirectory, 'assets', 'menu', `${itemSlug}.webp`);
+  if (!existsSync(imagePath)) return false;
+  const bytes = readFileSync(imagePath);
+  const checksum = createHash('sha256').update(bytes).digest('hex');
+  const directory = `${brandId}/menu-item/${itemId}`;
+  const objectPath = `${directory}/${checksum}.webp`;
+  const existing = await db.storage.from('menu-images').list(directory, {
+    limit: 1, search: `${checksum}.webp`,
+  });
+  if (existing.error) throw existing.error;
+  if (!(existing.data ?? []).some((object) => object.name === `${checksum}.webp`)) {
+    const uploaded = await db.storage.from('menu-images').upload(objectPath, bytes, {
+      contentType: 'image/webp', cacheControl: '31536000', upsert: false,
+    });
+    if (uploaded.error) {
+      // A lost success response is retried against the same immutable key and
+      // surfaces as "already exists". Verify the object before calling the
+      // tenant sync failed; the checksum path makes that recovery unambiguous.
+      const verified = await db.storage.from('menu-images').list(directory, {
+        limit: 1, search: `${checksum}.webp`,
+      });
+      if (verified.error || !(verified.data ?? []).some((object) => object.name === `${checksum}.webp`)) {
+        throw uploaded.error;
+      }
+    }
+  }
+  const imageUrl = db.storage.from('menu-images').getPublicUrl(objectPath).data.publicUrl;
+  const updated = await db.from('menu_items').update({ image_url: imageUrl })
+    .eq('id', itemId).eq('brand_id', brandId);
+  if (updated.error) throw updated.error;
+  return true;
 }
 
 type BrandFile = {
@@ -119,6 +162,11 @@ const ownerFlagProvided = process.argv.includes('--owner-user-id');
 const ownerUserId = argValue('--owner-user-id');
 const apply = process.argv.includes('--apply');
 const requireDatabase = process.argv.includes('--require-db');
+// The legacy demo-roastery schema fixture intentionally has no photography.
+// Production tenants never receive this escape hatch: --require-db otherwise
+// guarantees one source image and one uploaded immutable object per menu row.
+const imageLessSchemaFixture = process.argv.includes('--allow-imageless-schema-fixture')
+  && slug === 'demo-roastery';
 if (!slug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
   console.error('Usage: pnpm onboard --tenant <slug> [--apply] [--owner-user-id <uuid>]');
   process.exit(1);
@@ -193,7 +241,10 @@ async function run() {
   problems.push(...compiled.errors);
   validatePackFlow(brand.kiosk, compiled.menu, problems);
   validateTokens(brand.tokens, problems);
-  if (apply) validateCustomerAssets(tenantDir, compiled.menu, problems);
+  if (apply || (requireDatabase && !imageLessSchemaFixture)) {
+    validateMenuAssets(tenantDir, compiled.menu, problems);
+  }
+  if (apply) validateCustomerShellAssets(tenantDir, problems);
   if (problems.length > 0) {
     console.error(`tenants/${slug} does not validate:`);
     for (const problem of problems) console.error(`  - ${problem}`);
@@ -304,6 +355,7 @@ async function run() {
       }
       const compiledBySlug = new Map(compiled.menu.items.map((item) => [item.id, item]));
       const menuItemIds = new Map<string, string>();
+      let uploadedMenuImages = 0;
       for (const [index, row] of menu.rows.entries()) {
         const compiledItem = compiledBySlug.get(row.slug);
         if (!compiledItem) throw new Error(`No compiled menu item for "${row.slug}".`);
@@ -330,7 +382,11 @@ async function run() {
         ).select('id,slug').single();
         if (error) throw error;
         menuItemIds.set(savedItem.slug, savedItem.id);
+        if (await syncMenuImage(db, brandRow.id, savedItem.id, savedItem.slug, tenantDir)) {
+          uploadedMenuImages += 1;
+        }
       }
+      console.log(`   media: ${uploadedMenuImages} versioned menu thumbnails synced to menu-images`);
       for (const item of compiled.menu.items) {
         if (!item.singleItemId) continue;
         const packId = requiredMenuItemId(menuItemIds, item.id);
@@ -657,7 +713,7 @@ function webpSlugs(dir: string): string[] {
     .map((file) => file.replace(/\.webp$/, '')).sort();
 }
 
-function validateCustomerAssets(dir: string, menu: BundledTenantMenu, problems: string[]): void {
+function validateMenuAssets(dir: string, menu: BundledTenantMenu, problems: string[]): void {
   const imageDir = join(dir, 'assets', 'menu');
   const actual = new Set(webpSlugs(imageDir));
   const expected = new Set(menu.items.map((item) => item.id));
@@ -667,6 +723,9 @@ function validateCustomerAssets(dir: string, menu: BundledTenantMenu, problems: 
   for (const item of actual) {
     if (!expected.has(item)) problems.push(`assets/menu/${item}.webp has no row in menu.csv.`);
   }
+}
+
+function validateCustomerShellAssets(dir: string, problems: string[]): void {
   const required = [
     'assets/hero/home-hero.mp4', 'assets/hero/stones.webp',
     'assets/gift/birthday-cake.webp', 'assets/gift/birthday-confetti.webp',

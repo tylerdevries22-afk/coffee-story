@@ -28,6 +28,7 @@ import { fulfillmentDetail, fulfillmentLabel, type OrderFulfillment ,
 import { formatMoney } from '@platform/domain';
 import { describePickupWindow } from '@/features/order/pickup';
 import { POINTS_LABEL } from '@/features/rewards/presentation';
+import { useCustomerCatalog } from '@/state/catalog-context';
 import { menuImageFrame } from '@platform/ui';
 
 import { findMenuItem } from './menu-data';
@@ -177,7 +178,8 @@ function BagLine({
 }) {
   const tokens = useBrandTokens();
   const styles = createStyles(tokens);
-  const item = findMenuItem(line.itemId);
+  const { items } = useCustomerCatalog();
+  const item = findMenuItem(items, line.itemId);
   return (
     <View style={styles.line}>
       <View style={styles.lineTop}>

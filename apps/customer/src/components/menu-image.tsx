@@ -16,7 +16,10 @@
  * it reads is what lives in the package, and `menu-image.test.ts` covers that.
  */
 import { Image } from 'expo-image';
-import { StyleSheet, type StyleProp, type ImageStyle } from 'react-native';
+import { useState } from 'react';
+import { StyleSheet, View, type StyleProp, type ImageStyle } from 'react-native';
+
+import type { MenuImageSource } from '@/data/catalog';
 
 import {
   menuImageFrame,
@@ -32,7 +35,7 @@ export function MenuImage({
   alt,
   style,
 }: {
-  source: number;
+  source: MenuImageSource | null;
   variant: MenuImageVariant;
   /** Empty string when the surrounding row already names the item. */
   alt: string;
@@ -41,30 +44,37 @@ export function MenuImage({
   const tokens = useBrandTokens();
   const styles = createStyles(tokens);
   const frame = menuImageFrame(variant);
+  const remoteUri = typeof source === 'object' && source !== null ? source.uri : null;
+  const [failed, setFailed] = useState<{ uri: string; attempts: number } | null>(null);
+  const attempts = failed?.uri === remoteUri ? failed.attempts : 0;
+  const resolved = remoteUri && attempts < 2
+    ? { uri: remoteUri }
+    : typeof source === 'object' && source !== null ? source.fallback ?? null : source;
+  const frameStyle = [
+    styles.base,
+    frame.kind === 'fixed' ? { width: frame.size, height: frame.size } : styles.fill,
+    frame.radius === 'circle'
+      ? { borderRadius: frame.size / 2 }
+      : frame.radius !== 'none' && { borderRadius: tokens.radius[frame.radius === 'sm' ? 'md' : 'lg'] },
+    style,
+  ];
+  if (resolved === null) {
+    return <View accessible={alt.length > 0} accessibilityRole="image" accessibilityLabel={alt || undefined} style={frameStyle} />;
+  }
   return (
     <Image
-      source={source}
+      key={remoteUri ? `${remoteUri}:${attempts}` : undefined}
+      source={resolved}
+      cachePolicy="disk"
       // `cover` on a square frame with a square master is a no-op crop; it stays
       // as the fit so a not-yet-normalised asset degrades to a centre crop
       // rather than to letterboxing.
       contentFit="cover"
       alt={alt}
-      style={[
-        styles.base,
-        frame.kind === 'fixed'
-          ? { width: frame.size, height: frame.size }
-          : styles.fill,
-        // 'circle' is half the frame rather than a scale step, which is why it
-        // cannot be looked up. The kiosk's circular variants are the only users
-        // today; handling it here keeps this component total over the contract
-        // rather than over the subset this app happens to render.
-        frame.radius === 'circle'
-          ? { borderRadius: frame.size / 2 }
-          : frame.radius !== 'none' && {
-              borderRadius: tokens.radius[frame.radius === 'sm' ? 'md' : 'lg'],
-            },
-        style,
-      ]}
+      onError={remoteUri && attempts < 2 ? () => setFailed((current) => current?.uri === remoteUri
+        ? { uri: remoteUri, attempts: current.attempts + 1 }
+        : { uri: remoteUri, attempts: 1 }) : undefined}
+      style={frameStyle}
     />
   );
 }

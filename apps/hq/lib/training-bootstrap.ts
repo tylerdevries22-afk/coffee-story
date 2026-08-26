@@ -101,6 +101,9 @@ export function validateTrainingManifest(manifest: TrainingManifest): string[] {
     if (!SLUG.test(module.slug)) issues.push(`module ${moduleIndex + 1} has an invalid slug`);
     if (moduleSlugs.has(module.slug)) issues.push(`module ${module.slug} is duplicated`);
     moduleSlugs.add(module.slug);
+    if (module.icon.url && !isSafePublicHttpsUrl(module.icon.url)) {
+      issues.push(`module ${module.slug} icon must use public HTTPS`);
+    }
     if (module.lessons.length === 0) issues.push(`module ${module.slug} needs at least one lesson`);
     if (module.lessons.length > 12) issues.push(`module ${module.slug} has too many lessons`);
     const lessonSlugs = new Set<string>();

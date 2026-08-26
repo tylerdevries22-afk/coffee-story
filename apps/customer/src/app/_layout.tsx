@@ -20,6 +20,7 @@ import { InstallPrompt } from '@/components/install-prompt';
 import { brandCache } from '@/lib/brand-cache';
 import { AppStateProvider } from '@/state/app-context';
 import { AuthProvider } from '@/state/auth-context';
+import { CustomerCatalogProvider } from '@/state/catalog-context';
 import { DemoProvider, useDemo } from '@/state/demo-context';
 import { OrderProvider } from '@/state/order-context';
 import { TENANT_BRAND_CONFIG } from '@/tenant';
@@ -97,20 +98,22 @@ function ConfiguredApp({ config }: { config: MobileLiveConfig }) {
 
   return (
     <AuthProvider>
-      <AppStateProvider>
-        {/* The bag sits above the tab shell so a guest can leave the Order tab
-            mid-order -- to check their rewards balance, say -- and come back to
-            a bag that is still there. */}
-        <OrderProvider>
-          <StatusBar style="dark" />
-          <CustomerStack />
-          {/* Global chrome that used to live in `app/index.tsx` when it was the
-              entire app. It sits above the Stack so it survives navigating into
-              `/client` or `/staff` instead of unmounting the moment the
-              redirect fires. */}
-          <InstallPrompt />
-        </OrderProvider>
-      </AppStateProvider>
+      <CustomerCatalogProvider>
+        <AppStateProvider>
+          {/* The bag sits above the tab shell so a guest can leave the Order tab
+              mid-order -- to check their rewards balance, say -- and come back to
+              a bag that is still there. */}
+          <OrderProvider>
+            <StatusBar style="dark" />
+            <CustomerStack />
+            {/* Global chrome that used to live in `app/index.tsx` when it was the
+                entire app. It sits above the Stack so it survives navigating into
+                `/client` or `/staff` instead of unmounting the moment the
+                redirect fires. */}
+            <InstallPrompt />
+          </OrderProvider>
+        </AppStateProvider>
+      </CustomerCatalogProvider>
     </AuthProvider>
   );
 }

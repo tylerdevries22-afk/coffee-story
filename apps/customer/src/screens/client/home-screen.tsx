@@ -22,9 +22,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppIcon } from '@/components/icon';
 import { useTabBarClearance } from '@/components/navigation/tab-screen';
 import { Screen } from '@/components/ui';
-import { MENU_ADD_ONS, MENU_CATEGORY_META, MENU_ITEMS, type MenuCategoryId, type MenuItem } from '@/data/catalog';
+import type { MenuCategoryId, MenuItem } from '@/data/catalog';
 import { useAppState } from '@/state/app-context';
 import { useAuth } from '@/state/auth-context';
+import { useCustomerCatalog } from '@/state/catalog-context';
 import { openWebPath } from '@/lib/web-navigation';
 import { demoDrops } from '@/data/drops';
 import { dropStatus, dropWindowLabel, weeklyDrops, type Drop } from '@/features/drops';
@@ -94,6 +95,7 @@ export function HomeScreen() {
   const styles = createStyles(tokens);
   const { openMore, setClientTab, startOrder } = useAppState();
   const { portal } = useAuth();
+  const { items: menuItems, categories: menuCategories, addOns: menuAddOns } = useCustomerCatalog();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const tabBarClearance = useTabBarClearance(24);
@@ -118,16 +120,16 @@ export function HomeScreen() {
     instance.play();
   });
 
-  const favorites = MENU_ITEMS.slice(0, 2);
+  const favorites = menuItems.slice(0, 2);
 
   // The rotating-drop model's front door: this week's board — everything live
   // plus what's about to land, each row mapped onto its catalog item.
   const weekly = useMemo(() => {
     if (!tenantFeature('drops')) return [];
     return weeklyDrops(demoDrops(), new Date())
-      .map((entry) => ({ drop: entry, item: MENU_ITEMS.find((item) => item.id === entry.itemId) ?? null }))
+      .map((entry) => ({ drop: entry, item: menuItems.find((item) => item.id === entry.itemId) ?? null }))
       .filter((entry): entry is { drop: Drop; item: MenuItem } => entry.item !== null);
-  }, []);
+  }, [menuItems]);
 
   /**
    * The Tea & Matcha shelf: the curated six, narrowed to the ones this build
@@ -140,7 +142,7 @@ export function HomeScreen() {
    * boot the way a missing menu photograph would.
    */
   const teaShelf = useMemo(() => {
-    const curated = teaMatchaShelf(MENU_ITEMS);
+    const curated = teaMatchaShelf(menuItems);
     const { shown } = cutoutFeatureLineup(
       curated.map((item) => item.id),
       TENANT_PRODUCT_MEDIA,
@@ -154,9 +156,9 @@ export function HomeScreen() {
         return item && glass ? { ...item, glass } : null;
       })
       .filter((entry): entry is MenuItem & { glass: ProductCutoutSource } => entry !== null);
-  }, []);
-  const teaCount = useMemo(() => teaMatchaCount(MENU_ITEMS), []);
-  const teaMeta = MENU_CATEGORY_META.find((category) => category.id === TEA_MATCHA_CATEGORY) ?? {
+  }, [menuItems]);
+  const teaCount = useMemo(() => teaMatchaCount(menuItems), [menuItems]);
+  const teaMeta = menuCategories.find((category) => category.id === TEA_MATCHA_CATEGORY) ?? {
     id: TEA_MATCHA_CATEGORY,
     title: 'Tea & Matcha',
     tagline: '',
@@ -182,8 +184,8 @@ export function HomeScreen() {
   });
 
   const onBookNow = useCallback(() => {
-    startOrder(MENU_ITEMS[0]?.id);
-  }, [startOrder]);
+    startOrder(menuItems[0]?.id);
+  }, [menuItems, startOrder]);
 
   const siriCommands: readonly SiriCommand[] = [
     { key: 'book', phrase: 'Order my usual', onRun: () => startOrder() },
@@ -438,8 +440,8 @@ export function HomeScreen() {
         title="Explore by Category"
         body="Every drink and bite we serve — tap anything to start an order."
       />
-      {MENU_CATEGORY_META.map((category) => {
-        const items = MENU_ITEMS.filter((item) => item.category === category.id);
+      {menuCategories.map((category) => {
+        const items = menuItems.filter((item) => item.category === category.id);
         const isExpanded = expanded.has(category.id);
         const visible = isExpanded ? items : items.slice(0, CATEGORY_PREVIEW_COUNT);
         return (
@@ -477,7 +479,7 @@ export function HomeScreen() {
         );
       })}
 
-      {MENU_ADD_ONS.length > 0 ? (
+      {menuAddOns.length > 0 ? (
         <>
           <SectionHeader
             pill="Make It Yours"
@@ -485,7 +487,7 @@ export function HomeScreen() {
             body="Small additions that make a cup feel like your own."
           />
           <View style={styles.addOns}>
-            {MENU_ADD_ONS.map((addOn) => (
+            {menuAddOns.map((addOn) => (
               <View key={addOn.slug} style={styles.addOnRow}>
                 <View style={styles.addOnCopy}>
                   <Text style={styles.addOnName}>{addOn.name}</Text>
@@ -610,10 +612,10 @@ function FeatureRow({
   const from = item.sizes[0]?.priceCents;
   return (
     <View style={[styles.feature, flip && styles.featureFlip]}>
-      <Image
+      <MenuImage
         source={item.image}
+        variant="hero"
         style={[styles.featureImage, flip ? styles.featureImageRight : styles.featureImageLeft]}
-        contentFit="cover"
         alt={item.name}
       />
       <View style={styles.featureCopy}>
@@ -649,10 +651,10 @@ function DropFeatureRow({
   const live = dropStatus(drop, new Date()) === 'live';
   return (
     <View style={[styles.feature, flip && styles.featureFlip]}>
-      <Image
+      <MenuImage
         source={item.image}
+        variant="hero"
         style={[styles.featureImage, flip ? styles.featureImageRight : styles.featureImageLeft]}
-        contentFit="cover"
         alt={drop.title}
       />
       <View style={styles.featureCopy}>

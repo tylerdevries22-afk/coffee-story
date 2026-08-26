@@ -6,7 +6,9 @@ import { CATALOG_ITEMS, type CatalogItemData, type MenuCategoryId } from './cata
 export { MENU_ADD_ONS, MENU_CATEGORY_META } from './catalog-data';
 export type { MenuCategoryId } from './catalog-data';
 
-export type MenuItem = CatalogItemData & { image: number; category: MenuCategoryId };
+export type MenuImageSource = number | { uri: string; fallback?: number };
+export type MenuCategory = { id: MenuCategoryId; title: string; tagline: string };
+export type MenuItem = CatalogItemData & { image: MenuImageSource | null; category: MenuCategoryId };
 
 function withImage(item: CatalogItemData): MenuItem {
   const image = TENANT_MENU_MEDIA[item.id];

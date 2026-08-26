@@ -191,6 +191,6 @@ const createStyles = (tokens: BrandTokens) => StyleSheet.create({
     borderTopColor: tokens.secondary,
   },
   staffContent: { height: 58, flexDirection: 'row', paddingHorizontal: 4 },
-  staffItem: { minHeight: 52, borderRadius: tokens.radius.sm },
-  staffLabel: { color: tokens.textMuted },
+  staffItem: { minHeight: 52, minWidth: 44, borderRadius: tokens.radius.sm },
+  staffLabel: { color: tokens.textMuted, fontSize: 11 },
 });

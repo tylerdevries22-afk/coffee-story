@@ -3,8 +3,9 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { CollapsingScreen } from '@/components/collapsing-screen';
 import { MenuImage } from '@/components/menu-image';
 import { Body, Card, SectionTitle } from '@/components/ui';
-import { MENU_ADD_ONS, MENU_ITEMS, type MenuItem } from '@/data/catalog';
-import { formatMoney, sizeLabelFor, sizePriceCents } from '@platform/domain';
+import type { MenuItem } from '@/data/catalog';
+import { formatMoney, sizeLabel, sizePriceCents } from '@platform/domain';
+import { useCustomerCatalog } from '@/state/catalog-context';
 import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 /**
@@ -24,21 +25,22 @@ export function MenuPage({
 }) {
   const tokens = useBrandTokens();
   const styles = createStyles(tokens);
+  const { items, addOns } = useCustomerCatalog();
   return (
     <CollapsingScreen title="Items & pricing" eyebrow="Our menu" onBack={onBack}>
       <Body muted>
         Every session, every length. Prices are the same ones published on the website.
       </Body>
 
-      {MENU_ITEMS.map((item) => (
+      {items.map((item) => (
         <MenuItemCard key={item.id} item={item} onBook={() => onBook(item.id)} />
       ))}
 
-      {MENU_ADD_ONS.length > 0 ? (
+      {addOns.length > 0 ? (
         <>
           <SectionTitle>Enhancements</SectionTitle>
           <Card style={styles.addOnCard}>
-            {MENU_ADD_ONS.map((addOn) => (
+            {addOns.map((addOn) => (
               <View key={addOn.slug} style={styles.addOnRow}>
                 <View style={styles.addOnCopy}>
                   <Text style={styles.addOnName}>{addOn.name}</Text>
@@ -74,7 +76,7 @@ function MenuItemCard({ item, onBook }: { item: MenuItem; onBook: () => void }) 
       <View style={styles.sizes}>
         {item.sizes.map((size) => (
           <View key={size.slug} style={styles.durationRow}>
-            <Text style={styles.durationLabel}>{sizeLabelFor(size.slug)}</Text>
+            <Text style={styles.durationLabel}>{sizeLabel(size)}</Text>
             <Text style={styles.durationPrice}>{formatMoney(sizePriceCents(size))}</Text>
           </View>
         ))}

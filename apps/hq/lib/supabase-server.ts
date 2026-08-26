@@ -8,6 +8,8 @@ import { createServerClient } from '@supabase/ssr';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 
+import { fetchWithRetry } from '@platform/api-client';
+
 import { previewWallRuntimeEnabled } from './demo-sync-http';
 
 export function isConfigured(): boolean {
@@ -23,6 +25,7 @@ export async function serverClient(): Promise<SupabaseClient | null> {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      global: { fetch: (input, init) => fetchWithRetry(input, init) },
       cookies: {
         getAll: () => store.getAll(),
         setAll: (updates) => {

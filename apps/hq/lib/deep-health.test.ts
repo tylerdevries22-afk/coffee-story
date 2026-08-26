@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { databaseHealthy } from './deep-health';
+import { databaseHealthy, REQUIRED_DATABASE_RELEASE } from './deep-health';
 
 const env = { url: 'https://database.example.test', serviceRoleKey: 'service-key' };
 
@@ -14,7 +14,7 @@ describe('databaseHealthy', () => {
       if (input.endsWith('/brands?select=id&limit=1')) return new Response('[]');
       assert.ok(input.endsWith('/rpc/platform_release_readiness'));
       assert.equal(init.method, 'POST');
-      return Response.json('20260825010000');
+      return Response.json(REQUIRED_DATABASE_RELEASE);
     }, 50);
     assert.equal(healthy, true);
     assert.equal(calls, 2);

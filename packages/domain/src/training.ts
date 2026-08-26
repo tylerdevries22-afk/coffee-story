@@ -35,7 +35,7 @@ export type TrainingModule = {
   slug: string;
   title: string;
   summary: string;
-  icon: { symbol: string; prompt: string };
+  icon: { symbol: string; prompt: string; url?: string };
   lessons: TrainingLesson[];
 };
 

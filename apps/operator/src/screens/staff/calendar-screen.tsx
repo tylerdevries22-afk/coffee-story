@@ -1,12 +1,13 @@
 import { router, type Href } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon } from '@/components/icon';
 import { CALENDAR_ITEMS, CALENDAR_PEOPLE } from '@/data/calendar-demo';
 import { loadLiveCalendarItems } from '@/features/calendar/live';
 import { calendarCategoryForItem, calendarDateRail, calendarItemHref, type CalendarItem } from '@/features/calendar/presentation';
+import { operatorLayout } from '@/lib/responsive-layout';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/state/auth-context';
 import { useBusiness } from '@/state/business';
@@ -99,8 +100,17 @@ function ModeButton({ label, selected, onPress }: { label: CalendarMode extends 
 
 function CalendarList({ items, day }: { items: readonly CalendarItem[]; day: DayKey }) {
   const { styles } = useCalendarTheme();
+  const { width, height } = useWindowDimensions();
+  const layout = operatorLayout(width, height);
   return (
-    <ScrollView style={styles.body} contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={styles.body}
+      contentContainerStyle={[
+        styles.listContent,
+        layout.isTablet && { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center' },
+      ]}
+      showsVerticalScrollIndicator={false}
+    >
       <Text style={styles.groupTitle}>{day === 'today' ? 'Today' : 'Tomorrow'}</Text>
       {items.length ? items.map((item) => <ScheduleCard key={item.id} item={item} />) : <EmptySchedule />}
     </ScrollView>
@@ -147,8 +157,17 @@ function ScheduleCard({ item }: { item: CalendarItem }) {
 
 function DayTimeline({ items }: { items: readonly CalendarItem[] }) {
   const { colors, styles } = useCalendarTheme();
+  const { width, height } = useWindowDimensions();
+  const layout = operatorLayout(width, height);
   return (
-    <ScrollView style={styles.body} contentContainerStyle={styles.timelineContent} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={styles.body}
+      contentContainerStyle={[
+        styles.timelineContent,
+        layout.isTablet && { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center' },
+      ]}
+      showsVerticalScrollIndicator={false}
+    >
       {['7 AM', '9 AM', '11 AM', '1 PM', '3 PM'].map((time, index) => (
         <View key={time} style={styles.timelineRow}>
           <Text style={styles.timelineTime}>{time}</Text>
@@ -188,7 +207,7 @@ function useCalendarTheme() {
 
 function createStyles({ colors, fonts, radius, spacing }: AppTokens) {
   return StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F4F3F1' },
+  safe: { flex: 1, backgroundColor: colors.warm },
   header: { minHeight: 74, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, backgroundColor: colors.white, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.ink200 },
   title: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 25, letterSpacing: -0.5 },
   subtitle: { color: colors.ink500, fontFamily: fonts.sans, fontSize: 12, marginTop: 2 },
@@ -222,7 +241,7 @@ function createStyles({ colors, fonts, radius, spacing }: AppTokens) {
   body: { flex: 1 },
   listContent: { padding: spacing.md, paddingBottom: 110, gap: spacing.sm },
   groupTitle: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 20, marginBottom: 2 },
-  card: { minHeight: 142, overflow: 'hidden', flexDirection: 'row', backgroundColor: colors.white, borderRadius: 12, borderWidth: 1, borderColor: '#E9E6E2' },
+  card: { minHeight: 142, overflow: 'hidden', flexDirection: 'row', backgroundColor: colors.white, borderRadius: 12, borderWidth: 1, borderColor: colors.ink200 },
   pressed: { opacity: 0.72 },
   categoryRail: { width: 5 },
   cardContent: { flex: 1, padding: spacing.md, gap: 7 },

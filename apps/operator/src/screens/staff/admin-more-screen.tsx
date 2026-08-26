@@ -1,7 +1,7 @@
 import * as Haptics from 'expo-haptics';
 import { router, type Href } from 'expo-router';
 import { useMemo, useState, type ReactNode } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
 import { AppIcon, type AppIconName } from '@/components/icon';
 import { MoreSearchTakeover } from '@/components/more-search-takeover';
@@ -15,6 +15,7 @@ import {
 } from '@/features/admin/admin-navigation';
 import { portalSetup, setupProgressPercent } from '@/features/setup/setup';
 import { openWebPath } from '@/lib/web-navigation';
+import { operatorLayout } from '@/lib/responsive-layout';
 import { Profile } from '@/screens/staff/profile';
 import { useAppState } from '@/state/app-context';
 import { useAuth } from '@/state/auth-context';
@@ -27,6 +28,8 @@ type HeaderSurface = 'profile' | null;
 export function AdminMoreScreen({ dashboard }: { dashboard: StaffDashboard }) {
   const appTokens = useAppTokens();
   const styles = createStyles(appTokens);
+  const { width, height } = useWindowDimensions();
+  const layout = operatorLayout(width, height);
   const {
     exitStaff, openNotifications, openStaffDestination, queueSetupPrompt,
     readNotificationIds, selectRole,
@@ -84,7 +87,17 @@ export function AdminMoreScreen({ dashboard }: { dashboard: StaffDashboard }) {
         openDestination(result.path);
       }} />}
     >
-      <Screen contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <Screen
+        contentContainerStyle={[
+          styles.content,
+          layout.isTablet && {
+            width: '100%',
+            maxWidth: layout.contentMaxWidth,
+            alignSelf: 'center',
+          },
+        ]}
+        keyboardShouldPersistTaps="handled"
+      >
         <Text accessibilityRole="header" style={styles.pageTitle}>More</Text>
         <MoreGroup>
           <MoreRow

@@ -17,8 +17,8 @@ import { signOut } from './login/actions';
  */
 export default async function ConsoleLayout({ children }: { children: ReactNode }) {
   const [session, client] = await Promise.all([currentSession(), serverClient()]);
-  const brand = client
-    ? await client.from('brands').select('brand_config').maybeSingle<{ brand_config: unknown }>()
+  const brand = client && session
+    ? await client.from('brands').select('brand_config').eq('id', session.brandId).maybeSingle<{ brand_config: unknown }>()
     : null;
   const brandConfig = brand && !brand.error ? brand.data?.brand_config : null;
   return (
@@ -27,7 +27,7 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
         <div className="brand">{session?.brandName ?? 'HQ'}</div>
         <NavLink href="/">Dashboard</NavLink>
         <NavLink href="/locations">Locations</NavLink>
-        <NavLink href="/menu">Menu</NavLink>
+        {hasRole(session, 'brand_owner') ? <NavLink href="/content">Content</NavLink> : <NavLink href="/menu">Menu</NavLink>}
         <NavLink href="/drops">Drops</NavLink>
         <NavLink href="/campaigns">Campaigns</NavLink>
         <NavLink href="/customers">Customers</NavLink>

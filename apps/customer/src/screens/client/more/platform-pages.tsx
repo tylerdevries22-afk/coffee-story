@@ -18,6 +18,7 @@ import { clearPendingReferralCode, readPendingReferralCode } from '@/state/pendi
 import { findMenuItem } from '@/screens/client/order/menu-data';
 import { useAuth } from '@/state/auth-context';
 import { useAppState } from '@/state/app-context';
+import { useCustomerCatalog } from '@/state/catalog-context';
 import { TENANT, tenantFeature } from '@/tenant';
 import { DropCountdown } from '@platform/ui';
 
@@ -44,7 +45,8 @@ function DropRow({ drop, onOrder }: { drop: Drop; onOrder: () => void }) {
   const pageStyles = useInformationStyles();
   const tokens = useBrandTokens();
   const local = createLocal(tokens);
-  const item = findMenuItem(drop.itemId);
+  const { items } = useCustomerCatalog();
+  const item = findMenuItem(items, drop.itemId);
   const live = dropStatus(drop, new Date()) === 'live';
   return (
     <Card style={pageStyles.detailCard}>
