@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
+import type { Page } from 'playwright';
 
 import { ticketCallout } from '@platform/domain/src/board-display.ts';
 
@@ -41,6 +42,29 @@ async function waitForOrderStatus(orderId: string, status: string, timeoutMs = 2
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
   return seen;
+}
+
+/**
+ * The first pickup window can sit just beyond the scheduled-lane cutoff,
+ * depending on the runner's current minute. Work the same order through its
+ * detail sheet when it is scheduled, or through the normal board action when
+ * it is already inside the prep window.
+ */
+async function clickOperatorAction(
+  page: Page,
+  orderCode: number,
+  callOut: string,
+  actionText: string,
+): Promise<void> {
+  const boardAction = page.getByLabel(`${actionText} for order ${callOut}`);
+  const scheduledCard = page.getByLabel(new RegExp(`^Scheduled order ${orderCode} for `));
+  await boardAction.or(scheduledCard).first().waitFor({ timeout: 45_000 });
+  if (await boardAction.count() > 0) {
+    await boardAction.first().click({ timeout: 20_000 });
+    return;
+  }
+  await scheduledCard.first().click({ timeout: 20_000 });
+  await page.getByText(actionText, { exact: true }).first().click({ timeout: 20_000 });
 }
 
 /**
@@ -147,6 +171,7 @@ describe('three apps, one stack', { skip: skipUnlessConfigured }, () => {
       );
       const order = placed.rows[0];
       assert.ok(order, 'the order reached the database');
+      assert.ok(order.daily_number, 'the order carries a human-readable ticket');
       assert.equal(order.status, 'created', 'pay_at_pickup waits for staff to collect payment');
       await waitText(customer.page, money(Number(order.total_cents)));
       const callOut = ticketCallout(order.daily_number, order.guest_label);
@@ -157,20 +182,20 @@ describe('three apps, one stack', { skip: skipUnlessConfigured }, () => {
       await clickText(operator.page, 'Sign in');
       await operator.page.waitForURL(/\/staff/, { timeout: 45_000 });
       await operator.page.goto(`${OPERATOR_URL}/staff/orders`, { waitUntil: 'load' });
-      await waitText(operator.page, callOut, 45_000);
-      await operator.shot('04-operator-board');
-
-      await clickLabel(
+      await clickOperatorAction(
         operator.page,
-        `Collect ${money(Number(order.total_cents))} for order ${callOut}`,
+        order.daily_number,
+        callOut,
+        `Collect ${money(Number(order.total_cents))}`,
       );
+      await operator.shot('04-operator-board');
       assert.equal(await waitForOrderStatus(order.id, 'paid'), 'paid');
-      await clickLabel(operator.page, `Start for order ${callOut}`);
+      await clickOperatorAction(operator.page, order.daily_number, callOut, 'Start');
       await waitText(customer.page, 'Being made', 30_000);
-      await clickLabel(operator.page, `Ready for order ${callOut}`);
+      await clickOperatorAction(operator.page, order.daily_number, callOut, 'Ready');
       await waitText(customer.page, 'Ready for pickup', 30_000);
       await customer.shot('05-customer-ready');
-      await clickLabel(operator.page, `Picked up for order ${callOut}`);
+      await clickOperatorAction(operator.page, order.daily_number, callOut, 'Picked up');
       assert.equal(await waitForOrderStatus(order.id, 'picked_up'), 'picked_up');
 
       // ---- A rival brand's order never reaches this board (RLS isolation).
