@@ -85,13 +85,15 @@ export type FeeRow = {
 export type SessionInfo = {
   email: string;
   role: BrandRole;
+  brandId: string;
   brandName: string;
 };
 
 export const DEMO_SESSION: SessionInfo = {
-  email: 'owner@demo-roastery.test',
+  email: 'owner@coffee-story.demo',
   role: 'platform_admin',
-  brandName: 'Demo Roastery',
+  brandId: '00000000-0000-4000-8000-000000000101',
+  brandName: 'Coffee Story',
 };
 
 export const DEMO_LOCATIONS: LocationSummary[] = [

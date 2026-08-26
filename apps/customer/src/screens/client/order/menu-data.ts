@@ -5,7 +5,7 @@
  * `data/catalog.ts`, which imports the item photography — the feature modules
  * stay free of asset imports so `node:test` can reach them.
  */
-import { MENU_CATEGORY_META, MENU_ITEMS, type MenuCategoryId, type MenuItem } from '@/data/catalog';
+import type { MenuCategory, MenuCategoryId, MenuItem } from '@/data/catalog';
 import { isItemSoldOut } from '@/features/order/menu-availability';
 
 export type MenuSection = {
@@ -16,20 +16,20 @@ export type MenuSection = {
 };
 
 /** Categories in menu order, with the empty ones dropped. */
-export function menuSections(liveSoldOutIds: ReadonlySet<string> | null = null): MenuSection[] {
-  return MENU_CATEGORY_META.map((category) => ({
+export function menuSections(
+  categories: readonly MenuCategory[],
+  items: readonly MenuItem[],
+): MenuSection[] {
+  return categories.map((category) => ({
     id: category.id,
     title: category.title,
     tagline: category.tagline,
-    items: MENU_ITEMS
+    items: items
       .filter((item) => item.category === category.id)
-      .map((item) => ({
-        ...item,
-        soldOutToday: isItemSoldOut(item.id, item.soldOutToday, liveSoldOutIds),
-      })),
+      .map((item) => ({ ...item, soldOutToday: isItemSoldOut(item.id, item.soldOutToday, null) })),
   })).filter((section) => section.items.length > 0);
 }
 
-export function findMenuItem(itemId: string): MenuItem | undefined {
-  return MENU_ITEMS.find((item) => item.id === itemId);
+export function findMenuItem(items: readonly MenuItem[], itemId: string): MenuItem | undefined {
+  return items.find((item) => item.id === itemId);
 }

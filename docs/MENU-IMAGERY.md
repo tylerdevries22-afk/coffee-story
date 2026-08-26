@@ -84,6 +84,32 @@ The tenant folder is the source. `pnpm onboard --tenant <slug> --apply` copies
 the normalised assets into both per-brand customer and kiosk bundles and
 generates an identical static Metro image map for each app.
 
+For a live tenant, onboarding also uploads those exact WebP bytes to the public
+`menu-images` bucket at
+`<brand-id>/menu-item/<menu-item-id>/<sha256>.webp` and writes the public URL to
+`menu_items.image_url`. The database row is the live source of truth for HQ,
+customer, and kiosk; the bundled copy is an offline/demo fallback for that
+same tenant, never a second editable catalog. Customer and kiosk subscribe to
+menu changes and refetch the complete published tree after an edit.
+
+HQ uploads use a new versioned object key and never overwrite an earlier key.
+Authenticated client roles can insert tenant-prefixed menu/training objects,
+but cannot update or delete their bytes; retention cleanup remains a trusted
+service operation. The `content_media_versions` ledger records each current
+thumbnail by stable menu-item UUID. HQ shows the newest revisions and restoring
+one is an ordinary menu-item update, which is itself recorded as another
+revision. Storage uses these public, tenant-prefixed buckets:
+
+| Bucket | Purpose | Contract |
+| --- | --- | --- |
+| `menu-images` | Storefront menu thumbnails | public read, 6 MiB, raster images |
+| `brand-assets` | Tenant logos and shared artwork | public read, 10 MiB, image/SVG |
+| `training-media` | Module artwork and tenant-owned lesson images | public read, 10 MiB, raster images |
+
+Deploy database migrations before the HQ/customer build. Deep health requires
+release `20260826155933`, so a build cannot silently serve the editor against a
+database that lacks the ledger or training bucket.
+
 Idempotency comes from `tenants/<slug>/assets/menu/.normalized.json`, which
 records the hash of what the script last produced. An unchanged file is skipped;
 a newly dropped photograph misses the hash and gets normalised.
@@ -145,7 +171,7 @@ Drop the result into `tenants/<tenant>/assets/menu/<item-slug>.webp` and run
 `pnpm normalize-menu-images --tenant <tenant>`; the manifest hash will miss and it will be
 squared, measured and mirrored to the operator app.
 
-## Outstanding
+## Source-quality backlog
 
 Eleven assets still need replacing. Seven are reported by
 `pnpm normalize-menu-images --check`:

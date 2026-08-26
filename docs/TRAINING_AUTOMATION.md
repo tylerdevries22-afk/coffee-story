@@ -73,3 +73,16 @@ forking screen code.
 
 Icons use portable semantic symbols rendered by the app's bundled icon set;
 the automation does not download executable or tenant-controlled UI assets.
+
+## HQ authoring and media history
+
+Tenant owners use HQ → Content → Training to edit Knowledge and Skills modules,
+lesson copy, image/video references, sources, quizzes, and answer explanations.
+Draft answer keys remain server-only; publication atomically retires the prior
+release and exposes only the answer-free manifest to operator apps.
+
+Uploaded module and lesson artwork is stored under tenant-prefixed, immutable
+keys in `training-media`. Publishing or updating a draft records every module
+icon and lesson media URL in `content_media_versions`, keyed by the portable
+module/lesson slug and release metadata. External HTTPS videos remain links and
+carry a rights note; they are never copied into Storage without tenant rights.

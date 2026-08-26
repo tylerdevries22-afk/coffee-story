@@ -16,7 +16,7 @@ import { OptionGroupField, QuantityStepper, SizeSegmented } from '@/components/o
 import { ActionButton, useCoveringBottomInset } from '@/components/order/order-chrome';
 import { SheetModal } from '@/components/sheet-modal';
 import type { MenuItem } from '@/data/catalog';
-import { formatMoney , defaultSizeSlug, sizeLabelFor, sizePriceCents } from '@platform/domain';
+import { formatMoney , defaultSizeSlug, sizeLabel, sizePriceCents } from '@platform/domain';
 import { MAX_LINE_QUANTITY, buildOrderLine, type OrderLine ,
   defaultOptionSelection,
   missingRequiredGroups,
@@ -84,7 +84,7 @@ function ItemSheetBody({
 
   const sizes = item.sizes.map((entry) => ({
     slug: entry.slug,
-    label: sizeLabelFor(entry.slug),
+    label: sizeLabel(entry),
     priceCents: sizePriceCents(entry),
   }));
 
@@ -103,7 +103,7 @@ function ItemSheetBody({
       itemId: item.id,
       name: item.name,
       sizeSlug: size.slug,
-      sizeLabel: sizeLabelFor(size.slug),
+      sizeLabel: sizeLabel(size),
       basePriceCents,
       groups,
       selection,

@@ -5,6 +5,7 @@ import Svg, { Circle } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon } from '@/components/icon';
+import { TrainingArtwork } from '@/components/training-artwork';
 import { useTrainingRelease } from '@/features/training/use-training-release';
 import { useBusiness } from '@/state/business';
 import { useAppTokens, type AppTokens } from '@platform/ui';
@@ -29,9 +30,18 @@ export function TrainingScreen() {
       </View>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.trackRail}>
-          {(modules.length > 0 ? modules.map((module) => ({ label: module.title, icon: moduleIcon(module.icon.symbol) })) : TRACKS).map((track) => (
-            <Pressable key={track.label} accessibilityRole="button" style={styles.track}>
-              <View style={styles.trackIcon}><AppIcon name={track.icon} size={25} tintColor={colors.brand600} /></View>
+          {(modules.length > 0
+            ? modules.map((module) => ({ key: module.slug, label: module.title, icon: moduleIcon(module.icon.symbol), imageUrl: module.icon.url }))
+            : TRACKS.map((track) => ({ key: track.label, ...track, imageUrl: undefined }))).map((track) => (
+            <Pressable
+              key={track.key}
+              accessibilityRole="button"
+              onPress={modules.length > 0 ? () => router.push(`/staff/training/${encodeURIComponent(track.key)}` as Href) : undefined}
+              style={styles.track}
+            >
+              <View style={styles.trackIcon}>
+                <TrainingArtwork url={track.imageUrl} alt={`${track.label} module artwork`} fallback={track.icon} size={52} radius={11} tintColor={colors.brand600} backgroundColor={colors.brand50} />
+              </View>
               <Text style={styles.trackLabel}>{track.label}</Text>
             </Pressable>
           ))}
@@ -114,7 +124,7 @@ function createStyles({ colors, fonts, spacing }: AppTokens) {
   content: { paddingBottom: 110 },
   trackRail: { backgroundColor: colors.white, paddingHorizontal: spacing.md, paddingVertical: spacing.lg, gap: spacing.md },
   track: { width: 72, alignItems: 'center', gap: 7 },
-  trackIcon: { width: 54, height: 48, borderRadius: 12, backgroundColor: colors.brand50, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.brand100 },
+  trackIcon: { width: 54, height: 54, borderRadius: 12, backgroundColor: colors.brand50, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.brand100, overflow: 'hidden' },
   trackLabel: { color: colors.ink600, fontFamily: fonts.sansMedium, fontSize: 10, textAlign: 'center' },
   section: { paddingHorizontal: spacing.md, paddingTop: spacing.lg, gap: spacing.sm },
   sectionTitle: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 20, letterSpacing: -0.2 },

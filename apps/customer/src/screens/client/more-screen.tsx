@@ -13,7 +13,6 @@ import { HeaderIconButton } from '@/components/more-page-header';
 import { MoreSearchTakeover } from '@/components/more-search-takeover';
 import { PortalProfileCard } from '@/components/portal-profile-card';
 import { BUSINESS } from '@/data/business';
-import { MENU_ITEMS } from '@/data/catalog';
 import { buildClientNotifications , projectFirstVariants } from '@platform/domain';
 import { searchClientAccount, type ClientSearchResult , OrderableItem } from '@platform/domain';
 import { summarizeGiftCardOwnership } from '@/features/gifts/ownership';
@@ -21,13 +20,11 @@ import { useAppState, type MoreView } from '@/state/app-context';
 import { TENANT, tenantFeature } from '@/tenant';
 import { useAuth } from '@/state/auth-context';
 import { useDemo } from '@/state/demo-context';
+import { useCustomerCatalog } from '@/state/catalog-context';
 
 
 import rewardsCup from '../../../assets/tabs/cup.png';
 import { useTokens as useBrandTokens } from '@platform/ui';
-
-/** Catalog entries in the booking shape the account search expects. */
-const ORDERABLE_ITEMS: OrderableItem[] = projectFirstVariants(MENU_ITEMS);
 
 /** Result kind decides the row glyph, the way the web search groups results. */
 const SEARCH_SYMBOLS: Record<ClientSearchResult['kind'], 'doc.text' | 'clock.arrow.circlepath' | 'creditcard' | 'heart'> = {
@@ -57,6 +54,7 @@ export function MoreScreen() {
   } = useAppState();
   const { portal, isDemo, signOut } = useAuth();
   const demo = useDemo();
+  const { items: menuItems } = useCustomerCatalog();
   const [now] = useState(() => new Date());
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -71,7 +69,8 @@ export function MoreScreen() {
   const completedOrders = isDemo
     ? portal.orders.filter((order) => order.status === 'picked_up').length
     : liveOrders.filter((entry) => entry.status === 'picked_up').length;
-  const searchResults = searchClientAccount(query, portal, ORDERABLE_ITEMS);
+  const orderableItems = useMemo<OrderableItem[]>(() => projectFirstVariants(menuItems), [menuItems]);
+  const searchResults = searchClientAccount(query, portal, orderableItems);
   const giftSummary = summarizeGiftCardOwnership(portal.giftCards);
   const giftBalanceCents = isDemo ? giftSummary.spendableBalanceCents : portal.rewardAccount.cashCents;
   const upcomingVisits = isDemo

@@ -22,6 +22,11 @@ const config: NextConfig = {
   outputFileTracingRoot: workspaceRoot,
   // Workspace packages ship TypeScript source; Next compiles them in place.
   transpilePackages: ['@platform/schema', '@platform/domain', '@platform/engine', '@platform/api-client'],
+  experimental: {
+    // HQ accepts owner-managed menu/training images up to 6 MB. The extra MB
+    // covers multipart framing while staying below Supabase's 10 MiB bucket cap.
+    serverActions: { bodySizeLimit: '7mb' },
+  },
   // `pnpm lint` is the authoritative zero-warning gate and runs before build.
   eslint: { ignoreDuringBuilds: true },
   headers: async () => [

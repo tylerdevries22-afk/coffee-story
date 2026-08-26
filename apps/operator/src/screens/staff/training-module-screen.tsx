@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon } from '@/components/icon';
+import { TrainingArtwork } from '@/components/training-artwork';
 import { useTrainingRelease } from '@/features/training/use-training-release';
 import { useAppTokens, type AppTokens } from '@platform/ui';
 
@@ -16,7 +17,7 @@ export function TrainingModuleScreen({ moduleSlug }: { moduleSlug: string }) {
     <SafeAreaView edges={['top']} style={styles.safe}>
       <Header title="Training" />
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.hero}><View style={styles.heroIcon}><AppIcon name="book.closed" size={28} tintColor={colors.brand700} /></View><Text style={styles.title}>{module.title}</Text><Text style={styles.summary}>{module.summary}</Text></View>
+        <View style={styles.hero}><View style={styles.heroIcon}><TrainingArtwork url={module.icon.url} alt={`${module.title} module artwork`} fallback="book.closed" size={58} radius={16} tintColor={colors.brand700} backgroundColor={colors.brand100} /></View><Text style={styles.title}>{module.title}</Text><Text style={styles.summary}>{module.summary}</Text></View>
         <Text style={styles.sectionTitle}>Lessons</Text>
         {module.lessons.map((lesson, index) => (
           <Pressable key={lesson.slug} accessibilityRole="button" onPress={() => router.push(`/staff/training/${encodeURIComponent(module.slug)}/${encodeURIComponent(lesson.slug)}` as Href)} style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
@@ -53,7 +54,7 @@ function createStyles({ colors, fonts, spacing }: AppTokens) {
   headerTitle: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 17 },
   content: { padding: spacing.md, paddingBottom: spacing.xxl, gap: spacing.sm },
   hero: { alignItems: 'center', gap: spacing.sm, padding: spacing.xl },
-  heroIcon: { width: 58, height: 58, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.brand100 },
+  heroIcon: { width: 58, height: 58, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.brand100, overflow: 'hidden' },
   title: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 24, textAlign: 'center' },
   summary: { color: colors.ink500, fontFamily: fonts.sans, fontSize: 14, lineHeight: 20, textAlign: 'center' },
   sectionTitle: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 19, marginBottom: 2 },

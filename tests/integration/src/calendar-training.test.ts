@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { describe, it } from 'node:test';
 
 import {
-  createSignedInUser, seedBrand, skipUnlessConfigured, sql, userClient,
+  createSignedInUser, seedBrand, serviceClient, skipUnlessConfigured, sql, userClient,
 } from './stack.ts';
 
 async function staffFor(brandId: string, locationId: string) {
@@ -120,7 +120,7 @@ describe('calendar and training tenancy', { skip: skipUnlessConfigured }, () => 
       `select routine_name, grantee
        from information_schema.routine_privileges
        where routine_schema = 'public'
-         and routine_name in ('store_training_profile', 'publish_training_release')
+         and routine_name in ('store_training_profile', 'publish_training_release', 'publish_manual_training_release')
          and privilege_type = 'EXECUTE'
        order by routine_name, grantee`,
     );
@@ -131,5 +131,153 @@ describe('calendar and training tenancy', { skip: skipUnlessConfigured }, () => 
       grant.routine_name === 'store_training_profile' && grant.grantee === 'service_role'
     )));
     assert.ok(!grants.rows.some((grant) => ['anon', 'authenticated', 'PUBLIC'].includes(grant.grantee)));
+    assert.ok(grants.rows.some((grant) => (
+      grant.routine_name === 'publish_manual_training_release' && grant.grantee === 'service_role'
+    )));
+  });
+
+  it('publishes an owner-authored draft atomically without exposing the function to browsers', async () => {
+    const tenant = await seedBrand('training-owner-draft');
+    let ownerMemberId = '';
+    const owner = await createSignedInUser({
+      before: async (userId) => {
+        const member = await sql<{ id: string }>(
+          `insert into public.brand_users (user_id, brand_id, role, location_ids)
+           values ($1, $2, 'brand_owner', '{}') returning id`,
+          [userId, tenant.brandId],
+        );
+        ownerMemberId = member.rows[0]!.id;
+      },
+    });
+    const runId = randomUUID();
+    await sql(
+      `insert into public.training_bootstrap_runs
+         (id, brand_id, profile_fingerprint, pipeline_version, status)
+       values ($1, $2, repeat('c', 64), 'test-v1', 'published')`,
+      [runId, tenant.brandId],
+    );
+    await sql(
+      `insert into public.training_releases
+         (brand_id, bootstrap_run_id, version, status, manifest, answer_key, published_at)
+       values ($1, $2, 1, 'published', '{"sources":[],"modules":[]}', '{}', now())`,
+      [tenant.brandId, runId],
+    );
+    const manifest = {
+      schemaVersion: 1,
+      sources: [{}, {}, {}],
+      modules: [{ slug: 'knowledge' }, { slug: 'skills' }],
+    };
+    const draft = await sql<{ id: string; updated_at: string }>(
+      `insert into public.training_releases
+         (brand_id, version, status, manifest, answer_key, created_by, updated_by)
+       values ($1, 2, 'draft', $2, '{"knowledge":{},"skills":{}}', $3, $3)
+       returning id, updated_at`,
+      [tenant.brandId, JSON.stringify(manifest), ownerMemberId],
+    );
+
+    const browserAttempt = await userClient(owner.accessToken).rpc('publish_manual_training_release', {
+      target_brand: tenant.brandId,
+      target_release: draft.rows[0]!.id,
+      target_editor: ownerMemberId,
+      expected_updated_at: draft.rows[0]!.updated_at,
+    });
+    assert.match(browserAttempt.error?.message ?? '', /permission denied/i);
+
+    const published = await serviceClient().rpc('publish_manual_training_release', {
+      target_brand: tenant.brandId,
+      target_release: draft.rows[0]!.id,
+      target_editor: ownerMemberId,
+      expected_updated_at: draft.rows[0]!.updated_at,
+    });
+    assert.equal(published.error, null);
+    const releases = await sql<{ id: string; status: string; updated_by: string | null }>(
+      `select id, status, updated_by from public.training_releases
+       where brand_id = $1 order by version`,
+      [tenant.brandId],
+    );
+    assert.deepEqual(releases.rows.map((release) => release.status), ['retired', 'published']);
+    assert.equal(releases.rows[1]!.id, draft.rows[0]!.id);
+    assert.equal(releases.rows[1]!.updated_by, ownerMemberId);
+  });
+
+  it('keeps tenant-isolated menu and training media history in dedicated buckets', async () => {
+    const tenant = await seedBrand('content-media-history');
+    const foreign = await seedBrand('content-media-foreign');
+    let ownerMemberId = '';
+    const owner = await createSignedInUser({
+      before: async (userId) => {
+        const member = await sql<{ id: string }>(
+          `insert into public.brand_users (user_id, brand_id, role, location_ids)
+           values ($1, $2, 'brand_owner', '{}') returning id`,
+          [userId, tenant.brandId],
+        );
+        ownerMemberId = member.rows[0]!.id;
+      },
+    });
+    const outsider = await staffFor(foreign.brandId, foreign.locationId);
+    const menu = await sql<{ id: string }>(
+      `insert into public.menus (brand_id, name, is_published)
+       values ($1, 'Menu', true) returning id`,
+      [tenant.brandId],
+    );
+    const category = await sql<{ id: string }>(
+      `insert into public.menu_categories (brand_id, menu_id, title)
+       values ($1, $2, 'Coffee') returning id`,
+      [tenant.brandId, menu.rows[0]!.id],
+    );
+    const item = await sql<{ id: string }>(
+      `insert into public.menu_items
+         (brand_id, menu_id, category_id, slug, name, base_price_cents, image_url)
+       values ($1, $2, $3, 'latte', 'Latte', 500, 'https://assets.example/latte-v1.webp')
+       returning id`,
+      [tenant.brandId, menu.rows[0]!.id, category.rows[0]!.id],
+    );
+    await sql(
+      `update public.menu_items set image_url = 'https://assets.example/latte-v2.webp'
+       where id = $1`,
+      [item.rows[0]!.id],
+    );
+    await sql(
+      `insert into public.training_releases
+         (brand_id, version, status, manifest, answer_key, created_by, updated_by)
+       values ($1, 1, 'draft', $2, '{}', $3, $3)`,
+      [tenant.brandId, JSON.stringify({
+        modules: [{
+          slug: 'knowledge', icon: { url: 'https://assets.example/knowledge.webp' },
+          lessons: [{ slug: 'coffee', media: [{ kind: 'video', title: 'Coffee', url: 'https://assets.example/coffee.mp4' }] }],
+        }],
+      }), ownerMemberId],
+    );
+
+    const history = await userClient(owner.accessToken).from('content_media_versions')
+      .select('entity_type,entity_key,slot,public_url').order('created_at');
+    assert.equal(history.error, null);
+    assert.deepEqual(history.data?.map((entry) => entry.public_url).sort(), [
+      'https://assets.example/coffee.mp4',
+      'https://assets.example/knowledge.webp',
+      'https://assets.example/latte-v1.webp',
+      'https://assets.example/latte-v2.webp',
+    ]);
+    const leaked = await userClient(outsider.accessToken).from('content_media_versions').select('id');
+    assert.deepEqual(leaked.data, []);
+    const bucket = await sql<{ public: boolean; file_size_limit: number; allowed_mime_types: string[] }>(
+      `select public, file_size_limit, allowed_mime_types
+       from storage.buckets where id = 'training-media'`,
+    );
+    assert.equal(bucket.rows[0]!.public, true);
+    assert.equal(Number(bucket.rows[0]!.file_size_limit), 10485760);
+    assert.ok(bucket.rows[0]!.allowed_mime_types.includes('image/webp'));
+    const mutationPolicies = await sql<{ policyname: string; using_expression: string | null }>(
+      `select policyname, qual as using_expression
+       from pg_policies
+       where schemaname = 'storage' and tablename = 'objects'
+         and policyname in ('storage_brand_update', 'storage_brand_delete')
+       order by policyname`,
+    );
+    assert.equal(mutationPolicies.rows.length, 2);
+    for (const policy of mutationPolicies.rows) {
+      assert.match(policy.using_expression ?? '', /bucket_id = 'brand-assets'/);
+      assert.doesNotMatch(policy.using_expression ?? '', /training-media|menu-images/);
+    }
   });
 });

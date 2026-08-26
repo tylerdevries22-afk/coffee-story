@@ -75,7 +75,10 @@ function database() {
   const url = process.env.SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !serviceRoleKey) throw new FatalError('Training automation database is not configured.');
-  return createClient(url, serviceRoleKey, { auth: { persistSession: false } });
+  return createClient(url, serviceRoleKey, {
+    auth: { persistSession: false },
+    global: { fetch: (input, init) => fetchWithRetry(input, init ?? {}) },
+  });
 }
 
 async function updateRun(brandId: string, runId: string, values: Record<string, unknown>): Promise<void> {
@@ -84,7 +87,7 @@ async function updateRun(brandId: string, runId: string, values: Record<string, 
   if (result.error) throw new Error(`Training run update failed: ${result.error.code}`);
 }
 
-async function fetchWithRetry(url: string, init: RequestInit): Promise<Response> {
+async function fetchWithRetry(url: RequestInfo | URL, init: RequestInit): Promise<Response> {
   let lastError: Error | null = null;
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const controller = new AbortController();
@@ -102,7 +105,7 @@ async function fetchWithRetry(url: string, init: RequestInit): Promise<Response>
   throw lastError ?? new Error('Research provider request failed');
 }
 
-async function startResearch(profile: TenantTrainingProfile): Promise<string> {
+async function startResearch(profile: TenantTrainingProfile, runId: string): Promise<string> {
   'use step';
   const apiKey = process.env.OPENAI_API_KEY;
   const model = process.env.OPENAI_RESEARCH_MODEL;
@@ -110,7 +113,11 @@ async function startResearch(profile: TenantTrainingProfile): Promise<string> {
 
   const response = await fetchWithRetry('https://api.openai.com/v1/responses', {
     method: 'POST',
-    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      'Idempotency-Key': `training-research-${runId}`,
+    },
     body: JSON.stringify({
       model,
       background: true,
@@ -146,14 +153,18 @@ async function pollResearch(responseId: string): Promise<GeneratedCurriculum | n
   return JSON.parse(text) as GeneratedCurriculum;
 }
 
-async function independentlyEvaluate(manifest: TrainingManifest): Promise<string[]> {
+async function independentlyEvaluate(manifest: TrainingManifest, runId: string): Promise<string[]> {
   'use step';
   const apiKey = process.env.OPENAI_API_KEY;
   const model = process.env.OPENAI_EVALUATION_MODEL ?? process.env.OPENAI_RESEARCH_MODEL;
   if (!apiKey || !model) throw new FatalError('Training evaluation model is not configured.');
   const response = await fetchWithRetry('https://api.openai.com/v1/responses', {
     method: 'POST',
-    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      'Idempotency-Key': `training-evaluation-${runId}`,
+    },
     body: JSON.stringify({
       model,
       tools: [{ type: 'web_search' }],
@@ -210,7 +221,7 @@ export async function bootstrapTenantTraining(input: BootstrapInput): Promise<{ 
   try {
     const profile = normalizeTrainingProfile(input.profile);
     await updateRun(input.brandId, input.runId, { status: 'researching', stage: 'deep_research', progress: 10, started_at: new Date().toISOString() });
-    const responseId = await startResearch(profile);
+    const responseId = await startResearch(profile, input.runId);
     await updateRun(input.brandId, input.runId, { stage: 'deep_research', progress: 20, error_detail: { responseId } });
     let generated: GeneratedCurriculum | null = null;
     for (let poll = 0; poll < 90 && !generated; poll += 1) {
@@ -230,7 +241,7 @@ export async function bootstrapTenantTraining(input: BootstrapInput): Promise<{ 
       throw new FatalError(`Resource verification failed (${qualityIssues.length} issues).`);
     }
     await updateRun(input.brandId, input.runId, { stage: 'independent_review', progress: 90 });
-    qualityIssues = await independentlyEvaluate(manifest);
+    qualityIssues = await independentlyEvaluate(manifest, input.runId);
     if (qualityIssues.length > 0) {
       throw new FatalError(`Independent review failed (${qualityIssues.length} issues).`);
     }
