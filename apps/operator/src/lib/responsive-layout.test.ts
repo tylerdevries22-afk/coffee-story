@@ -27,6 +27,15 @@ test('uses the full three-lane board on a tablet in landscape', () => {
   assert.equal(layout.boardColumnsVisible, 3);
 });
 
+test('keeps a large iPad in the two-lane portrait layout', () => {
+  assert.deepEqual(operatorLayout(1024, 1366), {
+    isTablet: true,
+    isLandscape: false,
+    contentMaxWidth: 1120,
+    boardColumnsVisible: 2,
+  });
+});
+
 test('does not classify a short landscape phone as a tablet', () => {
   assert.equal(operatorLayout(844, 390).isTablet, false);
 });

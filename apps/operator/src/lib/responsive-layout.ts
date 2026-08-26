@@ -20,13 +20,14 @@ export function operatorLayout(width: number, height: number): OperatorLayout {
   const normalizedWidth = Math.max(0, width);
   const normalizedHeight = Math.max(0, height);
   const isTablet = Math.min(normalizedWidth, normalizedHeight) >= OPERATOR_TABLET_BREAKPOINT;
-  const boardColumnsVisible = normalizedWidth >= OPERATOR_BOARD_WIDE_BREAKPOINT
+  const isLandscape = normalizedWidth > normalizedHeight;
+  const boardColumnsVisible = isLandscape && normalizedWidth >= OPERATOR_BOARD_WIDE_BREAKPOINT
     ? 3
     : isTablet ? 2 : 1;
 
   return {
     isTablet,
-    isLandscape: normalizedWidth > normalizedHeight,
+    isLandscape,
     contentMaxWidth: isTablet ? 1120 : normalizedWidth,
     boardColumnsVisible,
   };

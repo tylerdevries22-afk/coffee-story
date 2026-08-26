@@ -193,7 +193,12 @@ export function OrdersBoardScreen() {
             key={column.key}
             style={[
               styles.column,
-              !allColumnsVisible && { flex: 0, width: visibleColumnWidth },
+              !allColumnsVisible && {
+                flexGrow: 0,
+                flexShrink: 0,
+                flexBasis: 'auto',
+                width: visibleColumnWidth,
+              },
             ]}
           >
             <View style={styles.columnHeader}>
@@ -723,7 +728,7 @@ const createStyles = (tokens: BrandTokens) => StyleSheet.create({
     paddingHorizontal: tokens.spacing.xl,
     paddingBottom: tokens.spacing.md,
   },
-  headerMain: { flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.md, minHeight: 44 },
+  headerMain: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: tokens.spacing.md, minHeight: 44 },
   headerTitle: { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: 24, flexShrink: 0 },
   headerChip: {
     maxWidth: '48%',
