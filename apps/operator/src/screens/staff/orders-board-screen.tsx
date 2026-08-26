@@ -1,6 +1,7 @@
 /**
  * The live order board: three working columns plus the scheduled lane,
- * iPad-landscape-first (side-by-side columns above 900pt, swipeable below).
+ * iPad-first: two lanes stay visible in portrait and all three fit in
+ * landscape; phones page through one lane at a time.
  * Tap targets are shift-floor sized; KDS mode drops prices and grows type.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -37,6 +38,7 @@ import {
   recordSuccess,
   type PinState,
 } from '@/features/operator/pin-lock';
+import { operatorLayout } from '@/lib/responsive-layout';
 import { formatMoney, queuePositions } from '@platform/domain';
 import { MENU_ITEMS } from '@/data/catalog';
 import { useOperator } from '@/state/operator-store';
@@ -45,15 +47,19 @@ import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 type BoardSheet = 'none' | 'day' | 'menu' | 'settings' | 'location';
 
-const WIDE_BREAKPOINT = 900;
-
 export function OrdersBoardScreen() {
   const tokens = useBrandTokens();
   const styles = createStyles(tokens);
   const operator = useOperator();
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const wide = width >= WIDE_BREAKPOINT;
+  const layout = operatorLayout(width, height);
+  const allColumnsVisible = layout.boardColumnsVisible === 3;
+  const visibleColumnWidth = Math.max(
+    240,
+    (width - tokens.spacing.xl * 2 - tokens.spacing.lg * (layout.boardColumnsVisible - 1))
+      / layout.boardColumnsVisible,
+  );
   const [detail, setDetail] = useState<BoardOrder | null>(null);
   const [sheet, setSheet] = useState<BoardSheet>('none');
   const [locked, setLocked] = useState(false);
@@ -118,31 +124,37 @@ export function OrdersBoardScreen() {
   return (
     <View style={[styles.screen, { paddingTop: insets.top + tokens.spacing.md }]}>
       <View style={styles.header}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`Location: ${operator.location.name}. Change`}
-          onPress={() => setSheet('location')}
-          style={({ pressed }) => [styles.headerChip, pressed && styles.pressed]}
-        >
-          <Text style={styles.headerChipText}>{operator.location.name}</Text>
-        </Pressable>
-        <Text accessibilityRole="header" style={styles.headerTitle}>Orders</Text>
-        {operator.unseenIds.size > 0 ? (
+        <View style={styles.headerMain}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`${operator.unseenIds.size} new orders. Mark seen`}
-            onPress={operator.markSeen}
-            style={styles.newBadge}
+            accessibilityLabel={`Location: ${operator.location.name}. Change`}
+            onPress={() => setSheet('location')}
+            style={({ pressed }) => [styles.headerChip, pressed && styles.pressed]}
           >
-            <Text style={styles.newBadgeText}>{operator.unseenIds.size} new</Text>
+            <Text numberOfLines={1} style={styles.headerChipText}>{operator.location.name}</Text>
           </Pressable>
-        ) : null}
-        <View style={styles.headerActions}>
+          <Text accessibilityRole="header" style={styles.headerTitle}>Orders</Text>
+          {operator.unseenIds.size > 0 ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`${operator.unseenIds.size} new orders. Mark seen`}
+              onPress={operator.markSeen}
+              style={styles.newBadge}
+            >
+              <Text style={styles.newBadgeText}>{operator.unseenIds.size} new</Text>
+            </Pressable>
+          ) : null}
+        </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.headerActions}
+        >
           <HeaderButton label="Menu" onPress={() => setSheet('menu')} />
           <HeaderButton label="Day" onPress={() => setSheet('day')} />
           <HeaderButton label="Settings" onPress={() => setSheet('settings')} />
           <HeaderButton label="Lock" onPress={() => setLocked(true)} />
-        </View>
+        </ScrollView>
       </View>
 
       {columns.scheduled.length > 0 ? (
@@ -170,14 +182,25 @@ export function OrdersBoardScreen() {
       ) : null}
 
       <ScrollView
-        horizontal={!wide}
-        pagingEnabled={!wide}
+        horizontal={!allColumnsVisible}
+        pagingEnabled={!allColumnsVisible && layout.boardColumnsVisible === 1}
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={[styles.columns, wide && styles.columnsWide]}
+        contentContainerStyle={[styles.columns, allColumnsVisible && styles.columnsWide]}
         style={styles.columnsScroll}
       >
         {columnData.map((column) => (
-          <View key={column.key} style={[styles.column, !wide && { width: width - tokens.spacing.xl * 2 }]}>
+          <View
+            key={column.key}
+            style={[
+              styles.column,
+              !allColumnsVisible && {
+                flexGrow: 0,
+                flexShrink: 0,
+                flexBasis: 'auto',
+                width: visibleColumnWidth,
+              },
+            ]}
+          >
             <View style={styles.columnHeader}>
               <View style={[styles.columnDot, { backgroundColor: column.tone }]} />
               <Text style={styles.columnTitle}>{column.title}</Text>
@@ -336,10 +359,18 @@ function SheetShell({
 }) {
   const tokens = useBrandTokens();
   const styles = createStyles(tokens);
+  const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const sheetWidth = Math.min(640, Math.max(0, width - tokens.spacing.xl * 2));
+  const sheetInset = Math.max(tokens.spacing.xl, (width - sheetWidth) / 2);
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={onClose} style={styles.backdrop} />
-      <View style={styles.sheet}>
+      <View style={[styles.sheet, {
+        left: sheetInset,
+        right: sheetInset,
+        paddingBottom: Math.max(tokens.spacing.xl, insets.bottom + tokens.spacing.xl),
+      }]}>
         <Text accessibilityRole="header" style={styles.sheetTitle}>{title}</Text>
         <ScrollView contentContainerStyle={styles.sheetBody}>{children}</ScrollView>
       </View>
@@ -693,21 +724,24 @@ const createStyles = (tokens: BrandTokens) => StyleSheet.create({
   pressed: { opacity: 0.8 },
 
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: tokens.spacing.md,
     paddingHorizontal: tokens.spacing.xl,
     paddingBottom: tokens.spacing.md,
   },
-  headerTitle: { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: 24 },
+  headerMain: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: tokens.spacing.md, minHeight: 44 },
+  headerTitle: { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: 24, flexShrink: 0 },
   headerChip: {
+    maxWidth: '48%',
+    minHeight: 44,
+    flexShrink: 1,
+    justifyContent: 'center',
     paddingHorizontal: tokens.spacing.lg,
     paddingVertical: tokens.spacing.sm,
     borderRadius: tokens.radius.pill,
     backgroundColor: tokens.surface,
   },
-  headerChipText: { color: tokens.primary, fontFamily: tokens.fontBody, fontSize: 13 },
-  headerActions: { flexDirection: 'row', gap: tokens.spacing.md, marginLeft: 'auto' },
+  headerChipText: { color: tokens.primary, fontFamily: tokens.fontBody, fontSize: 13, flexShrink: 1 },
+  headerActions: { flexDirection: 'row', gap: tokens.spacing.md, paddingRight: tokens.spacing.xs },
   headerButton: {
     paddingHorizontal: tokens.spacing.lg,
     paddingVertical: tokens.spacing.md,
@@ -718,6 +752,8 @@ const createStyles = (tokens: BrandTokens) => StyleSheet.create({
   },
   headerButtonText: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 13 },
   newBadge: {
+    minHeight: 44,
+    justifyContent: 'center',
     paddingHorizontal: tokens.spacing.lg,
     paddingVertical: tokens.spacing.sm,
     borderRadius: tokens.radius.pill,
@@ -767,7 +803,7 @@ const createStyles = (tokens: BrandTokens) => StyleSheet.create({
     shadowColor: tokens.textPrimary, shadowOffset: { width: 0, height: 8 }, shadowOpacity: tokens.elevation.card, shadowRadius: 24, elevation: 5,
   },
   cardFresh: { borderWidth: 2, borderColor: tokens.danger },
-  cardTop: { flexDirection: 'row', alignItems: 'baseline', gap: tokens.spacing.md },
+  cardTop: { flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap', gap: tokens.spacing.md },
   cardCode: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 18 },
   cardCodeKds: { fontSize: 26 },
   cardQueue: {
@@ -776,7 +812,7 @@ const createStyles = (tokens: BrandTokens) => StyleSheet.create({
     fontSize: 14,
     fontVariant: ['tabular-nums'],
   },
-  cardGuest: { flex: 1, color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 14 },
+  cardGuest: { flex: 1, minWidth: 80, color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 14 },
   cardAge: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 13 },
   cardLine: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 14, lineHeight: 20 },
   cardLineKds: { fontSize: 18, lineHeight: 26 },

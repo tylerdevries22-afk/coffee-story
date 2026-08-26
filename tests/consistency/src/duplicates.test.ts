@@ -39,6 +39,10 @@ const DIVERGENT_BY_DESIGN = [
   'app/notifications.tsx',
   'components/bottom-nav.tsx',
   'components/collapsing-page-header.tsx',
+  // The operator shell is staff-facing and tablet-first; its shared screen
+  // wrapper constrains wide admin surfaces while the customer shell remains
+  // edge-to-edge for guest ordering.
+  'components/collapsing-screen.tsx',
   'components/icon-map.ts',
   // Each install prompt is dismissed independently; sharing this key would
   // let installing one persona suppress the other app's prompt.

@@ -413,5 +413,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: eas-update-manifest
-          path: apps/customer/update.json
+          path: |
+            apps/customer/update.json
+            apps/operator/update.json
           if-no-files-found: ignore
