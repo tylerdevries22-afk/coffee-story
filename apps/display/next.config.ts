@@ -26,6 +26,8 @@ const workspaceRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   outputFileTracingRoot: workspaceRoot,
+  // The wall display is often previewed while a production build runs.
+  distDir: process.env.NODE_ENV === 'development' ? '.next-dev' : '.next',
   // The lint gate is `pnpm lint` (eslint.config.mjs), which runs before
   // typecheck, tests and this build in `pnpm verify`. Next's own build-time
   // pass looks for its plugin, does not find it, and prints a warning about a

@@ -71,7 +71,7 @@ export default function KioskLayout() {
  * made a rebuild the only way to change a tenant's menu.
  */
 function FlowGate() {
-  const { menu } = useKioskMenu();
+  const { menu, kioskConfig } = useKioskMenu();
   // Recomputed only when the menu itself changes: a new object every render
   // would re-resolve the flow, and the resolved flow is what the idle clock
   // and every screen key off.
@@ -88,7 +88,7 @@ function FlowGate() {
           the field exists -- never took effect.
         */}
       <FlowProvider
-        brandConfig={TENANT_BRAND_CONFIG.kiosk}
+        brandConfig={kioskConfig}
         menu={facts}
         storedValue={TENANT_BRAND_CONFIG.features?.stored_value === true}
       >

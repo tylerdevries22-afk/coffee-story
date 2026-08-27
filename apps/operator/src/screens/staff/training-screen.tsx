@@ -10,13 +10,14 @@ import { operatorLayout } from '@/lib/responsive-layout';
 import { useTrainingRelease } from '@/features/training/use-training-release';
 import { useBusiness } from '@/state/business';
 import { useAppTokens, type AppTokens } from '@platform/ui';
+import { TRAINING_TRACK_ORDER, type TrainingTrackKey } from '@platform/domain';
 
-const TRACKS = [
-  { label: 'Knowledge', icon: 'book.closed' as const },
-  { label: 'Service', icon: 'star' as const },
-  { label: 'Safety', icon: 'lock' as const },
-  { label: 'Operations', icon: 'briefcase' as const },
-] as const;
+const TRACK_LABELS: Record<(typeof TRAINING_TRACK_ORDER)[number], string> = {
+  knowledge: 'Knowledge', skills: 'Skills', service: 'Service', safety: 'Safety', operations: 'Operations',
+};
+const TRACK_ICONS: Record<(typeof TRAINING_TRACK_ORDER)[number], 'book.closed' | 'gearshape' | 'star' | 'lock' | 'briefcase'> = {
+  knowledge: 'book.closed', skills: 'gearshape', service: 'star', safety: 'lock', operations: 'briefcase',
+};
 
 export function TrainingScreen() {
   const { colors, styles } = useTrainingTheme();
@@ -25,6 +26,8 @@ export function TrainingScreen() {
   const business = useBusiness();
   const { release, loading, error, isDemo } = useTrainingRelease();
   const modules = useMemo(() => release?.manifest.modules ?? [], [release]);
+  const coreModules = useMemo(() => TRAINING_TRACK_ORDER.map((trackKey) => modules.find((module) => module.trackKey === trackKey || module.slug === trackKey)), [modules]);
+  const customModules = useMemo(() => modules.filter((module) => !module.trackKey || module.trackKey === 'custom'), [modules]);
   return (
     <SafeAreaView edges={['top']} style={styles.safe}>
       <View style={[styles.header, layout.isTablet && { maxWidth: layout.contentMaxWidth, width: '100%', alignSelf: 'center' }]}>
@@ -37,13 +40,17 @@ export function TrainingScreen() {
         showsVerticalScrollIndicator={false}
       >
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.trackRail}>
-          {(modules.length > 0
-            ? modules.map((module) => ({ key: module.slug, label: module.title, icon: moduleIcon(module.icon.symbol), imageUrl: module.icon.url }))
-            : TRACKS.map((track) => ({ key: track.label, ...track, imageUrl: undefined }))).map((track) => (
+          {coreModules.map((module, index) => {
+            const trackKey = TRAINING_TRACK_ORDER[index] ?? 'knowledge';
+            const track = module
+              ? { key: module.slug, label: module.title || TRACK_LABELS[trackKey], icon: moduleIcon(module.icon.symbol, trackKey), imageUrl: module.icon.url }
+              : { key: trackKey, label: TRACK_LABELS[trackKey], icon: TRACK_ICONS[trackKey], imageUrl: undefined };
+            return (
             <Pressable
               key={track.key}
               accessibilityRole="button"
-              onPress={modules.length > 0 ? () => router.push(`/staff/training/${encodeURIComponent(track.key)}` as Href) : undefined}
+              disabled={!release}
+              onPress={() => router.push(`/staff/training/${encodeURIComponent(track.key)}` as Href)}
               style={styles.track}
             >
               <View style={styles.trackIcon}>
@@ -51,34 +58,40 @@ export function TrainingScreen() {
               </View>
               <Text style={styles.trackLabel}>{track.label}</Text>
             </Pressable>
-          ))}
+            );
+          })}
         </ScrollView>
 
         {loading ? <StatusCard title="Preparing training" detail="Loading your tenant curriculum…" /> : null}
         {error ? <StatusCard title="Training unavailable" detail={error} /> : null}
-        {!loading && !error && !isDemo && modules.length === 0 ? (
-          <StatusCard title="Curriculum is being prepared" detail="This tenant has no published modules yet. The bootstrap automation can research, validate, and publish the first release." />
+        {!loading && !error && !isDemo && !release ? (
+          <StatusCard title="Curriculum is being prepared" detail="This tenant has no published release yet. HQ can research, validate, and publish the first curriculum." />
         ) : null}
-        {isDemo ? <>
-          <TrainingSection title="Weekly Training"><TrainingCard title="This week" subtitle="2 modules assigned" progress={50} /></TrainingSection>
-          <TrainingSection title="Core Training"><TrainingCard title="Knowledge" subtitle="3/8 completed" progress={38} /><TrainingCard title="Skills" subtitle="2/10 completed" progress={20} /></TrainingSection>
-        </> : null}
-        {modules.length > 0 ? (
+        {isDemo ? <TrainingSection title="Weekly Training"><TrainingCard title="This week" subtitle="2 modules assigned" progress={50} /></TrainingSection> : null}
+        {release ? (
+          <>
           <TrainingSection title="Core Training">
-            {modules.map((module) => <TrainingCard key={module.slug} title={module.title} subtitle={`${module.lessons.length} lessons`} progress={0} onPress={() => router.push(`/staff/training/${encodeURIComponent(module.slug)}` as Href)} />)}
+            {coreModules.map((module, index) => {
+              const trackKey = TRAINING_TRACK_ORDER[index] ?? 'knowledge';
+              const slug = module?.slug ?? trackKey;
+              return <TrainingCard key={slug} title={module?.title || TRACK_LABELS[trackKey]} subtitle={module ? `${module.lessons.length} lessons` : 'No lessons published yet'} progress={0} onPress={() => router.push(`/staff/training/${encodeURIComponent(slug)}` as Href)} />;
+            })}
           </TrainingSection>
+          {customModules.length > 0 ? <TrainingSection title="Additional training">{customModules.map((module) => <TrainingCard key={module.slug} title={module.title} subtitle={`${module.lessons.length} lessons`} progress={0} onPress={() => router.push(`/staff/training/${encodeURIComponent(module.slug)}` as Href)} />)}</TrainingSection> : null}
+          </>
         ) : null}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function moduleIcon(symbol: string): (typeof TRACKS)[number]['icon'] {
+function moduleIcon(symbol: string, trackKey: TrainingTrackKey): 'book.closed' | 'gearshape' | 'star' | 'lock' | 'briefcase' {
   const normalized = symbol.toLowerCase();
   if (normalized.includes('safety') || normalized.includes('lock')) return 'lock';
   if (normalized.includes('service') || normalized.includes('star')) return 'star';
   if (normalized.includes('operation') || normalized.includes('briefcase')) return 'briefcase';
-  return 'book.closed';
+  if (normalized.includes('skill') || normalized.includes('wrench') || normalized.includes('gear')) return 'gearshape';
+  return trackKey === 'custom' ? 'book.closed' : TRACK_ICONS[trackKey];
 }
 
 function StatusCard({ title, detail }: { title: string; detail: string }) {

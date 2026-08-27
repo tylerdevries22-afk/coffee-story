@@ -578,21 +578,25 @@ describe('realtime propagation', () => {
     const counts = subscriberCounts();
     assert.deepEqual(publicationTables(), [
       'board_change_signals',
+      'brand_config_signals',
       'drops',
       'location_setting_signals',
       'menu_categories',
       'menu_items',
       'orders',
       'prep_batches',
+      'training_release_events',
     ]);
     assert.deepEqual(counts, {
       orders: 2,
       board_change_signals: 1,
+      brand_config_signals: 1,
       location_setting_signals: 1,
       menu_items: 1,
       menu_categories: 1,
       drops: 1,
       prep_batches: 1,
+      training_release_events: 1,
     });
   });
 });

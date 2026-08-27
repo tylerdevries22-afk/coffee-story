@@ -13,6 +13,56 @@ export type BrandSummary = {
   locations: LocationStorefrontRow[];
 };
 
+/** Public kiosk settings for a tenant, read through the storefront view. */
+export async function fetchBrandConfig(
+  client: SupabaseClient,
+  brandId: string,
+): Promise<unknown | null> {
+  const row = await readWithRetry('fetchBrandConfig', (signal) => client
+    .from('brand_storefront')
+    .select('brand_config')
+    .eq('id', brandId)
+    .abortSignal(signal)
+    .maybeSingle<{ brand_config: unknown }>());
+  return row?.brand_config ?? null;
+}
+
+/**
+ * Payload-free kiosk invalidation. The device refetches the public view after
+ * a signal, so no brand config or platform terms travel over Realtime.
+ */
+export function subscribeToBrandConfig(
+  client: SupabaseClient | null,
+  brandId: string,
+  onChanged: () => void,
+  settleMs = 250,
+): () => void {
+  if (!client) return () => {};
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let live = true;
+  const settle = () => {
+    if (!live) return;
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => {
+      timer = null;
+      if (live) onChanged();
+    }, settleMs);
+  };
+  const channel = client
+    .channel(`brand-config-${brandId}`)
+    .on('postgres_changes', {
+      event: '*', schema: 'public', table: 'brand_config_signals', filter: `brand_id=eq.${brandId}`,
+    }, settle)
+    .subscribe((status) => {
+      if (status === 'SUBSCRIBED') settle();
+    });
+  return () => {
+    live = false;
+    if (timer) clearTimeout(timer);
+    void client.removeChannel(channel);
+  };
+}
+
 /**
  * The storefront bootstrap: the brand's public face (identity, feature
  * flags, brand_config tokens/copy) and its locations — both world-readable.

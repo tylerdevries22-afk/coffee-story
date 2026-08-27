@@ -89,6 +89,9 @@ Server (Vercel project for `apps/hq` — never in any app bundle):
 - `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
 - `CRON_SECRET` — any long random string; Vercel Cron sends it automatically
 - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (console sign-in)
+- `OPENAI_API_KEY`, `OPENAI_RESEARCH_MODEL` (required for autonomous tenant
+  training research and release generation)
+- `OPENAI_EVALUATION_MODEL` (optional; defaults to the research model)
 - Square (when connected): `SQUARE_APP_ID`, `SQUARE_APP_SECRET`,
   `SQUARE_TOKEN_KEY` (AES-256-GCM key for stored OAuth tokens),
   `SQUARE_WEBHOOK_SIGNATURE_KEY`, `SQUARE_WEBHOOK_URL`, and `SQUARE_ENV`
@@ -157,6 +160,11 @@ in Expo, never in this repository, never in `packages/data`.
 5. First staff account: after the owner signs up, insert their
    `brand_users` row (`role = 'brand_owner'`); their next sign-in carries
    staff claims.
+6. Seed the Coffee Story franchise template and its initial five-track,
+   fifteen-lesson release with `pnpm training:seed-coffee-story --brand
+   "Coffee Story"` from a trusted environment. The command is idempotent and
+   requires `SUPABASE_URL` plus `SUPABASE_SERVICE_ROLE_KEY`; the service key
+   must never be placed in an Expo or browser environment.
 
 ## 6. Verifying a deployment
 

@@ -37,7 +37,7 @@ export default async function KioskPage() {
         it shows is what a kiosk will draw. Note that a tile can be valid and still wrong: nothing
         here can tell that &ldquo;Pastries&rdquo; points at the Boba category.
       </p>
-      <KioskFlowEditor initial={kiosk} menu={menu} updatedAt={updatedAt} />
+      <KioskFlowEditor initial={kiosk} menu={menu} updatedAt={updatedAt} brandName={session?.brandName} />
     </>
   );
 }

@@ -63,6 +63,19 @@ describe('layoutConstellation', () => {
     }
   });
 
+  it('fits the full seven-tile layout in a 1280x720 kiosk stage', () => {
+    const compact = { width: 1216, height: 530 };
+    const placed = layoutConstellation(SHAPES[3] ?? [], compact);
+    assert.equal(placed.length, 7);
+    for (const circle of placed) {
+      const radius = circle.size / 2;
+      assert.ok(circle.x - radius >= 0, `${circle.id} off the left edge`);
+      assert.ok(circle.x + radius <= compact.width, `${circle.id} off the right edge`);
+      assert.ok(circle.y - radius >= 0, `${circle.id} off the top`);
+      assert.ok(circle.y + radius <= compact.height, `${circle.id} off the bottom`);
+    }
+  });
+
   it('expresses emphasis as size, so the hierarchy survives the layout', () => {
     assert.ok(CIRCLE_SIZE.hero > CIRCLE_SIZE.standard);
     assert.ok(CIRCLE_SIZE.standard > CIRCLE_SIZE.minor);

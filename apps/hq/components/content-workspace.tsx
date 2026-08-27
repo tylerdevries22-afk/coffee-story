@@ -1,16 +1,13 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
 import { contentCounts, type ContentWorkspaceData } from '@/lib/content-model';
 
 import { MenuContentEditor } from './menu-content-editor';
-import { TrainingContentEditor } from './training-content-editor';
 
-type WorkspaceTab = 'menu' | 'training';
 
 export function ContentWorkspace({ initial }: { initial: ContentWorkspaceData }) {
-  const [tab, setTab] = useState<WorkspaceTab>('menu');
   const counts = useMemo(() => contentCounts(initial), [initial]);
   return (
     <div className="content-workspace">
@@ -20,31 +17,15 @@ export function ContentWorkspace({ initial }: { initial: ContentWorkspaceData })
           <h1>Content</h1>
           <p className="subtitle">One source of truth for every storefront image, menu item, lesson, skill, and quiz.</p>
         </div>
-        <div className="content-release-state" aria-label="Current training release">
-          <span className={`status-dot ${initial.training.status}`} aria-hidden="true" />
-          Training {initial.training.status === 'empty' ? 'not published' : `v${initial.training.version} ${initial.training.status}`}
-        </div>
+        <div className="content-release-state">Menu catalog</div>
       </div>
 
       <div className="content-summary-grid" aria-label="Content summary">
         <SummaryCard icon="menu" label="Listed menu items" value={counts.listedItems} detail={`${initial.categories.length} categories`} />
-        <SummaryCard icon="book" label="Training lessons" value={counts.lessons} detail={`${initial.training.manifest.modules.length} modules`} />
-        <SummaryCard icon="image" label="Managed media" value={counts.media} detail="Menu and training" />
+        <SummaryCard icon="image" label="Managed media" value={counts.media} detail="Menu thumbnails" />
       </div>
-
-      <div className="content-tabs" role="tablist" aria-label="Content type">
-        <button type="button" role="tab" aria-selected={tab === 'menu'} className={tab === 'menu' ? 'active' : ''} onClick={() => setTab('menu')}>
-          <ContentIcon kind="menu" /> Menu &amp; pictures
-        </button>
-        <button type="button" role="tab" aria-selected={tab === 'training'} className={tab === 'training' ? 'active' : ''} onClick={() => setTab('training')}>
-          <ContentIcon kind="book" /> Knowledge, skills &amp; training
-        </button>
-      </div>
-
-      <section role="tabpanel" aria-label={tab === 'menu' ? 'Menu and pictures' : 'Knowledge, skills, and training'}>
-        {tab === 'menu'
-          ? <MenuContentEditor initialMenu={initial.menu} initialCategories={initial.categories} initialItems={initial.items} />
-          : <TrainingContentEditor initialRelease={initial.training} initialProfile={initial.trainingProfile} automationRun={initial.automationRun} />}
+      <section aria-label="Menu and pictures">
+        <MenuContentEditor initialMenu={initial.menu} initialCategories={initial.categories} initialItems={initial.items} />
       </section>
     </div>
   );

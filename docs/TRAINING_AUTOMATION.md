@@ -58,6 +58,11 @@ remain unavailable. Each lesson cites its published sources. A release is
 published only after structural and URL-safety gates plus an independent
 claim, safety, media, rights-note, and quiz review pass.
 
+Manifest v2 always includes the five core tracks in this order: Knowledge,
+Skills, Service, Safety, Operations. A tenant may add `custom` modules after
+those tracks. Existing v1 releases are normalized on read and become v2 the
+next time HQ saves them.
+
 The existing `/api/jobs/run` Vercel cron checks tenant training profiles every
 five minutes. It starts at most two durable bootstraps per tick when a tenant
 has no release for the current profile fingerprint, so a new tenant or a
@@ -76,10 +81,15 @@ the automation does not download executable or tenant-controlled UI assets.
 
 ## HQ authoring and media history
 
-Tenant owners use HQ → Content → Training to edit Knowledge and Skills modules,
+Tenant owners use HQ → Training to edit all five core tracks and custom modules,
 lesson copy, image/video references, sources, quizzes, and answer explanations.
 Draft answer keys remain server-only; publication atomically retires the prior
 release and exposes only the answer-free manifest to operator apps.
+
+Reusable industry templates are stored as versioned `training_templates` rows.
+The Coffee Story baseline can be seeded with `pnpm
+training:seed-coffee-story`; other tenants inherit the same track structure and
+overlay their products, services, compliance topics, voice, and media.
 
 Uploaded module and lesson artwork is stored under tenant-prefixed, immutable
 keys in `training-media`. Publishing or updating a draft records every module

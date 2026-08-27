@@ -28,6 +28,7 @@ export const CircleTile = memo(function CircleTile({
   variant,
   request,
   bundled,
+  size,
   index = 0,
   disabled = false,
   selected = false,
@@ -38,6 +39,8 @@ export const CircleTile = memo(function CircleTile({
   variant: MenuImageVariant;
   request: ImageRequest;
   bundled?: BundledArt;
+  /** Diameter from the shared responsive constellation layout. */
+  size?: number;
   /** Position in the entrance stagger. */
   index?: number;
   disabled?: boolean;
@@ -46,6 +49,8 @@ export const CircleTile = memo(function CircleTile({
 }) {
   const tokens = useTokens();
   const reduced = useReducedMotion();
+  const labelWidth = size ? Math.max(106, size * 1.05) : 260;
+  const labelSize = size && size < 140 ? tokens.type.md : tokens.type.lg;
 
   // Resting at the finished state under reduced motion, rather than animating
   // from zero over zero milliseconds -- the end state is what must be correct.
@@ -131,18 +136,28 @@ export const CircleTile = memo(function CircleTile({
             disabled && styles.disabled,
           ]}
         >
-          <KioskMenuImage request={request} variant={variant} bundled={bundled} alt="" />
+            <KioskMenuImage request={request} variant={variant} bundled={bundled} size={size} alt="" />
         </View>
         <Text
           numberOfLines={2}
-          style={[styles.label, { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: tokens.type.lg }]}
+          style={[styles.label, {
+            color: tokens.textPrimary,
+            fontFamily: tokens.fontBody,
+            fontSize: labelSize,
+            maxWidth: labelWidth,
+          }]}
         >
           {label}
         </Text>
         {caption ? (
           <Text
             numberOfLines={1}
-            style={[styles.caption, { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: tokens.type.md }]}
+            style={[styles.caption, {
+              color: tokens.textMuted,
+              fontFamily: tokens.fontBody,
+              fontSize: tokens.type.md,
+              maxWidth: labelWidth,
+            }]}
           >
             {caption}
           </Text>

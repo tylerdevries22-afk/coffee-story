@@ -176,6 +176,10 @@ export const DEMO_KIOSK_MENU = {
   categories: [
     { id: 'Signature Lattes', title: 'Signature Lattes' },
     { id: 'Coffee & Espresso', title: 'Coffee & Espresso' },
+    { id: 'Tea & Matcha', title: 'Tea & Matcha' },
+    { id: 'Boba', title: 'Boba' },
+    { id: 'Sparkling Ades & Smoothies', title: 'Sparkling Ades & Smoothies' },
+    { id: 'Sandwiches', title: 'Sandwiches' },
     { id: 'Sweets & Desserts', title: 'Sweets & Desserts' },
   ],
   itemSlugs: ['tiramisu-latte', 'cortado', 'mochi-donut'],

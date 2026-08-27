@@ -27,7 +27,8 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
         <div className="brand">{session?.brandName ?? 'HQ'}</div>
         <NavLink href="/">Dashboard</NavLink>
         <NavLink href="/locations">Locations</NavLink>
-        {hasRole(session, 'brand_owner') ? <NavLink href="/content">Content</NavLink> : <NavLink href="/menu">Menu</NavLink>}
+        <NavLink href={hasRole(session, 'brand_owner') ? '/content' : '/menu'}>Menu</NavLink>
+        {hasRole(session, 'location_manager') ? <NavLink href="/training">Training</NavLink> : null}
         <NavLink href="/drops">Drops</NavLink>
         <NavLink href="/campaigns">Campaigns</NavLink>
         <NavLink href="/customers">Customers</NavLink>

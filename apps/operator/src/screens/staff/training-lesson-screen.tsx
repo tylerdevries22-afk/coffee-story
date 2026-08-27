@@ -9,10 +9,11 @@ import { TrainingArtwork } from '@/components/training-artwork';
 import { useTrainingRelease } from '@/features/training/use-training-release';
 import { platformApi } from '@/lib/api';
 import { useAppTokens, type AppTokens } from '@platform/ui';
+import { scoreTrainingQuiz } from '@platform/domain';
 
 export function TrainingLessonScreen({ moduleSlug, lessonSlug }: { moduleSlug: string; lessonSlug: string }) {
   const { colors, styles } = useTrainingLessonTheme();
-  const { release, loading, error } = useTrainingRelease();
+  const { release, loading, error, isDemo } = useTrainingRelease();
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [result, setResult] = useState<{ score: number; passed: boolean } | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -23,10 +24,14 @@ export function TrainingLessonScreen({ moduleSlug, lessonSlug }: { moduleSlug: s
   if (error || !release || !lesson) return <LessonMessage text={error ?? 'This lesson is unavailable.'} />;
 
   const submit = async () => {
-    if (!platformApi || answerList.some((answer) => answer < 0)) return;
+    if (answerList.some((answer) => answer < 0)) return;
     setSubmitting(true);
     try {
-      const scored = await platformApi.submitTrainingQuiz({ releaseId: release.id, moduleSlug, lessonSlug, answers: answerList });
+      const scored = isDemo
+        ? scoreTrainingQuiz(lesson.quiz, answerList)
+        : platformApi
+          ? await platformApi.submitTrainingQuiz({ releaseId: release.id, moduleSlug, lessonSlug, answers: answerList })
+          : { score: 0, passed: false };
       setResult(scored);
     } catch {
       setResult({ score: 0, passed: false });

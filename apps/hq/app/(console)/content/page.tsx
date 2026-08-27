@@ -10,7 +10,7 @@ export default async function ContentPage() {
     return (
       <>
         <h1>Content</h1>
-        <div className="notice">Menu and training content is managed by the brand owner.</div>
+        <div className="notice">Menu content editing is managed by the brand owner. Training has its own section.</div>
       </>
     );
   }

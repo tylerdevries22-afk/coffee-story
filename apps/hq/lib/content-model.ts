@@ -3,6 +3,7 @@ import type {
   TrainingAnswerKey,
   TrainingManifest,
 } from './training-bootstrap';
+import { normalizeTrainingManifest, TRAINING_TRACK_ORDER, type TrainingTrackKey } from '@platform/domain';
 
 export type ContentMenuSize = {
   slug: string;
@@ -55,6 +56,8 @@ export type ContentMediaVersion = {
   id: string;
   url: string;
   createdAt: string;
+  entityKey?: string;
+  slot?: string;
 };
 
 export type TrainingReleaseEditor = {
@@ -78,6 +81,7 @@ export type ContentWorkspaceData = {
   categories: ContentCategory[];
   items: ContentMenuItem[];
   training: TrainingReleaseEditor;
+  trainingMediaVersions: ContentMediaVersion[];
   trainingProfile: TenantTrainingProfile;
   automationRun: TrainingAutomationRun;
 };
@@ -150,7 +154,7 @@ export function isMenuItemDraft(value: unknown): value is MenuItemDraft {
 }
 
 export function isTrainingDraftPayload(value: unknown): value is TrainingManifest {
-  if (!isRecord(value) || value.schemaVersion !== 1 || !isRecord(value.tenant)
+  if (!isRecord(value) || (value.schemaVersion !== 1 && value.schemaVersion !== 2) || !isRecord(value.tenant)
       || !Array.isArray(value.sources) || !Array.isArray(value.modules)) return false;
   const tenant = value.tenant;
   if (typeof tenant.businessName !== 'string' || typeof tenant.industry !== 'string' || typeof tenant.locale !== 'string') return false;
@@ -158,6 +162,8 @@ export function isTrainingDraftPayload(value: unknown): value is TrainingManifes
     && ['title', 'url', 'publisher', 'accessedAt'].every((key) => typeof source[key] === 'string'));
   return sourcesValid && value.modules.every((module) => isRecord(module)
     && typeof module.slug === 'string' && typeof module.title === 'string' && typeof module.summary === 'string'
+    && (module.trackKey === undefined || ['knowledge', 'skills', 'service', 'safety', 'operations', 'custom'].includes(module.trackKey as string))
+    && (module.sortOrder === undefined || typeof module.sortOrder === 'number')
     && isRecord(module.icon) && typeof module.icon.symbol === 'string' && typeof module.icon.prompt === 'string'
     && (module.icon.url === undefined || typeof module.icon.url === 'string')
     && Array.isArray(module.lessons) && module.lessons.every((lesson) => isLessonPayload(lesson)));
@@ -175,7 +181,9 @@ function isLessonPayload(value: unknown): boolean {
     && typeof question.prompt === 'string' && typeof question.explanation === 'string'
     && (question.correctChoice === undefined || typeof question.correctChoice === 'number')
     && Array.isArray(question.choices) && question.choices.every((choice) => typeof choice === 'string'));
-  return mediaValid && quizValid;
+  const menuReferencesValid = value.menuItemSlugs === undefined
+    || (Array.isArray(value.menuItemSlugs) && value.menuItemSlugs.every((slug) => typeof slug === 'string' && SLUG.test(slug)));
+  return mediaValid && quizValid && menuReferencesValid;
 }
 
 export function slugFromLabel(label: string): string {
@@ -273,8 +281,9 @@ export function restoreTrainingAnswers(
 
 export function validateTrainingDraft(manifest: TrainingManifest): string[] {
   const issues: string[] = [];
-  if (manifest.schemaVersion !== 1) issues.push('Training schema version must be 1.');
-  if (manifest.modules.length > 8) issues.push('Training can contain no more than 8 modules.');
+  if (manifest.schemaVersion !== 1 && manifest.schemaVersion !== 2) issues.push('Training schema version must be 1 or 2.');
+  const normalized = normalizeTrainingManifest(manifest);
+  if (normalized.modules.length > 16) issues.push('Training can contain no more than 16 modules.');
   if (manifest.sources.length > 12) issues.push('Training can contain no more than 12 sources.');
   for (const module of manifest.modules) {
     if (!SLUG.test(module.slug)) issues.push(`Module “${module.title || 'Untitled'}” needs a valid slug.`);
@@ -285,6 +294,8 @@ export function validateTrainingDraft(manifest: TrainingManifest): string[] {
       if (lesson.quiz.length > 20) issues.push(`Lesson “${lesson.title || lesson.slug}” has more than 20 quiz questions.`);
     }
   }
+  const trackKeys = new Set(normalized.modules.map((module) => module.trackKey).filter((key): key is TrainingTrackKey => Boolean(key)));
+  for (const track of TRAINING_TRACK_ORDER) if (!trackKeys.has(track)) issues.push(`Training needs a ${track} module.`);
   if (new TextEncoder().encode(JSON.stringify(manifest)).byteLength > 1_500_000) {
     issues.push('Training content cannot exceed 1.5 MB.');
   }
@@ -292,19 +303,23 @@ export function validateTrainingDraft(manifest: TrainingManifest): string[] {
 }
 
 export function starterTrainingManifest(profile: TenantTrainingProfile): TrainingManifest {
-  const starterModule = (slug: 'knowledge' | 'skills', title: string) => ({
-    slug,
-    title,
-    summary: `Add the ${title.toLowerCase()} every operator needs for this business.`,
-    icon: { symbol: slug === 'knowledge' ? 'book-open' : 'wrench', prompt: `Simple monochrome ${title.toLowerCase()} icon` },
-    lessons: [],
-  });
+  const icons: Record<(typeof TRAINING_TRACK_ORDER)[number], string> = {
+    knowledge: 'book-open', skills: 'wrench', service: 'star', safety: 'lock', operations: 'briefcase',
+  };
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     generatedAt: new Date(0).toISOString(),
     tenant: profile,
     sources: [],
-    modules: [starterModule('knowledge', 'Knowledge'), starterModule('skills', 'Skills')],
+    modules: TRAINING_TRACK_ORDER.map((trackKey, sortOrder) => ({
+      slug: trackKey,
+      trackKey,
+      sortOrder,
+      title: trackKey.charAt(0).toUpperCase() + trackKey.slice(1),
+      summary: `Add the ${trackKey} every operator needs for this business.`,
+      icon: { symbol: icons[trackKey], prompt: `Simple monochrome ${trackKey} line icon` },
+      lessons: [],
+    })),
   };
 }
 

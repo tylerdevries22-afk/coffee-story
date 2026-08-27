@@ -21,7 +21,8 @@
  * to know. A kiosk that cannot read its menu says so and keeps retrying.
  */
 import {
-  fetchBrandBySlug, fetchMenuTree, readWithRetry, subscribeToLocationSettings, subscribeToMenu,
+  fetchBrandBySlug, fetchBrandConfig, fetchMenuTree, readWithRetry, subscribeToBrandConfig,
+  subscribeToLocationSettings, subscribeToMenu,
 } from '@platform/data';
 import { EMPTY_KIOSK_MENU, type KioskMenu } from '@platform/domain';
 import {
@@ -39,6 +40,8 @@ export type KioskMenuStatus = 'demo' | 'loading' | 'live' | 'paused' | 'unavaila
 export type KioskMenuValue = {
   menu: KioskMenu;
   status: KioskMenuStatus;
+  /** The resolved tenant kiosk flow. Updated through a payload-free signal. */
+  kioskConfig: unknown;
   /** Read again now — the retry affordance on the unavailable screen. */
   refresh: () => void;
 };
@@ -46,7 +49,7 @@ export type KioskMenuValue = {
 const DEMO_MENU = demoMenu();
 
 const MenuContext = createContext<KioskMenuValue>({
-  menu: DEMO_MENU, status: 'demo', refresh: () => {},
+  menu: DEMO_MENU, status: 'demo', kioskConfig: TENANT_BRAND_CONFIG.kiosk, refresh: () => {},
 });
 
 /** Backoff between failed reads. A kiosk retries all day; it must not spin. */
@@ -56,6 +59,7 @@ export function MenuProvider({ children }: PropsWithChildren) {
   const { brandId: deviceBrandId, locationId: deviceLocationId } = useDevice();
   const [menu, setMenu] = useState<KioskMenu>(hasSupabaseConfig ? EMPTY_KIOSK_MENU : DEMO_MENU);
   const [status, setStatus] = useState<KioskMenuStatus>(hasSupabaseConfig ? 'loading' : 'demo');
+  const [kioskConfig, setKioskConfig] = useState<unknown>(hasSupabaseConfig ? null : TENANT_BRAND_CONFIG.kiosk);
   const [nonce, setNonce] = useState(0);
   const failures = useRef(0);
   const locationFailures = useRef(0);
@@ -88,6 +92,7 @@ export function MenuProvider({ children }: PropsWithChildren) {
         if (!summary) throw new Error('The configured brand is unavailable.');
         brandFailures.current = 0;
         setStatus('loading');
+        setKioskConfig(kioskConfigOf(summary.brand.brand_config));
         setResolvedBrandId(summary.brand.id);
         setResolvedLocationId(summary.locations[0]?.id ?? null);
       })
@@ -108,6 +113,8 @@ export function MenuProvider({ children }: PropsWithChildren) {
     const client = supabase;
     if (!client || brandId === null) return;
     let alive = true;
+    let configRetry: ReturnType<typeof setTimeout> | null = null;
+    let configFailures = 0;
     let menuRetry: ReturnType<typeof setTimeout> | null = null;
     let locationRetry: ReturnType<typeof setTimeout> | null = null;
     let orderingPaused = false;
@@ -117,6 +124,33 @@ export function MenuProvider({ children }: PropsWithChildren) {
     let locationGeneration = 0;
 
     setStatus('loading');
+
+    // A paired device can arrive with only a brand id. Read the public view
+    // once, then reconcile on the narrow signal emitted by HQ saves. Failed
+    // reads keep the last valid flow and retry with the same bounded backoff
+    // as the menu, so a transient outage cannot strand a running kiosk.
+    const readConfig = () => {
+      void fetchBrandConfig(client, brandId)
+        .then((config) => {
+          if (!alive) return;
+          if (configRetry) {
+            clearTimeout(configRetry);
+            configRetry = null;
+          }
+          configFailures = 0;
+          setKioskConfig(kioskConfigOf(config));
+        })
+        .catch(() => {
+          if (!alive) return;
+          const wait = RETRY_MS[Math.min(configFailures, RETRY_MS.length - 1)] ?? 60_000;
+          configFailures += 1;
+          if (configRetry) clearTimeout(configRetry);
+          configRetry = setTimeout(readConfig, wait);
+        });
+    };
+    setKioskConfig(null);
+    readConfig();
+    const unsubscribeConfig = subscribeToBrandConfig(client, brandId, readConfig);
 
     const publishStatus = () => {
       if (!alive || !menuReady || !pauseKnown) return;
@@ -204,13 +238,21 @@ export function MenuProvider({ children }: PropsWithChildren) {
       alive = false;
       if (menuRetry) clearTimeout(menuRetry);
       if (locationRetry) clearTimeout(locationRetry);
+      if (configRetry) clearTimeout(configRetry);
       unsubscribe();
       unsubscribeLocation();
+      unsubscribeConfig();
     };
   }, [brandId, locationId, nonce]);
 
-  const value = useMemo<KioskMenuValue>(() => ({ menu, status, refresh }), [menu, status, refresh]);
+  const value = useMemo<KioskMenuValue>(() => ({ menu, status, kioskConfig, refresh }), [menu, status, kioskConfig, refresh]);
   return <MenuContext.Provider value={value}>{children}</MenuContext.Provider>;
+}
+
+function kioskConfigOf(config: unknown): unknown {
+  if (typeof config !== 'object' || config === null || Array.isArray(config)) return null;
+  const kiosk = (config as Record<string, unknown>).kiosk;
+  return typeof kiosk === 'object' && kiosk !== null && !Array.isArray(kiosk) ? kiosk : null;
 }
 
 export function useKioskMenu(): KioskMenuValue {

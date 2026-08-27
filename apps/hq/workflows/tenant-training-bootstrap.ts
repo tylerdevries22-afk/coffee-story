@@ -1,10 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
-import type { TenantTrainingProfile, TrainingManifest, TrainingModule, TrainingSource } from '@platform/domain';
+import { normalizeTrainingManifest, type TenantTrainingProfile, type TrainingManifest, type TrainingModule, type TrainingSource } from '@platform/domain';
 import { FatalError, sleep } from 'workflow';
 
 import {
   normalizeTrainingProfile,
   prepareTrainingRelease,
+  mergeTrainingTemplate,
   TRAINING_PIPELINE_VERSION,
   validateTrainingManifest,
 } from '../lib/training-bootstrap';
@@ -40,15 +41,16 @@ const RESPONSE_SCHEMA = {
       } },
     },
     modules: {
-      type: 'array', minItems: 2, maxItems: 8,
-      items: { type: 'object', additionalProperties: false, required: ['slug', 'title', 'summary', 'icon', 'lessons'], properties: {
-        slug: { type: 'string' }, title: { type: 'string' }, summary: { type: 'string' },
+      type: 'array', minItems: 5, maxItems: 16,
+      items: { type: 'object', additionalProperties: false, required: ['slug', 'trackKey', 'sortOrder', 'title', 'summary', 'icon', 'lessons'], properties: {
+        slug: { type: 'string' }, trackKey: { type: 'string', enum: ['knowledge', 'skills', 'service', 'safety', 'operations', 'custom'] }, sortOrder: { type: 'integer', minimum: 0 }, title: { type: 'string' }, summary: { type: 'string' },
         icon: { type: 'object', additionalProperties: false, required: ['symbol', 'prompt'], properties: {
           symbol: { type: 'string' }, prompt: { type: 'string' },
         } },
         lessons: { type: 'array', minItems: 1, maxItems: 12, items: { type: 'object', additionalProperties: false, required: ['slug', 'title', 'objective', 'content', 'estimatedMinutes', 'sourceUrls', 'media', 'quiz'], properties: {
           slug: { type: 'string' }, title: { type: 'string' }, objective: { type: 'string' }, content: { type: 'string' }, estimatedMinutes: { type: 'integer', minimum: 1, maximum: 90 },
           sourceUrls: { type: 'array', minItems: 1, items: { type: 'string' } },
+          menuItemSlugs: { type: 'array', items: { type: 'string' } },
           media: { type: 'array', maxItems: 4, items: { type: 'object', additionalProperties: false, required: ['kind', 'url', 'title', 'rightsNote'], properties: {
             kind: { type: 'string', enum: ['image', 'video'] }, url: { type: 'string' }, title: { type: 'string' }, rightsNote: { type: 'string' },
           } } },
@@ -79,6 +81,19 @@ function database() {
     auth: { persistSession: false },
     global: { fetch: (input, init) => fetchWithRetry(input, init ?? {}) },
   });
+}
+
+async function loadTemplate(profile: TenantTrainingProfile): Promise<TrainingManifest | null> {
+  if (!profile.templateKey) return null;
+  const query = database().from('training_templates').select('manifest')
+    .eq('template_key', profile.templateKey).eq('status', 'published');
+  const result = Number.isInteger(profile.templateVersion) && (profile.templateVersion ?? 0) > 0
+    ? await query.eq('version', profile.templateVersion).maybeSingle<{ manifest: unknown }>()
+    : await query.order('version', { ascending: false }).limit(1).maybeSingle<{ manifest: unknown }>();
+  if (result.error || !result.data?.manifest || typeof result.data.manifest !== 'object') return null;
+  const value = result.data.manifest as Partial<TrainingManifest>;
+  if (!Array.isArray(value.modules) || !Array.isArray(value.sources) || !value.tenant) return null;
+  return normalizeTrainingManifest(value as TrainingManifest);
 }
 
 async function updateRun(brandId: string, runId: string, values: Record<string, unknown>): Promise<void> {
@@ -124,7 +139,7 @@ async function startResearch(profile: TenantTrainingProfile, runId: string): Pro
       tools: [{ type: 'web_search' }],
       input: [
         { role: 'system', content: 'You are a franchise training architect. Research authoritative and current sources. Produce safe, practical, role-neutral operator training. Use only HTTPS media links and include a plain-language rights note. Never claim legal certification.' },
-        { role: 'user', content: `Build a complete initial training curriculum for this tenant profile: ${JSON.stringify(profile)}. Include foundational knowledge and hands-on skills, real publisher-hosted video or image resources where useful, concise lessons, and scenario-based quizzes. Every lesson must cite the exact source URLs supporting its operational claims. Icon symbols must be portable semantic names and prompts must describe a simple monochrome line icon.` },
+        { role: 'user', content: `Build a complete tenant curriculum for this profile: ${JSON.stringify(profile)}. Return one module for each required track in this order: Knowledge, Skills, Service, Safety, Operations; add custom modules only when useful. Include concise, practical lessons, scenario-based quizzes, and verified publisher-hosted media where useful. Every lesson must cite exact source URLs supporting its claims. Icon symbols must be portable semantic names and prompts must describe a simple monochrome line icon. Use menuItemSlugs only when a lesson directly explains a tenant menu item.` },
       ],
       text: { format: { type: 'json_schema', name: 'tenant_training_curriculum', strict: true, schema: RESPONSE_SCHEMA } },
     }),
@@ -229,7 +244,7 @@ export async function bootstrapTenantTraining(input: BootstrapInput): Promise<{ 
       generated = await pollResearch(responseId);
     }
     if (!generated) throw new Error('Research did not complete within 15 minutes.');
-    const manifest: TrainingManifest = { schemaVersion: 1, generatedAt: new Date().toISOString(), tenant: profile, ...generated };
+    const manifest = mergeTrainingTemplate(await loadTemplate(profile), generated, profile);
     await updateRun(input.brandId, input.runId, { status: 'validating', stage: 'quality_gates', progress: 80 });
     qualityIssues = validateTrainingManifest(manifest);
     if (qualityIssues.length > 0) {

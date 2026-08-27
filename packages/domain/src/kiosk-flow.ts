@@ -104,6 +104,8 @@ export type KioskFlow = {
 export type KioskMenuFacts = {
   categories: readonly { id: string; title: string }[];
   itemSlugs: readonly string[];
+  /** Menu item slug → current tenant media URL, for browser previews. */
+  imageUrls?: Readonly<Record<string, string>>;
 };
 
 export const EMPTY_MENU_FACTS: KioskMenuFacts = { categories: [], itemSlugs: [] };

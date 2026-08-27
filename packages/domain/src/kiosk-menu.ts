@@ -295,10 +295,16 @@ export function kioskMenuFromRows(rows: MenuRows): KioskMenu {
 export function menuFactsFrom(menu: KioskMenu): {
   categories: readonly { id: string; title: string }[];
   itemSlugs: readonly string[];
+  imageUrls?: Readonly<Record<string, string>>;
 } {
+  const imageUrls: Record<string, string> = {};
+  for (const item of menu.items) {
+    if (item.imageUrl) imageUrls[item.id] = item.imageUrl;
+  }
   return {
     categories: menu.categories.map((c) => ({ id: c.id, title: c.title })),
     itemSlugs: menu.items.map((i) => i.id),
+    ...(Object.keys(imageUrls).length > 0 ? { imageUrls } : {}),
   };
 }
 

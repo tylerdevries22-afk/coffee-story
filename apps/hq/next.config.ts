@@ -20,6 +20,9 @@ const workspaceRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
  */
 const config: NextConfig = {
   outputFileTracingRoot: workspaceRoot,
+  // Keep a running preview isolated from a concurrent production build. Both
+  // commands otherwise mutate `.next` and can briefly serve missing chunks.
+  distDir: process.env.NODE_ENV === 'development' ? '.next-dev' : '.next',
   // Workspace packages ship TypeScript source; Next compiles them in place.
   transpilePackages: ['@platform/schema', '@platform/domain', '@platform/engine', '@platform/api-client'],
   experimental: {

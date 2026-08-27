@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { parseOptionGroups, parseSizes } from '@platform/domain';
+import { coffeeStoryTrainingManifest, normalizeTrainingManifest, parseOptionGroups, parseSizes } from '@platform/domain';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { TrainingAnswerKey, TrainingManifest } from './training-bootstrap';
@@ -45,7 +45,7 @@ type ReleaseRow = {
   updated_at: string;
 };
 type RunRow = { id: string; status: string; stage: string; progress: number; created_at: string };
-type MediaVersionRow = { id: string; entity_key: string; public_url: string; created_at: string };
+type MediaVersionRow = { id: string; entity_type: string; entity_key: string; slot: string; public_url: string; created_at: string };
 
 const DEMO_PROFILE = {
   businessName: 'Coffee Story', industry: 'Specialty coffee shop and café', locale: 'en-US',
@@ -68,45 +68,7 @@ type DemoMenu = {
 const DEMO_MENU = demoMenuJson as DemoMenu;
 
 function demoManifest(): TrainingManifest {
-  const sourceUrls = [
-    'https://sca.coffee/research/coffee-standards',
-    'https://www.fda.gov/food/retail-food-protection/fda-food-code',
-    'https://www.osha.gov/etools/young-workers-restaurant-safety',
-  ];
-  const lesson = (slug: string, title: string, objective: string, sourceUrl: string) => ({
-    slug, title, objective,
-    content: `${objective}. Follow the approved station procedure, confirm the result against the store standard, and ask a shift lead whenever equipment, ingredients, or guest needs fall outside the documented process.`,
-    estimatedMinutes: 8,
-    sourceUrls: [sourceUrl],
-    media: [],
-    quiz: [
-      { prompt: `What is the safest first step for ${title.toLowerCase()}?`, choices: ['Follow the approved procedure', 'Guess from memory'], correctChoice: 0, explanation: 'The approved procedure is the tenant source of truth.' },
-      { prompt: 'What should you do when the situation is not covered?', choices: ['Continue anyway', 'Ask a shift lead'], correctChoice: 1, explanation: 'Escalation protects the guest and the operator.' },
-    ],
-  });
-  return {
-    schemaVersion: 1,
-    generatedAt: '2026-08-26T00:00:00.000Z',
-    tenant: DEMO_PROFILE,
-    sources: sourceUrls.map((url, index) => ({
-      title: ['Coffee standards', 'FDA Food Code', 'Restaurant safety'][index] ?? 'Operations source',
-      url,
-      publisher: ['Specialty Coffee Association', 'U.S. Food and Drug Administration', 'OSHA'][index] ?? 'Publisher',
-      accessedAt: '2026-08-26',
-    })),
-    modules: [
-      {
-        slug: 'knowledge', title: 'Knowledge', summary: 'Products, standards, and guest-ready explanations.',
-        icon: { symbol: 'book-open', prompt: 'Simple monochrome open book with a coffee bean' },
-        lessons: [lesson('coffee-foundations', 'Coffee foundations', 'Explain the menu and quality standard', sourceUrls[0]!)],
-      },
-      {
-        slug: 'skills', title: 'Skills', summary: 'Repeatable station work and safe service habits.',
-        icon: { symbol: 'wrench', prompt: 'Simple monochrome barista tool icon' },
-        lessons: [lesson('safe-station', 'Safe station work', 'Prepare and close a clean, safe station', sourceUrls[2]!)],
-      },
-    ],
-  };
+  return coffeeStoryTrainingManifest(DEMO_PROFILE);
 }
 
 const DEMO_WORKSPACE: ContentWorkspaceData = {
@@ -137,6 +99,7 @@ const DEMO_WORKSPACE: ContentWorkspaceData = {
     };
   }),
   training: { id: 'demo-release', version: 3, status: 'published', manifest: demoManifest(), updatedAt: null },
+  trainingMediaVersions: [],
   trainingProfile: DEMO_PROFILE,
   automationRun: { id: 'demo-run', status: 'published', stage: 'complete', progress: 100, createdAt: '2026-08-26T00:00:00.000Z' },
 };
@@ -145,7 +108,9 @@ function asManifest(value: unknown, profile: ContentWorkspaceData['trainingProfi
   if (!value || typeof value !== 'object') return starterTrainingManifest(profile);
   const candidate = value as Partial<TrainingManifest>;
   return candidate.schemaVersion === 1 && Array.isArray(candidate.sources) && Array.isArray(candidate.modules)
-    ? candidate as TrainingManifest
+    ? normalizeTrainingManifest(candidate as TrainingManifest)
+    : candidate.schemaVersion === 2 && Array.isArray(candidate.sources) && Array.isArray(candidate.modules)
+      ? normalizeTrainingManifest(candidate as TrainingManifest)
     : starterTrainingManifest(profile);
 }
 
@@ -153,7 +118,7 @@ function contentItems(rows: ItemRow[], versions: MediaVersionRow[]): ContentMenu
   const versionsByItem = new Map<string, ContentMenuItem['mediaVersions']>();
   for (const version of versions) {
     const itemVersions = versionsByItem.get(version.entity_key) ?? [];
-    itemVersions.push({ id: version.id, url: version.public_url, createdAt: version.created_at });
+    itemVersions.push({ id: version.id, url: version.public_url, createdAt: version.created_at, entityKey: version.entity_key, slot: version.slot });
     versionsByItem.set(version.entity_key, itemVersions);
   }
   return rows.map((row) => {
@@ -215,10 +180,10 @@ async function loadOrCreateTenantMenu(
   throw new Error(`content menu: ${creationMessage}`);
 }
 
-/** Loads the owner workspace for exactly the tenant in the verified JWT. */
-export async function loadContentWorkspace(): Promise<ContentWorkspaceData> {
+/** Loads the tenant workspace for exactly the tenant in the verified JWT. */
+export async function loadContentWorkspace(options: { includeDraft?: boolean; includeAnswers?: boolean } = {}): Promise<ContentWorkspaceData> {
   const session = await currentSession();
-  if (!session || !hasRole(session, 'brand_owner')) throw new Error('Content management requires a brand owner.');
+  if (!session || !hasRole(session, 'location_manager')) throw new Error('Content management requires manager access.');
   const client = await serverClient();
   if (!client) return DEMO_WORKSPACE;
   const user = await client.auth.getUser();
@@ -226,8 +191,8 @@ export async function loadContentWorkspace(): Promise<ContentWorkspaceData> {
   const membership = await client.from('brand_users').select('role')
     .eq('brand_id', session.brandId).eq('user_id', user.data.user.id)
     .single<{ role: string }>();
-  if (membership.error || !['brand_owner', 'platform_admin'].includes(membership.data.role)) {
-    throw new Error('Content management requires current tenant owner access.');
+  if (membership.error || !['brand_owner', 'platform_admin', 'location_manager'].includes(membership.data.role)) {
+    throw new Error('Content management requires current tenant access.');
   }
   const env = serverEnv();
   if (!env) throw new Error('HQ content management requires server-side Supabase credentials.');
@@ -253,8 +218,8 @@ export async function loadContentWorkspace(): Promise<ContentWorkspaceData> {
       .order('created_at', { ascending: false }).returns<ReleaseRow[]>(),
     client.from('training_bootstrap_runs').select('id, status, stage, progress, created_at')
       .eq('brand_id', session.brandId).order('created_at', { ascending: false }).limit(1).returns<RunRow[]>(),
-    client.from('content_media_versions').select('id, entity_key, public_url, created_at')
-      .eq('brand_id', session.brandId).eq('entity_type', 'menu_item').eq('slot', 'thumbnail')
+    client.from('content_media_versions').select('id, entity_type, entity_key, slot, public_url, created_at')
+      .eq('brand_id', session.brandId)
       .order('created_at', { ascending: false }).limit(500).returns<MediaVersionRow[]>(),
   ]);
   if (categories.error) throw new Error(`content categories: ${categories.error.message}`);
@@ -263,10 +228,10 @@ export async function loadContentWorkspace(): Promise<ContentWorkspaceData> {
   if (runs.error) throw new Error(`content automation: ${runs.error.message}`);
   if (mediaVersions.error) throw new Error(`content media history: ${mediaVersions.error.message}`);
 
-  const selected = releases.data?.find((release) => release.status === 'draft')
+  const selected = (options.includeDraft !== false ? releases.data?.find((release) => release.status === 'draft') : undefined)
     ?? releases.data?.find((release) => release.status === 'published');
   let manifest = asManifest(selected?.manifest, profile);
-  if (selected) {
+  if (selected && options.includeAnswers !== false) {
     const privateRelease = await privileged.from('training_releases')
       .select('answer_key').eq('id', selected.id).eq('brand_id', session.brandId)
       .single<{ answer_key: unknown }>();
@@ -286,7 +251,13 @@ export async function loadContentWorkspace(): Promise<ContentWorkspaceData> {
       updatedAt: menu.updated_at,
     },
     categories: categoryRows,
-    items: contentItems(items.data ?? [], mediaVersions.data ?? []),
+    items: contentItems(
+      items.data ?? [],
+      (mediaVersions.data ?? []).filter((version) => version.entity_type === 'menu_item' && version.slot === 'thumbnail'),
+    ),
+    trainingMediaVersions: (mediaVersions.data ?? [])
+      .filter((version) => version.entity_type !== 'menu_item')
+      .map((version) => ({ id: version.id, url: version.public_url, createdAt: version.created_at, entityKey: version.entity_key, slot: version.slot })),
     training: selected
       ? { id: selected.id, version: selected.version, status: selected.status, manifest, updatedAt: selected.updated_at }
       : { id: null, version: 0, status: 'empty', manifest, updatedAt: null },

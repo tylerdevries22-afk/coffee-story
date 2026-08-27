@@ -7,6 +7,11 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.17"
+  }
   app: {
     Tables: {
       [_ in never]: never
@@ -52,6 +57,10 @@ export type Database = {
           stored_value: boolean
         }[]
       }
+      calendar_row_visible: {
+        Args: { target_brand: string; target_location: string }
+        Returns: boolean
+      }
       can_read_board: {
         Args: { target_brand: string; target_location: string }
         Returns: boolean
@@ -72,8 +81,13 @@ export type Database = {
         }
         Returns: string
       }
+      is_brand_manager: { Args: { target_brand: string }; Returns: boolean }
       is_brand_owner: { Args: { target_brand: string }; Returns: boolean }
       is_brand_staff: { Args: { target_brand: string }; Returns: boolean }
+      is_current_brand_user: {
+        Args: { target_brand: string; target_brand_user: string }
+        Returns: boolean
+      }
       is_device_at: {
         Args: { target_brand: string; target_location: string }
         Returns: boolean
@@ -103,6 +117,11 @@ export type Database = {
         Args: { target_brand: string; target_customer: string }
         Returns: string
       }
+      manages_location: {
+        Args: { target_brand: string; target_location: string }
+        Returns: boolean
+      }
+      mark_order_arrived: { Args: { target_order: string }; Returns: string }
       order_transition_allowed: {
         Args: {
           from_status: Database["app"]["Enums"]["order_status"]
@@ -131,6 +150,7 @@ export type Database = {
         Args: { config: Json; expected_updated_at?: string }
         Returns: string
       }
+      valid_slug_set: { Args: { p_values: string[] }; Returns: boolean }
     }
     Enums: {
       brand_role:
@@ -160,6 +180,102 @@ export type Database = {
   }
   public: {
     Tables: {
+      availability_blockouts: {
+        Row: {
+          brand_id: string
+          brand_user_id: string | null
+          created_at: string
+          ends_at: string
+          id: string
+          location_id: string | null
+          project_key: string | null
+          reason: string
+          requested_by: string
+          review_note: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          scope_kind: string
+          starts_at: string
+          status: string
+          timezone: string
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          brand_user_id?: string | null
+          created_at?: string
+          ends_at: string
+          id?: string
+          location_id?: string | null
+          project_key?: string | null
+          reason: string
+          requested_by: string
+          review_note?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          scope_kind: string
+          starts_at: string
+          status?: string
+          timezone?: string
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          brand_user_id?: string | null
+          created_at?: string
+          ends_at?: string
+          id?: string
+          location_id?: string | null
+          project_key?: string | null
+          reason?: string
+          requested_by?: string
+          review_note?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          scope_kind?: string
+          starts_at?: string
+          status?: string
+          timezone?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "availability_blockouts_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "availability_blockouts_brand_user_id_brand_id_fkey"
+            columns: ["brand_user_id", "brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_users"
+            referencedColumns: ["id", "brand_id"]
+          },
+          {
+            foreignKeyName: "availability_blockouts_location_id_brand_id_fkey"
+            columns: ["location_id", "brand_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id", "brand_id"]
+          },
+          {
+            foreignKeyName: "availability_blockouts_requested_by_brand_id_fkey"
+            columns: ["requested_by", "brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_users"
+            referencedColumns: ["id", "brand_id"]
+          },
+          {
+            foreignKeyName: "availability_blockouts_reviewed_by_brand_id_fkey"
+            columns: ["reviewed_by", "brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_users"
+            referencedColumns: ["id", "brand_id"]
+          },
+        ]
+      }
       board_change_signals: {
         Row: {
           brand_id: string
@@ -192,6 +308,32 @@ export type Database = {
             columns: ["location_id"]
             isOneToOne: true
             referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      brand_config_signals: {
+        Row: {
+          brand_id: string
+          changed_at: string
+          revision: number
+        }
+        Insert: {
+          brand_id: string
+          changed_at?: string
+          revision?: number
+        }
+        Update: {
+          brand_id?: string
+          changed_at?: string
+          revision?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_config_signals_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: true
+            referencedRelation: "brands"
             referencedColumns: ["id"]
           },
         ]
@@ -291,6 +433,207 @@ export type Database = {
         }
         Relationships: []
       }
+      calendar_categories: {
+        Row: {
+          accent_color: string
+          brand_id: string
+          core_kind: string
+          created_at: string
+          detail_template: string
+          icon_key: string
+          id: string
+          is_active: boolean
+          name: string
+          slug: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          accent_color: string
+          brand_id: string
+          core_kind: string
+          created_at?: string
+          detail_template?: string
+          icon_key: string
+          id?: string
+          is_active?: boolean
+          name: string
+          slug: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          accent_color?: string
+          brand_id?: string
+          core_kind?: string
+          created_at?: string
+          detail_template?: string
+          icon_key?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          slug?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_categories_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calendar_entries: {
+        Row: {
+          brand_id: string
+          category_id: string
+          created_at: string
+          created_by: string | null
+          detail: Json
+          ends_at: string
+          id: string
+          is_all_day: boolean
+          location_id: string | null
+          project_key: string | null
+          recurrence_rule: string | null
+          starts_at: string
+          status: string
+          summary: string
+          timezone: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          category_id: string
+          created_at?: string
+          created_by?: string | null
+          detail?: Json
+          ends_at: string
+          id?: string
+          is_all_day?: boolean
+          location_id?: string | null
+          project_key?: string | null
+          recurrence_rule?: string | null
+          starts_at: string
+          status?: string
+          summary?: string
+          timezone?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          category_id?: string
+          created_at?: string
+          created_by?: string | null
+          detail?: Json
+          ends_at?: string
+          id?: string
+          is_all_day?: boolean
+          location_id?: string | null
+          project_key?: string | null
+          recurrence_rule?: string | null
+          starts_at?: string
+          status?: string
+          summary?: string
+          timezone?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_entries_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calendar_entries_category_id_brand_id_fkey"
+            columns: ["category_id", "brand_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_categories"
+            referencedColumns: ["id", "brand_id"]
+          },
+          {
+            foreignKeyName: "calendar_entries_created_by_brand_id_fkey"
+            columns: ["created_by", "brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_users"
+            referencedColumns: ["id", "brand_id"]
+          },
+          {
+            foreignKeyName: "calendar_entries_location_id_brand_id_fkey"
+            columns: ["location_id", "brand_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id", "brand_id"]
+          },
+        ]
+      }
+      calendar_entry_assignments: {
+        Row: {
+          assignment_status: string
+          brand_id: string
+          brand_user_id: string
+          calendar_entry_id: string
+          created_at: string
+          id: string
+          workforce_role_id: string | null
+        }
+        Insert: {
+          assignment_status?: string
+          brand_id: string
+          brand_user_id: string
+          calendar_entry_id: string
+          created_at?: string
+          id?: string
+          workforce_role_id?: string | null
+        }
+        Update: {
+          assignment_status?: string
+          brand_id?: string
+          brand_user_id?: string
+          calendar_entry_id?: string
+          created_at?: string
+          id?: string
+          workforce_role_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_entry_assignments_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calendar_entry_assignments_brand_user_id_brand_id_fkey"
+            columns: ["brand_user_id", "brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_users"
+            referencedColumns: ["id", "brand_id"]
+          },
+          {
+            foreignKeyName: "calendar_entry_assignments_calendar_entry_id_brand_id_fkey"
+            columns: ["calendar_entry_id", "brand_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_entries"
+            referencedColumns: ["id", "brand_id"]
+          },
+          {
+            foreignKeyName: "calendar_entry_assignments_workforce_role_id_brand_id_fkey"
+            columns: ["workforce_role_id", "brand_id"]
+            isOneToOne: false
+            referencedRelation: "workforce_roles"
+            referencedColumns: ["id", "brand_id"]
+          },
+        ]
+      }
       campaigns: {
         Row: {
           audience: Json
@@ -358,6 +701,75 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "drops"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      content_media_versions: {
+        Row: {
+          brand_id: string
+          byte_size: number | null
+          checksum_sha256: string | null
+          created_at: string
+          created_by: string | null
+          entity_key: string
+          entity_type: string
+          family: string
+          id: string
+          metadata: Json
+          mime_type: string | null
+          object_path: string | null
+          public_url: string
+          slot: string
+          storage_bucket: string | null
+        }
+        Insert: {
+          brand_id: string
+          byte_size?: number | null
+          checksum_sha256?: string | null
+          created_at?: string
+          created_by?: string | null
+          entity_key: string
+          entity_type: string
+          family: string
+          id?: string
+          metadata?: Json
+          mime_type?: string | null
+          object_path?: string | null
+          public_url: string
+          slot: string
+          storage_bucket?: string | null
+        }
+        Update: {
+          brand_id?: string
+          byte_size?: number | null
+          checksum_sha256?: string | null
+          created_at?: string
+          created_by?: string | null
+          entity_key?: string
+          entity_type?: string
+          family?: string
+          id?: string
+          metadata?: Json
+          mime_type?: string | null
+          object_path?: string | null
+          public_url?: string
+          slot?: string
+          storage_bucket?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_media_versions_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_media_versions_created_by_brand_id_fkey"
+            columns: ["created_by", "brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_users"
+            referencedColumns: ["id", "brand_id"]
           },
         ]
       }
@@ -1657,6 +2069,379 @@ export type Database = {
           },
         ]
       }
+      training_bootstrap_runs: {
+        Row: {
+          brand_id: string
+          created_at: string
+          error_code: string | null
+          error_detail: Json
+          finished_at: string | null
+          id: string
+          next_attempt_at: string | null
+          pipeline_version: string
+          profile_fingerprint: string
+          progress: number
+          requested_by: string | null
+          retry_count: number
+          stage: string
+          started_at: string | null
+          status: string
+          trigger_kind: string
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          error_code?: string | null
+          error_detail?: Json
+          finished_at?: string | null
+          id?: string
+          next_attempt_at?: string | null
+          pipeline_version: string
+          profile_fingerprint: string
+          progress?: number
+          requested_by?: string | null
+          retry_count?: number
+          stage?: string
+          started_at?: string | null
+          status?: string
+          trigger_kind?: string
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          error_code?: string | null
+          error_detail?: Json
+          finished_at?: string | null
+          id?: string
+          next_attempt_at?: string | null
+          pipeline_version?: string
+          profile_fingerprint?: string
+          progress?: number
+          requested_by?: string | null
+          retry_count?: number
+          stage?: string
+          started_at?: string | null
+          status?: string
+          trigger_kind?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_bootstrap_runs_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_bootstrap_runs_requested_by_brand_id_fkey"
+            columns: ["requested_by", "brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_users"
+            referencedColumns: ["id", "brand_id"]
+          },
+        ]
+      }
+      training_lesson_progress: {
+        Row: {
+          attempt_count: number
+          brand_id: string
+          brand_user_id: string
+          completed_at: string | null
+          created_at: string
+          id: string
+          lesson_slug: string
+          module_slug: string
+          release_id: string
+          score: number | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempt_count?: number
+          brand_id: string
+          brand_user_id: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          lesson_slug: string
+          module_slug: string
+          release_id: string
+          score?: number | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attempt_count?: number
+          brand_id?: string
+          brand_user_id?: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          lesson_slug?: string
+          module_slug?: string
+          release_id?: string
+          score?: number | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_lesson_progress_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_lesson_progress_brand_user_id_brand_id_fkey"
+            columns: ["brand_user_id", "brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_users"
+            referencedColumns: ["id", "brand_id"]
+          },
+          {
+            foreignKeyName: "training_lesson_progress_release_id_brand_id_fkey"
+            columns: ["release_id", "brand_id"]
+            isOneToOne: false
+            referencedRelation: "training_releases"
+            referencedColumns: ["id", "brand_id"]
+          },
+        ]
+      }
+      training_quiz_attempts: {
+        Row: {
+          answers: Json
+          brand_id: string
+          brand_user_id: string
+          created_at: string
+          id: string
+          lesson_slug: string
+          module_slug: string
+          passed: boolean
+          release_id: string
+          score: number
+        }
+        Insert: {
+          answers: Json
+          brand_id: string
+          brand_user_id: string
+          created_at?: string
+          id: string
+          lesson_slug: string
+          module_slug: string
+          passed: boolean
+          release_id: string
+          score: number
+        }
+        Update: {
+          answers?: Json
+          brand_id?: string
+          brand_user_id?: string
+          created_at?: string
+          id?: string
+          lesson_slug?: string
+          module_slug?: string
+          passed?: boolean
+          release_id?: string
+          score?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_quiz_attempts_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_quiz_attempts_brand_user_id_brand_id_fkey"
+            columns: ["brand_user_id", "brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_users"
+            referencedColumns: ["id", "brand_id"]
+          },
+          {
+            foreignKeyName: "training_quiz_attempts_release_id_brand_id_fkey"
+            columns: ["release_id", "brand_id"]
+            isOneToOne: false
+            referencedRelation: "training_releases"
+            referencedColumns: ["id", "brand_id"]
+          },
+        ]
+      }
+      training_release_events: {
+        Row: {
+          brand_id: string
+          created_at: string
+          event_type: string
+          id: string
+          published_at: string
+          release_id: string
+          version: number
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          event_type?: string
+          id?: string
+          published_at: string
+          release_id: string
+          version: number
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          event_type?: string
+          id?: string
+          published_at?: string
+          release_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_release_events_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_release_events_release_id_brand_id_fkey"
+            columns: ["release_id", "brand_id"]
+            isOneToOne: false
+            referencedRelation: "training_releases"
+            referencedColumns: ["id", "brand_id"]
+          },
+        ]
+      }
+      training_releases: {
+        Row: {
+          answer_key: Json
+          base_release_id: string | null
+          bootstrap_run_id: string | null
+          brand_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          manifest: Json
+          published_at: string | null
+          status: string
+          template_key: string | null
+          template_version: number | null
+          updated_at: string
+          updated_by: string | null
+          validated_at: string | null
+          version: number
+        }
+        Insert: {
+          answer_key?: Json
+          base_release_id?: string | null
+          bootstrap_run_id?: string | null
+          brand_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          manifest?: Json
+          published_at?: string | null
+          status?: string
+          template_key?: string | null
+          template_version?: number | null
+          updated_at?: string
+          updated_by?: string | null
+          validated_at?: string | null
+          version: number
+        }
+        Update: {
+          answer_key?: Json
+          base_release_id?: string | null
+          bootstrap_run_id?: string | null
+          brand_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          manifest?: Json
+          published_at?: string | null
+          status?: string
+          template_key?: string | null
+          template_version?: number | null
+          updated_at?: string
+          updated_by?: string | null
+          validated_at?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_releases_bootstrap_run_id_brand_id_fkey"
+            columns: ["bootstrap_run_id", "brand_id"]
+            isOneToOne: false
+            referencedRelation: "training_bootstrap_runs"
+            referencedColumns: ["id", "brand_id"]
+          },
+          {
+            foreignKeyName: "training_releases_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_releases_created_by_brand_id_fkey"
+            columns: ["created_by", "brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_users"
+            referencedColumns: ["id", "brand_id"]
+          },
+          {
+            foreignKeyName: "training_releases_updated_by_brand_id_fkey"
+            columns: ["updated_by", "brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_users"
+            referencedColumns: ["id", "brand_id"]
+          },
+        ]
+      }
+      training_templates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          industry: string
+          locale: string
+          manifest: Json
+          status: string
+          template_key: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          industry: string
+          locale?: string
+          manifest: Json
+          status?: string
+          template_key: string
+          updated_at?: string
+          version: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          industry?: string
+          locale?: string
+          manifest?: Json
+          status?: string
+          template_key?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: []
+      }
       webhook_events: {
         Row: {
           error: string | null
@@ -1686,6 +2471,148 @@ export type Database = {
           received_at?: string
         }
         Relationships: []
+      }
+      workforce_profiles: {
+        Row: {
+          brand_id: string
+          brand_user_id: string
+          created_at: string
+          job_title: string
+          updated_at: string
+          worker_type: string
+        }
+        Insert: {
+          brand_id: string
+          brand_user_id: string
+          created_at?: string
+          job_title?: string
+          updated_at?: string
+          worker_type?: string
+        }
+        Update: {
+          brand_id?: string
+          brand_user_id?: string
+          created_at?: string
+          job_title?: string
+          updated_at?: string
+          worker_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workforce_profiles_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workforce_profiles_brand_user_id_brand_id_fkey"
+            columns: ["brand_user_id", "brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_users"
+            referencedColumns: ["id", "brand_id"]
+          },
+        ]
+      }
+      workforce_role_assignments: {
+        Row: {
+          brand_id: string
+          brand_user_id: string
+          created_at: string
+          id: string
+          location_id: string | null
+          workforce_role_id: string
+        }
+        Insert: {
+          brand_id: string
+          brand_user_id: string
+          created_at?: string
+          id?: string
+          location_id?: string | null
+          workforce_role_id: string
+        }
+        Update: {
+          brand_id?: string
+          brand_user_id?: string
+          created_at?: string
+          id?: string
+          location_id?: string | null
+          workforce_role_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workforce_role_assignments_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workforce_role_assignments_brand_user_id_brand_id_fkey"
+            columns: ["brand_user_id", "brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_users"
+            referencedColumns: ["id", "brand_id"]
+          },
+          {
+            foreignKeyName: "workforce_role_assignments_location_id_brand_id_fkey"
+            columns: ["location_id", "brand_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id", "brand_id"]
+          },
+          {
+            foreignKeyName: "workforce_role_assignments_workforce_role_id_brand_id_fkey"
+            columns: ["workforce_role_id", "brand_id"]
+            isOneToOne: false
+            referencedRelation: "workforce_roles"
+            referencedColumns: ["id", "brand_id"]
+          },
+        ]
+      }
+      workforce_roles: {
+        Row: {
+          brand_id: string
+          created_at: string
+          description: string
+          id: string
+          is_active: boolean
+          name: string
+          slug: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          description?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          slug: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          description?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          slug?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workforce_roles_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
@@ -1852,29 +2779,6 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: undefined
       }
-      commit_order: {
-        Args: {
-          p_actor_user_id: string | null
-          p_brand_id: string
-          p_channel: Database["app"]["Enums"]["order_channel"]
-          p_client_key: string
-          p_customer_id: string | null
-          p_device_id: string | null
-          p_fulfillment_type: Database["app"]["Enums"]["fulfillment_type"]
-          p_guest_label: string | null
-          p_location_id: string
-          p_note: string
-          p_request_fingerprint: string
-          p_scheduled_for: string | null
-          p_subtotal_cents: number
-          p_tax_cents: number
-          p_tender_type: string
-          p_tip_cents: number
-          p_total_cents: number
-          p_totals: Json
-        }
-        Returns: Json
-      }
       claim_refund_request: {
         Args: {
           p_brand_id: string
@@ -1884,13 +2788,47 @@ export type Database = {
           p_requested_amount: Json
           p_square_refund_id: string
         }
-        Returns: Database["public"]["Tables"]["order_events"]["Row"]
+        Returns: {
+          actor_user_id: string | null
+          brand_id: string
+          created_at: string
+          id: string
+          order_id: string
+          refund_cents: number | null
+          refund_request_key: string | null
+          snapshot: Json
+          source: string
+          square_event_id: string | null
+          square_refund_id: string | null
+          type: Database["app"]["Enums"]["order_status"]
+        }
+        SetofOptions: {
+          from: "*"
+          to: "order_events"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
-      resolve_order_replay: {
+      commit_order: {
         Args: {
+          p_actor_user_id: string
           p_brand_id: string
+          p_channel: Database["app"]["Enums"]["order_channel"]
           p_client_key: string
+          p_customer_id: string
+          p_device_id: string
+          p_fulfillment_type: Database["app"]["Enums"]["fulfillment_type"]
+          p_guest_label: string
+          p_location_id: string
+          p_note: string
           p_request_fingerprint: string
+          p_scheduled_for: string
+          p_subtotal_cents: number
+          p_tax_cents: number
+          p_tender_type: string
+          p_tip_cents: number
+          p_total_cents: number
+          p_totals: Json
         }
         Returns: Json
       }
@@ -1923,6 +2861,7 @@ export type Database = {
         Returns: number
       }
       mark_order_arrived: { Args: { target_order: string }; Returns: string }
+      platform_release_readiness: { Args: never; Returns: string }
       process_square_refund: {
         Args: {
           refunded_cents: number
@@ -1933,9 +2872,39 @@ export type Database = {
         }
         Returns: boolean
       }
+      publish_manual_training_release: {
+        Args: {
+          expected_updated_at: string
+          target_brand: string
+          target_editor: string
+          target_release: string
+        }
+        Returns: string
+      }
+      publish_training_release: {
+        Args: {
+          release_answer_key: Json
+          release_manifest: Json
+          target_brand: string
+          target_run: string
+        }
+        Returns: string
+      }
+      resolve_order_replay: {
+        Args: {
+          p_brand_id: string
+          p_client_key: string
+          p_request_fingerprint: string
+        }
+        Returns: Json
+      }
       set_brand_settings_config: {
         Args: { config: Json; expected_updated_at?: string }
         Returns: string
+      }
+      store_training_profile: {
+        Args: { target_brand: string; tenant_profile: Json }
+        Returns: undefined
       }
     }
     Enums: {

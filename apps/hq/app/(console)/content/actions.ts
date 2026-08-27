@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { start } from 'workflow/api';
 import { revalidatePath } from 'next/cache';
+import { normalizeTrainingManifest } from '@platform/domain';
 
 import { currentSession, hasRole } from '@/lib/auth';
 import {
@@ -368,7 +369,7 @@ export async function saveTrainingDraft(
 ): Promise<Failure | { ok: true; releaseId: string; version: number; updatedAt: string; persisted: boolean }> {
   if (!isTrainingDraftPayload(input)) return { ok: false, error: 'The training draft payload is invalid.' };
   const manifest: TrainingManifest = input;
-  const draft = { ...manifest, generatedAt: new Date().toISOString() };
+  const draft = { ...normalizeTrainingManifest(manifest), generatedAt: new Date().toISOString() };
   const issues = validateTrainingDraft(draft);
   if (issues.length > 0) return { ok: false, error: issues.join(' ') };
   const context = await managerContext();
@@ -376,6 +377,11 @@ export async function saveTrainingDraft(
   if (!context) {
     return { ok: true, persisted: false, releaseId: `preview-${randomUUID()}`, version: 1, updatedAt: draft.generatedAt };
   }
+  const menuSlugs = await context.privileged.from('menu_items').select('slug').eq('brand_id', context.brandId).returns<{ slug: string }[]>();
+  if (menuSlugs.error) return { ok: false, error: 'The tenant menu could not be checked for training links.' };
+  const knownMenuSlugs = new Set((menuSlugs.data ?? []).map((item) => item.slug));
+  const missingMenuLinks = draft.modules.flatMap((module) => module.lessons.flatMap((lesson) => (lesson.menuItemSlugs ?? []).filter((slug) => !knownMenuSlugs.has(slug)).map((slug) => `${module.slug}/${lesson.slug}: ${slug}`)));
+  if (missingMenuLinks.length > 0) return { ok: false, error: `Training links reference missing menu items: ${missingMenuLinks.slice(0, 5).join(', ')}` };
   const prepared = prepareTrainingRelease(draft);
   const existing = await context.privileged.from('training_releases')
     .select('id, version, updated_at').eq('brand_id', context.brandId).eq('status', 'draft')
@@ -390,6 +396,8 @@ export async function saveTrainingDraft(
     saved = await retryWrite(() => context.privileged.from('training_releases').update({
       manifest: prepared.publicManifest,
       answer_key: prepared.answerKey,
+      template_key: prepared.publicManifest.tenant.templateKey ?? null,
+      template_version: prepared.publicManifest.tenant.templateVersion ?? null,
       updated_by: context.brandUserId,
     }).eq('id', existing.data!.id).eq('brand_id', context.brandId).eq('updated_at', existing.data!.updated_at)
       .select('id, version, updated_at').maybeSingle<{ id: string; version: number; updated_at: string }>());
@@ -401,6 +409,8 @@ export async function saveTrainingDraft(
     saved = await retryWrite(() => context.privileged.from('training_releases').insert({
       id: randomUUID(), brand_id: context.brandId, version: (latest.data?.version ?? 0) + 1,
       status: 'draft', manifest: prepared.publicManifest, answer_key: prepared.answerKey,
+      template_key: prepared.publicManifest.tenant.templateKey ?? null,
+      template_version: prepared.publicManifest.tenant.templateVersion ?? null,
       created_by: context.brandUserId, updated_by: context.brandUserId,
     }).select('id, version, updated_at').single<{ id: string; version: number; updated_at: string }>());
   }
@@ -408,6 +418,7 @@ export async function saveTrainingDraft(
     return { ok: false, error: saved.error?.code === '23505' ? 'Another draft was created. Reload to continue.' : 'The training draft could not be saved.' };
   }
   revalidatePath('/content');
+  revalidatePath('/training');
   return { ok: true, persisted: true, releaseId: saved.data.id, version: saved.data.version, updatedAt: saved.data.updated_at };
 }
 
@@ -427,9 +438,14 @@ export async function publishTrainingDraft(
   if (expectedUpdatedAt && expectedUpdatedAt !== release.data.updated_at) {
     return { ok: false, error: 'This training draft changed in another session. Reload before publishing.' };
   }
-  const authoring = restoreAnswersForPublish(release.data.manifest, release.data.answer_key);
+  const authoring = normalizeTrainingManifest(restoreAnswersForPublish(release.data.manifest, release.data.answer_key));
   const issues = validateTrainingManifest(authoring);
   if (issues.length > 0) return { ok: false, error: `Publishing is blocked: ${issues.join('; ')}` };
+  const menuSlugs = await context.privileged.from('menu_items').select('slug').eq('brand_id', context.brandId).returns<{ slug: string }[]>();
+  if (menuSlugs.error) return { ok: false, error: 'The tenant menu could not be checked for training links.' };
+  const knownMenuSlugs = new Set((menuSlugs.data ?? []).map((item) => item.slug));
+  const missingMenuLinks = authoring.modules.flatMap((module) => module.lessons.flatMap((lesson) => (lesson.menuItemSlugs ?? []).filter((slug) => !knownMenuSlugs.has(slug)).map((slug) => `${module.slug}/${lesson.slug}: ${slug}`)));
+  if (missingMenuLinks.length > 0) return { ok: false, error: `Publishing is blocked by missing menu links: ${missingMenuLinks.slice(0, 5).join(', ')}` };
   const published = await context.privileged.rpc('publish_manual_training_release', {
     target_brand: context.brandId,
     target_release: releaseId,
@@ -438,6 +454,7 @@ export async function publishTrainingDraft(
   });
   if (published.error) return { ok: false, error: 'The training release could not be published atomically.' };
   revalidatePath('/content');
+  revalidatePath('/training');
   return { ok: true, persisted: true, version: release.data.version };
 }
 
@@ -509,6 +526,8 @@ function isTrainingProfilePayload(value: unknown): value is TenantTrainingProfil
     const list = profile[key];
     if (list !== undefined && (!Array.isArray(list) || !list.every((item) => typeof item === 'string'))) return false;
   }
+  if (profile.templateKey !== undefined && typeof profile.templateKey !== 'string') return false;
+  if (profile.templateVersion !== undefined && typeof profile.templateVersion !== 'number') return false;
   return (profile.website === undefined || typeof profile.website === 'string')
     && (profile.brandVoice === undefined || typeof profile.brandVoice === 'string');
 }

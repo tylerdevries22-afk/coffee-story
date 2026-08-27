@@ -162,8 +162,60 @@ label.field input, label.field select, label.field textarea {
   padding: 10px 12px;
 }
 
-.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+.grid-2 { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(320px, .9fr); gap: 24px; align-items: start; }
+.grid-2 > * { min-width: 0; }
 @media (max-width: 900px) { .grid-2 { grid-template-columns: 1fr; } .sidebar { display: none; } }
+
+/* The HQ preview intentionally uses the kiosk's warm, high-contrast surface.
+   Coordinates come from @platform/domain rather than a second hand-tuned grid. */
+.kiosk-preview {
+  overflow: hidden;
+  border: 1px solid #e4d3c3;
+  border-radius: 16px;
+  background: #faf5ef;
+  color: #241710;
+  font-family: var(--font, Inter, sans-serif);
+}
+.kiosk-preview-chrome {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e4d3c3;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.kiosk-preview-brand { font-family: var(--font-display, Georgia, serif); font-size: 16px; font-weight: 700; }
+.kiosk-preview-spacer { flex: 1; }
+.kiosk-preview-action {
+  border: 1px solid #8c7664;
+  border-radius: 999px;
+  padding: 4px 7px;
+  font-size: 9px;
+}
+.kiosk-preview-stage { padding: 22px 18px 8px; }
+.kiosk-preview-stage > strong { display: block; text-align: center; font-family: var(--font-display, Georgia, serif); font-size: clamp(16px, 2vw, 22px); }
+.kiosk-preview-canvas { position: relative; width: 100%; aspect-ratio: 640 / 500; margin-top: 8px; }
+.kiosk-preview-tile { position: absolute; text-align: center; }
+.kiosk-preview-image {
+  width: 100%;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 50%;
+  background: #2e211a;
+  color: #faf5ef;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display, Georgia, serif);
+  font-size: clamp(12px, 2vw, 22px);
+  font-weight: 700;
+}
+.kiosk-preview-image img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.kiosk-preview-label { display: block; max-width: 100%; margin: 7px auto 0; overflow-wrap: break-word; word-break: normal; font-size: clamp(8px, .9vw, 12px); font-weight: 700; line-height: 1.15; }
+.kiosk-preview-tile small { display: block; margin-top: 2px; color: #6b5b4e; font-size: clamp(8px, 1vw, 11px); line-height: 1.15; }
+.kiosk-preview-footer { padding: 0 18px 16px; color: #6b5b4e; font-size: 11px; }
+.kiosk-sync-meta { margin-top: -18px; font-size: 12px; }
 
 .notice {
   border: 1px solid var(--line);
@@ -333,6 +385,11 @@ label.field input, label.field select, label.field textarea {
   cursor: pointer;
 }
 .content-tabs button.active { color: var(--text); border-bottom-color: var(--accent); }
+.training-track-rail { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; padding: 10px 12px; border-bottom: 1px solid var(--line); background: var(--bg-raised); }
+.training-track-rail button { min-height: 34px; padding: 0 7px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--text-muted); font: inherit; font-size: 11px; font-weight: 600; cursor: pointer; }
+.training-track-rail button[aria-selected="true"] { color: var(--text); border-color: var(--accent); background: var(--bg-hover); }
+.training-track-rail button:disabled { cursor: not-allowed; opacity: .45; }
+.content-fieldset-reset { min-width: 0; margin: 0; padding: 0; border: 0; }
 
 .content-editor-grid { display: grid; grid-template-columns: minmax(250px, 310px) minmax(0, 1fr); min-height: 680px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--bg-raised); }
 .content-rail { display: flex; flex-direction: column; min-width: 0; border-right: 1px solid var(--line); background: color-mix(in srgb, var(--bg) 58%, var(--bg-raised)); }

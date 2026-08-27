@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
+  mergeTrainingTemplate,
   normalizeTrainingProfile,
   prepareTrainingRelease,
   resolveTenantTrainingProfile,
@@ -86,5 +87,29 @@ describe('training bootstrap contracts', () => {
     const prepared = prepareTrainingRelease(manifest);
     assert.equal('correctChoice' in prepared.publicManifest.modules[0]!.lessons[0]!.quiz[0]!, false);
     assert.deepEqual(prepared.answerKey, { knowledge: { basics: [1] } });
+  });
+
+  it('preserves untouched template lessons while applying researched overlays', () => {
+    const lesson = (slug: string, title: string) => ({
+      slug, title, objective: title, content: `${title} guidance`, estimatedMinutes: 5,
+      sourceUrls: [], media: [], quiz: [],
+    });
+    const template: TrainingManifest = {
+      schemaVersion: 2, generatedAt: '', tenant: normalizeTrainingProfile(PROFILE), sources: [],
+      modules: [{
+        slug: 'knowledge', trackKey: 'knowledge', sortOrder: 0, title: 'Template knowledge', summary: 'Template',
+        icon: { symbol: 'book', prompt: 'book' }, lessons: [lesson('baseline', 'Baseline'), lesson('shared', 'Template shared')],
+      }],
+    };
+    const merged = mergeTrainingTemplate(template, {
+      sources: [],
+      modules: [{
+        slug: 'knowledge-research', trackKey: 'knowledge', sortOrder: 0, title: 'Research knowledge', summary: 'Research',
+        icon: { symbol: 'book', prompt: 'book' }, lessons: [lesson('shared', 'Researched shared'), lesson('overlay', 'Overlay')],
+      }],
+    }, normalizeTrainingProfile(PROFILE));
+    const knowledge = merged.modules.find((module) => module.trackKey === 'knowledge');
+    assert.deepEqual(knowledge?.lessons.map((item) => item.slug), ['shared', 'overlay', 'baseline']);
+    assert.equal(knowledge?.lessons[0]?.title, 'Researched shared');
   });
 });

@@ -125,6 +125,13 @@ describe('kioskMenuFromRows', () => {
     assert.equal(itemsInCategoryOf(menu, 'Espresso').length, 1);
   });
 
+  it('carries current item media for a tenant-aware HQ preview', () => {
+    const menu = kioskMenuFromRows({
+      categories: [category()], items: [item({ image_url: 'https://cdn.example/cortado.webp' })], drops: [],
+    });
+    assert.deepEqual(menuFactsFrom(menu).imageUrls, { cortado: 'https://cdn.example/cortado.webp' });
+  });
+
   it('carries live modifiers instead of deriving a tenant-specific catalogue', () => {
     const modifiers = [{
       id: 'temperature', name: 'Temperature', select: 'single', required: true, maxChoices: 1,

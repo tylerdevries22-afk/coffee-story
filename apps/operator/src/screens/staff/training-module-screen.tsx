@@ -19,6 +19,7 @@ export function TrainingModuleScreen({ moduleSlug }: { moduleSlug: string }) {
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.hero}><View style={styles.heroIcon}><TrainingArtwork url={module.icon.url} alt={`${module.title} module artwork`} fallback="book.closed" size={58} radius={16} tintColor={colors.brand700} backgroundColor={colors.brand100} /></View><Text style={styles.title}>{module.title}</Text><Text style={styles.summary}>{module.summary}</Text></View>
         <Text style={styles.sectionTitle}>Lessons</Text>
+        {module.lessons.length === 0 ? <View style={styles.empty}><AppIcon name="book.closed" size={24} tintColor={colors.ink400} /><Text style={styles.meta}>This track has no lessons published yet.</Text></View> : null}
         {module.lessons.map((lesson, index) => (
           <Pressable key={lesson.slug} accessibilityRole="button" onPress={() => router.push(`/staff/training/${encodeURIComponent(module.slug)}/${encodeURIComponent(lesson.slug)}` as Href)} style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
             <View style={styles.number}><Text style={styles.numberText}>{index + 1}</Text></View>
@@ -64,6 +65,7 @@ function createStyles({ colors, fonts, spacing }: AppTokens) {
   copy: { flex: 1, gap: 3 },
   cardTitle: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 15 },
   meta: { color: colors.ink500, fontFamily: fonts.sans, fontSize: 12 },
+  empty: { minHeight: 120, alignItems: 'center', justifyContent: 'center', gap: spacing.sm, padding: spacing.lg, borderRadius: 12, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.ink200 },
   pressed: { opacity: 0.72 },
   message: { flex: 1, padding: spacing.xl, alignItems: 'center', justifyContent: 'center', gap: spacing.md, backgroundColor: '#F1F0EE' },
   messageButton: { minHeight: 46, paddingHorizontal: spacing.lg, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.ink900 },

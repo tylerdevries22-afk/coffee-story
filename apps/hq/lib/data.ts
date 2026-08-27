@@ -249,24 +249,38 @@ export async function loadKioskConfig(): Promise<KioskConfigView> {
   const client = await serverClient();
   if (!client) return { kiosk: DEMO_KIOSK_FLOW, menu: DEMO_KIOSK_MENU, updatedAt: null };
 
-  const [brand, categories, items] = await Promise.all([
-    client.from('brands').select('brand_config, updated_at').maybeSingle<{
-      brand_config: Record<string, unknown> | null;
-      updated_at: string;
-    }>(),
-    client.from('menu_categories').select('title').returns<{ title: string }[]>(),
-    client.from('menu_items').select('slug').returns<{ slug: string }[]>(),
-  ]);
+  const brand = await client.from('brands').select('id, brand_config, updated_at').maybeSingle<{
+    id: string;
+    brand_config: Record<string, unknown> | null;
+    updated_at: string;
+  }>();
   if (brand.error) throw new Error(`brands: ${brand.error.message}`);
+  const brandRow = brand.data;
+  const brandId = brandRow?.id;
+  if (!brandId) throw new Error('brands: no tenant in scope');
+  const publishedMenu = await client.from('menus').select('id').eq('brand_id', brandId)
+    .eq('is_published', true).maybeSingle<{ id: string }>();
+  if (publishedMenu.error) throw new Error(`menus: ${publishedMenu.error.message}`);
+  const menuId = publishedMenu.data?.id;
+  const [categories, items] = await Promise.all([
+    client.from('menu_categories').select('title').eq('brand_id', brandId).eq('menu_id', menuId ?? '').returns<{ title: string }[]>(),
+    client.from('menu_items').select('slug, image_url').eq('brand_id', brandId).eq('menu_id', menuId ?? '').returns<{ slug: string; image_url: string | null }[]>(),
+  ]);
   if (categories.error) throw new Error(`menu_categories: ${categories.error.message}`);
   if (items.error) throw new Error(`menu_items: ${items.error.message}`);
 
   return {
-    kiosk: brand.data?.brand_config?.kiosk ?? null,
+    kiosk: brandRow.brand_config?.kiosk ?? null,
     menu: {
       categories: (categories.data ?? []).map((row) => ({ id: row.title, title: row.title })),
       itemSlugs: (items.data ?? []).map((row) => row.slug),
+      ...(() => {
+        const imageUrls = Object.fromEntries(
+          (items.data ?? []).filter((row) => row.image_url).map((row) => [row.slug, row.image_url as string]),
+        );
+        return Object.keys(imageUrls).length > 0 ? { imageUrls } : {};
+      })(),
     },
-    updatedAt: brand.data?.updated_at ?? null,
+    updatedAt: brandRow.updated_at ?? null,
   };
 }

@@ -1,9 +1,16 @@
-import type { TenantTrainingProfile, TrainingManifest } from '@platform/domain';
-import type { TrainingQuizQuestion } from '@platform/domain';
+import {
+  normalizeTrainingManifest,
+  scoreTrainingQuiz,
+  TRAINING_TRACK_ORDER,
+  type TenantTrainingProfile,
+  type TrainingManifest,
+  type TrainingModule,
+  type TrainingSource,
+} from '@platform/domain';
 
 export type { TenantTrainingProfile, TrainingManifest } from '@platform/domain';
 
-export const TRAINING_PIPELINE_VERSION = '1.0.0';
+export const TRAINING_PIPELINE_VERSION = '2.0.0';
 
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -34,6 +41,9 @@ export function normalizeTrainingProfile(profile: TenantTrainingProfile): Tenant
     industry: profile.industry.trim(),
     locale: profile.locale.trim() || 'en-US',
   };
+  const templateKey = profile.templateKey?.trim();
+  if (templateKey) normalized.templateKey = templateKey;
+  if (Number.isInteger(profile.templateVersion) && (profile.templateVersion ?? 0) > 0) normalized.templateVersion = profile.templateVersion;
   const website = profile.website?.trim();
   if (website) normalized.website = website;
   const products = cleanList(profile.products);
@@ -53,6 +63,8 @@ export function validateTrainingProfile(profile: TenantTrainingProfile): string[
   if (profile.industry.trim().length < 2) issues.push('industry must contain at least 2 characters');
   if (!/^[a-z]{2}(?:-[A-Z]{2})?$/.test(profile.locale.trim())) issues.push('locale must resemble en or en-US');
   if (profile.website && !isSafePublicHttpsUrl(profile.website.trim())) issues.push('website must use public HTTPS');
+  if (profile.templateKey && !/^[a-z0-9][a-z0-9-]{1,79}$/.test(profile.templateKey)) issues.push('templateKey must use lowercase letters, numbers, and single hyphens');
+  if (profile.templateVersion !== undefined && (!Number.isInteger(profile.templateVersion) || profile.templateVersion < 1)) issues.push('templateVersion must be a positive integer');
   return issues;
 }
 
@@ -78,15 +90,18 @@ export function resolveTenantTrainingProfile(businessName: string, config: unkno
     ? fields.industry.trim()
     : 'Business operations and customer service';
   const locale = typeof fields.locale === 'string' && /^[a-z]{2}(?:-[A-Z]{2})?$/.test(fields.locale) ? fields.locale : 'en-US';
-  return normalizeTrainingProfile({ businessName, industry, locale, website });
+  const templateKey = businessName.trim().toLowerCase() === 'coffee story' ? 'coffee-story' : undefined;
+  return normalizeTrainingProfile({ businessName, industry, locale, website, templateKey, templateVersion: templateKey ? 1 : undefined });
 }
 
 export function validateTrainingManifest(manifest: TrainingManifest): string[] {
   const issues: string[] = [];
+  const normalized = normalizeTrainingManifest(manifest);
+  if (manifest.schemaVersion !== 1 && manifest.schemaVersion !== 2) issues.push('training schema version must be 1 or 2');
   if (manifest.sources.length < 3) issues.push('at least 3 research sources are required');
   if (manifest.sources.length > 12) issues.push('no more than 12 research sources are allowed');
-  if (manifest.modules.length < 2) issues.push('at least 2 training modules are required');
-  if (manifest.modules.length > 8) issues.push('no more than 8 training modules are allowed');
+  if (manifest.modules.length < (manifest.schemaVersion === 2 ? TRAINING_TRACK_ORDER.length : 2)) issues.push(manifest.schemaVersion === 2 ? 'all five core training tracks are required' : 'at least 2 training modules are required');
+  if (manifest.modules.length > 16) issues.push('no more than 16 training modules are allowed');
   manifest.sources.forEach((source, index) => {
     if (!isSafePublicHttpsUrl(source.url)) issues.push(`source ${index + 1} must use public HTTPS`);
   });
@@ -97,14 +112,19 @@ export function validateTrainingManifest(manifest: TrainingManifest): string[] {
   );
   if (mediaCount > 24) issues.push('no more than 24 media resources are allowed');
   const moduleSlugs = new Set<string>();
-  manifest.modules.forEach((module, moduleIndex) => {
+  const trackKeys = new Set<string>();
+  normalized.modules.forEach((module, moduleIndex) => {
     if (!SLUG.test(module.slug)) issues.push(`module ${moduleIndex + 1} has an invalid slug`);
     if (moduleSlugs.has(module.slug)) issues.push(`module ${module.slug} is duplicated`);
     moduleSlugs.add(module.slug);
+    if (!module.trackKey) issues.push(`module ${module.slug} needs a track key`);
+    else if (module.trackKey !== 'custom' && !TRAINING_TRACK_ORDER.includes(module.trackKey)) issues.push(`module ${module.slug} has an invalid track key`);
+    else if (module.trackKey !== 'custom' && trackKeys.has(module.trackKey)) issues.push(`track ${module.trackKey} is duplicated`);
+    else if (module.trackKey) trackKeys.add(module.trackKey);
+    if (module.sortOrder !== undefined && (!Number.isInteger(module.sortOrder) || module.sortOrder < 0)) issues.push(`module ${module.slug} has an invalid sort order`);
     if (module.icon.url && !isSafePublicHttpsUrl(module.icon.url)) {
       issues.push(`module ${module.slug} icon must use public HTTPS`);
     }
-    if (module.lessons.length === 0) issues.push(`module ${module.slug} needs at least one lesson`);
     if (module.lessons.length > 12) issues.push(`module ${module.slug} has too many lessons`);
     const lessonSlugs = new Set<string>();
     module.lessons.forEach((lesson, lessonIndex) => {
@@ -115,7 +135,9 @@ export function validateTrainingManifest(manifest: TrainingManifest): string[] {
       if (lesson.sourceUrls.length === 0) issues.push(`lesson ${module.slug}/${lesson.slug} needs a source citation`);
       lesson.sourceUrls.forEach((url) => {
         if (!sourceUrls.has(url)) issues.push(`lesson ${module.slug}/${lesson.slug} cites an unknown source`);
+        if (!isSafePublicHttpsUrl(url)) issues.push(`lesson ${module.slug}/${lesson.slug} has an unsafe source URL`);
       });
+      if (lesson.menuItemSlugs && (!Array.isArray(lesson.menuItemSlugs) || lesson.menuItemSlugs.some((slug) => !SLUG.test(slug)))) issues.push(`lesson ${module.slug}/${lesson.slug} has invalid menu references`);
       if (lesson.quiz.length < 2) issues.push(`lesson ${module.slug}/${lesson.slug} needs at least 2 quiz questions`);
       lesson.quiz.forEach((question, questionIndex) => {
         if (question.choices.length < 2 || !Number.isInteger(question.correctChoice)
@@ -130,7 +152,65 @@ export function validateTrainingManifest(manifest: TrainingManifest): string[] {
       });
     });
   });
+  if (manifest.schemaVersion === 2) for (const required of TRAINING_TRACK_ORDER) if (!trackKeys.has(required)) issues.push(`missing core track ${required}`);
   return issues;
+}
+
+/**
+ * Applies researched tenant overlays without throwing away reusable franchise
+ * lessons. Matching lesson slugs are intentionally replaced by the researched
+ * copy; untouched template lessons remain available to every tenant.
+ */
+export function mergeTrainingTemplate(
+  template: TrainingManifest | null,
+  generated: { sources: TrainingSource[]; modules: TrainingModule[] },
+  profile: TenantTrainingProfile,
+): TrainingManifest {
+  const generatedManifest = normalizeTrainingManifest({
+    schemaVersion: 2,
+    generatedAt: new Date().toISOString(),
+    tenant: profile,
+    ...generated,
+  });
+  if (!template) return generatedManifest;
+
+  const generatedByTrack = new Map(
+    generatedManifest.modules
+      .filter((module) => module.trackKey !== 'custom')
+      .map((module) => [module.trackKey ?? module.slug, module]),
+  );
+  const generatedCustomBySlug = new Map(
+    generatedManifest.modules
+      .filter((module) => module.trackKey === 'custom')
+      .map((module) => [module.slug, module]),
+  );
+  const mergedTemplateModules = template.modules.map((templateModule) => {
+    const generatedModule = templateModule.trackKey === 'custom'
+      ? generatedCustomBySlug.get(templateModule.slug)
+      : generatedByTrack.get(templateModule.trackKey ?? templateModule.slug);
+    if (!generatedModule) return templateModule;
+    const generatedLessonSlugs = new Set(generatedModule.lessons.map((lesson) => lesson.slug));
+    return {
+      ...templateModule,
+      ...generatedModule,
+      lessons: [
+        ...generatedModule.lessons,
+        ...templateModule.lessons.filter((lesson) => !generatedLessonSlugs.has(lesson.slug)),
+      ],
+    };
+  });
+  const templateSlugs = new Set(template.modules.map((module) => module.slug));
+  const newCustomModules = generatedManifest.modules.filter(
+    (module) => module.trackKey === 'custom' && !templateSlugs.has(module.slug),
+  );
+  const sourceByUrl = new Map([...template.sources, ...generatedManifest.sources].map((source) => [source.url, source]));
+  return normalizeTrainingManifest({
+    schemaVersion: 2,
+    generatedAt: new Date().toISOString(),
+    tenant: { ...template.tenant, ...profile },
+    sources: [...sourceByUrl.values()],
+    modules: [...mergedTemplateModules, ...newCustomModules],
+  });
 }
 
 export type TrainingAnswerKey = Record<string, Record<string, number[]>>;
@@ -150,9 +230,4 @@ export function prepareTrainingRelease(manifest: TrainingManifest): { publicMani
   return { publicManifest: { ...manifest, modules }, answerKey };
 }
 
-export function scoreTrainingQuiz(questions: readonly TrainingQuizQuestion[], answers: readonly number[]): { score: number; passed: boolean } {
-  if (questions.length === 0 || answers.length !== questions.length) return { score: 0, passed: false };
-  const correct = questions.reduce((total, question, index) => total + (answers[index] === question.correctChoice ? 1 : 0), 0);
-  const score = Math.round((correct / questions.length) * 100);
-  return { score, passed: score >= 80 };
-}
+export { scoreTrainingQuiz };

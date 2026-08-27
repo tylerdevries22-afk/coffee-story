@@ -14,7 +14,10 @@
  */
 export { createSupabaseClient, type AuthStorage, type SupabaseClientConfig } from './client';
 export { isValidSupabasePublishableKey, isValidSupabaseUrl } from './config';
-export { fetchBrandBySlug, type BrandSummary } from './brand';
+export {
+  fetchBrandBySlug, fetchBrandConfig, subscribeToBrandConfig,
+  type BrandSummary,
+} from './brand';
 export {
   fetchMenuTree, subscribeToMenu,
   type MenuTree, type MenuTreeCategory, type MenuTreeItem,
@@ -35,6 +38,11 @@ export {
   type LocationOrdersEvent,
 } from './realtime';
 export { subscribeToLocationSettings, type LocationSettings } from './location';
+export {
+  fetchPublishedTrainingRelease,
+  subscribeToTrainingReleases,
+  type PublishedTrainingRelease,
+} from './training';
 export { subscribeToBoardChanges } from './board-realtime';
 export { readWithRetry, type DataReadOptions, type DataReadResult } from './read-retry';
 // How a board splits into columns is a display decision and lives in

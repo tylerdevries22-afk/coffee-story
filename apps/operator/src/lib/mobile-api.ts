@@ -13,6 +13,7 @@ import type { IntakeFormCatalogEntry } from '@/features/admin/preferences-forms'
 import { staffRevenueMetrics } from '@/features/staff/revenue';
 import { supabase } from '@/lib/supabase';
 import { tenantClaimsFromSession } from '@/lib/live-portal';
+import { fetchPublishedTrainingRelease } from '@platform/data';
 import type {
   OrderableCatalog,
   PortalProfile,
@@ -52,19 +53,11 @@ export const mobileApi = {
     const session = await supabase.auth.getSession();
     const claims = session.data.session ? tenantClaimsFromSession(session.data.session) : null;
     if (!claims?.role) throw new MobileApiError('This account has no tenant training access.', 403, 'no_staff_access');
-    const release = await supabase.from('training_releases')
-      .select('id, manifest')
-      .eq('brand_id', claims.brand_id)
-      .eq('status', 'published')
-      .maybeSingle<{ id: string; manifest: unknown }>();
-    if (release.error) throw new MobileApiError('Training could not be loaded.', 500, 'load_failed');
-    const manifest = release.data?.manifest;
-    if (!manifest || typeof manifest !== 'object') return null;
-    const candidate = manifest as Partial<TrainingManifest>;
-    if (candidate.schemaVersion !== 1 || !Array.isArray(candidate.modules) || !Array.isArray(candidate.sources)) {
-      throw new MobileApiError('The published training release is invalid.', 500, 'invalid_release');
+    try {
+      return await fetchPublishedTrainingRelease(supabase, claims.brand_id);
+    } catch {
+      throw new MobileApiError('Training could not be loaded.', 500, 'load_failed');
     }
-    return { id: release.data?.id ?? '', manifest: candidate as TrainingManifest };
   },
   /**
    * The workspace headline, from the live plane: today's orders at the

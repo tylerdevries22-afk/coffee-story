@@ -54,7 +54,11 @@ logs/
 
 # Next.js
 .next/
+.next-dev/
 next-env.d.ts
+
+# Local package-manager cache
+.pnpm-store/
 
 # per-app metro caches
 .metro-cache/

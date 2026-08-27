@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from 'react';
 
-import type { TrainingLesson, TrainingManifest, TrainingModule, TrainingSource } from '@platform/domain';
+import { TRAINING_TRACK_ORDER, type TrainingLesson, type TrainingManifest, type TrainingModule, type TrainingSource, type TrainingTrackKey } from '@platform/domain';
 
 import {
   publishTrainingDraft,
@@ -10,7 +10,7 @@ import {
   startTrainingAutomation,
   uploadContentImage,
 } from '@/app/(console)/content/actions';
-import { slugFromLabel, type TrainingAutomationRun, type TrainingReleaseEditor } from '@/lib/content-model';
+import { slugFromLabel, type ContentMediaVersion, type TrainingAutomationRun, type TrainingReleaseEditor } from '@/lib/content-model';
 import type { TenantTrainingProfile } from '@/lib/training-bootstrap';
 
 import { ContentIcon } from './content-workspace';
@@ -21,10 +21,14 @@ export function TrainingContentEditor({
   initialRelease,
   initialProfile,
   automationRun,
+  trainingMediaVersions,
+  readOnly = false,
 }: {
   initialRelease: TrainingReleaseEditor;
   initialProfile: TenantTrainingProfile;
   automationRun: TrainingAutomationRun;
+  trainingMediaVersions: ContentMediaVersion[];
+  readOnly?: boolean;
 }) {
   const [manifest, setManifest] = useState(initialRelease.manifest);
   const [release, setRelease] = useState(initialRelease);
@@ -69,17 +73,23 @@ export function TrainingContentEditor({
   return (
     <div className="content-editor-grid training-editor-grid">
       <aside className="content-rail" aria-label="Training content">
-        <div className="content-rail-header"><div><strong>Core training</strong><span>{manifest.modules.length} modules</span></div><span className={`pill ${release.status === 'published' ? 'success' : 'warning'}`}>{release.status}</span></div>
+        <div className="content-rail-header"><div><strong>Training tracks</strong><span>{manifest.modules.length} modules</span></div><span className={`pill ${release.status === 'published' ? 'success' : 'warning'}`}>{release.status}</span></div>
+        <div className="training-track-rail" role="tablist" aria-label="Core training tracks">
+          {TRAINING_TRACK_ORDER.map((trackKey) => {
+            const index = manifest.modules.findIndex((module) => module.trackKey === trackKey || module.slug === trackKey);
+            return <button type="button" role="tab" aria-selected={view.kind === 'module' && view.index === index} disabled={index < 0} key={trackKey} onClick={() => setView({ kind: 'module', index })}>{trackKey.charAt(0).toUpperCase() + trackKey.slice(1)}</button>;
+          })}
+        </div>
         <div className="training-nav-list">
           {manifest.modules.map((module, index) => (
             <button type="button" key={`${module.slug}-${index}`} className={view.kind === 'module' && view.index === index ? 'active' : ''} onClick={() => setView({ kind: 'module', index })}>
               <span className="training-module-mark">{index + 1}</span>
-              <span><strong>{module.title || 'Untitled module'}</strong><small>{module.lessons.length} lessons · {module.slug}</small></span>
+              <span><strong>{module.title || 'Untitled module'}</strong><small>{module.trackKey ?? 'custom'} · {module.lessons.length} lessons</small></span>
             </button>
           ))}
-          <button type="button" className="content-add-button compact" onClick={() => {
+          <button type="button" className="content-add-button compact" disabled={readOnly} onClick={() => {
             const title = `Module ${manifest.modules.length + 1}`;
-            change({ ...manifest, modules: [...manifest.modules, emptyModule(title)] });
+            change({ ...manifest, modules: [...manifest.modules, emptyModule(title, manifest.modules.length)] });
             setView({ kind: 'module', index: manifest.modules.length });
           }}><ContentIcon kind="plus" /> Add module</button>
         </div>
@@ -93,18 +103,20 @@ export function TrainingContentEditor({
         <div className="content-panel-toolbar">
           <div><p className="eyebrow">Tenant-wide curriculum</p><h2>{viewTitle(view, manifest)}</h2></div>
           <div className="content-toolbar-actions">
-            <button type="button" className="button secondary content-square-button" disabled={pending || !dirty} onClick={save}>{pending ? 'Saving…' : 'Save draft'}</button>
-            <button type="button" className="button content-square-button" disabled={pending || dirty || release.status !== 'draft' || !release.id} onClick={publish}>Publish to operators</button>
+            {!readOnly ? <><button type="button" className="button secondary content-square-button" disabled={pending || !dirty} onClick={save}>{pending ? 'Saving…' : 'Save draft'}</button>
+            <button type="button" className="button content-square-button" disabled={pending || dirty || release.status !== 'draft' || !release.id} onClick={publish}>Publish to operators</button></> : <span className="content-muted">Published release · read only</span>}
           </div>
         </div>
+        <fieldset disabled={readOnly} className="content-fieldset-reset">
         {view.kind === 'module' && activeModule
-          ? <ModuleEditor key={view.index} module={activeModule} onChange={(module) => change({ ...manifest, modules: manifest.modules.map((current, index) => index === view.index ? module : current) })} onRemove={() => {
+          ? <ModuleEditor key={view.index} module={activeModule} mediaVersions={trainingMediaVersions} onChange={(module) => change({ ...manifest, modules: manifest.modules.map((current, index) => index === view.index ? module : current) })} onRemove={() => {
             change({ ...manifest, modules: manifest.modules.filter((_, index) => index !== view.index) });
             setView({ kind: 'module', index: Math.max(0, view.index - 1) });
           }} />
           : null}
         {view.kind === 'sources' ? <SourcesEditor sources={manifest.sources} onChange={(sources) => change({ ...manifest, sources })} /> : null}
         {view.kind === 'automation' ? <AutomationEditor initialProfile={initialProfile} run={automationRun} /> : null}
+        </fieldset>
         {message ? <p className="content-message" role="status">{message}</p> : null}
       </div>
     </div>
@@ -117,9 +129,9 @@ function viewTitle(view: TrainingView, manifest: TrainingManifest): string {
   return manifest.modules[view.index]?.title || 'Training module';
 }
 
-function emptyModule(title: string): TrainingModule {
+function emptyModule(title: string, sortOrder: number): TrainingModule {
   return {
-    slug: slugFromLabel(title), title, summary: '',
+    slug: slugFromLabel(title), trackKey: 'custom', sortOrder, title, summary: '',
     icon: { symbol: 'book-open', prompt: 'Simple monochrome training icon' }, lessons: [],
   };
 }
@@ -131,7 +143,7 @@ function emptyLesson(number: number): TrainingLesson {
   };
 }
 
-function ModuleEditor({ module, onChange, onRemove }: { module: TrainingModule; onChange: (module: TrainingModule) => void; onRemove: () => void }) {
+function ModuleEditor({ module, mediaVersions, onChange, onRemove }: { module: TrainingModule; mediaVersions: ContentMediaVersion[]; onChange: (module: TrainingModule) => void; onRemove: () => void }) {
   const [lessonIndex, setLessonIndex] = useState<number | null>(module.lessons.length ? 0 : null);
   const patch = (next: Partial<TrainingModule>) => onChange({ ...module, ...next });
   const lesson = lessonIndex === null ? null : module.lessons[lessonIndex] ?? null;
@@ -142,7 +154,8 @@ function ModuleEditor({ module, onChange, onRemove }: { module: TrainingModule; 
           <label className="field">Module title<input value={module.title} onChange={(event) => patch({ title: event.target.value })} /></label>
           <label className="field">Portable slug<input value={module.slug} onChange={(event) => patch({ slug: slugFromLabel(event.target.value) })} /></label>
         </div>
-        <ModuleIconEditor module={module} onChange={patch} />
+        <label className="field">Track<select value={module.trackKey ?? 'custom'} onChange={(event) => patch({ trackKey: event.target.value as TrainingTrackKey })}>{TRAINING_TRACK_ORDER.map((track) => <option key={track} value={track}>{track.charAt(0).toUpperCase() + track.slice(1)}</option>)}<option value="custom">Custom module</option></select></label>
+        <ModuleIconEditor module={module} history={mediaVersions.filter((version) => version.entityKey === module.slug && version.slot === 'icon')} onChange={patch} />
         <label className="field">Summary<textarea rows={2} value={module.summary} onChange={(event) => patch({ summary: event.target.value })} /></label>
         <div className="content-inline-fields">
           <label className="field">Icon key<input value={module.icon.symbol} onChange={(event) => patch({ icon: { ...module.icon, symbol: slugFromLabel(event.target.value) } })} /></label>
@@ -157,7 +170,7 @@ function ModuleEditor({ module, onChange, onRemove }: { module: TrainingModule; 
       <div className="training-lesson-tabs" role="tablist" aria-label={`${module.title} lessons`}>
         {module.lessons.map((item, index) => <button type="button" role="tab" aria-selected={lessonIndex === index} className={lessonIndex === index ? 'active' : ''} key={`${item.slug}-${index}`} onClick={() => setLessonIndex(index)}>{index + 1}. {item.title}</button>)}
       </div>
-      {lesson && lessonIndex !== null ? <LessonEditor moduleSlug={module.slug} lesson={lesson} onChange={(next) => patch({ lessons: module.lessons.map((current, index) => index === lessonIndex ? next : current) })} onRemove={() => {
+      {lesson && lessonIndex !== null ? <LessonEditor moduleSlug={module.slug} lesson={lesson} mediaVersions={mediaVersions} onChange={(next) => patch({ lessons: module.lessons.map((current, index) => index === lessonIndex ? next : current) })} onRemove={() => {
         patch({ lessons: module.lessons.filter((_, index) => index !== lessonIndex) });
         setLessonIndex(module.lessons.length > 1 ? Math.max(0, lessonIndex - 1) : null);
       }} /> : <div className="content-empty compact">Add a lesson to start building this module.</div>}
@@ -166,7 +179,7 @@ function ModuleEditor({ module, onChange, onRemove }: { module: TrainingModule; 
   );
 }
 
-function ModuleIconEditor({ module, onChange }: { module: TrainingModule; onChange: (next: Partial<TrainingModule>) => void }) {
+function ModuleIconEditor({ module, history, onChange }: { module: TrainingModule; history: ContentMediaVersion[]; onChange: (next: Partial<TrainingModule>) => void }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   async function upload(file: File) {
@@ -186,11 +199,12 @@ function ModuleIconEditor({ module, onChange }: { module: TrainingModule; onChan
       <div><strong>Module artwork</strong><small>Optional tenant-owned icon stored with the training release.</small></div>
       <input ref={fileRef} className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload(file); }} />
       <button type="button" className="button secondary content-square-button" disabled={uploading} onClick={() => fileRef.current?.click()}><ContentIcon kind="upload" /> {uploading ? 'Uploading…' : module.icon.url ? 'Replace artwork' : 'Upload artwork'}</button>
+      {history.length > 0 ? <div className="content-media-history"><strong>Artwork history</strong><div className="content-media-history-grid">{history.slice(0, 8).map((version) => <button type="button" key={version.id} className={module.icon.url === version.url ? 'active' : ''} aria-label={`Use artwork from ${new Date(version.createdAt).toLocaleString()}`} onClick={() => onChange({ icon: { ...module.icon, url: version.url } })}><span style={{ backgroundImage: `url("${version.url}")` }} /><time dateTime={version.createdAt}>{new Date(version.createdAt).toLocaleDateString()}</time></button>)}</div></div> : null}
     </div>
   );
 }
 
-function LessonEditor({ moduleSlug, lesson, onChange, onRemove }: { moduleSlug: string; lesson: TrainingLesson; onChange: (lesson: TrainingLesson) => void; onRemove: () => void }) {
+function LessonEditor({ moduleSlug, lesson, mediaVersions, onChange, onRemove }: { moduleSlug: string; lesson: TrainingLesson; mediaVersions: ContentMediaVersion[]; onChange: (lesson: TrainingLesson) => void; onRemove: () => void }) {
   const patch = (next: Partial<TrainingLesson>) => onChange({ ...lesson, ...next });
   return (
     <div className="training-lesson-editor">
@@ -204,24 +218,25 @@ function LessonEditor({ moduleSlug, lesson, onChange, onRemove }: { moduleSlug: 
       </div>
       <label className="field">Lesson content<textarea className="lesson-content-input" rows={8} value={lesson.content} onChange={(event) => patch({ content: event.target.value })} /></label>
       <label className="field">Source URLs <small>One HTTPS URL per line; every claim should point to a source in Sources &amp; media.</small><textarea rows={3} value={lesson.sourceUrls.join('\n')} onChange={(event) => patch({ sourceUrls: linesOf(event.target.value) })} /></label>
-      <MediaEditor entityKey={`${moduleSlug}/${lesson.slug}`} media={lesson.media} onChange={(media) => patch({ media })} />
+      <label className="field">Linked menu item slugs <small>Optional; keeps training aligned with the customer menu.</small><textarea rows={2} value={lesson.menuItemSlugs?.join('\n') ?? ''} onChange={(event) => patch({ menuItemSlugs: linesOf(event.target.value) })} /></label>
+      <MediaEditor entityKey={`${moduleSlug}/${lesson.slug}`} media={lesson.media} history={mediaVersions} onChange={(media) => patch({ media })} />
       <QuizEditor quiz={lesson.quiz} onChange={(quiz) => patch({ quiz })} />
       <button type="button" className="content-danger-button" onClick={onRemove}>Remove lesson from draft</button>
     </div>
   );
 }
 
-function MediaEditor({ entityKey, media, onChange }: { entityKey: string; media: TrainingLesson['media']; onChange: (media: TrainingLesson['media']) => void }) {
+function MediaEditor({ entityKey, media, history, onChange }: { entityKey: string; media: TrainingLesson['media']; history: ContentMediaVersion[]; onChange: (media: TrainingLesson['media']) => void }) {
   return (
     <div className="training-block">
       <div className="training-block-heading"><div><p className="eyebrow">Lesson media</p><h3>Images and video links</h3></div><button type="button" className="content-text-button" onClick={() => onChange([...media, { kind: 'image', url: '', title: '', rightsNote: '' }])}>Add media</button></div>
-      {media.map((item, index) => <MediaRow key={`${index}-${item.url}`} entityKey={entityKey} item={item} onChange={(next) => onChange(media.map((current, currentIndex) => currentIndex === index ? next : current))} onRemove={() => onChange(media.filter((_, currentIndex) => currentIndex !== index))} />)}
+      {media.map((item, index) => <MediaRow key={`${index}-${item.url}`} entityKey={entityKey} history={history.filter((version) => version.entityKey === entityKey && version.slot === `lesson-media:${index + 1}`)} item={item} onChange={(next) => onChange(media.map((current, currentIndex) => currentIndex === index ? next : current))} onRemove={() => onChange(media.filter((_, currentIndex) => currentIndex !== index))} />)}
       {media.length === 0 ? <p className="content-muted">No media attached. Publisher-hosted video links and tenant-owned images are supported.</p> : null}
     </div>
   );
 }
 
-function MediaRow({ entityKey, item, onChange, onRemove }: { entityKey: string; item: TrainingLesson['media'][number]; onChange: (item: TrainingLesson['media'][number]) => void; onRemove: () => void }) {
+function MediaRow({ entityKey, item, history, onChange, onRemove }: { entityKey: string; item: TrainingLesson['media'][number]; history: ContentMediaVersion[]; onChange: (item: TrainingLesson['media'][number]) => void; onRemove: () => void }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   async function upload(file: File) {
@@ -243,6 +258,7 @@ function MediaRow({ entityKey, item, onChange, onRemove }: { entityKey: string; 
       <input ref={fileRef} className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload(file); }} />
       <button type="button" className="icon-action" aria-label="Upload training image" disabled={uploading} onClick={() => fileRef.current?.click()}><ContentIcon kind="upload" /></button>
       <label className="field rights-field">Rights note<input value={item.rightsNote} onChange={(event) => onChange({ ...item, rightsNote: event.target.value })} /></label>
+      {history.length > 0 ? <div className="content-media-history"><strong>Previous media</strong><div className="content-media-history-grid">{history.slice(0, 8).map((version) => <button type="button" key={version.id} className={item.url === version.url ? 'active' : ''} aria-label={`Use media from ${new Date(version.createdAt).toLocaleString()}`} onClick={() => onChange({ ...item, url: version.url })}><span style={{ backgroundImage: `url("${version.url}")` }} /><time dateTime={version.createdAt}>{new Date(version.createdAt).toLocaleDateString()}</time></button>)}</div></div> : null}
       <button type="button" className="icon-action danger" aria-label="Remove media" onClick={onRemove}>×</button>
     </div>
   );

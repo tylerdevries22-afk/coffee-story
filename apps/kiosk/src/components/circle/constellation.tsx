@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { StyleSheet, View, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
 
 import type { KioskEntryNode } from '@platform/domain';
-import { menuImageFrame, type MenuImageVariant } from '@platform/ui';
+import type { MenuImageVariant } from '@platform/ui';
 
 import { CircleTile } from '@/components/circle/circle-tile';
 import { layoutConstellation } from '@/features/constellation';
@@ -68,8 +68,7 @@ export function Constellation({
         const node = byId.get(circle.id);
         if (!node) return null;
         const variant = VARIANT_FOR[node.emphasis];
-        const frame = menuImageFrame(variant);
-        const size = frame.kind === 'fixed' ? frame.size : circle.size;
+        const size = circle.size;
         return (
           <View
             key={node.id}
@@ -79,6 +78,7 @@ export function Constellation({
               label={node.label}
               caption={node.caption}
               variant={variant}
+              size={size}
               index={circle.index}
               request={{ imageSlug: node.imageSlug, monogram, label: node.label }}
               bundled={bundled}

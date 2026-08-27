@@ -81,9 +81,9 @@ describe('HQ content contracts', () => {
     assert.equal(manifest.modules[0]!.lessons[0]!.quiz[0]!.correctChoice, undefined);
   });
 
-  it('starts every empty tenant with transferable knowledge and skills modules', () => {
+  it('starts every empty tenant with all transferable core tracks', () => {
     const manifest = starterTrainingManifest(PROFILE);
-    assert.deepEqual(manifest.modules.map((module) => module.slug), ['knowledge', 'skills']);
+    assert.deepEqual(manifest.modules.map((module) => module.slug), ['knowledge', 'skills', 'service', 'safety', 'operations']);
     assert.equal(manifest.tenant.businessName, 'Coffee Story');
   });
 
@@ -107,6 +107,7 @@ describe('HQ content contracts', () => {
       categories: [],
       items: [{ id: 'one', name: 'One', slug: 'one', description: '', categoryId: 'cat', basePriceCents: 100, sizes: [], optionGroups: [], imageUrl: 'https://example.com/i', isListed: true, is86d: false, sortOrder: 0, updatedAt: null, mediaVersions: [] }],
       training: { id: null, version: 0, status: 'empty', manifest, updatedAt: null },
+      trainingMediaVersions: [],
       trainingProfile: PROFILE,
       automationRun: null,
     } satisfies ContentWorkspaceData;

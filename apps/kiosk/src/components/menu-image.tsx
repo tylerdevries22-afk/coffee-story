@@ -10,9 +10,9 @@ import { TENANT_MENU_MEDIA } from '@/tenant/menu-media';
 /**
  * The one way a menu photograph is drawn on the kiosk.
  *
- * Same contract as the customer app's: it takes a `variant`, never a size, so
- * the geometry lives in `@platform/ui` and the only thing that changes between
- * surfaces is how big the square is. The generated tenant bundle wins for
+ * Same contract as the customer app's: the variant owns the baseline geometry
+ * in `@platform/ui`, while the shared constellation may provide a responsive
+ * diameter for a compact kiosk stage. The generated tenant bundle wins for
  * known slugs, while live-only rows can use a remote URL and degrade to the
  * token-drawn monogram after one retry.
  *
@@ -24,22 +24,25 @@ export function KioskMenuImage({
   variant,
   bundled = TENANT_MENU_MEDIA,
   alt,
+  size: sizeOverride,
 }: {
   request: ImageRequest;
   variant: MenuImageVariant;
   bundled?: BundledArt;
   /** Empty when the surrounding tile already names the item. */
   alt: string;
+  /** Responsive diameter supplied by the shared kiosk constellation layout. */
+  size?: number;
 }) {
   const tokens = useTokens();
   const [remoteFailure, setRemoteFailure] = useState<{ uri: string; attempts: number } | null>(null);
   const frame = menuImageFrame(variant);
-  const size = frame.kind === 'fixed' ? frame.size : undefined;
+  const size = sizeOverride ?? (frame.kind === 'fixed' ? frame.size : undefined);
   const radius = frame.radius === 'circle'
     ? (size ?? 0) / 2
     : frame.radius === 'none' ? 0 : tokens.radius[frame.radius];
-  const box = frame.kind === 'fixed'
-    ? { width: frame.size, height: frame.size }
+  const box = frame.kind === 'fixed' || sizeOverride !== undefined
+    ? { width: size, height: size }
     : styles.fill;
 
   const remoteAttempts = remoteFailure !== null && remoteFailure.uri === request.imageUrl

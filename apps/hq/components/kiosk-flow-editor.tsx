@@ -8,6 +8,7 @@ import {
 } from '@platform/domain';
 
 import { saveKioskFlow } from '@/app/(console)/kiosk/actions';
+import { KioskFlowPreview } from '@/components/kiosk-flow-preview';
 
 const TENDERS: { id: KioskTender; label: string }[] = [
   { id: 'card', label: 'Card' },
@@ -36,10 +37,12 @@ export function KioskFlowEditor({
   initial,
   menu,
   updatedAt,
+  brandName,
 }: {
   initial: unknown;
   menu: KioskMenuFacts;
   updatedAt: string | null;
+  brandName?: string;
 }) {
   const [draft, setDraft] = useState<Draft>(() => (isRecord(initial) ? { ...initial } : {}));
   const [savedAt, setSavedAt] = useState(updatedAt);
@@ -302,50 +305,16 @@ export function KioskFlowEditor({
             What a device will draw{' '}
             {flow.entryDerived ? <span className="pill accent">derived from menu</span> : null}
           </h2>
-          <div
-            style={{
-              aspectRatio: '4 / 3',
-              borderRadius: 14,
-              background: 'var(--surface, #faf5ef)',
-              color: 'var(--ink, #241710)',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 14,
-              padding: 20,
-              overflow: 'hidden',
-            }}
-          >
-            <strong style={{ fontSize: 20, textAlign: 'center' }}>{flow.entry.prompt}</strong>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>
-              {nodes.map((node) => (
-                <span
-                  key={node.id}
-                  title={node.target.kind === 'category' ? node.target.categoryId : node.target.kind}
-                  style={{
-                    borderRadius: 999,
-                    background: 'var(--ink, #241710)',
-                    color: 'var(--surface, #faf5ef)',
-                    display: 'grid',
-                    placeItems: 'center',
-                    textAlign: 'center',
-                    fontSize: node.emphasis === 'hero' ? 12 : 10,
-                    padding: 6,
-                    width: node.emphasis === 'hero' ? 104 : node.emphasis === 'standard' ? 76 : 56,
-                    height: node.emphasis === 'hero' ? 104 : node.emphasis === 'standard' ? 76 : 56,
-                  }}
-                >
-                  {node.label}
-                </span>
-              ))}
-            </div>
-          </div>
+          <KioskFlowPreview flow={flow} menu={menu} brandName={brandName} />
 
           <p className="subtitle">
             {flow.tenders.length} way{flow.tenders.length === 1 ? '' : 's'} to pay ·{' '}
             {flow.family === 'pack' ? 'container' : 'item'} ordering ·{' '}
             {flow.guestName.mode === 'off' ? 'no name asked' : `name ${flow.guestName.mode}`}
+          </p>
+
+          <p className="subtitle kiosk-sync-meta">
+            {savedAt ? `Last published ${new Date(savedAt).toLocaleString()}` : 'Demo preview'} · changes here are local until you save
           </p>
 
           {notes.length > 0 ? (
