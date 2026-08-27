@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react';
+import { headers } from 'next/headers';
 
 import { currentSession, hasRole } from '@/lib/auth';
 import { isConfigured } from '@/lib/supabase-server';
@@ -17,6 +18,28 @@ import { signOut } from './login/actions';
  */
 export default async function ConsoleLayout({ children }: { children: ReactNode }) {
   const [session, client] = await Promise.all([currentSession(), serverClient()]);
+  const pathname = (await headers()).get('x-hq-pathname') ?? '';
+  const isPublicConsolePath = pathname === '/login' || pathname.startsWith('/status/');
+  if (isConfigured() && !session && !isPublicConsolePath) {
+    const user = client ? await client.auth.getUser() : null;
+    return (
+      <div className="shell">
+        <main className="main">
+          <section className="card access-card">
+            <h1>Tenant access required</h1>
+            <p className="subtitle">
+              {user?.data.user?.email
+                ? `You are signed in as ${user.data.user.email}, but this account is not assigned to a tenant. Ask a Coffee Story owner to add your staff role, then sign in again.`
+                : 'Your session is not assigned to a tenant. Sign in again or ask a Coffee Story owner to add your staff role.'}
+            </p>
+            <form action={signOut}>
+              <button type="submit" className="button">Sign out</button>
+            </form>
+          </section>
+        </main>
+      </div>
+    );
+  }
   const brand = client && session
     ? await client.from('brands').select('brand_config').eq('id', session.brandId).maybeSingle<{ brand_config: unknown }>()
     : null;

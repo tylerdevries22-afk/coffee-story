@@ -93,11 +93,14 @@ export async function loadDrops(): Promise<DropSummary[]> {
     client.from('menu_items').select('id, name').returns<{ id: string; name: string }[]>(),
   ]);
   if (drops.error) throw new Error(`drops: ${drops.error.message}`);
-  if (performance.error) throw new Error(`drop_performance: ${performance.error.message}`);
   if (items.error) throw new Error(`menu_items: ${items.error.message}`);
+  // Drop performance is an optional aggregate. A recently issued Supabase
+  // token can be rejected by one read replica while the base rows are valid
+  // (for example, during clock skew). Keep the dashboard usable with zeroed
+  // performance rather than failing the entire Server Components render.
   return dropSummariesOf(
     drops.data ?? [],
-    performance.data ?? [],
+    performance.error ? [] : performance.data ?? [],
     new Map((items.data ?? []).map((item) => [item.id, item.name])),
   );
 }

@@ -21,20 +21,25 @@ export async function middleware(request: NextRequest) {
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !anonKey) return NextResponse.next();
 
-  let response = NextResponse.next({ request });
+  const { pathname } = request.nextUrl;
+  // The console layout also runs for /login and the public status page. Carry
+  // the path on the internal request so layout-level tenant gating can skip
+  // those public surfaces without trusting a client-supplied header.
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set('x-hq-pathname', pathname);
+  let response = NextResponse.next({ request: { headers: requestHeaders } });
   const client = createServerClient(url, anonKey, {
     cookies: {
       getAll: () => request.cookies.getAll(),
       setAll: (updates) => {
         for (const { name, value } of updates) request.cookies.set(name, value);
-        response = NextResponse.next({ request });
+        response = NextResponse.next({ request: { headers: requestHeaders } });
         for (const { name, value, options } of updates) response.cookies.set(name, value, options);
       },
     },
   });
 
   const { data } = await client.auth.getUser();
-  const { pathname } = request.nextUrl;
   const isPublic = PUBLIC_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(prefix));
   if (!data.user && !isPublic) {
     const login = request.nextUrl.clone();
