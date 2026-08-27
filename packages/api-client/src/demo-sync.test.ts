@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import { afterEach, describe, it } from 'node:test';
 
-import { createDemoSyncClient, resolveDemoSyncBaseUrl } from './demo-sync';
+import {
+  createDemoSyncClient,
+  resolveDemoSyncBaseUrl,
+  resolveDemoSyncRuntimeUrl,
+} from './demo-sync';
 
 const originalFetch = globalThis.fetch;
 
@@ -15,6 +19,40 @@ describe('resolveDemoSyncBaseUrl', () => {
     assert.equal(resolveDemoSyncBaseUrl('https://localhost/api/demo-sync'), null);
     assert.equal(resolveDemoSyncBaseUrl('http://demo.example/api/demo-sync'), null);
     assert.equal(resolveDemoSyncBaseUrl('http://user:pass@localhost/api/demo-sync'), null);
+  });
+});
+
+describe('resolveDemoSyncRuntimeUrl', () => {
+  it('prefers a configured loopback URL', () => {
+    assert.equal(
+      resolveDemoSyncRuntimeUrl('http://127.0.0.1:3400/api/demo-sync', {
+        hostname: 'localhost',
+        protocol: 'http:',
+      }),
+      'http://127.0.0.1:3400/api/demo-sync',
+    );
+  });
+
+  it('derives the broker from a local HTTP preview origin', () => {
+    assert.equal(
+      resolveDemoSyncRuntimeUrl(undefined, { hostname: 'localhost', protocol: 'http:' }),
+      'http://localhost:3300/api/demo-sync',
+    );
+    assert.equal(
+      resolveDemoSyncRuntimeUrl(undefined, { hostname: '127.0.0.1', protocol: 'http:' }),
+      'http://127.0.0.1:3300/api/demo-sync',
+    );
+  });
+
+  it('does not infer a broker for hosted or HTTPS origins', () => {
+    assert.equal(
+      resolveDemoSyncRuntimeUrl(undefined, { hostname: 'demo.example', protocol: 'http:' }),
+      null,
+    );
+    assert.equal(
+      resolveDemoSyncRuntimeUrl(undefined, { hostname: 'localhost', protocol: 'https:' }),
+      null,
+    );
   });
 });
 

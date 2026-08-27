@@ -15,6 +15,11 @@ import { newIdempotencyKey } from './idempotency';
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1']);
 const REQUEST_TIMEOUT_MS = 3_000;
 
+type PreviewLocation = {
+  hostname?: unknown;
+  protocol?: unknown;
+};
+
 /** Resolve the preview broker, refusing every non-loopback destination. */
 export function resolveDemoSyncBaseUrl(value: unknown): string | null {
   if (typeof value !== 'string' || value.length === 0) return null;
@@ -26,6 +31,32 @@ export function resolveDemoSyncBaseUrl(value: unknown): string | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Resolve the local preview broker when Expo web does not inline public env
+ * values into a static export. The fallback is deliberately loopback-only and
+ * never activates for a hosted or HTTPS origin.
+ */
+export function resolveDemoSyncRuntimeUrl(
+  value: unknown,
+  location?: PreviewLocation,
+): string | null {
+  const configured = resolveDemoSyncBaseUrl(value);
+  if (configured) return configured;
+
+  const runtimeLocation = location ?? getRuntimeLocation();
+  const hostname = runtimeLocation?.hostname;
+  const protocol = runtimeLocation?.protocol;
+  if (!LOOPBACK_HOSTS.has(typeof hostname === 'string' ? hostname : '')) return null;
+  if (protocol !== undefined && protocol !== 'http:') return null;
+
+  return resolveDemoSyncBaseUrl(`http://${hostname}:3300/api/demo-sync`);
+}
+
+function getRuntimeLocation(): PreviewLocation | undefined {
+  const globalWithLocation = globalThis as typeof globalThis & { location?: PreviewLocation };
+  return globalWithLocation.location;
 }
 
 export type DemoSyncClient = {
