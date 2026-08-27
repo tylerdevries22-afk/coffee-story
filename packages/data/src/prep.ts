@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { PrepBatchRow, RecipeRow } from '@platform/schema';
+import { abortRead, readWithRetry } from './read-retry';
 
 export type PrepBoardEntry = PrepBatchRow & {
   recipe: Pick<RecipeRow, 'id' | 'menu_item_id' | 'version' | 'steps' | 'yield_qty' | 'yield_unit' | 'allergens'>;
@@ -19,15 +20,14 @@ export async function fetchPrepBoard(
   locationId: string,
   serviceDate: string,
 ): Promise<PrepBoardEntry[]> {
-  const result = await client
+  const rows = await readWithRetry('fetchPrepBoard', (signal) => abortRead(client
     .from('prep_batches')
     .select('*, recipe:recipes(id, menu_item_id, version, steps, yield_qty, yield_unit, allergens, menu_items(name))')
     .eq('location_id', locationId)
     .eq('service_date', serviceDate)
-    .order('status')
-    .returns<(PrepBatchRow & { recipe: PrepBoardEntry['recipe'] & { menu_items?: { name?: string } } })[]>();
-  if (result.error) throw new Error(`fetchPrepBoard: ${result.error.message}`);
-  return (result.data ?? []).map((row) => ({
+    .order('status'), signal)
+    .returns<(PrepBatchRow & { recipe: PrepBoardEntry['recipe'] & { menu_items?: { name?: string } } })[]>());
+  return (rows ?? []).map((row) => ({
     ...row,
     recipe: row.recipe,
     itemName: row.recipe?.menu_items?.name ?? 'Unnamed item',
@@ -57,13 +57,12 @@ export async function fetchRecipe(
   client: SupabaseClient,
   recipeId: string,
 ): Promise<RecipeRow | null> {
-  const result = await client
+  const row = await readWithRetry('fetchRecipe', (signal) => abortRead(client
     .from('recipes')
     .select('*')
-    .eq('id', recipeId)
-    .maybeSingle<RecipeRow>();
-  if (result.error) throw new Error(`fetchRecipe: ${result.error.message}`);
-  return result.data ?? null;
+    .eq('id', recipeId), signal)
+    .maybeSingle<RecipeRow>());
+  return row ?? null;
 }
 
 /**

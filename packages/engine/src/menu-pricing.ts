@@ -146,9 +146,10 @@ function parseDependency(slug: string, value: unknown): Group['dependsOn'] {
 
 /** Mirrors the app's visibility rule: a dependent group is in play only when its trigger choice is selected. */
 function isGroupVisible(group: Group, chosenByGroup: ReadonlyMap<string, readonly string[]>): boolean {
-  if (!group.dependsOn) return true;
-  const chosen = chosenByGroup.get(group.dependsOn.groupId) ?? [];
-  return chosen.some((id) => group.dependsOn!.choiceIds.includes(id));
+  const dependency = group.dependsOn;
+  if (!dependency) return true;
+  const chosen = chosenByGroup.get(dependency.groupId) ?? [];
+  return chosen.some((id) => dependency.choiceIds.includes(id));
 }
 
 export function priceLine(item: MenuItemPricing, line: PricedLineRequest): PricedLine {

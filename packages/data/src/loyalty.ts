@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
   LoyaltyAccountRow, LoyaltyEventRow, LoyaltyStandingRow, StoredValueLedgerRow,
 } from '@platform/schema';
+import { abortRead, readWithRetry } from './read-retry';
 
 export type LoyaltySummary = {
   account: LoyaltyAccountRow | null;
@@ -21,39 +22,36 @@ export async function fetchLoyaltySummary(
   customerId: string,
   ledgerLimit = 50,
 ): Promise<LoyaltySummary> {
-  const account = await client
+  const account = await readWithRetry('fetchLoyaltySummary account', (signal) => abortRead(client
     .from('loyalty_accounts')
     .select('*')
-    .eq('customer_id', customerId)
-    .maybeSingle<LoyaltyAccountRow>();
-  if (account.error) throw new Error(`fetchLoyaltySummary account: ${account.error.message}`);
+    .eq('customer_id', customerId), signal)
+    .maybeSingle<LoyaltyAccountRow>());
 
   const [ledger, storedValue] = await Promise.all([
-    account.data
-      ? client
+    account
+      ? readWithRetry('fetchLoyaltySummary ledger', (signal) => abortRead(client
           .from('loyalty_events')
           .select('*')
-          .eq('account_id', account.data.id)
+          .eq('account_id', account.id)
           .order('created_at', { ascending: false })
-          .limit(ledgerLimit)
-          .returns<LoyaltyEventRow[]>()
-      : Promise.resolve({ data: [] as LoyaltyEventRow[], error: null }),
-    client
+          .limit(ledgerLimit), signal)
+          .returns<LoyaltyEventRow[]>())
+      : Promise.resolve([] as LoyaltyEventRow[]),
+    readWithRetry('fetchLoyaltySummary stored value', (signal) => abortRead(client
       .from('stored_value_ledger')
       .select('*')
       .eq('customer_id', customerId)
       .order('created_at', { ascending: false })
-      .limit(ledgerLimit)
-      .returns<StoredValueLedgerRow[]>(),
+      .limit(ledgerLimit), signal)
+      .returns<StoredValueLedgerRow[]>()),
   ]);
-  if (ledger.error) throw new Error(`fetchLoyaltySummary ledger: ${ledger.error.message}`);
-  if (storedValue.error) throw new Error(`fetchLoyaltySummary stored value: ${storedValue.error.message}`);
 
   return {
-    account: account.data,
-    ledger: ledger.data ?? [],
-    storedValue: storedValue.data ?? [],
-    storedValueBalanceCents: storedValue.data?.[0]?.balance_after_cents ?? 0,
+    account,
+    ledger: ledger ?? [],
+    storedValue: storedValue ?? [],
+    storedValueBalanceCents: storedValue?.[0]?.balance_after_cents ?? 0,
   };
 }
 
@@ -73,11 +71,9 @@ export async function fetchLoyaltyStanding(
   client: SupabaseClient,
   customerId: string,
 ): Promise<LoyaltyStandingRow | null> {
-  const result = await client
+  return readWithRetry('fetchLoyaltyStanding', (signal) => abortRead(client
     .from('loyalty_standing')
     .select('*')
-    .eq('customer_id', customerId)
-    .maybeSingle<LoyaltyStandingRow>();
-  if (result.error) throw new Error(`fetchLoyaltyStanding: ${result.error.message}`);
-  return result.data;
+    .eq('customer_id', customerId), signal)
+    .maybeSingle<LoyaltyStandingRow>());
 }

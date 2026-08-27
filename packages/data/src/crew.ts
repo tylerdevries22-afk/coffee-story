@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { CrewTaskCompletionRow, CrewTaskRow, ShiftRow, TaskRecurrence } from '@platform/schema';
+import { abortRead, readWithRetry } from './read-retry';
 
 export type RosterEntry = ShiftRow & { staffName: string; staffRole: string };
 
@@ -17,16 +18,15 @@ export async function fetchShiftRoster(
 ): Promise<RosterEntry[]> {
   const dayStart = `${serviceDate}T00:00:00.000Z`;
   const dayEnd = `${serviceDate}T23:59:59.999Z`;
-  const result = await client
+  const rows = await readWithRetry('fetchShiftRoster', (signal) => abortRead(client
     .from('shifts')
     .select('*, brand_users(display_name, role)')
     .eq('location_id', locationId)
     .gte('starts_at', dayStart)
     .lte('starts_at', dayEnd)
-    .order('starts_at')
-    .returns<(ShiftRow & { brand_users?: { display_name?: string; role?: string } })[]>();
-  if (result.error) throw new Error(`fetchShiftRoster: ${result.error.message}`);
-  return (result.data ?? []).map((row) => ({
+    .order('starts_at'), signal)
+    .returns<(ShiftRow & { brand_users?: { display_name?: string; role?: string } })[]>());
+  return (rows ?? []).map((row) => ({
     ...row,
     staffName: row.brand_users?.display_name?.trim() || 'Team member',
     staffRole: row.brand_users?.role ?? 'staff',
@@ -51,26 +51,24 @@ export async function fetchChecklist(
   serviceDate: string,
   recurrence: TaskRecurrence,
 ): Promise<ChecklistItem[]> {
-  const tasks = await client
+  const taskRows = await readWithRetry('fetchChecklist tasks', (signal) => abortRead(client
     .from('crew_tasks')
     .select('*')
     .eq('recurrence', recurrence)
     .eq('is_active', true)
     .or(`location_id.is.null,location_id.eq.${locationId}`)
-    .order('sort_order')
-    .returns<CrewTaskRow[]>();
-  if (tasks.error) throw new Error(`fetchChecklist: ${tasks.error.message}`);
+    .order('sort_order'), signal)
+    .returns<CrewTaskRow[]>());
 
-  const done = await client
+  const doneRows = await readWithRetry('fetchChecklist completions', (signal) => abortRead(client
     .from('crew_task_completions')
     .select('*')
     .eq('location_id', locationId)
-    .eq('service_date', serviceDate)
-    .returns<CrewTaskCompletionRow[]>();
-  if (done.error) throw new Error(`fetchChecklist completions: ${done.error.message}`);
+    .eq('service_date', serviceDate), signal)
+    .returns<CrewTaskCompletionRow[]>());
 
-  const byTask = new Map((done.data ?? []).map((row) => [row.task_id, row]));
-  return (tasks.data ?? []).map((task) => {
+  const byTask = new Map((doneRows ?? []).map((row) => [row.task_id, row]));
+  return (taskRows ?? []).map((task) => {
     const completion = byTask.get(task.id);
     return {
       ...task,

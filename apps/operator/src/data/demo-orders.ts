@@ -65,15 +65,16 @@ const ITEMS: readonly { name: string; options: readonly string[]; priceCents: nu
   { name: 'Americano', options: ['12 oz'], priceCents: 400 },
   { name: 'Matcha Latte', options: ['16 oz', 'Iced'], priceCents: 650 },
 ];
+const DEFAULT_ITEM = ITEMS[0] ?? { name: 'Coffee', options: [], priceCents: 0 };
 
 /** A fresh paid order, varied by index so a shift never repeats itself. */
 export function spawnDemoOrder(index: number): BoardOrder {
-  const item = ITEMS[index % ITEMS.length]!;
+  const item = ITEMS[index % ITEMS.length] ?? DEFAULT_ITEM;
   const quantity = (index % 3) + 1;
   return {
     id: `ord-live-${index}`,
     shortCode: `B${20 + index}`,
-    guestName: NAMES[index % NAMES.length]!,
+    guestName: NAMES[index % NAMES.length] ?? 'Guest',
     status: 'paid',
     placedAt: new Date().toISOString(),
     // Numbering continues past the opening board, the way a service date does.

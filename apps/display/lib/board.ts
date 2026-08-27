@@ -3,7 +3,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import {
   createDemoSyncClient, type DemoSyncBoardTicket, type DemoSyncClient,
 } from '@platform/api-client';
-import { fetchBoardTickets } from '@platform/data';
+import { abortRead, fetchBoardTickets, readWithRetry } from '@platform/data';
 import { resolveBoardConfig, type BoardConfig } from '@platform/domain';
 import type { BoardTicketRow } from '@platform/schema';
 import { resolveCopy, type BrandCopy } from '@platform/ui/copy';
@@ -127,24 +127,22 @@ export type BoardSnapshot = {
 type BrandBits = { name: string; config: unknown };
 
 async function loadBrandBits(db: SupabaseClient, locationId: string): Promise<BrandBits | null> {
-  const location = await db
+  const location = await readWithRetry('display location', (signal) => abortRead(db
     .from('locations')
     .select('name, brand_id')
-    .eq('id', locationId)
-    .maybeSingle<{ name: string; brand_id: string }>();
-  if (location.error) throw new Error(`location: ${location.error.message}`);
-  if (!location.data) return null;
+    .eq('id', locationId), signal)
+    .maybeSingle<{ name: string; brand_id: string }>());
+  if (!location) return null;
 
   // brand_storefront, not brands: the table also carries the platform's fee
   // terms, which stay claim-gated (0015). A wall screen has no business
   // holding a query that could ever return them.
-  const brand = await db
+  const brand = await readWithRetry('display brand', (signal) => abortRead(db
     .from('brand_storefront')
     .select('brand_config')
-    .eq('id', location.data.brand_id)
-    .maybeSingle<{ brand_config: unknown }>();
-  if (brand.error) throw new Error(`brand: ${brand.error.message}`);
-  return { name: location.data.name, config: brand.data?.brand_config ?? {} };
+    .eq('id', location.brand_id), signal)
+    .maybeSingle<{ brand_config: unknown }>());
+  return { name: location.name, config: brand?.brand_config ?? {} };
 }
 
 function fixtures(

@@ -1,6 +1,6 @@
 import { createContext, useContext, useMemo, type PropsWithChildren, type ReactNode, type Ref } from 'react';
 import {
-  ActivityIndicator, Animated, Image, Pressable, ScrollView, Text, View,
+  ActivityIndicator, Animated, Image, Platform, Pressable, ScrollView, Text, View,
   type ImageSourcePropType, type PressableProps, type ScrollViewProps, type StyleProp,
   type TextStyle, type ViewStyle,
 } from 'react-native';
@@ -43,7 +43,7 @@ export function AppScreen({ children, tone = 'light', scrollY, scrollRef, ...pro
   const Scroller = scrollY ? Animated.ScrollView : ScrollView;
   const { onScroll } = props;
   const handleScroll = useMemo(() => scrollY
-    ? Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true, listener: onScroll })
+    ? Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: Platform.OS !== 'web', listener: onScroll })
     : onScroll, [onScroll, scrollY]);
   return (
     <ToneContext.Provider value={tone}>

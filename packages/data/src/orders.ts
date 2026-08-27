@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { OrderRow } from '@platform/schema';
 
-import { readWithRetry, type DataReadOptions } from './read-retry';
+import { abortRead, readWithRetry, type DataReadOptions } from './read-retry';
 
 /**
  * The operator board's working set: everything at the location that needs
@@ -14,15 +14,14 @@ export async function fetchActiveLocationOrders(
   locationId: string,
   options: DataReadOptions = {},
 ): Promise<OrderRow[]> {
-  const rows = await readWithRetry('fetchActiveLocationOrders', (signal) => client
+  const rows = await readWithRetry('fetchActiveLocationOrders', (signal) => abortRead(client
     .from('orders')
     .select('*')
     .eq('location_id', locationId)
     // Unpaid Square rows stay private and off the production board. A
     // pay-at-pickup row is actionable: staff must explicitly collect it.
     .or('status.in.(paid,in_progress,ready),and(status.eq.created,tender_type.eq.pay_at_pickup)')
-    .order('created_at')
-    .abortSignal(signal)
+    .order('created_at'), signal)
     .returns<OrderRow[]>(), options);
   return rows ?? [];
 }
@@ -40,12 +39,11 @@ export async function fetchLocationOrderStatuses(
   options: DataReadOptions = {},
 ): Promise<LocationOrderStatus[]> {
   if (orderIds.length === 0) return [];
-  const rows = await readWithRetry('fetchLocationOrderStatuses', (signal) => client
+  const rows = await readWithRetry('fetchLocationOrderStatuses', (signal) => abortRead(client
     .from('orders')
     .select('id, status')
     .eq('location_id', locationId)
-    .in('id', [...new Set(orderIds)])
-    .abortSignal(signal)
+    .in('id', [...new Set(orderIds)]), signal)
     .returns<LocationOrderStatus[]>(), options);
   return rows ?? [];
 }
@@ -61,18 +59,17 @@ export async function fetchCustomerOrders(
   customerId: string,
   limit = 50,
 ): Promise<CustomerOrders> {
-  const result = await client
+  const rows = await readWithRetry('fetchCustomerOrders', (signal) => abortRead(client
     .from('orders')
     .select('*')
     .eq('customer_id', customerId)
     .order('created_at', { ascending: false })
-    .limit(limit)
-    .returns<OrderRow[]>();
-  if (result.error) throw new Error(`fetchCustomerOrders: ${result.error.message}`);
-  const rows = result.data ?? [];
+    .limit(limit), signal)
+    .returns<OrderRow[]>());
+  const safeRows = rows ?? [];
   const activeStatuses = new Set<string>(['created', 'paid', 'in_progress', 'ready']);
   return {
-    active: rows.filter((row) => activeStatuses.has(row.status)),
-    past: rows.filter((row) => !activeStatuses.has(row.status)),
+    active: safeRows.filter((row) => activeStatuses.has(row.status)),
+    past: safeRows.filter((row) => !activeStatuses.has(row.status)),
   };
 }

@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Animated,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -253,7 +254,7 @@ export function HomeScreen() {
           scrollEventThrottle={16}
           onScroll={Animated.event(
             [{ nativeEvent: { contentOffset: { x: carouselX } } }],
-            { useNativeDriver: true },
+            { useNativeDriver: Platform.OS !== 'web' },
           )}
           onMomentumScrollEnd={(event) => {
             setActiveSlide(Math.round(event.nativeEvent.contentOffset.x / width));
@@ -546,8 +547,8 @@ function PulseDot({ reducedMotion }: { reducedMotion: boolean }) {
     if (reducedMotion) return undefined;
     const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(pulse, { toValue: 1, duration: 900, useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 0, duration: 900, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1, duration: 900, useNativeDriver: Platform.OS !== 'web' }),
+        Animated.timing(pulse, { toValue: 0, duration: 900, useNativeDriver: Platform.OS !== 'web' }),
       ]),
     );
     loop.start();

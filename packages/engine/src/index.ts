@@ -6,6 +6,7 @@ export * from './menu-pricing';
 export * from './tax';
 export * from './stored-value';
 export * from './notifications';
+export * from './http';
 export * from './jobs';
 export * from './orders';
 export * from './square/client';

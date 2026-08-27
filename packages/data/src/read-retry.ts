@@ -8,6 +8,12 @@ export type DataReadOptions = {
   attempts?: number;
 };
 
+/** Attach Supabase's abort signal while keeping lightweight test doubles valid. */
+export function abortRead<T>(query: T, signal: AbortSignal): T {
+  const abortable = query as T & { abortSignal?: (value: AbortSignal) => T };
+  return typeof abortable.abortSignal === 'function' ? abortable.abortSignal(signal) : query;
+}
+
 const DEFAULT_TIMEOUT_MS = 10_000;
 const DEFAULT_ATTEMPTS = 2;
 

@@ -7,6 +7,8 @@
  * fails loudly at send time, never silently drops.
  */
 
+import { fetchExternalWithRetry } from './http';
+
 export type NotificationChannel = 'push' | 'sms' | 'email';
 
 export type BrandMessageContext = {
@@ -53,7 +55,7 @@ export type Transport = {
 export function liveTransport(env: NodeJS.ProcessEnv = process.env): Transport {
   return {
     async sendPush(token, title, body) {
-      const response = await fetch('https://exp.host/--/api/v2/push/send', {
+      const response = await fetchExternalWithRetry('https://exp.host/--/api/v2/push/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ to: token, title, body, sound: 'default' }),
@@ -65,7 +67,7 @@ export function liveTransport(env: NodeJS.ProcessEnv = process.env): Transport {
       const auth = env.TWILIO_AUTH_TOKEN;
       const from = env.TWILIO_FROM_NUMBER;
       if (!sid || !auth || !from) throw new Error('Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER.');
-      const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
+      const response = await fetchExternalWithRetry(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
         method: 'POST',
         headers: {
           Authorization: `Basic ${Buffer.from(`${sid}:${auth}`).toString('base64')}`,
@@ -79,7 +81,7 @@ export function liveTransport(env: NodeJS.ProcessEnv = process.env): Transport {
       const key = env.RESEND_API_KEY;
       const from = env.RESEND_FROM;
       if (!key || !from) throw new Error('Set RESEND_API_KEY and RESEND_FROM.');
-      const response = await fetch('https://api.resend.com/emails', {
+      const response = await fetchExternalWithRetry('https://api.resend.com/emails', {
         method: 'POST',
         headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ from, to: address, subject, text: body }),

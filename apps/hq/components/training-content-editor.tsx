@@ -58,9 +58,10 @@ export function TrainingContentEditor({
   }
 
   function publish() {
-    if (!release.id) return;
+    const releaseId = release.id;
+    if (!releaseId) return;
     startTransition(async () => {
-      const result = await publishTrainingDraft(release.id!, release.updatedAt);
+      const result = await publishTrainingDraft(releaseId, release.updatedAt);
       if (!result.ok) {
         setMessage(result.error);
         return;

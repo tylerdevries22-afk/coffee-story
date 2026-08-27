@@ -28,6 +28,8 @@ import {
   fetchActiveLocationOrders,
   fetchLocationOrderStatuses,
   orderBoardEntryFromRow,
+  abortRead,
+  readWithRetry,
   subscribeToLocationSettings,
   subscribeToLocationOrders,
   subscribeToMenu,
@@ -68,6 +70,9 @@ export const DEMO_LOCATIONS: readonly OperatorLocation[] = [
   { id: 'loc-havana', name: 'Havana St', timezone: 'America/Denver' },
   { id: 'loc-downtown', name: 'Downtown', timezone: 'America/Denver' },
 ];
+const DEFAULT_DEMO_LOCATION: OperatorLocation = DEMO_LOCATIONS[0] ?? {
+  id: 'demo-location', name: 'Demo location', timezone: 'America/Denver',
+};
 
 /** How often the live board re-fetches to catch missed realtime messages
  * and to flush transitions queued while offline. */
@@ -120,7 +125,7 @@ export function OperatorProvider({ children }: PropsWithChildren) {
 
   const [orders, setOrders] = useState<BoardOrder[]>(() => initialDemoOrders());
   const [unseenIds, setUnseenIds] = useState<ReadonlySet<string>>(new Set());
-  const [location, setLocation] = useState<OperatorLocation>(DEMO_LOCATIONS[0]!);
+  const [location, setLocation] = useState<OperatorLocation>(DEFAULT_DEMO_LOCATION);
   const [settings, setSettings] = useState<OperatorSettings>({
     newOrderAlert: true,
     kdsMode: false,
@@ -317,25 +322,27 @@ export function OperatorProvider({ children }: PropsWithChildren) {
     let active = true;
     const database = supabase;
     const readMenu = () => {
-      void database
+      void readWithRetry('operator menu availability', (signal) => abortRead(database
         .from('menu_items')
         .select('slug, is_86d')
         .eq('brand_id', tenant.brand_id)
-        .eq('is_86d', true)
-        .returns<{ slug: string; is_86d: boolean }[]>()
-        .then((result) => {
-          if (active && result.data) setEightySixed(new Set(result.data.map((item) => item.slug)));
-        });
+        .eq('is_86d', true), signal)
+        .returns<{ slug: string; is_86d: boolean }[]>())
+        .then((rows) => {
+          if (active) setEightySixed(new Set((rows ?? []).map((item) => item.slug)));
+        })
+        .catch(() => undefined);
     };
     const readLocation = () => {
-      void database
+      void readWithRetry('operator location settings', (signal) => abortRead(database
         .from('locations')
         .select('ordering_paused')
-        .eq('id', location.id)
-        .maybeSingle<{ ordering_paused: boolean }>()
-        .then((result) => {
-          if (active && result.data) setOrderingPausedState(result.data.ordering_paused);
-        });
+        .eq('id', location.id), signal)
+        .maybeSingle<{ ordering_paused: boolean }>())
+        .then((row) => {
+          if (active && row) setOrderingPausedState(row.ordering_paused);
+        })
+        .catch(() => undefined);
     };
     readMenu();
     readLocation();

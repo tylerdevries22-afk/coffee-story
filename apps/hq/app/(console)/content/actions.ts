@@ -219,9 +219,10 @@ export async function saveMenuItem(
   const fields = 'id, name, slug, description, category_id, base_price_cents, sizes, modifiers, image_url, is_listed, is_86d, sort_order, updated_at';
   let result;
   if (draft.id) {
+    const itemId = draft.id;
     result = await retryWrite(() => {
       let query = context.client.from('menu_items').update(values)
-        .eq('id', draft.id!).eq('brand_id', context.brandId);
+        .eq('id', itemId).eq('brand_id', context.brandId);
       if (expectedUpdatedAt) query = query.eq('updated_at', expectedUpdatedAt);
       return query.select(fields).maybeSingle<MenuItemRow>();
     });
@@ -390,7 +391,8 @@ export async function saveTrainingDraft(
 
   let saved;
   if (existing.data) {
-    if (!expectedUpdatedAt || existing.data.updated_at !== expectedUpdatedAt) {
+    const existingDraft = existing.data;
+    if (!expectedUpdatedAt || existingDraft.updated_at !== expectedUpdatedAt) {
       return { ok: false, error: 'This training draft changed in another session. Reload before saving.' };
     }
     saved = await retryWrite(() => context.privileged.from('training_releases').update({
@@ -399,7 +401,7 @@ export async function saveTrainingDraft(
       template_key: prepared.publicManifest.tenant.templateKey ?? null,
       template_version: prepared.publicManifest.tenant.templateVersion ?? null,
       updated_by: context.brandUserId,
-    }).eq('id', existing.data!.id).eq('brand_id', context.brandId).eq('updated_at', existing.data!.updated_at)
+    }).eq('id', existingDraft.id).eq('brand_id', context.brandId).eq('updated_at', existingDraft.updated_at)
       .select('id, version, updated_at').maybeSingle<{ id: string; version: number; updated_at: string }>());
   } else {
     const latest = await context.privileged.from('training_releases').select('version')

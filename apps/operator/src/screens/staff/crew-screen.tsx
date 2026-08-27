@@ -232,7 +232,9 @@ function Checklist({
                 <Body muted>
                   {/* Attribution is the point of a checklist: "done" without a
                       name is a claim nobody owns. */}
-                  {done && item.completedBy ? `${item.completedBy} · ${clockTime(item.completedAt!)}` : item.detail}
+                  {done && item.completedBy && item.completedAt
+                    ? `${item.completedBy} · ${clockTime(item.completedAt)}`
+                    : item.detail}
                 </Body>
               </View>
             </Card>

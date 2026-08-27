@@ -44,7 +44,7 @@ export {
   type PublishedTrainingRelease,
 } from './training';
 export { subscribeToBoardChanges } from './board-realtime';
-export { readWithRetry, type DataReadOptions, type DataReadResult } from './read-retry';
+export { abortRead, readWithRetry, type DataReadOptions, type DataReadResult } from './read-retry';
 // How a board splits into columns is a display decision and lives in
 // @platform/domain (boardColumns), which also caps and lingers. This
 // package's job is the read.

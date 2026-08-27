@@ -7,6 +7,8 @@
  * square_connections); OAuth calls use the application credentials.
  */
 
+import { fetchExternalWithRetry } from '../http';
+
 export type SquareEnv = 'sandbox' | 'production';
 
 const HOSTS: Record<SquareEnv, string> = {
@@ -57,7 +59,7 @@ async function call<T>(
   path: string,
   init: { method: string; token?: string; body?: unknown },
 ): Promise<T> {
-  const response = await fetch(`${config.apiBase ?? HOSTS[config.env]}${path}`, {
+  const response = await fetchExternalWithRetry(`${config.apiBase ?? HOSTS[config.env]}${path}`, {
     method: init.method,
     headers: {
       'Square-Version': API_VERSION,

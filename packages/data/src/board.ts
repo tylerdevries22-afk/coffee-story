@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { readSnapshotLines, ticketCallout } from '@platform/domain';
 import type { BoardTicketRow, OrderRow } from '@platform/schema';
+import { abortRead, readWithRetry } from './read-retry';
 
 export type OrderBoardEntry = {
   id: string;
@@ -67,12 +68,11 @@ export async function fetchBoardTickets(
   client: SupabaseClient,
   locationId: string,
 ): Promise<BoardTicketRow[]> {
-  const result = await client
+  const rows = await readWithRetry('fetchBoardTickets', (signal) => abortRead(client
     .from('board_tickets')
     .select('*')
     .eq('location_id', locationId)
-    .order('daily_number', { ascending: true })
-    .returns<BoardTicketRow[]>();
-  if (result.error) throw new Error(`fetchBoardTickets: ${result.error.message}`);
-  return result.data ?? [];
+    .order('daily_number', { ascending: true }), signal)
+    .returns<BoardTicketRow[]>());
+  return rows ?? [];
 }

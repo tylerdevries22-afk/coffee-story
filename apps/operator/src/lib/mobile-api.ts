@@ -13,7 +13,7 @@ import type { IntakeFormCatalogEntry } from '@/features/admin/preferences-forms'
 import { staffRevenueMetrics } from '@/features/staff/revenue';
 import { supabase } from '@/lib/supabase';
 import { tenantClaimsFromSession } from '@/lib/live-portal';
-import { fetchPublishedTrainingRelease } from '@platform/data';
+import { abortRead, fetchPublishedTrainingRelease, readWithRetry } from '@platform/data';
 import type {
   OrderableCatalog,
   PortalProfile,
@@ -67,7 +67,8 @@ export const mobileApi = {
     if (!supabase) {
       throw new MobileApiError('Live mode is not configured in this build.', 503, 'configuration_missing');
     }
-    const session = await supabase.auth.getSession();
+    const database = supabase;
+    const session = await database.auth.getSession();
     const token = session.data.session?.access_token;
     const payload = token ? JSON.parse(
       typeof atob === 'function'
@@ -78,17 +79,18 @@ export const mobileApi = {
     if (!claims?.role) {
       throw new MobileApiError('This account has no staff access at this shop.', 403, 'no_staff_access');
     }
-    const orders = await supabase
-      .from('orders')
-      .select('status, total_cents, created_at')
-      .eq('brand_id', claims.brand_id)
-      .gte('created_at', startOfToday())
-      .returns<{ status: string; total_cents: number; created_at: string }[]>();
-    if (orders.error) {
-      throw new MobileApiError(`Today's orders could not be loaded: ${orders.error.message}`, 500, 'load_failed');
+    let rows: { status: string; total_cents: number; created_at: string }[] | null;
+    try {
+      rows = await readWithRetry('staff dashboard orders', (signal) => abortRead(database
+        .from('orders')
+        .select('status, total_cents, created_at')
+        .eq('brand_id', claims.brand_id)
+        .gte('created_at', startOfToday()), signal)
+        .returns<{ status: string; total_cents: number; created_at: string }[]>());
+    } catch {
+      throw new MobileApiError("Today's orders could not be loaded.", 500, 'load_failed');
     }
-    const rows = orders.data ?? [];
-    const metrics = staffRevenueMetrics(rows);
+    const metrics = staffRevenueMetrics(rows ?? []);
     return {
       orders: [],
       clients: [],

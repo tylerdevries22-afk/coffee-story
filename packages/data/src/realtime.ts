@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { OrderRow, OrderStatus } from '@platform/schema';
+import { abortRead, readWithRetry } from './read-retry';
 
 /**
  * Live order tracking: one channel per order, reporting the order's status
@@ -25,12 +26,12 @@ export function subscribeToOrderStatus(
 ): () => void {
   if (!client) return () => {};
   let live = true;
-  void client
+  void readWithRetry('subscribeToOrderStatus seed', (signal) => abortRead(client
     .from('orders')
     .select('status')
-    .eq('id', orderId)
-    .maybeSingle<{ status: OrderStatus }>()
-    .then(({ data }) => {
+    .eq('id', orderId), signal)
+    .maybeSingle<{ status: OrderStatus }>())
+    .then((data) => {
       if (live && data?.status) onStatus(data.status);
     });
   const channel = client

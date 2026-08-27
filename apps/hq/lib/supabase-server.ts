@@ -20,10 +20,13 @@ export function isConfigured(): boolean {
 /** Null when the deployment carries no Supabase env — pages fall back to fixtures. */
 export async function serverClient(): Promise<SupabaseClient | null> {
   if (!isConfigured()) return null;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !publishableKey) return null;
   const store = await cookies();
   return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    url,
+    publishableKey,
     {
       global: { fetch: (input, init) => fetchWithRetry(input, init) },
       cookies: {

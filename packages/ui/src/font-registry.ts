@@ -35,7 +35,7 @@ export const FONT_REGISTRY: Readonly<Record<string, RegisteredFont>> = {
 
 /** Returns the bundled native face for a tenant family and weight. */
 export function resolveFontFace(family: string, weight: FontWeight): string {
-  return FONT_REGISTRY[family]?.faces[weight] ?? FONT_REGISTRY.System!.faces[weight];
+  return FONT_REGISTRY[family]?.faces[weight] ?? 'System';
 }
 
 /** Whether a tenant family can render without adding a native dependency. */

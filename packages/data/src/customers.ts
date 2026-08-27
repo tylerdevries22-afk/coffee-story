@@ -1,19 +1,18 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { CustomerRow } from '@platform/schema';
+import { abortRead, readWithRetry } from './read-retry';
 
 /** The signed-in guest's own customer row, or null before first order. */
 export async function fetchCustomerByUser(
   client: SupabaseClient,
   userId: string,
 ): Promise<CustomerRow | null> {
-  const result = await client
+  return readWithRetry('fetchCustomerByUser', (signal) => abortRead(client
     .from('customers')
     .select('*')
-    .eq('user_id', userId)
-    .maybeSingle<CustomerRow>();
-  if (result.error) throw new Error(`fetchCustomerByUser: ${result.error.message}`);
-  return result.data;
+    .eq('user_id', userId), signal)
+    .maybeSingle<CustomerRow>());
 }
 
 /**
