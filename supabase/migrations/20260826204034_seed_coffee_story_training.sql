@@ -32,8 +32,11 @@ declare
   lesson_index integer;
 begin
   select id into target_brand from public.brands where slug = 'coffee-story' limit 1;
-  if target_brand is null then raise exception 'Coffee Story brand was not found'; end if;
 
+  -- Migrations run before the onboarding seed on a fresh database. Always
+  -- publish the reusable template, but only materialize the tenant release
+  -- when the tenant already exists. `pnpm onboard` can then seed the brand
+  -- and the idempotent training bootstrap can publish its first release.
   for track in select value from jsonb_array_elements(tracks) loop
     track_key := track->>'key';
     lessons := '[]'::jsonb;
@@ -67,13 +70,15 @@ begin
   values ('coffee-story', 1, 'Specialty coffee shop and café', 'en-US', manifest, 'published')
   on conflict (template_key, version) do update set manifest = excluded.manifest, status = 'published', updated_at = now();
 
-  if not exists (select 1 from public.training_releases release where release.brand_id = target_brand and release.status = 'published' and release.manifest->>'schemaVersion' = '2') then
-    select id into run_id from public.training_bootstrap_runs where brand_id = target_brand and profile_fingerprint = 'coffee-story-v2-baseline-20260826' and pipeline_version = '2.0.0' limit 1;
-    if run_id is null then
-      insert into public.training_bootstrap_runs (brand_id, profile_fingerprint, pipeline_version, trigger_kind, status, stage, progress, finished_at)
-      values (target_brand, 'coffee-story-v2-baseline-20260826', '2.0.0', 'manual', 'published', 'complete', 100, now()) returning id into run_id;
+  if target_brand is not null then
+    if not exists (select 1 from public.training_releases release where release.brand_id = target_brand and release.status = 'published' and release.manifest->>'schemaVersion' = '2') then
+      select id into run_id from public.training_bootstrap_runs where brand_id = target_brand and profile_fingerprint = 'coffee-story-v2-baseline-20260826' and pipeline_version = '2.0.0' limit 1;
+      if run_id is null then
+        insert into public.training_bootstrap_runs (brand_id, profile_fingerprint, pipeline_version, trigger_kind, status, stage, progress, finished_at)
+        values (target_brand, 'coffee-story-v2-baseline-20260826', '2.0.0', 'manual', 'published', 'complete', 100, now()) returning id into run_id;
+      end if;
+      perform public.publish_training_release(target_brand, run_id, manifest, answer_key);
+      update public.training_bootstrap_runs set status = 'published', stage = 'complete', progress = 100, finished_at = now() where id = run_id;
     end if;
-    perform public.publish_training_release(target_brand, run_id, manifest, answer_key);
-    update public.training_bootstrap_runs set status = 'published', stage = 'complete', progress = 100, finished_at = now() where id = run_id;
   end if;
 end $seed$;
