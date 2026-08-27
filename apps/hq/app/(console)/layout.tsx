@@ -1,13 +1,32 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { headers } from 'next/headers';
+import Link from 'next/link';
 
 import { currentSession, hasRole } from '@/lib/auth';
 import { isConfigured } from '@/lib/supabase-server';
 import { NavLink } from '@/components/nav-link';
+import { Icon } from '@/components/icon';
 import { serverClient } from '@/lib/supabase-server';
 import { hqTheme } from '@/lib/theme';
 
 import { signOut } from './login/actions';
+
+const pageTitles: Record<string, string> = {
+  '/': 'Overview',
+  '/locations': 'Locations',
+  '/menu': 'Menu',
+  '/content': 'Menu',
+  '/training': 'Training',
+  '/drops': 'Drops',
+  '/campaigns': 'Campaigns',
+  '/customers': 'Customers',
+  '/analytics': 'Analytics',
+  '/fees': 'Platform fees',
+  '/brand': 'Brand config',
+  '/kiosk': 'Kiosk',
+  '/onboarding': 'Onboarding',
+  '/wall': 'Live wall',
+};
 
 /**
  * The console shell: sidebar, session, role-gated nav.
@@ -48,39 +67,105 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
     ? await client.from('brands').select('brand_config').eq('id', session.brandId).maybeSingle<{ brand_config: unknown }>()
     : null;
   const brandConfig = brand && !brand.error ? brand.data?.brand_config : null;
+  const brandName = session?.brandName ?? 'Coffee Story';
+  const initials = brandName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word.charAt(0))
+    .join('')
+    .toUpperCase() || 'HQ';
+  const statusSlug = brandName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 64) || 'tenant';
+  const pageTitle = pageTitles[pathname] ?? (pathname.startsWith('/wall') ? 'Live wall' : 'Workspace');
+  const canManageTraining = hasRole(session, 'location_manager');
   return (
     <div className="shell" style={hqTheme(brandConfig) as CSSProperties}>
-      <nav className="sidebar" aria-label="Console">
-        <div className="brand">{session?.brandName ?? 'HQ'}</div>
-        <NavLink href="/">Dashboard</NavLink>
-        <NavLink href="/locations">Locations</NavLink>
-        <NavLink href={hasRole(session, 'brand_owner') ? '/content' : '/menu'}>Menu</NavLink>
-        {hasRole(session, 'location_manager') ? <NavLink href="/training">Training</NavLink> : null}
-        <NavLink href="/drops">Drops</NavLink>
-        <NavLink href="/campaigns">Campaigns</NavLink>
-        <NavLink href="/customers">Customers</NavLink>
-        <NavLink href="/analytics">Analytics</NavLink>
-        {hasRole(session, 'platform_admin') ? <NavLink href="/fees">Platform fees</NavLink> : null}
-        {hasRole(session, 'brand_owner') ? <NavLink href="/brand">Brand config</NavLink> : null}
-        {hasRole(session, 'brand_owner') ? <NavLink href="/kiosk">Kiosk</NavLink> : null}
-        {hasRole(session, 'platform_admin') ? <NavLink href="/onboarding">Onboarding</NavLink> : null}
-        <NavLink href="/wall" className="wall-nav">Wall</NavLink>
+      <a className="skip-link" href="#main-content">Skip to content</a>
+      <aside className="primary-rail" aria-label="Primary navigation">
+        <Link href="/" className="brand-mark" aria-label={`${brandName} home`}>
+          <span>{initials.charAt(0)}</span>
+        </Link>
+        <div className="primary-rail-nav">
+          <NavLink href="/" icon="dashboard" ariaLabel="Overview">Overview</NavLink>
+          <NavLink href="/locations" icon="locations" ariaLabel="Locations">Locations</NavLink>
+          <NavLink href={hasRole(session, 'brand_owner') ? '/content' : '/menu'} icon="menu" ariaLabel="Menu">Menu</NavLink>
+          {canManageTraining ? <NavLink href="/training" icon="training" ariaLabel="Training">Training</NavLink> : null}
+          <NavLink href="/analytics" icon="analytics" ariaLabel="Analytics">Analytics</NavLink>
+        </div>
+        <div className="primary-rail-footer">
+          <NavLink href="/wall" icon="wall" ariaLabel="Live wall">Wall</NavLink>
+          <Link href={`/status/${statusSlug}`} className="primary-link" aria-label="System status" title="System status">
+            <span className="nav-link-icon"><Icon name="activity" size={17} /></span>
+            <span className="nav-link-label">System status</span>
+          </Link>
+        </div>
+      </aside>
+      <aside className="sidebar secondary-rail" aria-label="Console navigation">
+        <div className="sidebar-header">
+          <div className="brand-lockup">
+            <span className="brand-glyph">{initials.charAt(0)}</span>
+            <span><strong>{brandName}</strong><small>HQ console</small></span>
+          </div>
+          <span className="sidebar-menu-dot" aria-hidden="true">•••</span>
+        </div>
+        <div className="workspace-switcher" aria-label="Current workspace">
+          <span className="workspace-avatar">{initials}</span>
+          <span className="workspace-switcher-copy"><small>Workspace</small><strong>{brandName}</strong></span>
+          <Icon name="chevron" size={16} />
+        </div>
+        <div className="sidebar-scroll">
+          <p className="nav-section-label">Workspace</p>
+          <NavLink href="/" icon="dashboard">Overview</NavLink>
+          <NavLink href="/locations" icon="locations">Locations</NavLink>
+          <NavLink href={hasRole(session, 'brand_owner') ? '/content' : '/menu'} icon="menu">Menu</NavLink>
+          {canManageTraining ? <NavLink href="/training" icon="training">Training</NavLink> : null}
+
+          <p className="nav-section-label">Growth</p>
+          <NavLink href="/drops" icon="drop">Drops</NavLink>
+          <NavLink href="/campaigns" icon="brand">Campaigns</NavLink>
+          <NavLink href="/customers" icon="users">Customers</NavLink>
+
+          <p className="nav-section-label">Insights</p>
+          <NavLink href="/analytics" icon="analytics">Analytics</NavLink>
+
+          <p className="nav-section-label">Platform</p>
+          {hasRole(session, 'platform_admin') ? <NavLink href="/fees" icon="settings">Platform fees</NavLink> : null}
+          {hasRole(session, 'brand_owner') ? <NavLink href="/brand" icon="brand">Brand config</NavLink> : null}
+          {hasRole(session, 'brand_owner') ? <NavLink href="/kiosk" icon="kiosk">Kiosk</NavLink> : null}
+          {hasRole(session, 'platform_admin') ? <NavLink href="/onboarding" icon="onboarding">Onboarding</NavLink> : null}
+
+          <p className="nav-section-label">Preview</p>
+          <NavLink href="/wall" icon="wall" className="wall-nav">Live wall</NavLink>
+        </div>
         <div className="session">
           {session ? (
-            <>
-              {session.email}
-              <br />
-              {session.role.replace('_', ' ')}
+            <div className="session-row">
+              <span className="session-avatar">{initials}</span>
+              <span className="session-copy"><strong>{session.email}</strong><small>{session.role.replace('_', ' ')}</small></span>
               {isConfigured() ? (
                 <form action={signOut}>
-                  <button type="submit" className="linklike">Sign out</button>
+                  <button type="submit" className="session-signout" aria-label="Sign out" title="Sign out"><Icon name="external" size={15} /></button>
                 </form>
               ) : null}
-            </>
-          ) : 'Signed out'}
+            </div>
+          ) : <span>Signed out</span>}
         </div>
-      </nav>
-      <main className="main">{children}</main>
+      </aside>
+      <div className="app-content">
+        <header className="topbar">
+          <div className="breadcrumb" aria-label="Current page">
+            <span className="breadcrumb-muted">Workspace</span>
+            <Icon name="chevron" size={15} />
+            <strong>{pageTitle}</strong>
+          </div>
+          <div className="topbar-actions">
+            <span className="sync-state"><span className="sync-dot" /> Supabase synced</span>
+            <Link className="topbar-wall" href="/wall"><Icon name="wall" size={16} /> Live wall</Link>
+            <span className="topbar-avatar" aria-hidden="true">{initials}</span>
+          </div>
+        </header>
+        <main id="main-content" className="main">{children}</main>
+      </div>
     </div>
   );
 }
