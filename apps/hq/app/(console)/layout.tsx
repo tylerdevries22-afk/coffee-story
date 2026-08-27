@@ -201,12 +201,13 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
             <small>{activeSection?.description}</small>
           </div>
 
-          <p className="nav-section-label">Sections</p>
-          <div className="section-switcher-list">
-            <div className={`section-switcher-link active`}>
-              <span className="nav-link-icon"><Icon name={activeSection.icon} size={17} /></span>
-              <span className="nav-link-label">{activeSection.title}</span>
-            </div>
+          <p className="nav-section-label">Tabs</p>
+          <div className="section-tabs">
+            {activeSection.items.map((item) => (
+              <NavLink key={item.href} href={item.href} icon={item.icon} className="secondary-rail-link">
+                {item.label}
+              </NavLink>
+            ))}
           </div>
         </div>
         <div className="session">
@@ -236,15 +237,6 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
             <span className="topbar-avatar" aria-hidden="true">{initials}</span>
           </div>
         </header>
-        {activeSection.items.length > 0 ? (
-          <nav className="horizontal-rail" aria-label={`${activeSection.title} section`}>
-            {activeSection.items.map((item) => (
-              <NavLink key={item.href} href={item.href} icon={item.icon} className="horizontal-link">
-                {item.label}
-              </NavLink>
-            ))}
-          </nav>
-        ) : null}
         <main id="main-content" className="main">{children}</main>
       </div>
     </div>
