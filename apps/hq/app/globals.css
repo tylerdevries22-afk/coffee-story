@@ -978,7 +978,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   .topbar { padding-right: 22px; padding-left: 22px; }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 600px) {
   .shell { grid-template-columns: 56px minmax(0, 1fr); }
   .secondary-rail { display: none; }
   .main { padding-right: 22px; padding-left: 22px; }
@@ -986,7 +986,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 
 @media (max-width: 640px) {
   .primary-rail { width: 52px; padding-right: 6px; padding-left: 6px; }
-  .shell { grid-template-columns: 52px minmax(0, 1fr); }
+  .shell { grid-template-columns: 52px 216px minmax(0, 1fr); }
   .brand-mark { margin-bottom: 20px; }
   .topbar { min-height: 50px; padding: 0 14px; }
   .topbar-actions { gap: 7px; }
@@ -1001,4 +1001,9 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
+}
+
+@media (max-width: 600px) {
+  .shell { grid-template-columns: 52px minmax(0, 1fr); }
+  .secondary-rail { display: none; }
 }
