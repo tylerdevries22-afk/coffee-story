@@ -12,7 +12,6 @@ export type ConsoleSection = {
   readonly key: string;
   readonly title: string;
   readonly icon: IconName;
-  readonly description: string;
   readonly items: readonly ConsoleNavItem[];
   readonly home: string;
 };
@@ -29,7 +28,6 @@ const OPERATIONS_SECTION = {
   title: 'Operations',
   icon: 'dashboard',
   home: '/',
-  description: 'Daily performance, locations, and the live service wall.',
   items: [
     { href: '/', label: 'Overview', icon: 'dashboard' },
     { href: '/locations', label: 'Locations', icon: 'locations' },
@@ -42,7 +40,6 @@ const GROWTH_SECTION = {
   title: 'Growth',
   icon: 'drop',
   home: '/drops',
-  description: 'Campaigns, promotions, and customer growth programs.',
   items: [
     { href: '/drops', label: 'Drops', icon: 'drop' },
     { href: '/campaigns', label: 'Campaigns', icon: 'brand' },
@@ -55,7 +52,6 @@ const INSIGHTS_SECTION = {
   title: 'Insights',
   icon: 'analytics',
   home: '/analytics',
-  description: 'Tenant reporting and operational performance.',
   items: [{ href: '/analytics', label: 'Analytics', icon: 'analytics' }],
 } satisfies ConsoleSection;
 
@@ -65,7 +61,6 @@ function contentSection(access: ConsoleNavigationAccess): ConsoleSection {
     title: 'Content',
     icon: 'menu',
     home: access.menuHref,
-    description: 'Customer menu, operator training, and kiosk presentation.',
     items: [
       { href: access.menuHref, label: 'Menu', icon: 'menu' },
       ...(access.canManageTraining
@@ -95,7 +90,6 @@ function settingsSection(access: ConsoleNavigationAccess): ConsoleSection {
     title: 'Settings',
     icon: 'settings',
     home: items[0]?.href ?? '/brand',
-    description: 'Tenant configuration and platform administration.',
     items,
   };
 }

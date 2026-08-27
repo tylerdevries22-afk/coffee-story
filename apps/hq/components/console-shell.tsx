@@ -34,7 +34,6 @@ const FALLBACK_SECTION: ConsoleSection = {
   title: 'Operations',
   icon: 'dashboard',
   home: '/',
-  description: 'Daily operations and tenant content.',
   items: [],
 };
 
@@ -95,17 +94,7 @@ function SecondaryRail({ brandName, initials, section, sessionFooter }: Secondar
         </div>
         <span className="sidebar-menu-dot" aria-hidden="true">•••</span>
       </div>
-      <div className="workspace-switcher" aria-label="Current workspace">
-        <span className="workspace-avatar">{initials}</span>
-        <span className="workspace-switcher-copy"><small>Workspace</small><strong>{brandName}</strong></span>
-        <Icon name="chevron" size={16} />
-      </div>
       <div className="sidebar-scroll">
-        <p className="nav-section-label">Current section</p>
-        <div className="section-card">
-          <strong>{section.title}</strong>
-          <small>{section.description}</small>
-        </div>
         <p className="nav-section-label">Tabs</p>
         <div className="section-tabs">
           {section.items.map((item) => (
