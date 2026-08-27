@@ -55,6 +55,7 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_JWT_SECRET: ${{ secrets.SUPABASE_JWT_SECRET }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           test -n "$VERCEL_TOKEN" || { echo '::error::Set VERCEL_TOKEN.'; exit 1; }
@@ -89,6 +90,10 @@ jobs:
           add_public NEXT_PUBLIC_SUPABASE_URL "$SUPABASE_URL"
           add_public NEXT_PUBLIC_SUPABASE_ANON_KEY "$SUPABASE_PUBLISHABLE_KEY"
           add_secret SUPABASE_SERVICE_ROLE_KEY "$SUPABASE_SERVICE_ROLE_KEY"
+          # Required for issuing and validating kiosk/display device tokens.
+          # Keep this optional so a web-only deployment can still fail closed
+          # on device pairing without blocking its other hosted surfaces.
+          add_secret SUPABASE_JWT_SECRET "$SUPABASE_JWT_SECRET"
           add_secret CRON_SECRET "$CRON_SECRET"
           add_secret OPENAI_API_KEY "$OPENAI_API_KEY"
           add_public OPENAI_RESEARCH_MODEL "$OPENAI_RESEARCH_MODEL"

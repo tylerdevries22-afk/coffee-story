@@ -39,11 +39,12 @@ local `.vercel` directory.
 
 Create these GitHub Actions secrets before the first run (values are never
 committed): `VERCEL_TOKEN`, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`,
-`SUPABASE_SERVICE_ROLE_KEY`, and `CRON_SECRET`. Add `DISPLAY_DEVICE_TOKEN`
-after pairing the production pickup screen. Add `OPENAI_API_KEY` when the
-autonomous training research pipeline is enabled. The workflow fails fast for
-the required values and skips optional integrations rather than deploying a
-partially configured secret.
+`SUPABASE_SERVICE_ROLE_KEY`, and `CRON_SECRET`. Add
+`SUPABASE_JWT_SECRET` to enable device pairing, then add
+`DISPLAY_DEVICE_TOKEN` after pairing the production pickup screen. Add
+`OPENAI_API_KEY` when the autonomous training research pipeline is enabled.
+The workflow fails fast for the required values and skips optional
+integrations rather than deploying a partially configured secret.
 
 For the optional native OTA job, add `EXPO_TOKEN`,
 `EXPO_PUBLIC_API_URL` (the deployed HQ URL), and
@@ -114,6 +115,8 @@ config states.
 Server (Vercel project for `apps/hq` — never in any app bundle):
 
 - `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
+- `SUPABASE_JWT_SECRET` — the Supabase JWT signing secret; server-only and
+  required for issuing or validating paired kiosk/display device tokens
 - `CRON_SECRET` — any long random string; Vercel Cron sends it automatically
 - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (console sign-in)
 - `OPENAI_API_KEY`, `OPENAI_RESEARCH_MODEL` (required for autonomous tenant
