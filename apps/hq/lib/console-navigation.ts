@@ -63,11 +63,11 @@ function contentSection(access: ConsoleNavigationAccess): ConsoleSection {
     home: access.menuHref,
     items: [
       { href: access.menuHref, label: 'Menu', icon: 'menu' },
-      ...(access.canManageTraining
-        ? [{ href: '/training', label: 'Training', icon: 'training' as const }]
-        : []),
       ...(access.canManageBrand
         ? [{ href: '/kiosk', label: 'Kiosk', icon: 'kiosk' as const }]
+        : []),
+      ...(access.canManageTraining
+        ? [{ href: '/training', label: 'Training', icon: 'training' as const }]
         : []),
     ],
   };

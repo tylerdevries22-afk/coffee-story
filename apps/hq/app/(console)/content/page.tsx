@@ -9,7 +9,7 @@ export default async function ContentPage() {
   if (!hasRole(session, 'brand_owner')) {
     return (
       <>
-        <h1>Content</h1>
+        <h1>Menu</h1>
         <div className="notice">Menu content editing is managed by the brand owner. Training has its own section.</div>
       </>
     );

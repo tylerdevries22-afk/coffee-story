@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import type { CSSProperties, ReactNode } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, ReactNode, RefObject } from 'react';
 
 import {
   consoleSectionForPath,
@@ -37,6 +38,14 @@ const FALLBACK_SECTION: ConsoleSection = {
   items: [],
 };
 
+const SYSTEM_SECTION: ConsoleSection = {
+  key: 'system',
+  title: 'System',
+  icon: 'activity',
+  home: '/',
+  items: [],
+};
+
 type ConsoleShellProps = {
   readonly children: ReactNode;
   readonly theme: CSSProperties;
@@ -47,111 +56,239 @@ type ConsoleShellProps = {
   readonly sessionFooter: ReactNode;
 };
 
-type PrimaryRailProps = Pick<ConsoleShellProps, 'brandName' | 'initials' | 'sections' | 'statusHref'> & {
-  readonly activeSectionKey?: string;
+type ConsoleRailProps = Pick<
+  ConsoleShellProps,
+  'brandName' | 'initials' | 'sections' | 'statusHref' | 'sessionFooter'
+> & {
+  readonly isOpen: boolean;
+  readonly isHidden: boolean;
+  readonly onClose: () => void;
+  readonly closeButtonRef: RefObject<HTMLButtonElement | null>;
 };
 
-function PrimaryRail({ brandName, initials, sections, statusHref, activeSectionKey }: PrimaryRailProps) {
-  return (
-    <aside className="primary-rail" aria-label="Primary navigation">
-      <Link href="/" className="brand-mark" aria-label={`${brandName} home`}>
-        <span>{initials.charAt(0)}</span>
-      </Link>
-      <div className="primary-rail-nav">
-        {sections.map((section) => (
-          <NavLink
-            key={section.key}
-            href={section.home}
-            icon={section.icon}
-            className="primary-link"
-            ariaLabel={`${section.title} section`}
-            active={section.key === activeSectionKey}
-          >
-            {section.title}
-          </NavLink>
-        ))}
-      </div>
-      <div className="primary-rail-footer">
-        <NavLink href={statusHref} icon="activity" className="primary-link" ariaLabel="System status">
-          System status
-        </NavLink>
-      </div>
-    </aside>
-  );
-}
+function ConsoleRail({
+  brandName,
+  initials,
+  sections,
+  statusHref,
+  sessionFooter,
+  isOpen,
+  isHidden,
+  onClose,
+  closeButtonRef,
+}: ConsoleRailProps) {
+  const keepFocusInRail = (event: ReactKeyboardEvent<HTMLElement>) => {
+    if (!isOpen || event.key !== 'Tab') return;
+    const focusable = Array.from(
+      event.currentTarget.querySelectorAll<HTMLElement>('a[href], button:not([disabled])'),
+    );
+    const first = focusable[0];
+    const last = focusable.at(-1);
+    if (!first || !last) return;
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
 
-type SecondaryRailProps = Pick<ConsoleShellProps, 'brandName' | 'initials' | 'sessionFooter'> & {
-  readonly section: ConsoleSection;
-};
-
-function SecondaryRail({ brandName, initials, section, sessionFooter }: SecondaryRailProps) {
   return (
-    <aside className="sidebar secondary-rail" aria-label="Console navigation">
-      <div className="sidebar-header">
-        <div className="brand-lockup">
+    <aside
+      id="console-navigation"
+      className={`console-rail${isOpen ? ' open' : ''}`}
+      aria-label="Console navigation"
+      aria-hidden={isHidden || undefined}
+      inert={isHidden || undefined}
+      onKeyDown={keepFocusInRail}
+    >
+      <header className="console-rail-header">
+        <Link href="/" className="console-brand" aria-label={`${brandName} home`} onClick={onClose}>
           <span className="brand-glyph">{initials.charAt(0)}</span>
-          <span><strong>{brandName}</strong><small>HQ console</small></span>
-        </div>
-        <span className="sidebar-menu-dot" aria-hidden="true">•••</span>
-      </div>
-      <div className="sidebar-scroll">
-        <p className="nav-section-label">Tabs</p>
-        <div className="section-tabs">
-          {section.items.map((item) => (
-            <NavLink key={item.href} href={item.href} icon={item.icon} className="secondary-rail-link">
-              {item.label}
+          <span className="console-brand-copy"><strong>{brandName}</strong><small>HQ console</small></span>
+        </Link>
+        <button
+          ref={closeButtonRef}
+          className="rail-close"
+          type="button"
+          onClick={onClose}
+          aria-label="Close navigation"
+          aria-hidden={!isOpen}
+          tabIndex={isOpen ? 0 : -1}
+        >
+          <Icon name="close" size={17} />
+        </button>
+      </header>
+      <nav className="console-rail-scroll" onClick={onClose}>
+        {sections.map((section) => (
+          <section className="console-nav-group" key={section.key} aria-labelledby={`nav-${section.key}`}>
+            <h2 id={`nav-${section.key}`}>{section.title}</h2>
+            <div className="console-nav-items">
+              {section.items.map((item) => (
+                <NavLink key={item.href} href={item.href} icon={item.icon} className="console-nav-link">
+                  {item.label}
+                </NavLink>
+              ))}
+            </div>
+          </section>
+        ))}
+        <section className="console-nav-group" aria-labelledby="nav-system">
+          <h2 id="nav-system">System</h2>
+          <div className="console-nav-items">
+            <NavLink href={statusHref} icon="activity" className="console-nav-link">
+              System status
             </NavLink>
-          ))}
-        </div>
-      </div>
-      {sessionFooter}
+          </div>
+        </section>
+      </nav>
+      <footer className="console-rail-footer" onClick={onClose}>
+        {sessionFooter}
+      </footer>
     </aside>
   );
 }
 
-function ConsoleTopbar({ section, pageTitle, initials }: { section: ConsoleSection; pageTitle: string; initials: string }) {
+function ConsoleTopbar({
+  section,
+  pageTitle,
+  initials,
+  navigationOpen,
+  onOpenNavigation,
+  triggerButtonRef,
+}: {
+  section: ConsoleSection;
+  pageTitle: string;
+  initials: string;
+  navigationOpen: boolean;
+  onOpenNavigation: () => void;
+  triggerButtonRef: RefObject<HTMLButtonElement | null>;
+}) {
   return (
     <header className="topbar">
-      <div className="breadcrumb" aria-label="Current page">
-        <span className="breadcrumb-muted">{section.title}</span>
-        <Icon name="chevron" size={15} />
-        <strong>{pageTitle}</strong>
+      <div className="topbar-context">
+        <button
+          ref={triggerButtonRef}
+          className="rail-trigger"
+          type="button"
+          onClick={onOpenNavigation}
+          aria-controls="console-navigation"
+          aria-expanded={navigationOpen}
+          aria-label="Open navigation"
+        >
+          <Icon name="menu" size={18} />
+        </button>
+        <div className="breadcrumb" aria-label="Current page">
+          <span className="breadcrumb-muted">{section.title}</span>
+          <Icon name="chevron" size={15} />
+          <strong>{pageTitle}</strong>
+        </div>
       </div>
       <div className="topbar-actions">
         <span className="sync-state"><span className="sync-dot" /> Supabase synced</span>
-        <Link className="topbar-wall" href="/wall"><Icon name="wall" size={16} /> Live wall</Link>
         <span className="topbar-avatar" aria-hidden="true">{initials}</span>
       </div>
     </header>
   );
 }
 
-/** Pathname-aware console chrome that keeps both navigation rails synchronized. */
+const MOBILE_NAV_QUERY = '(max-width: 720px)';
+
+function subscribeToMobileNavChange(callback: () => void): () => void {
+  const query = window.matchMedia(MOBILE_NAV_QUERY);
+  query.addEventListener('change', callback);
+  return () => query.removeEventListener('change', callback);
+}
+
+function isMobileNav(): boolean {
+  return window.matchMedia(MOBILE_NAV_QUERY).matches;
+}
+
+/** Pathname-aware console chrome with one role-aware navigation rail. */
 export function ConsoleShell(props: ConsoleShellProps) {
   const pathname = usePathname();
+  const mobileNav = useSyncExternalStore(subscribeToMobileNavChange, isMobileNav, () => false);
+  const [navigationOpen, setNavigationOpen] = useState(false);
+  const drawerOpen = mobileNav && navigationOpen;
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const triggerButtonRef = useRef<HTMLButtonElement>(null);
+  const navigationWasOpen = useRef(false);
   const matchedSection = consoleSectionForPath(props.sections, pathname);
-  const activeSection = matchedSection ?? props.sections[0] ?? FALLBACK_SECTION;
-  const routeTitle = PAGE_TITLES[pathname] ?? (pathname.startsWith('/wall') ? 'Live wall' : 'Workspace');
+  const activeSection = pathname.startsWith('/status/')
+    ? SYSTEM_SECTION
+    : matchedSection ?? props.sections[0] ?? FALLBACK_SECTION;
+  const routeTitle = PAGE_TITLES[pathname]
+    ?? (pathname.startsWith('/wall')
+      ? 'Live wall'
+      : pathname.startsWith('/status/') ? 'System status' : 'Workspace');
   const pageTitle = routeTitle === 'Workspace' ? activeSection.title : routeTitle;
+
+  useEffect(() => {
+    if (!drawerOpen) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setNavigationOpen(false);
+    };
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [drawerOpen]);
+
+  useEffect(() => {
+    if (!mobileNav) {
+      navigationWasOpen.current = false;
+      return;
+    }
+    if (drawerOpen) {
+      navigationWasOpen.current = true;
+      closeButtonRef.current?.focus();
+    } else if (navigationWasOpen.current) {
+      navigationWasOpen.current = false;
+      triggerButtonRef.current?.focus();
+    }
+  }, [drawerOpen, mobileNav]);
 
   return (
     <div className="shell" style={props.theme}>
-      <a className="skip-link" href="#main-content">Skip to content</a>
-      <PrimaryRail
+      <a
+        className="skip-link"
+        href="#main-content"
+        aria-hidden={drawerOpen || undefined}
+        tabIndex={drawerOpen ? -1 : undefined}
+      >
+        Skip to content
+      </a>
+      <ConsoleRail
         brandName={props.brandName}
         initials={props.initials}
         sections={props.sections}
         statusHref={props.statusHref}
-        activeSectionKey={matchedSection?.key}
-      />
-      <SecondaryRail
-        brandName={props.brandName}
-        initials={props.initials}
-        section={activeSection}
         sessionFooter={props.sessionFooter}
+        isOpen={drawerOpen}
+        isHidden={mobileNav && !drawerOpen}
+        onClose={() => setNavigationOpen(false)}
+        closeButtonRef={closeButtonRef}
       />
-      <div className="app-content">
-        <ConsoleTopbar section={activeSection} pageTitle={pageTitle} initials={props.initials} />
+      <button
+        className={`rail-scrim${drawerOpen ? ' open' : ''}`}
+        type="button"
+        aria-label="Close navigation"
+        aria-hidden="true"
+        tabIndex={-1}
+        onClick={() => setNavigationOpen(false)}
+      />
+      <div className="app-content" aria-hidden={drawerOpen || undefined} inert={drawerOpen || undefined}>
+        <ConsoleTopbar
+          section={activeSection}
+          pageTitle={pageTitle}
+          initials={props.initials}
+          navigationOpen={drawerOpen}
+          onOpenNavigation={() => setNavigationOpen(true)}
+          triggerButtonRef={triggerButtonRef}
+        />
         <main id="main-content" className="main">{props.children}</main>
       </div>
     </div>

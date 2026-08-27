@@ -6,6 +6,7 @@ export type IconName =
   | 'book'
   | 'brand'
   | 'chevron'
+  | 'close'
   | 'dashboard'
   | 'drop'
   | 'external'
@@ -31,6 +32,7 @@ const paths: Record<IconName, readonly string[]> = {
   book: ['M5 4.5A2.5 2.5 0 0 1 7.5 2H20v17H7.5A2.5 2.5 0 0 0 5 21.5z', 'M5 4.5v17', 'M9 6h7'],
   brand: ['M12 3 4 7v10l8 4 8-4V7z', 'M4 7l8 4 8-4', 'M12 11v10'],
   chevron: ['m8 10 4 4 4-4'],
+  close: ['M6 6l12 12', 'M18 6 6 18'],
   dashboard: ['M4 4h6v6H4z', 'M14 4h6v6h-6z', 'M4 14h6v6H4z', 'M14 14h6v6h-6z'],
   drop: ['M12 3s6 6.2 6 10a6 6 0 0 1-12 0c0-3.8 6-10 6-10z', 'M9 15.2a3.3 3.3 0 0 0 3 1.8'],
   external: ['M14 4h6v6', 'M20 4l-9 9', 'M18 13v6H5V6h6'],

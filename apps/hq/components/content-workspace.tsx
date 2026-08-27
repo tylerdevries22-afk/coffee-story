@@ -13,9 +13,9 @@ export function ContentWorkspace({ initial }: { initial: ContentWorkspaceData })
     <div className="content-workspace">
       <div className="content-heading-row">
         <div>
-          <p className="eyebrow">Tenant content system</p>
-          <h1>Content</h1>
-          <p className="subtitle">One source of truth for every storefront image, menu item, lesson, skill, and quiz.</p>
+          <p className="eyebrow">Storefront catalog</p>
+          <h1>Menu</h1>
+          <p className="subtitle">One source of truth for every menu item, price, option, and storefront image.</p>
         </div>
         <div className="content-release-state">Menu catalog</div>
       </div>

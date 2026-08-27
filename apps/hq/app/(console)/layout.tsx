@@ -12,7 +12,7 @@ import { hqTheme } from '@/lib/theme';
 import { signOut } from './login/actions';
 
 /**
- * The console shell: sidebar, session, role-gated nav.
+ * The console shell: one role-aware rail, page context, and session controls.
  *
  * A route group rather than the root layout, because not everything this app
  * serves is the console. The pickup display is a storefront screen that
