@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { currentSession, hasRole } from '@/lib/auth';
 import { isConfigured } from '@/lib/supabase-server';
 import { NavLink } from '@/components/nav-link';
-import { Icon } from '@/components/icon';
+import { Icon, type IconName } from '@/components/icon';
 import { serverClient } from '@/lib/supabase-server';
 import { hqTheme } from '@/lib/theme';
 
@@ -16,6 +16,7 @@ const pageTitles: Record<string, string> = {
   '/locations': 'Locations',
   '/menu': 'Menu',
   '/content': 'Menu',
+  '/fees': 'Platform fees',
   '/training': 'Training',
   '/drops': 'Drops',
   '/campaigns': 'Campaigns',
@@ -26,6 +27,16 @@ const pageTitles: Record<string, string> = {
   '/kiosk': 'Kiosk',
   '/onboarding': 'Onboarding',
   '/wall': 'Live wall',
+};
+
+type SectionNavItem = { href: string; label: string; icon: IconName };
+type ConsoleSection = {
+  key: string;
+  title: string;
+  icon: SectionNavItem['icon'];
+  description: string;
+  items: SectionNavItem[];
+  home: string;
 };
 
 /**
@@ -77,7 +88,78 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
     .toUpperCase() || 'HQ';
   const statusSlug = brandName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 64) || 'tenant';
   const pageTitle = pageTitles[pathname] ?? (pathname.startsWith('/wall') ? 'Live wall' : 'Workspace');
+  const menuHref = hasRole(session, 'brand_owner') ? '/content' : '/menu';
   const canManageTraining = hasRole(session, 'location_manager');
+  const canManagePlatform = hasRole(session, 'platform_admin');
+  const canManageBrand = hasRole(session, 'brand_owner');
+  const canAccessGrowth = hasRole(session, 'location_manager') || canManagePlatform || canManageBrand;
+  const consoleSections: ConsoleSection[] = [
+    {
+      key: 'workspace',
+      title: 'Workspace',
+      icon: 'dashboard',
+      home: '/',
+      description: 'Core operations, staff locations, and operator content.',
+      items: [
+        { href: '/', label: 'Overview', icon: 'dashboard' },
+        { href: '/locations', label: 'Locations', icon: 'locations' },
+        { href: menuHref, label: 'Menu', icon: 'menu' },
+        ...(canManageTraining ? [{ href: '/training', label: 'Training', icon: 'training' as const }] : []),
+      ],
+    },
+    {
+      key: 'growth',
+      title: 'Growth',
+      icon: 'drop',
+      home: '/drops',
+      description: 'Campaigns, promotions, and customer growth programs.',
+      items: canAccessGrowth
+        ? [
+            { href: '/drops', label: 'Drops', icon: 'drop' },
+            { href: '/campaigns', label: 'Campaigns', icon: 'brand' },
+            { href: '/customers', label: 'Customers', icon: 'users' },
+          ]
+        : [],
+    },
+    {
+      key: 'insights',
+      title: 'Insights',
+      icon: 'analytics',
+      home: '/analytics',
+      description: 'Store operations and business reporting.',
+      items: hasRole(session, 'location_manager') ? [{ href: '/analytics', label: 'Analytics', icon: 'analytics' }] : [],
+    },
+    {
+      key: 'platform',
+      title: 'Platform',
+      icon: 'settings',
+      home: '/brand',
+      description: 'Configuration, onboarding, and operational tooling.',
+      items: [
+        ...(canManagePlatform ? [{ href: '/fees', label: 'Platform fees', icon: 'settings' as const }] : []),
+        ...(canManageBrand ? [{ href: '/brand', label: 'Brand config', icon: 'brand' }] : []),
+        ...(canManageBrand ? [{ href: '/kiosk', label: 'Kiosk', icon: 'kiosk' }] : []),
+        ...(canManagePlatform ? [{ href: '/onboarding', label: 'Onboarding', icon: 'onboarding' }] : []),
+      ],
+    },
+    {
+      key: 'preview',
+      title: 'Preview',
+      icon: 'wall',
+      home: '/wall',
+      description: 'Live wall and floor-side console view.',
+      items: [{ href: '/wall', label: 'Live wall', icon: 'wall' }],
+    },
+  ].filter((section) => section.items.length > 0);
+
+  const activeSection =
+    consoleSections.find((section) =>
+      section.items.some((item) =>
+        pathname === item.href || (item.href === '/' ? pathname === '/' : pathname.startsWith(`${item.href}/`)),
+      ),
+    ) ?? consoleSections.find((section) => section.items.some((item) => item.href === pathname)) ?? consoleSections[0];
+  const activeSectionLabel = activeSection?.title ?? 'Workspace';
+  const contextTitle = pageTitle === 'Workspace' ? `${activeSectionLabel}` : pageTitle;
   return (
     <div className="shell" style={hqTheme(brandConfig) as CSSProperties}>
       <a className="skip-link" href="#main-content">Skip to content</a>
@@ -86,14 +168,13 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
           <span>{initials.charAt(0)}</span>
         </Link>
         <div className="primary-rail-nav">
-          <NavLink href="/" icon="dashboard" className="primary-link" ariaLabel="Overview">Overview</NavLink>
-          <NavLink href="/locations" icon="locations" className="primary-link" ariaLabel="Locations">Locations</NavLink>
-          <NavLink href={hasRole(session, 'brand_owner') ? '/content' : '/menu'} icon="menu" className="primary-link" ariaLabel="Menu">Menu</NavLink>
-          {canManageTraining ? <NavLink href="/training" icon="training" className="primary-link" ariaLabel="Training">Training</NavLink> : null}
-          <NavLink href="/analytics" icon="analytics" className="primary-link" ariaLabel="Analytics">Analytics</NavLink>
+          {consoleSections.map((section) => (
+            <NavLink key={section.key} href={section.home} icon={section.icon} className="primary-link" ariaLabel={`${section.title} section`}>
+              {section.title}
+            </NavLink>
+          ))}
         </div>
         <div className="primary-rail-footer">
-          <NavLink href="/wall" icon="wall" className="primary-link" ariaLabel="Live wall">Wall</NavLink>
           <Link href={`/status/${statusSlug}`} className="primary-link" aria-label="System status" title="System status">
             <span className="nav-link-icon"><Icon name="activity" size={17} /></span>
             <span className="nav-link-label">System status</span>
@@ -114,28 +195,19 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
           <Icon name="chevron" size={16} />
         </div>
         <div className="sidebar-scroll">
-          <p className="nav-section-label">Workspace</p>
-          <NavLink href="/" icon="dashboard">Overview</NavLink>
-          <NavLink href="/locations" icon="locations">Locations</NavLink>
-          <NavLink href={hasRole(session, 'brand_owner') ? '/content' : '/menu'} icon="menu">Menu</NavLink>
-          {canManageTraining ? <NavLink href="/training" icon="training">Training</NavLink> : null}
+          <p className="nav-section-label">Current section</p>
+          <div className="section-card">
+            <strong>{activeSectionLabel}</strong>
+            <small>{activeSection?.description}</small>
+          </div>
 
-          <p className="nav-section-label">Growth</p>
-          <NavLink href="/drops" icon="drop">Drops</NavLink>
-          <NavLink href="/campaigns" icon="brand">Campaigns</NavLink>
-          <NavLink href="/customers" icon="users">Customers</NavLink>
-
-          <p className="nav-section-label">Insights</p>
-          <NavLink href="/analytics" icon="analytics">Analytics</NavLink>
-
-          <p className="nav-section-label">Platform</p>
-          {hasRole(session, 'platform_admin') ? <NavLink href="/fees" icon="settings">Platform fees</NavLink> : null}
-          {hasRole(session, 'brand_owner') ? <NavLink href="/brand" icon="brand">Brand config</NavLink> : null}
-          {hasRole(session, 'brand_owner') ? <NavLink href="/kiosk" icon="kiosk">Kiosk</NavLink> : null}
-          {hasRole(session, 'platform_admin') ? <NavLink href="/onboarding" icon="onboarding">Onboarding</NavLink> : null}
-
-          <p className="nav-section-label">Preview</p>
-          <NavLink href="/wall" icon="wall" className="wall-nav">Live wall</NavLink>
+          <p className="nav-section-label">Sections</p>
+          <div className="section-switcher-list">
+            <div className={`section-switcher-link active`}>
+              <span className="nav-link-icon"><Icon name={activeSection.icon} size={17} /></span>
+              <span className="nav-link-label">{activeSection.title}</span>
+            </div>
+          </div>
         </div>
         <div className="session">
           {session ? (
@@ -156,7 +228,7 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
           <div className="breadcrumb" aria-label="Current page">
             <span className="breadcrumb-muted">Workspace</span>
             <Icon name="chevron" size={15} />
-            <strong>{pageTitle}</strong>
+            <strong>{contextTitle}</strong>
           </div>
           <div className="topbar-actions">
             <span className="sync-state"><span className="sync-dot" /> Supabase synced</span>
@@ -164,6 +236,15 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
             <span className="topbar-avatar" aria-hidden="true">{initials}</span>
           </div>
         </header>
+        {activeSection.items.length > 0 ? (
+          <nav className="horizontal-rail" aria-label={`${activeSection.title} section`}>
+            {activeSection.items.map((item) => (
+              <NavLink key={item.href} href={item.href} icon={item.icon} className="horizontal-link">
+                {item.label}
+              </NavLink>
+            ))}
+          </nav>
+        ) : null}
         <main id="main-content" className="main">{children}</main>
       </div>
     </div>
