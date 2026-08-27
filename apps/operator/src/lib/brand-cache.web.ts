@@ -1,4 +1,4 @@
-/** Web variant: localStorage, guarded because private windows may throw. */
+/** Web variant: localStorage, guarded -- private windows may throw. */
 import type { TokenStorage } from '@platform/ui';
 
 export const brandCache: TokenStorage = {
@@ -13,7 +13,7 @@ export const brandCache: TokenStorage = {
     try {
       globalThis.localStorage?.setItem(key, value);
     } catch {
-      // A cache miss only delays brand hydration; defaults remain safe.
+      // Same story as native: worst case is defaults until hydration.
     }
   },
 };
