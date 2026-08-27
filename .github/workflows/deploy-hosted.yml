@@ -1,0 +1,220 @@
+name: deploy hosted surfaces
+
+# Production deploys are intentionally owner-triggered. The verification
+# workflow is the required gate; this workflow only runs after that gate has
+# passed, and every credential comes from GitHub/Vercel secrets.
+on:
+  workflow_dispatch:
+    inputs:
+      deploy_web:
+        description: Deploy HQ, pickup display, and the three Expo web builds
+        type: boolean
+        default: true
+      publish_native:
+        description: Publish production OTA updates to all three EAS projects
+        type: boolean
+        default: false
+
+concurrency:
+  group: hosted-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  VERCEL_CLI_VERSION: 59.3.0
+  VERCEL_SCOPE: ${{ vars.VERCEL_SCOPE || 'tylerdevries222s-projects' }}
+  SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+  SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+  TENANT: coffee-story
+
+jobs:
+  gate:
+    name: Verify before deployment
+    uses: ./.github/workflows/verify.yml
+    secrets: inherit
+
+  deploy-hq:
+    name: Deploy HQ API and console
+    needs: gate
+    if: inputs.deploy_web
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Require Vercel credentials
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          test -n "$VERCEL_TOKEN" || { echo '::error::Set VERCEL_TOKEN.'; exit 1; }
+          test -n "$SUPABASE_URL" || { echo '::error::Set SUPABASE_URL.'; exit 1; }
+          test -n "$SUPABASE_PUBLISHABLE_KEY" || { echo '::error::Set SUPABASE_PUBLISHABLE_KEY.'; exit 1; }
+          test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo '::error::Set SUPABASE_SERVICE_ROLE_KEY.'; exit 1; }
+          test -n "$CRON_SECRET" || { echo '::error::Set CRON_SECRET.'; exit 1; }
+      - name: Configure production server environment
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_RESEARCH_MODEL: ${{ vars.OPENAI_RESEARCH_MODEL }}
+          OPENAI_EVALUATION_MODEL: ${{ vars.OPENAI_EVALUATION_MODEL }}
+        run: |
+          set -euo pipefail
+          add_secret() {
+            local name="$1" value="$2"
+            test -n "$value" || return 0
+            npx --yes "vercel@${VERCEL_CLI_VERSION}" env add "$name" production \
+              --project coffee-story-hq --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN" \
+              --value "$value" --sensitive --force --yes >/dev/null
+          }
+          add_public() {
+            local name="$1" value="$2"
+            npx --yes "vercel@${VERCEL_CLI_VERSION}" env add "$name" production \
+              --project coffee-story-hq --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN" \
+              --value "$value" --no-sensitive --force --yes >/dev/null
+          }
+          add_public SUPABASE_URL "$SUPABASE_URL"
+          add_public NEXT_PUBLIC_SUPABASE_URL "$SUPABASE_URL"
+          add_public NEXT_PUBLIC_SUPABASE_ANON_KEY "$SUPABASE_PUBLISHABLE_KEY"
+          add_secret SUPABASE_SERVICE_ROLE_KEY "$SUPABASE_SERVICE_ROLE_KEY"
+          add_secret CRON_SECRET "$CRON_SECRET"
+          add_secret OPENAI_API_KEY "$OPENAI_API_KEY"
+          add_public OPENAI_RESEARCH_MODEL "$OPENAI_RESEARCH_MODEL"
+          add_public OPENAI_EVALUATION_MODEL "$OPENAI_EVALUATION_MODEL"
+      - name: Deploy HQ
+        id: deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          response=$(npx --yes "vercel@${VERCEL_CLI_VERSION}" deploy --prod --yes --json \
+            --project coffee-story-hq --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN")
+          url=$(printf '%s' "$response" | jq -r '.url // empty')
+          test -n "$url" || { echo '::error::Vercel did not return a deployment URL.'; exit 1; }
+          echo "url=https://$url" >> "$GITHUB_OUTPUT"
+          echo "HQ deployed at https://$url"
+
+  deploy-web:
+    name: Deploy ${{ matrix.surface }} web app
+    needs: deploy-hq
+    if: inputs.deploy_web
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - surface: display
+            project: coffee-story-display
+          - surface: customer
+            project: coffee-story-customer
+          - surface: operator
+            project: coffee-story-operator
+          - surface: kiosk
+            project: coffee-story-kiosk
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Configure production runtime environment
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          DISPLAY_DEVICE_TOKEN: ${{ secrets.DISPLAY_DEVICE_TOKEN }}
+        run: |
+          set -euo pipefail
+          add_public() {
+            local name="$1" value="$2"
+            npx --yes "vercel@${VERCEL_CLI_VERSION}" env add "$name" production \
+              --project "${{ matrix.project }}" --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN" \
+              --value "$value" --no-sensitive --force --yes >/dev/null
+          }
+          add_secret() {
+            local name="$1" value="$2"
+            test -n "$value" || return 0
+            npx --yes "vercel@${VERCEL_CLI_VERSION}" env add "$name" production \
+              --project "${{ matrix.project }}" --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN" \
+              --value "$value" --sensitive --force --yes >/dev/null
+          }
+          if [ "${{ matrix.surface }}" = display ]; then
+            add_public NEXT_PUBLIC_SUPABASE_URL "$SUPABASE_URL"
+            add_secret DISPLAY_DEVICE_TOKEN "$DISPLAY_DEVICE_TOKEN"
+          fi
+      - name: Deploy web surface
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          HQ_URL: ${{ needs.deploy-hq.outputs.url }}
+        run: |
+          set -euo pipefail
+          hq_host="${HQ_URL#https://}"
+          npx --yes "vercel@${VERCEL_CLI_VERSION}" deploy --prod --yes \
+            --project "${{ matrix.project }}" --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN" \
+            --build-env "TENANT=$TENANT" \
+            --build-env "EXPO_PUBLIC_SUPABASE_URL=$SUPABASE_URL" \
+            --build-env "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY" \
+            --build-env "EXPO_PUBLIC_API_URL=$HQ_URL" \
+            --build-env "EXPO_PUBLIC_ALLOWED_API_HOST=$hq_host"
+
+  publish-native:
+    name: Publish native OTA updates
+    needs: gate
+    if: inputs.publish_native
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Require EAS credentials and production API configuration
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          API_URL: ${{ secrets.EXPO_PUBLIC_API_URL }}
+        run: |
+          test -n "$EXPO_TOKEN" || { echo '::error::Set EXPO_TOKEN.'; exit 1; }
+          test -n "$API_URL" || { echo '::error::Set EXPO_PUBLIC_API_URL to the deployed HQ URL.'; exit 1; }
+      - name: Publish customer update
+        working-directory: apps/customer
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EXPO_PUBLIC_API_URL: ${{ secrets.EXPO_PUBLIC_API_URL }}
+          EXPO_PUBLIC_ALLOWED_API_HOST: ${{ secrets.EXPO_PUBLIC_ALLOWED_API_HOST }}
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+        run: npx --yes eas-cli@21.4.0 update --channel production --environment production --platform all --non-interactive
+      - name: Publish operator update
+        working-directory: apps/operator
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EXPO_PUBLIC_API_URL: ${{ secrets.EXPO_PUBLIC_API_URL }}
+          EXPO_PUBLIC_ALLOWED_API_HOST: ${{ secrets.EXPO_PUBLIC_ALLOWED_API_HOST }}
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+        run: npx --yes eas-cli@21.4.0 update --channel production --platform all --non-interactive
+      - name: Publish kiosk update
+        working-directory: apps/kiosk
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EXPO_PUBLIC_API_URL: ${{ secrets.EXPO_PUBLIC_API_URL }}
+          EXPO_PUBLIC_ALLOWED_API_HOST: ${{ secrets.EXPO_PUBLIC_ALLOWED_API_HOST }}
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+        run: npx --yes eas-cli@21.4.0 update --channel production --platform all --non-interactive

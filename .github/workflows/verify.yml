@@ -5,6 +5,7 @@ name: verify
 # reach a reviewer with a type error, a failing test, or a bundle that does
 # not build.
 on:
+  workflow_call:
   push:
     branches: [main]
   pull_request:

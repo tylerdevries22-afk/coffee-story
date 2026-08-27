@@ -15,15 +15,42 @@ Supabase directly under RLS; every trusted write goes through the API.
 | Piece | Lives | Deploys |
 |---|---|---|
 | Database, auth, realtime, storage | Supabase project | `supabase db push` applies `supabase/migrations/` |
-| Platform API + HQ console | `apps/hq` (Next.js) | Vercel — owner-triggered only |
-| Customer app | `apps/customer` (Expo) | EAS update/build — owner-triggered only |
-| Operator app | `apps/operator` (Expo) | EAS update/build — owner-triggered only |
-| Kiosk app | `apps/kiosk` (Expo) | EAS update/build — owner-triggered only |
-| Pickup display | `apps/display` (Next.js) | Node/Vercel deployment paired to a display device |
+| Platform API + HQ console | `apps/hq` (Next.js) | Vercel (`coffee-story-hq`) — owner-triggered only |
+| Customer app | `apps/customer` (Expo) | EAS update/build, plus Vercel web (`coffee-story-customer`) |
+| Operator app | `apps/operator` (Expo) | EAS update/build, plus Vercel web (`coffee-story-operator`) |
+| Kiosk app | `apps/kiosk` (Expo) | EAS update/build, plus Vercel web (`coffee-story-kiosk`) |
+| Pickup display | `apps/display` (Next.js) | Vercel (`coffee-story-display`), paired to a display device |
 | Scheduled jobs | `/api/jobs/run` | Vercel Cron (`apps/hq/vercel.json`, every 5 min) |
 
-Nothing deploys automatically. CI verifies; a deploy happens when the owner
-says deploy.
+Nothing deploys on an unreviewed merge. CI verifies; an owner starts
+`.github/workflows/deploy-hosted.yml` from GitHub Actions when a release is
+approved. The workflow deploys HQ first, then injects its URL into the three
+Expo web bundles, so those web apps never need a local API process. Native
+Expo clients receive the same production API through the optional EAS OTA
+job; native builds remain available when a runtime or store submission
+requires one.
+
+The repository contains a `vercel.json` in each Expo app as well as the two
+Next apps. The Vercel project root directories and names are part of the
+deployment contract, so a new checkout can deploy without a developer's
+local `.vercel` directory.
+
+### Hosted deployment checklist
+
+Create these GitHub Actions secrets before the first run (values are never
+committed): `VERCEL_TOKEN`, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`,
+`SUPABASE_SERVICE_ROLE_KEY`, and `CRON_SECRET`. Add `DISPLAY_DEVICE_TOKEN`
+after pairing the production pickup screen. Add `OPENAI_API_KEY` when the
+autonomous training research pipeline is enabled. The workflow fails fast for
+the required values and skips optional integrations rather than deploying a
+partially configured secret.
+
+For the optional native OTA job, add `EXPO_TOKEN`,
+`EXPO_PUBLIC_API_URL` (the deployed HQ URL), and
+`EXPO_PUBLIC_ALLOWED_API_HOST` (the same URL's hostname). Public Supabase
+values are also passed from the two Supabase secrets. EAS update channels are
+runtime-compatible with the pinned Expo SDK 54 clients; a new native runtime
+still requires an EAS build and store review.
 
 ## 2. The platform API (`apps/hq/app/api/*`)
 
