@@ -22,7 +22,6 @@ import type {
   StaffActionPayload,
   TrainingManifest,
 } from '@platform/domain';
-import { parseTenantClaims } from '@platform/schema';
 
 export class MobileApiError extends Error {
   readonly status: number;
@@ -69,13 +68,7 @@ export const mobileApi = {
     }
     const database = supabase;
     const session = await database.auth.getSession();
-    const token = session.data.session?.access_token;
-    const payload = token ? JSON.parse(
-      typeof atob === 'function'
-        ? atob((token.split('.')[1] ?? '').replace(/-/g, '+').replace(/_/g, '/'))
-        : Buffer.from(token.split('.')[1] ?? '', 'base64').toString('utf8'),
-    ) as { app_metadata?: unknown } : null;
-    const claims = payload ? parseTenantClaims(payload.app_metadata) : null;
+    const claims = session.data.session ? tenantClaimsFromSession(session.data.session) : null;
     if (!claims?.role) {
       throw new MobileApiError('This account has no staff access at this shop.', 403, 'no_staff_access');
     }
