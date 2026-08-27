@@ -25,6 +25,11 @@ const config: NextConfig = {
   distDir: process.env.NODE_ENV === 'development' ? '.next-dev' : '.next',
   // Workspace packages ship TypeScript source; Next compiles them in place.
   transpilePackages: ['@platform/schema', '@platform/domain', '@platform/engine', '@platform/api-client'],
+  // The workflow runtime loads its queue adapter by provider name. Keeping
+  // that server-only graph external avoids webpack's dynamic-require warning
+  // and lets Vercel provide the adapter at runtime without bundling it into
+  // every API route.
+  serverExternalPackages: ['workflow', '@workflow/core', '@workflow/world-vercel', '@vercel/queue'],
   experimental: {
     // HQ accepts owner-managed menu/training images up to 6 MB. The extra MB
     // covers multipart framing while staying below Supabase's 10 MiB bucket cap.
