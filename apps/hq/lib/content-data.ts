@@ -21,7 +21,11 @@ import demoMenuJson from '../../customer/src/tenant/menu.json';
 
 type BrandRow = { id: string; name: string; brand_config: unknown };
 type MenuRow = { id: string; name: string; is_published: boolean; updated_at: string };
-type CategoryRow = { id: string; title: string; tagline: string; sort_order: number };
+type CategoryRow = {
+  id: string; title: string; tagline: string; slug: string; parent_id: string | null;
+  image_url: string | null; audience: 'public' | 'staff' | 'manager' | 'owner';
+  archived_at: string | null; sort_order: number;
+};
 type ItemRow = {
   id: string;
   name: string;
@@ -32,6 +36,7 @@ type ItemRow = {
   sizes: unknown;
   modifiers: unknown;
   image_url: string | null;
+  catalog_audience: ContentMenuItem['audience'];
   is_listed: boolean;
   is_86d: boolean;
   sort_order: number;
@@ -46,6 +51,9 @@ type ReleaseRow = {
 };
 type RunRow = { id: string; status: string; stage: string; progress: number; created_at: string };
 type MediaVersionRow = { id: string; entity_type: string; entity_key: string; slot: string; public_url: string; created_at: string };
+type CatalogResourceRow = { id: string; kind: ContentWorkspaceData['catalogResources'][number]['kind']; slug: string; title: string; summary: string; audience: ContentWorkspaceData['catalogResources'][number]['audience']; external_ref: string | null; image_url: string | null };
+type CatalogRelationRow = { id: string; source_key: string; target_key: string; kind: ContentWorkspaceData['catalogRelations'][number]['kind'] };
+type CatalogPlacementRow = { id: string; node_id: string; parent_id: string | null; sort_order: number; is_primary: boolean };
 
 const DEMO_PROFILE = {
   businessName: 'Coffee Story', industry: 'Specialty coffee shop and café', locale: 'en-US',
@@ -72,8 +80,11 @@ function demoManifest(): TrainingManifest {
 }
 
 const DEMO_WORKSPACE: ContentWorkspaceData = {
-  menu: { id: 'demo-menu', name: 'Coffee Story menu', isPublished: true, updatedAt: null },
-  categories: DEMO_MENU.categories.map((category, index) => ({ ...category, sortOrder: index * 10 })),
+  menu: { id: 'demo-menu', name: 'Coffee Story catalog', isPublished: true, draftVersion: 1, publishedVersion: 1, updatedAt: null },
+  categories: DEMO_MENU.categories.map((category, index) => ({
+    ...category, slug: category.id, parentId: null, imageUrl: null,
+    audience: 'public' as const, archived: false, sortOrder: index * 10, mediaVersions: [],
+  })),
   items: DEMO_MENU.items.map((item, index) => {
     const imageUrl = `/api/demo-media/menu/${item.id}`;
     const prices = item.sizes.map((size) => size.priceCents);
@@ -91,6 +102,7 @@ const DEMO_WORKSPACE: ContentWorkspaceData = {
       })),
       optionGroups: item.optionGroups,
       imageUrl,
+      audience: 'public',
       isListed: true,
       is86d: item.soldOutToday === true,
       sortOrder: index * 10,
@@ -98,6 +110,9 @@ const DEMO_WORKSPACE: ContentWorkspaceData = {
       mediaVersions: [{ id: `${item.id}-bundled`, url: imageUrl, createdAt: '2026-08-26T00:00:00.000Z' }],
     };
   }),
+  catalogResources: [],
+  catalogRelations: [],
+  catalogPlacements: [],
   training: { id: 'demo-release', version: 3, status: 'published', manifest: demoManifest(), updatedAt: null },
   trainingMediaVersions: [],
   trainingProfile: DEMO_PROFILE,
@@ -147,6 +162,7 @@ function contentItems(rows: ItemRow[], versions: MediaVersionRow[]): ContentMenu
       ...(group.dependsOn ? { dependsOn: { ...group.dependsOn, choiceIds: [...group.dependsOn.choiceIds] } } : {}),
     })),
     imageUrl: row.image_url,
+    audience: row.catalog_audience,
     isListed: row.is_listed,
     is86d: row.is_86d,
     sortOrder: row.sort_order,
@@ -207,11 +223,11 @@ export async function loadContentWorkspace(options: { includeDraft?: boolean; in
 
   const menu = await loadOrCreateTenantMenu(client, session.brandId);
 
-  const [categories, items, releases, runs, mediaVersions] = await Promise.all([
-    client.from('menu_categories').select('id, title, tagline, sort_order')
+  const [categories, items, releases, runs, mediaVersions, catalog, publication, catalogResources, catalogRelations, catalogPlacements] = await Promise.all([
+    client.from('menu_categories').select('id, title, tagline, slug, parent_id, image_url, audience, archived_at, sort_order')
       .eq('menu_id', menu.id).order('sort_order').returns<CategoryRow[]>(),
     client.from('menu_items')
-      .select('id, name, slug, description, category_id, base_price_cents, sizes, modifiers, image_url, is_listed, is_86d, sort_order, updated_at')
+      .select('id, name, slug, description, category_id, base_price_cents, sizes, modifiers, image_url, catalog_audience, is_listed, is_86d, sort_order, updated_at')
       .eq('menu_id', menu.id).order('sort_order').returns<ItemRow[]>(),
     client.from('training_releases').select('id, version, status, manifest, updated_at')
       .eq('brand_id', session.brandId).in('status', ['draft', 'published'])
@@ -221,12 +237,25 @@ export async function loadContentWorkspace(options: { includeDraft?: boolean; in
     client.from('content_media_versions').select('id, entity_type, entity_key, slot, public_url, created_at')
       .eq('brand_id', session.brandId)
       .order('created_at', { ascending: false }).limit(500).returns<MediaVersionRow[]>(),
+    client.from('catalogs').select('draft_version').eq('id', menu.id).maybeSingle<{ draft_version: number }>(),
+    client.from('catalog_publications').select('version').eq('brand_id', session.brandId).maybeSingle<{ version: number }>(),
+    client.from('catalog_resources').select('id, kind, slug, title, summary, audience, external_ref, image_url')
+      .eq('brand_id', session.brandId).is('archived_at', null).order('kind').order('title').returns<CatalogResourceRow[]>(),
+    client.from('catalog_relations').select('id, source_key, target_key, kind')
+      .eq('brand_id', session.brandId).order('sort_order').returns<CatalogRelationRow[]>(),
+    client.from('catalog_placements').select('id, node_id, parent_id, sort_order, is_primary')
+      .eq('brand_id', session.brandId).order('sort_order').returns<CatalogPlacementRow[]>(),
   ]);
   if (categories.error) throw new Error(`content categories: ${categories.error.message}`);
   if (items.error) throw new Error(`content items: ${items.error.message}`);
   if (releases.error) throw new Error(`content training: ${releases.error.message}`);
   if (runs.error) throw new Error(`content automation: ${runs.error.message}`);
   if (mediaVersions.error) throw new Error(`content media history: ${mediaVersions.error.message}`);
+  if (catalog.error) throw new Error(`content catalog: ${catalog.error.message}`);
+  if (publication.error) throw new Error(`content publication: ${publication.error.message}`);
+  if (catalogResources.error) throw new Error(`content catalog resources: ${catalogResources.error.message}`);
+  if (catalogRelations.error) throw new Error(`content catalog relations: ${catalogRelations.error.message}`);
+  if (catalogPlacements.error) throw new Error(`content catalog placements: ${catalogPlacements.error.message}`);
 
   const selected = (options.includeDraft !== false ? releases.data?.find((release) => release.status === 'draft') : undefined)
     ?? releases.data?.find((release) => release.status === 'published');
@@ -240,7 +269,11 @@ export async function loadContentWorkspace(options: { includeDraft?: boolean; in
   }
 
   const categoryRows: ContentCategory[] = (categories.data ?? []).map((category) => ({
-    id: category.id, title: category.title, tagline: category.tagline, sortOrder: category.sort_order,
+    id: category.id, title: category.title, tagline: category.tagline, slug: category.slug,
+    parentId: category.parent_id, imageUrl: category.image_url, audience: category.audience,
+    archived: category.archived_at !== null, sortOrder: category.sort_order,
+    mediaVersions: (mediaVersions.data ?? []).filter((version) => version.entity_type === 'catalog_folder' && version.entity_key === category.id && version.slot === 'thumbnail')
+      .map((version) => ({ id: version.id, url: version.public_url, createdAt: version.created_at })),
   }));
   const latestRun = runs.data?.[0];
   return {
@@ -248,6 +281,8 @@ export async function loadContentWorkspace(options: { includeDraft?: boolean; in
       id: menu.id,
       name: menu.name,
       isPublished: menu.is_published,
+      draftVersion: catalog.data?.draft_version ?? 1,
+      publishedVersion: publication.data?.version ?? null,
       updatedAt: menu.updated_at,
     },
     categories: categoryRows,
@@ -255,6 +290,20 @@ export async function loadContentWorkspace(options: { includeDraft?: boolean; in
       items.data ?? [],
       (mediaVersions.data ?? []).filter((version) => version.entity_type === 'menu_item' && version.slot === 'thumbnail'),
     ),
+    catalogResources: (catalogResources.data ?? []).map((resource) => ({
+      id: resource.id, kind: resource.kind, slug: resource.slug, title: resource.title,
+      summary: resource.summary, audience: resource.audience, externalRef: resource.external_ref,
+      imageUrl: resource.image_url,
+      mediaVersions: (mediaVersions.data ?? []).filter((version) => version.entity_type === 'catalog_resource' && version.entity_key === resource.id && version.slot === 'thumbnail')
+        .map((version) => ({ id: version.id, url: version.public_url, createdAt: version.created_at })),
+    })),
+    catalogRelations: (catalogRelations.data ?? []).map((relation) => ({
+      id: relation.id, sourceId: relation.source_key, targetId: relation.target_key, kind: relation.kind,
+    })),
+    catalogPlacements: (catalogPlacements.data ?? []).map((placement) => ({
+      id: placement.id, nodeId: placement.node_id, parentId: placement.parent_id,
+      sortOrder: placement.sort_order, isPrimary: placement.is_primary,
+    })),
     trainingMediaVersions: (mediaVersions.data ?? [])
       .filter((version) => version.entity_type !== 'menu_item')
       .map((version) => ({ id: version.id, url: version.public_url, createdAt: version.created_at, entityKey: version.entity_key, slot: version.slot })),

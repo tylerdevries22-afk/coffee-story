@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@platform/api-client": "workspace:*",
+    "@platform/analytics": "workspace:*",
     "@platform/data": "workspace:*",
     "@platform/domain": "workspace:*",
     "@platform/schema": "workspace:*",

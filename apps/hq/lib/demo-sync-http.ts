@@ -17,6 +17,10 @@ export function previewWallRuntimeEnabled(): boolean {
 export function demoSyncAvailable(request: Request): boolean {
   return demoSyncRuntimeEnabled() && LOCAL.has(new URL(request.url).hostname);
 }
+/** Allows immutable bundled preview media on loopback, including `next start`. */
+export function demoMediaAvailable(request: Request): boolean {
+  return LOCAL.has(new URL(request.url).hostname);
+}
 export function demoSyncChannel(value: string | null): OrderChannel | null {
   return typeof value === 'string' && (CHANNELS as readonly string[]).includes(value)
     ? value as OrderChannel : null;

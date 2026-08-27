@@ -24,11 +24,17 @@
  */
 import type { DropRow, ItemRotation, MenuCategoryRow, MenuItemRow } from '@platform/schema';
 
-import type { KioskNodeTarget } from './kiosk-flow';
+import type { KioskMenuFacts, KioskNodeTarget } from './kiosk-flow';
 import type { OptionGroup } from './menu-options';
 import type { CatalogSize } from './sizes';
 
-export type KioskMenuCategory = { id: string; title: string; tagline: string };
+export type KioskMenuCategory = {
+  id: string;
+  title: string;
+  tagline: string;
+  stableId?: string;
+  parentStableId?: string | null;
+};
 
 /**
  * One item as the kiosk screens consume it.
@@ -221,7 +227,7 @@ function parseOptionDependency(value: unknown): OptionGroup['dependsOn'] | null 
 }
 
 export type MenuRows = {
-  categories: readonly MenuCategoryRow[];
+  categories: readonly (MenuCategoryRow & { parentId?: string | null })[];
   items: readonly MenuItemRow[];
   drops: readonly DropRow[];
 };
@@ -283,26 +289,28 @@ export function kioskMenuFromRows(rows: MenuRows): KioskMenu {
       endsAt,
     });
   }
+  const hasHierarchy = rows.categories.some((category) => 'parentId' in category);
   const categories = rows.categories.map((c) => ({
-    id: c.title,
-    title: c.title,
-    tagline: c.tagline,
+    id: c.title, title: c.title, tagline: c.tagline,
+    ...(hasHierarchy ? { stableId: c.id, parentStableId: c.parentId ?? null } : {}),
   }));
   return { categories, items, drops };
 }
 
 /** What the flow resolver needs to know, from a menu of any provenance. */
-export function menuFactsFrom(menu: KioskMenu): {
-  categories: readonly { id: string; title: string }[];
-  itemSlugs: readonly string[];
-  imageUrls?: Readonly<Record<string, string>>;
-} {
+export function menuFactsFrom(menu: KioskMenu): KioskMenuFacts {
   const imageUrls: Record<string, string> = {};
   for (const item of menu.items) {
     if (item.imageUrl) imageUrls[item.id] = item.imageUrl;
   }
   return {
-    categories: menu.categories.map((c) => ({ id: c.id, title: c.title })),
+    categories: menu.categories.map((c) => ({
+      id: c.stableId ?? c.id, title: c.title,
+      ...(c.stableId ? {
+        aliases: [c.id], parentId: c.parentStableId ?? null,
+        hasItems: menu.items.some((item) => item.categoryId === c.id),
+      } : {}),
+    })),
     itemSlugs: menu.items.map((i) => i.id),
     ...(Object.keys(imageUrls).length > 0 ? { imageUrls } : {}),
   };
@@ -310,7 +318,8 @@ export function menuFactsFrom(menu: KioskMenu): {
 
 /** The items under one category title, in menu order. */
 export function itemsInCategoryOf(menu: KioskMenu, title: string): readonly KioskMenuItem[] {
-  return menu.items.filter((item) => item.categoryId === title);
+  const category = menu.categories.find((candidate) => candidate.id === title || candidate.stableId === title);
+  return menu.items.filter((item) => item.categoryId === (category?.id ?? title));
 }
 
 /** Items represented by an entry target, including a direct item tile. */

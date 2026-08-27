@@ -25,6 +25,8 @@ export type ContentMenu = {
   id: string;
   name: string;
   isPublished: boolean;
+  draftVersion: number;
+  publishedVersion: number | null;
   updatedAt: string | null;
 };
 
@@ -32,7 +34,13 @@ export type ContentCategory = {
   id: string;
   title: string;
   tagline: string;
+  slug: string;
+  parentId: string | null;
+  imageUrl: string | null;
+  audience: 'public' | 'staff' | 'manager' | 'owner';
+  archived: boolean;
   sortOrder: number;
+  mediaVersions: ContentMediaVersion[];
 };
 
 export type ContentMenuItem = {
@@ -45,6 +53,7 @@ export type ContentMenuItem = {
   sizes: ContentMenuSize[];
   optionGroups: ContentOptionGroup[];
   imageUrl: string | null;
+  audience: 'public' | 'staff' | 'manager' | 'owner';
   isListed: boolean;
   is86d: boolean;
   sortOrder: number;
@@ -58,6 +67,33 @@ export type ContentMediaVersion = {
   createdAt: string;
   entityKey?: string;
   slot?: string;
+};
+
+export type ContentCatalogResource = {
+  id: string;
+  kind: 'material' | 'specification' | 'procedure' | 'recipe' | 'knowledge' | 'skill' | 'training_module' | 'training_lesson';
+  slug: string;
+  title: string;
+  summary: string;
+  audience: 'public' | 'staff' | 'manager' | 'owner';
+  externalRef: string | null;
+  imageUrl: string | null;
+  mediaVersions: ContentMediaVersion[];
+};
+
+export type ContentCatalogPlacement = {
+  id: string;
+  nodeId: string;
+  parentId: string | null;
+  sortOrder: number;
+  isPrimary: boolean;
+};
+
+export type ContentCatalogRelation = {
+  id: string;
+  sourceId: string;
+  targetId: string;
+  kind: 'requires' | 'follows' | 'teaches' | 'develops' | 'covers' | 'prerequisite' | 'related' | 'substitute';
 };
 
 export type TrainingReleaseEditor = {
@@ -80,6 +116,9 @@ export type ContentWorkspaceData = {
   menu: ContentMenu;
   categories: ContentCategory[];
   items: ContentMenuItem[];
+  catalogResources: ContentCatalogResource[];
+  catalogRelations: ContentCatalogRelation[];
+  catalogPlacements: ContentCatalogPlacement[];
   training: TrainingReleaseEditor;
   trainingMediaVersions: ContentMediaVersion[];
   trainingProfile: TenantTrainingProfile;
@@ -148,6 +187,7 @@ export function isMenuItemDraft(value: unknown): value is MenuItemDraft {
     && Array.isArray(value.sizes) && value.sizes.every(isContentMenuSize)
     && Array.isArray(value.optionGroups) && value.optionGroups.every(isContentOptionGroup)
     && (value.imageUrl === null || typeof value.imageUrl === 'string')
+    && ['public', 'staff', 'manager', 'owner'].includes(value.audience as string)
     && typeof value.isListed === 'boolean'
     && typeof value.is86d === 'boolean'
     && typeof value.sortOrder === 'number';

@@ -1,5 +1,7 @@
 import type { BrandRole } from '@platform/schema';
 
+import coffeeStoryMenu from '../../customer/src/tenant/menu.json';
+
 /**
  * The fixtures the console renders when no Supabase environment is present,
  * so `next build`, previews, and development all work with zero
@@ -173,14 +175,9 @@ export const DEMO_KIOSK_FLOW: unknown = {
 };
 
 export const DEMO_KIOSK_MENU = {
-  categories: [
-    { id: 'Signature Lattes', title: 'Signature Lattes' },
-    { id: 'Coffee & Espresso', title: 'Coffee & Espresso' },
-    { id: 'Tea & Matcha', title: 'Tea & Matcha' },
-    { id: 'Boba', title: 'Boba' },
-    { id: 'Sparkling Ades & Smoothies', title: 'Sparkling Ades & Smoothies' },
-    { id: 'Sandwiches', title: 'Sandwiches' },
-    { id: 'Sweets & Desserts', title: 'Sweets & Desserts' },
-  ],
-  itemSlugs: ['tiramisu-latte', 'cortado', 'mochi-donut'],
+  categories: coffeeStoryMenu.categories.map((category) => ({ id: category.title, title: category.title })),
+  itemSlugs: coffeeStoryMenu.items.map((item) => item.id),
+  imageUrls: Object.fromEntries(
+    coffeeStoryMenu.items.map((item) => [item.id, `/api/demo-media/menu/${item.id}`]),
+  ),
 };

@@ -132,6 +132,16 @@ describe('kioskMenuFromRows', () => {
     assert.deepEqual(menuFactsFrom(menu).imageUrls, { cortado: 'https://cdn.example/cortado.webp' });
   });
 
+  it('uses stable catalog ids while accepting legacy category titles', () => {
+    const menu = kioskMenuFromRows({
+      categories: [{ ...category(), parentId: null }], items: [item()], drops: [],
+    });
+    const facts = menuFactsFrom(menu);
+    assert.equal(facts.categories[0]?.id, 'cat-1');
+    assert.deepEqual(facts.categories[0]?.aliases, ['Espresso']);
+    assert.equal(itemsInCategoryOf(menu, 'cat-1').length, 1);
+  });
+
   it('carries live modifiers instead of deriving a tenant-specific catalogue', () => {
     const modifiers = [{
       id: 'temperature', name: 'Temperature', select: 'single', required: true, maxChoices: 1,

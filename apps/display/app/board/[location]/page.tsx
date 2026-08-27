@@ -1,8 +1,10 @@
 import { notFound } from 'next/navigation';
+import { after } from 'next/server';
 
 import { formatCopy } from '@platform/ui/copy';
 
 import { isConfigured, isLocationId, loadBoard } from '@/lib/board';
+import { recordDisplayScreen } from '@/lib/telemetry';
 
 import { BoardView } from './board-view';
 import { QrPanel } from './qr-panel';
@@ -27,6 +29,9 @@ export default async function BoardPage({ params }: { params: Promise<{ location
   if (isConfigured() && !isLocationId(location)) notFound();
 
   const board = await loadBoard(location);
+  if (!board.unpaired && isLocationId(location)) {
+    after(async () => { await recordDisplayScreen(location); });
+  }
 
   // An unpaired production screen draws no queue at all. There is no honest
   // board to show -- the fixtures would be an invented one, and a blank board

@@ -22,6 +22,7 @@ export {
   fetchMenuTree, subscribeToMenu,
   type MenuTree, type MenuTreeCategory, type MenuTreeItem,
 } from './menu';
+export { fetchPublishedCatalog, subscribeToCatalogPublication } from './catalog';
 export {
   fetchActiveLocationOrders,
   fetchCustomerOrders,

@@ -579,6 +579,7 @@ describe('realtime propagation', () => {
     assert.deepEqual(publicationTables(), [
       'board_change_signals',
       'brand_config_signals',
+      'catalog_publications',
       'drops',
       'location_setting_signals',
       'menu_categories',
@@ -591,6 +592,7 @@ describe('realtime propagation', () => {
       orders: 2,
       board_change_signals: 1,
       brand_config_signals: 1,
+      catalog_publications: 2,
       location_setting_signals: 1,
       menu_items: 1,
       menu_categories: 1,

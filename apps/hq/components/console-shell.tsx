@@ -9,6 +9,7 @@ import {
   consoleSectionForPath,
   type ConsoleSection,
 } from '@/lib/console-navigation';
+import { bestMatchingHref, pathMatchesHref } from '@/lib/navigation-path';
 
 import { Icon } from './icon';
 import { NavLink } from './nav-link';
@@ -17,13 +18,24 @@ const PAGE_TITLES: Readonly<Record<string, string>> = {
   '/': 'Overview',
   '/locations': 'Locations',
   '/menu': 'Menu',
-  '/content': 'Menu',
+  '/catalog': 'Catalog',
+  '/content': 'Catalog',
   '/fees': 'Platform fees',
   '/training': 'Training',
   '/drops': 'Drops',
   '/campaigns': 'Campaigns',
   '/customers': 'Customers',
   '/analytics': 'Analytics',
+  '/analytics/apps': 'App usage',
+  '/analytics/commerce': 'Commerce analytics',
+  '/analytics/operations': 'Operations analytics',
+  '/analytics/training': 'Training analytics',
+  '/analytics/growth': 'Growth analytics',
+  '/analytics/reliability': 'Reliability analytics',
+  '/integrations': 'Integration catalog',
+  '/integrations/connected': 'Connected integrations',
+  '/integrations/activity': 'Integration activity',
+  '/integrations/health': 'Integration health',
   '/brand': 'Brand config',
   '/kiosk': 'Kiosk',
   '/onboarding': 'Onboarding',
@@ -31,8 +43,8 @@ const PAGE_TITLES: Readonly<Record<string, string>> = {
 };
 
 const FALLBACK_SECTION: ConsoleSection = {
-  key: 'operations',
-  title: 'Operations',
+  key: 'dashboard',
+  title: 'Dashboard',
   icon: 'dashboard',
   home: '/',
   items: [],
@@ -53,6 +65,7 @@ type ConsoleShellProps = {
   readonly brandName: string;
   readonly initials: string;
   readonly statusHref: string;
+  readonly dataMode: 'hosted' | 'preview';
   readonly sessionFooter: ReactNode;
 };
 
@@ -77,6 +90,7 @@ function ConsoleRail({
   onClose,
   closeButtonRef,
 }: ConsoleRailProps) {
+  const pathname = usePathname();
   const keepFocusInRail = (event: ReactKeyboardEvent<HTMLElement>) => {
     if (!isOpen || event.key !== 'Tab') return;
     const focusable = Array.from(
@@ -121,31 +135,54 @@ function ConsoleRail({
         </button>
       </header>
       <nav className="console-rail-scroll" onClick={onClose}>
-        {sections.map((section) => (
-          <section className="console-nav-group" key={section.key} aria-labelledby={`nav-${section.key}`}>
-            <h2 id={`nav-${section.key}`}>{section.title}</h2>
-            <div className="console-nav-items">
-              {section.items.map((item) => (
-                <NavLink key={item.href} href={item.href} icon={item.icon} className="console-nav-link">
-                  {item.label}
-                </NavLink>
-              ))}
-            </div>
-          </section>
-        ))}
-        <section className="console-nav-group" aria-labelledby="nav-system">
-          <h2 id="nav-system">System</h2>
-          <div className="console-nav-items">
-            <NavLink href={statusHref} icon="activity" className="console-nav-link">
-              System status
+        <p className="console-rail-label">Workspace</p>
+        <div className="console-nav-items">
+          {sections.map((section) => (
+            <NavLink
+              key={section.key}
+              href={section.home}
+              icon={section.icon}
+              className="console-nav-link console-section-link"
+              active={section.items.some((item) => pathMatchesHref(pathname, item.href))}
+            >
+              {section.title}
             </NavLink>
-          </div>
-        </section>
+          ))}
+          <NavLink href={statusHref} icon="activity" className="console-nav-link console-section-link">
+            System
+          </NavLink>
+        </div>
       </nav>
       <footer className="console-rail-footer" onClick={onClose}>
         {sessionFooter}
       </footer>
     </aside>
+  );
+}
+
+function ContextRail({ section, statusHref }: { section: ConsoleSection; statusHref: string }) {
+  const pathname = usePathname();
+  const items = section.key === 'system'
+    ? [{ href: statusHref, label: 'System status', icon: 'activity' as const }]
+    : section.items;
+  if (items.length < 2) return null;
+  const activeHref = bestMatchingHref(pathname, items.map((item) => item.href));
+  return (
+    <nav className="console-context-rail" aria-label={`${section.title} pages`}>
+      <div className="console-context-scroll">
+        {items.map((item) => (
+          <NavLink
+            key={item.href}
+            href={item.href}
+            icon={item.icon}
+            className="console-context-link"
+            active={item.href === activeHref}
+          >
+            {item.label}
+          </NavLink>
+        ))}
+      </div>
+    </nav>
   );
 }
 
@@ -156,6 +193,7 @@ function ConsoleTopbar({
   navigationOpen,
   onOpenNavigation,
   triggerButtonRef,
+  dataMode,
 }: {
   section: ConsoleSection;
   pageTitle: string;
@@ -163,6 +201,7 @@ function ConsoleTopbar({
   navigationOpen: boolean;
   onOpenNavigation: () => void;
   triggerButtonRef: RefObject<HTMLButtonElement | null>;
+  dataMode: 'hosted' | 'preview';
 }) {
   return (
     <header className="topbar">
@@ -185,7 +224,7 @@ function ConsoleTopbar({
         </div>
       </div>
       <div className="topbar-actions">
-        <span className="sync-state"><span className="sync-dot" /> Supabase synced</span>
+        <span className={`sync-state ${dataMode}`}><span className="sync-dot" /> {dataMode === 'hosted' ? 'Supabase synced' : 'Local preview data'}</span>
         <span className="topbar-avatar" aria-hidden="true">{initials}</span>
       </div>
     </header>
@@ -288,7 +327,9 @@ export function ConsoleShell(props: ConsoleShellProps) {
           navigationOpen={drawerOpen}
           onOpenNavigation={() => setNavigationOpen(true)}
           triggerButtonRef={triggerButtonRef}
+          dataMode={props.dataMode}
         />
+        <ContextRail section={activeSection} statusHref={props.statusHref} />
         <main id="main-content" className="main">{props.children}</main>
       </div>
     </div>

@@ -43,6 +43,17 @@ describe('entryNodesFromCategories', () => {
     const many = Array.from({ length: 30 }, (_, index) => ({ id: `c${index}`, title: `C${index}` }));
     assert.equal(entryNodesFromCategories(many).length, MAX_ENTRY_NODES);
   });
+
+  it('turns the published catalog hierarchy into bounded kiosk groups', () => {
+    const nodes = entryNodesFromCategories([
+      { id: 'services', title: 'Services', aliases: [], parentId: null, hasItems: false },
+      { id: 'exterior', title: 'Exterior', aliases: [], parentId: 'services', hasItems: true },
+      { id: 'roofing', title: 'Roofing', aliases: [], parentId: 'exterior', hasItems: true },
+    ]);
+    assert.equal(nodes[0]?.target.kind, 'group');
+    const exterior = nodes[0]?.target.kind === 'group' ? nodes[0].target.nodes[0] : null;
+    assert.equal(exterior?.target.kind, 'group');
+  });
 });
 
 describe('resolveKioskFlow', () => {
@@ -88,7 +99,7 @@ describe('resolveKioskFlow', () => {
     assert.deepEqual(flow.entry.nodes.map((node) => node.label), ['First']);
   });
 
-  it('allows one level of grouping and refuses a second', () => {
+  it('allows catalog groups through the five-level hierarchy limit', () => {
     const flow = resolveKioskFlow({
       entry: {
         nodes: [{
@@ -108,7 +119,7 @@ describe('resolveKioskFlow', () => {
     assert.equal(group?.kind, 'group');
     assert.deepEqual(
       group?.kind === 'group' ? group.nodes.map((node) => node.id) : null,
-      ['six'],
+      ['six', 'deeper'],
     );
   });
 

@@ -13,19 +13,26 @@ export function ContentWorkspace({ initial }: { initial: ContentWorkspaceData })
     <div className="content-workspace">
       <div className="content-heading-row">
         <div>
-          <p className="eyebrow">Storefront catalog</p>
-          <h1>Menu</h1>
-          <p className="subtitle">One source of truth for every menu item, price, option, and storefront image.</p>
+          <p className="eyebrow">Published across every ordering surface</p>
+          <h1>Catalog</h1>
+          <p className="subtitle">Organize offerings in one reusable hierarchy and connect their media, procedures, knowledge, skills, and training.</p>
         </div>
-        <div className="content-release-state">Menu catalog</div>
+        <div className="content-release-state">Release v{initial.menu.publishedVersion ?? '—'}</div>
       </div>
 
       <div className="content-summary-grid" aria-label="Content summary">
-        <SummaryCard icon="menu" label="Listed menu items" value={counts.listedItems} detail={`${initial.categories.length} categories`} />
-        <SummaryCard icon="image" label="Managed media" value={counts.media} detail="Menu thumbnails" />
+        <SummaryCard icon="menu" label="Published offerings" value={counts.listedItems} detail={`${initial.categories.length} folders`} />
+        <SummaryCard icon="image" label="Managed media" value={counts.media} detail="Catalog thumbnails" />
       </div>
-      <section aria-label="Menu and pictures">
-        <MenuContentEditor initialMenu={initial.menu} initialCategories={initial.categories} initialItems={initial.items} />
+      <section aria-label="Catalog hierarchy and media">
+        <MenuContentEditor
+          initialMenu={initial.menu}
+          initialCategories={initial.categories}
+          initialItems={initial.items}
+          initialResources={initial.catalogResources}
+          initialRelations={initial.catalogRelations}
+          initialPlacements={initial.catalogPlacements}
+        />
       </section>
     </div>
   );

@@ -8,15 +8,11 @@ import { useFlow } from '@/state/flow';
 import TENANT from '@/tenant/brand.json';
 
 /**
- * One level down from the first screen.
- *
- * A tenant whose first question is broad -- "Large or mini?" before "which
- * one?" -- gets one narrowing screen and no more. `resolveKioskFlow` refuses a
- * second level of nesting: a kiosk is a linear task, and a guest who can get
- * three taps deep into groups has been handed a file browser.
+ * A bounded catalog-folder step. Nested groups reuse this screen, so the
+ * kiosk follows the same published hierarchy as HQ without duplicating it.
  */
 export default function NodeStep() {
-  const { selected, group, select, goNext, goTo, openUtility } = useFlow();
+  const { selected, group, select, goNext, openUtility } = useFlow();
 
   function choose(node: KioskEntryNode) {
     if (node.target.kind === 'utility') {
@@ -25,9 +21,6 @@ export default function NodeStep() {
     }
     select(node);
     if (node.target.kind === 'group') {
-      // Cannot happen -- the resolver drops nested groups -- but landing back
-      // here would be a loop, so it goes forward instead.
-      goTo('entry');
       return;
     }
     goNext({ inGroup: true });

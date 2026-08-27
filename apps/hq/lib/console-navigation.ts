@@ -17,15 +17,17 @@ export type ConsoleSection = {
 };
 
 export type ConsoleNavigationAccess = {
-  readonly menuHref: '/content' | '/menu';
+  readonly menuHref: '/catalog' | '/menu';
   readonly canManageTraining: boolean;
   readonly canManagePlatform: boolean;
   readonly canManageBrand: boolean;
+  readonly canViewAnalytics: boolean;
+  readonly canViewIntegrations: boolean;
 };
 
-const OPERATIONS_SECTION = {
-  key: 'operations',
-  title: 'Operations',
+const DASHBOARD_SECTION = {
+  key: 'dashboard',
+  title: 'Dashboard',
   icon: 'dashboard',
   home: '/',
   items: [
@@ -35,24 +37,57 @@ const OPERATIONS_SECTION = {
   ],
 } satisfies ConsoleSection;
 
-const GROWTH_SECTION = {
-  key: 'growth',
-  title: 'Growth',
+const DROPS_SECTION = {
+  key: 'drops',
+  title: 'Drops',
   icon: 'drop',
   home: '/drops',
+  items: [{ href: '/drops', label: 'Overview', icon: 'drop' }],
+} satisfies ConsoleSection;
+
+const CAMPAIGNS_SECTION = {
+  key: 'campaigns',
+  title: 'Campaigns',
+  icon: 'campaign',
+  home: '/campaigns',
+  items: [{ href: '/campaigns', label: 'Overview', icon: 'campaign' }],
+} satisfies ConsoleSection;
+
+const CUSTOMERS_SECTION = {
+  key: 'customers',
+  title: 'Customers',
+  icon: 'users',
+  home: '/customers',
+  items: [{ href: '/customers', label: 'Directory', icon: 'users' }],
+} satisfies ConsoleSection;
+
+const ANALYTICS_SECTION = {
+  key: 'analytics',
+  title: 'Analytics',
+  icon: 'analytics',
+  home: '/analytics',
   items: [
-    { href: '/drops', label: 'Drops', icon: 'drop' },
-    { href: '/campaigns', label: 'Campaigns', icon: 'brand' },
-    { href: '/customers', label: 'Customers', icon: 'users' },
+    { href: '/analytics', label: 'Overview', icon: 'dashboard' },
+    { href: '/analytics/apps', label: 'Apps', icon: 'kiosk' },
+    { href: '/analytics/commerce', label: 'Commerce', icon: 'drop' },
+    { href: '/analytics/operations', label: 'Operations', icon: 'locations' },
+    { href: '/analytics/training', label: 'Training', icon: 'training' },
+    { href: '/analytics/growth', label: 'Growth', icon: 'campaign' },
+    { href: '/analytics/reliability', label: 'Reliability', icon: 'activity' },
   ],
 } satisfies ConsoleSection;
 
-const INSIGHTS_SECTION = {
-  key: 'insights',
-  title: 'Insights',
-  icon: 'analytics',
-  home: '/analytics',
-  items: [{ href: '/analytics', label: 'Analytics', icon: 'analytics' }],
+const INTEGRATIONS_SECTION = {
+  key: 'integrations',
+  title: 'Integrations',
+  icon: 'integrations',
+  home: '/integrations',
+  items: [
+    { href: '/integrations', label: 'Catalog', icon: 'integrations' },
+    { href: '/integrations/connected', label: 'Connected', icon: 'activity' },
+    { href: '/integrations/activity', label: 'Activity', icon: 'analytics' },
+    { href: '/integrations/health', label: 'Health', icon: 'help' },
+  ],
 } satisfies ConsoleSection;
 
 function contentSection(access: ConsoleNavigationAccess): ConsoleSection {
@@ -62,7 +97,7 @@ function contentSection(access: ConsoleNavigationAccess): ConsoleSection {
     icon: 'menu',
     home: access.menuHref,
     items: [
-      { href: access.menuHref, label: 'Menu', icon: 'menu' },
+      { href: access.menuHref, label: access.menuHref === '/catalog' ? 'Catalog' : 'Menu', icon: 'menu' },
       ...(access.canManageBrand
         ? [{ href: '/kiosk', label: 'Kiosk', icon: 'kiosk' as const }]
         : []),
@@ -97,10 +132,13 @@ function settingsSection(access: ConsoleNavigationAccess): ConsoleSection {
 /** Returns every console destination available to the current role, grouped once. */
 export function consoleSectionsFor(access: ConsoleNavigationAccess): ConsoleSection[] {
   return [
-    OPERATIONS_SECTION,
+    DASHBOARD_SECTION,
     contentSection(access),
-    GROWTH_SECTION,
-    INSIGHTS_SECTION,
+    DROPS_SECTION,
+    CAMPAIGNS_SECTION,
+    CUSTOMERS_SECTION,
+    ...(access.canViewAnalytics ? [ANALYTICS_SECTION] : []),
+    ...(access.canViewIntegrations ? [INTEGRATIONS_SECTION] : []),
     settingsSection(access),
   ].filter((section) => section.items.length > 0);
 }

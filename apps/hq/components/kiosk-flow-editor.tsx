@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState, useTransition } from 'react';
+import Link from 'next/link';
 
 import {
   inspectKioskFlow, resolveKioskFlow,
@@ -9,6 +10,7 @@ import {
 
 import { saveKioskFlow } from '@/app/(console)/kiosk/actions';
 import { KioskFlowPreview } from '@/components/kiosk-flow-preview';
+import { ManagedThumbnail } from '@/components/managed-thumbnail';
 
 const TENDERS: { id: KioskTender; label: string }[] = [
   { id: 'card', label: 'Card' },
@@ -87,6 +89,7 @@ export function KioskFlowEditor({
   return (
     <div className="grid-2">
       <div>
+        <KioskMediaLibrary menu={menu} />
         <div className="card">
           <h2>Attract screen</h2>
           <label className="field">
@@ -329,6 +332,23 @@ export function KioskFlowEditor({
           ) : null}
         </div>
       </div>
+    </div>
+  );
+}
+
+function KioskMediaLibrary({ menu }: { menu: KioskMenuFacts }) {
+  const images = Object.entries(menu.imageUrls ?? {}).sort(([left], [right]) => left.localeCompare(right));
+  return (
+    <div className="card kiosk-media-library">
+      <div className="kiosk-media-heading">
+        <div><h2>Menu image sync</h2><p className="subtitle">Kiosks use the same tenant-owned thumbnails as the customer menu.</p></div>
+        <Link className="button secondary" href="/catalog">Manage catalog</Link>
+      </div>
+      {images.length > 0 ? (
+        <div className="kiosk-media-grid" aria-label={`${images.length} synchronized kiosk thumbnails`}>
+          {images.map(([slug, url]) => <ManagedThumbnail key={slug} url={url} alt={`${slug.replaceAll('-', ' ')} kiosk thumbnail`} className="kiosk-media-thumb" />)}
+        </div>
+      ) : <div className="notice">No menu pictures are available yet. Add them in Content → Menu.</div>}
     </div>
   );
 }

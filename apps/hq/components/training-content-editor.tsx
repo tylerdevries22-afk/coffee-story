@@ -14,6 +14,7 @@ import { slugFromLabel, type ContentMediaVersion, type TrainingAutomationRun, ty
 import type { TenantTrainingProfile } from '@/lib/training-bootstrap';
 
 import { ContentIcon } from './content-workspace';
+import { ManagedThumbnail } from './managed-thumbnail';
 
 type TrainingView = { kind: 'module'; index: number } | { kind: 'sources' } | { kind: 'automation' };
 
@@ -84,7 +85,7 @@ export function TrainingContentEditor({
         <div className="training-nav-list">
           {manifest.modules.map((module, index) => (
             <button type="button" key={`${module.slug}-${index}`} className={view.kind === 'module' && view.index === index ? 'active' : ''} onClick={() => setView({ kind: 'module', index })}>
-              <span className="training-module-mark">{index + 1}</span>
+              <ManagedThumbnail url={moduleArtworkUrl(module)} alt={`${module.title} module artwork`} />
               <span><strong>{module.title || 'Untitled module'}</strong><small>{module.trackKey ?? 'custom'} · {module.lessons.length} lessons</small></span>
             </button>
           ))}
@@ -183,6 +184,7 @@ function ModuleEditor({ module, mediaVersions, onChange, onRemove }: { module: T
 function ModuleIconEditor({ module, history, onChange }: { module: TrainingModule; history: ContentMediaVersion[]; onChange: (next: Partial<TrainingModule>) => void }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const previewUrl = moduleArtworkUrl(module);
   async function upload(file: File) {
     setUploading(true);
     const payload = new FormData();
@@ -196,13 +198,20 @@ function ModuleIconEditor({ module, history, onChange }: { module: TrainingModul
   }
   return (
     <div className="training-icon-editor">
-      <span className="content-thumb image" aria-hidden="true" style={module.icon.url ? { backgroundImage: `url("${module.icon.url}")` } : undefined}><ContentIcon kind="image" /></span>
+      <ManagedThumbnail url={previewUrl} alt={`${module.title} module artwork`} />
       <div><strong>Module artwork</strong><small>Optional tenant-owned icon stored with the training release.</small></div>
       <input ref={fileRef} className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload(file); }} />
       <button type="button" className="button secondary content-square-button" disabled={uploading} onClick={() => fileRef.current?.click()}><ContentIcon kind="upload" /> {uploading ? 'Uploading…' : module.icon.url ? 'Replace artwork' : 'Upload artwork'}</button>
-      {history.length > 0 ? <div className="content-media-history"><strong>Artwork history</strong><div className="content-media-history-grid">{history.slice(0, 8).map((version) => <button type="button" key={version.id} className={module.icon.url === version.url ? 'active' : ''} aria-label={`Use artwork from ${new Date(version.createdAt).toLocaleString()}`} onClick={() => onChange({ icon: { ...module.icon, url: version.url } })}><span style={{ backgroundImage: `url("${version.url}")` }} /><time dateTime={version.createdAt}>{new Date(version.createdAt).toLocaleDateString()}</time></button>)}</div></div> : null}
+      {history.length > 0 ? <div className="content-media-history"><strong>Artwork history</strong><div className="content-media-history-grid">{history.slice(0, 8).map((version) => <button type="button" key={version.id} className={module.icon.url === version.url ? 'active' : ''} aria-label={`Use artwork from ${new Date(version.createdAt).toLocaleString()}`} onClick={() => onChange({ icon: { ...module.icon, url: version.url } })}><ManagedThumbnail url={version.url} alt={`Artwork from ${new Date(version.createdAt).toLocaleDateString()}`} className="content-history-thumb" /><time dateTime={version.createdAt}>{new Date(version.createdAt).toLocaleDateString()}</time></button>)}</div></div> : null}
     </div>
   );
+}
+
+function moduleArtworkUrl(module: TrainingModule): string | undefined {
+  if (module.icon.url) return module.icon.url;
+  return module.trackKey && TRAINING_TRACK_ORDER.includes(module.trackKey as (typeof TRAINING_TRACK_ORDER)[number])
+    ? `/api/demo-media/training/${module.trackKey}`
+    : undefined;
 }
 
 function LessonEditor({ moduleSlug, lesson, mediaVersions, onChange, onRemove }: { moduleSlug: string; lesson: TrainingLesson; mediaVersions: ContentMediaVersion[]; onChange: (lesson: TrainingLesson) => void; onRemove: () => void }) {
@@ -253,13 +262,14 @@ function MediaRow({ entityKey, item, history, onChange, onRemove }: { entityKey:
   }
   return (
     <div className="training-media-row">
+      <ManagedThumbnail url={item.kind === 'image' ? item.url : null} alt={item.title || 'Lesson media'} className="training-media-preview" />
       <label className="field">Type<select value={item.kind} onChange={(event) => onChange({ ...item, kind: event.target.value as 'image' | 'video' })}><option value="image">Image</option><option value="video">Video</option></select></label>
       <label className="field">Title<input value={item.title} onChange={(event) => onChange({ ...item, title: event.target.value })} /></label>
       <label className="field media-url-field">Public HTTPS URL<input type="url" value={item.url} onChange={(event) => onChange({ ...item, url: event.target.value })} /></label>
       <input ref={fileRef} className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload(file); }} />
       <button type="button" className="icon-action" aria-label="Upload training image" disabled={uploading} onClick={() => fileRef.current?.click()}><ContentIcon kind="upload" /></button>
       <label className="field rights-field">Rights note<input value={item.rightsNote} onChange={(event) => onChange({ ...item, rightsNote: event.target.value })} /></label>
-      {history.length > 0 ? <div className="content-media-history"><strong>Previous media</strong><div className="content-media-history-grid">{history.slice(0, 8).map((version) => <button type="button" key={version.id} className={item.url === version.url ? 'active' : ''} aria-label={`Use media from ${new Date(version.createdAt).toLocaleString()}`} onClick={() => onChange({ ...item, url: version.url })}><span style={{ backgroundImage: `url("${version.url}")` }} /><time dateTime={version.createdAt}>{new Date(version.createdAt).toLocaleDateString()}</time></button>)}</div></div> : null}
+      {history.length > 0 ? <div className="content-media-history"><strong>Previous media</strong><div className="content-media-history-grid">{history.slice(0, 8).map((version) => <button type="button" key={version.id} className={item.url === version.url ? 'active' : ''} aria-label={`Use media from ${new Date(version.createdAt).toLocaleString()}`} onClick={() => onChange({ ...item, url: version.url })}><ManagedThumbnail url={version.url} alt={`Media from ${new Date(version.createdAt).toLocaleDateString()}`} className="content-history-thumb" /><time dateTime={version.createdAt}>{new Date(version.createdAt).toLocaleDateString()}</time></button>)}</div></div> : null}
       <button type="button" className="icon-action danger" aria-label="Remove media" onClick={onRemove}>×</button>
     </div>
   );

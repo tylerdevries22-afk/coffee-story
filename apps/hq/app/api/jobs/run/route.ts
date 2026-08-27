@@ -9,6 +9,7 @@ import {
   TRAINING_PIPELINE_VERSION,
   resolveTenantTrainingProfile,
 } from '../../../../lib/training-bootstrap';
+import { analyticsMaintenanceCutoffs } from '../../../../lib/analytics-maintenance';
 import { trainingProfileFingerprint } from '../../../../lib/training-fingerprint';
 import { bootstrapTenantTraining } from '../../../../workflows/tenant-training-bootstrap';
 
@@ -159,10 +160,23 @@ export async function POST(request: Request): Promise<Response> {
     }
   }
 
+  const analyticsCutoffs = analyticsMaintenanceCutoffs(now);
+  const rollups = await db.rpc('refresh_analytics_rollups', {
+    rebuild_from: analyticsCutoffs.rebuildFrom,
+  });
+  if (rollups.error) throw rollups.error;
+  const retention = await db.rpc('prune_analytics_retention', {
+    raw_before: analyticsCutoffs.rawBefore,
+    hourly_before: analyticsCutoffs.hourlyBefore,
+    daily_before: analyticsCutoffs.dailyBefore,
+  });
+  if (retention.error) throw retention.error;
+
   return Response.json({
     ok: true,
     drops: dropTransitions.length,
     campaigns: dueCampaignIds.length,
     trainingBootstraps,
+    analytics: { rollups: rollups.data, retention: retention.data },
   });
 }

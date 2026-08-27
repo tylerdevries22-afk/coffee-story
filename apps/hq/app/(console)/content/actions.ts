@@ -14,6 +14,11 @@ import {
   isMenuItemDraft,
   isTrainingDraftPayload,
   imageExtensionFor,
+  slugFromLabel,
+  type ContentCategory,
+  type ContentCatalogPlacement,
+  type ContentCatalogRelation,
+  type ContentCatalogResource,
   type ContentMediaVersion,
   type ContentMenuItem,
   type MenuItemDraft,
@@ -50,6 +55,7 @@ type MenuItemRow = {
   sizes: unknown;
   modifiers: unknown;
   image_url: string | null;
+  catalog_audience: ContentMenuItem['audience'];
   is_listed: boolean;
   is_86d: boolean;
   sort_order: number;
@@ -130,6 +136,7 @@ function menuItemOf(row: MenuItemRow, mediaVersions: ContentMediaVersion[] = [])
     sizes: draftSizesOf(row.sizes),
     optionGroups: draftOptionGroupsOf(row.modifiers),
     imageUrl: row.image_url,
+    audience: row.catalog_audience,
     isListed: row.is_listed,
     is86d: row.is_86d,
     sortOrder: row.sort_order,
@@ -212,11 +219,12 @@ export async function saveMenuItem(
     })),
     modifiers: draft.optionGroups,
     image_url: draft.imageUrl,
+    catalog_audience: draft.audience,
     is_listed: draft.isListed,
     is_86d: draft.is86d,
     sort_order: draft.sortOrder,
   };
-  const fields = 'id, name, slug, description, category_id, base_price_cents, sizes, modifiers, image_url, is_listed, is_86d, sort_order, updated_at';
+  const fields = 'id, name, slug, description, category_id, base_price_cents, sizes, modifiers, image_url, catalog_audience, is_listed, is_86d, sort_order, updated_at';
   let result;
   if (draft.id) {
     const itemId = draft.id;
@@ -248,7 +256,8 @@ export async function saveMenuItem(
 export async function addMenuCategory(
   title: string,
   tagline: string,
-): Promise<Failure | { ok: true; category: { id: string; title: string; tagline: string; sortOrder: number }; persisted: boolean }> {
+  parentId: string | null = null,
+): Promise<Failure | { ok: true; category: ContentCategory; persisted: boolean }> {
   if (typeof title !== 'string' || typeof tagline !== 'string') {
     return { ok: false, error: 'The category payload is invalid.' };
   }
@@ -259,7 +268,14 @@ export async function addMenuCategory(
   }
   const context = await managerContext();
   if (isFailure(context)) return context;
-  const preview = { id: `preview-${randomUUID()}`, title: cleanTitle, tagline: cleanTagline, sortOrder: 1000 };
+  if (parentId !== null && !UUID.test(parentId) && !parentId.startsWith('preview-')) {
+    return { ok: false, error: 'The parent folder is invalid.' };
+  }
+  const preview: ContentCategory = {
+    id: `preview-${randomUUID()}`, title: cleanTitle, tagline: cleanTagline,
+    slug: slugFromLabel(cleanTitle), parentId, imageUrl: null, audience: 'public',
+    archived: false, sortOrder: 1000, mediaVersions: [],
+  };
   if (!context) return { ok: true, category: preview, persisted: false };
   const menu = await context.client.from('menus').select('id').eq('brand_id', context.brandId)
     .order('created_at').limit(1).single<{ id: string }>();
@@ -268,10 +284,15 @@ export async function addMenuCategory(
     .eq('menu_id', menu.data.id).order('sort_order', { ascending: false }).limit(1)
     .maybeSingle<{ sort_order: number }>();
   if (highest.error) return { ok: false, error: 'The category order could not be loaded.' };
-  const category = { id: randomUUID(), title: cleanTitle, tagline: cleanTagline, sortOrder: (highest.data?.sort_order ?? 0) + 10 };
+  const category: ContentCategory = {
+    id: randomUUID(), title: cleanTitle, tagline: cleanTagline,
+    slug: slugFromLabel(cleanTitle), parentId, imageUrl: null, audience: 'public',
+    archived: false, sortOrder: (highest.data?.sort_order ?? 0) + 10, mediaVersions: [],
+  };
   const saved = await retryWrite(() => context.client.from('menu_categories').insert({
     id: category.id, brand_id: context.brandId, menu_id: menu.data.id,
-    title: category.title, tagline: category.tagline, sort_order: category.sortOrder,
+    title: category.title, tagline: category.tagline, slug: category.slug,
+    parent_id: category.parentId, audience: category.audience, sort_order: category.sortOrder,
   }));
   if (saved.error) return { ok: false, error: 'The category could not be created.' };
   revalidatePath('/content');
@@ -282,7 +303,10 @@ export async function saveMenuCategory(
   categoryId: string,
   title: string,
   tagline: string,
-): Promise<Failure | { ok: true; category: { id: string; title: string; tagline: string; sortOrder: number }; persisted: boolean }> {
+  parentId: string | null,
+  audience: ContentCategory['audience'],
+  imageUrl: string | null,
+): Promise<Failure | { ok: true; category: ContentCategory; persisted: boolean }> {
   if (typeof title !== 'string' || typeof tagline !== 'string' || typeof categoryId !== 'string'
       || categoryId.length < 1 || categoryId.length > 100) {
     return { ok: false, error: 'The category payload is invalid.' };
@@ -294,14 +318,31 @@ export async function saveMenuCategory(
   }
   const context = await managerContext();
   if (isFailure(context)) return context;
-  const preview = { id: categoryId, title: cleanTitle, tagline: cleanTagline, sortOrder: 0 };
+  if (!['public', 'staff', 'manager', 'owner'].includes(audience)) return { ok: false, error: 'The audience is invalid.' };
+  const preview: ContentCategory = {
+    id: categoryId, title: cleanTitle, tagline: cleanTagline, slug: slugFromLabel(cleanTitle),
+    parentId, imageUrl, audience, archived: false, sortOrder: 0, mediaVersions: [],
+  };
   if (!context) return { ok: true, category: preview, persisted: false };
   if (!UUID.test(categoryId)) return { ok: false, error: 'Reload this category before saving it.' };
+  if (parentId) {
+    const hierarchy = await context.client.from('menu_categories').select('id, parent_id')
+      .eq('brand_id', context.brandId).returns<{ id: string; parent_id: string | null }[]>();
+    if (hierarchy.error) return { ok: false, error: 'The folder hierarchy could not be checked.' };
+    const parents = new Map((hierarchy.data ?? []).map((folder) => [folder.id, folder.parent_id]));
+    let cursor: string | null = parentId;
+    let depth = 1;
+    while (cursor) {
+      if (cursor === categoryId) return { ok: false, error: 'A folder cannot contain itself.' };
+      cursor = parents.get(cursor) ?? null; depth += 1;
+    }
+    if (depth > 5) return { ok: false, error: 'Catalog folders support at most five levels.' };
+  }
   const result = await retryWrite(() => context.client.from('menu_categories')
-    .update({ title: cleanTitle, tagline: cleanTagline })
+    .update({ title: cleanTitle, tagline: cleanTagline, slug: slugFromLabel(cleanTitle), parent_id: parentId, audience, image_url: imageUrl })
     .eq('id', categoryId).eq('brand_id', context.brandId)
-    .select('id, title, tagline, sort_order')
-    .maybeSingle<{ id: string; title: string; tagline: string; sort_order: number }>());
+    .select('id, title, tagline, slug, parent_id, image_url, audience, archived_at, sort_order')
+    .maybeSingle<{ id: string; title: string; tagline: string; slug: string; parent_id: string | null; image_url: string | null; audience: ContentCategory['audience']; archived_at: string | null; sort_order: number }>());
   if (result.error || !result.data) return { ok: false, error: 'The category could not be saved.' };
   revalidatePath('/content');
   return {
@@ -309,20 +350,192 @@ export async function saveMenuCategory(
     persisted: true,
     category: {
       id: result.data.id, title: result.data.title,
-      tagline: result.data.tagline, sortOrder: result.data.sort_order,
+      tagline: result.data.tagline, slug: result.data.slug, parentId: result.data.parent_id,
+      imageUrl: result.data.image_url, audience: result.data.audience,
+      archived: result.data.archived_at !== null, sortOrder: result.data.sort_order,
+      mediaVersions: [],
     },
   };
+}
+
+export async function moveCatalogNode(
+  kind: 'folder' | 'offering',
+  nodeId: string,
+  parentId: string,
+): Promise<Failure | { ok: true }> {
+  if (!UUID.test(nodeId) || !UUID.test(parentId) || nodeId === parentId) {
+    return { ok: false, error: 'Choose a valid destination folder.' };
+  }
+  const context = await managerContext();
+  if (isFailure(context)) return context;
+  if (!context) return { ok: true };
+  if (kind === 'folder') {
+    const folders = await context.client.from('menu_categories').select('id, parent_id')
+      .eq('brand_id', context.brandId).returns<{ id: string; parent_id: string | null }[]>();
+    if (folders.error) return { ok: false, error: 'The folder hierarchy could not be loaded.' };
+    const parents = new Map((folders.data ?? []).map((folder) => [folder.id, folder.parent_id]));
+    let cursor: string | null = parentId;
+    for (let depth = 0; cursor && depth <= 5; depth += 1) {
+      if (cursor === nodeId) return { ok: false, error: 'A folder cannot be moved inside itself.' };
+      cursor = parents.get(cursor) ?? null;
+    }
+    const result = await retryWrite(() => context.client.from('menu_categories')
+      .update({ parent_id: parentId }).eq('id', nodeId).eq('brand_id', context.brandId));
+    if (result.error) return { ok: false, error: 'The folder could not be moved.' };
+  } else {
+    const result = await retryWrite(() => context.client.from('menu_items')
+      .update({ category_id: parentId }).eq('id', nodeId).eq('brand_id', context.brandId));
+    if (result.error) return { ok: false, error: 'The offering could not be moved.' };
+  }
+  revalidatePath('/catalog');
+  return { ok: true };
+}
+
+export async function addCatalogAlias(
+  nodeId: string,
+  parentId: string,
+): Promise<Failure | { ok: true; placement: ContentCatalogPlacement; persisted: boolean }> {
+  if (!UUID.test(nodeId) || !UUID.test(parentId) || nodeId === parentId) {
+    return { ok: false, error: 'Choose a valid alias destination.' };
+  }
+  const context = await managerContext();
+  if (isFailure(context)) return context;
+  const placement: ContentCatalogPlacement = {
+    id: randomUUID(), nodeId, parentId, sortOrder: 1000, isPrimary: false,
+  };
+  if (!context) return { ok: true, placement, persisted: false };
+  const catalog = await context.client.from('catalogs').select('id')
+    .eq('brand_id', context.brandId).single<{ id: string }>();
+  if (catalog.error) return { ok: false, error: 'The catalog could not be loaded.' };
+  const saved = await retryWrite(() => context.client.from('catalog_placements').insert({
+    id: placement.id, brand_id: context.brandId, catalog_id: catalog.data.id,
+    parent_id: parentId, node_id: nodeId, sort_order: placement.sortOrder, is_primary: false,
+  }));
+  if (saved.error) return { ok: false, error: saved.error.code === '23505' ? 'That alias already exists.' : 'The alias could not be created.' };
+  revalidatePath('/catalog');
+  return { ok: true, placement, persisted: true };
+}
+
+export async function archiveCatalogNode(
+  kind: 'folder' | 'offering',
+  nodeId: string,
+): Promise<Failure | { ok: true; persisted: boolean }> {
+  if (!UUID.test(nodeId)) return { ok: false, error: 'Choose a valid catalog entry.' };
+  const context = await managerContext();
+  if (isFailure(context)) return context;
+  if (!context) return { ok: true, persisted: false };
+  if (kind === 'folder') {
+    const children = await context.client.from('catalog_placements').select('id')
+      .eq('brand_id', context.brandId).eq('parent_id', nodeId).limit(1);
+    if (children.error) return { ok: false, error: 'The folder could not be checked.' };
+    if ((children.data ?? []).length > 0) return { ok: false, error: 'Move or archive this folder’s contents first.' };
+    const saved = await retryWrite(() => context.client.from('menu_categories')
+      .update({ archived_at: new Date().toISOString() }).eq('brand_id', context.brandId).eq('id', nodeId));
+    if (saved.error) return { ok: false, error: 'The folder could not be archived.' };
+  } else {
+    const now = new Date().toISOString();
+    const [node, item] = await Promise.all([
+      retryWrite(() => context.client.from('catalog_nodes').update({ archived_at: now })
+        .eq('brand_id', context.brandId).eq('id', nodeId)),
+      retryWrite(() => context.client.from('menu_items').update({ is_listed: false })
+        .eq('brand_id', context.brandId).eq('id', nodeId)),
+    ]);
+    if (node.error || item.error) return { ok: false, error: 'The offering could not be archived.' };
+  }
+  revalidatePath('/catalog');
+  return { ok: true, persisted: true };
+}
+
+export async function addCatalogResource(
+  kind: ContentCatalogResource['kind'],
+  title: string,
+  summary: string,
+  audience: ContentCatalogResource['audience'],
+): Promise<Failure | { ok: true; resource: ContentCatalogResource; persisted: boolean }> {
+  const kinds: ContentCatalogResource['kind'][] = ['material', 'specification', 'procedure', 'recipe', 'knowledge', 'skill', 'training_module', 'training_lesson'];
+  const audiences: ContentCatalogResource['audience'][] = ['public', 'staff', 'manager', 'owner'];
+  const cleanTitle = title.trim();
+  if (!kinds.includes(kind) || !audiences.includes(audience) || cleanTitle.length < 2 || cleanTitle.length > 160 || summary.length > 1200) {
+    return { ok: false, error: 'The resource details are invalid.' };
+  }
+  const context = await managerContext();
+  if (isFailure(context)) return context;
+  const resource: ContentCatalogResource = {
+    id: randomUUID(), kind, slug: slugFromLabel(cleanTitle), title: cleanTitle,
+    summary: summary.trim(), audience, externalRef: null, imageUrl: null, mediaVersions: [],
+  };
+  if (!context) return { ok: true, resource, persisted: false };
+  const catalog = await context.client.from('catalogs').select('id').eq('brand_id', context.brandId).single<{ id: string }>();
+  if (catalog.error) return { ok: false, error: 'The catalog could not be loaded.' };
+  const saved = await retryWrite(() => context.client.from('catalog_resources').insert({
+    id: resource.id, brand_id: context.brandId, catalog_id: catalog.data.id,
+    kind, slug: resource.slug, title: resource.title, summary: resource.summary, audience,
+  }));
+  if (saved.error) return { ok: false, error: saved.error.code === '23505' ? 'That resource already exists.' : 'The resource could not be saved.' };
+  revalidatePath('/catalog');
+  return { ok: true, resource, persisted: true };
+}
+
+export async function saveCatalogResourceImage(
+  resourceId: string,
+  imageUrl: string | null,
+): Promise<Failure | { ok: true; imageUrl: string | null; persisted: boolean }> {
+  const context = await managerContext();
+  if (isFailure(context)) return context;
+  if (!context) return { ok: true, imageUrl, persisted: false };
+  if (!UUID.test(resourceId) || (imageUrl !== null && (imageUrl.length > 2048 || !imageUrl.startsWith('https://')))) {
+    return { ok: false, error: 'The resource image is invalid.' };
+  }
+  const saved = await retryWrite(() => context.client.from('catalog_resources')
+    .update({ image_url: imageUrl }).eq('id', resourceId).eq('brand_id', context.brandId));
+  if (saved.error) return { ok: false, error: 'The resource image could not be saved.' };
+  revalidatePath('/catalog');
+  return { ok: true, imageUrl, persisted: true };
+}
+
+export async function linkCatalogResource(
+  nodeId: string,
+  resourceId: string,
+  kind: ContentCatalogRelation['kind'],
+): Promise<Failure | { ok: true; relation: ContentCatalogRelation; persisted: boolean }> {
+  const relationKinds: ContentCatalogRelation['kind'][] = ['requires', 'follows', 'teaches', 'develops', 'covers', 'prerequisite', 'related', 'substitute'];
+  if (!UUID.test(nodeId) || !UUID.test(resourceId) || !relationKinds.includes(kind)) return { ok: false, error: 'The relationship is invalid.' };
+  const context = await managerContext();
+  if (isFailure(context)) return context;
+  const relation: ContentCatalogRelation = { id: randomUUID(), sourceId: nodeId, targetId: resourceId, kind };
+  if (!context) return { ok: true, relation, persisted: false };
+  const [catalog, node, resource] = await Promise.all([
+    context.client.from('catalogs').select('id').eq('brand_id', context.brandId).single<{ id: string }>(),
+    context.client.from('catalog_nodes').select('id').eq('id', nodeId).eq('brand_id', context.brandId).maybeSingle(),
+    context.client.from('catalog_resources').select('id').eq('id', resourceId).eq('brand_id', context.brandId).maybeSingle(),
+  ]);
+  if (catalog.error || node.error || resource.error || !node.data || !resource.data) return { ok: false, error: 'The linked records are not available in this tenant.' };
+  const saved = await retryWrite(() => context.client.from('catalog_relations').insert({
+    id: relation.id, brand_id: context.brandId, catalog_id: catalog.data.id,
+    source_key: nodeId, target_key: resourceId, kind,
+  }));
+  if (saved.error) return { ok: false, error: saved.error.code === '23505' ? 'That relationship already exists.' : 'The relationship could not be saved.' };
+  revalidatePath('/catalog');
+  return { ok: true, relation, persisted: true };
 }
 
 export async function setMenuPublished(
   menuId: string,
   published: boolean,
   expectedUpdatedAt: string | null,
-): Promise<Failure | { ok: true; updatedAt: string; persisted: boolean }> {
+): Promise<Failure | { ok: true; updatedAt: string; publishedVersion: number | null; persisted: boolean }> {
   const context = await managerContext();
   if (isFailure(context)) return context;
-  if (!context) return { ok: true, updatedAt: new Date().toISOString(), persisted: false };
+  if (!context) return { ok: true, updatedAt: new Date().toISOString(), publishedVersion: 1, persisted: false };
   if (!UUID.test(menuId) || !expectedUpdatedAt) return { ok: false, error: 'Reload the menu before publishing.' };
+  if (!published) return { ok: false, error: 'Published catalog releases are replaced by a newer release instead of being removed.' };
+  const catalog = await context.client.from('catalogs').select('draft_version')
+    .eq('id', menuId).eq('brand_id', context.brandId).single<{ draft_version: number }>();
+  if (catalog.error) return { ok: false, error: 'The catalog draft could not be loaded.' };
+  const release = await retryWrite(() => context.client.rpc('publish_catalog_draft', {
+    target_catalog: menuId, expected_draft_version: catalog.data.draft_version,
+  }).single<{ version: number }>());
+  if (release.error || !release.data) return { ok: false, error: 'The catalog could not be published. Resolve validation issues and try again.' };
   const result = await retryWrite(() => {
     let query = context.client.from('menus').update({ is_published: published })
       .eq('id', menuId).eq('brand_id', context.brandId);
@@ -332,8 +545,9 @@ export async function setMenuPublished(
   if (result.error || !result.data) {
     return { ok: false, error: result.error ? 'The menu could not be published.' : 'The menu changed in another session. Reload first.' };
   }
+  revalidatePath('/catalog');
   revalidatePath('/content');
-  return { ok: true, persisted: true, updatedAt: result.data.updated_at };
+  return { ok: true, persisted: true, updatedAt: result.data.updated_at, publishedVersion: release.data.version };
 }
 
 export async function uploadContentImage(

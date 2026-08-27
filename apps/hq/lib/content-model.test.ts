@@ -31,7 +31,7 @@ describe('HQ content contracts', () => {
   it('validates tenant menu input at the action boundary', () => {
     const issues = validateMenuItemDraft({
       id: 'item', name: 'A', slug: 'Bad Slug', description: 'x'.repeat(601),
-      categoryId: 'foreign', basePriceCents: -1, imageUrl: null,
+      categoryId: 'foreign', basePriceCents: -1, imageUrl: null, audience: 'public',
       sizes: [], optionGroups: [],
       isListed: true, is86d: false, sortOrder: -1,
     }, new Set(['own']));
@@ -49,7 +49,7 @@ describe('HQ content contracts', () => {
         { id: 'serve', name: 'Serve', select: 'single' as const, required: true, maxChoices: 1, choices: [{ id: 'iced', name: 'Iced', priceDeltaCents: 0 }] },
         { id: 'ice', name: 'Ice', select: 'single' as const, required: true, maxChoices: 1, dependsOn: { groupId: 'serve', choiceIds: ['iced'] }, choices: [{ id: 'regular-ice', name: 'Regular', priceDeltaCents: 0 }] },
       ],
-      imageUrl: null, isListed: true, is86d: false, sortOrder: 0,
+      imageUrl: null, audience: 'public' as const, isListed: true, is86d: false, sortOrder: 0,
     };
     assert.equal(isMenuItemDraft(draft), true);
     assert.deepEqual(validateMenuItemDraft(draft, new Set(['coffee'])), []);
@@ -62,6 +62,7 @@ describe('HQ content contracts', () => {
       id: 'item', name: 'One', slug: 'one', description: '', categoryId: 'coffee',
       basePriceCents: 100, sizes: [], optionGroups: [],
       imageUrl: `https://example.com/${'a'.repeat(2_100)}`,
+      audience: 'public' as const,
       isListed: true, is86d: false, sortOrder: 0,
     };
     assert.deepEqual(validateMenuItemDraft(draft, new Set(['coffee'])), [
@@ -103,9 +104,12 @@ describe('HQ content contracts', () => {
       sourceUrls: [], quiz: [], media: [{ kind: 'video', url: 'https://example.com/v', title: 'Video', rightsNote: 'Publisher hosted resource' }],
     }];
     const data = {
-      menu: { id: 'menu', name: 'Menu', isPublished: true, updatedAt: null },
+      menu: { id: 'menu', name: 'Catalog', isPublished: true, draftVersion: 1, publishedVersion: 1, updatedAt: null },
       categories: [],
-      items: [{ id: 'one', name: 'One', slug: 'one', description: '', categoryId: 'cat', basePriceCents: 100, sizes: [], optionGroups: [], imageUrl: 'https://example.com/i', isListed: true, is86d: false, sortOrder: 0, updatedAt: null, mediaVersions: [] }],
+      items: [{ id: 'one', name: 'One', slug: 'one', description: '', categoryId: 'cat', basePriceCents: 100, sizes: [], optionGroups: [], imageUrl: 'https://example.com/i', audience: 'public', isListed: true, is86d: false, sortOrder: 0, updatedAt: null, mediaVersions: [] }],
+      catalogResources: [],
+      catalogRelations: [],
+      catalogPlacements: [],
       training: { id: null, version: 0, status: 'empty', manifest, updatedAt: null },
       trainingMediaVersions: [],
       trainingProfile: PROFILE,

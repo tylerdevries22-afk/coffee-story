@@ -20,7 +20,7 @@ Supabase directly under RLS; every trusted write goes through the API.
 | Operator app | `apps/operator` (Expo) | EAS update/build, plus Vercel web (`coffee-story-operator`) |
 | Kiosk app | `apps/kiosk` (Expo) | EAS update/build, plus Vercel web (`coffee-story-kiosk`) |
 | Pickup display | `apps/display` (Next.js) | Vercel (`coffee-story-display`), paired to a display device |
-| Scheduled jobs | `/api/jobs/run` | Vercel Cron (`apps/hq/vercel.json`, every 5 min) |
+| Scheduled jobs | `/api/jobs/run` | Vercel Cron (`apps/hq/vercel.json`, every 5 min); drop/campaign transitions, training bootstrap, analytics rollups, and retention |
 
 Nothing deploys on an unreviewed merge. CI verifies; an owner starts
 `.github/workflows/deploy-hosted.yml` from GitHub Actions when a release is
@@ -71,6 +71,7 @@ token>` and an `Idempotency-Key`.
 | `DELETE /api/profile` | Deletes a guest account: anonymizes retained order history, revokes push tokens, and removes the GoTrue identity. Staff identities require administrator removal. |
 | `POST /api/referrals` | Mints (or re-surfaces) the guest's referral code. |
 | `POST /api/jobs/run` | The cron tick: drop windows open/close, due campaigns move on. Guarded by `CRON_SECRET`. |
+| `POST /api/analytics/events` | Accepts up to 50 consent-safe events under a user or paired-device bearer. Tenancy and location come from verified credentials, browser origins are allowlisted, and the Supabase RPC commits a batch atomically with idempotency and rate limiting. |
 | `GET /api/health` | Liveness + deployed version. |
 
 Authentication: the API verifies the token with GoTrue, then reads the
@@ -118,6 +119,9 @@ Server (Vercel project for `apps/hq` — never in any app bundle):
 - `SUPABASE_JWT_SECRET` — the Supabase JWT signing secret; server-only and
   required for issuing or validating paired kiosk/display device tokens
 - `CRON_SECRET` — any long random string; Vercel Cron sends it automatically
+- `ANALYTICS_ALLOWED_ORIGINS` — exact comma-separated customer, operator, and
+  kiosk web origins. Native requests carry no Origin; HQ same-origin requests
+  are accepted automatically.
 - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (console sign-in)
 - `NEXT_PUBLIC_DISPLAY_URL` (optional single-location pickup display origin;
   the tenant-safe HQ preview is used when this is unset)
@@ -149,6 +153,43 @@ Pickup display (server environment; see `apps/display/.env.example`):
 - `HQ_ORIGIN` (optional custom HQ origin allowed to embed the display; defaults
   to `https://coffee-story-hq.vercel.app`)
 - `SENTRY_DSN` plus the shared Sentry upload variables when monitoring is on
+
+### Analytics and integrations
+
+The hosted Coffee Story Supabase project is the sole system of record. Raw
+analytics events are append-only, partitioned monthly, and retained for 90
+days. Hourly and daily summaries are retained for 25 months. The Vercel cron
+rebuilds the most recent 48 hours so delayed mobile batches are incorporated,
+then records every retention run in the private schema. Analytics pages read
+only tenant-scoped summaries and authoritative commerce records; browsers
+cannot read raw events or ingestion dead letters.
+
+Connector installations, capabilities, certifications, location mappings,
+sync runs, health snapshots, and audit history are tenant-scoped Supabase
+records. OAuth state, webhook inbox/outbox, idempotency records, and dead
+letters live in `app_private`. Provider tokens are written to Supabase Vault;
+public tables retain only opaque Vault UUIDs and non-sensitive account labels.
+Only service-role Vercel routes can resolve or revoke a Vault secret.
+
+The catalog is useful before provider setup. Missing credentials, sandbox
+evidence, sender verification, or provider approval must remain a precise
+`Setup required`, `Provider approval required`, or `Uncertified` state. Never
+mark a connector healthy until its real sandbox certification is current.
+
+Provider owner actions still required before activation:
+
+- Google OAuth consent, incremental scopes, callback URLs, and Business
+  Profile API approval.
+- Square, Stripe, QuickBooks, and Plaid sandbox/production accounts; finance
+  capabilities remain read-only except the existing Square payment adapter.
+- Slack channel authorization, Twilio sender verification, and a verified
+  Resend domain.
+- Supabase, Vercel, and Sentry provider credentials with least-privilege read
+  scopes.
+- Production webhook URLs and signature secrets for every enabled provider.
+
+No Docker or local daemon participates in production ingestion, aggregation,
+connector synchronization, health checks, or retention.
 
 ## Turning on card payments
 
@@ -216,6 +257,17 @@ in Expo, never in this repository, never in `packages/data`.
 - Tax table and legal copy need owner/counsel confirmation (§3, legal docs).
 - Square is code-complete at the seams but inactive until the owner creates
   the developer account and connects a location (P8).
+- Customer guest/pre-auth analytics are intentionally not issued a telemetry
+  bearer yet. Authenticated customer behavior requires explicit user consent;
+  essential crash monitoring remains in the monitoring pipeline. Do not claim
+  guest funnel coverage until origin-bound short-lived session issuance is
+  added and independently reviewed.
+- Google, Stripe, QuickBooks, Plaid, Slack, Twilio, Resend, Supabase, Vercel,
+  and Sentry adapters remain in truthful setup/approval states until their
+  credentials and real provider sandbox certifications are supplied. Their
+  catalog contracts, Vault storage, tenant isolation, health history, replay
+  protection, and failure queues are deployed; provider authorization cannot
+  be completed by source code alone.
 - Campaign "send" records the transition with `delivered: 0` until a
   push/SMS provider is configured.
 - **Loyalty redemption rate reads 0% on every dashboard, and that number is

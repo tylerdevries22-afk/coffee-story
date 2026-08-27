@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { pathMatchesHref } from './navigation-path';
+import { bestMatchingHref, pathMatchesHref } from './navigation-path';
 
 describe('pathMatchesHref', () => {
   it('matches root only at the console root', () => {
@@ -16,5 +16,18 @@ describe('pathMatchesHref', () => {
 
   it('does not activate a sibling that merely shares a prefix', () => {
     assert.equal(pathMatchesHref('/customers-export', '/customers'), false);
+  });
+});
+
+describe('bestMatchingHref', () => {
+  it('selects the deepest destination for a nested pathname', () => {
+    assert.equal(
+      bestMatchingHref('/analytics/apps/session/1', ['/analytics', '/analytics/apps']),
+      '/analytics/apps',
+    );
+  });
+
+  it('returns undefined when no destination owns the pathname', () => {
+    assert.equal(bestMatchingHref('/customers', ['/analytics', '/integrations']), undefined);
   });
 });

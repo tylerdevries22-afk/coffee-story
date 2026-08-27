@@ -63,6 +63,9 @@ importers:
       '@expo/vector-icons':
         specifier: ^15.0.3
         version: 15.1.1(expo-font@14.0.12(expo@54.0.37)(react-native@0.81.5(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0))(react-native@0.81.5(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
+      '@platform/analytics':
+        specifier: workspace:*
+        version: link:../../packages/analytics
       '@platform/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
@@ -208,6 +211,9 @@ importers:
 
   apps/display:
     dependencies:
+      '@platform/analytics':
+        specifier: workspace:*
+        version: link:../../packages/analytics
       '@platform/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
@@ -228,7 +234,7 @@ importers:
         version: link:../../packages/web-config
       '@sentry/nextjs':
         specifier: ^10.70.0
-        version: 10.70.0(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.10.0(@opentelemetry/api@1.9.1))(next@15.5.23(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(@types/node@26.2.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react@19.1.0)(webpack@5.109.2)
+        version: 10.70.0(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.10.0(@opentelemetry/api@1.9.1))(next@15.5.23(@opentelemetry/api@1.9.1)(@types/node@26.2.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react@19.1.0)(webpack@5.109.2)
       '@supabase/supabase-js':
         specifier: ^2.111.0
         version: 2.112.3(@opentelemetry/api@1.9.1)
@@ -257,6 +263,9 @@ importers:
 
   apps/hq:
     dependencies:
+      '@platform/analytics':
+        specifier: workspace:*
+        version: link:../../packages/analytics
       '@platform/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
@@ -266,6 +275,9 @@ importers:
       '@platform/engine':
         specifier: workspace:*
         version: link:../../packages/engine
+      '@platform/integrations':
+        specifier: workspace:*
+        version: link:../../packages/integrations
       '@platform/schema':
         specifier: workspace:*
         version: link:../../packages/schema
@@ -293,6 +305,9 @@ importers:
       react-dom:
         specifier: 19.1.0
         version: 19.1.0(react@19.1.0)
+      simple-icons:
+        specifier: 16.28.0
+        version: 16.28.0
       workflow:
         specifier: 4.8.4
         version: 4.8.4(@nestjs/common@11.2.1(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.2.1(@nestjs/common@11.2.1(reflect-metadata@0.2.2)(rxjs@7.8.2))(reflect-metadata@0.2.2)(rxjs@7.8.2))(@opentelemetry/api@1.9.1)(@swc/cli@0.8.1(@swc/core@1.15.3)(chokidar@5.0.0))(@swc/core@1.15.3)(next@15.5.23(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(@types/node@26.2.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(typescript@5.9.3)(ws@8.21.3)
@@ -318,6 +333,9 @@ importers:
       '@expo/vector-icons':
         specifier: ^15.0.3
         version: 15.1.1(expo-font@14.0.12(expo@54.0.37)(react-native@0.81.5(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0))(react-native@0.81.5(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
+      '@platform/analytics':
+        specifier: workspace:*
+        version: link:../../packages/analytics
       '@platform/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
@@ -454,6 +472,9 @@ importers:
       '@expo/vector-icons':
         specifier: ^15.0.3
         version: 15.1.1(expo-font@14.0.12(expo@54.0.37)(react-native@0.81.5(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0))(react-native@0.81.5(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
+      '@platform/analytics':
+        specifier: workspace:*
+        version: link:../../packages/analytics
       '@platform/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
@@ -588,6 +609,18 @@ importers:
         specifier: ~5.9.2
         version: 5.9.3
 
+  packages/analytics:
+    devDependencies:
+      '@types/node':
+        specifier: ~24.6.2
+        version: 24.6.2
+      tsx:
+        specifier: ^4.20.6
+        version: 4.23.12
+      typescript:
+        specifier: ~5.9.2
+        version: 5.9.3
+
   packages/api-client:
     dependencies:
       '@platform/schema':
@@ -659,6 +692,18 @@ importers:
       '@supabase/supabase-js':
         specifier: ^2.111.0
         version: 2.112.3(@opentelemetry/api@1.9.1)
+
+  packages/integrations:
+    devDependencies:
+      '@types/node':
+        specifier: ~24.6.2
+        version: 24.6.2
+      tsx:
+        specifier: ^4.20.6
+        version: 4.23.12
+      typescript:
+        specifier: ~5.9.2
+        version: 5.9.3
 
   packages/monitoring:
     dependencies:
@@ -7489,6 +7534,10 @@ packages:
     resolution: {integrity: sha512-bzyZ1e88w9O1iNJbKnOlvYTrWPDl46O1bG0D3XInv+9tkPrxrN8jUUTiFlDkkmKWgn1M6CfIA13SuGqOa9Korw==}
     engines: {node: '>=14'}
 
+  simple-icons@16.28.0:
+    resolution: {integrity: sha512-sQPR5AtK/ijRjou7zw7mlLp08oB6FH7i0lOy5XJ2zp9mJs/yejgiOn7KvQoe2q4YJIx6VmgUSW5AOefebPt5kg==}
+    engines: {node: '>=0.12.18'}
+
   simple-plist@1.3.1:
     resolution: {integrity: sha512-iMSw5i0XseMnrhtIzRb7XpQEXepa9xhWxGUojHBL43SIpQuDQkh3Wpy67ZbDzZVr6EKxvwVChnVpdl8hEVLDiw==}
 
@@ -10695,7 +10744,7 @@ snapshots:
       - supports-color
       - webpack
 
-  '@sentry/nextjs@10.70.0(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.10.0(@opentelemetry/api@1.9.1))(next@15.5.23(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(@types/node@26.2.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react@19.1.0)(webpack@5.109.2)':
+  '@sentry/nextjs@10.70.0(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.10.0(@opentelemetry/api@1.9.1))(next@15.5.23(@opentelemetry/api@1.9.1)(@types/node@26.2.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react@19.1.0)(webpack@5.109.2)':
     dependencies:
       '@opentelemetry/api': 1.9.1
       '@rollup/plugin-commonjs': 28.0.1(rollup@4.62.5)
@@ -16149,6 +16198,8 @@ snapshots:
   signal-exit@3.0.7: {}
 
   signal-exit@4.1.0: {}
+
+  simple-icons@16.28.0: {}
 
   simple-plist@1.3.1:
     dependencies:

@@ -1,9 +1,15 @@
 import { Fraunces_700Bold } from '@expo-google-fonts/fraunces';
 import { Inter_400Regular, Inter_600SemiBold, Inter_700Bold, useFonts } from '@expo-google-fonts/inter';
-import { Stack } from 'expo-router';
+import {
+  createAnalyticsSurfaceObserver,
+  createAnalyticsTransport,
+  screenKeyFor,
+} from '@platform/analytics';
+import Constants from 'expo-constants';
+import { Stack, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useMemo } from 'react';
-import { Platform, View } from 'react-native';
+import { useEffect, useMemo, useRef } from 'react';
+import { AppState, Platform, View } from 'react-native';
 import * as ScreenOrientation from 'expo-screen-orientation';
 
 import { DEFAULT_TOKENS, ThemeProvider } from '@platform/ui';
@@ -19,7 +25,7 @@ import { DeviceProvider, useDevice } from '@/state/device';
 import { BuilderProvider } from '@/state/builder';
 import { FlowProvider, useFlow } from '@/state/flow';
 import { GuestProvider } from '@/state/guest';
-import { KioskSessionProvider } from '@/state/session';
+import { KioskSessionProvider, useKioskSession } from '@/state/session';
 
 const SPLASH_GROUND = TENANT_BRAND_CONFIG.tokens?.surface ?? DEFAULT_TOKENS.surface;
 
@@ -104,6 +110,7 @@ function KioskSurface() {
   const { posture } = useDevice();
   return (
     <KioskSessionProvider timing={flow.idle} idleResets={posture.idleResets}>
+      <KioskTelemetry />
       {/* Innermost, because they are the hot state: every tap on a size, an
           option or a pack choice writes to the builder, and the cart and the
           chrome must not re-render with it. */}
@@ -121,4 +128,88 @@ function KioskSurface() {
       </GuestProvider>
     </KioskSessionProvider>
   );
+}
+
+const KIOSK_SCREENS: Readonly<Record<string, string>> = {
+  '/': 'entry',
+  '/pair': 'device_pairing',
+  '/bag': 'bag',
+  '/checkout/balance': 'balance',
+  '/checkout/identify': 'identify',
+  '/checkout/keypad': 'keypad',
+  '/checkout/name': 'guest_name',
+  '/checkout/pay': 'payment',
+  '/checkout/processing': 'payment_processing',
+  '/checkout/tip': 'tip',
+  '/done': 'confirmation',
+  '/order/entry': 'order_entry',
+  '/order/fill': 'order_fill',
+  '/order/item': 'item_detail',
+  '/order/node': 'order_category',
+  '/order/options': 'item_options',
+  '/order/pack': 'pack_builder',
+  '/order/review': 'order_review',
+};
+
+function kioskAnalyticsPolicy(value: unknown): boolean {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const privacy = (value as { privacy?: unknown }).privacy;
+  return Boolean(privacy && typeof privacy === 'object'
+    && !Array.isArray(privacy)
+    && (privacy as { analyticsBehavioral?: unknown }).analyticsBehavioral === true);
+}
+
+/** A kiosk emits behavioral journeys only under an explicit tenant privacy policy. */
+function KioskTelemetry() {
+  const pathname = usePathname();
+  const device = useDevice();
+  const { resetSeq } = useKioskSession();
+  const behavioralConsent = kioskAnalyticsPolicy(TENANT_BRAND_CONFIG);
+  const consentUpdatedAt = useRef(new Date().toISOString());
+  const endpoint = useMemo(() => {
+    const baseUrl = process.env.EXPO_PUBLIC_API_URL;
+    if (!baseUrl) return null;
+    try { return new URL('/api/analytics/events', baseUrl).toString(); }
+    catch { return null; }
+  }, []);
+  const transport = useMemo(() => {
+    if (!endpoint) return null;
+    try {
+      return createAnalyticsTransport({ endpoint, getAccessToken: async () => device.accessToken });
+    } catch {
+      return null;
+    }
+  }, [device.accessToken, endpoint]);
+  const observer = useMemo(() => transport ? createAnalyticsSurfaceObserver(transport) : null, [transport]);
+
+  useEffect(() => () => transport?.dispose(), [transport]);
+  useEffect(() => {
+    if (!transport) return undefined;
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void transport.flush();
+    });
+    return () => subscription.remove();
+  }, [transport]);
+  useEffect(() => {
+    if (!observer || device.status !== 'ready' || !device.brandId || !device.locationId) return;
+    const owner = `${device.deviceId}:${resetSeq}:${behavioralConsent ? 'allowed' : 'essential'}`;
+    const screenKey = screenKeyFor(pathname, KIOSK_SCREENS);
+    observer.observe({
+      sessionIdentity: owner,
+      screenKey,
+      context: {
+        brandId: device.brandId,
+        locationId: device.locationId,
+        surface: 'kiosk',
+        appVersion: Constants.expoConfig?.version ?? 'unknown',
+        consent: {
+          essential: true,
+          behavioral: behavioralConsent,
+          source: 'tenant_policy',
+          updatedAt: consentUpdatedAt.current,
+        },
+      },
+    });
+  }, [behavioralConsent, device, observer, pathname, resetSeq]);
+  return null;
 }

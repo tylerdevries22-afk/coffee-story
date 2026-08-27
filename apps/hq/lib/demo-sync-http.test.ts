@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { afterEach, describe, it } from 'node:test';
 import {
   demoSyncAvailable,
+  demoMediaAvailable,
   demoSyncChannel,
   demoSyncHeaders,
   demoSyncRuntimeEnabled,
@@ -24,6 +25,13 @@ describe('demo sync HTTP boundary', () => {
     assert.equal(demoSyncRuntimeEnabled(), true);
     assert.equal(demoSyncAvailable(new Request('http://localhost:3300/api/demo-sync/orders')), true);
     assert.equal(demoSyncAvailable(new Request('http://demo.example/api/demo-sync/orders')), false);
+  });
+  it('serves read-only preview media on loopback without enabling demo writes', () => {
+    delete process.env.COFFEE_STORY_DEMO_SYNC;
+    assert.equal(demoMediaAvailable(new Request('http://localhost:3300/api/demo-media/menu/espresso')), true);
+    assert.equal(demoMediaAvailable(new Request('http://127.0.0.1:3300/api/demo-media/training/knowledge')), true);
+    assert.equal(demoMediaAvailable(new Request('https://demo.example/api/demo-media/menu/espresso')), false);
+    assert.equal(demoSyncAvailable(new Request('http://localhost:3300/api/demo-sync/orders')), false);
   });
   it('isolates HQ only for the explicit local preview wall', () => {
     process.env.COFFEE_STORY_DEMO_SYNC = '1';

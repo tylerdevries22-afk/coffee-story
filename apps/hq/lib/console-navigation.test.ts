@@ -12,13 +12,17 @@ const STAFF_ACCESS: ConsoleNavigationAccess = {
   canManageTraining: false,
   canManagePlatform: false,
   canManageBrand: false,
+  canViewAnalytics: false,
+  canViewIntegrations: false,
 };
 
 const FULL_ACCESS: ConsoleNavigationAccess = {
-  menuHref: '/content',
+  menuHref: '/catalog',
   canManageTraining: true,
   canManagePlatform: true,
   canManageBrand: true,
+  canViewAnalytics: true,
+  canViewIntegrations: true,
 };
 
 function destinationsFor(access: ConsoleNavigationAccess): string[] {
@@ -33,13 +37,23 @@ describe('consoleSectionsFor', () => {
       '/',
       '/locations',
       '/wall',
-      '/content',
+      '/catalog',
       '/kiosk',
       '/training',
       '/drops',
       '/campaigns',
       '/customers',
       '/analytics',
+      '/analytics/apps',
+      '/analytics/commerce',
+      '/analytics/operations',
+      '/analytics/training',
+      '/analytics/growth',
+      '/analytics/reliability',
+      '/integrations',
+      '/integrations/connected',
+      '/integrations/activity',
+      '/integrations/health',
       '/brand',
       '/fees',
       '/onboarding',
@@ -56,7 +70,6 @@ describe('consoleSectionsFor', () => {
       '/drops',
       '/campaigns',
       '/customers',
-      '/analytics',
     ]);
   });
 
@@ -78,7 +91,7 @@ describe('consoleSectionsFor', () => {
         assert.equal(consoleSectionForPath(sections, item.href)?.key, section.key);
       }
     }
-    assert.equal(consoleSectionForPath(sections, '/wall/preview/store-1')?.key, 'operations');
+    assert.equal(consoleSectionForPath(sections, '/wall/preview/store-1')?.key, 'dashboard');
     assert.equal(consoleSectionForPath(sections, '/not-a-console-tab'), undefined);
   });
 
@@ -86,6 +99,8 @@ describe('consoleSectionsFor', () => {
     const managerDestinations = destinationsFor({
       ...STAFF_ACCESS,
       canManageTraining: true,
+      canViewAnalytics: true,
+      canViewIntegrations: true,
     });
     const ownerDestinations = destinationsFor({
       ...FULL_ACCESS,
@@ -94,7 +109,7 @@ describe('consoleSectionsFor', () => {
 
     assert.ok(managerDestinations.includes('/training'));
     assert.equal(managerDestinations.includes('/brand'), false);
-    assert.ok(ownerDestinations.includes('/content'));
+    assert.ok(ownerDestinations.includes('/catalog'));
     assert.ok(ownerDestinations.includes('/kiosk'));
     assert.ok(ownerDestinations.includes('/brand'));
     assert.equal(ownerDestinations.includes('/fees'), false);

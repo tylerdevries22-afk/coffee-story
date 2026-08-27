@@ -59,7 +59,7 @@ export type KioskIdentifyMethod = 'phone' | 'scan';
 export type KioskNodeTarget =
   | { kind: 'category'; categoryId: string }
   | { kind: 'item'; itemSlug: string }
-  /** One level of nesting only -- "Large" / "Mini" above the packs. */
+  /** Bounded nested folders derived from the published catalog hierarchy. */
   | { kind: 'group'; nodes: readonly KioskEntryNode[] }
   | { kind: 'utility'; utility: KioskUtility };
 
@@ -102,7 +102,13 @@ export type KioskFlow = {
  * from a dead one. Both HQ and the device can build it.
  */
 export type KioskMenuFacts = {
-  categories: readonly { id: string; title: string }[];
+  categories: readonly {
+    id: string;
+    title: string;
+    aliases?: readonly string[];
+    parentId?: string | null;
+    hasItems?: boolean;
+  }[];
   itemSlugs: readonly string[];
   /** Menu item slug → current tenant media URL, for browser previews. */
   imageUrls?: Readonly<Record<string, string>>;
@@ -260,8 +266,10 @@ function walk(config: unknown, context: KioskFlowContext, notes: KioskFlowNote[]
   const source = asRecord(config);
   const menu = context.menu ?? EMPTY_MENU_FACTS;
   const configured = readNodes(source?.entry, menu, notes);
+  const catalogDriven = menu.categories.some((category) => category.aliases !== undefined);
   const entryDerived = configured.length === 0;
-  const nodes = entryDerived ? entryNodesFromCategories(menu.categories) : configured;
+  const derived = entryNodesFromCategories(menu.categories);
+  const nodes = catalogDriven ? catalogPresentation(derived, configured) : entryDerived ? derived : configured;
   if (entryDerived && notes && asRecord(source?.entry)?.nodes !== undefined) {
     notes.push({
       path: 'kiosk.entry.nodes',
@@ -294,24 +302,70 @@ function walk(config: unknown, context: KioskFlowContext, notes: KioskFlowNote[]
   };
 }
 
+function catalogPresentation(
+  derived: readonly KioskEntryNode[],
+  configured: readonly KioskEntryNode[],
+): KioskEntryNode[] {
+  const overrides = new Map<string, KioskEntryNode>();
+  const collect = (nodes: readonly KioskEntryNode[]) => {
+    for (const node of nodes) {
+      const key = node.target.kind === 'category' ? node.target.categoryId : node.id;
+      overrides.set(key, node);
+      if (node.target.kind === 'group') collect(node.target.nodes);
+    }
+  };
+  collect(configured);
+  return derived.map((node) => {
+    const key = node.target.kind === 'category' ? node.target.categoryId : node.id;
+    const override = overrides.get(key);
+    const target = node.target.kind === 'group'
+      ? { kind: 'group' as const, nodes: catalogPresentation(node.target.nodes, configured) }
+      : node.target;
+    return {
+      ...node, target,
+      ...(override ? {
+        label: override.label, emphasis: override.emphasis,
+        ...(override.imageSlug ? { imageSlug: override.imageSlug } : {}),
+        ...(override.caption ? { caption: override.caption } : {}),
+      } : {}),
+    };
+  });
+}
+
 /**
  * The zero-config first screen: the tenant's own menu categories, the first one
  * given the hero slot because a constellation with no anchor reads as a grid.
  */
 export function entryNodesFromCategories(
-  categories: readonly { id: string; title: string }[],
+  categories: KioskMenuFacts['categories'],
+): KioskEntryNode[] {
+  const ids = new Set(categories.map((category) => category.id));
+  const roots = categories.filter((category) => !category.parentId || !ids.has(category.parentId));
+  return folderNodes(roots, categories, 0);
+}
+
+function folderNodes(
+  siblings: KioskMenuFacts['categories'],
+  categories: KioskMenuFacts['categories'],
+  depth: number,
 ): KioskEntryNode[] {
   const nodes: KioskEntryNode[] = [];
-  for (const category of categories) {
+  for (const category of siblings) {
     if (nodes.length >= MAX_ENTRY_NODES) break;
     const id = text(category?.id, MAX_LABEL);
     const label = text(category?.title, MAX_LABEL);
     if (!id || !label) continue;
+    const children = depth < 4 ? categories.filter((candidate) => candidate.parentId === id) : [];
+    const nested = children.length > 0 ? folderNodes(children, categories, depth + 1) : [];
+    if (category.hasItems && nested.length > 0) nested.unshift({
+      id: `${id}-all`, label: `All ${label}`, emphasis: 'standard',
+      target: { kind: 'category', categoryId: id },
+    });
     nodes.push({
       id,
       label,
       emphasis: nodes.length === 0 ? 'hero' : 'standard',
-      target: { kind: 'category', categoryId: id },
+      target: nested.length > 0 ? { kind: 'group', nodes: nested } : { kind: 'category', categoryId: id },
     });
   }
   return nodes;
@@ -417,11 +471,12 @@ function parseTarget(
       if (!categoryId) return null;
       // Only checkable when the menu is known. A caller who has not loaded it
       // gets the tile kept, never a blanked screen.
-      if (menu.categories.length > 0 && !menu.categories.some((c) => c.id === categoryId)) {
+      const matched = menu.categories.find((category) => category.id === categoryId || category.aliases?.includes(categoryId));
+      if (menu.categories.length > 0 && !matched) {
         note(notes, path, `No category "${categoryId}" on this menu; the tile would be a dead button.`);
         return null;
       }
-      return { kind: 'category', categoryId };
+      return { kind: 'category', categoryId: matched?.id ?? categoryId };
     }
     case 'item': {
       const itemSlug = text(source.itemSlug, MAX_LABEL);
@@ -437,10 +492,8 @@ function parseTarget(
       return utility ? { kind: 'utility', utility } : null;
     }
     case 'group': {
-      // One level only. A kiosk is a linear task; a guest who can get three
-      // taps deep into nested groups has been given a file browser.
-      if (depth > 0) {
-        note(notes, path, 'Groups nest one level only.');
+      if (depth >= 5) {
+        note(notes, path, 'Catalog folders can nest up to five levels.');
         return null;
       }
       if (!Array.isArray(source.nodes)) return null;
