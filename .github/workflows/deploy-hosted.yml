@@ -93,18 +93,20 @@ jobs:
           add_secret OPENAI_API_KEY "$OPENAI_API_KEY"
           add_public OPENAI_RESEARCH_MODEL "$OPENAI_RESEARCH_MODEL"
           add_public OPENAI_EVALUATION_MODEL "$OPENAI_EVALUATION_MODEL"
-      - name: Deploy HQ
+      - name: Rebuild and promote HQ
         id: deploy
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
           set -euo pipefail
-          response=$(npx --yes "vercel@${VERCEL_CLI_VERSION}" deploy --prod --yes --json \
-            --project coffee-story-hq --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN")
-          url=$(printf '%s' "$response" | jq -r '.url // empty')
-          test -n "$url" || { echo '::error::Vercel did not return a deployment URL.'; exit 1; }
-          echo "url=https://$url" >> "$GITHUB_OUTPUT"
-          echo "HQ deployed at https://$url"
+          # Git integration uploads the commit without sending the entire
+          # monorepo through the CLI (the source archive is larger than the
+          # Vercel API's 10 MB direct-upload limit). Redeploying the stable
+          # production alias picks up the commit already built by Vercel.
+          npx --yes "vercel@${VERCEL_CLI_VERSION}" redeploy coffee-story-hq.vercel.app \
+            --target production --no-wait --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN"
+          echo 'url=https://coffee-story-hq.vercel.app' >> "$GITHUB_OUTPUT"
+          echo 'HQ promoted at https://coffee-story-hq.vercel.app'
 
   deploy-web:
     name: Deploy ${{ matrix.surface }} web app
@@ -153,22 +155,22 @@ jobs:
           }
           if [ "${{ matrix.surface }}" = display ]; then
             add_public NEXT_PUBLIC_SUPABASE_URL "$SUPABASE_URL"
+            test -n "$DISPLAY_DEVICE_TOKEN" || { echo '::error::Set DISPLAY_DEVICE_TOKEN after pairing the production screen.'; exit 1; }
             add_secret DISPLAY_DEVICE_TOKEN "$DISPLAY_DEVICE_TOKEN"
+          else
+            add_public EXPO_PUBLIC_SUPABASE_URL "$SUPABASE_URL"
+            add_public EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY "$SUPABASE_PUBLISHABLE_KEY"
+            add_public EXPO_PUBLIC_API_URL "${{ needs.deploy-hq.outputs.url }}"
+            add_public EXPO_PUBLIC_ALLOWED_API_HOST "coffee-story-hq.vercel.app"
+            add_public TENANT "$TENANT"
           fi
-      - name: Deploy web surface
+      - name: Rebuild and promote web surface
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          HQ_URL: ${{ needs.deploy-hq.outputs.url }}
         run: |
           set -euo pipefail
-          hq_host="${HQ_URL#https://}"
-          npx --yes "vercel@${VERCEL_CLI_VERSION}" deploy --prod --yes \
-            --project "${{ matrix.project }}" --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN" \
-            --build-env "TENANT=$TENANT" \
-            --build-env "EXPO_PUBLIC_SUPABASE_URL=$SUPABASE_URL" \
-            --build-env "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY" \
-            --build-env "EXPO_PUBLIC_API_URL=$HQ_URL" \
-            --build-env "EXPO_PUBLIC_ALLOWED_API_HOST=$hq_host"
+          npx --yes "vercel@${VERCEL_CLI_VERSION}" redeploy "${{ matrix.project }}.vercel.app" \
+            --target production --no-wait --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN"
 
   publish-native:
     name: Publish native OTA updates
