@@ -733,6 +733,7 @@ body {
 .primary-rail {
   --rail-collapsed-width: 60px;
   --secondary-rail-width: 240px;
+  --secondary-rail-visible-width: 100px;
   display: flex;
   position: sticky;
   z-index: 20;
@@ -803,15 +804,17 @@ body {
   white-space: nowrap;
 }
 
-/* Supabase-style flyout: the compact rail expands over the workspace so
-   labels are available on hover without shifting the active page. Keyboard
-   focus uses the same treatment, preserving a predictable tab order. */
+/* Supabase-style flyout: the compact rail expands over part of the secondary
+   rail so labels are available without shifting the active page. A stable
+   section of the secondary rail remains visible to preserve navigation
+   context. Keyboard focus uses the same predictable treatment. */
 @media (min-width: 601px) {
   .primary-rail:hover,
   .primary-rail:focus-within {
-    /* Cover both compact rails while the flyout is open so no sliver of the
-       secondary rail remains visible behind the expanded navigation. */
-    width: calc(var(--rail-collapsed-width) + var(--secondary-rail-width));
+    width: min(
+      200px,
+      calc(var(--rail-collapsed-width) + var(--secondary-rail-width) - var(--secondary-rail-visible-width))
+    );
     box-shadow: 12px 0 28px color-mix(in srgb, black 24%, transparent);
   }
 

@@ -22,7 +22,6 @@ const pageTitles: Record<string, string> = {
   '/campaigns': 'Campaigns',
   '/customers': 'Customers',
   '/analytics': 'Analytics',
-  '/fees': 'Platform fees',
   '/brand': 'Brand config',
   '/kiosk': 'Kiosk',
   '/onboarding': 'Onboarding',
@@ -93,7 +92,7 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
   const canManagePlatform = hasRole(session, 'platform_admin');
   const canManageBrand = hasRole(session, 'brand_owner');
   const canAccessGrowth = hasRole(session, 'location_manager') || canManagePlatform || canManageBrand;
-  const consoleSections: ConsoleSection[] = [
+  const availableConsoleSections = [
     {
       key: 'workspace',
       title: 'Workspace',
@@ -137,9 +136,9 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
       description: 'Configuration, onboarding, and operational tooling.',
       items: [
         ...(canManagePlatform ? [{ href: '/fees', label: 'Platform fees', icon: 'settings' as const }] : []),
-        ...(canManageBrand ? [{ href: '/brand', label: 'Brand config', icon: 'brand' }] : []),
-        ...(canManageBrand ? [{ href: '/kiosk', label: 'Kiosk', icon: 'kiosk' }] : []),
-        ...(canManagePlatform ? [{ href: '/onboarding', label: 'Onboarding', icon: 'onboarding' }] : []),
+        ...(canManageBrand ? [{ href: '/brand', label: 'Brand config', icon: 'brand' as const }] : []),
+        ...(canManageBrand ? [{ href: '/kiosk', label: 'Kiosk', icon: 'kiosk' as const }] : []),
+        ...(canManagePlatform ? [{ href: '/onboarding', label: 'Onboarding', icon: 'onboarding' as const }] : []),
       ],
     },
     {
@@ -150,15 +149,24 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
       description: 'Live wall and floor-side console view.',
       items: [{ href: '/wall', label: 'Live wall', icon: 'wall' }],
     },
-  ].filter((section) => section.items.length > 0);
+  ] satisfies ConsoleSection[];
+  const consoleSections = availableConsoleSections.filter((section) => section.items.length > 0);
+  const fallbackSection: ConsoleSection = {
+    key: 'workspace',
+    title: 'Workspace',
+    icon: 'dashboard',
+    home: '/',
+    description: 'Core operations and tenant content.',
+    items: [],
+  };
 
   const activeSection =
     consoleSections.find((section) =>
       section.items.some((item) =>
         pathname === item.href || (item.href === '/' ? pathname === '/' : pathname.startsWith(`${item.href}/`)),
       ),
-    ) ?? consoleSections.find((section) => section.items.some((item) => item.href === pathname)) ?? consoleSections[0];
-  const activeSectionLabel = activeSection?.title ?? 'Workspace';
+    ) ?? consoleSections.find((section) => section.items.some((item) => item.href === pathname)) ?? consoleSections[0] ?? fallbackSection;
+  const activeSectionLabel = activeSection.title;
   const contextTitle = pageTitle === 'Workspace' ? `${activeSectionLabel}` : pageTitle;
   return (
     <div className="shell" style={hqTheme(brandConfig) as CSSProperties}>
@@ -198,7 +206,7 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
           <p className="nav-section-label">Current section</p>
           <div className="section-card">
             <strong>{activeSectionLabel}</strong>
-            <small>{activeSection?.description}</small>
+            <small>{activeSection.description}</small>
           </div>
 
           <p className="nav-section-label">Tabs</p>
