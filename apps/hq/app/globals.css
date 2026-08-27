@@ -1058,3 +1058,82 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   .kpi-row { grid-template-columns: 1fr; }
   .topbar-wall { width: 32px; justify-content: center; gap: 0; padding: 0; font-size: 0; }
 }
+
+/* ---- Supabase-style shell finish ----
+ * Keep the tenant token system in charge of colour, then add the small
+ * interaction details that make the shell feel calm and predictable: one
+ * pixel separators, no horizontal page bleed, dense navigation rows, and
+ * visible keyboard focus. These rules are deliberately surface-agnostic so
+ * the same layout works for every franchise skin.
+ */
+:root { color-scheme: dark; }
+
+body,
+.shell { overflow-x: clip; }
+
+.primary-rail {
+  isolation: isolate;
+  overflow: visible;
+  box-shadow: inset -1px 0 color-mix(in srgb, var(--line) 88%, transparent);
+}
+
+.primary-rail .primary-link {
+  transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease, width 180ms ease;
+}
+
+.primary-rail .primary-link.active {
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg-hover));
+}
+
+.primary-rail .primary-link.active::before {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+.secondary-rail {
+  overflow: hidden;
+  box-shadow: inset -1px 0 color-mix(in srgb, var(--line) 88%, transparent);
+}
+
+.sidebar-scroll {
+  scrollbar-color: color-mix(in srgb, var(--text-muted) 45%, transparent) transparent;
+}
+
+.secondary-rail a {
+  transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease;
+}
+
+.secondary-rail a.active {
+  box-shadow: inset 2px 0 var(--accent);
+}
+
+.workspace-switcher,
+.topbar-wall,
+.content-release-state {
+  transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease;
+}
+
+.workspace-switcher:focus-within,
+.topbar-wall:focus-visible,
+.content-release-state:focus-within {
+  border-color: var(--accent);
+}
+
+.topbar {
+  background: color-mix(in srgb, var(--bg) 94%, transparent);
+}
+
+.main > h1:first-child { margin-top: 2px; }
+.content-workspace { min-width: 0; }
+
+/* Data tables stay dense on desktop and scroll inside their surface on small
+ * screens, matching the dashboard behaviour instead of widening the page. */
+.card:has(> table) { overflow-x: auto; }
+.card:has(> table) > table { min-width: 620px; }
+
+@media (max-width: 600px) {
+  .breadcrumb-muted,
+  .breadcrumb > .nav-icon { display: none; }
+  .topbar { gap: 8px; }
+  .breadcrumb strong { font-size: 12px; }
+  .topbar-avatar { width: 25px; height: 25px; }
+}
