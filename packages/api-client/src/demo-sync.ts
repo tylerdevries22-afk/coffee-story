@@ -43,7 +43,9 @@ export function resolveDemoSyncRuntimeUrl(
   location?: PreviewLocation,
 ): string | null {
   const configured = resolveDemoSyncBaseUrl(value);
-  if (configured) return configured;
+  // An explicitly supplied value is authoritative: invalid or hosted config
+  // must fail closed instead of being hidden by the local preview fallback.
+  if (configured || (typeof value === 'string' && value.length > 0)) return configured;
 
   const runtimeLocation = location ?? getRuntimeLocation();
   const hostname = runtimeLocation?.hostname;

@@ -46,6 +46,13 @@ describe('resolveDemoSyncRuntimeUrl', () => {
 
   it('does not infer a broker for hosted or HTTPS origins', () => {
     assert.equal(
+      resolveDemoSyncRuntimeUrl('https://demo.example/api/demo-sync', {
+        hostname: 'localhost',
+        protocol: 'http:',
+      }),
+      null,
+    );
+    assert.equal(
       resolveDemoSyncRuntimeUrl(undefined, { hostname: 'demo.example', protocol: 'http:' }),
       null,
     );
