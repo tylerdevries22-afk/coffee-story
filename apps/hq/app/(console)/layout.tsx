@@ -40,6 +40,10 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
       </div>
     );
   }
+  // The tenant-safe wall preview is embedded by the /wall console page. It
+  // lives in this route group so it can reuse the session-bound data layer,
+  // but must not inherit the sidebar or console chrome inside the iframe.
+  if (pathname.startsWith('/wall/preview/')) return children;
   const brand = client && session
     ? await client.from('brands').select('brand_config').eq('id', session.brandId).maybeSingle<{ brand_config: unknown }>()
     : null;
@@ -60,6 +64,7 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
         {hasRole(session, 'brand_owner') ? <NavLink href="/brand">Brand config</NavLink> : null}
         {hasRole(session, 'brand_owner') ? <NavLink href="/kiosk">Kiosk</NavLink> : null}
         {hasRole(session, 'platform_admin') ? <NavLink href="/onboarding">Onboarding</NavLink> : null}
+        <NavLink href="/wall" className="wall-nav">Wall</NavLink>
         <div className="session">
           {session ? (
             <>

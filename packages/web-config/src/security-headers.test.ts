@@ -16,6 +16,24 @@ describe('securityHeaders', () => {
   it('permits only the local preview wall during development', () => {
     const headers = securityHeaders({ developmentFrames: true });
     assert.equal(headers.some((row) => row.key === 'X-Frame-Options'), false);
-    assert.match(headers.find((row) => row.key === 'Content-Security-Policy')?.value ?? '', /localhost/);
+    assert.match(headers.find((row) => row.key === 'Content-Security-Policy')?.value ?? '', /localhost:3300/);
+  });
+
+  it('allows only explicitly trusted parents for an embeddable surface', () => {
+    const headers = new Map(securityHeaders({
+      developmentFrames: false,
+      frameAncestors: ['https://coffee-story-hq.vercel.app', 'not-a-url'],
+    }).map((row) => [row.key, row.value]));
+    assert.equal(headers.get('X-Frame-Options'), undefined);
+    assert.equal(headers.get('Content-Security-Policy'), 'frame-ancestors https://coffee-story-hq.vercel.app');
+  });
+
+  it('supports a same-origin embedded route without adding a frame escape', () => {
+    const headers = new Map(securityHeaders({
+      developmentFrames: false,
+      frameAncestors: ["'self'"],
+    }).map((row) => [row.key, row.value]));
+    assert.equal(headers.get('Content-Security-Policy'), "frame-ancestors 'self'");
+    assert.equal(headers.get('X-Frame-Options'), undefined);
   });
 });

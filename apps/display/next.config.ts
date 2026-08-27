@@ -6,6 +6,34 @@ import { withSentryConfig } from '@sentry/nextjs';
 import { securityHeaders } from '@platform/web-config';
 
 const workspaceRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+const DEFAULT_HQ_ORIGIN = 'https://coffee-story-hq.vercel.app';
+
+function hqOrigin(): string {
+  const configured = process.env.HQ_ORIGIN?.trim();
+  if (!configured) return DEFAULT_HQ_ORIGIN;
+  try {
+    const url = new URL(configured);
+    return url.protocol === 'https:' ? url.origin : DEFAULT_HQ_ORIGIN;
+  } catch {
+    return DEFAULT_HQ_ORIGIN;
+  }
+}
+
+function displayContentSecurityPolicy(): string {
+  const ancestors = process.env.NODE_ENV === 'production'
+    ? `'self' ${hqOrigin()}`
+    : "'self' http://localhost:4170 http://127.0.0.1:4170 http://localhost:3300 http://127.0.0.1:3300";
+  return [
+    "default-src 'self'",
+    "img-src 'self' data:",
+    "style-src 'self' 'unsafe-inline'",
+    "script-src 'self' 'unsafe-inline'",
+    "connect-src 'self'",
+    `frame-ancestors ${ancestors}`,
+    "base-uri 'none'",
+    "form-action 'none'",
+  ].join('; ');
+}
 
 /**
  * The storefront display.
@@ -39,6 +67,9 @@ const nextConfig: NextConfig = {
     headers: securityHeaders({
       developmentFrames: process.env.NODE_ENV !== 'production',
       noIndex: true,
+      // The board is the one display surface intentionally embedded by HQ.
+      // Keep the production parent allowlist to one trusted console origin.
+      contentSecurityPolicy: displayContentSecurityPolicy(),
     }),
   }],
 };

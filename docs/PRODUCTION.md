@@ -119,6 +119,10 @@ Server (Vercel project for `apps/hq` — never in any app bundle):
   required for issuing or validating paired kiosk/display device tokens
 - `CRON_SECRET` — any long random string; Vercel Cron sends it automatically
 - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (console sign-in)
+- `NEXT_PUBLIC_DISPLAY_URL` (optional single-location pickup display origin;
+  the tenant-safe HQ preview is used when this is unset)
+- `NEXT_PUBLIC_WALL_URL` (optional hosted five-surface wall URL; local preview
+  uses `http://localhost:4170/wall` when this is unset in development)
 - `OPENAI_API_KEY`, `OPENAI_RESEARCH_MODEL` (required for autonomous tenant
   training research and release generation)
 - `OPENAI_EVALUATION_MODEL` (optional; defaults to the research model)
@@ -142,6 +146,8 @@ Pickup display (server environment; see `apps/display/.env.example`):
 
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `DISPLAY_DEVICE_TOKEN` — one paired display JWT, never an anon key
+- `HQ_ORIGIN` (optional custom HQ origin allowed to embed the display; defaults
+  to `https://coffee-story-hq.vercel.app`)
 - `SENTRY_DSN` plus the shared Sentry upload variables when monitoring is on
 
 ## Turning on card payments

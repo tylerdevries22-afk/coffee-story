@@ -39,7 +39,16 @@ const config: NextConfig = {
   eslint: { ignoreDuringBuilds: true },
   headers: async () => [
     {
-      source: '/((?!api/).*)',
+      // The tenant-safe preview is deliberately same-origin so its iframe can
+      // carry the signed-in HQ session for every location.
+      source: '/wall/preview/:path*',
+      headers: securityHeaders({
+        developmentFrames: process.env.NODE_ENV !== 'production',
+        frameAncestors: ["'self'"],
+      }),
+    },
+    {
+      source: '/((?!api/|wall/preview/).*)',
       headers: securityHeaders({ developmentFrames: process.env.NODE_ENV !== 'production' }),
     },
   ],

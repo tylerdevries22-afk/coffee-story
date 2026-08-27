@@ -18,6 +18,12 @@ export function hqTheme(brandConfig: unknown): Record<string, string> {
     '--warning': tokens.warning,
     '--danger': tokens.danger,
     '--radius': `${tokens.radius.md}px`,
+    '--space-xs': `${tokens.spacing.xs}px`,
+    '--space-sm': `${tokens.spacing.sm}px`,
+    '--space-md': `${tokens.spacing.md}px`,
+    '--space-lg': `${tokens.spacing.lg}px`,
+    '--space-xl': `${tokens.spacing.xl}px`,
+    '--space-xxl': `${tokens.spacing.xxl}px`,
     '--font': `"${tokens.fontBody}", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif`,
     '--font-display': `"${tokens.fontDisplay}", Georgia, "Iowan Old Style", serif`,
   };

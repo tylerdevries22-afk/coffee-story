@@ -16,17 +16,20 @@ import { previewWallRuntimeEnabled } from './lib/demo-sync-http';
 const PUBLIC_PREFIXES = ['/login', '/api/', '/status/'];
 
 export async function middleware(request: NextRequest) {
-  if (previewWallRuntimeEnabled()) return NextResponse.next();
+  const { pathname } = request.nextUrl;
+  // Carry the pathname for the console layout even when this is an
+  // unconfigured/demo deployment. The authenticated same-origin wall preview
+  // uses that signal to render as a standalone display inside its iframe.
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set('x-hq-pathname', pathname);
+  if (previewWallRuntimeEnabled()) return NextResponse.next({ request: { headers: requestHeaders } });
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !anonKey) return NextResponse.next();
+  if (!url || !anonKey) return NextResponse.next({ request: { headers: requestHeaders } });
 
-  const { pathname } = request.nextUrl;
   // The console layout also runs for /login and the public status page. Carry
   // the path on the internal request so layout-level tenant gating can skip
   // those public surfaces without trusting a client-supplied header.
-  const requestHeaders = new Headers(request.headers);
-  requestHeaders.set('x-hq-pathname', pathname);
   let response = NextResponse.next({ request: { headers: requestHeaders } });
   const client = createServerClient(url, anonKey, {
     cookies: {
