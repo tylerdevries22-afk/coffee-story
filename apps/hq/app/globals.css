@@ -731,6 +731,8 @@ body {
 }
 
 .primary-rail {
+  --rail-collapsed-width: 60px;
+  --secondary-rail-width: 240px;
   display: flex;
   position: sticky;
   z-index: 20;
@@ -741,6 +743,7 @@ body {
   padding: 12px 8px;
   border-right: 1px solid var(--line);
   background: color-mix(in srgb, var(--bg) 94%, black);
+  transition: width 180ms ease, box-shadow 180ms ease;
 }
 
 .brand-mark {
@@ -798,6 +801,49 @@ body {
   overflow: hidden;
   clip: rect(0 0 0 0);
   white-space: nowrap;
+}
+
+/* Supabase-style flyout: the compact rail expands over the workspace so
+   labels are available on hover without shifting the active page. Keyboard
+   focus uses the same treatment, preserving a predictable tab order. */
+@media (min-width: 601px) {
+  .primary-rail:hover,
+  .primary-rail:focus-within {
+    /* Cover both compact rails while the flyout is open so no sliver of the
+       secondary rail remains visible behind the expanded navigation. */
+    width: calc(var(--rail-collapsed-width) + var(--secondary-rail-width));
+    box-shadow: 12px 0 28px color-mix(in srgb, black 24%, transparent);
+  }
+
+  .primary-rail:hover .brand-mark,
+  .primary-rail:focus-within .brand-mark {
+    margin-right: 0;
+    margin-left: 11px;
+  }
+
+  .primary-rail:hover .primary-link,
+  .primary-rail:focus-within .primary-link {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 10px;
+    padding-right: 11px;
+    padding-left: 11px;
+  }
+
+  .primary-rail:hover .nav-link-label,
+  .primary-rail:focus-within .nav-link-label {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip: auto;
+    opacity: 1;
+    color: inherit;
+    font-size: 13px;
+    font-weight: 560;
+    white-space: nowrap;
+  }
 }
 
 .nav-link-icon {
@@ -973,7 +1019,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 
 @media (max-width: 1100px) {
   .shell { grid-template-columns: 56px 216px minmax(0, 1fr); }
-  .primary-rail { width: 56px; }
+  .primary-rail { --rail-collapsed-width: 56px; --secondary-rail-width: 216px; width: 56px; }
   .main { padding-right: 26px; padding-left: 26px; }
   .topbar { padding-right: 22px; padding-left: 22px; }
 }
@@ -985,7 +1031,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 }
 
 @media (max-width: 640px) {
-  .primary-rail { width: 52px; padding-right: 6px; padding-left: 6px; }
+  .primary-rail { --rail-collapsed-width: 52px; width: 52px; padding-right: 6px; padding-left: 6px; }
   .shell { grid-template-columns: 52px 216px minmax(0, 1fr); }
   .brand-mark { margin-bottom: 20px; }
   .topbar { min-height: 50px; padding: 0 14px; }
@@ -1006,4 +1052,9 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 @media (max-width: 600px) {
   .shell { grid-template-columns: 52px minmax(0, 1fr); }
   .secondary-rail { display: none; }
+}
+
+@media (max-width: 420px) {
+  .kpi-row { grid-template-columns: 1fr; }
+  .topbar-wall { width: 32px; justify-content: center; gap: 0; padding: 0; font-size: 0; }
 }

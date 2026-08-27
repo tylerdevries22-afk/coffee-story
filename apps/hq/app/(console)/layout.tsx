@@ -86,14 +86,14 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
           <span>{initials.charAt(0)}</span>
         </Link>
         <div className="primary-rail-nav">
-          <NavLink href="/" icon="dashboard" ariaLabel="Overview">Overview</NavLink>
-          <NavLink href="/locations" icon="locations" ariaLabel="Locations">Locations</NavLink>
-          <NavLink href={hasRole(session, 'brand_owner') ? '/content' : '/menu'} icon="menu" ariaLabel="Menu">Menu</NavLink>
-          {canManageTraining ? <NavLink href="/training" icon="training" ariaLabel="Training">Training</NavLink> : null}
-          <NavLink href="/analytics" icon="analytics" ariaLabel="Analytics">Analytics</NavLink>
+          <NavLink href="/" icon="dashboard" className="primary-link" ariaLabel="Overview">Overview</NavLink>
+          <NavLink href="/locations" icon="locations" className="primary-link" ariaLabel="Locations">Locations</NavLink>
+          <NavLink href={hasRole(session, 'brand_owner') ? '/content' : '/menu'} icon="menu" className="primary-link" ariaLabel="Menu">Menu</NavLink>
+          {canManageTraining ? <NavLink href="/training" icon="training" className="primary-link" ariaLabel="Training">Training</NavLink> : null}
+          <NavLink href="/analytics" icon="analytics" className="primary-link" ariaLabel="Analytics">Analytics</NavLink>
         </div>
         <div className="primary-rail-footer">
-          <NavLink href="/wall" icon="wall" ariaLabel="Live wall">Wall</NavLink>
+          <NavLink href="/wall" icon="wall" className="primary-link" ariaLabel="Live wall">Wall</NavLink>
           <Link href={`/status/${statusSlug}`} className="primary-link" aria-label="System status" title="System status">
             <span className="nav-link-icon"><Icon name="activity" size={17} /></span>
             <span className="nav-link-label">System status</span>
