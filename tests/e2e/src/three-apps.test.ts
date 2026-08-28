@@ -54,10 +54,9 @@ async function waitForOrderStatus(orderId: string, status: string, timeoutMs = 2
 async function clickOperatorAction(
   page: Page,
   orderCode: number,
-  callOut: string,
   actionText: string,
 ): Promise<void> {
-  const boardAction = page.getByLabel(`${actionText} for order ${callOut}`);
+  const boardAction = page.getByLabel(`${actionText} for order ${orderCode}`);
   const scheduledCard = page.getByLabel(new RegExp(`^Scheduled order ${orderCode} for `));
   await boardAction.or(scheduledCard).first().waitFor({ timeout: 45_000 });
   if (await boardAction.count() > 0) {
@@ -181,8 +180,6 @@ describe('three apps, one stack', { skip: skipUnlessConfigured }, () => {
       assert.ok(order.daily_number, 'the order carries a human-readable ticket');
       assert.equal(order.status, 'created', 'pay_at_pickup waits for staff to collect payment');
       await waitText(customer.page, money(Number(order.total_cents)));
-      const callOut = ticketCallout(order.daily_number, order.guest_label);
-
       // ---- The barista sees it and works it; the guest watches it move.
       await fillLabel(operator.page, 'Email', staff.email);
       await fillLabel(operator.page, 'Password', staff.password);
@@ -192,17 +189,16 @@ describe('three apps, one stack', { skip: skipUnlessConfigured }, () => {
       await clickOperatorAction(
         operator.page,
         order.daily_number,
-        callOut,
         `Collect ${money(Number(order.total_cents))}`,
       );
       await operator.shot('04-operator-board');
       assert.equal(await waitForOrderStatus(order.id, 'paid'), 'paid');
-      await clickOperatorAction(operator.page, order.daily_number, callOut, 'Start');
+      await clickOperatorAction(operator.page, order.daily_number, 'Start');
       await waitText(customer.page, 'Being made', 30_000);
-      await clickOperatorAction(operator.page, order.daily_number, callOut, 'Ready');
+      await clickOperatorAction(operator.page, order.daily_number, 'Ready');
       await waitText(customer.page, 'Ready for pickup', 30_000);
       await customer.shot('05-customer-ready');
-      await clickOperatorAction(operator.page, order.daily_number, callOut, 'Picked up');
+      await clickOperatorAction(operator.page, order.daily_number, 'Picked up');
       assert.equal(await waitForOrderStatus(order.id, 'picked_up'), 'picked_up');
 
       // ---- A rival brand's order never reaches this board (RLS isolation).

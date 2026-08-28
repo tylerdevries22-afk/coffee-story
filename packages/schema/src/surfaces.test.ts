@@ -376,7 +376,7 @@ describe('atomic order commit', () => {
     assert.match(readiness, /platform_onboarding_runs/);
     assert.match(readiness, /platform_credential_requirements/);
     assert.match(readiness, /tablename = 'operations_change_signals'/);
-    assert.match(readiness, /return '20260828095000'/);
+    assert.match(allSql(), /return '20260828104000'/);
     assert.match(allSql(),
       /revoke all on function public\.platform_release_readiness\(\)[\s\S]*?to service_role;/);
   });

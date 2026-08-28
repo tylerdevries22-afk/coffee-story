@@ -265,6 +265,10 @@ jobs:
           # transactionally, so retrying resumes at the first unapplied file.
           retry_supabase supabase db push --db-url "$SUPABASE_DB_URL" --include-all --yes
           retry_supabase supabase db lint --db-url "$SUPABASE_DB_URL" --level warning --fail-on warning
+          retry_supabase supabase db advisors --db-url "$SUPABASE_DB_URL" \
+            --type security --level warn --fail-on warn
+          retry_supabase supabase db advisors --db-url "$SUPABASE_DB_URL" \
+            --type performance --level warn --fail-on warn
 
       - name: Seed through the production onboarding path
         run: pnpm onboard --tenant coffee-story --require-db
