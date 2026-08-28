@@ -57,13 +57,17 @@ tokens for live environments. See the [Doppler service-token guide](https://docs
 ### GitHub
 
 Owner: platform. Create a GitHub App with the minimum repository administration and
-contents permissions needed to create/configure the cloned repository. Install it only
+contents permissions needed to create/configure the cloned repository, plus Actions,
+Actions secrets, and Actions variables write access for the encrypted deployment
+handoff. Install it only
 on the template organization or selected repositories. GitHub Apps start with no
 permissions, and GitHub recommends selecting only what is required. Store the app ID,
 installation ID, and private key in Doppler—not in GitHub variables or tenant folders.
 Also configure `GITHUB_REPOSITORY_OWNER`, `GITHUB_TEMPLATE_OWNER`, and
 `GITHUB_TEMPLATE_REPOSITORY`; the template repository must be marked as a GitHub
 template and the Vercel GitHub App must be allowed to read generated repositories.
+The factory writes only the names of synchronized secrets to its audit metadata; values
+are sealed with the repository public key before GitHub receives them.
 [Official GitHub permissions guide](https://docs.github.com/en/apps/creating-github-apps/registering-a-github-app/choosing-permissions-for-a-github-app).
 
 ### Doppler

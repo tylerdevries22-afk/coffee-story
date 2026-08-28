@@ -16,6 +16,7 @@ import {
   type BrandResearchArtifact,
   type FactoryRunInput,
 } from '../lib/factory-automation';
+import { encryptGitHubActionsSecret } from '../lib/github-actions-secrets';
 
 type PlatformFactoryInput = { runId: string };
 type FactoryRunRow = FactoryRunInput & { id: string; supabaseRegion: string };
@@ -188,7 +189,7 @@ async function githubInstallationToken(): Promise<string> {
   const response = await providerFetch(`https://api.github.com/app/installations/${installationId}/access_tokens`, {
     method: 'POST',
     headers: githubHeaders(githubAppJwt()),
-    body: JSON.stringify({ permissions: { administration: 'write', contents: 'read', metadata: 'read' } }),
+    body: JSON.stringify({ permissions: { actions: 'write', administration: 'write', contents: 'read', metadata: 'read', secrets: 'write', variables: 'write' } }),
   });
   const payload = await providerJson<{ token?: string }>(response, 'GitHub installation authentication');
   if (!payload.token) throw new Error('GitHub installation authentication returned no token.');
@@ -381,6 +382,51 @@ async function provisionVercel(run: FactoryRunRow, repository: string): Promise<
   return resources;
 }
 
+async function putGitHubSecret(repository: string, token: string, publicKey: { key: string; key_id: string }, name: string, value: string): Promise<void> {
+  const encryptedValue = await encryptGitHubActionsSecret(value, publicKey.key);
+  const response = await providerFetch(`https://api.github.com/repos/${repository}/actions/secrets/${encodeURIComponent(name)}`, {
+    method: 'PUT', headers: githubHeaders(token), body: JSON.stringify({ encrypted_value: encryptedValue, key_id: publicKey.key_id }),
+  });
+  if (!response.ok) throw new Error(`GitHub deployment secret synchronization failed for ${name} (${response.status}).`);
+}
+
+async function putGitHubVariable(repository: string, token: string, name: string, value: string): Promise<void> {
+  const endpoint = `https://api.github.com/repos/${repository}/actions/variables`;
+  let response = await providerFetch(endpoint, { method: 'POST', headers: githubHeaders(token), body: JSON.stringify({ name, value }) });
+  if (response.status === 409) {
+    response = await providerFetch(`${endpoint}/${encodeURIComponent(name)}`, { method: 'PATCH', headers: githubHeaders(token), body: JSON.stringify({ name, value }) });
+  }
+  if (!response.ok) throw new Error(`GitHub deployment variable synchronization failed for ${name} (${response.status}).`);
+}
+
+async function synchronizeGitHubDeployment(run: FactoryRunRow, repository: string): Promise<void> {
+  'use step';
+  const prior = await existingResource(run.id, 'github', 'deployment-configuration');
+  if (prior) return;
+  const token = await githubInstallationToken();
+  const keyResponse = await providerFetch(`https://api.github.com/repos/${repository}/actions/secrets/public-key`, { headers: githubHeaders(token) });
+  const publicKey = await providerJson<{ key?: string; key_id?: string }>(keyResponse, 'GitHub Actions public-key lookup');
+  if (!publicKey.key || !publicKey.key_id) throw new Error('GitHub Actions returned no repository encryption key.');
+  const secrets = await readDopplerSecrets(run.tenantSlug);
+  const required: Record<string, string | undefined> = {
+    SUPABASE_ACCESS_TOKEN: requiredEnvironment('SUPABASE_MANAGEMENT_TOKEN'),
+    SUPABASE_DB_PASSWORD: secrets.SUPABASE_DB_PASSWORD,
+    SUPABASE_URL: secrets.SUPABASE_URL,
+    SUPABASE_PUBLISHABLE_KEY: secrets.SUPABASE_PUBLISHABLE_KEY,
+    SUPABASE_SERVICE_ROLE_KEY: secrets.SUPABASE_SERVICE_ROLE_KEY,
+    VERCEL_TOKEN: requiredEnvironment('VERCEL_TOKEN'),
+    CRON_SECRET: secrets.CRON_SECRET,
+  };
+  if (process.env.OPENAI_API_KEY) required.OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+  for (const [name, value] of Object.entries(required)) {
+    if (!value) throw new Error(`Deployment credential ${name} is unavailable.`);
+    await putGitHubSecret(repository, token, publicKey as { key: string; key_id: string }, name, value);
+  }
+  const variables = { VERCEL_SCOPE: requiredEnvironment('VERCEL_SCOPE'), OPENAI_RESEARCH_MODEL: process.env.OPENAI_RESEARCH_MODEL ?? '', OPENAI_EVALUATION_MODEL: process.env.OPENAI_EVALUATION_MODEL ?? '' };
+  for (const [name, value] of Object.entries(variables)) if (value) await putGitHubVariable(repository, token, name, value);
+  await saveResource(run.id, { provider: 'github', kind: 'deployment-configuration', externalId: repository, displayName: `${repository} deployment configuration`, metadata: { secretNames: Object.keys(required), variableNames: Object.keys(variables).filter((name) => variables[name as keyof typeof variables]) } });
+}
+
 async function failRun(runId: string, message: string): Promise<void> {
   'use step';
   logFactory('run.failed', { runId, message });
@@ -430,6 +476,7 @@ async function provisionHostedInfrastructure(run: FactoryRunRow): Promise<void> 
     activeTask = 'create-vercel-projects';
     await updateTask(run.id, activeTask, 'running');
     await provisionVercel(run, repository.externalId);
+    await synchronizeGitHubDeployment(run, repository.externalId);
     await updateTask(run.id, activeTask, 'completed');
   } catch (error) {
     await updateTask(run.id, activeTask, 'failed', 'factory_task_failed');
