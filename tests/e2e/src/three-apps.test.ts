@@ -64,7 +64,7 @@ async function clickOperatorAction(
     return;
   }
   await scheduledCard.first().click({ timeout: 20_000 });
-  await page.getByText(actionText, { exact: true }).first().click({ timeout: 20_000 });
+  await boardAction.first().click({ timeout: 20_000 });
 }
 
 /**
