@@ -8,6 +8,7 @@ import {
 
 import type { OperationIntent, OperationIntentIssue } from './offline-intents';
 import {
+  parseOperatorNotifications,
   parseOperatorQueue,
   type OperatorNotification,
   type OperatorQueueSnapshot,
@@ -112,35 +113,9 @@ export async function submitOperationIntent(intent: OperationIntent): Promise<un
   );
 }
 
-function notificationFromUnknown(value: unknown): OperatorNotification | null {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
-  const row = value as Record<string, unknown>;
-  const id = row.id;
-  const occurrenceId = row.occurrenceId ?? row.occurrence_id;
-  const title = row.title;
-  const body = row.body;
-  const createdAt = row.createdAt ?? row.created_at;
-  const readAt = row.readAt ?? row.read_at;
-  if (typeof id !== 'string' || typeof occurrenceId !== 'string' || typeof title !== 'string'
-    || typeof body !== 'string' || typeof createdAt !== 'string') return null;
-  return {
-    id,
-    occurrenceId,
-    title,
-    body,
-    createdAt,
-    readAt: typeof readAt === 'string' ? readAt : null,
-  };
-}
-
 /** Loads persisted operations notifications; malformed rows are omitted. */
 export async function loadOperationNotifications(): Promise<readonly OperatorNotification[]> {
-  const response = await operationRequest('/api/operations/notifications', 'GET');
-  const record = response && typeof response === 'object' && !Array.isArray(response)
-    ? response as Record<string, unknown>
-    : null;
-  const rows = Array.isArray(record?.notifications) ? record.notifications : [];
-  return rows.map(notificationFromUnknown).filter((item): item is OperatorNotification => item !== null);
+  return parseOperatorNotifications(await operationRequest('/api/operations/notifications', 'GET'));
 }
 
 export async function markOperationNotificationsRead(ids: readonly string[]): Promise<void> {
