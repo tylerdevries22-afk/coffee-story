@@ -16,7 +16,9 @@ const reviewFixes = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '
   '20260828144328_operations_release_review_fixes.sql'), 'utf8');
 const volatilityFix = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'supabase', 'migrations',
   '20260828152200_release_readiness_volatility.sql'), 'utf8');
-const operationsSql = `${migration}\n${hardening}\n${advisorHardening}\n${releaseHardening}\n${reviewFixes}\n${volatilityFix}`;
+const competencyAward = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'supabase', 'migrations',
+  '20260828163000_award_training_competencies.sql'), 'utf8');
+const operationsSql = `${migration}\n${hardening}\n${advisorHardening}\n${releaseHardening}\n${reviewFixes}\n${volatilityFix}\n${competencyAward}`;
 
 describe('tenant operations migration', () => {
   it('keeps the platform schema industry-neutral', () => {
@@ -52,6 +54,22 @@ describe('tenant operations migration', () => {
       /alter function app\.platform_release_readiness_20260828130000\(\) stable/);
     assert.match(volatilityFix,
       /create or replace function public\.platform_release_readiness\(\)\s+returns text language plpgsql stable security invoker/);
+    assert.match(competencyAward,
+      /create or replace function public\.platform_release_readiness\(\)\s+returns text language plpgsql stable security invoker/);
+  });
+
+  it('issues training competencies through one tenant-safe idempotent contract', () => {
+    assert.match(competencyAward, /create or replace function public\.award_operation_competency/);
+    assert.match(competencyAward, /progress\.status = 'completed'/);
+    assert.match(competencyAward, /release\.status = 'published'/);
+    assert.match(competencyAward, /lesson -> 'grantsCompetencyKeys'/);
+    assert.match(competencyAward, /pg_advisory_xact_lock/);
+    assert.match(competencyAward, /target_action_id::text/);
+    assert.match(competencyAward, /award\.action_id = target_action_id/);
+    assert.match(competencyAward,
+      /revoke all on function public\.award_operation_competency\([\s\S]*?from public, anon, authenticated;/);
+    assert.match(competencyAward,
+      /grant execute on function public\.award_operation_competency\([\s\S]*?to service_role;/);
   });
 
   it('suppresses queued and claimed deliveries when operations are disabled', () => {

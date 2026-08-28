@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { competencyAwardActionId, trainingCompetencyGrantPlan } from './training-competencies';
+import {
+  competencyAwardActionId,
+  matchesTrainingAttempt,
+  trainingCompetencyGrantPlan,
+} from './training-competencies';
 
 describe('trainingCompetencyGrantPlan', () => {
   it('grants unique configured keys for the configured validity period', () => {
@@ -32,5 +36,22 @@ describe('competencyAwardActionId', () => {
     assert.match(first, /^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
     assert.equal(first, competencyAwardActionId('11111111-1111-4111-8111-111111111111', 'restroom-sanitation'));
     assert.notEqual(first, competencyAwardActionId('11111111-1111-4111-8111-111111111111', 'food-safety'));
+  });
+});
+
+describe('matchesTrainingAttempt', () => {
+  const attempt = {
+    release_id: 'release-a',
+    module_slug: 'safety',
+    lesson_slug: 'equipment-safety',
+    answers: [1, 0],
+  };
+
+  it('accepts only an exact replay of the original lesson attempt', () => {
+    assert.equal(matchesTrainingAttempt(attempt, { ...attempt, answers: [...attempt.answers] }), true);
+    assert.equal(matchesTrainingAttempt(attempt, { ...attempt, release_id: 'release-b' }), false);
+    assert.equal(matchesTrainingAttempt(attempt, { ...attempt, module_slug: 'operations' }), false);
+    assert.equal(matchesTrainingAttempt(attempt, { ...attempt, lesson_slug: 'opening' }), false);
+    assert.equal(matchesTrainingAttempt(attempt, { ...attempt, answers: [0, 1] }), false);
   });
 });
