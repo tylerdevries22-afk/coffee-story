@@ -4,6 +4,46 @@ name: deploy hosted surfaces
 # workflow is the required gate; this workflow only runs after that gate has
 # passed, and every credential comes from GitHub/Vercel secrets.
 on:
+  workflow_call:
+    inputs:
+      tenant:
+        type: string
+        default: coffee-story
+      project_prefix:
+        type: string
+        default: coffee-story
+      environment:
+        type: string
+        default: production
+      deploy_web:
+        type: boolean
+        default: true
+      publish_native:
+        type: boolean
+        default: false
+    secrets:
+      VERCEL_TOKEN:
+        required: true
+      SUPABASE_URL:
+        required: true
+      SUPABASE_PUBLISHABLE_KEY:
+        required: true
+      SUPABASE_SERVICE_ROLE_KEY:
+        required: true
+      SUPABASE_JWT_SECRET:
+        required: false
+      CRON_SECRET:
+        required: true
+      OPENAI_API_KEY:
+        required: false
+      DISPLAY_DEVICE_TOKEN:
+        required: false
+      EXPO_TOKEN:
+        required: false
+      EXPO_PUBLIC_API_URL:
+        required: false
+      EXPO_PUBLIC_ALLOWED_API_HOST:
+        required: false
   workflow_dispatch:
     inputs:
       tenant:
