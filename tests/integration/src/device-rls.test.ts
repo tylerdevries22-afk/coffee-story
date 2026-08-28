@@ -18,7 +18,7 @@ describe('device scoping', { skip: skipUnlessConfigured }, () => {
   let brandId = '';
   let locationId = '';
   let otherLocationId = '';
-  const devices: Record<string, string> = {};
+  const devices = new Map<string, { role: string; locationId: string; tokenVersion: number }>();
 
   /**
    * Runs a statement with a device's claims in place, the way PostgREST does:
@@ -26,13 +26,16 @@ describe('device scoping', { skip: skipUnlessConfigured }, () => {
    * one assertion never leaves rows behind for the next.
    */
   async function asDevice(deviceId: string, statement: string, params: unknown[] = []) {
+    const device = devices.get(deviceId);
+    assert.ok(device, `unknown device fixture ${deviceId}`);
     return asPrincipal(
       {
         app_metadata: {
           brand_id: brandId,
           device_id: deviceId,
-          device_role: devices[deviceId],
-          device_location_id: deviceId === devices.__other ? otherLocationId : locationId,
+          device_role: device.role,
+          device_location_id: device.locationId,
+          device_token_version: device.tokenVersion,
         },
       },
       statement,
@@ -41,14 +44,14 @@ describe('device scoping', { skip: skipUnlessConfigured }, () => {
   }
 
   async function pair(role: string, atLocation: string): Promise<string> {
-    const row = await sql<{ id: string }>(
+    const row = await sql<{ id: string; token_version: number }>(
       `insert into public.devices (brand_id, location_id, role, label, paired_at)
-       values ($1, $2, $3::app.device_role, $4, now()) returning id`,
+       values ($1, $2, $3::app.device_role, $4, now()) returning id, token_version`,
       [brandId, atLocation, role, `${role} under test`],
     );
-    const id = row.rows[0]!.id;
-    devices[id] = role;
-    return id;
+    const device = row.rows[0]!;
+    devices.set(device.id, { role, locationId: atLocation, tokenVersion: device.token_version });
+    return device.id;
   }
 
   before(async () => {
@@ -72,7 +75,7 @@ describe('device scoping', { skip: skipUnlessConfigured }, () => {
        values ($1, $2, 'display', 'never paired') returning id`,
       [brandId, locationId],
     );
-    devices[unpaired.rows[0]!.id] = 'display';
+    devices.set(unpaired.rows[0]!.id, { role: 'display', locationId, tokenVersion: 1 });
 
     const active = await asDevice(paired, `select app.device_is_active('display') as ok`);
     assert.equal(active.rows[0]?.ok, true, 'a paired display should be active');
@@ -86,6 +89,13 @@ describe('device scoping', { skip: skipUnlessConfigured }, () => {
     await sql(`update public.devices set revoked_at = now() where id = $1`, [id]);
     const result = await asDevice(id, `select app.device_is_active('display') as ok`);
     assert.equal(result.rows[0]?.ok, false, 'revoking in HQ must take effect at once');
+  });
+
+  it('invalidates an older credential when the same device is re-paired', async () => {
+    const id = await pair('display', locationId);
+    await sql(`update public.devices set token_version = token_version + 1 where id = $1`, [id]);
+    const result = await asDevice(id, `select app.device_is_active('display') as ok`);
+    assert.equal(result.rows[0]?.ok, false, 'the previous token version must stop immediately');
   });
 
   it('will not let a device claim satisfy a staff policy', async () => {
@@ -113,7 +123,6 @@ describe('device scoping', { skip: skipUnlessConfigured }, () => {
 
   it('scopes a device to the location it was paired at', async () => {
     const id = await pair('display', otherLocationId);
-    devices.__other = id;
     // Claims say the second location, the row says the second location: active.
     const atOwn = await asDevice(id, `select app.device_is_active('display') as ok`);
     assert.equal(atOwn.rows[0]?.ok, true);

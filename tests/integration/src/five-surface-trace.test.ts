@@ -181,6 +181,7 @@ describe('one order across five surfaces', { skip: skipUnlessConfigured }, () =>
           device_id: displayDeviceId,
           device_role: 'display',
           device_location_id: locationId,
+          device_token_version: 1,
         },
       },
       `select id, daily_number from public.board_tickets where location_id = $1`,
