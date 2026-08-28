@@ -58,19 +58,17 @@ describe('device pairing', () => {
     // for it and every is_brand_* helper fails. That is the whole security
     // argument, so it must stay true in the SQL: no device helper may consult
     // the staff role.
-    const sql = allSql();
-    const deviceFns = /create or replace function app\.device_is_active[\s\S]*?\$\$;/.exec(sql);
-    assert.ok(deviceFns, 'app.device_is_active is not defined');
-    assert.doesNotMatch(deviceFns[0], /jwt_role\(\)/,
+    const deviceFn = functionInForce('app', 'device_is_active');
+    assert.doesNotMatch(deviceFn, /jwt_role\(\)/,
       'device_is_active must not consult the staff role claim');
   });
 
-  it('fails closed on a revoked device', () => {
-    const sql = allSql();
-    const fn = /create or replace function app\.device_is_active[\s\S]*?\$\$;/.exec(sql);
-    assert.ok(fn);
-    assert.match(fn[0], /revoked_at is null/, 'a revoked device must not be active');
-    assert.match(fn[0], /paired_at is not null/, 'an unpaired device must not be active');
+  it('fails closed on revoked, unpaired, and superseded device credentials', () => {
+    const deviceFn = functionInForce('app', 'device_is_active');
+    assert.match(deviceFn, /revoked_at is null/, 'a revoked device must not be active');
+    assert.match(deviceFn, /paired_at is not null/, 'an unpaired device must not be active');
+    assert.match(deviceFn, /\.token_version[\s\S]*device_token_version/,
+      're-pairing must invalidate every older device credential');
   });
 });
 
@@ -364,12 +362,31 @@ describe('packs', () => {
 describe('atomic order commit', () => {
   it('makes deep health fail closed on missing commit or realtime contracts', () => {
     const readiness = functionInForce('public', 'platform_release_readiness');
+    const releaseSql = allSql();
     assert.match(readiness, /security invoker/);
-    assert.match(readiness, /procedure\.proname = 'commit_order'/);
-    assert.match(readiness, /procedure\.pronargs = 18/);
-    assert.match(readiness, /tablename = 'orders'/);
-    assert.match(readiness, /tablename = 'board_change_signals'/);
-    assert.match(allSql(),
+    assert.match(readiness, /language plpgsql stable/,
+      'the read-only release contract remains callable through GET');
+    assert.match(readiness,
+      /app\.platform_release_readiness_20260828152200\(\) <> '20260828152200'/);
+    for (const contract of [
+      /procedure\.proname = 'commit_order'/,
+      /procedure\.pronargs = 18/,
+      /tablename = 'orders'/,
+      /tablename = 'board_change_signals'/,
+      /procedure\.proname = 'publish_manual_training_release'/,
+      /operation_occurrences/,
+      /operation_action_receipts/,
+      /operation_operator_notifications/,
+      /procedure\.proname = 'claim_operation_occurrence'/,
+      /procedure\.proname = 'cancel_operation_occurrence'/,
+      /award_operation_competency/,
+      /platform_onboarding_runs/,
+      /platform_credential_requirements/,
+      /tablename = 'operations_change_signals'/,
+    ]) assert.match(releaseSql, contract);
+    assert.match(releaseSql, /operation_queue_eligibility/);
+    assert.match(readiness, /return '20260828163000'/);
+    assert.match(releaseSql,
       /revoke all on function public\.platform_release_readiness\(\)[\s\S]*?to service_role;/);
   });
 
@@ -584,6 +601,7 @@ describe('realtime propagation', () => {
       'location_setting_signals',
       'menu_categories',
       'menu_items',
+      'operations_change_signals',
       'orders',
       'prep_batches',
       'training_release_events',
@@ -594,6 +612,7 @@ describe('realtime propagation', () => {
       brand_config_signals: 1,
       catalog_publications: 2,
       location_setting_signals: 1,
+      operations_change_signals: 1,
       menu_items: 1,
       menu_categories: 1,
       drops: 1,

@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "key": "your-industry",
+  "name": "Your industry",
+  "templateVersion": 1,
+  "locale": "en-US",
+  "supabaseRegion": "us-west-1",
+  "vocabulary": {
+    "catalog": "Catalog",
+    "folder": "Group",
+    "offering": "Offering",
+    "resource": "Resource"
+  }
+}

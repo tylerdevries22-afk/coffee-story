@@ -59,8 +59,8 @@ describe('one order across five surfaces', { skip: skipUnlessConfigured }, () =>
       [brandId],
     );
     const category = await sql<{ id: string }>(
-      `insert into public.menu_categories (brand_id, menu_id, title, sort_order)
-       values ($1, $2, 'Bakery', 1) returning id`,
+      `insert into public.menu_categories (brand_id, menu_id, slug, title, sort_order)
+       values ($1, $2, 'bakery', 'Bakery', 1) returning id`,
       [brandId, menu.rows[0]!.id],
     );
     const item = await sql<{ id: string }>(
@@ -181,6 +181,7 @@ describe('one order across five surfaces', { skip: skipUnlessConfigured }, () =>
           device_id: displayDeviceId,
           device_role: 'display',
           device_location_id: locationId,
+          device_token_version: 1,
         },
       },
       `select id, daily_number from public.board_tickets where location_id = $1`,

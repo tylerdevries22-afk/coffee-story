@@ -19,6 +19,7 @@ import { operatorLayout } from '@/lib/responsive-layout';
 import { Profile } from '@/screens/staff/profile';
 import { useAppState } from '@/state/app-context';
 import { useAuth } from '@/state/auth-context';
+import { useOperations } from '@/state/operations-store';
 import { buildStaffNotifications, type StaffDashboard } from '@platform/domain';
 import { useAppTokens, type AppTokens } from '@platform/ui';
 
@@ -35,12 +36,14 @@ export function AdminMoreScreen({ dashboard }: { dashboard: StaffDashboard }) {
     readNotificationIds, selectRole,
   } = useAppState();
   const { isDemo, portal, role, signOut } = useAuth();
+  const operations = useOperations();
   const [surface, setSurface] = useState<HeaderSurface>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState('');
   const groups = adminNavigationGroupsForRole(role);
   const notifications = useMemo(() => buildStaffNotifications(dashboard, new Date()), [dashboard]);
-  const unreadCount = notifications.filter((item) => !readNotificationIds.has(item.id)).length;
+  const unreadCount = notifications.filter((item) => !readNotificationIds.has(item.id)).length
+    + operations.unreadCount;
   const setup = portalSetup(portal)[role];
   const searchResults = useMemo(
     () => searchAdminWorkspace(query, role, dashboard.clients),
@@ -109,10 +112,18 @@ export function AdminMoreScreen({ dashboard }: { dashboard: StaffDashboard }) {
           />
         </MoreGroup>
         <MoreGroup label="Daily Work">
-          <MoreRow title="Crew" symbol="person.2" onPress={() => openRoute('/staff/crew')} first />
+          {operations.enabled ? <MoreRow title="Shift Tasks"
+            subtitle={operations.pendingCount > 0
+              ? `${operations.pendingCount} syncing`
+              : `${operations.occurrences.filter((item) => !['completed', 'missed', 'cancelled'].includes(item.status)).length} active`}
+            symbol="person.2" onPress={() => openRoute('/staff/crew')} first /> : null}
           <MoreRow title="Calendar" symbol="calendar" onPress={() => openRoute('/staff/calendar')} />
           <MoreRow title="Training" symbol="doc.text" onPress={() => openRoute('/staff/training')} />
-          <MoreRow title="Notifications" subtitle={unreadCount > 0 ? `${unreadCount} unread` : undefined} symbol="bell" onPress={() => openNotifications(notifications.map((item) => item.id))} />
+          <MoreRow title="Notifications" subtitle={unreadCount > 0 ? `${unreadCount} unread` : undefined}
+            symbol="bell" onPress={() => openNotifications([
+              ...notifications.map((item) => item.id),
+              ...operations.notifications.map((item) => `operation-notification-${item.id}`),
+            ])} />
         </MoreGroup>
         <MoreGroup label="My Account">
           <MoreRow title="My Rewards" symbol="cup.and.saucer" onPress={() => openDestination('/admin/rewards')} first />

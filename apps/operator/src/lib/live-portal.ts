@@ -13,6 +13,8 @@ export type StaffContext = {
   bundle: PortalBundle;
   claims: TenantClaims;
   brandName: string;
+  operationsEnabled: boolean;
+  brandUserId: string;
   /** brand_config from the brands row: tokens, copy, business details. */
   brandConfig: unknown;
   /** The locations this account may work, claims-scoped for shift staff. */
@@ -57,10 +59,14 @@ export async function loadStaffContext(
 
   const brand = await client
     .from('brands')
-    .select('id, name, brand_config')
+    .select('id, name, brand_config, operations')
     .eq('id', claims.brand_id)
-    .single<{ id: string; name: string; brand_config: unknown }>();
+    .single<{ id: string; name: string; brand_config: unknown; operations: boolean }>();
   if (brand.error) throw new Error(`The shop could not be loaded: ${brand.error.message}`);
+
+  const membership = await client.from('brand_users').select('id')
+    .eq('brand_id', claims.brand_id).eq('user_id', session.user.id).single<{ id: string }>();
+  if (membership.error) throw new Error('Your current staff membership could not be loaded.');
 
   const locationsQuery = client
     .from('locations')
@@ -102,6 +108,8 @@ export async function loadStaffContext(
     bundle,
     claims,
     brandName: brand.data.name,
+    operationsEnabled: brand.data.operations,
+    brandUserId: membership.data.id,
     brandConfig: brand.data.brand_config,
     locations: locations.data ?? [],
   };

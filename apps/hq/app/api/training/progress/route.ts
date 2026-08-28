@@ -12,6 +12,12 @@ import {
 } from '../../../../lib/api-auth';
 import { scoreTrainingQuiz } from '../../../../lib/training-bootstrap';
 import type { TrainingAnswerKey } from '../../../../lib/training-bootstrap';
+import {
+  competencyAwardActionId,
+  matchesTrainingAttempt,
+  trainingCompetencyGrantPlan,
+  type CompetencyGrantLesson,
+} from '../../../../lib/training-competencies';
 
 type ProgressBody = {
   attemptId?: string;
@@ -60,6 +66,17 @@ export async function POST(request: Request): Promise<Response> {
   const score = scoreTrainingQuiz(lesson.quiz.map((question, index) => ({ ...question, correctChoice: correctChoices[index] })), body.answers);
   const member = await db.from('brand_users').select('id').eq('brand_id', auth.claims.brand_id).eq('user_id', auth.userId).single<{ id: string }>();
   if (member.error) return jsonError(403, 'no_membership', 'Your tenant membership is not active.');
+  const grantPlan = trainingCompetencyGrantPlan(lesson as typeof lesson & CompetencyGrantLesson, score.passed);
+  if (grantPlan) {
+    const competencies = await db.from('training_competencies').select('competency_key')
+      .eq('brand_id', auth.claims.brand_id).eq('is_active', true)
+      .in('competency_key', grantPlan.keys).returns<{ competency_key: string }[]>();
+    if (competencies.error) return jsonError(503, 'competency_lookup_failed', 'Could not validate lesson competencies.');
+    const found = new Set((competencies.data ?? []).map((item) => item.competency_key));
+    if (grantPlan.keys.some((key) => !found.has(key))) {
+      return jsonError(500, 'invalid_release', 'The published lesson references an unavailable competency.');
+    }
+  }
   const attempts = await db.from('training_quiz_attempts')
     .select('id, created_at')
     .eq('brand_id', auth.claims.brand_id)
@@ -101,9 +118,25 @@ export async function POST(request: Request): Promise<Response> {
   let effectiveScore = score;
   const idempotent = attempt.error?.code === '23505';
   if (idempotent) {
-    const prior = await db.from('training_quiz_attempts').select('score, passed').eq('id', body.attemptId).eq('brand_id', auth.claims.brand_id).eq('brand_user_id', member.data.id).maybeSingle<{ score: number; passed: boolean }>();
-    if (!prior.data) return jsonError(409, 'attempt_conflict', 'That attempt id is already in use.');
-    effectiveScore = prior.data;
+    const prior = await db.from('training_quiz_attempts')
+      .select('release_id, module_slug, lesson_slug, answers, score, passed')
+      .eq('id', body.attemptId).eq('brand_id', auth.claims.brand_id)
+      .eq('brand_user_id', member.data.id)
+      .maybeSingle<{
+        release_id: string;
+        module_slug: string;
+        lesson_slug: string;
+        answers: number[];
+        score: number;
+        passed: boolean;
+      }>();
+    if (!prior.data || !matchesTrainingAttempt(prior.data, {
+      release_id: body.releaseId,
+      module_slug: body.moduleSlug,
+      lesson_slug: body.lessonSlug,
+      answers: body.answers,
+    })) return jsonError(409, 'attempt_conflict', 'That attempt id is already in use.');
+    effectiveScore = { score: prior.data.score, passed: prior.data.passed };
   }
 
   const previous = await db.from('training_lesson_progress').select('attempt_count, status, score').eq('brand_id', auth.claims.brand_id).eq('release_id', body.releaseId).eq('brand_user_id', member.data.id).eq('module_slug', body.moduleSlug).eq('lesson_slug', body.lessonSlug).maybeSingle<{ attempt_count: number; status: string; score: number | null }>();
@@ -121,5 +154,25 @@ export async function POST(request: Request): Promise<Response> {
     completed_at: completed ? new Date().toISOString() : null,
   }, { onConflict: 'brand_id,release_id,brand_user_id,module_slug,lesson_slug' });
   if (progress.error) return jsonError(500, 'progress_save_failed', 'Could not save lesson progress.');
-  return jsonWithCors({ ...effectiveScore, idempotent });
+  const awardedCompetencyKeys: string[] = [];
+  if (effectiveScore.passed && grantPlan) {
+    for (const competencyKey of grantPlan.keys) {
+      const award = await db.rpc('award_operation_competency', {
+        target_brand_user: member.data.id,
+        target_competency_key: competencyKey,
+        target_action_id: competencyAwardActionId(body.attemptId, competencyKey),
+        target_source: 'training',
+        target_reason: '',
+        target_expires_at: grantPlan.expiresAt,
+        target_release: body.releaseId,
+        target_module_slug: body.moduleSlug,
+        target_lesson_slug: body.lessonSlug,
+      });
+      if (award.error) {
+        return jsonError(503, 'competency_award_failed', 'Training passed, but competency issuance is temporarily unavailable. Retry this attempt.');
+      }
+      awardedCompetencyKeys.push(competencyKey);
+    }
+  }
+  return jsonWithCors({ ...effectiveScore, idempotent, awardedCompetencyKeys });
 }

@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "key": "coffee-shop",
+  "name": "Coffee shop",
+  "templateVersion": 1,
+  "locale": "en-US",
+  "supabaseRegion": "us-west-1",
+  "vocabulary": {
+    "catalog": "Catalog",
+    "folder": "Category",
+    "offering": "Menu item",
+    "resource": "Recipe"
+  }
+}

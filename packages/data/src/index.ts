@@ -44,6 +44,13 @@ export {
   subscribeToTrainingReleases,
   type PublishedTrainingRelease,
 } from './training';
+export {
+  cancelOperationOccurrence, claimOperationOccurrence, completeOperationOccurrence, fetchOperationQueue,
+  releaseOperationOccurrence, reportOperationIssue, resolveOperationIssue,
+  subscribeToOperationQueue,
+  OperationDataError,
+  type OperationCompletionIssue, type OperationDataErrorCode, type OperationIssueRow,
+} from './operations';
 export { subscribeToBoardChanges } from './board-realtime';
 export { abortRead, readWithRetry, type DataReadOptions, type DataReadResult } from './read-retry';
 // How a board splits into columns is a display decision and lives in

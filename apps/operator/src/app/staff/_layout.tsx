@@ -7,6 +7,7 @@ import { useAppState } from '@/state/app-context';
 import { useAuth } from '@/state/auth-context';
 import { OperatorProvider } from '@/state/operator-store';
 import { StaffWorkspaceProvider } from '@/state/staff-workspace';
+import { OperationsProvider } from '@/state/operations-store';
 
 /** See the auth gate in `app/index.tsx` for why these redirects exist. */
 export default function StaffLayout() {
@@ -26,11 +27,13 @@ export default function StaffLayout() {
   // themselves in `StaffWorkspaceGate` instead.
   return (
     <OperatorProvider>
-      <StaffWorkspaceProvider>
-        <View style={styles.shell}>
-          <StaffTabs />
-        </View>
-      </StaffWorkspaceProvider>
+      <OperationsProvider>
+        <StaffWorkspaceProvider>
+          <View style={styles.shell}>
+            <StaffTabs />
+          </View>
+        </StaffWorkspaceProvider>
+      </OperationsProvider>
     </OperatorProvider>
   );
 }

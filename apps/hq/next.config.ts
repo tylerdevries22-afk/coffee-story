@@ -29,7 +29,13 @@ const config: NextConfig = {
   // that server-only graph external avoids webpack's dynamic-require warning
   // and lets Vercel provide the adapter at runtime without bundling it into
   // every API route.
-  serverExternalPackages: ['workflow', '@workflow/core', '@workflow/world-vercel', '@vercel/queue'],
+  serverExternalPackages: [
+    'workflow',
+    '@workflow/core',
+    '@workflow/world-vercel',
+    '@vercel/queue',
+    'libsodium-wrappers',
+  ],
   experimental: {
     // HQ accepts owner-managed menu/training images up to 6 MB. The extra MB
     // covers multipart framing while staying below Supabase's 10 MiB bucket cap.

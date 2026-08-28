@@ -50,13 +50,17 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
   // but must not inherit the sidebar or console chrome inside the iframe.
   if (pathname.startsWith('/wall/preview/')) return children;
   const brand = client && session
-    ? await client.from('brands').select('brand_config').eq('id', session.brandId).maybeSingle<{ brand_config: unknown }>()
+    ? await client.from('brands').select('brand_config, operations').eq('id', session.brandId)
+      .maybeSingle<{ brand_config: unknown; operations: boolean }>()
     : null;
   const brandConfig = brand && !brand.error ? brand.data?.brand_config : null;
   if (client && session && pathname && !pathname.startsWith('/wall/preview/')) {
-    const sessionData = await client.auth.getSession();
+    const [sessionData, authenticatedUser] = await Promise.all([
+      client.auth.getSession(),
+      client.auth.getUser(),
+    ]);
     const accessToken = sessionData.data.session?.access_token;
-    const userConsent = sessionData.data.session?.user.user_metadata?.analytics_consent === true;
+    const userConsent = authenticatedUser.data.user?.user_metadata?.analytics_consent === true;
     const privacy = brandConfig && typeof brandConfig === 'object' && !Array.isArray(brandConfig)
       ? (brandConfig as { privacy?: unknown }).privacy
       : null;
@@ -91,6 +95,7 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
   const canManagePlatform = hasRole(session, 'platform_admin');
   const canManageBrand = hasRole(session, 'brand_owner');
   const canViewManagement = hasRole(session, 'location_manager');
+  const operationsEnabled = client ? brand?.data?.operations === true : true;
   const consoleSections = consoleSectionsFor({
     menuHref,
     canManageTraining,
@@ -98,6 +103,7 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
     canManageBrand,
     canViewAnalytics: canViewManagement,
     canViewIntegrations: canViewManagement,
+    canManageOperations: canViewManagement && operationsEnabled,
   });
   return (
     <ConsoleShell

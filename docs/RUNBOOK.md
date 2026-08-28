@@ -14,7 +14,9 @@
 3. Point the Square application's webhook subscription at
    `/api/webhooks/square` and its OAuth redirect at `/api/square/callback`.
 
-**Database:** `supabase link --project-ref <ref> && supabase db push`, then
+**Database:** set `SUPABASE_DB_PASSWORD` from the encrypted operator secret, run
+`supabase link --project-ref <ref> --password "$SUPABASE_DB_PASSWORD"`, then
+`supabase db push --linked --password "$SUPABASE_DB_PASSWORD"`. Run
 `pnpm onboard --tenant <slug>` against the linked project. Enable the Custom
 Access Token hook (`app.custom_access_token`) before creating staff sessions.
 

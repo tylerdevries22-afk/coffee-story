@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "tsx --test \"src/**/*.test.ts\"",
+    "test": "tsx --test --test-timeout=120000 \"src/**/*.test.ts\"",
     "lint": "echo 'integration tests: lint covered by typecheck'",
     "typecheck": "tsc --noEmit"
   },

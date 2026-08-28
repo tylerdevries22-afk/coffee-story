@@ -5,9 +5,8 @@ import type { Page } from 'playwright';
 import { ticketCallout } from '@platform/domain/src/board-display.ts';
 
 import { clickLabel, clickText, closeBrowser, fillLabel, openApp, waitText } from './driver.ts';
-import { latestOtpFor } from './mailpit.ts';
-import { createStaffAccount, onboardedBrand, seedRivalBrandOrder, type SeededBrand } from './seed.ts';
-import { skipUnlessConfigured, sql, stack, uniqueEmail } from './stack.ts';
+import { createGuestAccount, createStaffAccount, onboardedBrand, seedRivalBrandOrder, type SeededBrand } from './seed.ts';
+import { skipUnlessConfigured, sql, stack } from './stack.ts';
 import { startHq, startStaticServer } from './servers.ts';
 
 const CUSTOMER_PORT = 4381;
@@ -20,6 +19,8 @@ const HQ_URL = `http://127.0.0.1:${HQ_PORT}`;
 const IPHONE = { width: 390, height: 844 };
 const IPAD_LANDSCAPE = { width: 1194, height: 834 };
 const DESKTOP = { width: 1440, height: 900 };
+const CUSTOMER_APP_MODE_KEY = 'coffee-story.app-mode.v1';
+const OPERATOR_APP_MODE_KEY = 'platform.operator.app-mode.v1';
 
 function money(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
@@ -53,10 +54,9 @@ async function waitForOrderStatus(orderId: string, status: string, timeoutMs = 2
 async function clickOperatorAction(
   page: Page,
   orderCode: number,
-  callOut: string,
   actionText: string,
 ): Promise<void> {
-  const boardAction = page.getByLabel(`${actionText} for order ${callOut}`);
+  const boardAction = page.getByLabel(`${actionText} for order ${orderCode}`);
   const scheduledCard = page.getByLabel(new RegExp(`^Scheduled order ${orderCode} for `));
   await boardAction.or(scheduledCard).first().waitFor({ timeout: 45_000 });
   if (await boardAction.count() > 0) {
@@ -64,7 +64,7 @@ async function clickOperatorAction(
     return;
   }
   await scheduledCard.first().click({ timeout: 20_000 });
-  await page.getByText(actionText, { exact: true }).first().click({ timeout: 20_000 });
+  await boardAction.first().click({ timeout: 20_000 });
 }
 
 /**
@@ -93,9 +93,11 @@ describe('three apps, one stack', { skip: skipUnlessConfigured }, () => {
   });
 
   it('demo smoke: the Expo Go preview still opens without any backend', async () => {
-    const app = await openApp(CUSTOMER_URL, IPHONE);
+    const app = await openApp(CUSTOMER_URL, IPHONE, {
+      storageKey: CUSTOMER_APP_MODE_KEY,
+      value: 'demo',
+    });
     try {
-      await clickText(app.page, 'Preview the complete Demo');
       await waitText(app.page, 'Weekly Drops', 30_000);
       await app.shot('demo-smoke');
     } catch (error) {
@@ -109,10 +111,16 @@ describe('three apps, one stack', { skip: skipUnlessConfigured }, () => {
   it('full loop: order placed by a guest is worked on the board and lands in the numbers', async () => {
     const brand: SeededBrand = await onboardedBrand();
     const staff = await createStaffAccount(brand, 'location_manager');
-    const guestEmail = uniqueEmail('guest');
+    const guest = await createGuestAccount();
 
-    const customer = await openApp(CUSTOMER_URL, IPHONE);
-    const operator = await openApp(OPERATOR_URL, IPAD_LANDSCAPE);
+    const customer = await openApp(CUSTOMER_URL, IPHONE, {
+      storageKey: CUSTOMER_APP_MODE_KEY,
+      value: 'live',
+    });
+    const operator = await openApp(OPERATOR_URL, IPAD_LANDSCAPE, {
+      storageKey: OPERATOR_APP_MODE_KEY,
+      value: 'live',
+    });
     const hq = await openApp(HQ_URL, DESKTOP);
     const dumpOnFail = async () => {
       await customer.shot('full-loop-customer-FAIL');
@@ -127,13 +135,11 @@ describe('three apps, one stack', { skip: skipUnlessConfigured }, () => {
     };
 
     try {
-      // ---- The guest signs in with an email code, like a real first run.
-      await clickText(customer.page, 'Email me a sign-in code instead');
-      await fillLabel(customer.page, 'Email', guestEmail);
-      await clickText(customer.page, 'Email me a code');
-      const code = await latestOtpFor(guestEmail);
-      await fillLabel(customer.page, 'Six-digit code', code);
-      await clickText(customer.page, 'Verify and sign in');
+      // ---- The guest signs in through hosted Auth. The account is confirmed
+      // by the test seed so CI never depends on provider email allowlists.
+      await fillLabel(customer.page, 'Email', guest.email);
+      await fillLabel(customer.page, 'Password', guest.password);
+      await clickText(customer.page, 'Sign in');
       await waitText(customer.page, 'Weekly Drops', 45_000);
       await customer.shot('01-customer-signed-in');
 
@@ -174,8 +180,6 @@ describe('three apps, one stack', { skip: skipUnlessConfigured }, () => {
       assert.ok(order.daily_number, 'the order carries a human-readable ticket');
       assert.equal(order.status, 'created', 'pay_at_pickup waits for staff to collect payment');
       await waitText(customer.page, money(Number(order.total_cents)));
-      const callOut = ticketCallout(order.daily_number, order.guest_label);
-
       // ---- The barista sees it and works it; the guest watches it move.
       await fillLabel(operator.page, 'Email', staff.email);
       await fillLabel(operator.page, 'Password', staff.password);
@@ -185,17 +189,16 @@ describe('three apps, one stack', { skip: skipUnlessConfigured }, () => {
       await clickOperatorAction(
         operator.page,
         order.daily_number,
-        callOut,
         `Collect ${money(Number(order.total_cents))}`,
       );
       await operator.shot('04-operator-board');
       assert.equal(await waitForOrderStatus(order.id, 'paid'), 'paid');
-      await clickOperatorAction(operator.page, order.daily_number, callOut, 'Start');
+      await clickOperatorAction(operator.page, order.daily_number, 'Start');
       await waitText(customer.page, 'Being made', 30_000);
-      await clickOperatorAction(operator.page, order.daily_number, callOut, 'Ready');
+      await clickOperatorAction(operator.page, order.daily_number, 'Ready');
       await waitText(customer.page, 'Ready for pickup', 30_000);
       await customer.shot('05-customer-ready');
-      await clickOperatorAction(operator.page, order.daily_number, callOut, 'Picked up');
+      await clickOperatorAction(operator.page, order.daily_number, 'Picked up');
       assert.equal(await waitForOrderStatus(order.id, 'picked_up'), 'picked_up');
 
       // ---- A rival brand's order never reaches this board (RLS isolation).

@@ -41,6 +41,8 @@ export type CalendarItem = {
   detailTemplate?: CalendarDetailTemplate;
   startsAt?: string;
   categoryOverride?: { label: string; iconKey: CalendarIconKey; accentColor: string };
+  /** Present only for task occurrences projected from the operations system. */
+  operationOccurrenceId?: string;
 };
 
 const ICONS: Readonly<Record<CalendarIconKey, AppIconName>> = {
