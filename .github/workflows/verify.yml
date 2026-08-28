@@ -37,12 +37,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Reads the pinned version from the root package.json `packageManager`.
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: pnpm
@@ -163,14 +163,14 @@ jobs:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_PROJECT_REF: ${{ inputs.supabase_project_ref || vars.SUPABASE_PROJECT_REF }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - uses: supabase/setup-cli@v1
+      - uses: supabase/setup-cli@v3
         with:
           version: 2.116.0
       - name: Provision isolated hosted Supabase branch
@@ -178,13 +178,24 @@ jobs:
           set -euo pipefail
           test -n "$SUPABASE_ACCESS_TOKEN" || { echo '::error::Set SUPABASE_ACCESS_TOKEN.'; exit 1; }
           test -n "$SUPABASE_PROJECT_REF" || { echo '::error::Set SUPABASE_PROJECT_REF.'; exit 1; }
-          branch_name="ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          branch_json=$(supabase branches create "$branch_name" \
-            --project-ref "$SUPABASE_PROJECT_REF" --git-branch "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" \
-            --size micro --yes -o json)
-          preview_ref=$(printf '%s' "$branch_json" | jq -r '.project_ref')
+          git_branch="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          branches=$(supabase branches list --project-ref "$SUPABASE_PROJECT_REF" -o json)
+          preview_ref=$(printf '%s' "$branches" | jq -r --arg branch "$git_branch" \
+            '[.[] | select(.git_branch == $branch and .preview_project_status == "ACTIVE_HEALTHY")][0].project_ref // empty')
+          branch_owned=false
+          if [ -z "$preview_ref" ]; then
+            branch_name="ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+            branch_json=$(supabase branches create "$branch_name" \
+              --project-ref "$SUPABASE_PROJECT_REF" --git-branch "$git_branch" \
+              --size micro --yes -o json)
+            preview_ref=$(printf '%s' "$branch_json" | jq -r '.project_ref')
+            branch_owned=true
+          fi
           test -n "$preview_ref" && test "$preview_ref" != null
-          echo "PREVIEW_PROJECT_REF=$preview_ref" >> "$GITHUB_ENV"
+          {
+            echo "PREVIEW_PROJECT_REF=$preview_ref"
+            echo "CI_BRANCH_OWNED=$branch_owned"
+          } >> "$GITHUB_ENV"
 
           ready=false
           for _attempt in $(seq 1 30); do
@@ -277,7 +288,7 @@ jobs:
           exit "$status"
       - name: Keep the walkthrough screenshots
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-screenshots
           path: |
@@ -294,7 +305,9 @@ jobs:
       - name: Delete hosted Supabase branch
         if: always()
         run: |
-          if [ -n "${PREVIEW_PROJECT_REF:-}" ]; then
+          # Git integration owns a PR branch's lifecycle. Other runs create a
+          # unique branch above and must remove it even after cancellation.
+          if [ "${CI_BRANCH_OWNED:-false}" = true ] && [ -n "${PREVIEW_PROJECT_REF:-}" ]; then
             supabase branches delete "$PREVIEW_PROJECT_REF" \
               --project-ref "$SUPABASE_PROJECT_REF" --yes
           fi
@@ -303,9 +316,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: pnpm
@@ -345,11 +358,11 @@ jobs:
     # human approval before each publish. Left off so the first publish works
     # without extra setup.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: pnpm
@@ -433,7 +446,7 @@ jobs:
 
       - name: Keep the update manifest for the run
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: eas-update-manifest
           path: |
