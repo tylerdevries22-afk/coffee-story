@@ -744,10 +744,14 @@ describe('tenant operations against real Supabase', { skip: skipUnlessConfigured
     );
     const maintenance = serviceClient();
     for (let attempt = 0; attempt < 2; attempt += 1) {
-      const result = await maintenance.rpc('run_operation_maintenance', {
+      const materialized = await maintenance.rpc('run_operation_maintenance', {
         target_now: '2040-01-15T13:00:00.000Z', target_horizon_hours: 1,
       });
-      assert.equal(result.error, null, result.error?.message);
+      assert.equal(materialized.error, null, materialized.error?.message);
+      const escalated = await maintenance.rpc('queue_due_operation_escalations', {
+        target_now: '2040-01-15T13:00:00.000Z',
+      });
+      assert.equal(escalated.error, null, escalated.error?.message);
     }
     const materialized = await sql<{
       occurrence_id: string;
