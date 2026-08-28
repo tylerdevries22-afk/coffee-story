@@ -28,9 +28,8 @@ describe('hosted database promotion gate', () => {
 
   it('isolates hosted integration tests from Git-managed preview branches', () => {
     assert.match(verify, /branch_name="ci-\$\{GITHUB_RUN_ID\}-\$\{GITHUB_RUN_ATTEMPT\}"/);
-    assert.match(verify, /git_branch="\$branch_name"/);
-    assert.match(verify, /--git-branch "\$git_branch"/);
-    assert.doesNotMatch(verify, /git_branch="\$\{GITHUB_HEAD_REF:-\$GITHUB_REF_NAME\}"/);
+    assert.doesNotMatch(verify, /--git-branch/);
+    assert.doesNotMatch(verify, /GITHUB_HEAD_REF/);
     assert.match(verify, /\*'Resource has been removed'\*\) ;;/);
   });
 });
