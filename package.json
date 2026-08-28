@@ -9,6 +9,7 @@
     "verify": "pnpm -r --workspace-concurrency=1 verify",
     "preview": "tsx scripts/preview.ts",
     "onboard": "tsx scripts/onboard.ts",
+    "supabase:promote": "tsx scripts/apply-hosted-migrations.ts",
     "supabase:verify": "supabase db lint --linked --level warning --fail-on warning && supabase db advisors --linked --type security --level warn --fail-on warn && supabase db advisors --linked --type performance --level warn --fail-on warn",
     "normalize-menu-images": "tsx scripts/normalize-menu-images.ts",
     "normalize-product-cutouts": "tsx scripts/normalize-product-cutouts.ts",

@@ -84,11 +84,11 @@ Set `DOPPLER_PRODUCTION_CONFIG` only when the workplace does not use the default
 
 Owner: platform or client organization. Use a fine-grained Management API token with
 project-creation access for the selected organization. Project creation requires a
-database password; generate it in the workflow and store it immediately in Doppler.
-Synchronize it into the generated repository as the encrypted Actions secret
-`SUPABASE_DB_PASSWORD`; Supabase deliberately does not return a production database
-password or connection URL through the Management API later. Never return it to a
-browser or persist it in the control-plane tables. The Management
+database password; generate it in the workflow and store it immediately in Doppler as
+`SUPABASE_DB_PASSWORD` for initial project creation and emergency direct access.
+Deployments use the Management API token instead. Supabase deliberately does not return
+the production database password later. Never return it to a browser or persist it in
+the control-plane tables. The Management
 API is rate-limited, so the factory tasks use bounded retries and idempotency.
 [Official Supabase Management API](https://supabase.com/docs/reference/api/getting-started).
 

@@ -14,11 +14,12 @@
 3. Point the Square application's webhook subscription at
    `/api/webhooks/square` and its OAuth redirect at `/api/square/callback`.
 
-**Database:** set `SUPABASE_DB_PASSWORD` from the encrypted operator secret, run
-`supabase link --project-ref <ref> --password "$SUPABASE_DB_PASSWORD"`, then
-`supabase db push --linked --password "$SUPABASE_DB_PASSWORD"`. Run
-`pnpm onboard --tenant <slug>` against the linked project. Enable the Custom
-Access Token hook (`app.custom_access_token`) before creating staff sessions.
+**Database:** set `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF`, and the current
+`EXPECTED_RELEASE_READINESS`, then run `pnpm supabase:promote`. This applies only
+the contiguous forward migration suffix, normalizes Management API wall-clock
+history versions, and fails closed on advisors or readiness drift. Run `pnpm
+onboard --tenant <slug>` against the project. Enable the Custom Access Token
+hook (`app.custom_access_token`) before creating staff sessions.
 
 **Customer app:** `pnpm onboard --tenant <slug> --apply`, then from
 `apps/customer`: `TENANT=<slug> npx eas-cli build --platform ios --profile
