@@ -14,7 +14,9 @@ const releaseHardening = readFileSync(join(dirname(fileURLToPath(import.meta.url
   '20260828130000_operations_release_hardening.sql'), 'utf8');
 const reviewFixes = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'supabase', 'migrations',
   '20260828144328_operations_release_review_fixes.sql'), 'utf8');
-const operationsSql = `${migration}\n${hardening}\n${advisorHardening}\n${releaseHardening}\n${reviewFixes}`;
+const volatilityFix = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'supabase', 'migrations',
+  '20260828152200_release_readiness_volatility.sql'), 'utf8');
+const operationsSql = `${migration}\n${hardening}\n${advisorHardening}\n${releaseHardening}\n${reviewFixes}\n${volatilityFix}`;
 
 describe('tenant operations migration', () => {
   it('keeps the platform schema industry-neutral', () => {
@@ -41,6 +43,15 @@ describe('tenant operations migration', () => {
     assert.match(migration, /unique \(occurrence_id, escalation_rule_id, recipient_id, channel\)/);
     assert.match(releaseHardening, /queue_due_operation_escalations/);
     assert.match(releaseHardening, /status in \('pending', 'failed', 'sending'\)/);
+  });
+
+  it('keeps each read-only release contract stable', () => {
+    assert.match(reviewFixes,
+      /create or replace function public\.platform_release_readiness\(\)\s+returns text language plpgsql stable security invoker/);
+    assert.match(volatilityFix,
+      /alter function app\.platform_release_readiness_20260828130000\(\) stable/);
+    assert.match(volatilityFix,
+      /create or replace function public\.platform_release_readiness\(\)\s+returns text language plpgsql stable security invoker/);
   });
 
   it('suppresses queued and claimed deliveries when operations are disabled', () => {
