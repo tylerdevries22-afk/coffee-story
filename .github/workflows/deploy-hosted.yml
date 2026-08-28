@@ -100,9 +100,62 @@ jobs:
       supabase_project_ref: ${{ inputs.supabase_project_ref || vars.SUPABASE_PROJECT_REF }}
     secrets: inherit
 
+  migrate-database:
+    name: Promote verified database migrations
+    needs: gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: supabase/setup-cli@v3
+        with:
+          version: 2.116.0
+      - name: Apply and verify forward-only target migrations
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$SUPABASE_ACCESS_TOKEN" || { echo '::error::Set SUPABASE_ACCESS_TOKEN.'; exit 1; }
+          test -n "$SUPABASE_PROJECT_REF" || { echo '::error::Set SUPABASE_PROJECT_REF.'; exit 1; }
+          retry_supabase() {
+            local attempt=1 maximum=5
+            until timeout 15m "$@"; do
+              if [ "$attempt" -ge "$maximum" ]; then
+                echo "::error::Supabase command failed after $maximum attempts."
+                return 1
+              fi
+              sleep $((attempt * 5))
+              attempt=$((attempt + 1))
+            done
+          }
+          details=$(supabase branches get "$SUPABASE_PROJECT_REF" \
+            --project-ref "$SUPABASE_PROJECT_REF" -o json)
+          database_url=$(printf '%s' "$details" | jq -r '.POSTGRES_URL')
+          test -n "$database_url" && test "$database_url" != null
+          echo "::add-mask::$database_url"
+          retry_supabase supabase db push --db-url "$database_url" --include-all --yes
+          retry_supabase supabase db lint --db-url "$database_url" \
+            --level warning --fail-on warning
+          retry_supabase supabase db advisors --db-url "$database_url" \
+            --type security --level warn --fail-on warn
+          retry_supabase supabase db advisors --db-url "$database_url" \
+            --type performance --level warn --fail-on warn
+          keys=$(retry_supabase supabase projects api-keys \
+            --project-ref "$SUPABASE_PROJECT_REF" -o json)
+          service_role=$(printf '%s' "$keys" \
+            | jq -r '[.[] | select(.name == "service_role")][0].api_key')
+          test -n "$service_role" && test "$service_role" != null
+          echo "::add-mask::$service_role"
+          readiness=$(curl --fail --silent --show-error --max-time 20 --retry 1 --retry-all-errors \
+            -X POST -H "apikey: $service_role" -H "Authorization: Bearer $service_role" \
+            -H 'Content-Type: application/json' --data '{}' \
+            "https://${SUPABASE_PROJECT_REF}.supabase.co/rest/v1/rpc/platform_release_readiness")
+          [ "$(printf '%s' "$readiness" | jq -r '.')" = 20260828130000 ] \
+            || { echo '::error::Target database release contract is not ready.'; exit 1; }
+
   deploy-hq:
     name: Deploy HQ API and console
-    needs: gate
+    needs: migrate-database
     if: inputs.deploy_web
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -346,7 +399,7 @@ jobs:
 
   publish-native:
     name: Publish native OTA updates
-    needs: gate
+    needs: migrate-database
     if: inputs.publish_native && inputs.environment == 'production'
     runs-on: ubuntu-latest
     timeout-minutes: 25

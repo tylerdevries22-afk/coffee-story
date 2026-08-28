@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { operationScheduleRule } from './operations-schedule';
+import { operationScheduleKindForRoutine, operationScheduleRule } from './operations-schedule';
 
 function form(values: Record<string, string>): FormData {
   const result = new FormData();
@@ -10,6 +10,15 @@ function form(values: Record<string, string>): FormData {
 }
 
 describe('operation schedule form boundary', () => {
+  it('maps each routine to its one valid schedule shape', () => {
+    assert.deepEqual([
+      operationScheduleKindForRoutine('opening'),
+      operationScheduleKindForRoutine('interval'),
+      operationScheduleKindForRoutine('closing'),
+      operationScheduleKindForRoutine('ad_hoc'),
+    ], ['opening_offset', 'open_interval', 'closing_offset', 'fixed_time']);
+  });
+
   it('normalizes each supported schedule kind', () => {
     assert.deepEqual(operationScheduleRule(form({ scheduleKind: 'fixed_time', localStartTime: '07:30' })), {
       scheduleKind: 'fixed_time', localStartTime: '07:30', anchorOffsetMinutes: null,

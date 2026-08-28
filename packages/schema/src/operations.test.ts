@@ -41,6 +41,14 @@ describe('tenant operations migration', () => {
     assert.match(releaseHardening, /status in \('pending', 'failed', 'sending'\)/);
   });
 
+  it('suppresses queued and claimed deliveries when operations are disabled', () => {
+    assert.match(releaseHardening,
+      /join public\.brands brand on brand\.id = occurrence\.brand_id and brand\.operations/);
+    assert.match(releaseHardening, /set status = 'cancelled', last_error = 'operations_disabled'/);
+    assert.match(releaseHardening,
+      /join public\.brands brand on brand\.id = outbox\.brand_id and brand\.operations/);
+  });
+
   it('requires a current shift and an unexpired claim lease', () => {
     assert.match(releaseHardening, /shift\.starts_at <= now\(\)/);
     assert.match(releaseHardening, /shift\.ends_at > now\(\)/);

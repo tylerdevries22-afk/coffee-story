@@ -11,6 +11,7 @@ import { serverClient } from './supabase-server';
 
 export type OperationsTemplateSummary = {
   id: string; key: string; revision: number; title: string; locationId: string | null;
+  routineKind: 'opening' | 'interval' | 'closing' | 'ad_hoc';
   estimatedMinutes: number; active: boolean; managedByConfig: boolean;
 };
 
@@ -47,7 +48,8 @@ export type OperationsWorkspace = {
 
 type TemplateRow = {
   id: string; template_key: string; revision: number; title: string; location_id: string | null;
-  estimated_minutes: number; is_active: boolean; managed_by_config: boolean;
+  routine_kind: OperationsTemplateSummary['routineKind']; estimated_minutes: number;
+  is_active: boolean; managed_by_config: boolean;
 };
 type ScheduleRow = {
   id: string; schedule_key: string; location_id: string; template_id: string;
@@ -94,11 +96,11 @@ function demoWorkspace(): OperationsWorkspace {
     enabled: true, canEditBrandDefaults: true,
     locations: [{ id: 'loc-downtown', name: 'Downtown', timezone: 'America/Denver' }],
     templates: [{ id: 'demo-template', key: 'opening-readiness', revision: 1,
-      title: 'Opening readiness', locationId: null, estimatedMinutes: 12,
+      title: 'Opening readiness', locationId: null, routineKind: 'opening', estimatedMinutes: 12,
       active: true, managedByConfig: true }],
     schedules: [{ id: 'demo-schedule', key: 'weekday-opening', locationId: 'loc-downtown',
       locationName: 'Downtown', templateTitle: 'Opening readiness', recurrence: 'weekly',
-      weekdays: [1, 2, 3, 4, 5], localStartTime: '07:45:00', scheduleKind: 'fixed_time', dueWindowMinutes: 30,
+      weekdays: [1, 2, 3, 4, 5], localStartTime: null, scheduleKind: 'opening_offset', dueWindowMinutes: 30,
       graceMinutes: 10, enabled: true }],
     occurrences, issues: [], metrics: metricsOf(occurrences),
     retention: { evidenceDays: 365, issueDays: 730, actorIdentityDays: 365 },
@@ -124,7 +126,7 @@ export async function loadOperationsWorkspace(): Promise<OperationsWorkspace> {
   const [locations, templates, schedules, occurrences, issues, retention] = await Promise.all([
     client.from('locations').select('id,name,timezone').eq('brand_id', brandId)
       .returns<{ id: string; name: string; timezone: string }[]>(),
-    client.from('operation_task_templates').select('id,template_key,revision,title,location_id,estimated_minutes,is_active,managed_by_config').eq('brand_id', brandId).order('title').returns<TemplateRow[]>(),
+    client.from('operation_task_templates').select('id,template_key,revision,title,location_id,routine_kind,estimated_minutes,is_active,managed_by_config').eq('brand_id', brandId).order('title').returns<TemplateRow[]>(),
     client.from('operation_schedules').select('id,schedule_key,location_id,template_id,recurrence_rule,weekdays,local_start_time,schedule_kind,due_window_minutes,grace_minutes,is_enabled').eq('brand_id', brandId).order('local_start_time').returns<ScheduleRow[]>(),
     client.from('operation_occurrences').select('id,location_id,template_snapshot,status,scheduled_for,due_at,grace_minutes,claimed_by,completed_at,completion_note').eq('brand_id', brandId).gte('scheduled_for', since).order('scheduled_for', { ascending: false }).limit(500).returns<OccurrenceRow[]>(),
     client.from('operation_issues').select('id,occurrence_id,category,severity,status,created_at').eq('brand_id', brandId).order('created_at', { ascending: false }).limit(200).returns<IssueRow[]>(),
@@ -149,6 +151,7 @@ export async function loadOperationsWorkspace(): Promise<OperationsWorkspace> {
     locations: locations.data ?? [],
     templates: (templates.data ?? []).map((row) => ({ id: row.id, key: row.template_key,
       revision: row.revision, title: row.title, locationId: row.location_id,
+      routineKind: row.routine_kind,
       estimatedMinutes: row.estimated_minutes, active: row.is_active, managedByConfig: row.managed_by_config })),
     schedules: (schedules.data ?? []).map((row) => ({ id: row.id, key: row.schedule_key,
       locationId: row.location_id, locationName: names.get(row.location_id) ?? 'Location',

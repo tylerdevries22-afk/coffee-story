@@ -68,6 +68,7 @@ async function operationPushWork(
   }
   return rows.map((row) => ({
     outboxId: row.id,
+    occurrenceId: row.occurrence_id,
     tokens: [...(tokenMap.get(recipientKey(row.brand_id, row.recipient_id)) ?? [])],
     appName: brandMap.get(row.brand_id) ?? 'Operations',
     taskTitle: snapshotTitle(occurrenceMap.get(row.occurrence_id)?.template_snapshot),

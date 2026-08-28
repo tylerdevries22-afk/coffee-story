@@ -28,7 +28,9 @@ export async function PATCH(request: Request): Promise<Response> {
   const rootActionId = idempotencyKeyOf(request);
   const body = await parseJsonBody<AcknowledgeBody>(request);
   if (body instanceof Response) return body;
-  const ids = validNotificationIds(body.ids);
+  const ids = body && typeof body === 'object' && !Array.isArray(body)
+    ? validNotificationIds(body.ids)
+    : null;
   if (!rootActionId || !ids) {
     return jsonError(400, 'invalid_request', 'One to 100 unique notification IDs and an Idempotency-Key are required.');
   }

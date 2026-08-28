@@ -183,6 +183,7 @@ begin
     select occurrence.id occurrence_id, occurrence.brand_id, occurrence.location_id,
       rule.id rule_id, member.id recipient_id, channel
     from public.operation_occurrences occurrence
+    join public.brands brand on brand.id = occurrence.brand_id and brand.operations
     join public.operation_escalation_rules rule on rule.brand_id = occurrence.brand_id
       and (rule.schedule_id is null or rule.schedule_id = occurrence.schedule_id)
     cross join lateral unnest(rule.channels) channel
@@ -220,18 +221,49 @@ revoke all on function public.queue_due_operation_escalations(timestamptz)
   from public, anon, authenticated;
 grant execute on function public.queue_due_operation_escalations(timestamptz) to service_role;
 
+create or replace function app.protect_operation_outbox() returns trigger
+language plpgsql set search_path = '' as $$
+begin
+  if tg_op = 'DELETE' then
+    raise exception using errcode = '55000', message = 'operation_delivery_history_immutable';
+  end if;
+  if (to_jsonb(new) - array['status', 'attempt_count', 'available_at', 'sent_at', 'last_error'])
+    <> (to_jsonb(old) - array['status', 'attempt_count', 'available_at', 'sent_at', 'last_error']) then
+    raise exception using errcode = '55000', message = 'operation_delivery_identity_immutable';
+  end if;
+  if not ((old.status = 'pending' and new.status in ('sending', 'cancelled'))
+    or (old.status = 'sending' and new.status in ('sent', 'failed', 'pending', 'cancelled'))
+    or (old.status = 'failed' and new.status in ('sending', 'cancelled'))
+    or old.status = new.status) then
+    raise exception using errcode = '22023', message = 'operation_delivery_transition_invalid';
+  end if;
+  return new;
+end $$;
+revoke all on function app.protect_operation_outbox() from public, anon, authenticated;
+
 create or replace function public.claim_operation_notification_batch(target_limit integer default 50)
 returns setof public.operation_notification_outbox
-language sql security definer set search_path = '' as $$
-  with candidates as (
-    select id from public.operation_notification_outbox
-    where status in ('pending', 'failed', 'sending') and available_at <= now() and attempt_count < 20
-    order by available_at, id for update skip locked limit least(greatest(target_limit, 1), 200)
+language plpgsql security definer set search_path = '' as $$
+begin
+  update public.operation_notification_outbox outbox
+    set status = 'cancelled', last_error = 'operations_disabled'
+  from public.brands brand
+  where brand.id = outbox.brand_id and not brand.operations
+    and outbox.status in ('pending', 'failed', 'sending');
+
+  return query with candidates as (
+    select outbox.id from public.operation_notification_outbox outbox
+    join public.brands brand on brand.id = outbox.brand_id and brand.operations
+    where outbox.status in ('pending', 'failed', 'sending')
+      and outbox.available_at <= now() and outbox.attempt_count < 20
+    order by outbox.available_at, outbox.id
+    for update of outbox skip locked limit least(greatest(target_limit, 1), 200)
   )
   update public.operation_notification_outbox outbox set status = 'sending',
     attempt_count = outbox.attempt_count + 1, last_error = null,
     available_at = now() + interval '5 minutes'
-  from candidates where outbox.id = candidates.id returning outbox.*
+  from candidates where outbox.id = candidates.id returning outbox.*;
+end
 $$;
 revoke all on function public.claim_operation_notification_batch(integer)
   from public, anon, authenticated;

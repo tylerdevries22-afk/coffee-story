@@ -6,7 +6,7 @@ import { revalidatePath } from 'next/cache';
 import { validateOperationRetention } from '@platform/domain';
 
 import { currentSession, hasRole } from '@/lib/auth';
-import { operationScheduleRule } from '@/lib/operations-schedule';
+import { operationScheduleKindForRoutine, operationScheduleRule } from '@/lib/operations-schedule';
 import { serverClient } from '@/lib/supabase-server';
 
 async function managerContext() {
@@ -59,9 +59,18 @@ export async function createOperationSchedule(formData: FormData): Promise<void>
   if (!/^[a-z0-9][a-z0-9-]{0,79}$/.test(scheduleKey) || !rule) {
     throw new Error('Schedule key or timing rule is invalid.');
   }
-  const location = await client.from('locations').select('timezone').eq('brand_id', session.brandId)
-    .eq('id', locationId).maybeSingle<{ timezone: string }>();
+  const [location, template] = await Promise.all([
+    client.from('locations').select('timezone').eq('brand_id', session.brandId)
+      .eq('id', locationId).maybeSingle<{ timezone: string }>(),
+    client.from('operation_task_templates').select('routine_kind')
+      .eq('brand_id', session.brandId).eq('id', templateId)
+      .maybeSingle<{ routine_kind: 'opening' | 'interval' | 'closing' | 'ad_hoc' }>(),
+  ]);
   if (location.error || !location.data) throw new Error('The schedule location is not available.');
+  if (template.error || !template.data
+    || operationScheduleKindForRoutine(template.data.routine_kind) !== rule.scheduleKind) {
+    throw new Error('The timing rule does not match the selected operation routine.');
+  }
   const recurrence = formData.get('recurrence') === 'weekly' ? 'weekly' : 'daily';
   const weekdays = recurrence === 'daily' ? [1, 2, 3, 4, 5, 6, 7]
     : formData.getAll('weekday').map(Number).filter((day) => Number.isInteger(day) && day >= 1 && day <= 7);

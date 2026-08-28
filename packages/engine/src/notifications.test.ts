@@ -47,24 +47,29 @@ describe('sendNotification', () => {
   it('delivers bounded operation push work and returns safe retry codes', async () => {
     const calls: string[] = [];
     const transport: Transport = {
-      sendPush: async (token) => {
-        calls.push(token);
+      sendPush: async (token, _title, _body, data) => {
+        calls.push(`${token}:${data?.occurrenceId ?? 'missing'}`);
         if (token === 'bad-token') throw new Error('provider secret detail');
       },
       sendSms: async () => undefined,
       sendEmail: async () => undefined,
     };
     const results = await deliverOperationPushBatch(transport, [
-      { outboxId: 'sent', tokens: ['good-token'], appName: 'Coffee Story',
+      { outboxId: 'sent', occurrenceId: 'occurrence-sent', tokens: ['good-token'], appName: 'Coffee Story',
         taskTitle: 'Safety walk', locationName: 'Downtown' },
-      { outboxId: 'failed', tokens: ['bad-token'], appName: 'Coffee Story',
+      { outboxId: 'failed', occurrenceId: 'occurrence-failed', tokens: ['bad-token'], appName: 'Coffee Story',
         taskTitle: 'Closing check', locationName: 'Downtown' },
-      { outboxId: 'partial', tokens: ['bad-token', 'good-token'], appName: 'Coffee Story',
+      { outboxId: 'partial', occurrenceId: 'occurrence-partial', tokens: ['bad-token', 'good-token'], appName: 'Coffee Story',
         taskTitle: 'Midday check', locationName: 'Downtown' },
-      { outboxId: 'unpaired', tokens: [], appName: 'Coffee Story',
+      { outboxId: 'unpaired', occurrenceId: 'occurrence-unpaired', tokens: [], appName: 'Coffee Story',
         taskTitle: 'Opening check', locationName: 'Downtown' },
     ]);
-    assert.deepEqual(calls, ['good-token', 'bad-token', 'bad-token', 'good-token']);
+    assert.deepEqual(calls, [
+      'good-token:occurrence-sent',
+      'bad-token:occurrence-failed',
+      'bad-token:occurrence-partial',
+      'good-token:occurrence-partial',
+    ]);
     assert.deepEqual(results, [
       { outboxId: 'sent', outcome: 'sent', errorCode: null },
       { outboxId: 'failed', outcome: 'failed', errorCode: 'delivery_failed' },

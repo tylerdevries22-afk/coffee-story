@@ -3,6 +3,19 @@ export const OPERATION_SCHEDULE_KINDS = [
 ] as const;
 
 export type OperationScheduleKind = typeof OPERATION_SCHEDULE_KINDS[number];
+export type OperationRoutineKind = 'opening' | 'interval' | 'closing' | 'ad_hoc';
+
+const ROUTINE_SCHEDULE_KIND: Readonly<Record<OperationRoutineKind, OperationScheduleKind>> = {
+  opening: 'opening_offset',
+  interval: 'open_interval',
+  closing: 'closing_offset',
+  ad_hoc: 'fixed_time',
+};
+
+/** Keeps routine semantics aligned with the database schedule invariant. */
+export function operationScheduleKindForRoutine(routineKind: OperationRoutineKind): OperationScheduleKind {
+  return ROUTINE_SCHEDULE_KIND[routineKind];
+}
 
 export type OperationScheduleRuleInput = {
   scheduleKind: OperationScheduleKind;
