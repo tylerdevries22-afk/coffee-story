@@ -6,6 +6,7 @@ import {
   operationCalendarId,
   parseOperatorQueue,
   taskEligibilityMessage,
+  taskIsActionable,
 } from './model';
 
 const ID = '10000000-0000-4000-8000-000000000001';
@@ -56,4 +57,20 @@ test('missing eligibility fails closed and N/A capability survives parsing', () 
   assert.equal(occurrence?.snapshot.steps[0]?.allowNotApplicable, true);
   assert.equal(occurrence ? taskEligibilityMessage(occurrence) : null,
     'You need an active shift before claiming this task.');
+});
+
+test('terminal operations are never actionable from notification deep links', () => {
+  const base = parseOperatorQueue({ occurrences: [{
+    id: ID, brandId: '10000000-0000-4000-8000-000000000002',
+    locationId: '10000000-0000-4000-8000-000000000003', status: 'scheduled',
+    scheduledFor: '2026-08-27T12:00:00.000Z', dueAt: '2026-08-27T12:15:00.000Z',
+    templateSnapshot: { templateId: ID, title: 'Check', steps: [] },
+    eligibility: { eligible: true, hasActiveShift: true },
+  }] }).occurrences[0];
+  assert.ok(base);
+  const now = new Date('2026-08-27T12:10:00.000Z');
+  assert.equal(taskIsActionable(base, now), true);
+  for (const status of ['completed', 'missed', 'cancelled'] as const) {
+    assert.equal(taskIsActionable({ ...base, status }, now), false);
+  }
 });

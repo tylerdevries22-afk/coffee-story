@@ -49,11 +49,14 @@ jobs:
       - name: Require hosted credentials
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
           test -n "$SUPABASE_ACCESS_TOKEN" || { echo '::error::Set SUPABASE_ACCESS_TOKEN.'; exit 1; }
+          test -n "$SUPABASE_DB_PASSWORD" || { echo '::error::Set SUPABASE_DB_PASSWORD.'; exit 1; }
       - name: Apply forward-only migrations
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
           PROJECT_REF: ${{ inputs.supabase_project_ref }}
         run: |
           set -euo pipefail
@@ -68,16 +71,14 @@ jobs:
               attempt=$((attempt + 1))
             done
           }
-          details=$(retry_supabase supabase branches get "$PROJECT_REF" \
-            --project-ref "$PROJECT_REF" -o json)
-          database_url=$(printf '%s' "$details" | jq -r '.POSTGRES_URL')
-          test -n "$database_url" && test "$database_url" != null
-          echo "::add-mask::$database_url"
-          retry_supabase supabase db push --db-url "$database_url" --include-all --yes
-          retry_supabase supabase db lint --db-url "$database_url" --level warning --fail-on warning
-          retry_supabase supabase db advisors --db-url "$database_url" \
+          retry_supabase supabase link --project-ref "$PROJECT_REF" \
+            --password "$SUPABASE_DB_PASSWORD"
+          retry_supabase supabase db push --linked --include-all \
+            --password "$SUPABASE_DB_PASSWORD" --yes
+          retry_supabase supabase db lint --linked --level warning --fail-on warning
+          retry_supabase supabase db advisors --linked \
             --type security --level warn --fail-on warn
-          retry_supabase supabase db advisors --db-url "$database_url" \
+          retry_supabase supabase db advisors --linked \
             --type performance --level warn --fail-on warn
       - name: Apply the production Auth policy
         env:

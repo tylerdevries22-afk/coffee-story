@@ -10,7 +10,7 @@ import { useTokens, type BrandTokens } from '@platform/ui';
 
 import { AppIcon } from '@/components/icon';
 import { Body, Button, Card } from '@/components/ui';
-import { taskEligibilityMessage, type OperatorChecklistStep,
+import { taskEligibilityMessage, taskIsActionable, type OperatorChecklistStep,
   type OperatorTaskOccurrence } from '@/features/operations/model';
 import type {
   OperationIntentIssue,
@@ -137,15 +137,18 @@ function ClaimCard({ styles, task }: {
 }) {
   const operations = useOperations();
   const upcoming = Date.parse(task.scheduledFor) > operations.now.getTime();
+  const terminal = ['completed', 'missed', 'cancelled'].includes(task.status);
   const eligibility = taskEligibilityMessage(task);
-  const unavailable = task.claimedBy !== null || upcoming || eligibility !== null;
+  const unavailable = task.claimedBy !== null || !taskIsActionable(task, operations.now);
   const message = task.claimedBy !== null
     ? 'Another team member currently owns this checklist.'
-    : upcoming ? 'This operation can be claimed when its scheduled window begins.'
+    : terminal ? 'This operation is read-only because its work window has closed.'
+      : upcoming ? 'This operation can be claimed when its scheduled window begins.'
       : eligibility ?? 'Claiming records ownership and keeps completion evidence attributable.';
   return (
     <Card style={styles.claimCard}>
-      <Text style={styles.cardTitle}>{unavailable ? 'Not claimable yet' : 'Ready to begin?'}</Text>
+      <Text style={styles.cardTitle}>{terminal ? 'Operation closed'
+        : unavailable ? 'Not claimable yet' : 'Ready to begin?'}</Text>
       <Body muted>{message}</Body>
       {!unavailable ? <Button label="Claim operation" onPress={() => void operations.claim(task.id)} /> : null}
     </Card>
