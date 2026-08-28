@@ -12,7 +12,7 @@ const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const IANA_ZONE = /^[A-Za-z_]+(?:\/[A-Za-z0-9_+-]+)+$/;
 
 const TASKS = [
-  task('research-brand', 'Research brand and source assets', 'intake', 'research'),
+  task('research-brand', 'Research brand and source assets', 'intake', 'research', [], ['openai.api_key']),
   task('generate-demo', 'Generate the five-app demo', 'demo', 'platform', ['research-brand']),
   task('verify-demo', 'Verify cross-app demo behavior', 'demo', 'platform', ['generate-demo']),
   task('collect-credentials', 'Verify required provider access', 'credentials', 'platform', ['verify-demo']),

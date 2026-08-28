@@ -26,6 +26,12 @@ gate. Failed validation leaves the previous release active.
 7. Verify customer → operator → pickup order propagation and HQ editing in canary.
 8. Promote only after all required gates pass; otherwise roll back to last known good.
 
+The durable executor currently completes steps 1–5. It then records
+`content_bootstrap_required` and stops before any public release. Steps 6–8 remain in
+the persisted task graph so a partial run is visible and resumable, but they must not
+be represented as complete until the migration/seed, canary, and promotion executors
+are connected and verified.
+
 The workflow `.github/workflows/deploy-hosted.yml` accepts `tenant`, `project_prefix`,
 and `environment`. Coffee Story remains the default, so existing deployment commands
 keep working. New stacks use `<project_prefix>-hq`, `-customer`, `-operator`, `-kiosk`,
@@ -55,6 +61,9 @@ contents permissions needed to create/configure the cloned repository. Install i
 on the template organization or selected repositories. GitHub Apps start with no
 permissions, and GitHub recommends selecting only what is required. Store the app ID,
 installation ID, and private key in Doppler—not in GitHub variables or tenant folders.
+Also configure `GITHUB_REPOSITORY_OWNER`, `GITHUB_TEMPLATE_OWNER`, and
+`GITHUB_TEMPLATE_REPOSITORY`; the template repository must be marked as a GitHub
+template and the Vercel GitHub App must be allowed to read generated repositories.
 [Official GitHub permissions guide](https://docs.github.com/en/apps/creating-github-apps/registering-a-github-app/choosing-permissions-for-a-github-app).
 
 ### Doppler
@@ -63,6 +72,8 @@ Owner: platform. Create a `platform-factory` project with `dev`, `preview`, and
 `production` configs. The factory uses a service-account token to create tenant-scoped
 projects/configs; deployed apps use read-only service tokens for a single config. Copy
 each one-time token directly into the destination secret store.
+Set `DOPPLER_PRODUCTION_CONFIG` only when the workplace does not use the default
+`prd` root config.
 [Official Doppler service-token guide](https://docs.doppler.com/docs/service-tokens).
 
 ### Supabase

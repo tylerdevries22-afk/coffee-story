@@ -4,6 +4,7 @@ import { factoryTasks, parseOnboardingIntake, proposalTermsFor } from '@platform
 import Link from 'next/link';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { start } from 'workflow/api';
 
 import { Icon, type IconName } from '@/components/icon';
 import { currentSession, hasRole } from '@/lib/auth';
@@ -11,6 +12,7 @@ import { serverEnv, serviceDb } from '@/lib/api-auth';
 import { loadFactoryOverview } from '@/lib/factory-data';
 import { formatMoney } from '@/lib/kpi';
 import { serverClient } from '@/lib/supabase-server';
+import { runPlatformFactory } from '@/workflows/platform-factory';
 
 export const dynamic = 'force-dynamic';
 
@@ -74,7 +76,17 @@ async function createOnboardingRun(formData: FormData): Promise<void> {
     input_created_by: user.data.user.id,
     input_tasks: factoryTasks(),
   });
-  if (result.error) redirect('/onboarding?error=create');
+  if (result.error || typeof result.data !== 'string') redirect('/onboarding?error=create');
+
+  try {
+    await start(runPlatformFactory, [{ runId: result.data }]);
+  } catch {
+    await Promise.all([
+      database.from('platform_onboarding_runs').update({ state: 'failed', last_error_code: 'workflow_start_failed' }).eq('id', result.data),
+      database.from('platform_onboarding_tasks').update({ state: 'failed', last_error_code: 'workflow_start_failed' }).eq('run_id', result.data).eq('task_key', 'research-brand'),
+    ]);
+    redirect('/onboarding?error=automation');
+  }
 
   revalidatePath('/onboarding');
   redirect('/onboarding?created=1');
@@ -119,6 +131,7 @@ export default async function OnboardingPage({ searchParams }: { searchParams: S
           {error === 'invalid' ? detail || 'Review the onboarding fields and try again.' : null}
           {error === 'blueprint' ? 'The selected industry blueprint is not available.' : null}
           {error === 'create' ? 'The run could not be created. No infrastructure or billing changes were made.' : null}
+          {error === 'automation' ? 'The run was saved, but its hosted automation could not start. No provider resources were created.' : null}
         </div>
       ) : null}
       {overview.issue ? <div className="notice">{overview.issue} Apply the factory migration to the hosted Coffee Story project to enable live runs.</div> : null}
