@@ -29,6 +29,18 @@ export const TEMPLATES = {
     title: '{appName}',
     body: 'You earned {points} {pointsName}. {pointsToNext} to your next reward.',
   },
+  task_due: {
+    title: '{appName}',
+    body: '{taskTitle} is ready to claim at {locationName}.',
+  },
+  task_overdue: {
+    title: '{appName}',
+    body: '{taskTitle} is overdue at {locationName}.',
+  },
+  task_issue_reported: {
+    title: '{appName}',
+    body: 'An issue was reported for {taskTitle} at {locationName}.',
+  },
 } as const;
 
 export type TemplateKey = keyof typeof TEMPLATES;

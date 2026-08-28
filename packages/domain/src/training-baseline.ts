@@ -10,9 +10,19 @@ const SOURCES = [
   { title: 'Coffee standards', url: 'https://sca.coffee/research/coffee-standards', publisher: 'Specialty Coffee Association', accessedAt: '2026-08-26' },
   { title: 'FDA Food Code', url: 'https://www.fda.gov/food/retail-food-protection/fda-food-code', publisher: 'U.S. Food and Drug Administration', accessedAt: '2026-08-26' },
   { title: 'Restaurant safety', url: 'https://www.osha.gov/etools/young-workers-restaurant-safety', publisher: 'Occupational Safety and Health Administration', accessedAt: '2026-08-26' },
+  { title: 'Safe and effective disinfectant use', url: 'https://www.epa.gov/pesticide-registration/selected-epa-registered-disinfectants', publisher: 'U.S. Environmental Protection Agency', accessedAt: '2026-08-27' },
 ] as const;
 
-type LessonSeed = { slug: string; title: string; objective: string; sourceUrl: string; menuItemSlugs?: string[] };
+type LessonSeed = {
+  slug: string;
+  title: string;
+  objective: string;
+  sourceUrl: string;
+  menuItemSlugs?: string[];
+  content?: string;
+  grantsCompetencyKeys?: string[];
+  competencyValidityDays?: number;
+};
 
 const TRACKS: { key: TrainingTrackKey; title: string; summary: string; symbol: string; lessons: LessonSeed[] }[] = [
   {
@@ -40,7 +50,15 @@ const TRACKS: { key: TrainingTrackKey; title: string; summary: string; symbol: s
     key: 'safety', title: 'Safety', summary: 'Food, equipment, chemical, and incident safety.', symbol: 'lock', lessons: [
       { slug: 'food-and-allergen-safety', title: 'Protect food and allergen safety', objective: 'Use safe handling and clear allergen communication', sourceUrl: SOURCES[1].url },
       { slug: 'equipment-and-heat-safety', title: 'Work safely around equipment and heat', objective: 'Prevent burns, electrical incidents, and unsafe equipment use', sourceUrl: SOURCES[2].url },
-      { slug: 'chemicals-and-incidents', title: 'Handle chemicals and incidents', objective: 'Use labeled chemicals and report an incident immediately', sourceUrl: SOURCES[2].url },
+      {
+        slug: 'chemicals-and-incidents',
+        title: 'Handle chemicals, restroom sanitation, and incidents',
+        objective: 'Use labeled products safely while completing a restroom sanitation round and reporting an incident immediately',
+        sourceUrl: SOURCES[3].url,
+        content: 'Wear the PPE named by the tenant procedure, keep products in labeled containers, and never mix cleaning products. Follow the product label for approved surfaces, application method, pre-cleaning, dilution, and contact time; the treated surface must remain visibly wet for the full label contact time. Use temporary service signage, work from cleaner areas toward dirtier areas, and wash hands after removing gloves. Stop and escalate a spill, exposure, blockage, broken fixture, or other unsafe condition rather than improvising a chemical response.',
+        grantsCompetencyKeys: ['restroom-sanitation'],
+        competencyValidityDays: 365,
+      },
     ],
   },
   {
@@ -57,7 +75,7 @@ function lesson(seed: LessonSeed): TrainingLesson {
     slug: seed.slug,
     title: seed.title,
     objective: seed.objective,
-    content: `${seed.objective}. Follow the current Coffee Story procedure, verify the result against the station standard, and pause to ask a shift lead whenever equipment, ingredients, guest needs, or local requirements fall outside the documented process. Record the handoff so the next operator can continue safely and consistently.`,
+    content: seed.content ?? `${seed.objective}. Follow the current Coffee Story procedure, verify the result against the station standard, and pause to ask a shift lead whenever equipment, ingredients, guest needs, or local requirements fall outside the documented process. Record the handoff so the next operator can continue safely and consistently.`,
     estimatedMinutes: 8,
     sourceUrls: [seed.sourceUrl],
     ...(seed.menuItemSlugs ? { menuItemSlugs: seed.menuItemSlugs } : {}),
@@ -66,6 +84,8 @@ function lesson(seed: LessonSeed): TrainingLesson {
       { prompt: `What is the safest first step for ${seed.title.toLowerCase()}?`, choices: ['Follow the approved procedure', 'Guess from memory', 'Skip the check'], correctChoice: 0, explanation: 'The approved procedure is the tenant source of truth.' },
       { prompt: 'What should you do when the situation is not covered?', choices: ['Continue anyway', 'Ask a shift lead', 'Hide the issue'], correctChoice: 1, explanation: 'Escalation protects guests, operators, and the business.' },
     ],
+    ...(seed.grantsCompetencyKeys ? { grantsCompetencyKeys: seed.grantsCompetencyKeys } : {}),
+    ...(seed.competencyValidityDays ? { competencyValidityDays: seed.competencyValidityDays } : {}),
   };
 }
 

@@ -111,7 +111,7 @@ function EmptyFeed() {
         <AppIcon name="bell" size={34} tintColor={tokens.primary} />
       </View>
       <Text style={styles.emptyTitle}>No notifications yet</Text>
-      <Text style={styles.emptyBody}>Booking updates and rewards will show up here.</Text>
+      <Text style={styles.emptyBody}>Order and shift updates will show up here.</Text>
     </View>
   );
 }

@@ -4,4 +4,5 @@ export * from './types';
 export * from './menu-csv';
 export * from './tenant-menu';
 export * from './published-menu';
+export * from './operations-config';
 export type { Database } from './generated';
