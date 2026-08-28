@@ -1,0 +1,6 @@
+[allowlist]
+description = "Reviewed non-secret brand colors and human-readable kiosk pairing alphabet"
+regexes = [
+  '''#(?:FAF5EF|241710|D9A45B|57483B|3B664B)''',
+  '''23456789BCDFGHJKMNPQRSTVWXZ''',
+]

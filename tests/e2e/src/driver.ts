@@ -42,14 +42,25 @@ export type AppPage = {
   close: () => Promise<void>;
 };
 
+export type AppMode = {
+  storageKey: string;
+  value: 'demo' | 'live';
+};
+
 export async function openApp(
   url: string,
   viewport: { width: number; height: number },
+  appMode?: AppMode,
 ): Promise<AppPage> {
   const context = await (await launchBrowser()).newContext({
     viewport,
     timezoneId: noonTimezone(),
   });
+  if (appMode) {
+    await context.addInitScript(({ storageKey, value }: AppMode) => {
+      globalThis.localStorage.setItem(storageKey, value);
+    }, appMode);
+  }
   const page = await context.newPage();
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(String(error).slice(0, 300)));

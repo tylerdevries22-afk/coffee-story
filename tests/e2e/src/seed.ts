@@ -24,6 +24,20 @@ export async function onboardedBrand(slug = 'coffee-story'): Promise<SeededBrand
 
 export type StaffAccount = { email: string; password: string; userId: string };
 
+/** A confirmed customer account that exercises hosted Auth without external email delivery. */
+export async function createGuestAccount(): Promise<StaffAccount> {
+  const email = uniqueEmail('guest');
+  const password = `e2e-Pass-${Math.random().toString(36).slice(2, 10)}`;
+  const created = await serviceClient().auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { full_name: 'E2E Guest', brand_slug: 'coffee-story' },
+  });
+  if (created.error || !created.data.user) throw new Error(`createGuestUser: ${created.error?.message}`);
+  return { email, password, userId: created.data.user.id };
+}
+
 /** A password staff account whose next token carries staff claims. */
 export async function createStaffAccount(
   brand: SeededBrand,

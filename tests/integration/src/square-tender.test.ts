@@ -363,6 +363,7 @@ describe('square_link tender and refunds', { skip: skipUnlessConfigured }, () =>
   });
 
   it('serializes concurrent Square refunds and reverses loyalty exactly once per refund', async () => {
+    const raceKey = randomUUID();
     const customer = await sql<{ id: string }>(
       `insert into public.customers (brand_id, full_name) values ($1, 'Refund Race') returning id`,
       [brandId],
@@ -387,12 +388,15 @@ describe('square_link tender and refunds', { skip: skipUnlessConfigured }, () =>
       } } },
     });
     const [first, second] = await Promise.all([
-      refund('evt-refund-race-1', 'refund-race-1'),
-      refund('evt-refund-race-2', 'refund-race-2'),
+      refund(`evt-refund-race-${raceKey}-1`, `refund-race-${raceKey}-1`),
+      refund(`evt-refund-race-${raceKey}-2`, `refund-race-${raceKey}-2`),
     ]);
     assert.equal(first.status, 200);
     assert.equal(second.status, 200);
-    assert.equal((await refund('evt-refund-race-1-retry', 'refund-race-1')).status, 200);
+    assert.equal((await refund(
+      `evt-refund-race-${raceKey}-1-retry`,
+      `refund-race-${raceKey}-1`,
+    )).status, 200);
 
     const result = await sql<{
       status: string; points_balance: string; earns: string; reversals: string; net_points: string;

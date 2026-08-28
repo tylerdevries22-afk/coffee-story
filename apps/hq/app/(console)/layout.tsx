@@ -55,9 +55,12 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
     : null;
   const brandConfig = brand && !brand.error ? brand.data?.brand_config : null;
   if (client && session && pathname && !pathname.startsWith('/wall/preview/')) {
-    const sessionData = await client.auth.getSession();
+    const [sessionData, authenticatedUser] = await Promise.all([
+      client.auth.getSession(),
+      client.auth.getUser(),
+    ]);
     const accessToken = sessionData.data.session?.access_token;
-    const userConsent = sessionData.data.session?.user.user_metadata?.analytics_consent === true;
+    const userConsent = authenticatedUser.data.user?.user_metadata?.analytics_consent === true;
     const privacy = brandConfig && typeof brandConfig === 'object' && !Array.isArray(brandConfig)
       ? (brandConfig as { privacy?: unknown }).privacy
       : null;

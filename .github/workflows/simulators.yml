@@ -253,7 +253,8 @@ jobs:
             # The cached bundle is what the operator device gets installed from;
             # @expo/cli names it `Expo-Go-<version>.tar.app`, which is a
             # directory despite the `.tar` in the middle.
-            APP=$(ls -td "$HOME"/.expo/ios-simulator-app-cache/*.app 2>/dev/null | sed -n 1p)
+            APP=$(find "$HOME/.expo/ios-simulator-app-cache" -maxdepth 1 -type d -name '*.app' \
+              -exec stat -f '%m %N' {} + 2>/dev/null | sort -nr | sed 's/^[0-9]* //' | sed -n 1p)
             echo "cached: ${APP:-<nothing>}"
             pkill -f "expo start --port 8099" || true
             # Install on both regardless of which device `--ios` picked.
@@ -443,7 +444,7 @@ jobs:
               echo "  $name: the device log never came back in ${waited}s"
             fi
             if [ -s "/tmp/device-$name.log" ]; then
-              echo "  $name device log: $(wc -l < /tmp/device-$name.log) lines from Expo Go"
+              echo "  $name device log: $(wc -l < "/tmp/device-$name.log") lines from Expo Go"
               if grep -qiE "Running application|RCTJavaScript|JavaScript loaded|bridge did|expo-router|AppRegistry" "/tmp/device-$name.log"; then
                 echo "  $name: the device logged a React Native app starting:"
                 grep -iE "Running application|RCTJavaScript|JavaScript loaded|bridge did|expo-router|AppRegistry" "/tmp/device-$name.log" | head -4

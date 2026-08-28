@@ -6,6 +6,11 @@ name: verify
 # not build.
 on:
   workflow_call:
+    inputs:
+      supabase_project_ref:
+        description: Parent hosted Supabase project used for the disposable branch
+        type: string
+        required: false
   push:
     branches: [main]
   pull_request:
@@ -90,15 +95,15 @@ jobs:
       # only shows up here.
       - name: Bundle the customer app for iOS
         working-directory: apps/customer
-        run: npx expo export --platform ios
+        run: pnpm exec expo export --platform ios
 
       - name: Bundle the customer app for web
         working-directory: apps/customer
-        run: npx expo export --platform web
+        run: pnpm exec expo export --platform web
 
       - name: Bundle the operator app for iOS
         working-directory: apps/operator
-        run: npx expo export --platform ios
+        run: pnpm exec expo export --platform ios
 
       # The kiosk and the display were in neither the lint list nor the bundle
       # list: this workflow did not contain the word "kiosk" or "display" at
@@ -107,14 +112,14 @@ jobs:
       # not a repair.
       - name: Bundle the kiosk for iOS
         working-directory: apps/kiosk
-        run: npx expo export --platform ios
+        run: pnpm exec expo export --platform ios
 
       # Web too: the kiosk's static export is the surface
       # scripts/capture-surfaces.mjs drives, so a broken web bundle silently
       # turns every committed capture into an error page.
       - name: Bundle the kiosk for web
         working-directory: apps/kiosk
-        run: npx expo export --platform web
+        run: pnpm exec expo export --platform web
 
       - name: Build the pickup display
         run: pnpm --filter @platform/display build
@@ -148,14 +153,15 @@ jobs:
           fi
           echo "PASS: no competitor name in any tracked file."
 
-  # Everything above is static; this job is the only place the schema's SQL
-  # actually executes. `supabase start` (Docker lives on the hosted runners;
-  # the dev container has no daemon) applies supabase/migrations/ and the
-  # config.toml auth hook, then the tests exercise RLS with real hook-minted
-  # JWTs, the order state machine, webhook replay, and the idempotency key.
-  integration:
+  # One disposable hosted branch proves migrations, RLS, Realtime, the five
+  # surfaces, and browser journeys without Docker or a developer machine.
+  # The branch is always deleted, including after cancellation or failure.
+  hosted-integration:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 55
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_REF: ${{ inputs.supabase_project_ref || vars.SUPABASE_PROJECT_REF }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -166,88 +172,96 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
-        env:
-          # `version: latest` resolves through the GitHub API, and an
-          # unauthenticated call shares a 60/hour budget per runner IP -- with
-          # e2e and integration both resolving it concurrently, a run died
-          # with "Failed to resolve latest Supabase CLI release: rate limit
-          # exceeded" before a single test executed. A token raises that to
-          # 1000/hour for this repo and costs nothing.
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Start the Supabase stack (applies supabase/migrations)
-        run: supabase start
-      - name: Run integration tests against the stack
+          version: 2.116.0
+      - name: Provision isolated hosted Supabase branch
         run: |
           set -euo pipefail
-          eval "$(supabase status -o env | sed 's/^/export /')"
-          export SUPABASE_TEST_URL="$API_URL"
-          export SUPABASE_TEST_ANON_KEY="$ANON_KEY"
-          export SUPABASE_TEST_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY"
-          export SUPABASE_TEST_DB_URL="$DB_URL"
+          test -n "$SUPABASE_ACCESS_TOKEN" || { echo '::error::Set SUPABASE_ACCESS_TOKEN.'; exit 1; }
+          test -n "$SUPABASE_PROJECT_REF" || { echo '::error::Set SUPABASE_PROJECT_REF.'; exit 1; }
+          branch_name="ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          branch_json=$(supabase branches create "$branch_name" \
+            --project-ref "$SUPABASE_PROJECT_REF" --git-branch "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" \
+            --size micro --yes -o json)
+          preview_ref=$(printf '%s' "$branch_json" | jq -r '.project_ref')
+          test -n "$preview_ref" && test "$preview_ref" != null
+          echo "PREVIEW_PROJECT_REF=$preview_ref" >> "$GITHUB_ENV"
+
+          ready=false
+          for _attempt in $(seq 1 30); do
+            state=$(supabase branches list --project-ref "$SUPABASE_PROJECT_REF" -o json \
+              | jq -r --arg ref "$preview_ref" '.[] | select(.project_ref == $ref) | (.preview_project_status // .status)')
+            if [ "$state" = ACTIVE_HEALTHY ]; then ready=true; break; fi
+            sleep 10
+          done
+          [ "$ready" = true ] || { echo '::error::Hosted Supabase branch did not become healthy.'; exit 1; }
+
+          details=$(supabase branches get "$preview_ref" --project-ref "$SUPABASE_PROJECT_REF" -o json)
+          SUPABASE_URL=$(printf '%s' "$details" | jq -r '.SUPABASE_URL')
+          SUPABASE_PUBLISHABLE_KEY=$(printf '%s' "$details" | jq -r '.SUPABASE_ANON_KEY')
+          SUPABASE_SERVICE_ROLE_KEY=$(printf '%s' "$details" | jq -r '.SUPABASE_SERVICE_ROLE_KEY')
+          SUPABASE_DB_URL=$(printf '%s' "$details" | jq -r '.POSTGRES_URL_NON_POOLING')
+          export SUPABASE_URL SUPABASE_PUBLISHABLE_KEY SUPABASE_SERVICE_ROLE_KEY SUPABASE_DB_URL
+          for secret_value in "$SUPABASE_PUBLISHABLE_KEY" "$SUPABASE_SERVICE_ROLE_KEY" "$SUPABASE_DB_URL"; do
+            echo "::add-mask::$secret_value"
+          done
+          {
+            echo "SUPABASE_URL=$SUPABASE_URL"
+            echo "SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY"
+            echo "SUPABASE_DB_URL=$SUPABASE_DB_URL"
+          } >> "$GITHUB_ENV"
+
+      - name: Apply and lint forward-only migrations
+        run: |
+          set -euo pipefail
+          supabase db push --db-url "$SUPABASE_DB_URL" --include-all --yes
+          supabase db lint --db-url "$SUPABASE_DB_URL" --level warning --fail-on warning
+
+      - name: Seed through the production onboarding path
+        run: pnpm onboard --tenant coffee-story --require-db
+
+      - name: Run integration suites against hosted Supabase
+        run: |
+          set -euo pipefail
+          export SUPABASE_TEST_URL="$SUPABASE_URL"
+          export SUPABASE_TEST_ANON_KEY="$SUPABASE_PUBLISHABLE_KEY"
+          export SUPABASE_TEST_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY"
+          export SUPABASE_TEST_DB_URL="$SUPABASE_DB_URL"
           pnpm --filter @platform/integration-tests test
 
-  # The three-apps-together proof: a guest signs in with an email code and
-  # places a real order in the customer web build, the operator board works
-  # it over Realtime, and HQ's dashboard carries the money — one seeded
-  # supabase-CLI stack, the real onboarding path, the real API, real RLS.
-  e2e:
-    runs-on: ubuntu-latest
-    timeout-minutes: 35
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - uses: supabase/setup-cli@v1
-        with:
-          version: latest
-        env:
-          # `version: latest` resolves through the GitHub API, and an
-          # unauthenticated call shares a 60/hour budget per runner IP -- with
-          # e2e and integration both resolving it concurrently, a run died
-          # with "Failed to resolve latest Supabase CLI release: rate limit
-          # exceeded" before a single test executed. A token raises that to
-          # 1000/hour for this repo and costs nothing.
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Start the Supabase stack (applies supabase/migrations)
-        run: supabase start
       - name: Install the Playwright browser
         working-directory: tests/e2e
-        run: npx playwright install --with-deps chromium
-      - name: Seed the tenant through the real onboarding path
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Build all five surfaces against hosted Supabase
         run: |
           set -euo pipefail
-          eval "$(supabase status -o env | sed 's/^/export /')"
-          export SUPABASE_URL="$API_URL"
-          export SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY"
-          pnpm onboard --tenant coffee-story
-      - name: Build the three app surfaces against the stack
-        run: |
-          set -euo pipefail
-          eval "$(supabase status -o env | sed 's/^/export /')"
           ( cd apps/customer && \
-            EXPO_PUBLIC_SUPABASE_URL="$API_URL" \
-            EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$ANON_KEY" \
+            EXPO_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
+            EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
             EXPO_PUBLIC_API_URL="http://127.0.0.1:4383" \
-            npx expo export --platform web --output-dir dist-e2e )
+            pnpm exec expo export --platform web --output-dir dist-e2e )
           ( cd apps/operator && \
-            EXPO_PUBLIC_SUPABASE_URL="$API_URL" \
-            EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$ANON_KEY" \
+            EXPO_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
+            EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
             EXPO_PUBLIC_API_URL="http://127.0.0.1:4383" \
-            npx expo export --platform web --output-dir dist-e2e )
-          pnpm --filter @platform/hq build
+            pnpm exec expo export --platform web --output-dir dist-e2e )
+          ( cd apps/kiosk && \
+            EXPO_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
+            EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
+            EXPO_PUBLIC_API_URL="http://127.0.0.1:4383" \
+            pnpm exec expo export --platform web --output-dir dist-e2e )
+          NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
+            NEXT_PUBLIC_SUPABASE_ANON_KEY="$SUPABASE_PUBLISHABLE_KEY" \
+            pnpm --filter @platform/hq build
+          NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
+            pnpm --filter @platform/display build
       - name: Run the end-to-end suite
         run: |
           set -euo pipefail
-          eval "$(supabase status -o env | sed 's/^/export /')"
-          export SUPABASE_TEST_URL="$API_URL"
-          export SUPABASE_TEST_ANON_KEY="$ANON_KEY"
-          export SUPABASE_TEST_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY"
-          export SUPABASE_TEST_DB_URL="$DB_URL"
+          export SUPABASE_TEST_URL="$SUPABASE_URL"
+          export SUPABASE_TEST_ANON_KEY="$SUPABASE_PUBLISHABLE_KEY"
+          export SUPABASE_TEST_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY"
+          export SUPABASE_TEST_DB_URL="$SUPABASE_DB_URL"
           export E2E_CUSTOMER_DIR="$GITHUB_WORKSPACE/apps/customer/dist-e2e"
           export E2E_OPERATOR_DIR="$GITHUB_WORKSPACE/apps/operator/dist-e2e"
           export E2E_HQ_DIR="$GITHUB_WORKSPACE/apps/hq"
@@ -276,6 +290,14 @@ jobs:
         run: |
           echo '=================== e2e output (tail) ==================='
           tail -120 "$GITHUB_WORKSPACE/e2e-output.log" 2>/dev/null || echo '(no output captured)'
+
+      - name: Delete hosted Supabase branch
+        if: always()
+        run: |
+          if [ -n "${PREVIEW_PROJECT_REF:-}" ]; then
+            supabase branches delete "$PREVIEW_PROJECT_REF" \
+              --project-ref "$SUPABASE_PROJECT_REF" --yes
+          fi
 
   audit:
     runs-on: ubuntu-latest
@@ -315,7 +337,7 @@ jobs:
   # never publishes. A deploy happens when someone triggers this workflow with
   # the publish input checked (Actions -> verify -> Run workflow).
   publish-preview:
-    needs: [verify, audit]
+    needs: [verify, hosted-integration, audit]
     if: github.event_name == 'workflow_dispatch' && (inputs.publish || inputs.publish_operator)
     runs-on: ubuntu-latest
     timeout-minutes: 20

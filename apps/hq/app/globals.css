@@ -249,7 +249,7 @@ label.field input, label.field select, label.field textarea {
 
 .operations-heading {
   display: flex;
-  align-items: end;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 24px;
   margin-bottom: 24px;
@@ -285,7 +285,7 @@ label.field input, label.field select, label.field textarea {
   display: grid;
   grid-template-columns: repeat(4, minmax(140px, 1fr));
   gap: 14px;
-  align-items: end;
+  align-items: flex-end;
   margin-bottom: 20px;
 }
 
@@ -301,7 +301,7 @@ label.field input, label.field select, label.field textarea {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 18px;
-  align-items: end;
+  align-items: flex-end;
 }
 
 .operations-retention label { margin: 0; }
@@ -509,7 +509,7 @@ label.field input, label.field select, label.field textarea {
 .catalog-validation.has-errors { border-color: color-mix(in srgb, var(--danger) 46%, var(--line)); }
 .catalog-validation summary { display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
 .catalog-validation p { margin: 10px 0 0; color: var(--text-muted); }
-.catalog-link-builder { display: grid; grid-template-columns: minmax(130px, .55fr) minmax(220px, 1fr) auto; gap: 9px; align-items: end; }
+.catalog-link-builder { display: grid; grid-template-columns: minmax(130px, .55fr) minmax(220px, 1fr) auto; gap: 9px; align-items: flex-end; }
 .catalog-link-builder .field { margin: 0; }
 .catalog-resource-create { padding: 13px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg-hover); }
 .catalog-resource-create summary { min-height: 32px; color: var(--accent); font-size: 13px; font-weight: 650; cursor: pointer; }
@@ -631,7 +631,7 @@ label.field input, label.field select, label.field textarea {
 .menu-ordering-heading h3 { margin: 0; font-size: 16px; }
 .menu-ordering-heading small { color: var(--text-muted); }
 .menu-size-row,
-.menu-choice-row { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(120px, .8fr) 120px 42px; gap: 8px; align-items: end; }
+.menu-choice-row { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(120px, .8fr) 120px 42px; gap: 8px; align-items: flex-end; }
 .menu-size-row .field,
 .menu-choice-row .field,
 .menu-option-grid .field,
@@ -667,7 +667,7 @@ label.field input, label.field select, label.field textarea {
 .objective-fields { grid-template-columns: minmax(0, 1fr) 110px; }
 .lesson-content-input { min-height: 180px; line-height: 1.6; }
 .training-block { padding-top: 18px; margin-top: 18px; border-top: 1px solid var(--line); }
-.training-media-row { display: grid; grid-template-columns: 64px 110px minmax(130px, .7fr) minmax(180px, 1.2fr) 44px; gap: 8px; align-items: end; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.training-media-row { display: grid; grid-template-columns: 64px 110px minmax(130px, .7fr) minmax(180px, 1.2fr) 44px; gap: 8px; align-items: flex-end; padding: 12px 0; border-bottom: 1px solid var(--line); }
 .training-media-row .field { margin: 0; }
 .training-media-row .rights-field { grid-column: 2 / 5; }
 .training-media-preview { display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 42px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--text-muted); }
@@ -685,13 +685,13 @@ label.field input, label.field select, label.field textarea {
 .icon-action { display: inline-flex; align-items: center; justify-content: center; width: 42px; height: 42px; border: 1px solid var(--line); border-radius: 6px; background: transparent; color: var(--text); font: inherit; font-size: 22px; cursor: pointer; }
 .icon-action .content-icon { width: 17px; height: 17px; }
 .icon-action.danger { color: var(--danger); }
-.training-question { display: grid; grid-template-columns: 32px minmax(0, 1.1fr) minmax(0, 1fr) minmax(130px, .55fr) 42px; gap: 8px; align-items: end; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.training-question { display: grid; grid-template-columns: 32px minmax(0, 1.1fr) minmax(0, 1fr) minmax(130px, .55fr) 42px; gap: 8px; align-items: flex-end; padding: 12px 0; border-bottom: 1px solid var(--line); }
 .training-question .field { margin: 0; }
 .training-question .field:nth-of-type(4) { grid-column: 2 / 5; }
 .training-question-number { align-self: center; color: var(--accent); font-size: 12px; font-weight: 700; }
 .content-section-intro { align-items: flex-start; margin-bottom: 18px; }
 .content-section-intro p { max-width: 620px; margin: 0; color: var(--text-muted); }
-.training-source-row { display: grid; grid-template-columns: 32px minmax(130px, .8fr) minmax(130px, .8fr) minmax(210px, 1.3fr) 130px 42px; gap: 8px; align-items: end; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.training-source-row { display: grid; grid-template-columns: 32px minmax(130px, .8fr) minmax(130px, .8fr) minmax(210px, 1.3fr) 130px 42px; gap: 8px; align-items: flex-end; padding: 12px 0; border-bottom: 1px solid var(--line); }
 .training-source-row .field { margin: 0; }
 
 .automation-callout { display: flex; gap: 16px; padding: 18px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg-hover); }

@@ -475,15 +475,15 @@ therefore invisible to a full local verification run — the exact class of
 change most likely to break something, and the one class the default gate does
 not cover.
 
-Two things follow, neither done here:
+Two release rules now follow:
 
-- A migration touching a policy, a definer function or a view's gate should not
-  be considered verified until the integration suite has actually run. CI
-  starts a stack; locally it needs `supabase start` and the `SUPABASE_TEST_*`
-  variables, and the local containers were half-unhealthy through this pass.
-- A skipped suite reporting the same green as a passing one is the underlying
-  problem. `skipUnlessConfigured` is right for `pnpm -r test`, but a
-  pre-promotion check should say out loud which suites did not run.
+- A migration touching a policy, a definer function or a view's gate is not
+  verified until the integration suite runs against the disposable hosted
+  Supabase branch created by CI. Local Docker is not part of the release gate.
+- `skipUnlessConfigured` remains appropriate for a developer's broad local
+  test run, but promotion requires the separate `hosted-integration` job. That
+  job provisions its own environment and therefore cannot silently skip the
+  database or browser suites.
 
 ## Follow-up — the loyalty ladder, a live metric bug, and what a dead-code sweep actually found
 
@@ -735,14 +735,15 @@ ladders), 0036 (the owned-channel metric), plus `resolveFeeConfig` moving into
 the engine. Everything else above is specified and left, with the reason
 recorded per item.
 
-**Verification note for this pass:** the local Supabase stack lost its
+**Historical verification note for this pass:** the local Supabase stack lost its
 database container mid-pass, and port 54322 is now published by an unrelated
 project's stack, so `supabase start` could not restore it without stopping
 another project's database or editing shared config — neither of which is
 mine to do. 0035 and 0036 were executed against the real database before it
 went; **0039 and 0040 are verified statically only** — typecheck, tests, and the SQL
-reviewed against the same patterns 0031 and 0033 established. CI runs the
-migrations on a hosted stack and is the gate that will actually execute it.
+reviewed against the same patterns 0031 and 0033 established. The current CI
+gate now creates a disposable hosted branch, executes every migration there,
+runs database lint and RLS integration tests, and deletes the branch afterward.
 
 ## Production wiring — 2026-08-23
 

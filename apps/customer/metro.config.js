@@ -12,6 +12,7 @@ process.env.EXPO_NO_METRO_WORKSPACE_ROOT = '1';
 
 const { getDefaultConfig } = require('expo/metro-config');
 const { FileStore } = require('metro-cache');
+const { createHash } = require('node:crypto');
 const path = require('path');
 
 const config = getDefaultConfig(__dirname);
@@ -21,16 +22,27 @@ config.watchFolders = [path.resolve(__dirname, '../..')];
 // root, and the two Expo apps poison each other's expo-router context there:
 // an operator export served the customer's route tree out of the shared
 // cache and failed on the customer-only @/lib/brand-cache import.
-// Keyed by tenant as well as by app. app.config.ts resolves identity from
+// Keyed by tenant, app, and public runtime target. app.config.ts resolves identity from
 // `tenants/$TENANT/brand.json`, and the app config reaches the bundle through
 // expo-constants as a GENERATED module -- not a file Metro watches -- so its
 // transform stays cached across a tenant switch. A `TENANT=b expo export` run
 // after a tenant-a build therefore shipped tenant a's manifest: a's name, a's
 // slug, a's scheme, inside b's binary, with `expo config` reporting b
-// correctly the whole time. Verified by exporting the same tree twice.
+// correctly the whole time. Public environment variables are also transformed
+// into the bundle; omitting them from the cache key can reuse a demo transform
+// in a live build (or a preview project's URL in production).
+const runtimeTarget = createHash('sha256')
+  .update([
+    process.env.EXPO_PUBLIC_SUPABASE_URL,
+    process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+    process.env.EXPO_PUBLIC_API_URL,
+    process.env.EXPO_PUBLIC_ALLOWED_API_HOST,
+  ].join('\0'))
+  .digest('hex')
+  .slice(0, 12);
 config.cacheStores = [
   new FileStore({
-    root: path.join(__dirname, '.metro-cache', process.env.TENANT || 'default'),
+    root: path.join(__dirname, '.metro-cache', process.env.TENANT || 'default', runtimeTarget),
   }),
 ];
 

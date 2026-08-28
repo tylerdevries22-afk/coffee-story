@@ -41,6 +41,9 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.116.0
       - name: Require hosted credentials
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
@@ -55,15 +58,39 @@ jobs:
           PROJECT_REF: ${{ inputs.supabase_project_ref }}
         run: |
           set -euo pipefail
-          npx --yes supabase@2.116.0 link --project-ref "$PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
-          npx --yes supabase@2.116.0 db push --linked --include-all --password "$SUPABASE_DB_PASSWORD" --yes
-          npx --yes supabase@2.116.0 db lint --linked --level warning --fail-on warning
+          supabase link --project-ref "$PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
+          supabase db push --linked --include-all --password "$SUPABASE_DB_PASSWORD" --yes
+          supabase db lint --linked --level warning --fail-on warning
+      - name: Apply the production Auth policy
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROJECT_REF: ${{ inputs.supabase_project_ref }}
+        run: |
+          set -euo pipefail
+          auth_config=$(curl --fail --silent --show-error --max-time 20 --retry 1 --retry-all-errors \
+            -X PATCH -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+            -H 'Content-Type: application/json' \
+            --data '{"password_hibp_enabled":true,"password_min_length":8}' \
+            "https://api.supabase.com/v1/projects/${PROJECT_REF}/config/auth")
+          [ "$(printf '%s' "$auth_config" | jq -r '.password_hibp_enabled')" = true ] \
+            || { echo '::error::Leaked-password protection is unavailable; use a supported Supabase plan.'; exit 1; }
+          [ "$(printf '%s' "$auth_config" | jq -r '.password_min_length')" -ge 8 ] \
+            || { echo '::error::Supabase did not apply the eight-character password minimum.'; exit 1; }
       - name: Seed tenant data and immutable media
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROJECT_REF: ${{ inputs.supabase_project_ref }}
           TENANT: ${{ inputs.tenant }}
-        run: pnpm onboard --tenant "$TENANT" --require-db
+        run: |
+          set -euo pipefail
+          keys=$(supabase projects api-keys --project-ref "$PROJECT_REF" -o json)
+          export SUPABASE_URL="https://${PROJECT_REF}.supabase.co"
+          SUPABASE_SERVICE_ROLE_KEY=$(printf '%s' "$keys" \
+            | jq -r '[.[] | select(.name == "service_role")][0].api_key')
+          export SUPABASE_SERVICE_ROLE_KEY
+          test -n "$SUPABASE_SERVICE_ROLE_KEY" && test "$SUPABASE_SERVICE_ROLE_KEY" != null
+          echo "::add-mask::$SUPABASE_SERVICE_ROLE_KEY"
+          pnpm onboard --tenant "$TENANT" --require-db
 
   deploy:
     name: Verify and deploy five surfaces
@@ -72,6 +99,7 @@ jobs:
     with:
       tenant: ${{ inputs.tenant }}
       project_prefix: ${{ inputs.project_prefix }}
+      supabase_project_ref: ${{ inputs.supabase_project_ref }}
       environment: ${{ inputs.environment }}
       deploy_web: true
       publish_native: false
