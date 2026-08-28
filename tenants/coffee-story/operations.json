@@ -1,0 +1,151 @@
+{
+<<<<<<< ours
+  "$docs": "Coffee Story pilot. The schedules remain inactive until a location manager configures the required in-app/push escalation ladder and approves the local sanitation procedure.",
+  "roles": [
+    {
+      "key": "floor-operations",
+      "title": "Floor operations",
+      "description": "Team members approved to complete guest-area operating routines."
+    }
+  ],
+  "competencies": [
+    {
+      "key": "restroom-sanitation",
+      "title": "Restroom sanitation",
+      "renewalDays": 365
+    }
+  ],
+  "templates": [
+    {
+      "key": "guest-restroom-opening",
+      "programKey": "guest-restroom",
+      "routineKind": "opening",
+      "revision": 1,
+      "title": "Guest Restroom — Opening Inspection",
+      "instructions": "Complete the approved opening inspection before the guest area opens. Report any condition that cannot be corrected during the inspection.",
+      "estimatedMinutes": 15,
+      "requiredRoleKeys": ["floor-operations"],
+      "requiredCompetencyKeys": ["restroom-sanitation"],
+      "issueCategories": ["blockage", "broken-fixture", "hazard", "supplies"],
+      "steps": [
+        { "key": "access-signage", "title": "Confirm access and required service signage", "responseKind": "confirm", "required": true },
+        { "key": "hazards", "title": "Inspect the room for hazards", "responseKind": "pass_fail", "required": true, "issueOnFailure": true },
+        { "key": "supplies", "title": "Verify soap, paper products, and approved supplies", "responseKind": "pass_fail", "required": true, "issueOnFailure": true },
+        { "key": "fixtures", "title": "Clean and disinfect fixtures and high-touch surfaces", "responseKind": "pass_fail", "required": true, "issueOnFailure": true },
+        { "key": "trash", "title": "Empty the waste bin when needed", "responseKind": "confirm", "required": true, "allowNotApplicable": true },
+        { "key": "floor", "title": "Clean the floor when needed and verify it is safe", "responseKind": "pass_fail", "required": true, "issueOnFailure": true, "allowNotApplicable": true },
+        { "key": "final-check", "title": "Complete the final condition check", "responseKind": "confirm", "required": true }
+      ]
+    },
+    {
+      "key": "guest-restroom-hourly",
+      "programKey": "guest-restroom",
+      "routineKind": "interval",
+      "revision": 1,
+      "title": "Guest Restroom — Hourly Clean and Check",
+      "instructions": "Use the approved service signage and sanitation procedure. Record issues separately so the cleaning can be completed without hiding corrective work.",
+      "estimatedMinutes": 12,
+      "requiredRoleKeys": ["floor-operations"],
+      "requiredCompetencyKeys": ["restroom-sanitation"],
+      "issueCategories": ["blockage", "broken-fixture", "hazard", "supplies"],
+      "steps": [
+        { "key": "service-sign", "title": "Set the temporary service sign", "responseKind": "confirm", "required": true },
+        { "key": "hazards", "title": "Inspect the room for hazards", "responseKind": "pass_fail", "required": true, "issueOnFailure": true },
+        { "key": "supplies", "title": "Replenish soap and paper products", "responseKind": "pass_fail", "required": true, "issueOnFailure": true },
+        { "key": "fixtures", "title": "Clean and disinfect the toilet, sink, and high-touch surfaces", "responseKind": "pass_fail", "required": true, "issueOnFailure": true },
+        { "key": "trash", "title": "Empty the waste bin when needed", "responseKind": "confirm", "required": true, "allowNotApplicable": true },
+        { "key": "floor", "title": "Spot-clean the floor when needed and verify it is safe", "responseKind": "pass_fail", "required": true, "issueOnFailure": true, "allowNotApplicable": true },
+        { "key": "reopen", "title": "Complete the final check and reopen the room", "responseKind": "confirm", "required": true }
+      ]
+    },
+    {
+      "key": "guest-restroom-closing",
+      "programKey": "guest-restroom",
+      "routineKind": "closing",
+      "revision": 1,
+      "title": "Guest Restroom — Closing Deep Clean",
+      "instructions": "Complete the approved closing sanitation procedure, including the required product contact time, and report unresolved conditions.",
+      "estimatedMinutes": 25,
+      "requiredRoleKeys": ["floor-operations"],
+      "requiredCompetencyKeys": ["restroom-sanitation"],
+      "issueCategories": ["blockage", "broken-fixture", "hazard", "supplies"],
+      "steps": [
+        { "key": "service-sign-ppe", "title": "Set service signage and use the approved PPE", "responseKind": "confirm", "required": true },
+        { "key": "supplies", "title": "Replenish supplies and report low stock", "responseKind": "pass_fail", "required": true, "issueOnFailure": true },
+        { "key": "fixtures", "title": "Clean and disinfect all fixtures and high-touch surfaces", "responseKind": "pass_fail", "required": true, "issueOnFailure": true },
+        { "key": "contact-time", "title": "Observe the approved product contact time", "responseKind": "confirm", "required": true },
+        { "key": "trash", "title": "Empty the waste bin", "responseKind": "confirm", "required": true },
+        { "key": "floor", "title": "Sweep and clean the floor", "responseKind": "confirm", "required": true },
+        { "key": "final-check", "title": "Complete the final condition check", "responseKind": "confirm", "required": true }
+      ]
+    }
+  ],
+  "schedules": [
+    {
+      "key": "guest-restroom-opening",
+      "templateKey": "guest-restroom-opening",
+      "rule": { "kind": "opening_offset", "offsetMinutes": 0, "weekdays": [1, 2, 3, 4, 5, 6, 7] },
+      "dueWindowMinutes": 30,
+      "graceMinutes": 0,
+      "enabled": false
+    },
+    {
+      "key": "guest-restroom-hourly",
+      "templateKey": "guest-restroom-hourly",
+      "rule": {
+        "kind": "open_interval",
+        "intervalMinutes": 60,
+        "startOffsetMinutes": 60,
+        "endOffsetMinutes": -60,
+        "weekdays": [1, 2, 3, 4, 5, 6, 7]
+      },
+      "dueWindowMinutes": 15,
+      "graceMinutes": 0,
+      "enabled": false
+    },
+    {
+      "key": "guest-restroom-closing",
+      "templateKey": "guest-restroom-closing",
+      "rule": { "kind": "closing_offset", "offsetMinutes": 0, "weekdays": [1, 2, 3, 4, 5, 6, 7] },
+      "dueWindowMinutes": 30,
+      "graceMinutes": 0,
+      "enabled": false
+    }
+  ],
+  "escalations": [],
+  "retention": {
+    "evidenceDays": 395,
+    "issueDays": 395,
+    "actorIdentityDays": 395
+=======
+  "$docs": "Draft pilot configuration. Location managers select production times after tenant approval of procedure and training content.",
+  "templates": [
+    {
+      "key": "restroom-routine",
+      "title": "Restroom routine",
+      "instructions": "Follow the approved location procedure and report any condition that cannot be corrected during the round.",
+      "estimatedMinutes": 12,
+      "requiredRoleKeys": ["floor-operations"],
+      "requiredCompetencyKeys": ["sanitation-routine"],
+      "steps": [
+        { "key": "service-sign", "title": "Set the temporary service sign when appropriate", "responseKind": "confirm", "required": true },
+        { "key": "supplies", "title": "Restock approved supplies", "responseKind": "pass_fail", "required": true, "issueOnFailure": true },
+        { "key": "fixtures", "title": "Clean and inspect approved fixtures and surfaces", "responseKind": "pass_fail", "required": true, "issueOnFailure": true },
+        { "key": "floor", "title": "Clean and inspect the floor", "responseKind": "pass_fail", "required": true, "issueOnFailure": true },
+        { "key": "final-check", "title": "Complete the final condition check", "responseKind": "pass_fail", "required": true, "issueOnFailure": true }
+      ]
+    }
+  ],
+  "schedules": [],
+  "escalations": [
+    { "order": 1, "offsetMinutes": 0, "recipientRole": "eligible_staff", "channels": ["push"] },
+    { "order": 2, "offsetMinutes": 15, "recipientRole": "location_manager", "channels": ["push", "email"] },
+    { "order": 3, "offsetMinutes": 60, "recipientRole": "brand_owner", "channels": ["email"] }
+  ],
+  "retention": {
+    "evidenceDays": 365,
+    "issueDays": 730,
+    "actorIdentityDays": 365
+>>>>>>> theirs
+  }
+}

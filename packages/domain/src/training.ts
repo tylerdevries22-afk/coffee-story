@@ -38,6 +38,10 @@ export type TrainingLesson = {
   menuItemSlugs?: string[];
   media: { kind: 'image' | 'video'; url: string; title: string; rightsNote: string }[];
   quiz: TrainingQuizQuestion[];
+  /** Stable competency keys awarded when this lesson is passed. */
+  grantsCompetencyKeys?: string[];
+  /** Validity of awarded competencies; tenant config may override it. */
+  competencyValidityDays?: number;
 };
 
 export type TrainingModule = {

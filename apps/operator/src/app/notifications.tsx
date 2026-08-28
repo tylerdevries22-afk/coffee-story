@@ -1,11 +1,18 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Alert } from 'react-native';
+import { router, type Href } from 'expo-router';
 
 import { StaffWorkspaceGate } from '@/components/staff/workspace-gate';
 import { buildStaffNotifications, type NotificationItem } from '@platform/domain';
+import {
+  loadOperationNotifications,
+  markOperationNotificationsRead,
+} from '@/features/operations/api';
+import type { OperatorNotification } from '@/features/operations/model';
 import { NotificationsScreen } from '@/screens/notifications-screen';
 import { useAppState } from '@/state/app-context';
 import { StaffWorkspaceProvider, useStaffWorkspace } from '@/state/staff-workspace';
+import { useAuth } from '@/state/auth-context';
 
 /**
  * Pushed from the staff tabs onto the root Stack so it draws above the tab
@@ -33,11 +40,36 @@ export default function NotificationsRoute() {
 function NotificationsContent() {
   const { closeNotifications, setStaffTab, unreadNotificationIds } = useAppState();
   const { dashboard, updateStatus } = useStaffWorkspace();
-  const notifications = useMemo(() => buildStaffNotifications(dashboard, new Date()), [dashboard]);
+  const { isDemo, operationsEnabled } = useAuth();
+  const [operationNotifications, setOperationNotifications] = useState<readonly OperatorNotification[]>([]);
+  useEffect(() => {
+    if (isDemo || !operationsEnabled) return undefined;
+    let active = true;
+    void loadOperationNotifications().then((items) => {
+      if (!active) return;
+      setOperationNotifications(items);
+      const unread = items.filter((item) => item.readAt === null).map((item) => item.id);
+      if (unread.length > 0) void markOperationNotificationsRead(unread).catch(() => undefined);
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, [isDemo, operationsEnabled]);
+  const operationsByFeedId = useMemo(() => new Map<string, OperatorNotification>(
+    operationNotifications.map((item) => [`operation-notification-${item.id}`, item]),
+  ), [operationNotifications]);
+  const notifications = useMemo(() => [
+    ...operationNotifications.map(operationFeedItem),
+    ...buildStaffNotifications(dashboard, new Date()),
+  ], [dashboard, operationNotifications]);
 
   // A workspace alert either resolves in place (confirm a order) or hands off
   // to the tab that can finish the job.
   function follow(item: NotificationItem) {
+    const operation = operationsByFeedId.get(item.id);
+    if (operation?.occurrenceId) {
+      closeNotifications();
+      router.push(`/staff/crew/${encodeURIComponent(operation.occurrenceId)}` as Href);
+      return;
+    }
     closeNotifications();
     if (item.target.kind === 'confirm-order') {
       void updateStatus(item.target.orderId, 'paid').catch((statusError: unknown) => {
@@ -60,4 +92,16 @@ function NotificationsContent() {
       onAction={follow}
     />
   );
+}
+
+function operationFeedItem(notification: OperatorNotification): NotificationItem {
+  return {
+    id: `operation-notification-${notification.id}`,
+    actor: 'Shift tasks',
+    title: notification.title,
+    detail: notification.body,
+    at: notification.createdAt,
+    target: { kind: 'staff-calendar' },
+    action: notification.occurrenceId ? 'Open' : undefined,
+  };
 }

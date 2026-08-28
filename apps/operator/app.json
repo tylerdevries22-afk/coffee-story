@@ -35,6 +35,12 @@
           "backgroundColor": "#FAFAF9"
         }
       ],
+      [
+        "expo-notifications",
+        {
+          "defaultChannel": "shift-tasks"
+        }
+      ],
       "expo-secure-store"
     ],
     "experiments": {

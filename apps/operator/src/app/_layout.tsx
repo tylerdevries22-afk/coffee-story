@@ -24,6 +24,7 @@ import { AppErrorBoundary } from '@/components/app-error-boundary';
 import { Button } from '@/components/ui';
 import { InstallPrompt } from '@/components/install-prompt';
 import { brandCache } from '@/lib/brand-cache';
+import { useOperationNotificationObserver } from '@/features/operations/push';
 import { AppStateProvider } from '@/state/app-context';
 import { AuthProvider, useAuth } from '@/state/auth-context';
 import { DemoProvider, useDemo } from '@/state/demo-context';
@@ -133,6 +134,7 @@ const OPERATOR_SCREENS: Readonly<Record<string, string>> = {
   '/staff/calendar': 'calendar',
   '/staff/calendar/:id': 'calendar_item',
   '/staff/crew': 'crew',
+  '/staff/crew/:occurrence': 'operation_detail',
   '/staff/more': 'more',
   '/staff/more/:path': 'management_detail',
   '/staff/orders': 'orders',
@@ -144,6 +146,7 @@ const OPERATOR_SCREENS: Readonly<Record<string, string>> = {
 
 function operatorRoute(pathname: string): string {
   if (pathname.startsWith('/staff/calendar/')) return '/staff/calendar/:id';
+  if (pathname.startsWith('/staff/crew/')) return '/staff/crew/:occurrence';
   if (pathname.startsWith('/staff/more/')) return '/staff/more/:path';
   if (pathname.startsWith('/staff/training/')) {
     const depth = pathname.split('/').filter(Boolean).length;
@@ -217,6 +220,7 @@ function OperatorTelemetry() {
 }
 
 function OperatorStack() {
+  useOperationNotificationObserver();
   // The page ground and every screen token resolve from the signed-in tenant.
   const tokens = useTokens();
   return (

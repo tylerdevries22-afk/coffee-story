@@ -7,10 +7,13 @@ import { AppIcon } from '@/components/icon';
 import { CALENDAR_ITEMS, CALENDAR_PEOPLE } from '@/data/calendar-demo';
 import { loadLiveCalendarItems } from '@/features/calendar/live';
 import { calendarCategoryForItem, calendarDateRail, calendarItemHref, type CalendarItem } from '@/features/calendar/presentation';
+import { operationCalendarItems } from '@/features/operations/calendar';
 import { operatorLayout } from '@/lib/responsive-layout';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/state/auth-context';
 import { useBusiness } from '@/state/business';
+import { useOperations } from '@/state/operations-store';
+import { useOperator } from '@/state/operator-store';
 import { useAppTokens, type AppTokens } from '@platform/ui';
 
 type CalendarMode = 'list' | 'day';
@@ -20,22 +23,29 @@ export function CalendarScreen() {
   const { styles } = useCalendarTheme();
   const business = useBusiness();
   const { isDemo, tenant } = useAuth();
-  const [items, setItems] = useState<readonly CalendarItem[]>(isDemo ? CALENDAR_ITEMS : []);
+  const operations = useOperations();
+  const { location } = useOperator();
+  const [baseItems, setBaseItems] = useState<readonly CalendarItem[]>(isDemo ? CALENDAR_ITEMS : []);
   const [mode, setMode] = useState<CalendarMode>('list');
   const [day, setDay] = useState<DayKey>('today');
   const [personId, setPersonId] = useState<string>('all');
   const days = useMemo(() => calendarDateRail(new Date(), 7, business.timezone), [business.timezone]);
   useEffect(() => {
-    if (isDemo) { setItems(CALENDAR_ITEMS); return undefined; }
+    if (isDemo) { setBaseItems(CALENDAR_ITEMS); return undefined; }
     if (!supabase || !tenant) return undefined;
     let mounted = true;
     void loadLiveCalendarItems(supabase, tenant.brand_id).then((loaded) => {
-      if (mounted) setItems(loaded);
+      if (mounted) setBaseItems(loaded);
     }).catch(() => {
-      if (mounted) setItems([]);
+      if (mounted) setBaseItems([]);
     });
     return () => { mounted = false; };
   }, [isDemo, tenant]);
+  const items = useMemo(() => [
+    ...baseItems,
+    ...operationCalendarItems(operations.occurrences, location.name, location.timezone, operations.now),
+  ].sort((left, right) => Date.parse(left.startsAt ?? '') - Date.parse(right.startsAt ?? '')),
+  [baseItems, location.name, location.timezone, operations.now, operations.occurrences]);
   const people = useMemo(() => isDemo ? CALENDAR_PEOPLE : Array.from(
     new Map(items.flatMap((item) => item.assignees).map((person) => [person.id, person])).values(),
   ), [isDemo, items]);
