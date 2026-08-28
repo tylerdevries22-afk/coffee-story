@@ -189,11 +189,25 @@ jobs:
           branch_owned=false
           if [ -z "$preview_ref" ]; then
             branch_name="ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-            branch_json=$(supabase branches create "$branch_name" \
-              --project-ref "$SUPABASE_PROJECT_REF" --git-branch "$git_branch" \
-              --size micro --yes -o json)
-            preview_ref=$(printf '%s' "$branch_json" | jq -r '.project_ref')
             branch_owned=true
+            {
+              echo "CI_BRANCH_OWNED=true"
+              echo "CI_BRANCH_NAME=$branch_name"
+            } >> "$GITHUB_ENV"
+            # The CLI writes human-readable provisioning progress before its
+            # JSON result. Querying the authoritative branch list avoids
+            # trying to parse that mixed output and also gives cleanup a stable
+            # name if this step is cancelled before the project ref is known.
+            supabase branches create "$branch_name" \
+              --project-ref "$SUPABASE_PROJECT_REF" --git-branch "$git_branch" \
+              --size micro --yes -o json >/dev/null
+            for _attempt in $(seq 1 30); do
+              preview_ref=$(supabase branches list --project-ref "$SUPABASE_PROJECT_REF" -o json \
+                | jq -r --arg name "$branch_name" --arg branch "$git_branch" \
+                  '[.[] | select(.name == $name and .git_branch == $branch)][0].project_ref // empty')
+              if [ -n "$preview_ref" ]; then break; fi
+              sleep 2
+            done
           fi
           test -n "$preview_ref" && test "$preview_ref" != null
           {
@@ -314,9 +328,17 @@ jobs:
         run: |
           # Git integration owns a PR branch's lifecycle. Other runs create a
           # unique branch above and must remove it even after cancellation.
-          if [ "${CI_BRANCH_OWNED:-false}" = true ] && [ -n "${PREVIEW_PROJECT_REF:-}" ]; then
-            supabase branches delete "$PREVIEW_PROJECT_REF" \
-              --project-ref "$SUPABASE_PROJECT_REF" --yes
+          if [ "${CI_BRANCH_OWNED:-false}" = true ]; then
+            cleanup_ref="${PREVIEW_PROJECT_REF:-}"
+            if [ -z "$cleanup_ref" ] && [ -n "${CI_BRANCH_NAME:-}" ]; then
+              cleanup_ref=$(supabase branches list --project-ref "$SUPABASE_PROJECT_REF" -o json \
+                | jq -r --arg name "$CI_BRANCH_NAME" \
+                  '[.[] | select(.name == $name)][0].project_ref // empty')
+            fi
+            if [ -n "$cleanup_ref" ]; then
+              supabase branches delete "$cleanup_ref" \
+                --project-ref "$SUPABASE_PROJECT_REF" --yes
+            fi
           fi
 
   audit:
