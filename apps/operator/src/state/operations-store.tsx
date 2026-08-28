@@ -46,6 +46,7 @@ import {
   drainOperationIntents,
   operationIntentFailure,
 } from '@/features/operations/reconcile';
+import { operationNotificationReadBus } from '@/features/operations/notification-reads';
 import { registerOperationPush } from '@/features/operations/push';
 import {
   displayStatusForTask,
@@ -170,6 +171,15 @@ export function OperationsProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     queueRef.current = queue;
   }, [queue]);
+
+  useEffect(() => operationNotificationReadBus.subscribe((readIds) => {
+    const readAt = new Date().toISOString();
+    setNotifications((current) => current.map((notification) => (
+      readIds.has(notification.id) && notification.readAt === null
+        ? { ...notification, readAt }
+        : notification
+    )));
+  }), []);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), CLOCK_REFRESH_MS);

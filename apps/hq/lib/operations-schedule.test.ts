@@ -29,13 +29,13 @@ describe('operation schedule form boundary', () => {
       intervalMinutes: null, intervalEndOffsetMinutes: null,
     });
     assert.deepEqual(operationScheduleRule(form({ scheduleKind: 'open_interval',
-      anchorOffsetMinutes: '30', intervalMinutes: '60', intervalEndOffsetMinutes: '300' })), {
-      scheduleKind: 'open_interval', localStartTime: null, anchorOffsetMinutes: 30,
-      intervalMinutes: 60, intervalEndOffsetMinutes: 300,
+      anchorOffsetMinutes: '60', intervalMinutes: '60', intervalEndOffsetMinutes: '-60' })), {
+      scheduleKind: 'open_interval', localStartTime: null, anchorOffsetMinutes: 60,
+      intervalMinutes: 60, intervalEndOffsetMinutes: -60,
     });
   });
 
-  it('rejects incomplete, out-of-range, and reversed schedule windows', () => {
+  it('rejects incomplete and out-of-range schedule rules', () => {
     assert.equal(operationScheduleRule(form({ scheduleKind: 'fixed_time', localStartTime: '25:00' })), null);
     assert.equal(operationScheduleRule(form({ scheduleKind: 'closing_offset' })), null);
     assert.equal(operationScheduleRule(form({ scheduleKind: 'open_interval', anchorOffsetMinutes: '60',

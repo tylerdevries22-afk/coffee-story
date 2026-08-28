@@ -50,8 +50,7 @@ export function operationScheduleRule(formData: FormData): OperationScheduleRule
   }
   const intervalMinutes = optionalInteger(formData.get('intervalMinutes'), 15, 1_440);
   const intervalEndOffsetMinutes = optionalInteger(formData.get('intervalEndOffsetMinutes'), -1_440, 1_440);
-  if (intervalMinutes === null || intervalEndOffsetMinutes === null
-    || intervalEndOffsetMinutes < anchorOffsetMinutes) return null;
+  if (intervalMinutes === null || intervalEndOffsetMinutes === null) return null;
   return { scheduleKind, localStartTime: null, anchorOffsetMinutes,
     intervalMinutes, intervalEndOffsetMinutes };
 }

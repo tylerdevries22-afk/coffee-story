@@ -364,7 +364,8 @@ describe('atomic order commit', () => {
     const readiness = functionInForce('public', 'platform_release_readiness');
     const releaseSql = allSql();
     assert.match(readiness, /security invoker/);
-    assert.match(readiness, /app\.platform_release_readiness\(\) <> '20260828104000'/);
+    assert.match(readiness,
+      /app\.platform_release_readiness_20260828130000\(\) <> '20260828130000'/);
     for (const contract of [
       /procedure\.proname = 'commit_order'/,
       /procedure\.pronargs = 18/,
@@ -380,8 +381,8 @@ describe('atomic order commit', () => {
       /platform_credential_requirements/,
       /tablename = 'operations_change_signals'/,
     ]) assert.match(releaseSql, contract);
-    assert.match(readiness, /operation_queue_eligibility/);
-    assert.match(releaseSql, /return '20260828130000'/);
+    assert.match(releaseSql, /operation_queue_eligibility/);
+    assert.match(readiness, /return '20260828144328'/);
     assert.match(releaseSql,
       /revoke all on function public\.platform_release_readiness\(\)[\s\S]*?to service_role;/);
   });

@@ -7,6 +7,7 @@ import {
 } from '@platform/api-client';
 
 import type { OperationIntent, OperationIntentIssue } from './offline-intents';
+import { operationNotificationReadBus, operationNotificationBatches } from './notification-reads';
 import {
   parseOperatorNotifications,
   parseOperatorQueue,
@@ -119,7 +120,10 @@ export async function loadOperationNotifications(): Promise<readonly OperatorNot
 }
 
 export async function markOperationNotificationsRead(ids: readonly string[]): Promise<void> {
-  await operationRequest('/api/operations/notifications', 'PATCH', { ids });
+  for (const batch of operationNotificationBatches(ids)) {
+    await operationRequest('/api/operations/notifications', 'PATCH', { ids: batch });
+    operationNotificationReadBus.publish(batch);
+  }
 }
 
 export async function registerOperationDeviceToken(

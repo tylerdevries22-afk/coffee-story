@@ -24,7 +24,7 @@ function TimingFields({ routineKind }: {
         name="anchorOffsetMinutes" required type="number" /></label>
       <label>Repeat every (minutes)<input defaultValue={60} min={15} max={1440}
         name="intervalMinutes" required type="number" /></label>
-      <label>Stop after opening (minutes)<input defaultValue={480} min={-1440} max={1440}
+      <label>Stop before/after closing (minutes)<input defaultValue={-60} min={-1440} max={1440}
         name="intervalEndOffsetMinutes" required type="number" /></label>
     </>}
   </>;

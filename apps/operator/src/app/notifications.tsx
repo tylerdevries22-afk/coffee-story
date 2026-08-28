@@ -65,7 +65,8 @@ function NotificationsContent() {
   // to the tab that can finish the job.
   function follow(item: NotificationItem) {
     const operation = operationsByFeedId.get(item.id);
-    if (operation?.occurrenceId) {
+    if (operation) {
+      if (!operation.occurrenceId) return;
       closeNotifications();
       router.push(`/staff/crew/${encodeURIComponent(operation.occurrenceId)}` as Href);
       return;

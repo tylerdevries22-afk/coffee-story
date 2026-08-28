@@ -12,7 +12,9 @@ const advisorHardening = readFileSync(join(dirname(fileURLToPath(import.meta.url
   '20260828104000_harden_operation_rpc_boundaries.sql'), 'utf8');
 const releaseHardening = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'supabase', 'migrations',
   '20260828130000_operations_release_hardening.sql'), 'utf8');
-const operationsSql = `${migration}\n${hardening}\n${advisorHardening}\n${releaseHardening}`;
+const reviewFixes = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'supabase', 'migrations',
+  '20260828144328_operations_release_review_fixes.sql'), 'utf8');
+const operationsSql = `${migration}\n${hardening}\n${advisorHardening}\n${releaseHardening}\n${reviewFixes}`;
 
 describe('tenant operations migration', () => {
   it('keeps the platform schema industry-neutral', () => {
@@ -47,6 +49,20 @@ describe('tenant operations migration', () => {
     assert.match(releaseHardening, /set status = 'cancelled', last_error = 'operations_disabled'/);
     assert.match(releaseHardening,
       /join public\.brands brand on brand\.id = outbox\.brand_id and brand\.operations/);
+    assert.doesNotMatch(reviewFixes, /with recipients as/);
+    assert.match(reviewFixes,
+      /exists \(select 1 from public\.brands brand[\s\S]*?brand\.operations\)/);
+  });
+
+  it('allows one active tenant owner per physical operation device', () => {
+    assert.match(reviewFixes,
+      /create unique index operation_devices_active_token_key[\s\S]*?where is_active/);
+    assert.match(reviewFixes,
+      /update public\.operation_staff_devices set is_active = false[\s\S]*?expo_push_token = normalized_token/);
+    assert.match(reviewFixes, /pg_advisory_xact_lock/);
+    assert.match(reviewFixes,
+      /revoke all on function app\.register_operation_device\(uuid, text, text\)\s+from public, anon;/,
+      'the public invoker wrapper needs the authenticated internal execute grant');
   });
 
   it('requires a current shift and an unexpired claim lease', () => {

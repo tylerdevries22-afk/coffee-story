@@ -384,6 +384,19 @@ describe('tenant operations against real Supabase', { skip: skipUnlessConfigured
       '/api/operations/device-tokens', fixture.eligible, 'POST', { token, platform: 'ios' },
     ));
     assert.equal(registered.status, 201);
+    const rehomed = await registerOperationDevice(operationRequest(
+      '/api/operations/device-tokens', fixture.foreignMember, 'POST', { token, platform: 'android' },
+    ));
+    assert.equal(rehomed.status, 201);
+    const activeDevice = await sql<{ brand_id: string; brand_user_id: string }>(
+      `select brand_id, brand_user_id from public.operation_staff_devices
+       where expo_push_token = $1 and is_active`,
+      [token],
+    );
+    assert.deepEqual(activeDevice.rows, [{
+      brand_id: fixture.foreign.brandId,
+      brand_user_id: fixture.foreignMember.memberId,
+    }]);
     const malformedAcknowledgement = await acknowledgeOperationNotifications(operationRequest(
       '/api/operations/notifications', fixture.eligible, 'PATCH', null,
     ));
@@ -412,7 +425,7 @@ describe('tenant operations against real Supabase', { skip: skipUnlessConfigured
     );
     assert.notEqual(read.rows[0]!.read_at, null);
     const deleted = await deleteOperationDevice(operationRequest(
-      '/api/operations/device-tokens', fixture.eligible, 'DELETE', { token },
+      '/api/operations/device-tokens', fixture.foreignMember, 'DELETE', { token },
     ));
     assert.equal(deleted.status, 204);
   });
@@ -810,9 +823,22 @@ describe('tenant operations against real Supabase', { skip: skipUnlessConfigured
     const rule = await sql<{ id: string }>(
       `insert into public.operation_escalation_rules
        (brand_id, escalation_order, offset_minutes, recipient_role, channels)
-       values ($1, 20, 0, 'eligible_staff', array['push']::text[]) returning id`,
+       values ($1, 20, 0, 'eligible_staff', array['in_app']::text[]) returning id`,
       [fixture.disabled.brandId],
     );
+    await sql(`update public.operation_occurrences set status = 'scheduled',
+      due_at = now() - interval '1 minute' where id = $1`, [fixture.visibleDisabledOccurrenceId]);
+    const maintenance = await serviceClient().rpc('run_operation_maintenance', {
+      target_now: new Date().toISOString(), target_horizon_hours: 1,
+    });
+    assert.equal(maintenance.error, null, maintenance.error?.message);
+    assert.equal((maintenance.data as { outbox?: number } | null)?.outbox, 0);
+    const legacyAbsent = await sql<{ count: string }>(
+      `select count(*)::text from public.operation_notification_outbox
+       where occurrence_id = $1 and escalation_rule_id = $2`,
+      [fixture.visibleDisabledOccurrenceId, rule.rows[0]!.id],
+    );
+    assert.equal(legacyAbsent.rows[0]?.count, '0');
     await sql(`update public.operation_occurrences set status = 'missed',
       due_at = now() - interval '1 minute' where id = $1`, [fixture.visibleDisabledOccurrenceId]);
     const queued = await serviceClient().rpc('queue_due_operation_escalations', {
