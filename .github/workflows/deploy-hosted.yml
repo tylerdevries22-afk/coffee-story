@@ -150,9 +150,10 @@ jobs:
           test -n "$SUPABASE_PUBLISHABLE_KEY" || { echo '::error::Set SUPABASE_PUBLISHABLE_KEY.'; exit 1; }
           test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo '::error::Set SUPABASE_SERVICE_ROLE_KEY.'; exit 1; }
           test -n "$CRON_SECRET" || { echo '::error::Set CRON_SECRET.'; exit 1; }
-      - name: Configure production server environment
+      - name: Configure hosted server environment
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          SUPABASE_JWT_SECRET: ${{ secrets.SUPABASE_JWT_SECRET }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_RESEARCH_MODEL: ${{ vars.OPENAI_RESEARCH_MODEL }}
@@ -169,6 +170,7 @@ jobs:
           }
           add_public() {
             local name="$1" value="$2"
+            test -n "$value" || return 0
             npx --yes "vercel@${VERCEL_CLI_VERSION}" env add "$name" "$DEPLOY_ENVIRONMENT" \
               --project "$project" --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN" \
               --value "$value" --no-sensitive --force --yes >/dev/null
@@ -264,7 +266,7 @@ jobs:
             echo "SUPABASE_URL=https://${SUPABASE_PROJECT_REF}.supabase.co"
             echo "SUPABASE_PUBLISHABLE_KEY=$publishable"
           } >> "$GITHUB_ENV"
-      - name: Configure production runtime environment
+      - name: Configure hosted runtime environment
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           DISPLAY_DEVICE_TOKEN: ${{ secrets.DISPLAY_DEVICE_TOKEN }}
