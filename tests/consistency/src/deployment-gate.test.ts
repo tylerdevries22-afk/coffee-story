@@ -6,6 +6,7 @@ import { describe, it } from 'node:test';
 const ROOT = join(process.cwd(), '..', '..');
 const deploy = readFileSync(join(ROOT, '.github', 'workflows', 'deploy-hosted.yml'), 'utf8');
 const bootstrap = readFileSync(join(ROOT, '.github', 'workflows', 'bootstrap-tenant.yml'), 'utf8');
+const verify = readFileSync(join(ROOT, '.github', 'workflows', 'verify.yml'), 'utf8');
 
 describe('hosted database promotion gate', () => {
   it('migrates and verifies the target before every deploy path', () => {
@@ -23,5 +24,13 @@ describe('hosted database promotion gate', () => {
     assert.match(bootstrap, /supabase\/setup-cli@v3/);
     assert.match(bootstrap, /SUPABASE_PROJECT_REF: \$\{\{ inputs\.supabase_project_ref \}\}/);
     assert.doesNotMatch(bootstrap, /supabase branches get "\$PROJECT_REF"/);
+  });
+
+  it('isolates hosted integration tests from Git-managed preview branches', () => {
+    assert.match(verify, /branch_name="ci-\$\{GITHUB_RUN_ID\}-\$\{GITHUB_RUN_ATTEMPT\}"/);
+    assert.match(verify, /git_branch="\$branch_name"/);
+    assert.match(verify, /--git-branch "\$git_branch"/);
+    assert.doesNotMatch(verify, /git_branch="\$\{GITHUB_HEAD_REF:-\$GITHUB_REF_NAME\}"/);
+    assert.match(verify, /\*'Resource has been removed'\*\) ;;/);
   });
 });

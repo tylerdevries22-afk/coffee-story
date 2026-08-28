@@ -182,22 +182,22 @@ jobs:
           set -euo pipefail
           test -n "$SUPABASE_ACCESS_TOKEN" || { echo '::error::Set SUPABASE_ACCESS_TOKEN.'; exit 1; }
           test -n "$SUPABASE_PROJECT_REF" || { echo '::error::Set SUPABASE_PROJECT_REF.'; exit 1; }
-          git_branch="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          branch_name="ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          git_branch="$branch_name"
+          {
+            echo "CI_BRANCH_OWNED=true"
+            echo "CI_BRANCH_NAME=$branch_name"
+          } >> "$GITHUB_ENV"
           branches=$(supabase branches list --project-ref "$SUPABASE_PROJECT_REF" -o json)
-          preview_ref=$(printf '%s' "$branches" | jq -r --arg branch "$git_branch" \
-            '[.[] | select(.git_branch == $branch and .preview_project_status == "ACTIVE_HEALTHY")][0].project_ref // empty')
-          branch_owned=false
+          preview_ref=$(printf '%s' "$branches" | jq -r --arg name "$branch_name" \
+            '[.[] | select(.name == $name)][0].project_ref // empty')
           if [ -z "$preview_ref" ]; then
-            branch_name="ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-            branch_owned=true
-            {
-              echo "CI_BRANCH_OWNED=true"
-              echo "CI_BRANCH_NAME=$branch_name"
-            } >> "$GITHUB_ENV"
             # The CLI writes human-readable provisioning progress before its
             # JSON result. Querying the authoritative branch list avoids
             # trying to parse that mixed output and also gives cleanup a stable
             # name if this step is cancelled before the project ref is known.
+            # Its synthetic git branch prevents the Supabase Git integration
+            # from adopting and deleting this CI-owned database mid-test.
             supabase branches create "$branch_name" \
               --project-ref "$SUPABASE_PROJECT_REF" --git-branch "$git_branch" \
               --size micro --yes -o json >/dev/null
@@ -212,7 +212,6 @@ jobs:
           test -n "$preview_ref" && test "$preview_ref" != null
           {
             echo "PREVIEW_PROJECT_REF=$preview_ref"
-            echo "CI_BRANCH_OWNED=$branch_owned"
           } >> "$GITHUB_ENV"
 
           ready=false
@@ -347,8 +346,9 @@ jobs:
       - name: Delete hosted Supabase branch
         if: always()
         run: |
-          # Git integration owns a PR branch's lifecycle. Other runs create a
-          # unique branch above and must remove it even after cancellation.
+          # This workflow always owns its synthetic branch and must remove it
+          # even after cancellation. Treat an already-removed branch as a
+          # successful idempotent cleanup.
           if [ "${CI_BRANCH_OWNED:-false}" = true ]; then
             cleanup_ref="${PREVIEW_PROJECT_REF:-}"
             if [ -z "$cleanup_ref" ] && [ -n "${CI_BRANCH_NAME:-}" ]; then
@@ -357,8 +357,20 @@ jobs:
                   '[.[] | select(.name == $name)][0].project_ref // empty')
             fi
             if [ -n "$cleanup_ref" ]; then
-              supabase branches delete "$cleanup_ref" \
-                --project-ref "$SUPABASE_PROJECT_REF" --yes
+              set +e
+              cleanup_output=$(supabase branches delete "$cleanup_ref" \
+                --project-ref "$SUPABASE_PROJECT_REF" --yes 2>&1)
+              cleanup_status=$?
+              set -e
+              if [ "$cleanup_status" -ne 0 ]; then
+                case "$cleanup_output" in
+                  *'Resource has been removed'*) ;;
+                  *)
+                    printf '%s\n' "$cleanup_output" >&2
+                    exit "$cleanup_status"
+                    ;;
+                esac
+              fi
             fi
           fi
 
