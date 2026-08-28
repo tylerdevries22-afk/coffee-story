@@ -16,6 +16,7 @@
     "@platform/api-client": "workspace:*",
     "@platform/domain": "workspace:*",
     "@platform/engine": "workspace:*",
+    "@platform/factory": "workspace:*",
     "@platform/integrations": "workspace:*",
     "@platform/schema": "workspace:*",
     "@platform/ui": "workspace:*",

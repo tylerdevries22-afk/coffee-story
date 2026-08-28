@@ -6,6 +6,19 @@ name: deploy hosted surfaces
 on:
   workflow_dispatch:
     inputs:
+      tenant:
+        description: Tenant slug bundled into customer and kiosk surfaces
+        type: string
+        default: coffee-story
+      project_prefix:
+        description: Existing Vercel project prefix (prefix-hq, prefix-customer, etc.)
+        type: string
+        default: coffee-story
+      environment:
+        description: Vercel and EAS environment to promote
+        type: choice
+        options: [preview, production]
+        default: production
       deploy_web:
         description: Deploy HQ, pickup display, and the three Expo web builds
         type: boolean
@@ -16,7 +29,7 @@ on:
         default: false
 
 concurrency:
-  group: hosted-production
+  group: hosted-${{ inputs.project_prefix || 'coffee-story' }}-${{ inputs.environment || 'production' }}
   cancel-in-progress: false
 
 permissions:
@@ -27,7 +40,9 @@ env:
   VERCEL_SCOPE: ${{ vars.VERCEL_SCOPE || 'tylerdevries222s-projects' }}
   SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
   SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
-  TENANT: coffee-story
+  TENANT: ${{ inputs.tenant || 'coffee-story' }}
+  PROJECT_PREFIX: ${{ inputs.project_prefix || 'coffee-story' }}
+  DEPLOY_ENVIRONMENT: ${{ inputs.environment || 'production' }}
 
 jobs:
   gate:
@@ -73,17 +88,18 @@ jobs:
           OPENAI_EVALUATION_MODEL: ${{ vars.OPENAI_EVALUATION_MODEL }}
         run: |
           set -euo pipefail
+          project="${PROJECT_PREFIX}-hq"
           add_secret() {
             local name="$1" value="$2"
             test -n "$value" || return 0
-            npx --yes "vercel@${VERCEL_CLI_VERSION}" env add "$name" production \
-              --project coffee-story-hq --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN" \
+            npx --yes "vercel@${VERCEL_CLI_VERSION}" env add "$name" "$DEPLOY_ENVIRONMENT" \
+              --project "$project" --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN" \
               --value "$value" --sensitive --force --yes >/dev/null
           }
           add_public() {
             local name="$1" value="$2"
-            npx --yes "vercel@${VERCEL_CLI_VERSION}" env add "$name" production \
-              --project coffee-story-hq --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN" \
+            npx --yes "vercel@${VERCEL_CLI_VERSION}" env add "$name" "$DEPLOY_ENVIRONMENT" \
+              --project "$project" --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN" \
               --value "$value" --no-sensitive --force --yes >/dev/null
           }
           add_public SUPABASE_URL "$SUPABASE_URL"
@@ -108,10 +124,11 @@ jobs:
           # monorepo through the CLI (the source archive is larger than the
           # Vercel API's 10 MB direct-upload limit). Redeploying the stable
           # production alias picks up the commit already built by Vercel.
-          npx --yes "vercel@${VERCEL_CLI_VERSION}" redeploy coffee-story-hq.vercel.app \
-            --target production --no-wait --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN"
-          echo 'url=https://coffee-story-hq.vercel.app' >> "$GITHUB_OUTPUT"
-          echo 'HQ promoted at https://coffee-story-hq.vercel.app'
+          target="${PROJECT_PREFIX}-hq.vercel.app"
+          npx --yes "vercel@${VERCEL_CLI_VERSION}" redeploy "$target" \
+            --target "$DEPLOY_ENVIRONMENT" --no-wait --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN"
+          echo "url=https://${target}" >> "$GITHUB_OUTPUT"
+          echo "HQ promoted at https://${target}"
 
   deploy-web:
     name: Deploy ${{ matrix.surface }} web app
@@ -124,13 +141,9 @@ jobs:
       matrix:
         include:
           - surface: display
-            project: coffee-story-display
           - surface: customer
-            project: coffee-story-customer
           - surface: operator
-            project: coffee-story-operator
           - surface: kiosk
-            project: coffee-story-kiosk
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -147,15 +160,15 @@ jobs:
           set -euo pipefail
           add_public() {
             local name="$1" value="$2"
-            npx --yes "vercel@${VERCEL_CLI_VERSION}" env add "$name" production \
-              --project "${{ matrix.project }}" --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN" \
+            npx --yes "vercel@${VERCEL_CLI_VERSION}" env add "$name" "$DEPLOY_ENVIRONMENT" \
+              --project "${PROJECT_PREFIX}-${{ matrix.surface }}" --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN" \
               --value "$value" --no-sensitive --force --yes >/dev/null
           }
           add_secret() {
             local name="$1" value="$2"
             test -n "$value" || return 0
-            npx --yes "vercel@${VERCEL_CLI_VERSION}" env add "$name" production \
-              --project "${{ matrix.project }}" --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN" \
+            npx --yes "vercel@${VERCEL_CLI_VERSION}" env add "$name" "$DEPLOY_ENVIRONMENT" \
+              --project "${PROJECT_PREFIX}-${{ matrix.surface }}" --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN" \
               --value "$value" --sensitive --force --yes >/dev/null
           }
           if [ "${{ matrix.surface }}" = display ]; then
@@ -166,7 +179,7 @@ jobs:
             add_public EXPO_PUBLIC_SUPABASE_URL "$SUPABASE_URL"
             add_public EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY "$SUPABASE_PUBLISHABLE_KEY"
             add_public EXPO_PUBLIC_API_URL "${{ needs.deploy-hq.outputs.url }}"
-            add_public EXPO_PUBLIC_ALLOWED_API_HOST "coffee-story-hq.vercel.app"
+            add_public EXPO_PUBLIC_ALLOWED_API_HOST "${PROJECT_PREFIX}-hq.vercel.app"
             add_public TENANT "$TENANT"
           fi
       - name: Rebuild and promote web surface
@@ -174,13 +187,13 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
           set -euo pipefail
-          npx --yes "vercel@${VERCEL_CLI_VERSION}" redeploy "${{ matrix.project }}.vercel.app" \
-            --target production --no-wait --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN"
+          npx --yes "vercel@${VERCEL_CLI_VERSION}" redeploy "${PROJECT_PREFIX}-${{ matrix.surface }}.vercel.app" \
+            --target "$DEPLOY_ENVIRONMENT" --no-wait --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN"
 
   publish-native:
     name: Publish native OTA updates
     needs: gate
-    if: inputs.publish_native
+    if: inputs.publish_native && inputs.environment == 'production'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
