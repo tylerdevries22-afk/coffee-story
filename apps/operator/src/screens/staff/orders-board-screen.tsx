@@ -428,6 +428,7 @@ function OrderDetail({
       {action ? (
         <Pressable
           accessibilityRole="button"
+          accessibilityLabel={`${actionLabel} for order ${order.shortCode}`}
           onPress={() => { onAdvance(action.to); onClose(); }}
           style={({ pressed }) => [styles.detailPrimary, pressed && styles.pressed]}
         >
@@ -830,9 +831,13 @@ const createStyles = (tokens: BrandTokens) => StyleSheet.create({
   },
   advanceText: { color: tokens.surfaceElevated, fontFamily: tokens.fontBody, fontSize: 15 },
 
-  backdrop: { flex: 1, backgroundColor: 'rgba(20,12,8,0.45)' },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(20,12,8,0.45)',
+  },
   sheet: {
     position: 'absolute',
+    zIndex: 1,
     left: tokens.spacing.xl,
     right: tokens.spacing.xl,
     top: '12%',
