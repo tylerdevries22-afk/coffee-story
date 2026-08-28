@@ -7,6 +7,189 @@ export type Json =
   | Json[]
 
 export type Database = {
+<<<<<<< ours
+=======
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.17"
+  }
+  app: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      annual_points_for: { Args: { target_account: string }; Returns: number }
+      at_location: {
+        Args: { target_brand: string; target_location: string }
+        Returns: boolean
+      }
+      board_ticket_rows: {
+        Args: never
+        Returns: {
+          arrived_at: string
+          brand_id: string
+          channel: Database["app"]["Enums"]["order_channel"]
+          daily_number: number
+          fulfillment_type: Database["app"]["Enums"]["fulfillment_type"]
+          guest_label: string
+          id: string
+          location_id: string
+          loyalty_tier: string
+          status: Database["app"]["Enums"]["order_status"]
+          updated_at: string
+        }[]
+      }
+      brand_storefront_rows: {
+        Args: never
+        Returns: {
+          brand_config: Json
+          catering: boolean
+          delivery: boolean
+          drops: boolean
+          id: string
+          multi_location: boolean
+          name: string
+          operations: boolean
+          referrals: boolean
+          slug: string
+          sms: boolean
+          stored_value: boolean
+        }[]
+      }
+      calendar_row_visible: {
+        Args: { target_brand: string; target_location: string }
+        Returns: boolean
+      }
+      can_read_board: {
+        Args: { target_brand: string; target_location: string }
+        Returns: boolean
+      }
+      custom_access_token: { Args: { event: Json }; Returns: Json }
+      customer_ordered_at: {
+        Args: { customer: string; locs: string[] }
+        Returns: boolean
+      }
+      device_is_active: {
+        Args: { wanted_role: Database["app"]["Enums"]["device_role"] }
+        Returns: boolean
+      }
+      drop_visibility: {
+        Args: {
+          at_time?: string
+          d: Database["public"]["Tables"]["drops"]["Row"]
+        }
+        Returns: string
+      }
+      is_brand_manager: { Args: { target_brand: string }; Returns: boolean }
+      is_brand_owner: { Args: { target_brand: string }; Returns: boolean }
+      is_brand_staff: { Args: { target_brand: string }; Returns: boolean }
+      is_current_brand_user: {
+        Args: { target_brand: string; target_brand_user: string }
+        Returns: boolean
+      }
+      is_device_at: {
+        Args: { target_brand: string; target_location: string }
+        Returns: boolean
+      }
+      is_owned_channel: {
+        Args: { channel: Database["app"]["Enums"]["order_channel"] }
+        Returns: boolean
+      }
+      is_platform_admin: { Args: never; Returns: boolean }
+      jwt_brand_id: { Args: never; Returns: string }
+      jwt_claims: { Args: never; Returns: Json }
+      jwt_device_id: { Args: never; Returns: string }
+      jwt_device_location: { Args: never; Returns: string }
+      jwt_device_role: { Args: never; Returns: string }
+      jwt_location_ids: { Args: never; Returns: string[] }
+      jwt_role: { Args: never; Returns: string }
+      location_square_status_rows: {
+        Args: never
+        Returns: {
+          brand_id: string
+          expires_at: string
+          location_id: string
+          merchant_id: string
+        }[]
+      }
+      loyalty_tier_for: {
+        Args: { target_brand: string; target_customer: string }
+        Returns: string
+      }
+      manages_location: {
+        Args: { target_brand: string; target_location: string }
+        Returns: boolean
+      }
+      mark_order_arrived: { Args: { target_order: string }; Returns: string }
+      order_transition_allowed: {
+        Args: {
+          from_status: Database["app"]["Enums"]["order_status"]
+          to_status: Database["app"]["Enums"]["order_status"]
+        }
+        Returns: boolean
+      }
+      pack_choices: {
+        Args: {
+          at_time?: string
+          pack: Database["public"]["Tables"]["menu_items"]["Row"]
+        }
+        Returns: Database["public"]["Tables"]["menu_items"]["Row"][]
+        SetofOptions: {
+          from: "*"
+          to: "menu_items"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      pack_saving_bps: {
+        Args: { item: Database["public"]["Tables"]["menu_items"]["Row"] }
+        Returns: number
+      }
+      set_brand_kiosk_config: {
+        Args: { config: Json; expected_updated_at?: string }
+        Returns: string
+      }
+      valid_slug_set: { Args: { p_values: string[] }; Returns: boolean }
+    }
+    Enums: {
+      brand_role:
+        | "platform_admin"
+        | "brand_owner"
+        | "location_manager"
+        | "staff"
+      campaign_channel: "push" | "sms" | "email"
+      device_role: "kiosk" | "pos" | "display" | "prep"
+      fulfillment_type: "pickup" | "curbside" | "catering" | "delivery"
+      item_rotation: "permanent" | "rotating" | "day_specific"
+      order_channel: "app" | "web" | "kiosk" | "pos"
+      order_status:
+        | "created"
+        | "paid"
+        | "in_progress"
+        | "ready"
+        | "picked_up"
+        | "cancelled"
+        | "refunded"
+      operation_occurrence_status:
+        | "upcoming"
+        | "due"
+        | "claimed"
+        | "completed"
+        | "overdue"
+        | "waived"
+        | "cancelled"
+      prep_status: "pending" | "in_progress" | "done" | "abandoned"
+      task_recurrence: "opening" | "closing" | "daily" | "weekly"
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
+>>>>>>> theirs
   public: {
     Tables: {
       analytics_consent_records: {
@@ -281,6 +464,7 @@ export type Database = {
           event_version: number
           flow_key: string | null
           id: string
+<<<<<<< ours
           location_id: string | null
           metric_key: string | null
           occurred_at: string
@@ -290,6 +474,17 @@ export type Database = {
           session_hash: string
           step_key: string | null
           surface: string
+=======
+          multi_location: boolean
+          name: string
+          operations?: boolean
+          referrals: boolean
+          slug: string
+          sms: boolean
+          stored_value: boolean
+          tier_threshold_cents: number
+          updated_at: string
+>>>>>>> theirs
         }
         Insert: {
           actor_hash?: string | null
@@ -325,6 +520,7 @@ export type Database = {
           event_version?: number
           flow_key?: string | null
           id?: string
+<<<<<<< ours
           location_id?: string | null
           metric_key?: string | null
           occurred_at?: string
@@ -334,6 +530,17 @@ export type Database = {
           session_hash?: string
           step_key?: string | null
           surface?: string
+=======
+          multi_location?: boolean
+          name?: string
+          operations?: boolean
+          referrals?: boolean
+          slug?: string
+          sms?: boolean
+          stored_value?: boolean
+          tier_threshold_cents?: number
+          updated_at?: string
+>>>>>>> theirs
         }
         Relationships: []
       }

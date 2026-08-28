@@ -29,7 +29,11 @@ export type DeviceRole = 'kiosk' | 'pos' | 'display' | 'prep';
 export type PrepStatus = 'pending' | 'in_progress' | 'done' | 'abandoned';
 export type TaskRecurrence = 'opening' | 'closing' | 'daily' | 'weekly';
 export type OperationOccurrenceStatus =
+<<<<<<< ours
   | 'scheduled' | 'claimed' | 'completed' | 'missed' | 'cancelled';
+=======
+  | 'upcoming' | 'due' | 'claimed' | 'completed' | 'overdue' | 'waived' | 'cancelled';
+>>>>>>> theirs
 
 export type OperationOccurrenceRow = {
   id: string;
@@ -42,11 +46,17 @@ export type OperationOccurrenceRow = {
   template_snapshot: Record<string, unknown>;
   scheduled_for: string;
   due_at: string;
+<<<<<<< ours
   grace_minutes: number;
   status: OperationOccurrenceStatus;
   claimed_by: string | null;
   claimed_at: string | null;
   claim_expires_at: string | null;
+=======
+  status: OperationOccurrenceStatus;
+  claimed_by: string | null;
+  claimed_at: string | null;
+>>>>>>> theirs
   completed_at: string | null;
   completion_note: string;
   created_at: string;

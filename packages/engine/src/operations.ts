@@ -1,3 +1,4 @@
+<<<<<<< ours
 import {
   dueEscalations,
   type EscalationRule,
@@ -161,12 +162,16 @@ export function generateOperationWindows(
       materializationKey: `${input.scheduleId}:${Math.floor(scheduledFor.getTime() / 1_000)}`,
     }));
 }
+=======
+import { dueEscalations, type EscalationRule } from '@platform/domain';
+>>>>>>> theirs
 
 export type MaterializableOperation = {
   scheduleId: string;
   brandId: string;
   locationId: string;
   templateId: string;
+<<<<<<< ours
   templateSnapshot: OperationTemplateSnapshot;
   scheduledFor: string;
   dueAt: string;
@@ -188,6 +193,18 @@ export function operationOccurrenceInsert(input: MaterializableOperation, now = 
   if (!Number.isInteger(input.graceMinutes) || input.graceMinutes < 0 || input.graceMinutes > 1_440) {
     throw new RangeError('graceMinutes must be an integer from 0 through 1440.');
   }
+=======
+  templateSnapshot: Record<string, unknown>;
+  scheduledFor: string;
+  dueAt: string;
+};
+
+export function operationMaterializationKey(input: MaterializableOperation): string {
+  return `${input.scheduleId}:${input.scheduledFor}`;
+}
+
+export function operationOccurrenceInsert(input: MaterializableOperation) {
+>>>>>>> theirs
   return {
     brand_id: input.brandId,
     location_id: input.locationId,
@@ -198,14 +215,22 @@ export function operationOccurrenceInsert(input: MaterializableOperation, now = 
     template_snapshot: input.templateSnapshot,
     scheduled_for: input.scheduledFor,
     due_at: input.dueAt,
+<<<<<<< ours
     grace_minutes: input.graceMinutes,
     status: 'scheduled' as const,
+=======
+    status: new Date(input.scheduledFor).getTime() <= Date.now() ? 'due' as const : 'upcoming' as const,
+>>>>>>> theirs
   };
 }
 
 export type EscalationCandidate = EscalationRule & {
   recipientRole: 'eligible_staff' | 'location_manager' | 'brand_owner';
+<<<<<<< ours
   channels: readonly ('in_app' | 'push')[];
+=======
+  channels: readonly ('push' | 'sms' | 'email')[];
+>>>>>>> theirs
 };
 
 export function operationEscalationsToCreate(

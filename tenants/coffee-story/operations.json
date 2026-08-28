@@ -1,4 +1,5 @@
 {
+<<<<<<< ours
   "$docs": "Coffee Story pilot. The schedules remain inactive until a location manager configures the required in-app/push escalation ladder and approves the local sanitation procedure.",
   "roles": [
     {
@@ -116,5 +117,35 @@
     "evidenceDays": 395,
     "issueDays": 395,
     "actorIdentityDays": 395
+=======
+  "$docs": "Draft pilot configuration. Location managers select production times after tenant approval of procedure and training content.",
+  "templates": [
+    {
+      "key": "restroom-routine",
+      "title": "Restroom routine",
+      "instructions": "Follow the approved location procedure and report any condition that cannot be corrected during the round.",
+      "estimatedMinutes": 12,
+      "requiredRoleKeys": ["floor-operations"],
+      "requiredCompetencyKeys": ["sanitation-routine"],
+      "steps": [
+        { "key": "service-sign", "title": "Set the temporary service sign when appropriate", "responseKind": "confirm", "required": true },
+        { "key": "supplies", "title": "Restock approved supplies", "responseKind": "pass_fail", "required": true, "issueOnFailure": true },
+        { "key": "fixtures", "title": "Clean and inspect approved fixtures and surfaces", "responseKind": "pass_fail", "required": true, "issueOnFailure": true },
+        { "key": "floor", "title": "Clean and inspect the floor", "responseKind": "pass_fail", "required": true, "issueOnFailure": true },
+        { "key": "final-check", "title": "Complete the final condition check", "responseKind": "pass_fail", "required": true, "issueOnFailure": true }
+      ]
+    }
+  ],
+  "schedules": [],
+  "escalations": [
+    { "order": 1, "offsetMinutes": 0, "recipientRole": "eligible_staff", "channels": ["push"] },
+    { "order": 2, "offsetMinutes": 15, "recipientRole": "location_manager", "channels": ["push", "email"] },
+    { "order": 3, "offsetMinutes": 60, "recipientRole": "brand_owner", "channels": ["email"] }
+  ],
+  "retention": {
+    "evidenceDays": 365,
+    "issueDays": 730,
+    "actorIdentityDays": 365
+>>>>>>> theirs
   }
 }
