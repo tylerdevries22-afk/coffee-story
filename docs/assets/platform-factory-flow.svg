@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="420" viewBox="0 0 1200 420" role="img" aria-labelledby="title desc">
+  <title id="title">Platform factory deployment flow</title>
+  <desc id="desc">An industry blueprint and tenant intake flow through a private demo, credential gate, hosted infrastructure, release validation, and five live applications.</desc>
+  <rect width="1200" height="420" rx="24" fill="#171614"/>
+  <g font-family="Inter,Arial,sans-serif" fill="none" stroke="#5c5851" stroke-width="2">
+    <path d="M210 115H280M460 115H530M710 115H780M960 115H1030"/>
+    <path d="M1110 165V245H920"/>
+  </g>
+  <g font-family="Inter,Arial,sans-serif">
+    <g transform="translate(30 55)"><rect width="180" height="120" rx="14" fill="#24211d" stroke="#6f6049"/><text x="20" y="36" fill="#b89b6c" font-size="13" font-weight="700">01 · TEMPLATE</text><text x="20" y="67" fill="#fff" font-size="20" font-weight="700">Industry blueprint</text><text x="20" y="92" fill="#aaa6a0" font-size="13">Vocabulary + baseline</text></g>
+    <g transform="translate(280 55)"><rect width="180" height="120" rx="14" fill="#24211d" stroke="#4c4944"/><text x="20" y="36" fill="#b89b6c" font-size="13" font-weight="700">02 · INTAKE</text><text x="20" y="67" fill="#fff" font-size="20" font-weight="700">Private demo</text><text x="20" y="92" fill="#aaa6a0" font-size="13">Brand research + assets</text></g>
+    <g transform="translate(530 55)"><rect width="180" height="120" rx="14" fill="#24211d" stroke="#4c4944"/><text x="20" y="36" fill="#b89b6c" font-size="13" font-weight="700">03 · GATE</text><text x="20" y="67" fill="#fff" font-size="20" font-weight="700">Client access</text><text x="20" y="92" fill="#aaa6a0" font-size="13">Least-privilege credentials</text></g>
+    <g transform="translate(780 55)"><rect width="180" height="120" rx="14" fill="#24211d" stroke="#4c4944"/><text x="20" y="36" fill="#b89b6c" font-size="13" font-weight="700">04 · HOST</text><text x="20" y="67" fill="#fff" font-size="20" font-weight="700">Isolated stack</text><text x="20" y="92" fill="#aaa6a0" font-size="13">GitHub · Supabase · Vercel</text></g>
+    <g transform="translate(1030 55)"><rect width="140" height="120" rx="14" fill="#203128" stroke="#39714d"/><text x="18" y="36" fill="#76b78b" font-size="13" font-weight="700">05 · LIVE</text><text x="18" y="67" fill="#fff" font-size="20" font-weight="700">Verified</text><text x="18" y="92" fill="#b0c5b7" font-size="13">Atomic release</text></g>
+    <g transform="translate(280 245)"><rect width="640" height="125" rx="14" fill="#1e1c19" stroke="#4c4944"/><text x="24" y="34" fill="#aaa6a0" font-size="12" font-weight="700">ONE RELEASE · FIVE TENANT-SCOPED SURFACES</text><g fill="#fff" font-size="15" font-weight="700"><text x="25" y="78">Customer</text><text x="145" y="78">Operator</text><text x="265" y="78">Kiosk</text><text x="365" y="78">Pickup display</text><text x="515" y="78">HQ</text></g><text x="25" y="104" fill="#76b78b" font-size="12">Realtime publication signal · validated immutable manifest · last-known-good fallback</text></g>
+  </g>
+</svg>

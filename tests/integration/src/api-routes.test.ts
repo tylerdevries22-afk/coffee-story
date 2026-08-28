@@ -111,7 +111,8 @@ describe('platform API routes', { skip: skipUnlessConfigured }, () => {
       [brandId],
     );
     const category = await sql<{ id: string }>(
-      `insert into public.menu_categories (brand_id, menu_id, title, sort_order) values ($1, $2, 'Drinks', 1) returning id`,
+      `insert into public.menu_categories (brand_id, menu_id, slug, title, sort_order)
+       values ($1, $2, 'drinks', 'Drinks', 1) returning id`,
       [brandId, menu.rows[0]!.id],
     );
     await sql(

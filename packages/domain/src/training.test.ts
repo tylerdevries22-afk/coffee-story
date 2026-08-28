@@ -12,6 +12,10 @@ describe('training manifest v2', () => {
     assert.equal(manifest.schemaVersion, 2);
     assert.deepEqual(manifest.modules.map((module) => module.trackKey), [...TRAINING_TRACK_ORDER]);
     assert.equal(manifest.modules.reduce((total, module) => total + module.lessons.length, 0), 15);
+    const sanitation = manifest.modules.find((module) => module.trackKey === 'safety')?.lessons
+      .find((lesson) => lesson.slug === 'chemicals-and-incidents');
+    assert.deepEqual(sanitation?.grantsCompetencyKeys, ['restroom-sanitation']);
+    assert.equal(sanitation?.competencyValidityDays, 365);
   });
 
   it('upgrades legacy modules without changing their portable slugs', () => {

@@ -67,7 +67,8 @@
     "multi_location": false,
     "sms": false,
     "stored_value": false,
-    "referrals": false
+    "referrals": false,
+    "operations": false
   },
   "fees": {
     "feeBps": 300,

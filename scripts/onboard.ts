@@ -26,9 +26,11 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import {
   buildTenantMenu,
+  parseTenantOperations,
   parseMenuCsv,
   type BundledTenantMenu,
   type TenantMenuCategory,
+  type TenantOperationsConfig,
 } from '@platform/schema';
 import { APP_COLOR_KEYS } from '@platform/ui/app-tokens';
 import { isRegisteredFont } from '@platform/ui/font-registry';
@@ -89,6 +91,187 @@ async function syncMenuImage(
     .eq('id', itemId).eq('brand_id', brandId);
   if (updated.error) throw updated.error;
   return true;
+}
+
+function requiredOperationId(ids: ReadonlyMap<string, string>, key: string, label: string): string {
+  const id = ids.get(key);
+  if (!id) throw new Error(`Operations seed could not resolve ${label} "${key}".`);
+  return id;
+}
+
+async function seedOperationRoles(
+  db: SupabaseClient,
+  brandId: string,
+  config: TenantOperationsConfig,
+): Promise<Map<string, string>> {
+  const ids = new Map<string, string>();
+  for (const [index, role] of config.roles.entries()) {
+    const { data, error } = await db.from('workforce_roles').upsert({
+      brand_id: brandId, slug: role.key, name: role.title,
+      description: role.description, sort_order: index, is_active: true,
+      managed_by_operations_config: true,
+    }, { onConflict: 'brand_id,slug' }).select('id').single();
+    if (error) throw error;
+    ids.set(role.key, data.id);
+  }
+  return ids;
+}
+
+async function seedOperationCompetencies(
+  db: SupabaseClient,
+  brandId: string,
+  config: TenantOperationsConfig,
+): Promise<Map<string, string>> {
+  const ids = new Map<string, string>();
+  for (const competency of config.competencies) {
+    const { data, error } = await db.from('training_competencies').upsert({
+      brand_id: brandId, competency_key: competency.key, title: competency.title,
+      renewal_days: competency.renewalDays, is_active: true, managed_by_config: true,
+    }, { onConflict: 'brand_id,competency_key' }).select('id').single();
+    if (error) throw error;
+    ids.set(competency.key, data.id);
+  }
+  return ids;
+}
+
+async function seedOperationSteps(
+  db: SupabaseClient,
+  brandId: string,
+  templateId: string,
+  steps: TenantOperationsConfig['templates'][number]['steps'],
+): Promise<void> {
+  const { data: existing, error: existingError } = await db.from('operation_task_steps')
+    .select('step_key').eq('brand_id', brandId).eq('template_id', templateId);
+  if (existingError) throw existingError;
+  const configured = new Set(steps.map((step) => step.key));
+  const removed = (existing ?? []).map((step) => step.step_key)
+    .filter((key) => !configured.has(key));
+  if (removed.length > 0) {
+    const deleted = await db.from('operation_task_steps').delete()
+      .eq('brand_id', brandId).eq('template_id', templateId).in('step_key', removed);
+    if (deleted.error) throw deleted.error;
+  }
+  for (const [index, step] of steps.entries()) {
+    const saved = await db.from('operation_task_steps').upsert({
+      brand_id: brandId, template_id: templateId, step_key: step.key,
+      title: step.title, instructions: step.instructions, response_kind: step.responseKind,
+      is_required: step.required, issue_on_failure: step.issueOnFailure,
+      allow_not_applicable: step.allowNotApplicable,
+      constraints: step.constraints, sort_order: index,
+    }, { onConflict: 'template_id,step_key' });
+    if (saved.error) throw saved.error;
+  }
+}
+
+async function seedOperationTemplates(
+  db: SupabaseClient,
+  brandId: string,
+  config: TenantOperationsConfig,
+  roleIds: ReadonlyMap<string, string>,
+): Promise<Map<string, string>> {
+  const ids = new Map<string, string>();
+  for (const template of config.templates) {
+    const { data, error } = await db.from('operation_task_templates').upsert({
+      brand_id: brandId, location_id: null, template_key: template.key,
+      program_key: template.programKey, routine_kind: template.routineKind,
+      revision: template.revision, title: template.title, instructions: template.instructions,
+      estimated_minutes: template.estimatedMinutes,
+      required_role_ids: template.requiredRoleKeys.map((key) => requiredOperationId(roleIds, key, 'role')),
+      required_competency_keys: template.requiredCompetencyKeys,
+      evidence_policy: { issueCategories: template.issueCategories },
+      is_active: true, managed_by_config: true,
+    }, { onConflict: 'brand_id,location_id,template_key,revision' }).select('id').single();
+    if (error) throw error;
+    await seedOperationSteps(db, brandId, data.id, template.steps);
+    ids.set(template.key, data.id);
+  }
+  return ids;
+}
+
+async function seedOperationSchedules(
+  db: SupabaseClient,
+  brandId: string,
+  locationId: string,
+  timezone: string,
+  config: TenantOperationsConfig,
+  templateIds: ReadonlyMap<string, string>,
+): Promise<Map<string, string>> {
+  const ids = new Map<string, string>();
+  for (const schedule of config.schedules) {
+    const rule = schedule.rule;
+    const { data, error } = await db.from('operation_schedules').upsert({
+      brand_id: brandId, location_id: locationId, schedule_key: schedule.key,
+      template_id: requiredOperationId(templateIds, schedule.templateKey, 'template'), timezone,
+      schedule_kind: rule.kind,
+      recurrence_rule: rule.weekdays.length === 7 ? 'daily' : 'weekly',
+      weekdays: rule.weekdays,
+      local_start_time: rule.kind === 'fixed_time' ? rule.localTime : null,
+      anchor_offset_minutes: rule.kind === 'opening_offset' || rule.kind === 'closing_offset'
+        ? rule.offsetMinutes
+        : rule.kind === 'open_interval' ? rule.startOffsetMinutes : null,
+      interval_minutes: rule.kind === 'open_interval' ? rule.intervalMinutes : null,
+      interval_end_offset_minutes: rule.kind === 'open_interval' ? rule.endOffsetMinutes : null,
+      due_window_minutes: schedule.dueWindowMinutes,
+      grace_minutes: schedule.graceMinutes, active_from: schedule.activeFrom ?? '1970-01-01',
+      active_until: schedule.activeUntil, is_enabled: schedule.enabled, managed_by_config: true,
+    }, { onConflict: 'brand_id,location_id,schedule_key' }).select('id').single();
+    if (error) throw error;
+    ids.set(schedule.key, data.id);
+  }
+  return ids;
+}
+
+async function seedOperationEscalations(
+  db: SupabaseClient,
+  brandId: string,
+  config: TenantOperationsConfig,
+  scheduleIds: ReadonlyMap<string, string>,
+): Promise<void> {
+  for (const escalation of config.escalations) {
+    const saved = await db.from('operation_escalation_rules').upsert({
+      brand_id: brandId,
+      schedule_id: escalation.scheduleKey
+        ? requiredOperationId(scheduleIds, escalation.scheduleKey, 'schedule') : null,
+      escalation_order: escalation.order, offset_minutes: escalation.offsetMinutes,
+      recipient_role: escalation.recipientRole, channels: escalation.channels,
+      is_active: true, managed_by_config: true,
+    }, { onConflict: 'brand_id,schedule_id,escalation_order' });
+    if (saved.error) throw saved.error;
+  }
+}
+
+async function seedTenantOperations(
+  db: SupabaseClient,
+  brandId: string,
+  locationId: string,
+  timezone: string,
+  config: TenantOperationsConfig,
+): Promise<void> {
+  const disabledRoles = await db.from('workforce_roles').update({ is_active: false })
+    .eq('brand_id', brandId).eq('managed_by_operations_config', true);
+  if (disabledRoles.error) throw disabledRoles.error;
+  const disabledCompetencies = await db.from('training_competencies').update({ is_active: false })
+    .eq('brand_id', brandId).eq('managed_by_config', true);
+  if (disabledCompetencies.error) throw disabledCompetencies.error;
+  const disabledTemplates = await db.from('operation_task_templates').update({ is_active: false })
+    .eq('brand_id', brandId).eq('managed_by_config', true);
+  if (disabledTemplates.error) throw disabledTemplates.error;
+  const disabledSchedules = await db.from('operation_schedules').update({ is_enabled: false })
+    .eq('brand_id', brandId).eq('managed_by_config', true);
+  if (disabledSchedules.error) throw disabledSchedules.error;
+  const disabledEscalations = await db.from('operation_escalation_rules').update({ is_active: false })
+    .eq('brand_id', brandId).eq('managed_by_config', true);
+  if (disabledEscalations.error) throw disabledEscalations.error;
+  const roleIds = await seedOperationRoles(db, brandId, config);
+  await seedOperationCompetencies(db, brandId, config);
+  const templateIds = await seedOperationTemplates(db, brandId, config, roleIds);
+  const scheduleIds = await seedOperationSchedules(db, brandId, locationId, timezone, config, templateIds);
+  await seedOperationEscalations(db, brandId, config, scheduleIds);
+  const retention = await db.from('operation_retention_policies').upsert({
+    brand_id: brandId, evidence_days: config.retention.evidenceDays,
+    issue_days: config.retention.issueDays, actor_identity_days: config.retention.actorIdentityDays,
+  }, { onConflict: 'brand_id' });
+  if (retention.error) throw retention.error;
 }
 
 type BrandFile = {
@@ -213,6 +396,23 @@ async function run() {
       break;
     }
   }
+  const operationsPath = join(tenantDir, 'operations.json');
+  let operationsConfig: TenantOperationsConfig | null = null;
+  if (brand.features.operations && !existsSync(operationsPath)) {
+    problems.push('features.operations requires an operations.json tenant artifact.');
+  }
+  if (existsSync(operationsPath)) {
+    try {
+      const parsed = parseTenantOperations(
+        JSON.parse(readFileSync(operationsPath, 'utf8')) as unknown,
+        brand.features.operations === true,
+      );
+      if (parsed.value) operationsConfig = parsed.value;
+      else problems.push(...parsed.errors.map((error) => `operations.json: ${error}`));
+    } catch {
+      problems.push('operations.json must contain valid JSON.');
+    }
+  }
   const menuPath = join(tenantDir, 'menu.csv');
   const menu = existsSync(menuPath) ? parseMenuCsv(readFileSync(menuPath, 'utf8')) : { rows: [], errors: [] };
   problems.push(...menu.errors.map((error) => `menu.csv: ${error}`));
@@ -324,6 +524,11 @@ async function run() {
       if (ownerError) throw ownerError;
     }
 
+    if (operationsConfig) {
+      await seedTenantOperations(db, brandRow.id, locationId, brand.location.timezone, operationsConfig);
+      console.log(`   operations: ${operationsConfig.templates.length} templates, ${operationsConfig.schedules.length} schedules synced`);
+    }
+
     if (menu.rows.length > 0) {
       const { data: savedMenu, error: menuError } = await db
         .from('menus')
@@ -343,6 +548,7 @@ async function run() {
             {
               brand_id: brandRow.id,
               menu_id: menuId,
+              slug: category.id,
               title: category.title,
               tagline: category.tagline,
               sort_order: index,

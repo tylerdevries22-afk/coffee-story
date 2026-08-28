@@ -1,5 +1,5 @@
-import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { router, type Href } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -7,15 +7,26 @@ import { AppIcon } from '@/components/icon';
 import { CALENDAR_ITEMS } from '@/data/calendar-demo';
 import { loadLiveCalendarItems } from '@/features/calendar/live';
 import { calendarCategoryForItem, calendarItemById, calendarProgressLabels, type CalendarItem } from '@/features/calendar/presentation';
+import { operationCalendarItems } from '@/features/operations/calendar';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/state/auth-context';
+import { useOperations } from '@/state/operations-store';
+import { useOperator } from '@/state/operator-store';
 import { useAppTokens, type AppTokens } from '@platform/ui';
 
 export function CalendarDetailScreen({ itemId }: { itemId: string }) {
   const { isDemo, tenant } = useAuth();
-  const [item, setItem] = useState<CalendarItem | null>(() => isDemo ? calendarItemById(CALENDAR_ITEMS, itemId) : null);
+  const operations = useOperations();
+  const { location } = useOperator();
+  const projectedOperation = useMemo(() => calendarItemById(operationCalendarItems(
+    operations.occurrences, location.name, location.timezone, operations.now,
+  ), itemId), [itemId, location.name, location.timezone, operations.now, operations.occurrences]);
+  const [item, setItem] = useState<CalendarItem | null>(() => (
+    projectedOperation ?? (isDemo ? calendarItemById(CALENDAR_ITEMS, itemId) : null)
+  ));
   const [loaded, setLoaded] = useState(isDemo);
   useEffect(() => {
+    if (projectedOperation) { setItem(projectedOperation); setLoaded(true); return undefined; }
     if (isDemo) { setItem(calendarItemById(CALENDAR_ITEMS, itemId)); setLoaded(true); return undefined; }
     if (!supabase || !tenant) { setLoaded(true); return undefined; }
     let mounted = true;
@@ -27,7 +38,7 @@ export function CalendarDetailScreen({ itemId }: { itemId: string }) {
       if (mounted) setLoaded(true);
     });
     return () => { mounted = false; };
-  }, [isDemo, itemId, tenant]);
+  }, [isDemo, itemId, projectedOperation, tenant]);
   if (!loaded) return <CalendarLoading />;
   if (!item) return <MissingCalendarItem />;
   return <CalendarItemDetailShell item={item} />;
@@ -47,7 +58,7 @@ function CalendarItemDetailShell({ item }: { item: CalendarItem }) {
         <ItemSections item={item} />
         <ActivityCard color={category.color} />
       </ScrollView>
-      <DetailAction label={item.primaryAction} />
+      <DetailAction label={item.primaryAction} occurrenceId={item.operationOccurrenceId} />
     </SafeAreaView>
   );
 }
@@ -95,9 +106,13 @@ function ActivityCard({ color }: { color: string }) {
   return <View style={styles.sectionCard}><Text style={styles.sectionTitle}>Activity</Text><View style={styles.activity}><View style={[styles.activityDot, { backgroundColor: color }]} /><View style={styles.activityCopy}><Text style={styles.activityTitle}>Item scheduled</Text><Text style={styles.activityMeta}>Visible to assigned people</Text></View></View></View>;
 }
 
-function DetailAction({ label }: { label: string }) {
+function DetailAction({ label, occurrenceId }: { label: string; occurrenceId?: string }) {
   const { colors, styles } = useCalendarDetailTheme();
-  return <View style={styles.actionBar}><Pressable accessibilityRole="button" style={({ pressed }) => [styles.primaryAction, pressed && styles.pressed]}><Text style={styles.primaryActionText}>{label}</Text><AppIcon name="chevron.right" size={17} tintColor={colors.white} weight="semibold" /></Pressable></View>;
+  const open = occurrenceId
+    ? () => router.push(`/staff/crew/${encodeURIComponent(occurrenceId)}` as Href)
+    : undefined;
+  return <View style={styles.actionBar}><Pressable accessibilityRole="button" disabled={!open}
+    onPress={open} style={({ pressed }) => [styles.primaryAction, pressed && styles.pressed]}><Text style={styles.primaryActionText}>{label}</Text><AppIcon name="chevron.right" size={17} tintColor={colors.white} weight="semibold" /></Pressable></View>;
 }
 
 function ProgressStep({ label, complete = false, active = false }: { label: string; complete?: boolean; active?: boolean }) {

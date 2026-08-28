@@ -1,7 +1,7 @@
 /**
- * Connection to the Supabase stack under test. Locally this container has no
- * Docker daemon, so the suite SKIPS unless the env names a stack — in CI,
- * `supabase start` provides one and exports these before the run:
+ * Connection to the Supabase stack under test. The suite skips unless the
+ * environment names an isolated database; CI provisions a disposable hosted
+ * Supabase branch and exports these values before the run:
  *
  *   SUPABASE_TEST_URL                the API URL (http://127.0.0.1:54321)
  *   SUPABASE_TEST_ANON_KEY           anon key
@@ -12,6 +12,49 @@ import { randomUUID } from 'node:crypto';
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import pg from 'pg';
+
+const DATABASE_CONNECT_TIMEOUT_MS = 10_000;
+const DATABASE_STATEMENT_TIMEOUT_MS = 30_000;
+const HTTP_TIMEOUT_MS = 15_000;
+const HTTP_MAX_ATTEMPTS = 2;
+
+function retryableStatus(status: number): boolean {
+  return status === 408 || status === 429 || status >= 500;
+}
+
+async function resilientFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  let latestError: unknown;
+  for (let attempt = 1; attempt <= HTTP_MAX_ATTEMPTS; attempt += 1) {
+    const timeoutSignal = AbortSignal.timeout(HTTP_TIMEOUT_MS);
+    const signal = init?.signal
+      ? AbortSignal.any([init.signal, timeoutSignal])
+      : timeoutSignal;
+    try {
+      const response = await fetch(input, { ...init, signal });
+      if (attempt === HTTP_MAX_ATTEMPTS || !retryableStatus(response.status)) return response;
+      await response.body?.cancel().catch(() => undefined);
+    } catch (error) {
+      latestError = error;
+      if (attempt === HTTP_MAX_ATTEMPTS) throw error;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250 * attempt));
+  }
+  throw latestError instanceof Error ? latestError : new Error('Supabase request failed');
+}
+
+const supabaseOptions = {
+  auth: { persistSession: false },
+  global: { fetch: resilientFetch },
+} as const;
+
+function databaseClient(): pg.Client {
+  return new pg.Client({
+    connectionString: stack.dbUrl,
+    connectionTimeoutMillis: DATABASE_CONNECT_TIMEOUT_MS,
+    query_timeout: DATABASE_STATEMENT_TIMEOUT_MS,
+    statement_timeout: DATABASE_STATEMENT_TIMEOUT_MS,
+  });
+}
 
 export const stack = {
   url: process.env.SUPABASE_TEST_URL ?? '',
@@ -25,21 +68,21 @@ export const stackConfigured = Boolean(stack.url && stack.anonKey && stack.servi
 /** Every suite calls this in `describe(..., { skip })` so `pnpm -r test` stays green without a stack. */
 export const skipUnlessConfigured = stackConfigured
   ? false
-  : 'no Supabase test stack (set SUPABASE_TEST_* — CI starts one with `supabase start`)';
+  : 'no hosted Supabase test branch (set SUPABASE_TEST_*; CI provisions one automatically)';
 
 export function serviceClient(): SupabaseClient {
-  return createClient(stack.url, stack.serviceRoleKey, { auth: { persistSession: false } });
+  return createClient(stack.url, stack.serviceRoleKey, supabaseOptions);
 }
 
 export function anonClient(): SupabaseClient {
-  return createClient(stack.url, stack.anonKey, { auth: { persistSession: false } });
+  return createClient(stack.url, stack.anonKey, supabaseOptions);
 }
 
 /** A client whose PostgREST requests carry a real user's access token. */
 export function userClient(accessToken: string): SupabaseClient {
   return createClient(stack.url, stack.anonKey, {
     auth: { persistSession: false },
-    global: { headers: { Authorization: `Bearer ${accessToken}` } },
+    global: { fetch: resilientFetch, headers: { Authorization: `Bearer ${accessToken}` } },
   });
 }
 
@@ -47,7 +90,7 @@ export async function sql<T extends pg.QueryResultRow = pg.QueryResultRow>(
   text: string,
   params: unknown[] = [],
 ): Promise<pg.QueryResult<T>> {
-  const client = new pg.Client({ connectionString: stack.dbUrl });
+  const client = databaseClient();
   await client.connect();
   try {
     return await client.query<T>(text, params);
@@ -75,10 +118,14 @@ export async function createSignedInUser(options: {
     email_confirm: true,
     user_metadata: options.userMetadata,
   });
-  if (created.error || !created.data.user) {
-    throw new Error(`createUser failed: ${created.error?.message}`);
+  let userId = created.data.user?.id;
+  if (!userId && created.error?.message.toLowerCase().includes('registered')) {
+    userId = (await sql<{ id: string }>(
+      'select id from auth.users where lower(email) = lower($1) order by created_at desc limit 1',
+      [email],
+    )).rows[0]?.id;
   }
-  const userId = created.data.user.id;
+  if (!userId) throw new Error(`createUser failed: ${created.error?.message}`);
   if (options.before) await options.before(userId);
 
   const anon = anonClient();
@@ -106,48 +153,73 @@ export async function createSignedInUser(options: {
  * from under them.
  */
 export async function seedBrand(slug: string): Promise<{ brandId: string; locationId: string }> {
-  const brand = await sql<{ id: string }>(
-    `insert into public.brands (slug, name) values ($1, $2)
-     on conflict (slug) do update set name = excluded.name
-     returning id`,
-    [slug, `Test ${slug}`],
-  );
-  const brandId = brand.rows[0]!.id;
+  const client = databaseClient();
+  await client.connect();
+  await client.query('begin');
+  try {
+    const brand = await client.query<{ id: string }>(
+      `insert into public.brands (slug, name) values ($1, $2)
+       on conflict (slug) do update set name = excluded.name
+       returning id`,
+      [slug, `Test ${slug}`],
+    );
+    const brandId = brand.rows[0]!.id;
 
-  // Dependent rows, most-dependent first. Everything else cascades from these.
-  for (const table of [
-    'content_media_versions',
-    'training_quiz_attempts', 'training_lesson_progress', 'training_releases',
-    'training_bootstrap_runs', 'availability_blockouts',
-    'calendar_entry_assignments', 'calendar_entries',
-    'workforce_role_assignments', 'workforce_profiles', 'workforce_roles',
-    'order_events', 'platform_fees', 'orders',
-    'loyalty_events', 'loyalty_accounts', 'stored_value_ledger', 'referrals', 'customers',
-    'prep_batches', 'recipes', 'crew_task_completions', 'crew_tasks', 'shifts', 'devices',
-    'campaigns', 'drops', 'menu_items', 'menu_categories', 'menus',
-  ]) {
-    await sql(`delete from public.${table} where brand_id = $1`, [brandId]).catch(() => undefined);
+    // Test reruns deliberately clear immutable release history. Restrict the
+    // trigger bypass to this transaction and restore normal enforcement before
+    // test fixtures are inserted. The hosted canary still exercises the real
+    // trigger in every test assertion.
+    await client.query('set local session_replication_role = replica');
+
+    // Dependent rows, most-dependent first. One transaction and connection
+    // keeps hosted preview branches fast and prevents pool exhaustion.
+    for (const table of [
+      'operation_operator_notifications', 'operation_staff_devices',
+      'operation_action_receipts', 'operation_notification_outbox',
+      'operation_issues', 'operation_step_responses', 'operation_occurrence_events',
+      'operations_change_signals', 'operation_occurrences', 'operation_escalation_rules',
+      'operation_schedules', 'operation_retention_policies',
+      'training_competency_awards', 'training_competencies',
+      'operation_task_steps', 'operation_task_templates',
+      'catalog_release_private', 'catalog_publications', 'catalog_audit_events',
+      'catalog_relations', 'catalog_resources', 'catalog_placements',
+      'catalog_releases', 'catalog_nodes', 'catalogs',
+      'content_media_versions',
+      'training_quiz_attempts', 'training_lesson_progress', 'training_releases',
+      'training_bootstrap_runs', 'availability_blockouts',
+      'calendar_entry_assignments', 'calendar_entries',
+      'workforce_role_assignments', 'workforce_profiles', 'workforce_roles',
+      'order_events', 'platform_fees', 'orders',
+      'loyalty_events', 'loyalty_accounts', 'stored_value_ledger', 'referrals', 'customers',
+      'prep_batches', 'recipes', 'crew_task_completions', 'crew_tasks', 'shifts', 'devices',
+      'campaigns', 'drops', 'menu_items', 'menu_categories', 'menus',
+    ]) {
+      await client.query(`delete from public.${table} where brand_id = $1`, [brandId]);
+    }
+
+    // square_connections is unique per location and referenced back by the
+    // location row, so the reference has to be cleared before the row can go.
+    await client.query(
+      `update public.locations set square_connection_id = null where brand_id = $1`,
+      [brandId],
+    );
+    await client.query(`delete from public.square_connections where brand_id = $1`, [brandId]);
+    await client.query(`delete from public.locations where brand_id = $1`, [brandId]);
+    await client.query('set local session_replication_role = origin');
+    const location = await client.query<{ id: string }>(
+      `insert into public.locations (brand_id, name, timezone)
+       values ($1, 'Main', 'America/Denver') returning id`,
+      [brandId],
+    );
+    const locationId = location.rows[0]!.id;
+    await client.query('commit');
+    return { brandId, locationId };
+  } catch (error) {
+    await client.query('rollback').catch(() => undefined);
+    throw error;
+  } finally {
+    await client.end();
   }
-
-  // square_connections is unique per location and referenced back by the
-  // location row, so the reference has to be cleared before the row can go.
-  // It is not covered by the loop above for that reason.
-  await sql(
-    `update public.locations set square_connection_id = null where brand_id = $1`,
-    [brandId],
-  ).catch(() => undefined);
-  await sql(`delete from public.square_connections where brand_id = $1`, [brandId])
-    .catch(() => undefined);
-  const location = await sql<{ id: string }>(
-    `insert into public.locations (brand_id, name, timezone)
-     select $1, 'Main', 'America/Denver'
-     where not exists (select 1 from public.locations where brand_id = $1 and name = 'Main')
-     returning id`,
-    [brandId],
-  );
-  const locationId = location.rows[0]?.id
-    ?? (await sql<{ id: string }>(`select id from public.locations where brand_id = $1 and name = 'Main'`, [brandId])).rows[0]!.id;
-  return { brandId, locationId };
 }
 
 /**
@@ -164,7 +236,7 @@ export async function asPrincipal<T extends pg.QueryResultRow = pg.QueryResultRo
   statement: string,
   params: unknown[] = [],
 ): Promise<pg.QueryResult<T>> {
-  const client = new pg.Client({ connectionString: stack.dbUrl });
+  const client = databaseClient();
   await client.connect();
   try {
     await client.query('begin');

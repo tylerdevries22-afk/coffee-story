@@ -227,17 +227,21 @@ in Expo, never in this repository, never in `packages/data`.
 
 1. Apply migrations: `supabase link --project-ref <ref> && supabase db push`
    (or the Supabase MCP `apply_migration` per file, in filename order).
-2. Enable the auth hook: Authentication → Hooks → Custom Access Token →
+2. Require an eight-character minimum password and enable leaked-password
+   protection in Authentication → Password Security. The hosted bootstrap
+   workflow applies and verifies both through Supabase's Management API and
+   fails closed on a plan that cannot enable the protection.
+3. Enable the auth hook: Authentication → Hooks → Custom Access Token →
    Postgres function `app.custom_access_token` (config.toml already states
    this for local stacks).
-3. Sign-in: enable Email (OTP). Phone/Twilio is optional and can wait.
-4. Seed the tenant: `pnpm onboard --tenant coffee-story` against the
+4. Sign-in: enable Email (OTP). Phone/Twilio is optional and can wait.
+5. Seed the tenant: `pnpm onboard --tenant coffee-story` against the
    project, or run the seed SQL. Verify `brands.slug` matches the slug the
    apps carry in their tenant config.
-5. First staff account: after the owner signs up, insert their
+6. First staff account: after the owner signs up, insert their
    `brand_users` row (`role = 'brand_owner'`); their next sign-in carries
    staff claims.
-6. Seed the Coffee Story franchise template and its initial five-track,
+7. Seed the Coffee Story franchise template and its initial five-track,
    fifteen-lesson release with `pnpm training:seed-coffee-story --brand
    "Coffee Story"` from a trusted environment. The command is idempotent and
    requires `SUPABASE_URL` plus `SUPABASE_SERVICE_ROLE_KEY`; the service key
@@ -247,10 +251,10 @@ in Expo, never in this repository, never in `packages/data`.
 
 - `GET /api/health` answers `{ ok: true, version }`; authenticated
   `GET /api/health?deep=1` also performs a bounded, retried database read.
-- CI's `integration` job runs the full RLS/state-machine/route suite against
-  a real Postgres on every PR (`tests/integration/`).
-- The E2E loop (customer orders → operator advances → HQ reports) runs in CI
-  from P7 onward and once against the hosted project at cutover.
+- CI's `hosted-integration` job provisions a disposable Supabase branch, runs
+  the full RLS/state-machine/route suite, and deletes the branch on every PR.
+- The same gate builds all five surfaces and runs the live E2E loop (customer
+  orders → operator advances → HQ reports) against that hosted branch.
 
 ## 7. Known gaps that remain true
 
@@ -299,13 +303,13 @@ in Expo, never in this repository, never in `packages/data`.
   rather than a union, and `paletteForTier` falls back by ladder position (then
   by a stable name hash) so a renamed tier still gets a deliberate, distinct
   glass. Only the data source is missing.
-- **`tests/e2e` "full loop" fails intermittently and the cause is NOT known.**
+- **Historical note: `tests/e2e` "full loop" previously failed intermittently.**
   It times out on `waitText('Order placed')` after Place Order, with the
   customer back on the Pickup Options step, no failed API calls and no console
   errors. The same commit's app code has passed this scenario and failed it, so
-  it is not a regression in the code under test; it reproduces only in CI
-  (`tests/e2e` needs Docker for the Supabase stack, so it cannot be run from an
-  agent sandbox).
+  it was not a deterministic regression in the code under test. The release
+  gate now provisions a disposable hosted Supabase preview branch, so this
+  journey is reproducible without Docker or a local database.
 
   Landing on Pickup Options points at one branch -- `order-screen.tsx` refusing
   a lapsed pickup window via `isWindowStillBookable` and calling

@@ -57,7 +57,7 @@ async function waitForHttp(url: string, timeoutMs: number): Promise<void> {
   let lastError = '';
   while (Date.now() < deadline) {
     try {
-      const response = await fetch(url);
+      const response = await fetch(url, { signal: AbortSignal.timeout(5_000) });
       if (response.ok) return;
       lastError = `status ${response.status}`;
     } catch (error) {
@@ -70,14 +70,14 @@ async function waitForHttp(url: string, timeoutMs: number): Promise<void> {
 
 export async function startHq(port: number): Promise<() => void> {
   // detached + piped output, and the stop kills the whole process group:
-  // `npx` is only a wrapper, so SIGTERM to the child alone orphans the real
+  // `pnpm exec` is only a wrapper, so SIGTERM to the child alone orphans the real
   // next-server grandchild — and with `stdio: inherit` that orphan holds the
   // CI step's output pipe open forever, hanging the job long after the test
   // process has exited. Piping through this process keeps the logs without
   // ever handing the step's pipe to the grandchild.
   const child: ChildProcess = spawn(
-    'npx',
-    ['next', 'start', '-p', String(port)],
+    'pnpm',
+    ['exec', 'next', 'start', '-p', String(port)],
     {
       cwd: stack.hqDir,
       detached: true,

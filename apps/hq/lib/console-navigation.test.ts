@@ -14,6 +14,7 @@ const STAFF_ACCESS: ConsoleNavigationAccess = {
   canManageBrand: false,
   canViewAnalytics: false,
   canViewIntegrations: false,
+  canManageOperations: false,
 };
 
 const FULL_ACCESS: ConsoleNavigationAccess = {
@@ -23,6 +24,7 @@ const FULL_ACCESS: ConsoleNavigationAccess = {
   canManageBrand: true,
   canViewAnalytics: true,
   canViewIntegrations: true,
+  canManageOperations: true,
 };
 
 function destinationsFor(access: ConsoleNavigationAccess): string[] {
@@ -43,6 +45,12 @@ describe('consoleSectionsFor', () => {
       '/drops',
       '/campaigns',
       '/customers',
+      '/operations',
+      '/operations/templates',
+      '/operations/schedules',
+      '/operations/history',
+      '/operations/reporting',
+      '/operations/retention',
       '/analytics',
       '/analytics/apps',
       '/analytics/commerce',

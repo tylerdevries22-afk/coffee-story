@@ -22,6 +22,8 @@ type AuthState = {
   /** The locations this account may work (live mode; demo uses its roster). */
   liveLocations: StaffLocation[];
   brandName: string | null;
+  operationsEnabled: boolean;
+  brandUserId: string | null;
   /** brand_config from the signed-in brand row: tokens, copy, business. */
   brandConfig: unknown;
   isLoading: boolean;
@@ -61,6 +63,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [tenant, setTenant] = useState<TenantClaims | null>(null);
   const [liveLocations, setLiveLocations] = useState<StaffLocation[]>([]);
   const [brandName, setBrandName] = useState<string | null>(null);
+  const [operationsEnabled, setOperationsEnabled] = useState(false);
+  const [brandUserId, setBrandUserId] = useState<string | null>(null);
   const [brandConfig, setBrandConfig] = useState<unknown>(null);
   const [isLoading, setIsLoading] = useState(demo.isHydrating || (!isDemo && hasSupabaseConfig));
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
@@ -96,6 +100,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
       setTenant(context.claims);
       setLiveLocations(context.locations);
       setBrandName(context.brandName);
+      setOperationsEnabled(context.operationsEnabled);
+      setBrandUserId(context.brandUserId);
       setBrandConfig(context.brandConfig);
     } catch (loadError) {
       if (!isCurrent()) return;
@@ -103,6 +109,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
       setTenant(null);
       setLiveLocations([]);
       setBrandName(null);
+      setOperationsEnabled(false);
+      setBrandUserId(null);
       setBrandConfig(null);
       setError(loadError instanceof Error ? loadError.message : 'Your account could not be loaded.');
     } finally {
@@ -144,6 +152,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
       else {
         portalRequests.current.invalidate();
         setLivePortal(EMPTY_PORTAL);
+        setOperationsEnabled(false);
+        setBrandUserId(null);
         setIsLoading(false);
       }
     });
@@ -212,6 +222,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
     tenant: isDemo ? null : tenant,
     liveLocations: isDemo ? [] : liveLocations,
     brandName: isDemo ? null : brandName,
+    operationsEnabled: isDemo || operationsEnabled,
+    brandUserId: isDemo ? 'demo-member' : brandUserId,
     brandConfig: isDemo ? null : brandConfig,
     isLoading: demo.isHydrating || (!isDemo && (
       isLoading || (Boolean(session) && !livePortal.profile.id && !error)
@@ -225,7 +237,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     updatePassword,
     signOut,
     refresh: () => loadPortal(session),
-  }), [brandConfig, brandName, demo.isHydrating, demo.portal, error, isDemo, isLoading, isPasswordRecovery, livePortal, liveLocations, loadPortal, requestPasswordReset, session, signIn, signOut, tenant, updatePassword]);
+  }), [brandConfig, brandName, brandUserId, demo.isHydrating, demo.portal, error, isDemo, isLoading, isPasswordRecovery, livePortal, liveLocations, loadPortal, operationsEnabled, requestPasswordReset, session, signIn, signOut, tenant, updatePassword]);
 
   // Publish the resolved shop for the plain helpers that cannot hold a hook
   // (openWebPath is called from module-level functions). Components read

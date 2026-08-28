@@ -163,9 +163,15 @@ describe('calendar and training tenancy', { skip: skipUnlessConfigured }, () => 
       [tenant.brandId, runId],
     );
     const manifest = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       sources: [{}, {}, {}],
-      modules: [{ slug: 'knowledge' }, { slug: 'skills' }],
+      modules: [
+        { slug: 'knowledge', trackKey: 'knowledge' },
+        { slug: 'skills', trackKey: 'skills' },
+        { slug: 'service', trackKey: 'service' },
+        { slug: 'safety', trackKey: 'safety' },
+        { slug: 'operations', trackKey: 'operations' },
+      ],
     };
     const draft = await sql<{ id: string; updated_at: string }>(
       `insert into public.training_releases
@@ -175,6 +181,7 @@ describe('calendar and training tenancy', { skip: skipUnlessConfigured }, () => 
       [tenant.brandId, JSON.stringify(manifest), ownerMemberId],
     );
 
+    const staleStartedAt = Date.now();
     const staleAttempt = await serviceClient().rpc('publish_manual_training_release', {
       target_brand: tenant.brandId,
       target_release: draft.rows[0]!.id,
@@ -182,6 +189,7 @@ describe('calendar and training tenancy', { skip: skipUnlessConfigured }, () => 
       expected_updated_at: new Date(new Date(draft.rows[0]!.updated_at).getTime() - 1_000).toISOString(),
     });
     assert.equal(staleAttempt.error?.message, 'training_draft_stale');
+    assert.ok(Date.now() - staleStartedAt < 5_000, 'stale draft rejection must not be retried');
 
     const browserAttempt = await userClient(owner.accessToken).rpc('publish_manual_training_release', {
       target_brand: tenant.brandId,
@@ -229,8 +237,8 @@ describe('calendar and training tenancy', { skip: skipUnlessConfigured }, () => 
       [tenant.brandId],
     );
     const category = await sql<{ id: string }>(
-      `insert into public.menu_categories (brand_id, menu_id, title)
-       values ($1, $2, 'Coffee') returning id`,
+      `insert into public.menu_categories (brand_id, menu_id, slug, title)
+       values ($1, $2, 'coffee', 'Coffee') returning id`,
       [tenant.brandId, menu.rows[0]!.id],
     );
     const item = await sql<{ id: string }>(

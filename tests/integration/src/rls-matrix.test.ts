@@ -130,7 +130,8 @@ describe('RLS matrix', { skip: skipUnlessConfigured }, () => {
       [brandId],
     );
     const category = await sql<{ id: string }>(
-      `insert into public.menu_categories (brand_id, menu_id, title) values ($1, $2, 'Drinks') returning id`,
+      `insert into public.menu_categories (brand_id, menu_id, slug, title)
+       values ($1, $2, 'drinks', 'Drinks') returning id`,
       [brandId, menu.rows[0]!.id],
     );
     const item = await sql<{ id: string }>(
