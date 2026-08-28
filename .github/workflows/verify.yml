@@ -246,8 +246,25 @@ jobs:
       - name: Apply and lint forward-only migrations
         run: |
           set -euo pipefail
-          supabase db push --db-url "$SUPABASE_DB_URL" --include-all --yes
-          supabase db lint --db-url "$SUPABASE_DB_URL" --level warning --fail-on warning
+          retry_supabase() {
+            local attempt=1
+            local maximum=5
+            until timeout 15m "$@"; do
+              if [ "$attempt" -ge "$maximum" ]; then
+                echo "::error::Supabase command failed after $maximum attempts."
+                return 1
+              fi
+              echo "::warning::Supabase branch connection was interrupted; retrying attempt $((attempt + 1))/$maximum."
+              sleep $((attempt * 5))
+              attempt=$((attempt + 1))
+            done
+          }
+
+          # A new hosted branch can briefly recycle its database after the API
+          # first reports ACTIVE_HEALTHY. Forward-only migrations are recorded
+          # transactionally, so retrying resumes at the first unapplied file.
+          retry_supabase supabase db push --db-url "$SUPABASE_DB_URL" --include-all --yes
+          retry_supabase supabase db lint --db-url "$SUPABASE_DB_URL" --level warning --fail-on warning
 
       - name: Seed through the production onboarding path
         run: pnpm onboard --tenant coffee-story --require-db
