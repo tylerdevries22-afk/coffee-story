@@ -369,6 +369,16 @@ describe('atomic order commit', () => {
     assert.match(readiness, /procedure\.pronargs = 18/);
     assert.match(readiness, /tablename = 'orders'/);
     assert.match(readiness, /tablename = 'board_change_signals'/);
+    assert.match(readiness, /procedure\.proname = 'publish_manual_training_release'/);
+    assert.match(readiness, /operation_occurrences/);
+    assert.match(readiness, /operation_action_receipts/);
+    assert.match(readiness, /operation_operator_notifications/);
+    assert.match(readiness, /procedure\.proname = 'claim_operation_occurrence'/);
+    assert.match(readiness, /procedure\.proname = 'cancel_operation_occurrence'/);
+    assert.match(readiness, /platform_onboarding_runs/);
+    assert.match(readiness, /platform_credential_requirements/);
+    assert.match(readiness, /tablename = 'operations_change_signals'/);
+    assert.match(readiness, /return '20260828095000'/);
     assert.match(allSql(),
       /revoke all on function public\.platform_release_readiness\(\)[\s\S]*?to service_role;/);
   });
