@@ -367,7 +367,7 @@ describe('atomic order commit', () => {
     assert.match(readiness, /language plpgsql stable/,
       'the read-only release contract remains callable through GET');
     assert.match(readiness,
-      /app\.platform_release_readiness_20260828152200\(\) <> '20260828152200'/);
+      /app\.platform_release_readiness_20260828163000\(\) <> '20260828163000'/);
     for (const contract of [
       /procedure\.proname = 'commit_order'/,
       /procedure\.pronargs = 18/,
@@ -385,7 +385,7 @@ describe('atomic order commit', () => {
       /tablename = 'operations_change_signals'/,
     ]) assert.match(releaseSql, contract);
     assert.match(releaseSql, /operation_queue_eligibility/);
-    assert.match(readiness, /return '20260828163000'/);
+    assert.match(readiness, /return '20260828192003'/);
     assert.match(releaseSql,
       /revoke all on function public\.platform_release_readiness\(\)[\s\S]*?to service_role;/);
   });

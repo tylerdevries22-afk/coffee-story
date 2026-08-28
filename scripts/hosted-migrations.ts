@@ -31,7 +31,7 @@ export interface AdvisorNotice {
 
 export interface HostedMigrationConfig {
   readonly accessToken: string;
-  readonly expectedReadiness: number;
+  readonly expectedReadiness?: number;
   readonly fetchImpl?: typeof fetch;
   readonly migrationsDirectory: string;
   readonly projectRef: string;
@@ -157,6 +157,7 @@ async function requestJson(
   fetchImpl: typeof fetch,
   retryDelayMs: number,
   attempts = 2,
+  requestLabel = 'API',
 ): Promise<unknown> {
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     let response: Response;
@@ -170,7 +171,10 @@ async function requestJson(
     const body = await response.text();
     if (response.ok) return body ? JSON.parse(body) as unknown : null;
     if (!RETRYABLE_STATUS.has(response.status) || attempt === attempts) {
-      throw new HostedMigrationError('supabase_request_failed', `Supabase request failed with HTTP ${response.status}.`);
+      throw new HostedMigrationError(
+        'supabase_request_failed',
+        `Supabase ${requestLabel} request failed with HTTP ${response.status}.`,
+      );
     }
     await wait(retryDelayMs * attempt);
   }
@@ -192,6 +196,7 @@ function apiRequest(
     config.fetchImpl ?? fetch,
     config.retryDelayMs ?? 500,
     attempts,
+    path,
   );
 }
 
@@ -330,11 +335,18 @@ async function assertAdvisorsClear(config: HostedMigrationConfig): Promise<void>
 }
 
 async function fetchReadiness(config: HostedMigrationConfig): Promise<number> {
-  const result = await apiRequest(config, '/database/query', {
-    method: 'POST',
-    body: JSON.stringify({ query: 'select public.platform_release_readiness() as readiness' }),
-  });
-  return parseReadiness(result);
+  try {
+    const result = await apiRequest(config, '/database/query', {
+      method: 'POST',
+      body: JSON.stringify({ query: 'select public.platform_release_readiness() as readiness' }),
+    });
+    return parseReadiness(result);
+  } catch (error: unknown) {
+    if (error instanceof HostedMigrationError && error.code === 'supabase_request_failed') {
+      throw new HostedMigrationError('release_readiness_query_failed', error.message);
+    }
+    throw error;
+  }
 }
 
 function validateConfig(config: HostedMigrationConfig): void {
@@ -349,6 +361,17 @@ export async function runHostedMigrationPromotion(
 ): Promise<HostedMigrationSummary> {
   validateConfig(config);
   const local = await loadLocalMigrations(config.migrationsDirectory);
+  const latestVersion = local.at(-1)?.version;
+  if (!latestVersion) {
+    throw new HostedMigrationError('migration_history_empty', 'At least one local migration is required.');
+  }
+  const expectedReadiness = config.expectedReadiness ?? Number(latestVersion);
+  if (!Number.isSafeInteger(expectedReadiness) || String(expectedReadiness) !== latestVersion) {
+    throw new HostedMigrationError(
+      'invalid_expected_readiness',
+      'Release readiness must match the newest local migration version.',
+    );
+  }
   const before = await listRemoteMigrations(config);
   const pending = planPendingMigrations(local, before);
   const alignedVersions = [...await alignMigrationVersions(config, local, before)];
@@ -367,8 +390,8 @@ export async function runHostedMigrationPromotion(
   await assertManagedMigrationContents(config, local, after);
   await assertAdvisorsClear(config);
   const readiness = await fetchReadiness(config);
-  if (readiness !== config.expectedReadiness) {
-    throw new HostedMigrationError('release_not_ready', `Expected readiness ${config.expectedReadiness}, received ${readiness}.`);
+  if (readiness !== expectedReadiness) {
+    throw new HostedMigrationError('release_not_ready', `Expected readiness ${expectedReadiness}, received ${readiness}.`);
   }
   return {
     alignedVersions: [...new Set(alignedVersions)],

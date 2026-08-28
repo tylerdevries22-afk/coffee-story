@@ -6,7 +6,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import {
   DEVICE_TOKEN_TTL_SECONDS, DeviceError, canPlaceOrders, hashPairingCode,
-  loadDeviceSigningKey, newPairingCode, normalizeCode, redeemPairingCode, signDeviceToken,
+  loadDeviceSigningKey, newPairingCode, normalizeCode, redeemPairingCode, refreshDeviceToken, signDeviceToken,
   tenantSlugMatches, verifyDeviceToken, type DeviceClaims, type DeviceRowLike, type DeviceSigningKey,
 } from './devices';
 
@@ -156,6 +156,43 @@ describe('redeemPairingCode', () => {
     if (rejection?.status === 'rejected' && rejection.reason instanceof DeviceError) {
       assert.equal(rejection.reason.code, 'pairing_unknown');
     }
+  });
+});
+
+describe('refreshDeviceToken', () => {
+  const activeDevice: DeviceRowLike = {
+    id: CLAIMS.deviceId,
+    brand_id: CLAIMS.brandId,
+    location_id: CLAIMS.locationId,
+    role: CLAIMS.role,
+    label: 'Lobby kiosk',
+    pairing_code_hash: null,
+    pairing_expires_at: null,
+    paired_at: new Date(NOW - 60_000).toISOString(),
+    revoked_at: null,
+    last_seen_at: null,
+    token_version: CLAIMS.tokenVersion,
+  };
+
+  const refreshDb = (heartbeatError: { message: string } | null): SupabaseClient => ({
+    from: () => ({
+      select: () => ({
+        eq: () => ({ maybeSingle: async () => ({ data: activeDevice, error: null }) }),
+      }),
+      update: () => ({ eq: async () => ({ error: heartbeatError }) }),
+    }),
+  }) as unknown as SupabaseClient;
+
+  it('persists its heartbeat before returning a replacement credential', async () => {
+    const refreshed = await refreshDeviceToken({ db: refreshDb(null), key: KEY, now: () => NOW }, CLAIMS);
+    assert.deepEqual(verifyDeviceToken(refreshed.token, KEY, NOW), CLAIMS);
+  });
+
+  it('fails closed when the heartbeat cannot be persisted', async () => {
+    await assert.rejects(
+      refreshDeviceToken({ db: refreshDb({ message: 'write failed' }), key: KEY, now: () => NOW }, CLAIMS),
+      (error: unknown) => error instanceof DeviceError && error.code === 'invalid_request',
+    );
   });
 });
 

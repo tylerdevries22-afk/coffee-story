@@ -159,6 +159,10 @@ jobs:
   # surfaces, and browser journeys without Docker or a developer machine.
   # The branch is always deleted, including after cancellation or failure.
   hosted-integration:
+    # Pull-request code must never execute with the project-creation token.
+    # The same exact commit receives this hosted gate after merge to main and
+    # again before a deployment workflow can mutate production.
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 55
     env:
@@ -261,6 +265,14 @@ jobs:
           # first reports ACTIVE_HEALTHY. Forward-only migrations are recorded
           # transactionally, so retrying resumes at the first unapplied file.
           retry_supabase supabase db push --db-url "$SUPABASE_DB_URL" --include-all --yes
+          migrations=(supabase/migrations/*.sql)
+          latest_migration="${migrations[$((${#migrations[@]} - 1))]}"
+          latest_filename="${latest_migration##*/}"
+          expected_readiness="${latest_filename%%_*}"
+          actual_readiness=$(psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -Atqc \
+            'select public.platform_release_readiness()')
+          [ "$actual_readiness" = "$expected_readiness" ] \
+            || { echo '::error::Hosted release readiness does not match the newest migration.'; exit 1; }
           retry_supabase supabase db lint --db-url "$SUPABASE_DB_URL" --level warning --fail-on warning
           retry_supabase supabase db advisors --db-url "$SUPABASE_DB_URL" \
             --type security --level warn --fail-on warn

@@ -111,7 +111,6 @@ describe('hosted migration promotion', () => {
     try {
       const summary = await runHostedMigrationPromotion({
         accessToken: 'test-token',
-        expectedReadiness: 20260828163000,
         fetchImpl,
         migrationsDirectory: directory,
         projectRef: 'abcdefghijklmnopqrst',
@@ -227,5 +226,41 @@ describe('hosted migration promotion', () => {
       code: 'hosted_migration_failed',
       message: 'failure',
     });
+  });
+
+  it('labels a failed readiness contract without exposing the provider response', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'hosted-migrations-'));
+    await writeFile(join(directory, '20260828163000_release.sql'), 'select 1;');
+    const applied = [{ version: '20260828163000', name: 'release' }];
+    const responses: Response[] = [
+      Response.json(applied),
+      Response.json(applied),
+      Response.json([{ ...applied[0], statements: ['select 1;'] }], { status: 201 }),
+      Response.json({ lints: [] }),
+      Response.json({ lints: [] }),
+      Response.json({ message: 'sensitive database detail' }, { status: 400 }),
+    ];
+    const fetchImpl: typeof fetch = async () => {
+      const response = responses.shift();
+      assert.ok(response);
+      return response;
+    };
+    try {
+      await assert.rejects(runHostedMigrationPromotion({
+        accessToken: 'test-token',
+        fetchImpl,
+        migrationsDirectory: directory,
+        projectRef: 'abcdefghijklmnopqrst',
+        retryDelayMs: 0,
+      }), (error: unknown) => {
+        assert.deepEqual(toStructuredError(error), {
+          code: 'release_readiness_query_failed',
+          message: 'Supabase /database/query request failed with HTTP 400.',
+        });
+        return true;
+      });
+    } finally {
+      await rm(directory, { recursive: true });
+    }
   });
 });
