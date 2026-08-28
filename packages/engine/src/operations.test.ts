@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
+<<<<<<< ours
+<<<<<<< ours
 import {
   generateOperationWindows,
   operationEscalationsToCreate,
@@ -48,16 +50,40 @@ describe('operations engine', () => {
   it('rejects invalid due windows and grace periods', () => {
     assert.throws(() => operationOccurrenceInsert({ ...input, dueAt: input.scheduledFor }), RangeError);
     assert.throws(() => operationOccurrenceInsert({ ...input, graceMinutes: 1_441 }), RangeError);
+=======
+=======
+>>>>>>> theirs
+import { operationEscalationsToCreate, operationMaterializationKey } from './operations';
+
+describe('operations engine', () => {
+  it('creates a stable retry key per schedule window', () => {
+    const input = { scheduleId: 's', brandId: 'b', locationId: 'l', templateId: 't',
+      templateSnapshot: {}, scheduledFor: '2026-08-28T10:00:00Z', dueAt: '2026-08-28T10:30:00Z' };
+    assert.equal(operationMaterializationKey(input), 's:2026-08-28T10:00:00Z');
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
   });
 
   it('returns only newly due escalation stages', () => {
     const rules = [
       { id: 'staff', offsetMinutes: 0, recipientRole: 'eligible_staff' as const, channels: ['push'] as const },
+<<<<<<< ours
+<<<<<<< ours
       { id: 'owner', offsetMinutes: 60, recipientRole: 'brand_owner' as const, channels: ['in_app'] as const },
+=======
+      { id: 'owner', offsetMinutes: 60, recipientRole: 'brand_owner' as const, channels: ['email'] as const },
+>>>>>>> theirs
+=======
+      { id: 'owner', offsetMinutes: 60, recipientRole: 'brand_owner' as const, channels: ['email'] as const },
+>>>>>>> theirs
     ];
     assert.deepEqual(operationEscalationsToCreate('2026-08-28T10:00:00Z', rules, new Set(['staff']),
       new Date('2026-08-28T11:01:00Z')).map((rule) => rule.id), ['owner']);
   });
+<<<<<<< ours
+<<<<<<< ours
 
   it('generates opening, hourly, and closing windows from posted hours', () => {
     const base = {
@@ -101,4 +127,8 @@ describe('operations engine', () => {
       locationHours: {}, rule: { kind: 'fixed_time', localTime: '12:00', weekdays: [1] },
     }, '2026-01-01', '2026-02-05'), /1 through 35 days/);
   });
+=======
+>>>>>>> theirs
+=======
+>>>>>>> theirs
 });

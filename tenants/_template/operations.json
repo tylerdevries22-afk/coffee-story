@@ -1,13 +1,31 @@
 {
   "$docs": "Optional generic operations seed. Keep this empty unless the tenant enables features.operations. Industry procedures belong only in the tenant folder.",
+<<<<<<< ours
+<<<<<<< ours
   "roles": [],
   "competencies": [],
+=======
+>>>>>>> theirs
+=======
+>>>>>>> theirs
   "templates": [],
   "schedules": [],
   "escalations": [],
   "retention": {
+<<<<<<< ours
+<<<<<<< ours
     "evidenceDays": 395,
     "issueDays": 395,
     "actorIdentityDays": 395
+=======
+    "evidenceDays": 365,
+    "issueDays": 730,
+    "actorIdentityDays": 365
+>>>>>>> theirs
+=======
+    "evidenceDays": 365,
+    "issueDays": 730,
+    "actorIdentityDays": 365
+>>>>>>> theirs
   }
 }

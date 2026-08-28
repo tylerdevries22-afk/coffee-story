@@ -397,6 +397,8 @@ async function run() {
     }
   }
   const operationsPath = join(tenantDir, 'operations.json');
+<<<<<<< ours
+<<<<<<< ours
   let operationsConfig: TenantOperationsConfig | null = null;
   if (brand.features.operations && !existsSync(operationsPath)) {
     problems.push('features.operations requires an operations.json tenant artifact.');
@@ -411,6 +413,20 @@ async function run() {
       else problems.push(...parsed.errors.map((error) => `operations.json: ${error}`));
     } catch {
       problems.push('operations.json must contain valid JSON.');
+=======
+=======
+>>>>>>> theirs
+  if (brand.features.operations && !existsSync(operationsPath)) {
+    problems.push('features.operations requires an operations.json tenant artifact.');
+  }
+  if (!brand.features.operations && existsSync(operationsPath)) {
+    const operations = JSON.parse(readFileSync(operationsPath, 'utf8')) as { templates?: unknown[] };
+    if ((operations.templates?.length ?? 0) > 0) {
+      problems.push('operations.json contains templates but features.operations is disabled.');
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
     }
   }
   const menuPath = join(tenantDir, 'menu.csv');

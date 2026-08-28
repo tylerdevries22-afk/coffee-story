@@ -1,5 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+<<<<<<< ours
+<<<<<<< ours
 import { OPERATION_STATUSES, type OperationStatus } from '@platform/domain';
 import type { OperationOccurrenceRow } from '@platform/schema';
 import { abortRead, readWithRetry } from './read-retry';
@@ -102,12 +104,24 @@ function requireIdentifier(value: string, label: string): void {
   if (value.trim().length === 0) throw new OperationDataError('invalid', `${label} is required.`, false);
 }
 
+=======
+import type { OperationOccurrenceRow } from '@platform/schema';
+import { abortRead, readWithRetry } from './read-retry';
+
+>>>>>>> theirs
+=======
+import type { OperationOccurrenceRow } from '@platform/schema';
+import { abortRead, readWithRetry } from './read-retry';
+
+>>>>>>> theirs
 export async function fetchOperationQueue(
   client: SupabaseClient,
   brandId: string,
   locationId: string,
   startsBefore: string,
 ): Promise<OperationOccurrenceRow[]> {
+<<<<<<< ours
+<<<<<<< ours
   requireIdentifier(brandId, 'Brand');
   requireIdentifier(locationId, 'Location');
   try {
@@ -123,11 +137,29 @@ export async function fetchOperationQueue(
   } catch (error) {
     throw structuredError(error);
   }
+=======
+=======
+>>>>>>> theirs
+  const rows = await readWithRetry('fetchOperationQueue', (signal) => abortRead(client
+    .from('operation_occurrences')
+    .select('*')
+    .eq('brand_id', brandId)
+    .eq('location_id', locationId)
+    .lte('scheduled_for', startsBefore)
+    .in('status', ['upcoming', 'due', 'claimed', 'overdue'])
+    .order('scheduled_for'), signal).returns<OperationOccurrenceRow[]>());
+  return rows ?? [];
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
 }
 
 export async function claimOperationOccurrence(
   client: SupabaseClient,
   occurrenceId: string,
+<<<<<<< ours
+<<<<<<< ours
   actionId: string,
 ): Promise<OperationOccurrenceRow> {
   requireIdentifier(occurrenceId, 'Occurrence');
@@ -136,11 +168,27 @@ export async function claimOperationOccurrence(
     'claim_operation_occurrence', { target_occurrence: occurrenceId, target_action_id: actionId },
   ), signal));
   return operationRow(result);
+=======
+=======
+>>>>>>> theirs
+): Promise<OperationOccurrenceRow> {
+  const { data, error } = await client.rpc('claim_operation_occurrence', {
+    target_occurrence: occurrenceId,
+  });
+  if (error) throw error;
+  if (!data) throw new Error('The operation occurrence could not be claimed.');
+  return data as OperationOccurrenceRow;
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
 }
 
 export async function completeOperationOccurrence(
   client: SupabaseClient,
   occurrenceId: string,
+<<<<<<< ours
+<<<<<<< ours
   actionId: string,
   responses: Readonly<Record<string, unknown>>,
   note = '',
@@ -236,6 +284,24 @@ export async function releaseOperationOccurrence(
     target_occurrence: occurrenceId, target_action_id: actionId,
   }), signal));
   return operationRow(result);
+=======
+=======
+>>>>>>> theirs
+  responses: Readonly<Record<string, unknown>>,
+  note = '',
+): Promise<OperationOccurrenceRow> {
+  const { data, error } = await client.rpc('complete_operation_occurrence', {
+    target_occurrence: occurrenceId,
+    target_responses: responses,
+    target_note: note,
+  });
+  if (error) throw error;
+  if (!data) throw new Error('The operation occurrence could not be completed.');
+  return data as OperationOccurrenceRow;
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
 }
 
 /** Realtime is only an invalidation boundary; callers reconcile through RLS. */
@@ -243,6 +309,8 @@ export function subscribeToOperationQueue(
   client: SupabaseClient,
   locationId: string,
   onChange: () => void,
+<<<<<<< ours
+<<<<<<< ours
   onError?: (error: OperationDataError) => void,
 ): () => void {
   requireIdentifier(locationId, 'Location');
@@ -254,5 +322,16 @@ export function subscribeToOperationQueue(
       onError?.(new OperationDataError('network', 'Live operations updates are reconnecting.', true));
     }
   });
+=======
+=======
+>>>>>>> theirs
+): () => void {
+  const channel = client.channel(`operations-${locationId}`).on('postgres_changes', {
+    event: '*', schema: 'public', table: 'operations_change_signals', filter: `location_id=eq.${locationId}`,
+  }, onChange).subscribe();
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
   return () => { void client.removeChannel(channel); };
 }

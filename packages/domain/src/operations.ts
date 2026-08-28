@@ -1,4 +1,6 @@
 export const OPERATION_STATUSES = [
+<<<<<<< ours
+<<<<<<< ours
   'scheduled', 'claimed', 'completed', 'missed', 'cancelled',
 ] as const;
 
@@ -22,10 +24,23 @@ export type OperationRecurrence =
   | { frequency: 'daily' }
   | { frequency: 'weekly'; weekdays: readonly number[] };
 
+=======
+=======
+>>>>>>> theirs
+  'upcoming', 'due', 'claimed', 'completed', 'overdue', 'waived', 'cancelled',
+] as const;
+
+export type OperationStatus = (typeof OPERATION_STATUSES)[number];
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
 export type OperationSchedule = {
   id: string;
   locationId: string;
   timezone: string;
+<<<<<<< ours
+<<<<<<< ours
   rule: OperationScheduleRule;
   dueWindowMinutes: number;
   graceMinutes: number;
@@ -63,10 +78,22 @@ export type OperationTemplateSnapshot = {
 
 export type OperationRoutineDefinition = Omit<OperationTemplateSnapshot, 'templateId' | 'revision'> & {
   schedule: OperationScheduleRule;
+=======
+  /** A deliberately bounded v1 contract: daily or selected ISO weekdays. */
+  weekdays: readonly number[];
+  localStartTime: string;
+>>>>>>> theirs
+=======
+  /** A deliberately bounded v1 contract: daily or selected ISO weekdays. */
+  weekdays: readonly number[];
+  localStartTime: string;
+>>>>>>> theirs
   dueWindowMinutes: number;
   graceMinutes: number;
 };
 
+<<<<<<< ours
+<<<<<<< ours
 export type OperationTemplateDefinition = {
   key: string;
   title: string;
@@ -121,23 +148,50 @@ export type OperatorNotification = {
   readAt: string | null;
 };
 
+=======
+>>>>>>> theirs
+=======
+>>>>>>> theirs
 export type OperationOccurrence = {
   id: string;
   status: OperationStatus;
   scheduledFor: string;
   dueAt: string;
+<<<<<<< ours
+<<<<<<< ours
   graceMinutes?: number;
   claimedBy: string | null;
   claimedAt?: string | null;
   claimExpiresAt?: string | null;
+=======
+  claimedBy: string | null;
+>>>>>>> theirs
+=======
+  claimedBy: string | null;
+>>>>>>> theirs
   completedAt: string | null;
 };
 
 const TRANSITIONS: Readonly<Record<OperationStatus, readonly OperationStatus[]>> = {
+<<<<<<< ours
+<<<<<<< ours
   scheduled: ['claimed', 'missed', 'cancelled'],
   claimed: ['scheduled', 'completed', 'missed', 'cancelled'],
   completed: [],
   missed: [],
+=======
+=======
+>>>>>>> theirs
+  upcoming: ['due', 'claimed', 'cancelled'],
+  due: ['claimed', 'overdue', 'waived', 'cancelled'],
+  claimed: ['due', 'completed', 'overdue', 'waived', 'cancelled'],
+  completed: [],
+  overdue: ['claimed', 'completed', 'waived', 'cancelled'],
+  waived: [],
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
   cancelled: [],
 };
 
@@ -145,6 +199,8 @@ export function canTransitionOperation(from: OperationStatus, to: OperationStatu
   return TRANSITIONS[from].includes(to);
 }
 
+<<<<<<< ours
+<<<<<<< ours
 function instant(value: string): number {
   const milliseconds = Date.parse(value);
   if (!Number.isFinite(milliseconds)) throw new RangeError(`Invalid operation timestamp: ${value}`);
@@ -160,6 +216,22 @@ export function operationDisplayStatus(
   if (now.getTime() > instant(occurrence.dueAt)) return 'overdue';
   if (occurrence.claimedBy) return 'claimed';
   return 'scheduled';
+=======
+=======
+>>>>>>> theirs
+export function operationDisplayStatus(
+  occurrence: OperationOccurrence,
+  now: Date,
+): OperationStatus {
+  if (['completed', 'waived', 'cancelled'].includes(occurrence.status)) return occurrence.status;
+  if (now.getTime() > new Date(occurrence.dueAt).getTime()) return 'overdue';
+  if (occurrence.claimedBy) return 'claimed';
+  if (now.getTime() >= new Date(occurrence.scheduledFor).getTime()) return 'due';
+  return 'upcoming';
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
 }
 
 export type OperationRequirement = {
@@ -172,16 +244,24 @@ export type WorkerEligibility = {
   competencyAwards: Readonly<Record<string, string | null>>;
 };
 
+<<<<<<< ours
+<<<<<<< ours
 export type OperationEligibility = {
   eligible: boolean;
   missingRoles: string[];
   missingCompetencies: string[];
 };
 
+=======
+>>>>>>> theirs
+=======
+>>>>>>> theirs
 export function operationEligibility(
   requirement: OperationRequirement,
   worker: WorkerEligibility,
   now: Date,
+<<<<<<< ours
+<<<<<<< ours
 ): OperationEligibility {
   const missingRoles = requirement.roleIds.length > 0
     && !requirement.roleIds.some((role) => worker.roleIds.includes(role))
@@ -254,6 +334,48 @@ export function validateOperationResponses(
 }
 
 export type EscalationRule = { id: string; offsetMinutes: number; order?: number };
+=======
+=======
+>>>>>>> theirs
+): { eligible: boolean; missingRoles: string[]; missingCompetencies: string[] } {
+  const missingRoles = requirement.roleIds.length > 0 &&
+    !requirement.roleIds.some((role) => worker.roleIds.includes(role))
+    ? [...requirement.roleIds] : [];
+  const missingCompetencies = requirement.competencyKeys.filter((key) => {
+    if (!(key in worker.competencyAwards)) return true;
+    const expiry = worker.competencyAwards[key]!;
+    return expiry !== null && new Date(expiry).getTime() <= now.getTime();
+  });
+  return { eligible: missingRoles.length === 0 && missingCompetencies.length === 0,
+    missingRoles, missingCompetencies };
+}
+
+export type ChecklistStep = {
+  key: string;
+  responseKind: 'confirm' | 'pass_fail' | 'number' | 'text';
+  required: boolean;
+};
+
+export function validateOperationResponses(
+  steps: readonly ChecklistStep[],
+  responses: Readonly<Record<string, unknown>>,
+): { valid: boolean; missing: string[]; invalid: string[] } {
+  const missing = steps.filter((step) => step.required && !(step.key in responses)).map((step) => step.key);
+  const invalid = steps.filter((step) => {
+    if (!(step.key in responses)) return false;
+    const value = responses[step.key];
+    if (step.responseKind === 'confirm' || step.responseKind === 'pass_fail') return typeof value !== 'boolean';
+    if (step.responseKind === 'number') return typeof value !== 'number' || !Number.isFinite(value);
+    return typeof value !== 'string';
+  }).map((step) => step.key);
+  return { valid: missing.length === 0 && invalid.length === 0, missing, invalid };
+}
+
+export type EscalationRule = { id: string; offsetMinutes: number };
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
 
 export function dueEscalations(
   dueAt: string,
@@ -261,6 +383,8 @@ export function dueEscalations(
   alreadyCreatedRuleIds: ReadonlySet<string>,
   now: Date,
 ): EscalationRule[] {
+<<<<<<< ours
+<<<<<<< ours
   const due = instant(dueAt);
   return rules
     .filter((rule) => Number.isInteger(rule.offsetMinutes) && rule.offsetMinutes >= 0)
@@ -388,3 +512,28 @@ export function diffOperationTemplates(
     changed: JSON.stringify(brandTemplate[field]) !== JSON.stringify(locationTemplate[field]),
   }));
 }
+=======
+=======
+>>>>>>> theirs
+  const due = new Date(dueAt).getTime();
+  return rules.filter((rule) => !alreadyCreatedRuleIds.has(rule.id) &&
+    now.getTime() >= due + rule.offsetMinutes * 60_000);
+}
+
+export function operationMetrics(occurrences: readonly OperationOccurrence[]): {
+  total: number; completed: number; overdue: number; onTimeRate: number;
+} {
+  const completed = occurrences.filter((item) => item.status === 'completed').length;
+  const overdue = occurrences.filter((item) => item.status === 'overdue' ||
+    (item.completedAt !== null && new Date(item.completedAt) > new Date(item.dueAt))).length;
+  return {
+    total: occurrences.length,
+    completed,
+    overdue,
+    onTimeRate: occurrences.length === 0 ? 1 : (occurrences.length - overdue) / occurrences.length,
+  };
+}
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
