@@ -58,19 +58,17 @@ describe('device pairing', () => {
     // for it and every is_brand_* helper fails. That is the whole security
     // argument, so it must stay true in the SQL: no device helper may consult
     // the staff role.
-    const sql = allSql();
-    const deviceFns = /create or replace function app\.device_is_active[\s\S]*?\$\$;/.exec(sql);
-    assert.ok(deviceFns, 'app.device_is_active is not defined');
-    assert.doesNotMatch(deviceFns[0], /jwt_role\(\)/,
+    const deviceFn = functionInForce('app', 'device_is_active');
+    assert.doesNotMatch(deviceFn, /jwt_role\(\)/,
       'device_is_active must not consult the staff role claim');
   });
 
-  it('fails closed on a revoked device', () => {
-    const sql = allSql();
-    const fn = /create or replace function app\.device_is_active[\s\S]*?\$\$;/.exec(sql);
-    assert.ok(fn);
-    assert.match(fn[0], /revoked_at is null/, 'a revoked device must not be active');
-    assert.match(fn[0], /paired_at is not null/, 'an unpaired device must not be active');
+  it('fails closed on revoked, unpaired, and superseded device credentials', () => {
+    const deviceFn = functionInForce('app', 'device_is_active');
+    assert.match(deviceFn, /revoked_at is null/, 'a revoked device must not be active');
+    assert.match(deviceFn, /paired_at is not null/, 'an unpaired device must not be active');
+    assert.match(deviceFn, /\.token_version[\s\S]*device_token_version/,
+      're-pairing must invalidate every older device credential');
   });
 });
 
@@ -369,6 +367,16 @@ describe('atomic order commit', () => {
     assert.match(readiness, /procedure\.pronargs = 18/);
     assert.match(readiness, /tablename = 'orders'/);
     assert.match(readiness, /tablename = 'board_change_signals'/);
+    assert.match(readiness, /procedure\.proname = 'publish_manual_training_release'/);
+    assert.match(readiness, /operation_occurrences/);
+    assert.match(readiness, /operation_action_receipts/);
+    assert.match(readiness, /operation_operator_notifications/);
+    assert.match(readiness, /procedure\.proname = 'claim_operation_occurrence'/);
+    assert.match(readiness, /procedure\.proname = 'cancel_operation_occurrence'/);
+    assert.match(readiness, /platform_onboarding_runs/);
+    assert.match(readiness, /platform_credential_requirements/);
+    assert.match(readiness, /tablename = 'operations_change_signals'/);
+    assert.match(readiness, /return '20260828095000'/);
     assert.match(allSql(),
       /revoke all on function public\.platform_release_readiness\(\)[\s\S]*?to service_role;/);
   });
