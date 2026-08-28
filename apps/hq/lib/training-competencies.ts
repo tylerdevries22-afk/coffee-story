@@ -12,6 +12,13 @@ export type CompetencyGrantPlan = {
   expiresAt: string;
 };
 
+export type PersistedTrainingAttempt = {
+  release_id: string;
+  module_slug: string;
+  lesson_slug: string;
+  answers: number[];
+};
+
 export function trainingCompetencyGrantPlan(
   lesson: CompetencyGrantLesson,
   passed: boolean,
@@ -36,4 +43,16 @@ export function competencyAwardActionId(attemptId: string, competencyKey: string
   bytes[8] = ((bytes[8] ?? 0) & 0x3f) | 0x80;
   const hex = bytes.toString('hex');
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+/** Prevents a passed attempt ID from being replayed against another lesson. */
+export function matchesTrainingAttempt(
+  persisted: PersistedTrainingAttempt,
+  incoming: PersistedTrainingAttempt,
+): boolean {
+  return persisted.release_id === incoming.release_id
+    && persisted.module_slug === incoming.module_slug
+    && persisted.lesson_slug === incoming.lesson_slug
+    && persisted.answers.length === incoming.answers.length
+    && persisted.answers.every((answer, index) => answer === incoming.answers[index]);
 }

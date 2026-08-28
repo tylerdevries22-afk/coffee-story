@@ -7598,6 +7598,44 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      award_operation_competency: {
+        Args: {
+          target_action_id: string
+          target_brand_user: string
+          target_competency_key: string
+          target_expires_at: string
+          target_lesson_slug: string
+          target_module_slug: string
+          target_reason: string
+          target_release: string
+          target_source: string
+        }
+        Returns: {
+          action_id: string | null
+          award_source: string
+          awarded_at: string
+          awarded_by: string | null
+          brand_id: string
+          brand_user_id: string
+          competency_id: string
+          expires_at: string | null
+          id: string
+          lesson_slug: string | null
+          module_slug: string | null
+          release_id: string | null
+          revocation_reason: string
+          revoked_action_id: string | null
+          revoked_at: string | null
+          revoked_by: string | null
+          verification_reason: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "training_competency_awards"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       anonymize_customer_account: {
         Args: { p_user_id: string }
         Returns: undefined

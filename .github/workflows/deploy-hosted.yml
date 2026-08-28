@@ -151,7 +151,7 @@ jobs:
             -X POST -H "apikey: $service_role" -H "Authorization: Bearer $service_role" \
             -H 'Content-Type: application/json' --data '{}' \
             "https://${SUPABASE_PROJECT_REF}.supabase.co/rest/v1/rpc/platform_release_readiness")
-          [ "$(printf '%s' "$readiness" | jq -r '.')" = 20260828152200 ] \
+          [ "$(printf '%s' "$readiness" | jq -r '.')" = 20260828163000 ] \
             || { echo '::error::Target database release contract is not ready.'; exit 1; }
 
   deploy-hq:

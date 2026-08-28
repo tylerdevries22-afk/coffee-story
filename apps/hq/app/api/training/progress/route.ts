@@ -14,6 +14,7 @@ import { scoreTrainingQuiz } from '../../../../lib/training-bootstrap';
 import type { TrainingAnswerKey } from '../../../../lib/training-bootstrap';
 import {
   competencyAwardActionId,
+  matchesTrainingAttempt,
   trainingCompetencyGrantPlan,
   type CompetencyGrantLesson,
 } from '../../../../lib/training-competencies';
@@ -117,9 +118,25 @@ export async function POST(request: Request): Promise<Response> {
   let effectiveScore = score;
   const idempotent = attempt.error?.code === '23505';
   if (idempotent) {
-    const prior = await db.from('training_quiz_attempts').select('score, passed').eq('id', body.attemptId).eq('brand_id', auth.claims.brand_id).eq('brand_user_id', member.data.id).maybeSingle<{ score: number; passed: boolean }>();
-    if (!prior.data) return jsonError(409, 'attempt_conflict', 'That attempt id is already in use.');
-    effectiveScore = prior.data;
+    const prior = await db.from('training_quiz_attempts')
+      .select('release_id, module_slug, lesson_slug, answers, score, passed')
+      .eq('id', body.attemptId).eq('brand_id', auth.claims.brand_id)
+      .eq('brand_user_id', member.data.id)
+      .maybeSingle<{
+        release_id: string;
+        module_slug: string;
+        lesson_slug: string;
+        answers: number[];
+        score: number;
+        passed: boolean;
+      }>();
+    if (!prior.data || !matchesTrainingAttempt(prior.data, {
+      release_id: body.releaseId,
+      module_slug: body.moduleSlug,
+      lesson_slug: body.lessonSlug,
+      answers: body.answers,
+    })) return jsonError(409, 'attempt_conflict', 'That attempt id is already in use.');
+    effectiveScore = { score: prior.data.score, passed: prior.data.passed };
   }
 
   const previous = await db.from('training_lesson_progress').select('attempt_count, status, score').eq('brand_id', auth.claims.brand_id).eq('release_id', body.releaseId).eq('brand_user_id', member.data.id).eq('module_slug', body.moduleSlug).eq('lesson_slug', body.lessonSlug).maybeSingle<{ attempt_count: number; status: string; score: number | null }>();
