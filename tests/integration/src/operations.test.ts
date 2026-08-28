@@ -5,6 +5,16 @@ import { before, describe, it } from 'node:test';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import {
+  DELETE as deleteOperationDevice,
+  POST as registerOperationDevice,
+} from '../../../apps/hq/app/api/operations/device-tokens/route.ts';
+import {
+  GET as getOperationNotifications,
+  PATCH as acknowledgeOperationNotifications,
+} from '../../../apps/hq/app/api/operations/notifications/route.ts';
+import { GET as getOperationQueue } from '../../../apps/hq/app/api/operations/queue/route.ts';
+
+import {
   createSignedInUser, seedBrand, serviceClient, skipUnlessConfigured, sql, userClient,
 } from './stack.ts';
 
@@ -177,6 +187,25 @@ async function visibleOccurrenceIds(
   return (result.data ?? []).map((row) => row.id).sort();
 }
 
+function operationRequest(
+  path: string,
+  member: Member,
+  method = 'GET',
+  body?: unknown,
+): Request {
+  return new Request(`http://hq.test${path}`, {
+    method,
+    headers: {
+      Authorization: `Bearer ${member.accessToken}`,
+      ...(body === undefined ? {} : {
+        'Content-Type': 'application/json',
+        'Idempotency-Key': randomUUID(),
+      }),
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+}
+
 describe('tenant operations against real Supabase', { skip: skipUnlessConfigured }, () => {
   before(async () => {
     const primary = await seedBrand(`operations-primary-${runKey}`);
@@ -330,6 +359,75 @@ describe('tenant operations against real Supabase', { skip: skipUnlessConfigured
       target_occurrence: fixture.visibleDisabledOccurrenceId,
       target_action_id: randomUUID(),
     }), /operation_occurrence_not_accessible/);
+  });
+
+  it('serves queue eligibility, notifications, and device lifecycle through the HQ API', async () => {
+    const from = new Date(Date.now() - 60 * 60 * 1_000).toISOString();
+    const to = new Date(Date.now() + 60 * 60 * 1_000).toISOString();
+    const queue = await getOperationQueue(operationRequest(
+      `/api/operations/queue?${new URLSearchParams({
+        locationId: fixture.primary.locationId, from, to,
+      })}`,
+      fixture.eligible,
+    ));
+    assert.equal(queue.status, 200);
+    const queueBody = await queue.json() as { occurrences: Array<{
+      id: string; eligibility: { eligible: boolean; hasActiveShift: boolean };
+    }> };
+    const visible = queueBody.occurrences.find((row) => row.id === fixture.visiblePrimaryOccurrenceId);
+    assert.deepEqual(visible?.eligibility, {
+      eligible: true, hasActiveShift: true, missingRoles: [], missingCompetencies: [],
+    });
+
+    const token = `ExponentPushToken[${randomUUID()}]`;
+    const registered = await registerOperationDevice(operationRequest(
+      '/api/operations/device-tokens', fixture.eligible, 'POST', { token, platform: 'ios' },
+    ));
+    assert.equal(registered.status, 201);
+    const rehomed = await registerOperationDevice(operationRequest(
+      '/api/operations/device-tokens', fixture.foreignMember, 'POST', { token, platform: 'android' },
+    ));
+    assert.equal(rehomed.status, 201);
+    const activeDevice = await sql<{ brand_id: string; brand_user_id: string }>(
+      `select brand_id, brand_user_id from public.operation_staff_devices
+       where expo_push_token = $1 and is_active`,
+      [token],
+    );
+    assert.deepEqual(activeDevice.rows, [{
+      brand_id: fixture.foreign.brandId,
+      brand_user_id: fixture.foreignMember.memberId,
+    }]);
+    const malformedAcknowledgement = await acknowledgeOperationNotifications(operationRequest(
+      '/api/operations/notifications', fixture.eligible, 'PATCH', null,
+    ));
+    assert.equal(malformedAcknowledgement.status, 400);
+    const notification = await sql<{ id: string }>(
+      `insert into public.operation_operator_notifications
+       (brand_id, location_id, occurrence_id, recipient_id, title, body)
+       values ($1, $2, $3, $4, 'Operation due', 'Complete the check.') returning id`,
+      [fixture.primary.brandId, fixture.primary.locationId,
+        fixture.visiblePrimaryOccurrenceId, fixture.eligible.memberId],
+    );
+    const notificationId = notification.rows[0]!.id;
+    const feed = await getOperationNotifications(operationRequest(
+      '/api/operations/notifications', fixture.eligible,
+    ));
+    assert.equal(feed.status, 200);
+    const feedBody = await feed.json() as { notifications: Array<{ id: string }> };
+    assert.ok(feedBody.notifications.some((row) => row.id === notificationId));
+    const acknowledged = await acknowledgeOperationNotifications(operationRequest(
+      '/api/operations/notifications', fixture.eligible, 'PATCH', { ids: [notificationId] },
+    ));
+    assert.equal(acknowledged.status, 200);
+    const read = await sql<{ read_at: string | null }>(
+      'select read_at::text from public.operation_operator_notifications where id = $1',
+      [notificationId],
+    );
+    assert.notEqual(read.rows[0]!.read_at, null);
+    const deleted = await deleteOperationDevice(operationRequest(
+      '/api/operations/device-tokens', fixture.foreignMember, 'DELETE', { token },
+    ));
+    assert.equal(deleted.status, 204);
   });
 
   it('claims and completes once when the same eligible actions are replayed', async () => {
@@ -511,6 +609,41 @@ describe('tenant operations against real Supabase', { skip: skipUnlessConfigured
     }), /operation_eligibility_required/);
   });
 
+  it('denies claims outside the current shift and completions after the claim lease', async () => {
+    const offShift = await createMember({
+      brandId: fixture.primary.brandId,
+      locationIds: [fixture.primary.locationId],
+      workforceRoleId: fixture.workforceRoleId,
+      assignmentLocationId: fixture.primary.locationId,
+      competencyId: fixture.competencyId,
+      competencyExpiresAt: '2041-01-01T00:00:00.000Z',
+    });
+    await sql(`update public.shifts set starts_at = now() + interval '1 hour',
+      ends_at = now() + interval '3 hours' where brand_user_id = $1`, [offShift.memberId]);
+    const offShiftOccurrence = await createOccurrence({
+      brandId: fixture.primary.brandId, locationId: fixture.primary.locationId,
+      templateId: fixture.restrictedTemplateId, label: 'off-shift-claim',
+    });
+    await expectRpcError(offShift.client.rpc('claim_operation_occurrence', {
+      target_occurrence: offShiftOccurrence, target_action_id: randomUUID(),
+    }), /operation_eligibility_required/);
+
+    const expiredLeaseOccurrence = await createOccurrence({
+      brandId: fixture.primary.brandId, locationId: fixture.primary.locationId,
+      templateId: fixture.restrictedTemplateId, label: 'expired-claim-lease',
+    });
+    const claimed = await fixture.eligible.client.rpc('claim_operation_occurrence', {
+      target_occurrence: expiredLeaseOccurrence, target_action_id: randomUUID(),
+    });
+    assert.equal(claimed.error, null, claimed.error?.message);
+    await sql(`update public.operation_occurrences set claim_expires_at = now() - interval '1 second'
+      where id = $1`, [expiredLeaseOccurrence]);
+    await expectRpcError(fixture.eligible.client.rpc('complete_operation_occurrence', {
+      target_occurrence: expiredLeaseOccurrence, target_action_id: randomUUID(),
+      target_responses: { confirm: true, condition: true }, target_note: '',
+    }), /operation_occurrence_not_owned/);
+  });
+
   it('allows exactly one of two eligible workers to win a competing claim', async () => {
     const occurrenceId = await createOccurrence({
       brandId: fixture.primary.brandId,
@@ -611,10 +744,14 @@ describe('tenant operations against real Supabase', { skip: skipUnlessConfigured
     );
     const maintenance = serviceClient();
     for (let attempt = 0; attempt < 2; attempt += 1) {
-      const result = await maintenance.rpc('run_operation_maintenance', {
+      const materialized = await maintenance.rpc('run_operation_maintenance', {
         target_now: '2040-01-15T13:00:00.000Z', target_horizon_hours: 1,
       });
-      assert.equal(result.error, null, result.error?.message);
+      assert.equal(materialized.error, null, materialized.error?.message);
+      const escalated = await maintenance.rpc('queue_due_operation_escalations', {
+        target_now: '2040-01-15T13:00:00.000Z',
+      });
+      assert.equal(escalated.error, null, escalated.error?.message);
     }
     const materialized = await sql<{
       occurrence_id: string;
@@ -643,5 +780,95 @@ describe('tenant operations against real Supabase', { skip: skipUnlessConfigured
       outbox_rows: '1',
       recipient_id: fixture.secondLocationMember.memberId,
     });
+  });
+
+  it('queues overdue escalation after an occurrence is missed and reclaims abandoned sends', async () => {
+    const occurrenceId = await createOccurrence({
+      brandId: fixture.primary.brandId,
+      locationId: fixture.primary.locationId,
+      templateId: fixture.simpleTemplateId,
+      label: 'missed-escalation',
+    });
+    const rule = await sql<{ id: string }>(
+      `insert into public.operation_escalation_rules
+       (brand_id, escalation_order, offset_minutes, recipient_role, channels)
+       values ($1, 20, 0, 'eligible_staff', array['push']::text[]) returning id`,
+      [fixture.primary.brandId],
+    );
+    await sql(`update public.operation_occurrences set status = 'missed',
+      due_at = now() - interval '1 minute' where id = $1`, [occurrenceId]);
+    const queued = await serviceClient().rpc('queue_due_operation_escalations', {
+      target_now: new Date().toISOString(),
+    });
+    assert.equal(queued.error, null, queued.error?.message);
+    const outbox = await sql<{ id: string; status: string }>(
+      `select id, status from public.operation_notification_outbox
+       where occurrence_id = $1 and escalation_rule_id = $2 and recipient_id = $3`,
+      [occurrenceId, rule.rows[0]!.id, fixture.eligible.memberId],
+    );
+    assert.equal(outbox.rows[0]?.status, 'pending');
+    const firstClaim = await serviceClient().rpc('claim_operation_notification_batch', {
+      target_limit: 200,
+    });
+    assert.equal(firstClaim.error, null, firstClaim.error?.message);
+    assert.ok((firstClaim.data as Array<{ id: string }>).some((row) => row.id === outbox.rows[0]!.id));
+    await sql(`update public.operation_notification_outbox set available_at = now() - interval '1 second'
+      where id = $1`, [outbox.rows[0]!.id]);
+    const secondClaim = await serviceClient().rpc('claim_operation_notification_batch', {
+      target_limit: 200,
+    });
+    assert.equal(secondClaim.error, null, secondClaim.error?.message);
+    const reclaimed = (secondClaim.data as Array<{ id: string; attempt_count: number }>)
+      .find((row) => row.id === outbox.rows[0]!.id);
+    assert.equal(reclaimed?.attempt_count, 2);
+  });
+
+  it('cancels pending deliveries and suppresses escalation for a disabled tenant', async () => {
+    const rule = await sql<{ id: string }>(
+      `insert into public.operation_escalation_rules
+       (brand_id, escalation_order, offset_minutes, recipient_role, channels)
+       values ($1, 20, 0, 'eligible_staff', array['in_app']::text[]) returning id`,
+      [fixture.disabled.brandId],
+    );
+    await sql(`update public.operation_occurrences set status = 'scheduled',
+      due_at = now() - interval '1 minute' where id = $1`, [fixture.visibleDisabledOccurrenceId]);
+    const maintenance = await serviceClient().rpc('run_operation_maintenance', {
+      target_now: new Date().toISOString(), target_horizon_hours: 1,
+    });
+    assert.equal(maintenance.error, null, maintenance.error?.message);
+    assert.equal((maintenance.data as { outbox?: number } | null)?.outbox, 0);
+    const legacyAbsent = await sql<{ count: string }>(
+      `select count(*)::text from public.operation_notification_outbox
+       where occurrence_id = $1 and escalation_rule_id = $2`,
+      [fixture.visibleDisabledOccurrenceId, rule.rows[0]!.id],
+    );
+    assert.equal(legacyAbsent.rows[0]?.count, '0');
+    await sql(`update public.operation_occurrences set status = 'missed',
+      due_at = now() - interval '1 minute' where id = $1`, [fixture.visibleDisabledOccurrenceId]);
+    const queued = await serviceClient().rpc('queue_due_operation_escalations', {
+      target_now: new Date().toISOString(),
+    });
+    assert.equal(queued.error, null, queued.error?.message);
+    const absent = await sql<{ count: string }>(
+      `select count(*)::text from public.operation_notification_outbox
+       where occurrence_id = $1 and escalation_rule_id = $2`,
+      [fixture.visibleDisabledOccurrenceId, rule.rows[0]!.id],
+    );
+    assert.equal(absent.rows[0]?.count, '0');
+    const stale = await sql<{ id: string }>(
+      `insert into public.operation_notification_outbox
+       (brand_id, location_id, occurrence_id, escalation_rule_id, recipient_id, channel, available_at)
+       values ($1, $2, $3, $4, $5, 'push', now()) returning id`,
+      [fixture.disabled.brandId, fixture.disabled.locationId, fixture.visibleDisabledOccurrenceId,
+        rule.rows[0]!.id, fixture.disabledMember.memberId],
+    );
+    const claimed = await serviceClient().rpc('claim_operation_notification_batch', { target_limit: 200 });
+    assert.equal(claimed.error, null, claimed.error?.message);
+    assert.ok(!(claimed.data as Array<{ id: string }>).some((row) => row.id === stale.rows[0]!.id));
+    const cancelled = await sql<{ status: string; last_error: string | null }>(
+      `select status, last_error from public.operation_notification_outbox where id = $1`,
+      [stale.rows[0]!.id],
+    );
+    assert.deepEqual(cancelled.rows[0], { status: 'cancelled', last_error: 'operations_disabled' });
   });
 });

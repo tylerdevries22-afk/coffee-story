@@ -10,9 +10,12 @@ import { useTokens, type BrandTokens } from '@platform/ui';
 
 import { AppIcon } from '@/components/icon';
 import { Body, Button, Card } from '@/components/ui';
-import { taskEligibilityMessage, type OperatorChecklistStep,
+import { taskEligibilityMessage, taskIsActionable, type OperatorChecklistStep,
   type OperatorTaskOccurrence } from '@/features/operations/model';
-import type { OperationIntentIssue, OperationIntentResponse } from '@/features/operations/offline-intents';
+import type {
+  OperationIntentIssue,
+  OperationIntentResponse,
+} from '@/features/operations/offline-intents';
 import { useAuth } from '@/state/auth-context';
 import { useOperations } from '@/state/operations-store';
 
@@ -134,15 +137,18 @@ function ClaimCard({ styles, task }: {
 }) {
   const operations = useOperations();
   const upcoming = Date.parse(task.scheduledFor) > operations.now.getTime();
+  const terminal = ['completed', 'missed', 'cancelled'].includes(task.status);
   const eligibility = taskEligibilityMessage(task);
-  const unavailable = task.claimedBy !== null || upcoming || eligibility !== null;
+  const unavailable = task.claimedBy !== null || !taskIsActionable(task, operations.now);
   const message = task.claimedBy !== null
     ? 'Another team member currently owns this checklist.'
-    : upcoming ? 'This operation can be claimed when its scheduled window begins.'
+    : terminal ? 'This operation is read-only because its work window has closed.'
+      : upcoming ? 'This operation can be claimed when its scheduled window begins.'
       : eligibility ?? 'Claiming records ownership and keeps completion evidence attributable.';
   return (
     <Card style={styles.claimCard}>
-      <Text style={styles.cardTitle}>{unavailable ? 'Not claimable yet' : 'Ready to begin?'}</Text>
+      <Text style={styles.cardTitle}>{terminal ? 'Operation closed'
+        : unavailable ? 'Not claimable yet' : 'Ready to begin?'}</Text>
       <Body muted>{message}</Body>
       {!unavailable ? <Button label="Claim operation" onPress={() => void operations.claim(task.id)} /> : null}
     </Card>
@@ -173,22 +179,33 @@ function StepResponse({ onChange, response, step, styles }: {
   step: OperatorChecklistStep; styles: ReturnType<typeof createStyles>;
 }) {
   const tokens = useTokens();
+  const notApplicable = typeof response === 'object' && response.state === 'not_applicable'
+    ? response : null;
+  const notApplicableControl = step.allowNotApplicable ? <>
+    <Choice label="Not applicable" onPress={() => onChange({ state: 'not_applicable', reason: '' })}
+      selected={notApplicable !== null} styles={styles} />
+    {notApplicable ? <TextInput accessibilityLabel={`Reason ${step.title} is not applicable`}
+      maxLength={500} onChangeText={(reason) => onChange({ state: 'not_applicable', reason })}
+      placeholder="Reason this step does not apply" placeholderTextColor={tokens.textMuted}
+      style={styles.input} value={notApplicable.reason} /> : null}
+  </> : null;
   if (step.responseKind === 'confirm') {
-    return <Choice label="Confirmed" onPress={() => onChange(true)} selected={response === true} styles={styles} />;
+    return <View style={styles.responseGroup}><Choice label="Confirmed" onPress={() => onChange(true)}
+      selected={response === true} styles={styles} />{notApplicableControl}</View>;
   }
   if (step.responseKind === 'pass_fail') {
-    return <View style={styles.choices}><Choice label="Pass" onPress={() => onChange(true)} selected={response === true}
+    return <View style={styles.responseGroup}><View style={styles.choices}><Choice label="Pass" onPress={() => onChange(true)} selected={response === true}
       styles={styles} /><Choice label="Needs attention" onPress={() => onChange(false)} selected={response === false}
-      styles={styles} /></View>;
+      styles={styles} /></View>{notApplicableControl}</View>;
   }
-  return <TextInput accessibilityLabel={step.title} keyboardType={step.responseKind === 'number' ? 'decimal-pad' : 'default'}
+  return <View style={styles.responseGroup}><TextInput accessibilityLabel={step.title} keyboardType={step.responseKind === 'number' ? 'decimal-pad' : 'default'}
     maxLength={step.maxLength} multiline={step.responseKind === 'text'} onChangeText={(value) => {
       if (step.responseKind === 'text') onChange(value);
       else if (!value.trim()) onChange(undefined);
       else if (Number.isFinite(Number(value))) onChange(Number(value));
     }} placeholder={step.responseKind === 'number' ? 'Enter value' : 'Enter response'}
     placeholderTextColor={tokens.textMuted} style={styles.input}
-    value={response === undefined ? '' : String(response)} />;
+    value={response === undefined || typeof response === 'object' ? '' : String(response)} />{notApplicableControl}</View>;
 }
 
 function Choice({ label, onPress, selected, styles }: {
@@ -246,6 +263,7 @@ function createStyles(tokens: BrandTokens) {
       color: tokens.textPrimary, backgroundColor: tokens.surface, fontFamily: tokens.fontBody,
       fontSize: 16, paddingHorizontal: tokens.spacing.lg, paddingVertical: tokens.spacing.md },
     note: { minHeight: 96, textAlignVertical: 'top' },
+    responseGroup: { gap: tokens.spacing.sm },
     choices: { flexDirection: 'row', gap: tokens.spacing.sm },
     choice: { minHeight: 48, flex: 1, borderWidth: 1, borderColor: tokens.secondary,
       borderRadius: tokens.radius.pill, alignItems: 'center', justifyContent: 'center', paddingHorizontal: tokens.spacing.md },

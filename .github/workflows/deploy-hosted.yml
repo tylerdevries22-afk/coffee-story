@@ -29,6 +29,8 @@ on:
         required: true
       SUPABASE_ACCESS_TOKEN:
         required: true
+      SUPABASE_DB_PASSWORD:
+        required: true
       SUPABASE_URL:
         required: false
       SUPABASE_PUBLISHABLE_KEY:
@@ -100,9 +102,61 @@ jobs:
       supabase_project_ref: ${{ inputs.supabase_project_ref || vars.SUPABASE_PROJECT_REF }}
     secrets: inherit
 
+  migrate-database:
+    name: Promote verified database migrations
+    needs: gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: supabase/setup-cli@v3
+        with:
+          version: 2.116.0
+      - name: Apply and verify forward-only target migrations
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$SUPABASE_ACCESS_TOKEN" || { echo '::error::Set SUPABASE_ACCESS_TOKEN.'; exit 1; }
+          test -n "$SUPABASE_DB_PASSWORD" || { echo '::error::Set SUPABASE_DB_PASSWORD.'; exit 1; }
+          test -n "$SUPABASE_PROJECT_REF" || { echo '::error::Set SUPABASE_PROJECT_REF.'; exit 1; }
+          retry_supabase() {
+            local attempt=1 maximum=5
+            until timeout 15m "$@"; do
+              if [ "$attempt" -ge "$maximum" ]; then
+                echo "::error::Supabase command failed after $maximum attempts."
+                return 1
+              fi
+              sleep $((attempt * 5))
+              attempt=$((attempt + 1))
+            done
+          }
+          retry_supabase supabase link --project-ref "$SUPABASE_PROJECT_REF" \
+            --password "$SUPABASE_DB_PASSWORD"
+          retry_supabase supabase db push --linked --include-all \
+            --password "$SUPABASE_DB_PASSWORD" --yes
+          retry_supabase supabase db lint --linked --level warning --fail-on warning
+          retry_supabase supabase db advisors --linked \
+            --type security --level warn --fail-on warn
+          retry_supabase supabase db advisors --linked \
+            --type performance --level warn --fail-on warn
+          keys=$(retry_supabase supabase projects api-keys \
+            --project-ref "$SUPABASE_PROJECT_REF" -o json)
+          service_role=$(printf '%s' "$keys" \
+            | jq -r '[.[] | select(.name == "service_role")][0].api_key')
+          test -n "$service_role" && test "$service_role" != null
+          echo "::add-mask::$service_role"
+          readiness=$(curl --fail --silent --show-error --max-time 20 --retry 1 --retry-all-errors \
+            -X POST -H "apikey: $service_role" -H "Authorization: Bearer $service_role" \
+            -H 'Content-Type: application/json' --data '{}' \
+            "https://${SUPABASE_PROJECT_REF}.supabase.co/rest/v1/rpc/platform_release_readiness")
+          [ "$(printf '%s' "$readiness" | jq -r '.')" = 20260828152200 ] \
+            || { echo '::error::Target database release contract is not ready.'; exit 1; }
+
   deploy-hq:
     name: Deploy HQ API and console
-    needs: gate
+    needs: migrate-database
     if: inputs.deploy_web
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -299,10 +353,17 @@ jobs:
             fi
             add_secret DISPLAY_DEVICE_TOKEN "$DISPLAY_DEVICE_TOKEN"
           else
+            api_url="${{ needs.deploy-hq.outputs.url }}"
+            api_host="${api_url#https://}"
+            api_host="${api_host%%/*}"
+            case "$api_host" in
+              *.vercel.app) ;;
+              *) echo '::error::The verified HQ deployment did not provide a Vercel hostname.'; exit 1 ;;
+            esac
             add_public EXPO_PUBLIC_SUPABASE_URL "$SUPABASE_URL"
             add_public EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY "$SUPABASE_PUBLISHABLE_KEY"
-            add_public EXPO_PUBLIC_API_URL "${{ needs.deploy-hq.outputs.url }}"
-            add_public EXPO_PUBLIC_ALLOWED_API_HOST "${PROJECT_PREFIX}-hq.vercel.app"
+            add_public EXPO_PUBLIC_API_URL "$api_url"
+            add_public EXPO_PUBLIC_ALLOWED_API_HOST "$api_host"
             add_public TENANT "$TENANT"
           fi
       - name: Promote the exact verified web commit
@@ -339,7 +400,7 @@ jobs:
 
   publish-native:
     name: Publish native OTA updates
-    needs: gate
+    needs: migrate-database
     if: inputs.publish_native && inputs.environment == 'production'
     runs-on: ubuntu-latest
     timeout-minutes: 25

@@ -58,21 +58,36 @@ export function renderTemplate(
 }
 
 export type Transport = {
-  sendPush: (token: string, title: string, body: string) => Promise<void>;
+  sendPush: (
+    token: string,
+    title: string,
+    body: string,
+    data?: Readonly<Record<string, string>>,
+  ) => Promise<void>;
   sendSms: (phone: string, body: string) => Promise<void>;
   sendEmail: (address: string, subject: string, body: string) => Promise<void>;
 };
 
+/** Expo returns provider rejections inside an otherwise successful HTTP response. */
+export function expoPushAccepted(payload: unknown): boolean {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return false;
+  const data = (payload as Record<string, unknown>).data;
+  return Boolean(data && typeof data === 'object' && !Array.isArray(data)
+    && (data as Record<string, unknown>).status === 'ok');
+}
+
 /** The real transports. Each throws with the missing env var named. */
 export function liveTransport(env: NodeJS.ProcessEnv = process.env): Transport {
   return {
-    async sendPush(token, title, body) {
+    async sendPush(token, title, body, data) {
       const response = await fetchExternalWithRetry('https://exp.host/--/api/v2/push/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to: token, title, body, sound: 'default' }),
+        body: JSON.stringify({ to: token, title, body, sound: 'default', ...(data ? { data } : {}) }),
       });
       if (!response.ok) throw new Error(`Expo push failed: ${response.status}`);
+      const payload: unknown = await response.json().catch(() => null);
+      if (!expoPushAccepted(payload)) throw new Error('Expo push was rejected.');
     },
     async sendSms(phone, body) {
       const sid = env.TWILIO_ACCOUNT_SID;
@@ -114,11 +129,50 @@ export async function sendNotification(
   recipient: Recipient,
   key: TemplateKey,
   context: BrandMessageContext & Record<string, string | number>,
+  pushData?: Readonly<Record<string, string>>,
 ): Promise<void> {
   const { title, body } = renderTemplate(key, context);
   switch (recipient.channel) {
-    case 'push': return transport.sendPush(recipient.address, title, body);
+    case 'push': return transport.sendPush(recipient.address, title, body, pushData);
     case 'sms': return transport.sendSms(recipient.address, body);
     case 'email': return transport.sendEmail(recipient.address, title, body);
   }
+}
+
+export type OperationPushWork = {
+  outboxId: string;
+  occurrenceId: string;
+  tokens: readonly string[];
+  appName: string;
+  taskTitle: string;
+  locationName: string;
+};
+
+export type OperationPushResult = {
+  outboxId: string;
+  outcome: 'sent' | 'failed';
+  errorCode: 'no_active_device' | 'delivery_failed' | null;
+};
+
+/** Delivers one claimed batch without leaking provider errors into persisted audit data. */
+export async function deliverOperationPushBatch(
+  transport: Transport,
+  work: readonly OperationPushWork[],
+): Promise<OperationPushResult[]> {
+  return Promise.all(work.map(async (item) => {
+    if (item.tokens.length === 0) {
+      return { outboxId: item.outboxId, outcome: 'failed', errorCode: 'no_active_device' } as const;
+    }
+    const deliveries = await Promise.allSettled(item.tokens.map((token) => sendNotification(
+      transport,
+      { channel: 'push', address: token },
+      'task_overdue',
+      { appName: item.appName, pointsName: '', taskTitle: item.taskTitle, locationName: item.locationName },
+      { occurrenceId: item.occurrenceId },
+    )));
+    const delivered = deliveries.some((delivery) => delivery.status === 'fulfilled');
+    return delivered
+      ? { outboxId: item.outboxId, outcome: 'sent', errorCode: null } as const
+      : { outboxId: item.outboxId, outcome: 'failed', errorCode: 'delivery_failed' } as const;
+  }));
 }

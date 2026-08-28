@@ -1,5 +1,5 @@
-import { corsPreflight, jsonError, jsonWithCors } from '@/lib/api-auth';
-import { operationsRequestContext, validOperationsRange, validUuid } from '@/lib/operations-api';
+import { corsPreflight, jsonError, jsonWithCors } from '../../../../lib/api-auth';
+import { operationsRequestContext, validOperationsRange, validUuid } from '../../../../lib/operations-api';
 
 const OCCURRENCE_COLUMNS = [
   'id', 'brand_id', 'location_id', 'schedule_id', 'template_id', 'source',
@@ -10,6 +10,14 @@ const OCCURRENCE_COLUMNS = [
 const ISSUE_COLUMNS = [
   'id', 'occurrence_id', 'category', 'severity', 'description', 'step_key', 'status',
 ].join(',');
+type EligibilityRow = { occurrence_id: string; eligibility: unknown };
+type OccurrenceRow = {
+  id: string; brand_id: string; location_id: string; schedule_id: string | null;
+  template_id: string; source: string; materialization_key: string; template_snapshot: unknown;
+  scheduled_for: string; due_at: string; grace_minutes: number; status: string;
+  claimed_by: string | null; claimed_at: string | null; claim_expires_at: string | null;
+  completed_at: string | null; completion_note: string; created_at: string; updated_at: string;
+};
 
 export function OPTIONS(): Response {
   return corsPreflight();
@@ -28,7 +36,7 @@ export async function GET(request: Request): Promise<Response> {
     context.db.from('operation_occurrences').select(OCCURRENCE_COLUMNS)
       .eq('brand_id', context.auth.claims.brand_id).eq('location_id', locationId)
       .gte('scheduled_for', range.from).lte('scheduled_for', range.to)
-      .order('scheduled_for').limit(1_000),
+      .order('scheduled_for').limit(1_000).returns<OccurrenceRow[]>(),
     context.db.from('operation_issues').select(ISSUE_COLUMNS)
       .eq('brand_id', context.auth.claims.brand_id).eq('location_id', locationId)
       .in('status', ['open', 'acknowledged']).order('created_at', { ascending: false }).limit(500),
@@ -36,5 +44,21 @@ export async function GET(request: Request): Promise<Response> {
   if (occurrences.error || issues.error) {
     return jsonError(503, 'queue_unavailable', 'The operations queue is temporarily unavailable.');
   }
-  return jsonWithCors({ occurrences: occurrences.data ?? [], issues: issues.data ?? [], range });
+  const occurrenceRows = occurrences.data ?? [];
+  const eligibility = occurrenceRows.length === 0
+    ? { data: [] as EligibilityRow[], error: null }
+    : await context.db.rpc('operation_queue_eligibility', {
+      target_occurrences: occurrenceRows.map((row) => row.id),
+    });
+  if (eligibility.error) {
+    return jsonError(503, 'queue_unavailable', 'The operations queue is temporarily unavailable.');
+  }
+  const eligibilityRows = Array.isArray(eligibility.data) ? eligibility.data as EligibilityRow[] : [];
+  const eligibilityMap = new Map(eligibilityRows
+    .map((row) => [row.occurrence_id, row.eligibility]));
+  return jsonWithCors({
+    occurrences: occurrenceRows.map((row) => ({ ...row, eligibility: eligibilityMap.get(row.id) })),
+    issues: issues.data ?? [],
+    range,
+  });
 }

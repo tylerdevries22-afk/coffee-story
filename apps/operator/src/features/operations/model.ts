@@ -13,6 +13,7 @@ export type OperatorChecklistStep = {
   responseKind: OperationResponseKind;
   required: boolean;
   issueOnFailure: boolean;
+  allowNotApplicable?: boolean;
   minimum?: number;
   maximum?: number;
   maxLength?: number;
@@ -59,7 +60,7 @@ export type OperatorTaskIssue = {
 
 export type OperatorNotification = {
   id: string;
-  occurrenceId: string;
+  occurrenceId: string | null;
   title: string;
   body: string;
   createdAt: string;
@@ -113,6 +114,7 @@ function parseStep(value: unknown): OperatorChecklistStep | null {
     responseKind,
     required: row.required !== false,
     issueOnFailure: row.issueOnFailure === true,
+    allowNotApplicable: row.allowNotApplicable === true,
   };
   if (typeof constraints.minimum === 'number') step.minimum = constraints.minimum;
   if (typeof constraints.maximum === 'number') step.maximum = constraints.maximum;
@@ -141,10 +143,10 @@ function parseSnapshot(value: unknown): OperatorTaskSnapshot | null {
 
 function parseEligibility(value: unknown): OperatorEligibility {
   const row = objectRecord(value);
-  if (!row) return { eligible: true, hasActiveShift: true, missingRoles: [], missingCompetencies: [] };
+  if (!row) return { eligible: false, hasActiveShift: false, missingRoles: [], missingCompetencies: [] };
   return {
     eligible: row.eligible === true,
-    hasActiveShift: row.hasActiveShift !== false,
+    hasActiveShift: row.hasActiveShift === true,
     missingRoles: stringList(row.missingRoles),
     missingCompetencies: stringList(row.missingCompetencies),
   };
@@ -216,6 +218,33 @@ export function parseOperatorQueue(value: unknown): OperatorQueueSnapshot {
       .filter((item): item is OperatorTaskOccurrence => item !== null),
     issues: issueSource.map(parseIssue).filter((item): item is OperatorTaskIssue => item !== null),
   };
+}
+
+function parseNotification(value: unknown): OperatorNotification | null {
+  const row = objectRecord(value);
+  if (!row) return null;
+  const occurrenceId = 'occurrenceId' in row ? row.occurrenceId : row.occurrence_id;
+  const createdAt = row.createdAt ?? row.created_at;
+  const readAt = row.readAt ?? row.read_at;
+  if (typeof row.id !== 'string' || (occurrenceId !== null && typeof occurrenceId !== 'string')
+    || typeof row.title !== 'string' || typeof row.body !== 'string'
+    || typeof createdAt !== 'string') return null;
+  return {
+    id: row.id,
+    occurrenceId,
+    title: row.title,
+    body: row.body,
+    createdAt,
+    readAt: typeof readAt === 'string' ? readAt : null,
+  };
+}
+
+/** Validates persisted notifications while preserving system rows without a deep link. */
+export function parseOperatorNotifications(value: unknown): readonly OperatorNotification[] {
+  const row = objectRecord(value);
+  const notifications = Array.isArray(row?.notifications) ? row.notifications : [];
+  return notifications.map(parseNotification)
+    .filter((item): item is OperatorNotification => item !== null);
 }
 
 export function displayStatusForTask(task: OperatorTaskOccurrence, now: Date): OperationDisplayStatus {

@@ -7879,6 +7879,13 @@ export type Database = {
         Returns: number
       }
       mark_order_arrived: { Args: { target_order: string }; Returns: string }
+      operation_queue_eligibility: {
+        Args: { target_occurrences: string[] }
+        Returns: {
+          eligibility: Json
+          occurrence_id: string
+        }[]
+      }
       platform_release_readiness: { Args: never; Returns: string }
       process_square_refund: {
         Args: {
@@ -7915,6 +7922,10 @@ export type Database = {
           target_run: string
         }
         Returns: string
+      }
+      queue_due_operation_escalations: {
+        Args: { target_now?: string }
+        Returns: number
       }
       refresh_analytics_rollups: {
         Args: { rebuild_from?: string }
@@ -8834,4 +8845,3 @@ export const Constants = {
     },
   },
 } as const
-

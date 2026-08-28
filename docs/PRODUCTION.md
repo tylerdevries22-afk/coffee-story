@@ -38,8 +38,12 @@ local `.vercel` directory.
 ### Hosted deployment checklist
 
 Create these GitHub Actions secrets before the first run (values are never
-committed): `VERCEL_TOKEN`, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`,
-`SUPABASE_SERVICE_ROLE_KEY`, and `CRON_SECRET`. Add
+committed): `VERCEL_TOKEN`, `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`,
+`SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, and
+`CRON_SECRET`. Set the repository variable `SUPABASE_PROJECT_REF` as well. The
+database password is the value chosen when the project was created; Supabase does
+not expose it through the production Management API, so keep its Doppler and GitHub
+copies synchronized. Add
 `SUPABASE_JWT_SECRET` to enable device pairing, then add
 `DISPLAY_DEVICE_TOKEN` after pairing the production pickup screen. Add
 `OPENAI_API_KEY` when the autonomous training research pipeline is enabled.

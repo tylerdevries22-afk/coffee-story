@@ -1,6 +1,13 @@
 import { randomUUID } from 'node:crypto';
 
-import { dueCampaigns, dueDropTransitions } from '@platform/engine';
+import {
+  deliverOperationPushBatch,
+  dueCampaigns,
+  dueDropTransitions,
+  liveTransport,
+  type OperationPushResult,
+  type OperationPushWork,
+} from '@platform/engine';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { start } from 'workflow/api';
 
@@ -16,6 +23,96 @@ import { bootstrapTenantTraining } from '../../../../workflows/tenant-training-b
 type TrainingBrandRow = { id: string; name: string; brand_config: unknown };
 type TrainingRunRow = { id: string; brand_id: string; profile_fingerprint: string; status: string; updated_at: string; retry_count: number; next_attempt_at: string | null };
 type TrainingReleaseRow = { brand_id: string; bootstrap_run_id: string | null; manifest: unknown };
+type OperationOutboxRow = {
+  id: string; brand_id: string; location_id: string; occurrence_id: string;
+  recipient_id: string; channel: string; attempt_count: number;
+};
+type OperationContextRow = { id: string; template_snapshot: unknown };
+
+function snapshotTitle(value: unknown): string {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return 'Scheduled operation';
+  const title = (value as Record<string, unknown>).title;
+  return typeof title === 'string' && title.trim() ? title : 'Scheduled operation';
+}
+
+function recipientKey(brandId: string, recipientId: string): string {
+  return `${brandId}:${recipientId}`;
+}
+
+async function operationPushWork(
+  db: SupabaseClient,
+  rows: readonly OperationOutboxRow[],
+): Promise<OperationPushWork[]> {
+  const [occurrences, locations, brands, devices] = await Promise.all([
+    db.from('operation_occurrences').select('id,template_snapshot')
+      .in('id', rows.map((row) => row.occurrence_id)).returns<OperationContextRow[]>(),
+    db.from('locations').select('id,name').in('id', rows.map((row) => row.location_id))
+      .returns<{ id: string; name: string }[]>(),
+    db.from('brands').select('id,name').in('id', rows.map((row) => row.brand_id))
+      .returns<{ id: string; name: string }[]>(),
+    db.from('operation_staff_devices').select('brand_id,brand_user_id,expo_push_token')
+      .eq('is_active', true).in('brand_user_id', rows.map((row) => row.recipient_id))
+      .returns<{ brand_id: string; brand_user_id: string; expo_push_token: string }[]>(),
+  ]);
+  const failedRead = [occurrences, locations, brands, devices].find((result) => result.error)?.error;
+  if (failedRead) throw failedRead;
+  const occurrenceMap = new Map((occurrences.data ?? []).map((row) => [row.id, row]));
+  const locationMap = new Map((locations.data ?? []).map((row) => [row.id, row.name]));
+  const brandMap = new Map((brands.data ?? []).map((row) => [row.id, row.name]));
+  const tokenMap = new Map<string, Set<string>>();
+  for (const device of devices.data ?? []) {
+    const key = recipientKey(device.brand_id, device.brand_user_id);
+    const tokens = tokenMap.get(key) ?? new Set<string>();
+    tokens.add(device.expo_push_token);
+    tokenMap.set(key, tokens);
+  }
+  return rows.map((row) => ({
+    outboxId: row.id,
+    occurrenceId: row.occurrence_id,
+    tokens: [...(tokenMap.get(recipientKey(row.brand_id, row.recipient_id)) ?? [])],
+    appName: brandMap.get(row.brand_id) ?? 'Operations',
+    taskTitle: snapshotTitle(occurrenceMap.get(row.occurrence_id)?.template_snapshot),
+    locationName: locationMap.get(row.location_id) ?? 'your location',
+  }));
+}
+
+async function persistOperationPushResults(
+  db: SupabaseClient,
+  rows: readonly OperationOutboxRow[],
+  results: readonly OperationPushResult[],
+  now: Date,
+): Promise<void> {
+  const outboxMap = new Map(rows.map((row) => [row.id, row]));
+  await Promise.all(results.map(async (result) => {
+    const row = outboxMap.get(result.outboxId);
+    if (!row) throw new Error('Claimed operation notification context was lost.');
+    const retrySeconds = Math.min(3_600, 30 * (2 ** Math.min(row.attempt_count, 7)));
+    const values = result.outcome === 'sent'
+      ? { status: 'sent', sent_at: now.toISOString(), last_error: null }
+      : { status: 'failed', available_at: new Date(now.getTime() + retrySeconds * 1_000).toISOString(),
+        last_error: result.errorCode };
+    const updated = await db.from('operation_notification_outbox').update(values)
+      .eq('id', result.outboxId).eq('status', 'sending')
+      .eq('attempt_count', row.attempt_count);
+    if (updated.error) throw updated.error;
+  }));
+}
+
+async function deliverOperationNotifications(db: SupabaseClient, now: Date): Promise<{
+  sent: number; failed: number;
+}> {
+  const claimed = await db.rpc('claim_operation_notification_batch', { target_limit: 50 });
+  if (claimed.error) throw claimed.error;
+  const claimedRows = Array.isArray(claimed.data) ? claimed.data as OperationOutboxRow[] : [];
+  const rows = claimedRows.filter((row) => row.channel === 'push');
+  if (rows.length === 0) return { sent: 0, failed: 0 };
+  const results = await deliverOperationPushBatch(liveTransport(), await operationPushWork(db, rows));
+  await persistOperationPushResults(db, rows, results, now);
+  return {
+    sent: results.filter((result) => result.outcome === 'sent').length,
+    failed: results.filter((result) => result.outcome === 'failed').length,
+  };
+}
 
 async function trainingScanRows(db: SupabaseClient): Promise<{ brands: TrainingBrandRow[]; runs: TrainingRunRow[]; releases: TrainingReleaseRow[] }> {
   const brands: TrainingBrandRow[] = [];
@@ -180,6 +277,11 @@ export async function POST(request: Request): Promise<Response> {
     target_horizon_hours: 336,
   });
   if (operations.error) throw operations.error;
+  const operationEscalations = await db.rpc('queue_due_operation_escalations', {
+    target_now: now.toISOString(),
+  });
+  if (operationEscalations.error) throw operationEscalations.error;
+  const operationNotifications = await deliverOperationNotifications(db, now);
   const operationsRetention = await db.rpc('apply_operation_retention', {
     target_now: now.toISOString(),
   });
@@ -191,6 +293,11 @@ export async function POST(request: Request): Promise<Response> {
     campaigns: dueCampaignIds.length,
     trainingBootstraps,
     analytics: { rollups: rollups.data, retention: retention.data },
-    operations: { maintenance: operations.data, retention: operationsRetention.data },
+    operations: {
+      maintenance: operations.data,
+      escalations: operationEscalations.data,
+      notifications: operationNotifications,
+      retention: operationsRetention.data,
+    },
   });
 }

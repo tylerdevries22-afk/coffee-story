@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { BrandRole } from '@platform/schema';
@@ -25,6 +27,35 @@ export type OperationsRequestContext = {
 
 export function validUuid(value: unknown): value is string {
   return typeof value === 'string' && UUID_PATTERN.test(value);
+}
+
+export function validNotificationIds(value: unknown): readonly string[] | null {
+  if (!Array.isArray(value) || value.length === 0 || value.length > 100
+    || !value.every(validUuid) || new Set(value).size !== value.length) return null;
+  return value;
+}
+
+export function validOperationDevice(value: unknown): {
+  token: string;
+  platform?: 'ios' | 'android';
+} | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const row = value as Record<string, unknown>;
+  const token = typeof row.token === 'string' ? row.token.trim() : '';
+  if (token.length < 10 || token.length > 512) return null;
+  if (row.platform === undefined) return { token };
+  if (row.platform !== 'ios' && row.platform !== 'android') return null;
+  return { token, platform: row.platform };
+}
+
+/** A stable UUID namespace prevents one batch acknowledgement from colliding across rows. */
+export function operationChildActionId(actionId: string, targetId: string): string | null {
+  if (!validUuid(actionId) || !validUuid(targetId)) return null;
+  const bytes = createHash('sha256').update(`${actionId}:${targetId}`).digest().subarray(0, 16);
+  bytes[6] = (bytes[6]! & 0x0f) | 0x50;
+  bytes[8] = (bytes[8]! & 0x3f) | 0x80;
+  const hex = bytes.toString('hex');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
 export function boundedText(value: unknown, maximum: number, required = false): string | null {

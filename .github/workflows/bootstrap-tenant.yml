@@ -60,9 +60,26 @@ jobs:
           PROJECT_REF: ${{ inputs.supabase_project_ref }}
         run: |
           set -euo pipefail
-          supabase link --project-ref "$PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
-          supabase db push --linked --include-all --password "$SUPABASE_DB_PASSWORD" --yes
-          supabase db lint --linked --level warning --fail-on warning
+          retry_supabase() {
+            local attempt=1 maximum=5
+            until timeout 15m "$@"; do
+              if [ "$attempt" -ge "$maximum" ]; then
+                echo "::error::Supabase command failed after $maximum attempts." >&2
+                return 1
+              fi
+              sleep $((attempt * 5))
+              attempt=$((attempt + 1))
+            done
+          }
+          retry_supabase supabase link --project-ref "$PROJECT_REF" \
+            --password "$SUPABASE_DB_PASSWORD"
+          retry_supabase supabase db push --linked --include-all \
+            --password "$SUPABASE_DB_PASSWORD" --yes
+          retry_supabase supabase db lint --linked --level warning --fail-on warning
+          retry_supabase supabase db advisors --linked \
+            --type security --level warn --fail-on warn
+          retry_supabase supabase db advisors --linked \
+            --type performance --level warn --fail-on warn
       - name: Apply the production Auth policy
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}

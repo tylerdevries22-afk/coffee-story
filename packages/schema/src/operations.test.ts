@@ -10,7 +10,13 @@ const hardening = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..
   '20260828051242_harden_tenant_operations_runtime.sql'), 'utf8');
 const advisorHardening = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'supabase', 'migrations',
   '20260828104000_harden_operation_rpc_boundaries.sql'), 'utf8');
-const operationsSql = `${migration}\n${hardening}\n${advisorHardening}`;
+const releaseHardening = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'supabase', 'migrations',
+  '20260828130000_operations_release_hardening.sql'), 'utf8');
+const reviewFixes = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'supabase', 'migrations',
+  '20260828144328_operations_release_review_fixes.sql'), 'utf8');
+const volatilityFix = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'supabase', 'migrations',
+  '20260828152200_release_readiness_volatility.sql'), 'utf8');
+const operationsSql = `${migration}\n${hardening}\n${advisorHardening}\n${releaseHardening}\n${reviewFixes}\n${volatilityFix}`;
 
 describe('tenant operations migration', () => {
   it('keeps the platform schema industry-neutral', () => {
@@ -35,6 +41,52 @@ describe('tenant operations migration', () => {
   it('makes materialization and escalation delivery idempotent', () => {
     assert.match(migration, /unique \(brand_id, materialization_key\)/);
     assert.match(migration, /unique \(occurrence_id, escalation_rule_id, recipient_id, channel\)/);
+    assert.match(releaseHardening, /queue_due_operation_escalations/);
+    assert.match(releaseHardening, /status in \('pending', 'failed', 'sending'\)/);
+  });
+
+  it('keeps each read-only release contract stable', () => {
+    assert.match(reviewFixes,
+      /create or replace function public\.platform_release_readiness\(\)\s+returns text language plpgsql stable security invoker/);
+    assert.match(volatilityFix,
+      /alter function app\.platform_release_readiness_20260828130000\(\) stable/);
+    assert.match(volatilityFix,
+      /create or replace function public\.platform_release_readiness\(\)\s+returns text language plpgsql stable security invoker/);
+  });
+
+  it('suppresses queued and claimed deliveries when operations are disabled', () => {
+    assert.match(releaseHardening,
+      /join public\.brands brand on brand\.id = occurrence\.brand_id and brand\.operations/);
+    assert.match(releaseHardening, /set status = 'cancelled', last_error = 'operations_disabled'/);
+    assert.match(releaseHardening,
+      /join public\.brands brand on brand\.id = outbox\.brand_id and brand\.operations/);
+    assert.doesNotMatch(reviewFixes, /with recipients as/);
+    assert.match(reviewFixes,
+      /exists \(select 1 from public\.brands brand[\s\S]*?brand\.operations\)/);
+  });
+
+  it('allows one active tenant owner per physical operation device', () => {
+    assert.match(reviewFixes,
+      /create unique index operation_devices_active_token_key[\s\S]*?where is_active/);
+    assert.match(reviewFixes,
+      /update public\.operation_staff_devices set is_active = false[\s\S]*?expo_push_token = normalized_token/);
+    assert.match(reviewFixes, /pg_advisory_xact_lock/);
+    assert.match(reviewFixes,
+      /revoke all on function app\.register_operation_device\(uuid, text, text\)\s+from public, anon;/,
+      'the public invoker wrapper needs the authenticated internal execute grant');
+  });
+
+  it('requires a current shift and an unexpired claim lease', () => {
+    assert.match(releaseHardening, /shift\.starts_at <= now\(\)/);
+    assert.match(releaseHardening, /shift\.ends_at > now\(\)/);
+    assert.match(releaseHardening, /selected\.claim_expires_at <= now\(\)/);
+  });
+
+  it('exposes queue eligibility through an invoker-safe wrapper', () => {
+    assert.match(releaseHardening,
+      /create or replace function public\.operation_queue_eligibility\(target_occurrences uuid\[\]\)[\s\S]*?security invoker/);
+    assert.match(releaseHardening,
+      /revoke all on function app\.operation_queue_eligibility\(uuid\[\]\) from public, anon/);
   });
 
   it('aligns lifecycle values and exposes only idempotent runtime mutations', () => {

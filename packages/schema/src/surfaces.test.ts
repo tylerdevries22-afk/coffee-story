@@ -362,22 +362,30 @@ describe('packs', () => {
 describe('atomic order commit', () => {
   it('makes deep health fail closed on missing commit or realtime contracts', () => {
     const readiness = functionInForce('public', 'platform_release_readiness');
+    const releaseSql = allSql();
     assert.match(readiness, /security invoker/);
-    assert.match(readiness, /procedure\.proname = 'commit_order'/);
-    assert.match(readiness, /procedure\.pronargs = 18/);
-    assert.match(readiness, /tablename = 'orders'/);
-    assert.match(readiness, /tablename = 'board_change_signals'/);
-    assert.match(readiness, /procedure\.proname = 'publish_manual_training_release'/);
-    assert.match(readiness, /operation_occurrences/);
-    assert.match(readiness, /operation_action_receipts/);
-    assert.match(readiness, /operation_operator_notifications/);
-    assert.match(readiness, /procedure\.proname = 'claim_operation_occurrence'/);
-    assert.match(readiness, /procedure\.proname = 'cancel_operation_occurrence'/);
-    assert.match(readiness, /platform_onboarding_runs/);
-    assert.match(readiness, /platform_credential_requirements/);
-    assert.match(readiness, /tablename = 'operations_change_signals'/);
-    assert.match(allSql(), /return '20260828104000'/);
-    assert.match(allSql(),
+    assert.match(readiness, /language plpgsql stable/,
+      'the read-only release contract remains callable through GET');
+    assert.match(readiness,
+      /app\.platform_release_readiness_20260828144328\(\) <> '20260828144328'/);
+    for (const contract of [
+      /procedure\.proname = 'commit_order'/,
+      /procedure\.pronargs = 18/,
+      /tablename = 'orders'/,
+      /tablename = 'board_change_signals'/,
+      /procedure\.proname = 'publish_manual_training_release'/,
+      /operation_occurrences/,
+      /operation_action_receipts/,
+      /operation_operator_notifications/,
+      /procedure\.proname = 'claim_operation_occurrence'/,
+      /procedure\.proname = 'cancel_operation_occurrence'/,
+      /platform_onboarding_runs/,
+      /platform_credential_requirements/,
+      /tablename = 'operations_change_signals'/,
+    ]) assert.match(releaseSql, contract);
+    assert.match(releaseSql, /operation_queue_eligibility/);
+    assert.match(readiness, /return '20260828152200'/);
+    assert.match(releaseSql,
       /revoke all on function public\.platform_release_readiness\(\)[\s\S]*?to service_role;/);
   });
 
