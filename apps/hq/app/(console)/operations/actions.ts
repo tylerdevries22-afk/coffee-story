@@ -88,7 +88,7 @@ export async function toggleOperationSchedule(formData: FormData): Promise<void>
   revalidatePath('/operations/schedules');
 }
 
-export async function waiveOperation(formData: FormData): Promise<void> {
+export async function cancelOperation(formData: FormData): Promise<void> {
   const { client } = await managerContext();
   const occurrenceId = requiredFormText(formData, 'occurrenceId');
   const reason = requiredFormText(formData, 'reason');

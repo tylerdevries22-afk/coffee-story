@@ -229,8 +229,8 @@ describe('calendar and training tenancy', { skip: skipUnlessConfigured }, () => 
       [tenant.brandId],
     );
     const category = await sql<{ id: string }>(
-      `insert into public.menu_categories (brand_id, menu_id, title)
-       values ($1, $2, 'Coffee') returning id`,
+      `insert into public.menu_categories (brand_id, menu_id, slug, title)
+       values ($1, $2, 'coffee', 'Coffee') returning id`,
       [tenant.brandId, menu.rows[0]!.id],
     );
     const item = await sql<{ id: string }>(

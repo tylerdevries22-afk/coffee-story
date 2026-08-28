@@ -99,7 +99,7 @@ async function createOccurrence(input: {
        template_snapshot, scheduled_for, due_at, grace_minutes, status
      ) values (
        $1, $2, $3, 'manual', $4, app.build_operation_snapshot($3),
-       now() - interval '5 minutes', now() + interval '30 minutes', 5, 'due'
+       now() - interval '5 minutes', now() + interval '30 minutes', 5, 'scheduled'
      ) returning id`,
     [input.brandId, input.locationId, input.templateId, `${input.label}:${randomUUID()}`],
   );
@@ -620,15 +620,12 @@ describe('tenant operations against real Supabase', { skip: skipUnlessConfigured
       occurrence_id: string;
       status: string;
       created_events: string;
-      overdue_events: string;
       outbox_rows: string;
       recipient_id: string;
     }>(
       `select occurrence.id occurrence_id, occurrence.status::text,
        (select count(*) from public.operation_occurrence_events event
         where event.occurrence_id = occurrence.id and event.event_type = 'created')::text created_events,
-       (select count(*) from public.operation_occurrence_events event
-        where event.occurrence_id = occurrence.id and event.event_type = 'overdue')::text overdue_events,
        (select count(*) from public.operation_notification_outbox outbox
         where outbox.occurrence_id = occurrence.id)::text outbox_rows,
        (select outbox.recipient_id::text from public.operation_notification_outbox outbox
@@ -641,9 +638,8 @@ describe('tenant operations against real Supabase', { skip: skipUnlessConfigured
     assert.equal(materialized.rows.length, 1);
     assert.deepEqual(materialized.rows[0], {
       occurrence_id: materialized.rows[0]!.occurrence_id,
-      status: 'overdue',
+      status: 'scheduled',
       created_events: '1',
-      overdue_events: '1',
       outbox_rows: '1',
       recipient_id: fixture.secondLocationMember.memberId,
     });

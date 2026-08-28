@@ -10,7 +10,7 @@ const row: OperationOccurrenceRow = {
     title: 'Opening readiness', steps: [{ key: 'temperature', title: 'Record temperature',
       responseKind: 'number', required: true, constraints: { minimum: 1, maximum: 10 } }],
   }, scheduled_for: '2026-08-28T10:00:00Z', due_at: '2026-08-28T10:30:00Z',
-  grace_minutes: 10, status: 'due', claimed_by: null, claimed_at: null, claim_expires_at: null,
+  grace_minutes: 10, status: 'scheduled', claimed_by: null, claimed_at: null, claim_expires_at: null,
   completed_at: null, completion_note: '', created_at: '2026-08-28T09:00:00Z',
   updated_at: '2026-08-28T09:00:00Z',
 };
@@ -30,10 +30,10 @@ describe('operation presentation', () => {
   });
 
   it('sorts overdue work before upcoming work without mutating database status', () => {
-    const upcoming = { ...row, id: 'two', status: 'upcoming' as const,
+    const upcoming = { ...row, id: 'two',
       scheduled_for: '2026-08-28T12:00:00Z', due_at: '2026-08-28T12:30:00Z' };
     const items = operationQueueItems([upcoming, row], new Date('2026-08-28T11:00:00Z'));
     assert.deepEqual(items.map((item) => item.row.id), ['one', 'two']);
-    assert.equal(row.status, 'due');
+    assert.equal(row.status, 'scheduled');
   });
 });

@@ -3,11 +3,7 @@
 -- reviewable after a franchise or location changes its standard.
 
 create type app.operation_occurrence_status as enum (
-<<<<<<< ours
   'scheduled', 'claimed', 'completed', 'missed', 'cancelled'
-=======
-  'upcoming', 'due', 'claimed', 'completed', 'overdue', 'waived', 'cancelled'
->>>>>>> theirs
 );
 
 alter table public.brands add column operations boolean not null default false;
@@ -16,15 +12,11 @@ create table public.operation_task_templates (
   id uuid primary key default gen_random_uuid(),
   brand_id uuid not null references public.brands (id) on delete cascade,
   location_id uuid,
-<<<<<<< ours
   program_key text not null default 'general'
     check (program_key ~ '^[a-z0-9][a-z0-9-]{0,79}$'),
   template_key text not null check (template_key ~ '^[a-z0-9][a-z0-9-]{0,79}$'),
   routine_kind text not null default 'ad_hoc'
     check (routine_kind in ('opening', 'interval', 'closing', 'ad_hoc')),
-=======
-  template_key text not null check (template_key ~ '^[a-z0-9][a-z0-9-]{0,79}$'),
->>>>>>> theirs
   revision integer not null default 1 check (revision > 0),
   title text not null check (length(btrim(title)) between 1 and 200),
   instructions text not null default '',
@@ -57,10 +49,7 @@ create table public.operation_task_steps (
     check (response_kind in ('confirm', 'pass_fail', 'number', 'text')),
   is_required boolean not null default true,
   issue_on_failure boolean not null default false,
-<<<<<<< ours
   allow_not_applicable boolean not null default false,
-=======
->>>>>>> theirs
   constraints jsonb not null default '{}'::jsonb check (jsonb_typeof(constraints) = 'object'),
   sort_order integer not null default 0,
   foreign key (template_id, brand_id) references public.operation_task_templates (id, brand_id) on delete cascade,
@@ -102,11 +91,7 @@ create table public.operation_occurrences (
   template_snapshot jsonb not null check (jsonb_typeof(template_snapshot) = 'object'),
   scheduled_for timestamptz not null,
   due_at timestamptz not null,
-<<<<<<< ours
   status app.operation_occurrence_status not null default 'scheduled',
-=======
-  status app.operation_occurrence_status not null default 'upcoming',
->>>>>>> theirs
   claimed_by uuid,
   claimed_at timestamptz,
   completed_at timestamptz,
@@ -128,14 +113,9 @@ create table public.operation_occurrence_events (
   brand_id uuid not null references public.brands (id) on delete cascade,
   occurrence_id uuid not null,
   event_type text not null check (event_type in (
-<<<<<<< ours
     'created', 'claimed', 'released', 'completed', 'missed',
     'cancelled', 'corrected', 'issue_reported', 'issue_acknowledged', 'issue_resolved',
     'issue_dismissed'
-=======
-    'created', 'due', 'claimed', 'released', 'completed', 'overdue',
-    'waived', 'cancelled', 'corrected', 'issue_reported', 'issue_resolved'
->>>>>>> theirs
   )),
   actor_id uuid,
   reason text not null default '',
@@ -186,11 +166,7 @@ create table public.operation_escalation_rules (
   escalation_order smallint not null check (escalation_order between 1 and 20),
   offset_minutes integer not null check (offset_minutes >= 0),
   recipient_role text not null check (recipient_role in ('eligible_staff', 'location_manager', 'brand_owner')),
-<<<<<<< ours
   channels text[] not null default '{in_app}',
-=======
-  channels text[] not null default '{push}',
->>>>>>> theirs
   foreign key (schedule_id, brand_id) references public.operation_schedules (id, brand_id) on delete cascade,
   unique nulls not distinct (brand_id, schedule_id, escalation_order)
 );
@@ -202,11 +178,7 @@ create table public.operation_notification_outbox (
   occurrence_id uuid not null,
   escalation_rule_id uuid not null references public.operation_escalation_rules (id) on delete cascade,
   recipient_id uuid not null,
-<<<<<<< ours
   channel text not null check (channel in ('in_app', 'push')),
-=======
-  channel text not null check (channel in ('push', 'sms', 'email')),
->>>>>>> theirs
   status text not null default 'pending' check (status in ('pending', 'sending', 'sent', 'failed', 'cancelled')),
   attempt_count smallint not null default 0 check (attempt_count between 0 and 20),
   available_at timestamptz not null,
@@ -221,15 +193,9 @@ create table public.operation_notification_outbox (
 
 create table public.operation_retention_policies (
   brand_id uuid primary key references public.brands (id) on delete cascade,
-<<<<<<< ours
   evidence_days integer not null default 395 check (evidence_days between 30 and 3650),
   issue_days integer not null default 395 check (issue_days between 30 and 3650),
   actor_identity_days integer not null default 395 check (actor_identity_days between 30 and 3650),
-=======
-  evidence_days integer not null default 365 check (evidence_days between 30 and 3650),
-  issue_days integer not null default 730 check (issue_days between 30 and 3650),
-  actor_identity_days integer not null default 365 check (actor_identity_days between 30 and 3650),
->>>>>>> theirs
   updated_by uuid,
   updated_at timestamptz not null default now(),
   foreign key (updated_by, brand_id) references public.brand_users (id, brand_id) on delete set null (updated_by)
@@ -410,11 +376,7 @@ begin
   select * into actor from public.brand_users
     where brand_id = selected.brand_id and user_id = (select auth.uid());
   if not found then raise exception using errcode = '42501', message = 'operation_actor_not_found'; end if;
-<<<<<<< ours
   if selected.status <> 'scheduled' or selected.scheduled_for > now() then
-=======
-  if selected.status not in ('upcoming', 'due', 'overdue') then
->>>>>>> theirs
     raise exception using errcode = '40001', message = 'operation_occurrence_not_claimable';
   end if;
   if jsonb_array_length(coalesce(selected.template_snapshot->'requiredRoleIds', '[]'::jsonb)) > 0
@@ -469,11 +431,7 @@ begin
   select * into actor from public.brand_users
     where brand_id = selected.brand_id and user_id = (select auth.uid());
   if not found then raise exception using errcode = '42501', message = 'operation_actor_not_found'; end if;
-<<<<<<< ours
   if selected.claimed_by is distinct from actor.id or selected.status <> 'claimed' then
-=======
-  if selected.claimed_by is distinct from actor.id or selected.status not in ('claimed', 'overdue') then
->>>>>>> theirs
     raise exception using errcode = '42501', message = 'operation_occurrence_not_owned';
   end if;
   for required_step in

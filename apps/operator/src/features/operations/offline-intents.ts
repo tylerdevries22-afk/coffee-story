@@ -40,8 +40,8 @@ export type ReportIssueOperationIntent = OperationIntentBase & {
   stepKey: string | null;
 };
 
-export type WaiveOperationIntent = OperationIntentBase & {
-  kind: 'waive';
+export type CancelOperationIntent = OperationIntentBase & {
+  kind: 'cancel';
   reason: string;
 };
 
@@ -50,7 +50,7 @@ export type ReleaseOperationIntent = OperationIntentBase & {
 };
 
 export type OperationIntent = ClaimOperationIntent | CompleteOperationIntent
-  | ReportIssueOperationIntent | ReleaseOperationIntent | WaiveOperationIntent;
+  | ReportIssueOperationIntent | ReleaseOperationIntent | CancelOperationIntent;
 
 export type PermanentOperationIntentConflict = {
   code: string;
@@ -121,7 +121,7 @@ export function isOperationIntent(value: unknown): value is OperationIntent {
       && (candidate.stepKey === null || typeof candidate.stepKey === 'string');
   }
   if (candidate.kind === 'release') return true;
-  return candidate.kind === 'waive'
+  return candidate.kind === 'cancel'
     && typeof candidate.reason === 'string' && candidate.reason.trim().length > 0;
 }
 

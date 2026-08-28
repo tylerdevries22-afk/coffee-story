@@ -45,15 +45,11 @@ export {
   type PublishedTrainingRelease,
 } from './training';
 export {
-<<<<<<< ours
   cancelOperationOccurrence, claimOperationOccurrence, completeOperationOccurrence, fetchOperationQueue,
   releaseOperationOccurrence, reportOperationIssue, resolveOperationIssue,
-  subscribeToOperationQueue, waiveOperationOccurrence,
+  subscribeToOperationQueue,
   OperationDataError,
   type OperationCompletionIssue, type OperationDataErrorCode, type OperationIssueRow,
-=======
-  claimOperationOccurrence, completeOperationOccurrence, fetchOperationQueue, subscribeToOperationQueue,
->>>>>>> theirs
 } from './operations';
 export { subscribeToBoardChanges } from './board-realtime';
 export { abortRead, readWithRetry, type DataReadOptions, type DataReadResult } from './read-retry';

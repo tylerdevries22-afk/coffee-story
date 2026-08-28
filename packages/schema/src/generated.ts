@@ -7,189 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-<<<<<<< ours
-=======
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.17"
-  }
-  app: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      annual_points_for: { Args: { target_account: string }; Returns: number }
-      at_location: {
-        Args: { target_brand: string; target_location: string }
-        Returns: boolean
-      }
-      board_ticket_rows: {
-        Args: never
-        Returns: {
-          arrived_at: string
-          brand_id: string
-          channel: Database["app"]["Enums"]["order_channel"]
-          daily_number: number
-          fulfillment_type: Database["app"]["Enums"]["fulfillment_type"]
-          guest_label: string
-          id: string
-          location_id: string
-          loyalty_tier: string
-          status: Database["app"]["Enums"]["order_status"]
-          updated_at: string
-        }[]
-      }
-      brand_storefront_rows: {
-        Args: never
-        Returns: {
-          brand_config: Json
-          catering: boolean
-          delivery: boolean
-          drops: boolean
-          id: string
-          multi_location: boolean
-          name: string
-          operations: boolean
-          referrals: boolean
-          slug: string
-          sms: boolean
-          stored_value: boolean
-        }[]
-      }
-      calendar_row_visible: {
-        Args: { target_brand: string; target_location: string }
-        Returns: boolean
-      }
-      can_read_board: {
-        Args: { target_brand: string; target_location: string }
-        Returns: boolean
-      }
-      custom_access_token: { Args: { event: Json }; Returns: Json }
-      customer_ordered_at: {
-        Args: { customer: string; locs: string[] }
-        Returns: boolean
-      }
-      device_is_active: {
-        Args: { wanted_role: Database["app"]["Enums"]["device_role"] }
-        Returns: boolean
-      }
-      drop_visibility: {
-        Args: {
-          at_time?: string
-          d: Database["public"]["Tables"]["drops"]["Row"]
-        }
-        Returns: string
-      }
-      is_brand_manager: { Args: { target_brand: string }; Returns: boolean }
-      is_brand_owner: { Args: { target_brand: string }; Returns: boolean }
-      is_brand_staff: { Args: { target_brand: string }; Returns: boolean }
-      is_current_brand_user: {
-        Args: { target_brand: string; target_brand_user: string }
-        Returns: boolean
-      }
-      is_device_at: {
-        Args: { target_brand: string; target_location: string }
-        Returns: boolean
-      }
-      is_owned_channel: {
-        Args: { channel: Database["app"]["Enums"]["order_channel"] }
-        Returns: boolean
-      }
-      is_platform_admin: { Args: never; Returns: boolean }
-      jwt_brand_id: { Args: never; Returns: string }
-      jwt_claims: { Args: never; Returns: Json }
-      jwt_device_id: { Args: never; Returns: string }
-      jwt_device_location: { Args: never; Returns: string }
-      jwt_device_role: { Args: never; Returns: string }
-      jwt_location_ids: { Args: never; Returns: string[] }
-      jwt_role: { Args: never; Returns: string }
-      location_square_status_rows: {
-        Args: never
-        Returns: {
-          brand_id: string
-          expires_at: string
-          location_id: string
-          merchant_id: string
-        }[]
-      }
-      loyalty_tier_for: {
-        Args: { target_brand: string; target_customer: string }
-        Returns: string
-      }
-      manages_location: {
-        Args: { target_brand: string; target_location: string }
-        Returns: boolean
-      }
-      mark_order_arrived: { Args: { target_order: string }; Returns: string }
-      order_transition_allowed: {
-        Args: {
-          from_status: Database["app"]["Enums"]["order_status"]
-          to_status: Database["app"]["Enums"]["order_status"]
-        }
-        Returns: boolean
-      }
-      pack_choices: {
-        Args: {
-          at_time?: string
-          pack: Database["public"]["Tables"]["menu_items"]["Row"]
-        }
-        Returns: Database["public"]["Tables"]["menu_items"]["Row"][]
-        SetofOptions: {
-          from: "*"
-          to: "menu_items"
-          isOneToOne: false
-          isSetofReturn: true
-        }
-      }
-      pack_saving_bps: {
-        Args: { item: Database["public"]["Tables"]["menu_items"]["Row"] }
-        Returns: number
-      }
-      set_brand_kiosk_config: {
-        Args: { config: Json; expected_updated_at?: string }
-        Returns: string
-      }
-      valid_slug_set: { Args: { p_values: string[] }; Returns: boolean }
-    }
-    Enums: {
-      brand_role:
-        | "platform_admin"
-        | "brand_owner"
-        | "location_manager"
-        | "staff"
-      campaign_channel: "push" | "sms" | "email"
-      device_role: "kiosk" | "pos" | "display" | "prep"
-      fulfillment_type: "pickup" | "curbside" | "catering" | "delivery"
-      item_rotation: "permanent" | "rotating" | "day_specific"
-      order_channel: "app" | "web" | "kiosk" | "pos"
-      order_status:
-        | "created"
-        | "paid"
-        | "in_progress"
-        | "ready"
-        | "picked_up"
-        | "cancelled"
-        | "refunded"
-      operation_occurrence_status:
-        | "upcoming"
-        | "due"
-        | "claimed"
-        | "completed"
-        | "overdue"
-        | "waived"
-        | "cancelled"
-      prep_status: "pending" | "in_progress" | "done" | "abandoned"
-      task_recurrence: "opening" | "closing" | "daily" | "weekly"
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
->>>>>>> theirs
   public: {
     Tables: {
       analytics_consent_records: {
@@ -464,7 +281,6 @@ export type Database = {
           event_version: number
           flow_key: string | null
           id: string
-<<<<<<< ours
           location_id: string | null
           metric_key: string | null
           occurred_at: string
@@ -474,17 +290,6 @@ export type Database = {
           session_hash: string
           step_key: string | null
           surface: string
-=======
-          multi_location: boolean
-          name: string
-          operations?: boolean
-          referrals: boolean
-          slug: string
-          sms: boolean
-          stored_value: boolean
-          tier_threshold_cents: number
-          updated_at: string
->>>>>>> theirs
         }
         Insert: {
           actor_hash?: string | null
@@ -520,7 +325,6 @@ export type Database = {
           event_version?: number
           flow_key?: string | null
           id?: string
-<<<<<<< ours
           location_id?: string | null
           metric_key?: string | null
           occurred_at?: string
@@ -530,17 +334,6 @@ export type Database = {
           session_hash?: string
           step_key?: string | null
           surface?: string
-=======
-          multi_location?: boolean
-          name?: string
-          operations?: boolean
-          referrals?: boolean
-          slug?: string
-          sms?: boolean
-          stored_value?: boolean
-          tier_threshold_cents?: number
-          updated_at?: string
->>>>>>> theirs
         }
         Relationships: []
       }
@@ -5044,14 +4837,7 @@ export type Database = {
           schedule_id: string | null
           scheduled_for: string
           source: string
-          status:
-            | "upcoming"
-            | "due"
-            | "claimed"
-            | "completed"
-            | "overdue"
-            | "waived"
-            | "cancelled"
+          status: "scheduled" | "claimed" | "completed" | "missed" | "cancelled"
           template_id: string
           template_snapshot: Json
           updated_at: string
@@ -5073,12 +4859,10 @@ export type Database = {
           scheduled_for: string
           source?: string
           status?:
-            | "upcoming"
-            | "due"
+            | "scheduled"
             | "claimed"
             | "completed"
-            | "overdue"
-            | "waived"
+            | "missed"
             | "cancelled"
           template_id: string
           template_snapshot: Json
@@ -5101,12 +4885,10 @@ export type Database = {
           scheduled_for?: string
           source?: string
           status?:
-            | "upcoming"
-            | "due"
+            | "scheduled"
             | "claimed"
             | "completed"
-            | "overdue"
-            | "waived"
+            | "missed"
             | "cancelled"
           template_id?: string
           template_snapshot?: Json
@@ -5146,6 +4928,87 @@ export type Database = {
             columns: ["template_id", "brand_id"]
             isOneToOne: false
             referencedRelation: "operation_task_templates"
+            referencedColumns: ["id", "brand_id"]
+          },
+        ]
+      }
+      operation_operator_notifications: {
+        Row: {
+          acknowledged_action_id: string | null
+          body: string
+          brand_id: string
+          created_at: string
+          id: string
+          location_id: string
+          notification_kind: string
+          occurrence_id: string | null
+          outbox_id: string | null
+          read_at: string | null
+          recipient_id: string
+          title: string
+        }
+        Insert: {
+          acknowledged_action_id?: string | null
+          body?: string
+          brand_id: string
+          created_at?: string
+          id?: string
+          location_id: string
+          notification_kind?: string
+          occurrence_id?: string | null
+          outbox_id?: string | null
+          read_at?: string | null
+          recipient_id: string
+          title: string
+        }
+        Update: {
+          acknowledged_action_id?: string | null
+          body?: string
+          brand_id?: string
+          created_at?: string
+          id?: string
+          location_id?: string
+          notification_kind?: string
+          occurrence_id?: string | null
+          outbox_id?: string | null
+          read_at?: string | null
+          recipient_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operation_operator_notificati_occurrence_id_brand_id_locat_fkey"
+            columns: ["occurrence_id", "brand_id", "location_id"]
+            isOneToOne: false
+            referencedRelation: "operation_occurrences"
+            referencedColumns: ["id", "brand_id", "location_id"]
+          },
+          {
+            foreignKeyName: "operation_operator_notifications_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operation_operator_notifications_location_id_brand_id_fkey"
+            columns: ["location_id", "brand_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id", "brand_id"]
+          },
+          {
+            foreignKeyName: "operation_operator_notifications_outbox_id_fkey"
+            columns: ["outbox_id"]
+            isOneToOne: true
+            referencedRelation: "operation_notification_outbox"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operation_operator_notifications_recipient_id_brand_id_fkey"
+            columns: ["recipient_id", "brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_users"
             referencedColumns: ["id", "brand_id"]
           },
         ]
@@ -5292,6 +5155,57 @@ export type Database = {
             columns: ["template_id", "brand_id"]
             isOneToOne: false
             referencedRelation: "operation_task_templates"
+            referencedColumns: ["id", "brand_id"]
+          },
+        ]
+      }
+      operation_staff_devices: {
+        Row: {
+          brand_id: string
+          brand_user_id: string
+          created_at: string
+          expo_push_token: string
+          id: string
+          is_active: boolean
+          last_action_id: string
+          platform: string
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          brand_user_id: string
+          created_at?: string
+          expo_push_token: string
+          id?: string
+          is_active?: boolean
+          last_action_id: string
+          platform: string
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          brand_user_id?: string
+          created_at?: string
+          expo_push_token?: string
+          id?: string
+          is_active?: boolean
+          last_action_id?: string
+          platform?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operation_staff_devices_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operation_staff_devices_brand_user_id_brand_id_fkey"
+            columns: ["brand_user_id", "brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_users"
             referencedColumns: ["id", "brand_id"]
           },
         ]
@@ -6925,6 +6839,8 @@ export type Database = {
           lesson_slug: string | null
           module_slug: string | null
           release_id: string | null
+          revocation_reason: string
+          revoked_action_id: string | null
           revoked_at: string | null
           revoked_by: string | null
           verification_reason: string
@@ -6942,6 +6858,8 @@ export type Database = {
           lesson_slug?: string | null
           module_slug?: string | null
           release_id?: string | null
+          revocation_reason?: string
+          revoked_action_id?: string | null
           revoked_at?: string | null
           revoked_by?: string | null
           verification_reason?: string
@@ -6959,6 +6877,8 @@ export type Database = {
           lesson_slug?: string | null
           module_slug?: string | null
           release_id?: string | null
+          revocation_reason?: string
+          revoked_action_id?: string | null
           revoked_at?: string | null
           revoked_by?: string | null
           verification_reason?: string
@@ -7655,6 +7575,29 @@ export type Database = {
       }
     }
     Functions: {
+      acknowledge_operation_notification: {
+        Args: { target_action_id: string; target_notification: string }
+        Returns: {
+          acknowledged_action_id: string | null
+          body: string
+          brand_id: string
+          created_at: string
+          id: string
+          location_id: string
+          notification_kind: string
+          occurrence_id: string | null
+          outbox_id: string | null
+          read_at: string | null
+          recipient_id: string
+          title: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "operation_operator_notifications"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       anonymize_customer_account: {
         Args: { p_user_id: string }
         Returns: undefined
@@ -7662,6 +7605,40 @@ export type Database = {
       apply_operation_retention: {
         Args: { target_now?: string }
         Returns: Json
+      }
+      cancel_operation_occurrence: {
+        Args: {
+          target_action_id: string
+          target_occurrence: string
+          target_reason: string
+        }
+        Returns: {
+          brand_id: string
+          claim_expires_at: string | null
+          claimed_at: string | null
+          claimed_by: string | null
+          completed_at: string | null
+          completion_note: string
+          created_at: string
+          due_at: string
+          grace_minutes: number
+          id: string
+          location_id: string
+          materialization_key: string
+          schedule_id: string | null
+          scheduled_for: string
+          source: string
+          status: "scheduled" | "claimed" | "completed" | "missed" | "cancelled"
+          template_id: string
+          template_snapshot: Json
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "operation_occurrences"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       claim_operation_notification_batch: {
         Args: { target_limit?: number }
@@ -7705,14 +7682,7 @@ export type Database = {
           schedule_id: string | null
           scheduled_for: string
           source: string
-          status:
-            | "upcoming"
-            | "due"
-            | "claimed"
-            | "completed"
-            | "overdue"
-            | "waived"
-            | "cancelled"
+          status: "scheduled" | "claimed" | "completed" | "missed" | "cancelled"
           template_id: string
           template_snapshot: Json
           updated_at: string
@@ -7808,14 +7778,7 @@ export type Database = {
           schedule_id: string | null
           scheduled_for: string
           source: string
-          status:
-            | "upcoming"
-            | "due"
-            | "claimed"
-            | "completed"
-            | "overdue"
-            | "waived"
-            | "cancelled"
+          status: "scheduled" | "claimed" | "completed" | "missed" | "cancelled"
           template_id: string
           template_snapshot: Json
           updated_at: string
@@ -7851,14 +7814,7 @@ export type Database = {
           schedule_id: string | null
           scheduled_for: string
           source: string
-          status:
-            | "upcoming"
-            | "due"
-            | "claimed"
-            | "completed"
-            | "overdue"
-            | "waived"
-            | "cancelled"
+          status: "scheduled" | "claimed" | "completed" | "missed" | "cancelled"
           template_id: string
           template_snapshot: Json
           updated_at: string
@@ -7964,6 +7920,30 @@ export type Database = {
         Args: { rebuild_from?: string }
         Returns: Json
       }
+      register_operation_device: {
+        Args: {
+          target_action_id: string
+          target_expo_push_token: string
+          target_platform: string
+        }
+        Returns: {
+          brand_id: string
+          brand_user_id: string
+          created_at: string
+          expo_push_token: string
+          id: string
+          is_active: boolean
+          last_action_id: string
+          platform: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "operation_staff_devices"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       register_square_connector: {
         Args: {
           legacy_connection: string
@@ -7995,14 +7975,7 @@ export type Database = {
           schedule_id: string | null
           scheduled_for: string
           source: string
-          status:
-            | "upcoming"
-            | "due"
-            | "claimed"
-            | "completed"
-            | "overdue"
-            | "waived"
-            | "cancelled"
+          status: "scheduled" | "claimed" | "completed" | "missed" | "cancelled"
           template_id: string
           template_snapshot: Json
           updated_at: string
@@ -8116,6 +8089,26 @@ export type Database = {
         Args: { target_brand: string; tenant_profile: Json }
         Returns: undefined
       }
+      unregister_operation_device: {
+        Args: { target_action_id: string; target_device_id: string }
+        Returns: {
+          brand_id: string
+          brand_user_id: string
+          created_at: string
+          expo_push_token: string
+          id: string
+          is_active: boolean
+          last_action_id: string
+          platform: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "operation_staff_devices"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       update_operation_issue: {
         Args: {
           target_action_id: string
@@ -8143,47 +8136,6 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "operation_issues"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      waive_operation_occurrence: {
-        Args: {
-          target_action_id: string
-          target_occurrence: string
-          target_reason: string
-        }
-        Returns: {
-          brand_id: string
-          claim_expires_at: string | null
-          claimed_at: string | null
-          claimed_by: string | null
-          completed_at: string | null
-          completion_note: string
-          created_at: string
-          due_at: string
-          grace_minutes: number
-          id: string
-          location_id: string
-          materialization_key: string
-          schedule_id: string | null
-          scheduled_for: string
-          source: string
-          status:
-            | "upcoming"
-            | "due"
-            | "claimed"
-            | "completed"
-            | "overdue"
-            | "waived"
-            | "cancelled"
-          template_id: string
-          template_snapshot: Json
-          updated_at: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "operation_occurrences"
           isOneToOne: true
           isSetofReturn: false
         }

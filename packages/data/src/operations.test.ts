@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-<<<<<<< ours
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { OperationOccurrenceRow } from '@platform/schema';
@@ -463,19 +462,5 @@ describe('subscribeToOperationQueue', () => {
 
     unsubscribe();
     assert.deepEqual(fake.removedChannels, [fake.channel]);
-=======
-import { fetchOperationQueue } from './operations';
-
-describe('operation data', () => {
-  it('applies both tenant and location filters', async () => {
-    const filters: [string, unknown][] = [];
-    const query: any = {
-      select: () => query, eq: (key: string, value: unknown) => { filters.push([key, value]); return query; },
-      lte: () => query, in: () => query, order: () => query, abortSignal: () => query,
-      returns: async () => ({ data: [], error: null }),
-    };
-    await fetchOperationQueue({ from: () => query } as any, 'brand-1', 'location-1', '2026-08-29T00:00:00Z');
-    assert.deepEqual(filters, [['brand_id', 'brand-1'], ['location_id', 'location-1']]);
->>>>>>> theirs
   });
 });

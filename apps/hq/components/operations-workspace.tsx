@@ -7,7 +7,7 @@ import {
   saveOperationRetention,
   resolveOperationIssue,
   toggleOperationSchedule,
-  waiveOperation,
+  cancelOperation,
 } from '@/app/(console)/operations/actions';
 
 export type OperationsView = 'live' | 'templates' | 'schedules' | 'history' | 'reporting' | 'retention';
@@ -47,7 +47,7 @@ function LiveBoard({ workspace }: { workspace: OperationsWorkspace }) {
       </div>
       {active.length === 0 ? <EmptyState>No work is scheduled in the current queue.</EmptyState> : (
         <div className="card operations-table"><table><thead><tr><th>Operation</th><th>Location</th><th>Scheduled</th><th>Status</th><th>Manager action</th></tr></thead><tbody>
-          {active.map((item) => <tr key={item.id}><td><strong>{item.title}</strong></td><td>{item.locationName}</td><td><LocalTime value={item.scheduledFor} /></td><td><StatusPill status={item.status} /></td><td>{item.persistedStatus === 'scheduled' ? <form action={waiveOperation} className="operations-inline-form"><input type="hidden" name="occurrenceId" value={item.id} /><input required minLength={3} maxLength={500} name="reason" aria-label={`Cancellation reason for ${item.title}`} placeholder="Reason" /><button className="button secondary" type="submit">Cancel</button></form> : <span className="muted">Claimed by staff</span>}</td></tr>)}
+          {active.map((item) => <tr key={item.id}><td><strong>{item.title}</strong></td><td>{item.locationName}</td><td><LocalTime value={item.scheduledFor} /></td><td><StatusPill status={item.status} /></td><td>{item.persistedStatus === 'scheduled' ? <form action={cancelOperation} className="operations-inline-form"><input type="hidden" name="occurrenceId" value={item.id} /><input required minLength={3} maxLength={500} name="reason" aria-label={`Cancellation reason for ${item.title}`} placeholder="Reason" /><button className="button secondary" type="submit">Cancel</button></form> : <span className="muted">Claimed by staff</span>}</td></tr>)}
         </tbody></table></div>
       )}
       <h2 className="operations-section-title">Open issues</h2>

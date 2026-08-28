@@ -78,7 +78,5 @@ export function operationQueueItems(
 }
 
 function normalizedStatus(value: OperationOccurrenceRow['status']): OperationStatus {
-  if (value === 'claimed' || value === 'completed' || value === 'cancelled') return value;
-  if (String(value) === 'missed') return 'missed';
-  return 'scheduled';
+  return value;
 }

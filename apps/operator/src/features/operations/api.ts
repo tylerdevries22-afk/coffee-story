@@ -63,7 +63,7 @@ export async function loadOperatorQueue(
   return parseOperatorQueue(await operationRequest(queryPath(locationId, from, to), 'GET'));
 }
 
-function occurrencePath(occurrenceId: string, action: 'claim' | 'release' | 'complete' | 'waive'): string {
+function occurrencePath(occurrenceId: string, action: 'claim' | 'release' | 'complete' | 'cancel'): string {
   return `/api/operations/occurrences/${encodeURIComponent(occurrenceId)}/${action}`;
 }
 
@@ -105,7 +105,7 @@ export async function submitOperationIntent(intent: OperationIntent): Promise<un
     }, intent.actionId);
   }
   return operationRequest(
-    occurrencePath(intent.occurrenceId, 'waive'),
+    occurrencePath(intent.occurrenceId, 'cancel'),
     'POST',
     { reason: intent.reason },
     intent.actionId,
