@@ -38,6 +38,7 @@ export * from './board-display';
 export * from './qr';
 export * from './calendar';
 export * from './training';
+export * from './operations';
 export * from './training-baseline';
 export * from './training-artwork';
 export * from './catalog';

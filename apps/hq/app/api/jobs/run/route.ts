@@ -172,11 +172,25 @@ export async function POST(request: Request): Promise<Response> {
   });
   if (retention.error) throw retention.error;
 
+  // The same scheduled tick owns operations lifecycle work. The database
+  // function is idempotent, tenant-feature-gated, and snapshots each task at
+  // materialization time; a delayed Vercel invocation safely catches up.
+  const operations = await db.rpc('run_operation_maintenance', {
+    target_now: now.toISOString(),
+    target_horizon_hours: 336,
+  });
+  if (operations.error) throw operations.error;
+  const operationsRetention = await db.rpc('apply_operation_retention', {
+    target_now: now.toISOString(),
+  });
+  if (operationsRetention.error) throw operationsRetention.error;
+
   return Response.json({
     ok: true,
     drops: dropTransitions.length,
     campaigns: dueCampaignIds.length,
     trainingBootstraps,
     analytics: { rollups: rollups.data, retention: retention.data },
+    operations: { maintenance: operations.data, retention: operationsRetention.data },
   });
 }

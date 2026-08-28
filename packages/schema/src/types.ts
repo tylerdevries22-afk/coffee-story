@@ -28,6 +28,30 @@ export type OrderTenderType = 'pay_at_pickup' | 'external' | 'square_link' | 'sq
 export type DeviceRole = 'kiosk' | 'pos' | 'display' | 'prep';
 export type PrepStatus = 'pending' | 'in_progress' | 'done' | 'abandoned';
 export type TaskRecurrence = 'opening' | 'closing' | 'daily' | 'weekly';
+export type OperationOccurrenceStatus =
+  | 'upcoming' | 'due' | 'claimed' | 'completed' | 'overdue' | 'waived' | 'cancelled';
+
+export type OperationOccurrenceRow = {
+  id: string;
+  brand_id: string;
+  location_id: string;
+  schedule_id: string | null;
+  template_id: string;
+  source: 'schedule' | 'manual' | 'event';
+  materialization_key: string;
+  template_snapshot: Record<string, unknown>;
+  scheduled_for: string;
+  due_at: string;
+  grace_minutes: number;
+  status: OperationOccurrenceStatus;
+  claimed_by: string | null;
+  claimed_at: string | null;
+  claim_expires_at: string | null;
+  completed_at: string | null;
+  completion_note: string;
+  created_at: string;
+  updated_at: string;
+};
 export type ItemRotation = 'permanent' | 'rotating' | 'day_specific';
 /** What a guest may do with a drop right now (app.drop_visibility). */
 export type DropVisibility = 'hidden' | 'revealed' | 'orderable' | 'ended';
@@ -50,6 +74,7 @@ export type BrandStorefrontRow = {
   catering: boolean;
   delivery: boolean;
   multi_location: boolean;
+  operations: boolean;
   sms: boolean;
   stored_value: boolean;
   referrals: boolean;
@@ -67,6 +92,7 @@ export type BrandRow = {
   catering: boolean;
   delivery: boolean;
   multi_location: boolean;
+  operations: boolean;
   sms: boolean;
   stored_value: boolean;
   referrals: boolean;

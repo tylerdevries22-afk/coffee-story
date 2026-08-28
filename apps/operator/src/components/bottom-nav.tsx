@@ -10,6 +10,7 @@ import { useAppState, type ClientTab, type StaffTab } from '@/state/app-context'
 import { CLIENT_TAB_LABELS, STAFF_TAB_LABELS } from '@/state/navigation-state';
 import { AppIcon } from '@/components/icon';
 import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
+import { useOptionalOperations } from '@/state/operations-store';
 
 /** SF Symbol names, plus the one mark the app draws itself. */
 type NavIcon =
@@ -48,6 +49,11 @@ export function BottomNav({
   const styles = createStyles(tokens);
   const insets = useSafeAreaInsets();
   const { clientTab, staffTab, setClientTab, setStaffTab } = useAppState();
+  const operations = useOptionalOperations();
+  const dueTaskCount = operations?.occurrences.filter((task) => (
+    !['completed', 'missed', 'cancelled'].includes(task.status)
+    && Date.parse(task.scheduledFor) <= operations.now.getTime()
+  )).length ?? 0;
   const items = staff ? STAFF_ITEMS : CLIENT_ITEMS;
   const active = staff ? staffTab : clientTab;
 
@@ -70,6 +76,7 @@ export function BottomNav({
               icon={item.icon}
               selected={active === item.key}
               onPress={() => select(item.key)}
+              badge={item.key === 'calendar' ? dueTaskCount : 0}
               flat
             />
           ))}
@@ -119,12 +126,14 @@ function NavItem({
   selected,
   onPress,
   flat = false,
+  badge = 0,
 }: {
   label: string;
   icon: NavIcon;
   selected: boolean;
   onPress: () => void;
   flat?: boolean;
+  badge?: number;
 }) {
   const tokens = useBrandTokens();
   const styles = createStyles(tokens);
@@ -156,6 +165,7 @@ function NavItem({
             weight={selected ? 'semibold' : 'regular'}
           />
         )}
+        {badge > 0 ? <View style={styles.badge}><Text style={styles.badgeText}>{Math.min(9, badge)}</Text></View> : null}
       </View>
       <Text style={[styles.label, flat && styles.staffLabel, selected && styles.labelSelected]}>{label}</Text>
     </Pressable>
@@ -182,6 +192,10 @@ const createStyles = (tokens: BrandTokens) => StyleSheet.create({
   itemFillSelected: { borderWidth: 1, borderColor: tokens.surface },
   webSelectedFallback: { backgroundColor: tokens.surface },
   iconWrap: { width: 28, height: 25, borderRadius: tokens.radius.pill, alignItems: 'center', justifyContent: 'center' },
+  badge: { position: 'absolute', top: -5, right: -7, minWidth: 16, height: 16,
+    paddingHorizontal: 3, borderRadius: tokens.radius.pill, backgroundColor: tokens.danger,
+    alignItems: 'center', justifyContent: 'center' },
+  badgeText: { color: tokens.surfaceElevated, fontFamily: tokens.fontBody, fontSize: 10 },
   label: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 10 },
   labelSelected: { fontFamily: tokens.fontBody },
   pressed: { opacity: 0.68 },

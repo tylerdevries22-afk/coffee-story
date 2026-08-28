@@ -23,6 +23,7 @@ export type ConsoleNavigationAccess = {
   readonly canManageBrand: boolean;
   readonly canViewAnalytics: boolean;
   readonly canViewIntegrations: boolean;
+  readonly canManageOperations: boolean;
 };
 
 const DASHBOARD_SECTION = {
@@ -90,6 +91,21 @@ const INTEGRATIONS_SECTION = {
   ],
 } satisfies ConsoleSection;
 
+const OPERATIONS_SECTION = {
+  key: 'operations',
+  title: 'Operations',
+  icon: 'locations',
+  home: '/operations',
+  items: [
+    { href: '/operations', label: 'Live board', icon: 'wall' },
+    { href: '/operations/templates', label: 'Templates', icon: 'menu' },
+    { href: '/operations/schedules', label: 'Schedules', icon: 'locations' },
+    { href: '/operations/history', label: 'History', icon: 'activity' },
+    { href: '/operations/reporting', label: 'Reporting', icon: 'analytics' },
+    { href: '/operations/retention', label: 'Retention', icon: 'settings' },
+  ],
+} satisfies ConsoleSection;
+
 function contentSection(access: ConsoleNavigationAccess): ConsoleSection {
   return {
     key: 'content',
@@ -137,6 +153,7 @@ export function consoleSectionsFor(access: ConsoleNavigationAccess): ConsoleSect
     DROPS_SECTION,
     CAMPAIGNS_SECTION,
     CUSTOMERS_SECTION,
+    ...(access.canManageOperations ? [OPERATIONS_SECTION] : []),
     ...(access.canViewAnalytics ? [ANALYTICS_SECTION] : []),
     ...(access.canViewIntegrations ? [INTEGRATIONS_SECTION] : []),
     settingsSection(access),

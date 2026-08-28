@@ -40,6 +40,25 @@ export function serviceDb(env: ServerEnv): SupabaseClient {
 }
 
 /**
+ * A PostgREST client that keeps the caller's verified bearer token attached.
+ *
+ * API routes use the service client only to verify the token and read public
+ * tenant feature flags. Tenant mutations must run through this client so
+ * `auth.uid()` and RLS remain the source of authorization truth.
+ */
+export function authenticatedDb(env: ServerEnv, request: Request): SupabaseClient | null {
+  const authorization = request.headers.get('authorization');
+  if (!authorization?.startsWith('Bearer ')) return null;
+  return createClient(env.url, env.serviceRoleKey, {
+    auth: { persistSession: false },
+    global: {
+      headers: { Authorization: authorization },
+      fetch: (input, init) => fetchWithRetry(input, init),
+    },
+  });
+}
+
+/**
  * The API serves browsers too (the customer app's web build calls it from
  * its own origin), so every response carries CORS headers. `*` is safe here:
  * auth is a Bearer token, never a cookie, so no ambient credential rides a
@@ -47,7 +66,7 @@ export function serviceDb(env: ServerEnv): SupabaseClient {
  */
 export const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'DELETE, GET, POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'DELETE, GET, PATCH, POST, OPTIONS',
   'Access-Control-Allow-Headers': 'authorization, content-type, idempotency-key',
   'Access-Control-Max-Age': '86400',
 } as const;

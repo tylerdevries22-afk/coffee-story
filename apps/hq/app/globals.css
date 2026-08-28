@@ -247,6 +247,78 @@ label.field input, label.field select, label.field textarea {
 .tier-field { flex: 1; margin: 0; min-width: 0; }
 .tier-field-icon { flex: 0 0 6.5rem; }
 
+.operations-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.operations-heading h1 { margin-bottom: 6px; }
+.operations-section-title { margin: 28px 0 12px; }
+
+.operations-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.operations-kpis .card { display: grid; gap: 6px; }
+.operations-kpis span { color: var(--text-muted); text-transform: capitalize; }
+.operations-kpis strong { font-size: clamp(26px, 3vw, 38px); }
+.operations-table { overflow-x: auto; }
+.operations-table table { min-width: 780px; }
+.operations-table td { vertical-align: middle; }
+.muted { color: var(--text-muted); font-size: 12px; }
+
+.operations-inline-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.operations-inline-form input { min-width: 150px; margin: 0; }
+
+.operations-create-form {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(140px, 1fr));
+  gap: 14px;
+  align-items: end;
+  margin-bottom: 20px;
+}
+
+.operations-create-form label { min-width: 0; margin: 0; }
+.operations-create-form input,
+.operations-create-form select { width: 100%; min-height: 44px; margin-bottom: 0; }
+.operations-create-form fieldset { display: flex; flex-wrap: wrap; gap: 6px 10px; margin: 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; }
+.operations-create-form legend { padding: 0 4px; color: var(--text-muted); font-size: 11px; }
+.operations-create-form .operations-check { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; }
+.operations-create-form .operations-check input { width: 16px; min-height: 16px; }
+
+.operations-retention {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  align-items: end;
+}
+
+.operations-retention label { margin: 0; }
+.operations-retention input { margin-bottom: 0; }
+
+@media (max-width: 900px) {
+  .operations-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .operations-retention { grid-template-columns: 1fr; }
+  .operations-create-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 620px) {
+  .operations-heading { align-items: stretch; flex-direction: column; }
+  .operations-kpis { grid-template-columns: 1fr 1fr; }
+  .operations-create-form { grid-template-columns: 1fr; }
+}
+
 .tier-badge {
   display: inline-flex;
   align-items: center;
