@@ -299,10 +299,17 @@ jobs:
             fi
             add_secret DISPLAY_DEVICE_TOKEN "$DISPLAY_DEVICE_TOKEN"
           else
+            api_url="${{ needs.deploy-hq.outputs.url }}"
+            api_host="${api_url#https://}"
+            api_host="${api_host%%/*}"
+            case "$api_host" in
+              *.vercel.app) ;;
+              *) echo '::error::The verified HQ deployment did not provide a Vercel hostname.'; exit 1 ;;
+            esac
             add_public EXPO_PUBLIC_SUPABASE_URL "$SUPABASE_URL"
             add_public EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY "$SUPABASE_PUBLISHABLE_KEY"
-            add_public EXPO_PUBLIC_API_URL "${{ needs.deploy-hq.outputs.url }}"
-            add_public EXPO_PUBLIC_ALLOWED_API_HOST "${PROJECT_PREFIX}-hq.vercel.app"
+            add_public EXPO_PUBLIC_API_URL "$api_url"
+            add_public EXPO_PUBLIC_ALLOWED_API_HOST "$api_host"
             add_public TENANT "$TENANT"
           fi
       - name: Promote the exact verified web commit

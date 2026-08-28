@@ -3,9 +3,12 @@ import { describe, it } from 'node:test';
 
 import {
   boundedText,
+  operationChildActionId,
   operationDatabaseError,
   operationsRateLimited,
   roleAtLeast,
+  validNotificationIds,
+  validOperationDevice,
   validOperationsRange,
   validUuid,
 } from './operations-api';
@@ -18,6 +21,29 @@ describe('operations API boundary', () => {
     assert.equal(boundedText('', 20, true), null);
     assert.equal(boundedText('long', 3), null);
     assert.equal(boundedText(42, 20), '');
+  });
+
+  it('validates bounded notification batches and operation devices', () => {
+    const first = '11111111-1111-4111-8111-111111111111';
+    const second = '22222222-2222-4222-8222-222222222222';
+    assert.deepEqual(validNotificationIds([first, second]), [first, second]);
+    assert.equal(validNotificationIds([]), null);
+    assert.equal(validNotificationIds([first, first]), null);
+    assert.deepEqual(validOperationDevice({ token: '  ExpoPushToken[valid]  ', platform: 'ios' }), {
+      token: 'ExpoPushToken[valid]', platform: 'ios',
+    });
+    assert.equal(validOperationDevice({ token: 'short', platform: 'ios' }), null);
+    assert.equal(validOperationDevice({ token: 'ExpoPushToken[valid]', platform: 'web' }), null);
+  });
+
+  it('derives stable, distinct UUID action IDs for batched acknowledgements', () => {
+    const root = '11111111-1111-4111-8111-111111111111';
+    const first = operationChildActionId(root, '22222222-2222-4222-8222-222222222222');
+    const second = operationChildActionId(root, '33333333-3333-4333-8333-333333333333');
+    assert.equal(validUuid(first), true);
+    assert.equal(first, operationChildActionId(root, '22222222-2222-4222-8222-222222222222'));
+    assert.notEqual(first, second);
+    assert.equal(operationChildActionId('bad', root), null);
   });
 
   it('enforces role ordering and never treats a missing role as staff', () => {

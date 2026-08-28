@@ -159,7 +159,7 @@ export async function unregisterOperationDeviceToken(token: string): Promise<voi
 }
 
 export type CompletionDraft = {
-  responses: Readonly<Record<string, boolean | number | string>>;
+  responses: Extract<OperationIntent, { kind: 'complete' }>['responses'];
   note: string;
   issues: readonly OperationIntentIssue[];
 };

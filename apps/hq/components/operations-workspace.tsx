@@ -11,6 +11,7 @@ import {
 } from '@/app/(console)/operations/actions';
 
 export type OperationsView = 'live' | 'templates' | 'schedules' | 'history' | 'reporting' | 'retention';
+const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
 
 function EmptyState({ children }: { children: string }) {
   return <div className="notice" role="status">{children}</div>;
@@ -63,7 +64,64 @@ function TemplateLibrary({ workspace }: { workspace: OperationsWorkspace }) {
 }
 
 function ScheduleList({ workspace }: { workspace: OperationsWorkspace }) {
-  return <><div className="operations-heading"><div><p className="eyebrow">Local-time scheduling</p><h1>Schedules</h1><p className="subtitle">Each schedule uses its location’s IANA timezone and immutable occurrence snapshots.</p></div></div><form action={createOperationSchedule} className="card operations-create-form"><label>Schedule key<input name="scheduleKey" pattern="[a-z0-9][a-z0-9-]{0,79}" placeholder="weekday-opening" required /></label><label>Location<select name="locationId" required>{workspace.locations.map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}</select></label><label>Template<select name="templateId" required>{workspace.templates.filter((template) => template.active).map((template) => <option key={template.id} value={template.id}>{template.title} · v{template.revision}</option>)}</select></label><label>Start time<input name="localStartTime" required type="time" /></label><label>Cadence<select name="recurrence"><option value="daily">Daily</option><option value="weekly">Weekly</option></select></label><fieldset><legend>Weekly days</legend>{[['1', 'Mon'], ['2', 'Tue'], ['3', 'Wed'], ['4', 'Thu'], ['5', 'Fri'], ['6', 'Sat'], ['7', 'Sun']].map(([value, label]) => <label className="operations-check" key={value}><input name="weekday" type="checkbox" value={value} />{label}</label>)}</fieldset><label>Due window<input defaultValue={30} min={1} max={1440} name="dueWindowMinutes" required type="number" /></label><label>Grace<input defaultValue={10} min={0} max={1440} name="graceMinutes" required type="number" /></label><button className="button" disabled={workspace.locations.length === 0 || workspace.templates.length === 0} type="submit">Create schedule</button></form>{workspace.schedules.length === 0 ? <EmptyState>No schedules are active. Publish approved times after the procedure and training are ready.</EmptyState> : <div className="card operations-table"><table><thead><tr><th>Schedule</th><th>Location</th><th>Template</th><th>Cadence</th><th>Due window</th><th>Status</th></tr></thead><tbody>{workspace.schedules.map((item) => <tr key={item.id}><td><strong>{item.key}</strong><br /><span className="muted">{item.localStartTime?.slice(0, 5) ?? item.scheduleKind.replaceAll('_', ' ')}</span></td><td>{item.locationName}</td><td>{item.templateTitle}</td><td>{item.recurrence === 'daily' ? 'Daily' : `Weekly · ${item.weekdays.join(', ')}`}</td><td>{item.dueWindowMinutes} min + {item.graceMinutes} grace</td><td><form action={toggleOperationSchedule}><input type="hidden" name="scheduleId" value={item.id} /><input type="hidden" name="enabled" value={item.enabled ? 'false' : 'true'} /><button className="button secondary" type="submit">{item.enabled ? 'Pause' : 'Enable'}</button></form></td></tr>)}</tbody></table></div>}</>;
+  const activeTemplates = workspace.templates.filter((template) => template.active);
+  const canCreate = workspace.locations.length > 0 && activeTemplates.length > 0;
+  return <>
+    <div className="operations-heading"><div>
+      <p className="eyebrow">Local-time scheduling</p><h1>Schedules</h1>
+      <p className="subtitle">Each schedule uses its location’s IANA timezone and immutable occurrence snapshots.</p>
+    </div></div>
+    <form action={createOperationSchedule} className="card operations-create-form">
+      <label>Schedule key<input name="scheduleKey" pattern="[a-z0-9][a-z0-9-]{0,79}"
+        placeholder="weekday-opening" required /></label>
+      <label>Location<select name="locationId" required>{workspace.locations.map((location) =>
+        <option key={location.id} value={location.id}>{location.name}</option>)}</select></label>
+      <label>Template<select name="templateId" required>{activeTemplates.map((template) =>
+        <option key={template.id} value={template.id}>{template.title} · v{template.revision}</option>)}</select></label>
+      <label>Timing rule<select defaultValue="fixed_time" name="scheduleKind">
+        <option value="fixed_time">Fixed local time</option>
+        <option value="opening_offset">Relative to opening</option>
+        <option value="closing_offset">Relative to closing</option>
+        <option value="open_interval">Repeat during open hours</option>
+      </select></label>
+      <label>Fixed start time<input name="localStartTime" type="time" /></label>
+      <label>Start/anchor offset (minutes)<input defaultValue={0} min={-1440} max={1440}
+        name="anchorOffsetMinutes" type="number" /></label>
+      <label>Repeat every (minutes)<input defaultValue={60} min={15} max={1440}
+        name="intervalMinutes" type="number" /></label>
+      <label>Stop offset (minutes)<input defaultValue={480} min={-1440} max={1440}
+        name="intervalEndOffsetMinutes" type="number" /></label>
+      <label>Cadence<select name="recurrence"><option value="daily">Daily</option>
+        <option value="weekly">Weekly</option></select></label>
+      <fieldset><legend>Weekly days</legend>
+        {WEEKDAYS.map((label, index) => <label className="operations-check" key={label}>
+            <input name="weekday" type="checkbox" value={index + 1} />{label}
+          </label>)}
+      </fieldset>
+      <label>Due window<input defaultValue={30} min={1} max={1440}
+        name="dueWindowMinutes" required type="number" /></label>
+      <label>Grace<input defaultValue={10} min={0} max={1440}
+        name="graceMinutes" required type="number" /></label>
+      <button className="button" disabled={!canCreate} type="submit">Create schedule</button>
+    </form>
+    {workspace.schedules.length === 0
+      ? <EmptyState>No schedules are active. Publish approved times after the procedure and training are ready.</EmptyState>
+      : <div className="card operations-table"><table><thead><tr><th>Schedule</th><th>Location</th>
+        <th>Template</th><th>Cadence</th><th>Due window</th><th>Status</th></tr></thead><tbody>
+        {workspace.schedules.map((item) => <tr key={item.id}>
+          <td><strong>{item.key}</strong><br /><span className="muted">
+            {item.localStartTime?.slice(0, 5) ?? item.scheduleKind.replaceAll('_', ' ')}</span></td>
+          <td>{item.locationName}</td><td>{item.templateTitle}</td>
+          <td>{item.recurrence === 'daily' ? 'Daily' : `Weekly · ${item.weekdays.join(', ')}`}</td>
+          <td>{item.dueWindowMinutes} min + {item.graceMinutes} grace</td>
+          <td><form action={toggleOperationSchedule}>
+            <input type="hidden" name="scheduleId" value={item.id} />
+            <input type="hidden" name="enabled" value={item.enabled ? 'false' : 'true'} />
+            <button className="button secondary" type="submit">{item.enabled ? 'Pause' : 'Enable'}</button>
+          </form></td>
+        </tr>)}
+      </tbody></table></div>}
+  </>;
 }
 
 function History({ workspace }: { workspace: OperationsWorkspace }) {

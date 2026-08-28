@@ -1,7 +1,8 @@
 /** Offline operations actions. The caller owns UUID and clock generation. */
 export const OPERATION_INTENT_VERSION = 1 as const;
 
-export type OperationIntentResponse = boolean | number | string;
+export type OperationNotApplicableResponse = { state: 'not_applicable'; reason: string };
+export type OperationIntentResponse = boolean | number | string | OperationNotApplicableResponse;
 export type OperationIssueSeverity = 'low' | 'normal' | 'high' | 'urgent';
 
 type OperationIntentBase = {
@@ -85,13 +86,17 @@ function validBase(value: Record<string, unknown>): boolean {
     && Number.isFinite(Date.parse(value.createdAt));
 }
 
+function validResponse(value: unknown): boolean {
+  if (typeof value === 'boolean' || typeof value === 'string') return true;
+  if (typeof value === 'number') return Number.isFinite(value);
+  const response = record(value);
+  return response?.state === 'not_applicable' && typeof response.reason === 'string'
+    && response.reason.trim().length >= 3 && response.reason.length <= 500;
+}
+
 function validResponses(value: unknown): boolean {
   const responses = record(value);
-  return responses !== null && Object.values(responses).every((response) => (
-    typeof response === 'boolean'
-    || typeof response === 'string'
-    || (typeof response === 'number' && Number.isFinite(response))
-  ));
+  return responses !== null && Object.values(responses).every(validResponse);
 }
 
 function validIssue(value: unknown): value is OperationIntentIssue {

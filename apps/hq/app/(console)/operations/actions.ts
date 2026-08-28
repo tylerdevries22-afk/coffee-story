@@ -6,12 +6,16 @@ import { revalidatePath } from 'next/cache';
 import { validateOperationRetention } from '@platform/domain';
 
 import { currentSession, hasRole } from '@/lib/auth';
+import { operationScheduleRule } from '@/lib/operations-schedule';
 import { serverClient } from '@/lib/supabase-server';
 
 async function managerContext() {
   const [session, client] = await Promise.all([currentSession(), serverClient()]);
   if (!session || !client || !hasRole(session, 'location_manager')) {
     throw new Error('Operations manager access is required.');
+  }
+  if (session.role === 'platform_admin') {
+    throw new Error('Platform support changes require the audited support workflow.');
   }
   const feature = await client.from('brands').select('operations').eq('id', session.brandId)
     .maybeSingle<{ operations: boolean }>();
@@ -51,10 +55,9 @@ export async function createOperationSchedule(formData: FormData): Promise<void>
   const scheduleKey = requiredFormText(formData, 'scheduleKey');
   const locationId = requiredFormText(formData, 'locationId');
   const templateId = requiredFormText(formData, 'templateId');
-  const localStartTime = requiredFormText(formData, 'localStartTime');
-  if (!/^[a-z0-9][a-z0-9-]{0,79}$/.test(scheduleKey)
-    || !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(localStartTime)) {
-    throw new Error('Schedule key or start time is invalid.');
+  const rule = operationScheduleRule(formData);
+  if (!/^[a-z0-9][a-z0-9-]{0,79}$/.test(scheduleKey) || !rule) {
+    throw new Error('Schedule key or timing rule is invalid.');
   }
   const location = await client.from('locations').select('timezone').eq('brand_id', session.brandId)
     .eq('id', locationId).maybeSingle<{ timezone: string }>();
@@ -67,11 +70,15 @@ export async function createOperationSchedule(formData: FormData): Promise<void>
   }
   const result = await client.from('operation_schedules').insert({
     brand_id: session.brandId, location_id: locationId, template_id: templateId,
-    timezone: location.data.timezone, recurrence_rule: recurrence, local_start_time: localStartTime,
+    timezone: location.data.timezone, recurrence_rule: recurrence,
+    local_start_time: rule.localStartTime,
+    anchor_offset_minutes: rule.anchorOffsetMinutes,
+    interval_minutes: rule.intervalMinutes,
+    interval_end_offset_minutes: rule.intervalEndOffsetMinutes,
     due_window_minutes: boundedInteger(formData, 'dueWindowMinutes', 1, 1_440),
     grace_minutes: boundedInteger(formData, 'graceMinutes', 0, 1_440),
     active_from: new Date().toISOString().slice(0, 10), schedule_key: scheduleKey,
-    schedule_kind: 'fixed_time', weekdays, managed_by_config: false,
+    schedule_kind: rule.scheduleKind, weekdays, managed_by_config: false,
   }).select('id').maybeSingle();
   if (result.error || !result.data) throw new Error('The schedule could not be created.');
   revalidatePath('/operations/schedules');

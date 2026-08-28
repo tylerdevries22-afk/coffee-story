@@ -13,6 +13,7 @@ export type OperatorChecklistStep = {
   responseKind: OperationResponseKind;
   required: boolean;
   issueOnFailure: boolean;
+  allowNotApplicable?: boolean;
   minimum?: number;
   maximum?: number;
   maxLength?: number;
@@ -113,6 +114,7 @@ function parseStep(value: unknown): OperatorChecklistStep | null {
     responseKind,
     required: row.required !== false,
     issueOnFailure: row.issueOnFailure === true,
+    allowNotApplicable: row.allowNotApplicable === true,
   };
   if (typeof constraints.minimum === 'number') step.minimum = constraints.minimum;
   if (typeof constraints.maximum === 'number') step.maximum = constraints.maximum;
@@ -141,10 +143,10 @@ function parseSnapshot(value: unknown): OperatorTaskSnapshot | null {
 
 function parseEligibility(value: unknown): OperatorEligibility {
   const row = objectRecord(value);
-  if (!row) return { eligible: true, hasActiveShift: true, missingRoles: [], missingCompetencies: [] };
+  if (!row) return { eligible: false, hasActiveShift: false, missingRoles: [], missingCompetencies: [] };
   return {
     eligible: row.eligible === true,
-    hasActiveShift: row.hasActiveShift !== false,
+    hasActiveShift: row.hasActiveShift === true,
     missingRoles: stringList(row.missingRoles),
     missingCompetencies: stringList(row.missingCompetencies),
   };

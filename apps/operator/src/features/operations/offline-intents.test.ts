@@ -50,6 +50,20 @@ test('completion validation requires well-formed atomic issue evidence', () => {
     occurrenceId: OCCURRENCE_ID, createdAt: '2026-08-27T12:01:00.000Z',
     claimActionId: null, responses: {}, note: '', issues: [{ category: '', severity: 'high' }],
   }), false);
+  assert.equal(isOperationIntent({
+    version: OPERATION_INTENT_VERSION,
+    kind: 'complete', actionId: COMPLETE_ID, brandId: BRAND_ID, locationId: LOCATION_ID,
+    occurrenceId: OCCURRENCE_ID, createdAt: '2026-08-27T12:01:00.000Z',
+    claimActionId: null, responses: { trash: { state: 'not_applicable', reason: 'Bin is absent.' } },
+    note: '', issues: [],
+  }), true);
+  assert.equal(isOperationIntent({
+    version: OPERATION_INTENT_VERSION,
+    kind: 'complete', actionId: COMPLETE_ID, brandId: BRAND_ID, locationId: LOCATION_ID,
+    occurrenceId: OCCURRENCE_ID, createdAt: '2026-08-27T12:01:00.000Z',
+    claimActionId: null, responses: { trash: { state: 'not_applicable', reason: '' } },
+    note: '', issues: [],
+  }), false);
 });
 
 test('a permanent claim conflict also marks its dependent completion', () => {

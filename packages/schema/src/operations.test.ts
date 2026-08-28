@@ -10,7 +10,9 @@ const hardening = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..
   '20260828051242_harden_tenant_operations_runtime.sql'), 'utf8');
 const advisorHardening = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'supabase', 'migrations',
   '20260828104000_harden_operation_rpc_boundaries.sql'), 'utf8');
-const operationsSql = `${migration}\n${hardening}\n${advisorHardening}`;
+const releaseHardening = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'supabase', 'migrations',
+  '20260828130000_operations_release_hardening.sql'), 'utf8');
+const operationsSql = `${migration}\n${hardening}\n${advisorHardening}\n${releaseHardening}`;
 
 describe('tenant operations migration', () => {
   it('keeps the platform schema industry-neutral', () => {
@@ -35,6 +37,21 @@ describe('tenant operations migration', () => {
   it('makes materialization and escalation delivery idempotent', () => {
     assert.match(migration, /unique \(brand_id, materialization_key\)/);
     assert.match(migration, /unique \(occurrence_id, escalation_rule_id, recipient_id, channel\)/);
+    assert.match(releaseHardening, /queue_due_operation_escalations/);
+    assert.match(releaseHardening, /status in \('pending', 'failed', 'sending'\)/);
+  });
+
+  it('requires a current shift and an unexpired claim lease', () => {
+    assert.match(releaseHardening, /shift\.starts_at <= now\(\)/);
+    assert.match(releaseHardening, /shift\.ends_at > now\(\)/);
+    assert.match(releaseHardening, /selected\.claim_expires_at <= now\(\)/);
+  });
+
+  it('exposes queue eligibility through an invoker-safe wrapper', () => {
+    assert.match(releaseHardening,
+      /create or replace function public\.operation_queue_eligibility\(target_occurrences uuid\[\]\)[\s\S]*?security invoker/);
+    assert.match(releaseHardening,
+      /revoke all on function app\.operation_queue_eligibility\(uuid\[\]\) from public, anon/);
   });
 
   it('aligns lifecycle values and exposes only idempotent runtime mutations', () => {

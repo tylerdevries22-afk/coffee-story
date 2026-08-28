@@ -43,3 +43,17 @@ test('eligibility messaging prioritizes the active shift and competency blockers
   }] }).occurrences[0];
   assert.equal(occurrence ? taskEligibilityMessage(occurrence) : null, 'Training required: Safety');
 });
+
+test('missing eligibility fails closed and N/A capability survives parsing', () => {
+  const occurrence = parseOperatorQueue({ occurrences: [{
+    id: ID, brandId: '10000000-0000-4000-8000-000000000002',
+    locationId: '10000000-0000-4000-8000-000000000003', status: 'scheduled',
+    scheduledFor: '2026-08-27T12:00:00.000Z', dueAt: '2026-08-27T12:15:00.000Z',
+    templateSnapshot: { templateId: ID, title: 'Check', steps: [{ key: 'trash',
+      title: 'Empty trash', responseKind: 'confirm', allowNotApplicable: true }] },
+  }] }).occurrences[0];
+  assert.equal(occurrence?.eligibility.eligible, false);
+  assert.equal(occurrence?.snapshot.steps[0]?.allowNotApplicable, true);
+  assert.equal(occurrence ? taskEligibilityMessage(occurrence) : null,
+    'You need an active shift before claiming this task.');
+});
