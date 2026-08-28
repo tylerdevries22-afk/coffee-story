@@ -287,7 +287,16 @@ jobs:
           }
           if [ "${{ matrix.surface }}" = display ]; then
             add_public NEXT_PUBLIC_SUPABASE_URL "$SUPABASE_URL"
-            test -n "$DISPLAY_DEVICE_TOKEN" || { echo '::error::Set DISPLAY_DEVICE_TOKEN after pairing the production screen.'; exit 1; }
+            add_public HQ_ORIGIN "${{ needs.deploy-hq.outputs.url }}"
+            if [ "$DEPLOY_ENVIRONMENT" = production ]; then
+              test -n "$DISPLAY_DEVICE_TOKEN" || { echo '::error::Set DISPLAY_DEVICE_TOKEN after pairing the production screen.'; exit 1; }
+              add_public DISPLAY_DEMO_MODE 0
+            else
+              # A branch preview is a review surface, not a paired shop screen.
+              # Keep production fail-closed while making preview deployments
+              # independently demonstrable without reusing a live device token.
+              add_public DISPLAY_DEMO_MODE 1
+            fi
             add_secret DISPLAY_DEVICE_TOKEN "$DISPLAY_DEVICE_TOKEN"
           else
             add_public EXPO_PUBLIC_SUPABASE_URL "$SUPABASE_URL"
