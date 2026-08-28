@@ -29,8 +29,6 @@ on:
         required: true
       SUPABASE_ACCESS_TOKEN:
         required: true
-      SUPABASE_DB_PASSWORD:
-        required: true
       SUPABASE_URL:
         required: false
       SUPABASE_PUBLISHABLE_KEY:
@@ -109,50 +107,23 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7
-      - uses: supabase/setup-cli@v3
+      - uses: pnpm/action-setup@v6
         with:
-          version: 2.116.0
+          version: 10.33.0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
       - name: Apply and verify forward-only target migrations
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          EXPECTED_RELEASE_READINESS: '20260828163000'
         run: |
           set -euo pipefail
           test -n "$SUPABASE_ACCESS_TOKEN" || { echo '::error::Set SUPABASE_ACCESS_TOKEN.'; exit 1; }
-          test -n "$SUPABASE_DB_PASSWORD" || { echo '::error::Set SUPABASE_DB_PASSWORD.'; exit 1; }
           test -n "$SUPABASE_PROJECT_REF" || { echo '::error::Set SUPABASE_PROJECT_REF.'; exit 1; }
-          retry_supabase() {
-            local attempt=1 maximum=5
-            until timeout 15m "$@"; do
-              if [ "$attempt" -ge "$maximum" ]; then
-                echo "::error::Supabase command failed after $maximum attempts."
-                return 1
-              fi
-              sleep $((attempt * 5))
-              attempt=$((attempt + 1))
-            done
-          }
-          retry_supabase supabase link --project-ref "$SUPABASE_PROJECT_REF" \
-            --password "$SUPABASE_DB_PASSWORD"
-          retry_supabase supabase db push --linked --include-all \
-            --password "$SUPABASE_DB_PASSWORD" --yes
-          retry_supabase supabase db lint --linked --level warning --fail-on warning
-          retry_supabase supabase db advisors --linked \
-            --type security --level warn --fail-on warn
-          retry_supabase supabase db advisors --linked \
-            --type performance --level warn --fail-on warn
-          keys=$(retry_supabase supabase projects api-keys \
-            --project-ref "$SUPABASE_PROJECT_REF" -o json)
-          service_role=$(printf '%s' "$keys" \
-            | jq -r '[.[] | select(.name == "service_role")][0].api_key')
-          test -n "$service_role" && test "$service_role" != null
-          echo "::add-mask::$service_role"
-          readiness=$(curl --fail --silent --show-error --max-time 20 --retry 1 --retry-all-errors \
-            -X POST -H "apikey: $service_role" -H "Authorization: Bearer $service_role" \
-            -H 'Content-Type: application/json' --data '{}' \
-            "https://${SUPABASE_PROJECT_REF}.supabase.co/rest/v1/rpc/platform_release_readiness")
-          [ "$(printf '%s' "$readiness" | jq -r '.')" = 20260828163000 ] \
-            || { echo '::error::Target database release contract is not ready.'; exit 1; }
+          pnpm supabase:promote
 
   deploy-hq:
     name: Deploy HQ API and console

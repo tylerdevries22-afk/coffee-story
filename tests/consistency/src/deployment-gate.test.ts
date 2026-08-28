@@ -10,19 +10,18 @@ const bootstrap = readFileSync(join(ROOT, '.github', 'workflows', 'bootstrap-ten
 describe('hosted database promotion gate', () => {
   it('migrates and verifies the target before every deploy path', () => {
     assert.match(deploy, /migrate-database:[\s\S]*?needs: gate/);
-    assert.match(deploy, /SUPABASE_DB_PASSWORD:[\s\S]*?required: true/);
-    assert.match(deploy, /supabase link --project-ref "\$SUPABASE_PROJECT_REF"/);
-    assert.match(deploy, /supabase db push --linked --include-all/);
-    assert.match(deploy, /platform_release_readiness/);
+    assert.doesNotMatch(deploy, /SUPABASE_DB_PASSWORD/);
+    assert.match(deploy, /pnpm supabase:promote/);
+    assert.match(deploy, /EXPECTED_RELEASE_READINESS: '20260828163000'/);
     assert.match(deploy, /deploy-hq:[\s\S]*?needs: migrate-database/);
     assert.match(deploy, /publish-native:[\s\S]*?needs: migrate-database/);
   });
 
-  it('bootstraps through the supported credentialed production connection', () => {
-    assert.match(bootstrap, /test -n "\$SUPABASE_DB_PASSWORD"/);
-    assert.match(bootstrap, /supabase link --project-ref "\$PROJECT_REF"/);
-    assert.match(bootstrap, /supabase db push --linked --include-all/);
-    assert.match(bootstrap, /supabase db advisors --linked/);
+  it('bootstraps through the passwordless Management API promotion path', () => {
+    assert.doesNotMatch(bootstrap, /SUPABASE_DB_PASSWORD/);
+    assert.match(bootstrap, /pnpm supabase:promote/);
+    assert.match(bootstrap, /supabase\/setup-cli@v3/);
+    assert.match(bootstrap, /SUPABASE_PROJECT_REF: \$\{\{ inputs\.supabase_project_ref \}\}/);
     assert.doesNotMatch(bootstrap, /supabase branches get "\$PROJECT_REF"/);
   });
 });

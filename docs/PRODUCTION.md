@@ -38,12 +38,11 @@ local `.vercel` directory.
 ### Hosted deployment checklist
 
 Create these GitHub Actions secrets before the first run (values are never
-committed): `VERCEL_TOKEN`, `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`,
-`SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, and
-`CRON_SECRET`. Set the repository variable `SUPABASE_PROJECT_REF` as well. The
-database password is the value chosen when the project was created; Supabase does
-not expose it through the production Management API, so keep its Doppler and GitHub
-copies synchronized. Add
+committed): `VERCEL_TOKEN`, `SUPABASE_ACCESS_TOKEN`, `SUPABASE_URL`,
+`SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, and `CRON_SECRET`. Set
+the repository variable `SUPABASE_PROJECT_REF` as well. The database password is
+needed only when the factory creates a project and remains in Doppler; hosted
+migration and deployment workflows use the Management API access token. Add
 `SUPABASE_JWT_SECRET` to enable device pairing, then add
 `DISPLAY_DEVICE_TOKEN` after pairing the production pickup screen. Add
 `OPENAI_API_KEY` when the autonomous training research pipeline is enabled.
@@ -229,8 +228,12 @@ in Expo, never in this repository, never in `packages/data`.
 
 ## 5. Supabase project setup
 
-1. Apply migrations: `supabase link --project-ref <ref> && supabase db push`
-   (or the Supabase MCP `apply_migration` per file, in filename order).
+1. Apply migrations with `SUPABASE_ACCESS_TOKEN=<token>
+   SUPABASE_PROJECT_REF=<ref> EXPECTED_RELEASE_READINESS=<marker> pnpm
+   supabase:promote`. The hosted workflow uses a passwordless Management API
+   transaction, preserves repository migration versions, and fails on history
+   gaps or advisor warnings. The Supabase CLI/MCP remains a supported manual
+   fallback.
 2. Require an eight-character minimum password and enable leaked-password
    protection in Authentication → Password Security. The hosted bootstrap
    workflow applies and verifies both through Supabase's Management API and
