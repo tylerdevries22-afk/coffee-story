@@ -41,6 +41,8 @@ jobs:
 
       # Reads the pinned version from the root package.json `packageManager`.
       - uses: pnpm/action-setup@v6
+        with:
+          version: 10.33.0
 
       - uses: actions/setup-node@v7
         with:
@@ -165,6 +167,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
+        with:
+          version: 10.33.0
       - uses: actions/setup-node@v7
         with:
           node-version: 22
@@ -210,7 +214,10 @@ jobs:
           SUPABASE_URL=$(printf '%s' "$details" | jq -r '.SUPABASE_URL')
           SUPABASE_PUBLISHABLE_KEY=$(printf '%s' "$details" | jq -r '.SUPABASE_ANON_KEY')
           SUPABASE_SERVICE_ROLE_KEY=$(printf '%s' "$details" | jq -r '.SUPABASE_SERVICE_ROLE_KEY')
-          SUPABASE_DB_URL=$(printf '%s' "$details" | jq -r '.POSTGRES_URL_NON_POOLING')
+          # GitHub's hosted runner has no route to a preview database's
+          # IPv6-only direct hostname. The branch's transaction pooler is the
+          # supported IPv4 path and still preserves each explicit transaction.
+          SUPABASE_DB_URL=$(printf '%s' "$details" | jq -r '.POSTGRES_URL')
           export SUPABASE_URL SUPABASE_PUBLISHABLE_KEY SUPABASE_SERVICE_ROLE_KEY SUPABASE_DB_URL
           for secret_value in "$SUPABASE_PUBLISHABLE_KEY" "$SUPABASE_SERVICE_ROLE_KEY" "$SUPABASE_DB_URL"; do
             echo "::add-mask::$secret_value"
@@ -318,6 +325,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
+        with:
+          version: 10.33.0
       - uses: actions/setup-node@v7
         with:
           node-version: 22
@@ -361,6 +370,8 @@ jobs:
       - uses: actions/checkout@v7
 
       - uses: pnpm/action-setup@v6
+        with:
+          version: 10.33.0
 
       - uses: actions/setup-node@v7
         with:
