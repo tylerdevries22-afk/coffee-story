@@ -80,7 +80,7 @@ async function exchange(
       });
       // A rejected secret will be rejected again in eight seconds. Only a
       // transport fault or a server fault is worth another attempt.
-      if (response.status >= 400 && response.status < 500) return null;
+      if (response.status >= 400 && response.status < 500) break;
       if (response.ok) {
         const body = await response.json() as { token?: unknown; expiresAt?: unknown };
         const token = typeof body.token === 'string' ? body.token : '';
@@ -89,7 +89,7 @@ async function exchange(
           cached = { token, expiresAtMs };
           return token;
         }
-        return null;
+        break;
       }
     } catch {
       // Timeout or network fault. Falls through to the retry.
@@ -100,6 +100,9 @@ async function exchange(
       await new Promise((resolve) => { setTimeout(resolve, attempt * 500); });
     }
   }
+  // Every failing path lands here, revoked secrets included: a screen that just
+  // failed must not ask again on the next render, or a revoked one polls HQ for
+  // as long as it stays plugged in.
   nextAttemptAtMs = nowMs + FAILURE_BACKOFF_MS;
   return null;
 }
