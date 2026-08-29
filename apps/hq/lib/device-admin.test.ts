@@ -27,19 +27,37 @@ class ReachedEngine extends Error {}
  * A devices table that answers the location lookup and refuses everything
  * else. Any engine write lands in ReachedEngine, which is how these tests tell
  * "refused before doing anything" from "refused after".
+ *
+ * `reads` counts lookups, because for the staff check that count is the whole
+ * assertion: a guest and a manager at the wrong store are both answered
+ * forbidden, so the only thing separating "refused on sight" from "refused
+ * after a query ran on their behalf" is whether the table was consulted.
  */
-function deviceDb(row: { location_id: string } | null): SupabaseClient {
+type DbState = { reads: number; row: { location_id: string } | null; error: string | null };
+
+function deviceDb(state: DbState): SupabaseClient {
   const lookup = {
     select: () => lookup,
     eq: () => lookup,
-    maybeSingle: async () => ({ data: row, error: null }),
+    maybeSingle: async () => {
+      state.reads += 1;
+      return state.error
+        ? { data: null, error: { message: state.error } }
+        : { data: state.row, error: null };
+    },
     insert: () => { throw new ReachedEngine('insert'); },
     update: () => { throw new ReachedEngine('update'); },
   };
   return { from: () => lookup } as unknown as SupabaseClient;
 }
 
-const deps = (row: { location_id: string } | null) => ({ db: deviceDb(row), loadKey: () => KEY });
+const deps = (row: { location_id: string } | null, error: string | null = null) => {
+  const state: DbState = { reads: 0, row, error };
+  return { db: deviceDb(state), loadKey: () => KEY, state };
+};
+
+const forbidden = (error: DeviceAdminError) => error.code === 'forbidden';
+const invalid = (error: DeviceAdminError) => error.code === 'invalid_request';
 
 describe('locationOfManagedDevice', () => {
   it('gives a manager the location of a device at their own store', async () => {
@@ -70,10 +88,35 @@ describe('locationOfManagedDevice', () => {
     assert.equal(await locationOfManagedDevice(deps({ location_id: ELSEWHERE }), owner, DEVICE), ELSEWHERE);
   });
 
-  it('refuses a guest, who has a brand but no role', async () => {
+  /**
+   * Asserting the refusal alone proved nothing: canManageLocation returns false
+   * for a roleless claim too, so the staff check could be deleted and this
+   * still passed on the answer the next guard happened to give. What the check
+   * is actually for is refusing before the lookup runs -- an unauthenticated
+   * caller must not get a query executed against the devices table on their
+   * behalf, whatever it then returns.
+   */
+  it('refuses a guest, who has a brand but no role, without querying at all', async () => {
+    const scope = deps({ location_id: HERE });
+    await assert.rejects(() => locationOfManagedDevice(scope, guest, DEVICE), forbidden);
+    assert.equal(scope.state.reads, 0, 'a guest reached the devices table');
+  });
+
+  it('refuses an empty device id as a bad request, not as a refusal', async () => {
+    const scope = deps({ location_id: HERE });
+    await assert.rejects(() => locationOfManagedDevice(scope, manager, ''), invalid);
+    assert.equal(scope.state.reads, 0);
+  });
+
+  /**
+   * A database that is down is not an answer about permissions. Reporting it
+   * as forbidden tells an operator their access is wrong and sends them to
+   * re-check a role that was never the problem.
+   */
+  it('reports a failing lookup as a bad request rather than as forbidden', async () => {
     await assert.rejects(
-      () => locationOfManagedDevice(deps({ location_id: HERE }), guest, DEVICE),
-      (error: DeviceAdminError) => error.code === 'forbidden',
+      () => locationOfManagedDevice(deps(null, 'connection reset by peer'), manager, DEVICE),
+      (error: DeviceAdminError) => invalid(error) && error.message === 'connection reset by peer',
     );
   });
 });
@@ -102,6 +145,38 @@ describe('pairDevice', () => {
         (error: DeviceAdminError) => error.code === 'invalid_request',
       );
     }
+  });
+
+  /**
+   * Order matters as much as the outcome. With the staff check gone the label
+   * and role validation runs first, so a caller with no role at all learns
+   * whether their input was well formed -- and gets a different status for a
+   * bad label than for a good one. Authorization decides first, or it leaks.
+   */
+  it('refuses a guest before it looks at what they sent', async () => {
+    await assert.rejects(() => pairDevice(deps(null), guest, { ...good, label: '' }), forbidden);
+    await assert.rejects(() => pairDevice(deps(null), guest, { ...good, role: 'nonsense' }), forbidden);
+  });
+
+  /**
+   * canManageLocation answers true for a brand owner whatever location it is
+   * handed, empty string included, so this guard is the only thing standing
+   * between an owner and a device row pinned to no location.
+   */
+  it('refuses an empty location even from an owner who manages every location', async () => {
+    await assert.rejects(() => pairDevice(deps(null), owner, { ...good, locationId: '' }), invalid);
+  });
+
+  it('accepts a label of exactly the maximum length, and refuses one past it', async () => {
+    await assert.rejects(
+      () => pairDevice(deps(null), manager, { ...good, label: 'x'.repeat(60) }),
+      ReachedEngine,
+      'sixty characters is allowed',
+    );
+    await assert.rejects(
+      () => pairDevice(deps(null), manager, { ...good, label: 'x'.repeat(61) }),
+      invalid,
+    );
   });
 
   it('reaches the engine once the caller and the location check out', async () => {
