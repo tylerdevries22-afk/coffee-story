@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { subscribeToBoardChanges } from '@platform/data';
 
 import { isConfigured, isLocationId } from '@/lib/board';
+import { deviceToken } from '@/lib/device-token';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -23,7 +24,9 @@ export async function GET(
   }
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const token = process.env.DISPLAY_DEVICE_TOKEN;
+  // Fetched once per connection. maxDuration caps a stream at five minutes,
+  // far inside the token's life, so a stream can never outlive its credential.
+  const token = await deviceToken();
   if (!url || !token) return Response.json({ error: 'unavailable' }, { status: 503 });
 
   let close = () => {};
