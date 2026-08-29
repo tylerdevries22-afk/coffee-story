@@ -7,6 +7,8 @@ import {
   type AnalyticsTransportResult,
 } from '@platform/analytics';
 
+import { deviceToken as resolveDeviceToken } from './device-token';
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type DisplayTelemetryEnvironment = Readonly<{
@@ -21,10 +23,12 @@ type DisplayTelemetryDependencies = Readonly<{
   environment?: DisplayTelemetryEnvironment;
 }>;
 
-function productionEnvironment(): DisplayTelemetryEnvironment {
+async function productionEnvironment(): Promise<DisplayTelemetryEnvironment> {
   return {
     hqOrigin: process.env.HQ_ORIGIN,
-    deviceToken: process.env.DISPLAY_DEVICE_TOKEN,
+    // The same credential the board reads with, so telemetry from a screen on
+    // a refresh secret does not quietly stop when the static token lapses.
+    deviceToken: (await resolveDeviceToken()) ?? undefined,
     appVersion: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 12) ?? 'display-web',
   };
 }
@@ -34,7 +38,7 @@ export async function recordDisplayScreen(
   locationId: string,
   dependencies: DisplayTelemetryDependencies = {},
 ): Promise<AnalyticsTransportResult | null> {
-  const environment = dependencies.environment ?? productionEnvironment();
+  const environment = dependencies.environment ?? await productionEnvironment();
   if (!UUID.test(locationId) || !environment.hqOrigin || !environment.deviceToken) return null;
   const brandId = tenantIdHintFromJwt(environment.deviceToken);
   if (!brandId) return null;

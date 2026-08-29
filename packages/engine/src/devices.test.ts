@@ -5,8 +5,10 @@ import { describe, it } from 'node:test';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import {
-  DEVICE_TOKEN_TTL_SECONDS, DeviceError, canPlaceOrders, hashPairingCode,
-  loadDeviceSigningKey, newPairingCode, normalizeCode, redeemPairingCode, refreshDeviceToken, signDeviceToken,
+  DEVICE_TOKEN_TTL_SECONDS, DeviceError, canPlaceOrders, exchangeDeviceRefreshSecret,
+  hashPairingCode, hashRefreshSecret, issueDeviceRefreshSecret,
+  loadDeviceSigningKey, newPairingCode, newRefreshSecret, normalizeCode, redeemPairingCode,
+  refreshDeviceToken, revokeDevice, signDeviceToken,
   tenantSlugMatches, verifyDeviceToken, type DeviceClaims, type DeviceRowLike, type DeviceSigningKey,
 } from './devices';
 
@@ -317,5 +319,244 @@ describe('loadDeviceSigningKey', () => {
       return true;
     });
     assert.throws(() => loadDeviceSigningKey({ SUPABASE_JWT_SECRET: 'short' } as NodeJS.ProcessEnv), DeviceError);
+  });
+});
+
+/**
+ * A screen nobody signs into has to be able to re-authenticate itself.
+ *
+ * `refreshDeviceToken` needs a currently valid token, so a display whose
+ * twelve hours have lapsed has no path back that does not involve a human
+ * editing an environment variable. These are the tests for the path that does.
+ */
+const secretRow = (over: Partial<DeviceRowLike> = {}): DeviceRowLike => ({
+  id: CLAIMS.deviceId,
+  brand_id: CLAIMS.brandId,
+  location_id: CLAIMS.locationId,
+  role: 'display',
+  label: 'Pickup board',
+  pairing_code_hash: null,
+  pairing_expires_at: null,
+  paired_at: new Date(NOW - 86_400_000).toISOString(),
+  revoked_at: null,
+  last_seen_at: null,
+  token_version: CLAIMS.tokenVersion,
+  refresh_secret_hash: null,
+  refresh_secret_issued_at: null,
+  refresh_secret_previous_hash: null,
+  refresh_secret_previous_expires_at: null,
+  refresh_secret_last_used_at: null,
+  ...over,
+});
+
+/**
+ * Enough of PostgREST to exercise the compare-and-set and the `.or()` lookup:
+ * filters accumulate, `maybeSingle` applies them to the single row, and an
+ * update that matches nothing returns null exactly as the real client does.
+ */
+class SecretQuery {
+  private mode: 'read' | 'update' = 'read';
+  private readonly equals = new Map<string, unknown>();
+  private readonly nulls = new Set<string>();
+  private orFilter: string | null = null;
+  private updateValues: Record<string, unknown> = {};
+
+  constructor(private readonly state: { row: DeviceRowLike; updates: number }) {}
+  select(): this { return this; }
+  update(values: Record<string, unknown>): this {
+    this.mode = 'update'; this.updateValues = values; return this;
+  }
+  eq(column: string, value: unknown): this { this.equals.set(column, value); return this; }
+  is(column: string, _value: unknown): this { this.nulls.add(column); return this; }
+  or(filter: string): this { this.orFilter = filter; return this; }
+
+  private matches(): boolean {
+    const row = this.state.row as DeviceRowLike & Record<string, unknown>;
+    for (const [column, value] of this.equals) if (row[column] !== value) return false;
+    for (const column of this.nulls) if (row[column] !== null && row[column] !== undefined) return false;
+    if (this.orFilter) {
+      const wanted = this.orFilter.split(',').map((term) => term.split('.eq.'));
+      if (!wanted.some(([column, value]) => column && row[column] === value)) return false;
+    }
+    return true;
+  }
+
+  async maybeSingle(): Promise<{ data: unknown; error: null }> {
+    if (!this.matches()) return { data: null, error: null };
+    if (this.mode === 'update') {
+      this.state.updates += 1;
+      Object.assign(this.state.row, this.updateValues);
+    }
+    return { data: { ...this.state.row }, error: null };
+  }
+
+  // The heartbeat write is awaited directly, without .select().
+  then<T>(resolve: (value: { error: null }) => T): T {
+    if (this.mode === 'update' && this.matches()) {
+      this.state.updates += 1;
+      Object.assign(this.state.row, this.updateValues);
+    }
+    return resolve({ error: null });
+  }
+}
+
+const secretDb = (row: DeviceRowLike) => {
+  const state = { row, updates: 0 };
+  const db = { from: () => new SecretQuery(state) } as unknown as SupabaseClient;
+  return { db, state };
+};
+
+describe('hashRefreshSecret', () => {
+  it('is stable for a secret and worthless to a reader of the column', () => {
+    // devices_select is brand-wide and includes staff, exactly as for pairing.
+    assert.equal(hashRefreshSecret('s3cret-value', KEY), hashRefreshSecret('s3cret-value', KEY));
+    assert.notEqual(hashRefreshSecret('s3cret-value', KEY), hashRefreshSecret('s3cret-value', OTHER));
+    assert.notEqual(hashRefreshSecret('s3cret-value', KEY), hashRefreshSecret('s3cret-valuf', KEY));
+  });
+
+  it('never collides with a pairing hash of the same input', () => {
+    // Different domain prefixes, so a leaked pairing hash is not a refresh hash.
+    assert.notEqual(hashRefreshSecret('BC234567', KEY), hashPairingCode('BC234567', KEY));
+  });
+});
+
+describe('newRefreshSecret', () => {
+  it('is long enough that online guessing is not the weak link', () => {
+    const secret = newRefreshSecret();
+    assert.match(secret, /^[A-Za-z0-9_-]+$/);
+    assert.ok(secret.length >= 40, `secret was only ${secret.length} characters`);
+    assert.equal(new Set(Array.from({ length: 200 }, () => newRefreshSecret())).size, 200);
+  });
+});
+
+describe('issueDeviceRefreshSecret', () => {
+  it('returns the secret once and stores only its hash', async () => {
+    const { db, state } = secretDb(secretRow());
+    const issued = await issueDeviceRefreshSecret(
+      { db, key: KEY, now: () => NOW },
+      { brandId: CLAIMS.brandId, deviceId: CLAIMS.deviceId },
+    );
+    assert.equal(state.row.refresh_secret_hash, hashRefreshSecret(issued.secret, KEY));
+    assert.notEqual(state.row.refresh_secret_hash, issued.secret);
+    assert.equal(issued.previousExpiresAt, null);
+  });
+
+  it('keeps the outgoing secret working for a bounded overlap', async () => {
+    const previous = newRefreshSecret();
+    const { db, state } = secretDb(secretRow({
+      refresh_secret_hash: hashRefreshSecret(previous, KEY),
+    }));
+    const issued = await issueDeviceRefreshSecret(
+      { db, key: KEY, now: () => NOW },
+      { brandId: CLAIMS.brandId, deviceId: CLAIMS.deviceId, overlapMinutes: 30 },
+    );
+    assert.equal(state.row.refresh_secret_previous_hash, hashRefreshSecret(previous, KEY));
+    assert.equal(issued.previousExpiresAt, new Date(NOW + 30 * 60_000).toISOString());
+  });
+
+  it('refuses a device belonging to another brand', async () => {
+    const { db } = secretDb(secretRow());
+    await assert.rejects(
+      () => issueDeviceRefreshSecret(
+        { db, key: KEY, now: () => NOW },
+        { brandId: '99999999-9999-4999-8999-999999999999', deviceId: CLAIMS.deviceId },
+      ),
+      (error: unknown) => error instanceof DeviceError,
+    );
+  });
+
+  it('refuses a revoked device', async () => {
+    const { db } = secretDb(secretRow({ revoked_at: new Date(NOW - 1000).toISOString() }));
+    await assert.rejects(
+      () => issueDeviceRefreshSecret(
+        { db, key: KEY, now: () => NOW },
+        { brandId: CLAIMS.brandId, deviceId: CLAIMS.deviceId },
+      ),
+      (error: unknown) => error instanceof DeviceError && error.code === 'device_revoked',
+    );
+  });
+});
+
+describe('exchangeDeviceRefreshSecret', () => {
+  const claimsFor = (row: DeviceRowLike): DeviceClaims => ({
+    brandId: row.brand_id,
+    deviceId: row.id,
+    locationId: row.location_id,
+    role: row.role,
+    tokenVersion: row.token_version,
+  });
+
+  it('mints a token for the current secret and records that the screen is alive', async () => {
+    const secret = newRefreshSecret();
+    const row = secretRow({ refresh_secret_hash: hashRefreshSecret(secret, KEY) });
+    const { db, state } = secretDb(row);
+    const token = await exchangeDeviceRefreshSecret({ db, key: KEY, now: () => NOW }, { secret });
+    assert.deepEqual(verifyDeviceToken(token.token, KEY, NOW), claimsFor(row));
+    assert.equal(state.row.refresh_secret_last_used_at, new Date(NOW).toISOString());
+    assert.equal(state.row.last_seen_at, new Date(NOW).toISOString());
+  });
+
+  it('honours the outgoing secret inside the overlap and not after it', async () => {
+    const previous = newRefreshSecret();
+    const inside = secretDb(secretRow({
+      refresh_secret_hash: hashRefreshSecret(newRefreshSecret(), KEY),
+      refresh_secret_previous_hash: hashRefreshSecret(previous, KEY),
+      refresh_secret_previous_expires_at: new Date(NOW + 60_000).toISOString(),
+    }));
+    assert.ok(await exchangeDeviceRefreshSecret(
+      { db: inside.db, key: KEY, now: () => NOW }, { secret: previous },
+    ));
+
+    const after = secretDb(secretRow({
+      refresh_secret_hash: hashRefreshSecret(newRefreshSecret(), KEY),
+      refresh_secret_previous_hash: hashRefreshSecret(previous, KEY),
+      refresh_secret_previous_expires_at: new Date(NOW - 1).toISOString(),
+    }));
+    await assert.rejects(
+      () => exchangeDeviceRefreshSecret({ db: after.db, key: KEY, now: () => NOW }, { secret: previous }),
+      (error: unknown) => error instanceof DeviceError && error.code === 'pairing_unknown',
+    );
+  });
+
+  it('answers identically for unknown, revoked and unpaired', async () => {
+    // Distinguishing them would turn an unauthenticated endpoint into an
+    // oracle for which secrets exist. Same argument as redeemPairingCode.
+    const secret = newRefreshSecret();
+    const hash = hashRefreshSecret(secret, KEY);
+    const cases: DeviceRowLike[] = [
+      secretRow({ refresh_secret_hash: hashRefreshSecret(newRefreshSecret(), KEY) }),
+      secretRow({ refresh_secret_hash: hash, revoked_at: new Date(NOW - 1000).toISOString() }),
+      secretRow({ refresh_secret_hash: hash, paired_at: null }),
+    ];
+    for (const row of cases) {
+      const { db } = secretDb(row);
+      await assert.rejects(
+        () => exchangeDeviceRefreshSecret({ db, key: KEY, now: () => NOW }, { secret }),
+        (error: unknown) => error instanceof DeviceError && error.code === 'pairing_unknown',
+      );
+    }
+  });
+
+  it('rejects a secret too short to be one of ours without touching the database', async () => {
+    const db = { from: () => { throw new Error('must not query'); } } as unknown as SupabaseClient;
+    await assert.rejects(
+      () => exchangeDeviceRefreshSecret({ db, key: KEY, now: () => NOW }, { secret: 'short' }),
+      (error: unknown) => error instanceof DeviceError && error.code === 'pairing_unknown',
+    );
+  });
+});
+
+describe('revokeDevice', () => {
+  it('clears the refresh secret, so a revoked screen cannot mint a replacement', async () => {
+    const { db, state } = secretDb(secretRow({
+      refresh_secret_hash: hashRefreshSecret(newRefreshSecret(), KEY),
+      refresh_secret_previous_hash: hashRefreshSecret(newRefreshSecret(), KEY),
+    }));
+    await revokeDevice({ db, key: KEY, now: () => NOW }, {
+      brandId: CLAIMS.brandId, deviceId: CLAIMS.deviceId,
+    });
+    assert.equal(state.row.refresh_secret_hash, null);
+    assert.equal(state.row.refresh_secret_previous_hash, null);
+    assert.equal(state.row.token_version, 0);
   });
 });
