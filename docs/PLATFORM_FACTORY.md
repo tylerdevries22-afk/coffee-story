@@ -127,6 +127,96 @@ Expo recommends App Store Connect API keys for iOS submissions and keeps managed
 credentials encrypted. [Expo credential security](https://docs.expo.dev/app-signing/security/)
 and [store submission guide](https://docs.expo.dev/deploy/submit-to-app-stores/).
 
+### Square
+
+Owner: client. Square connects per location by OAuth from the HQ console
+(Locations → Connect Square), so the client authorises their own seller account
+and the platform never holds their password. The factory needs the application
+half only: `SQUARE_APP_ID` and `SQUARE_APP_SECRET` from the developer dashboard,
+plus `SQUARE_ENV` (`sandbox` or `production`).
+
+Two of these are not from Square and are the ones most often missed.
+`SQUARE_TOKEN_KEY` is 32 random bytes you generate (`openssl rand -base64 32`);
+it encrypts the per-location OAuth tokens at rest, so losing it means every
+location must reconnect, and rotating it means re-encrypting them.
+`SQUARE_WEBHOOK_URL` must match the URL Square is configured to call **exactly**
+— the signature is computed over it, so a trailing slash is a failed
+verification, not a warning.
+
+Setup required state: with no application credentials the Connect button is the
+only thing that does not work; ordering, the board and the display all run.
+Payments are what stop. [OAuth API](https://developer.squareup.com/docs/oauth-api/overview),
+[webhook signature validation](https://developer.squareup.com/docs/webhooks/step3validate).
+
+### OpenAI
+
+Owner: platform. A project API key, scoped to the factory's project so its spend
+and its blast radius are separable from anything else on the account. Set
+`OPENAI_API_KEY` with `OPENAI_RESEARCH_MODEL` and `OPENAI_EVALUATION_MODEL`;
+naming the models explicitly is what keeps a provider default from silently
+changing what the research step produces.
+
+Setup required state: two different behaviours, deliberately. Brand research in
+the factory treats the key as optional and a failed run never replaces the
+published catalog or training release — the tenant keeps what it had. Training
+bootstrap treats it as required and fails fast naming the variable, because a
+training release generated without it would be empty rather than stale.
+[Production best practices](https://platform.openai.com/docs/guides/production-best-practices);
+keys are created in the OpenAI console under **API keys** for the selected
+project.
+
+### Email and SMS
+
+Owner: platform, sending on the tenant's behalf from a verified domain or
+number. The engine has exactly two transports and reads nothing else:
+Resend (`RESEND_API_KEY`, `RESEND_FROM`) and Twilio (`TWILIO_ACCOUNT_SID`,
+`TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER`). Use a Twilio API key rather than the
+account auth token where the account allows it — it can be revoked without
+resetting everything else.
+
+SendGrid appears in the Integrations catalog and is **not** one of these. It is
+a connector, authorised in HQ and stored in Vault, and the engine has no
+SendGrid transport at all, so setting `SENDGRID_API_KEY` in the environment
+configures nothing. Email through the engine means Resend.
+
+Setup required state: each transport throws naming the variables it wants, so a
+half-filled block fails loudly at send rather than dropping messages silently.
+[Resend API keys](https://resend.com/docs/dashboard/api-keys/introduction),
+[Twilio API keys](https://www.twilio.com/docs/iam/api-keys).
+
+### Monitoring
+
+Owner: platform. `SENTRY_DSN` is server-side for the console; the apps carry
+their own `EXPO_PUBLIC_SENTRY_DSN` per app environment, which is public by
+definition and must not be a token. `SENTRY_AUTH_TOKEN` is build-time only — it
+uploads source maps — and belongs in CI, never in a runtime environment.
+`SENTRY_ORG`, `SENTRY_PROJECT` and `SENTRY_DISPLAY_PROJECT` route the two web
+surfaces to their own projects.
+
+Setup required state: DSN-gated and silent. Without `SENTRY_DSN` instrumentation
+is a no-op and the build stays self-contained — nothing fails, so nothing tells
+you errors are going unreported. Treat a missing DSN as a deployment defect
+rather than a default. [Sentry auth tokens](https://docs.sentry.io/account/auth-tokens/).
+
+### Connector approvals
+
+Owner: client, granted through HQ. Everything in the Integrations catalog —
+Google, Stripe Connect, QuickBooks, Plaid, Slack, SendGrid — is authorised at
+**Integrations → Connect** rather than by an environment variable. The
+credential goes to Supabase Vault; the public tables hold an opaque reference
+and verification state, and a card's status is read from its
+`connector_installations` row.
+
+This is why the optional provider block in `.env.example` enables nothing:
+filling in `STRIPE_SECRET_KEY` there does not install a connector, and the
+catalog will still report **Setup required**, correctly. The environment names
+are listed only as the names to use if one of those providers is ever wired up
+directly.
+
+Setup required state: the honest default. A connector with no installation row
+reports Setup required whatever is in the environment, and the platform runs
+without it. [Supabase Vault](https://supabase.com/docs/guides/database/vault).
+
 ## Tenant and industry file boundaries
 
 `industries/<key>/blueprint.json` contains reusable vocabulary and template version.

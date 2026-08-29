@@ -792,18 +792,30 @@ describe('redeemPairingCode', () => {
 });
 
 describe('verifyDeviceToken also rejects', () => {
-  const payload = (over: Record<string, unknown> = {}) => ({
+  const META = {
+    brand_id: CLAIMS.brandId,
+    device_id: CLAIMS.deviceId,
+    device_role: CLAIMS.role,
+    device_location_id: CLAIMS.locationId,
+    device_token_version: CLAIMS.tokenVersion,
+  };
+
+  /**
+   * Two parameters, because the callers want opposite things: `over` replaces a
+   * top-level claim outright, `meta` merges into app_metadata. Merging used to
+   * be a spread inside a single argument, which `...over` then overwrote --
+   * so the token-version case below shipped a payload carrying nothing but a
+   * version, and was refused for its missing brand id several lines before the
+   * guard it names. It passed throughout, and mutation is what noticed.
+   */
+  const payload = (
+    over: Record<string, unknown> = {},
+    meta: Record<string, unknown> = {},
+  ) => ({
     role: 'authenticated',
     aud: 'authenticated',
     exp: Math.floor(NOW / 1000) + 3600,
-    app_metadata: {
-      brand_id: CLAIMS.brandId,
-      device_id: CLAIMS.deviceId,
-      device_role: CLAIMS.role,
-      device_location_id: CLAIMS.locationId,
-      device_token_version: CLAIMS.tokenVersion,
-      ...(over.app_metadata as object ?? {}),
-    },
+    app_metadata: { ...META, ...meta },
     ...over,
   });
 
@@ -832,9 +844,18 @@ describe('verifyDeviceToken also rejects', () => {
     assert.equal(verifyDeviceToken(resign(payload({ app_metadata: 'nope' })), KEY, NOW), null);
   });
 
+  /**
+   * A number, so the typeof arm passes and Number.isInteger is the only thing
+   * left to refuse it. Every other field stays valid, or the token dies to the
+   * uuid checks above and this proves nothing.
+   */
   it('a token version that is a number but not a whole one', () => {
-    const token = resign(payload({ app_metadata: { device_token_version: 1.5 } }));
-    assert.equal(verifyDeviceToken(token, KEY, NOW), null);
+    for (const version of [1.5, NaN, Infinity]) {
+      const token = resign(payload({}, { device_token_version: version }));
+      assert.equal(verifyDeviceToken(token, KEY, NOW), null, String(version));
+    }
+    const whole = resign(payload({}, { device_token_version: 2 }));
+    assert.equal(verifyDeviceToken(whole, KEY, NOW)?.tokenVersion, 2, 'the control');
   });
 });
 

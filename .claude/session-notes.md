@@ -170,3 +170,47 @@
   - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: ## 1. Primary Request and Intent There has been exactly **one** genuine user message in this entire conversation — a large shell handoff pr
   - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: There has been exactly **one** genuine user message in this entire conversation — a large shell handoff prom
   - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: There has been exactly **one** genuine user message in this entire conversation — a large shell handoff prom
+
+## Compaction checkpoint — 2026-08-29 21:14:52 (auto)
+
+- branch: `feat/device-refresh-secrets`
+- uncommitted (5):
+  - M scripts/mutate.ts
+  - ?? .claude/session-notes.md
+  - ?? apps/display/.claude/
+  - ?? apps/hq/.claude/
+  - ?? apps/hq/lib/api-auth.test.ts
+- recent commits:
+  - c30cf02 Test that device admin refuses before it validates or queries
+  - 621441b Remove two Vercel names nothing reads, 19 lines above the two that work
+  - 7a2cb06 Test the device credential guards mutation found unexercised
+  - 86a8949 Stop advertising a SendGrid key the engine never reads
+  - 7a4eee7 Add a focused mutation tester, and close the two gaps it found
+- recent asks:
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. **Primary Request and Intent:** There has been exactly **one** genuine user message in this entire conversation (delivered before two ea
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. **Primary Request and Intent:** There has been exactly **one** genuine user message in this entire conversation (delivered before earlie
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: ## 1. Primary Request and Intent There has been exactly **one** genuine user message in this entire conversation — a large shell handoff pr
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: There has been exactly **one** genuine user message in this entire conversation — a large shell handoff prom
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: There has been exactly **one** genuine user message in this entire conversation — a large shell handoff prom
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: There has been exactly **one** genuine user message in this entire conversation — a large shell handoff prom
+
+## Compaction checkpoint — 2026-08-29 21:37:44 (auto)
+
+- branch: `feat/device-refresh-secrets`
+- uncommitted (3):
+  - ?? .claude/session-notes.md
+  - ?? apps/display/.claude/
+  - ?? apps/hq/.claude/
+- recent commits:
+  - 7551778 Document the five credentials the factory walkthroughs skipped
+  - 10b672d Record what mutation testing found, and what it cannot
+  - 955d12f Test the read the deep health probe would otherwise skip
+  - 18ad7c2 Fix a health check that fails against a correctly migrated database
+  - e62640d Test the platform API's authorization edge, which had none
+- recent asks:
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. **Primary Request and Intent:** There has been exactly **one** genuine user message in this entire conversation (delivered before earlie
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: ## 1. Primary Request and Intent There has been exactly **one** genuine user message in this entire conversation — a large shell handoff pr
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: There has been exactly **one** genuine user message in this entire conversation — a large shell handoff prom
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: There has been exactly **one** genuine user message in this entire conversation — a large shell handoff prom
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: There has been exactly **one** genuine user message in this entire conversation — a large shell handoff prom
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: There has been exactly **one** genuine user message in this entire conversation — a large shell handoff prom
