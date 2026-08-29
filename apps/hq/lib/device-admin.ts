@@ -12,7 +12,7 @@
  * So it lives here instead: one implementation, callable from a route handler
  * and from a server action, and tested.
  */
-import { canManageLocation, type DeviceRole, type TenantClaims } from '@platform/schema';
+import { canManageLocation, DEVICE_ROLES, type DeviceRole, type TenantClaims } from '@platform/schema';
 import {
   DeviceError,
   issueDeviceRefreshSecret,
@@ -34,9 +34,6 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  * when the deployment is fixed.
  */
 export type DeviceAdminDeps = { db: SupabaseClient; loadKey: () => DeviceSigningKey };
-
-/** Roles a physical screen can be paired as. A person's role is not one of these. */
-export const PAIRABLE_ROLES: readonly DeviceRole[] = ['kiosk', 'pos', 'display', 'prep'];
 
 const LABEL_MAX = 60;
 
@@ -91,7 +88,7 @@ export async function pairDevice(
   assertStaff(claims);
   const label = input.label.trim();
   if (!input.locationId) throw new DeviceAdminError('invalid_request', 'locationId is required.');
-  if (!PAIRABLE_ROLES.includes(input.role as DeviceRole)) {
+  if (!DEVICE_ROLES.includes(input.role as DeviceRole)) {
     throw new DeviceAdminError('invalid_request', 'role must be kiosk, pos, display or prep.');
   }
   if (label.length === 0 || label.length > LABEL_MAX) {

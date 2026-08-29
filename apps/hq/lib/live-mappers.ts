@@ -7,6 +7,7 @@
 import type {
   CampaignSummary,
   CustomerSummary,
+  DeviceSummary,
   DropSummary,
   FeeRow,
   KpiDay,
@@ -247,4 +248,52 @@ export function feeRowsOf(
     grouped.set(key, entry);
   }
   return [...grouped.values()].sort((a, b) => b.month.localeCompare(a.month) || a.locationName.localeCompare(b.locationName));
+}
+
+export type DeviceRowLike = {
+  id: string;
+  location_id: string;
+  role: string;
+  label: string;
+  paired_at: string | null;
+  revoked_at: string | null;
+  last_seen_at: string | null;
+  refresh_secret_hash: string | null;
+  refresh_secret_issued_at: string | null;
+  refresh_secret_last_used_at: string | null;
+};
+
+/**
+ * Reduces the device columns to the one thing an operator needs to read off a
+ * list: whether this screen will still be working tomorrow.
+ *
+ * Order matters. Revoked wins over everything, because a revoked row keeps its
+ * pairing timestamps and would otherwise read as healthy. Unpaired comes next,
+ * since a device with no paired_at has never run. Only then does the credential
+ * distinguish "durable" from "expiring" -- and expiring is the default rather
+ * than the exception, because a screen holding nothing but a twelve-hour token
+ * is the state this whole feature exists to get rid of.
+ *
+ * refresh_secret_hash is read as a boolean and never rendered. Any staff
+ * account can select it brand-wide, so its value must not reach a page.
+ */
+export function deviceSummariesOf(
+  rows: DeviceRowLike[], locationNames: ReadonlyMap<string, string>,
+): DeviceSummary[] {
+  return rows.map((row) => ({
+    id: row.id,
+    locationId: row.location_id,
+    locationName: locationNames.get(row.location_id) ?? 'Unknown location',
+    role: (['kiosk', 'pos', 'display', 'prep'] as const).find((role) => role === row.role) ?? 'prep',
+    label: row.label || 'Unlabelled',
+    health: row.revoked_at !== null
+      ? 'revoked'
+      : row.paired_at === null
+        ? 'unpaired'
+        : row.refresh_secret_hash !== null ? 'durable' : 'expiring',
+    pairedAt: row.paired_at,
+    lastSeenAt: row.last_seen_at,
+    secretIssuedAt: row.refresh_secret_issued_at,
+    secretLastUsedAt: row.refresh_secret_last_used_at,
+  }));
 }
