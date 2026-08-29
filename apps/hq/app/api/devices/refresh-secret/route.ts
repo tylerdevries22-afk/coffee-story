@@ -1,6 +1,6 @@
-import { canManageLocation } from '@platform/schema';
-import { DeviceError, issueDeviceRefreshSecret, loadDeviceSigningKey } from '@platform/engine';
+import { loadDeviceSigningKey } from '@platform/engine';
 
+import { deviceAdminStatus, issueRefreshSecret } from '../../../../lib/device-admin';
 import {
   authenticate, corsPreflight, jsonError, jsonWithCors, notConfigured,
   parseJsonBody, serverEnv, serviceDb,
@@ -27,41 +27,20 @@ export async function POST(request: Request) {
 
   const auth = await authenticate(request, db);
   if (auth instanceof Response) return auth;
-  if (!auth.claims.role) {
-    return jsonError(403, 'forbidden', 'Only staff can issue a device credential.');
-  }
 
   const body = await parseJsonBody<{ deviceId?: unknown }>(request);
   if (body instanceof Response) return body;
-  const deviceId = typeof body.deviceId === 'string' ? body.deviceId : '';
-  if (!deviceId) return jsonError(400, 'invalid_request', 'deviceId is required.');
-
-  // The engine scopes by brand. The location check is here because a
-  // location_manager who may pair a screen at their own store must not be able
-  // to mint a durable credential for one at another of the brand's stores.
-  const device = await db
-    .from('devices')
-    .select('location_id')
-    .eq('id', deviceId)
-    .eq('brand_id', auth.claims.brand_id)
-    .maybeSingle();
-  if (device.error) return jsonError(400, 'invalid_request', device.error.message);
-  const locationId = device.data?.location_id;
-  if (typeof locationId !== 'string' || !canManageLocation(auth.claims, locationId)) {
-    // One answer for "not yours" and "not there", so device ids stay unprobeable.
-    return jsonError(403, 'forbidden', 'You do not manage that device.');
-  }
 
   try {
-    const issued = await issueDeviceRefreshSecret(
-      { db, key: loadDeviceSigningKey() },
-      { brandId: auth.claims.brand_id, deviceId },
+    const issued = await issueRefreshSecret(
+      { db, loadKey: loadDeviceSigningKey },
+      auth.claims,
+      typeof body.deviceId === 'string' ? body.deviceId : '',
     );
     return jsonWithCors(issued, 201);
   } catch (error) {
-    if (error instanceof DeviceError) {
-      return jsonError(error.code === 'not_configured' ? 501 : 400, error.code, error.message);
-    }
+    const answer = deviceAdminStatus(error);
+    if (answer) return jsonError(answer.status, answer.code, answer.message);
     throw error;
   }
 }
