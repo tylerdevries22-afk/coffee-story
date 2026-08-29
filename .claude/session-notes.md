@@ -214,3 +214,45 @@
   - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: There has been exactly **one** genuine user message in this entire conversation — a large shell handoff prom
   - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: There has been exactly **one** genuine user message in this entire conversation — a large shell handoff prom
   - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: There has been exactly **one** genuine user message in this entire conversation — a large shell handoff prom
+
+## Compaction checkpoint — 2026-08-29 21:59:20 (auto)
+
+- branch: `feat/device-refresh-secrets`
+- uncommitted (3):
+  - ?? .claude/session-notes.md
+  - ?? apps/display/.claude/
+  - ?? apps/hq/.claude/
+- recent commits:
+  - 32d25d0 Record the advisor run, and check the grants it depends on
+  - 7551778 Document the five credentials the factory walkthroughs skipped
+  - 10b672d Record what mutation testing found, and what it cannot
+  - 955d12f Test the read the deep health probe would otherwise skip
+  - 18ad7c2 Fix a health check that fails against a correctly migrated database
+- recent asks:
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: ## 1. Primary Request and Intent There has been exactly **one** genuine user message in this entire conversation — a large shell handoff pr
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: There has been exactly **one** genuine user message in this entire conversation — a large shell handoff prom
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: There has been exactly **one** genuine user message in this entire conversation — a large shell handoff prom
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: There has been exactly **one** genuine user message in this entire conversation — a large shell handoff prom
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: There has been exactly **one** genuine user message in this entire conversation — a large shell handoff prom
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: There has been exactly **one** genuine user message in this entire conversation — a large shell handoff prom
+
+## Compaction checkpoint — 2026-08-29 22:29:43 (auto)
+
+- branch: `docs/release-security-and-config-findings` · 1 unpushed commit(s)
+- uncommitted (3):
+  - ?? .claude/session-notes.md
+  - ?? apps/display/.claude/
+  - ?? apps/hq/.claude/
+- recent commits:
+  - d0477e5 Record the security-surface sweep and what production is actually missing
+  - 2e389ad Merge pull request #54 from tylerdevries22-afk/dev
+  - 9a4f72f Merge pull request #53 from tylerdevries22-afk/feat/device-refresh-secrets
+  - 32d25d0 Record the advisor run, and check the grants it depends on
+  - 7551778 Document the five credentials the factory walkthroughs skipped
+- recent asks:
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: There has been exactly **one** genuine user message in this entire conversation — a large shell handoff prom
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: There has been exactly **one** genuine user message in this entire conversation — a large shell handoff prom
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: There has been exactly **one** genuine user message in this entire conversation — a large shell handoff prom
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: There has been exactly **one** genuine user message in this entire conversation — a large shell handoff prom
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: There has been exactly **one** genuine user message in this entire conversation — a large shell handoff prom
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: There has been exactly **one** genuine user message in this entire conversation — a large shell handoff prom
