@@ -43,6 +43,8 @@ on:
         required: false
       DISPLAY_DEVICE_TOKEN:
         required: false
+      DISPLAY_DEVICE_REFRESH_SECRET:
+        required: false
       EXPO_TOKEN:
         required: false
       EXPO_PUBLIC_API_URL:
@@ -294,6 +296,7 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           DISPLAY_DEVICE_TOKEN: ${{ secrets.DISPLAY_DEVICE_TOKEN }}
+          DISPLAY_DEVICE_REFRESH_SECRET: ${{ secrets.DISPLAY_DEVICE_REFRESH_SECRET }}
         run: |
           set -euo pipefail
           add_public() {
@@ -313,7 +316,11 @@ jobs:
             add_public NEXT_PUBLIC_SUPABASE_URL "$SUPABASE_URL"
             add_public HQ_ORIGIN "${{ needs.deploy-hq.outputs.url }}"
             if [ "$DEPLOY_ENVIRONMENT" = production ]; then
-              test -n "$DISPLAY_DEVICE_TOKEN" || { echo '::error::Set DISPLAY_DEVICE_TOKEN after pairing the production screen.'; exit 1; }
+              # Either credential keeps the screen up, so the two can be rolled
+              # out in either order. The refresh secret is the durable one: a
+              # static token goes dark twelve hours after this deploy.
+              test -n "$DISPLAY_DEVICE_REFRESH_SECRET" || test -n "$DISPLAY_DEVICE_TOKEN" \
+                || { echo '::error::Set DISPLAY_DEVICE_REFRESH_SECRET (preferred) or DISPLAY_DEVICE_TOKEN after pairing the production screen.'; exit 1; }
               add_public DISPLAY_DEMO_MODE 0
             else
               # A branch preview is a review surface, not a paired shop screen.
@@ -322,6 +329,7 @@ jobs:
               add_public DISPLAY_DEMO_MODE 1
             fi
             add_secret DISPLAY_DEVICE_TOKEN "$DISPLAY_DEVICE_TOKEN"
+            add_secret DISPLAY_DEVICE_REFRESH_SECRET "$DISPLAY_DEVICE_REFRESH_SECRET"
           else
             api_url="${{ needs.deploy-hq.outputs.url }}"
             api_host="${api_url#https://}"

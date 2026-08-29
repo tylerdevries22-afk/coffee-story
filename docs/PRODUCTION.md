@@ -44,7 +44,9 @@ the repository variable `SUPABASE_PROJECT_REF` as well. The database password is
 needed only when the factory creates a project and remains in Doppler; hosted
 migration and deployment workflows use the Management API access token. Add
 `SUPABASE_JWT_SECRET` to enable device pairing, then add
-`DISPLAY_DEVICE_TOKEN` after pairing the production pickup screen. Add
+`DISPLAY_DEVICE_REFRESH_SECRET` after pairing the production pickup screen.
+(`DISPLAY_DEVICE_TOKEN` still works and either one satisfies the deploy gate,
+but a static token stops resolving twelve hours after the deploy.) Add
 `OPENAI_API_KEY` when the autonomous training research pipeline is enabled.
 The workflow fails fast for the required values and skips optional
 integrations rather than deploying a partially configured secret.
@@ -152,7 +154,13 @@ bundle**):
 Pickup display (server environment; see `apps/display/.env.example`):
 
 - `NEXT_PUBLIC_SUPABASE_URL`
-- `DISPLAY_DEVICE_TOKEN` — one paired display JWT, never an anon key
+- `DISPLAY_DEVICE_REFRESH_SECRET` — the durable per-screen credential; the
+  display trades it for a twelve-hour token on demand, so it survives deploys
+  and overnight power cuts. Requires `HQ_ORIGIN`. Issue it once from the console
+  (`POST /api/devices/refresh-secret`); only its HMAC is stored, and revoking
+  the device clears it
+- `DISPLAY_DEVICE_TOKEN` — the static alternative: one paired display JWT, never
+  an anon key. Valid twelve hours from issue, so it needs a human to replace it
 - `HQ_ORIGIN` (optional custom HQ origin allowed to embed the display; defaults
   to `https://coffee-story-hq.vercel.app`)
 - `SENTRY_DSN` plus the shared Sentry upload variables when monitoring is on

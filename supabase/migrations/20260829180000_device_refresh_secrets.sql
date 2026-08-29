@@ -61,7 +61,7 @@ comment on column public.devices.refresh_secret_last_used_at is
 -- or kiosk tokens for any device at their location, indefinitely and without
 -- pairing. The service role carries no jwt_role and is unaffected.
 create or replace function app.protect_device_lifecycle() returns trigger
-language plpgsql as $$
+language plpgsql security invoker set search_path = '' as $$
 begin
   if app.jwt_role() is not null then
     if tg_op = 'INSERT' then
@@ -91,7 +91,7 @@ end $$;
 -- Enforced in the database rather than only in revokeDevice(), because the
 -- service role is what runs that path and nothing else would catch a miss.
 create or replace function app.clear_revoked_device_secrets() returns trigger
-language plpgsql as $$
+language plpgsql security invoker set search_path = '' as $$
 begin
   if new.revoked_at is not null and old.revoked_at is null then
     new.refresh_secret_hash := null;
@@ -154,6 +154,18 @@ begin
 
   if pg_catalog.to_regprocedure('app.clear_revoked_device_secrets()') is null then
     raise exception 'revoked devices do not clear their refresh secret';
+  end if;
+
+  -- Both guards run under a caller-supplied search_path unless it is pinned,
+  -- and app.jwt_role is exactly the call a planted schema would want to shadow.
+  if exists (
+    select 1 from pg_catalog.pg_proc p
+    join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'app'
+      and p.proname in ('protect_device_lifecycle', 'clear_revoked_device_secrets')
+      and coalesce(array_to_string(p.proconfig, ','), '') not like '%search_path%'
+  ) then
+    raise exception 'device guards do not pin search_path';
   end if;
 
   return '20260829180000';
