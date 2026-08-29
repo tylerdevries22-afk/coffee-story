@@ -59,6 +59,25 @@ describe('databaseHealthy', () => {
     assert.equal(calls, 4);
   });
 
+  /**
+   * A refused read with a healthy release is the shape that matters: the RPC
+   * answers correctly because the function is there, while the REST edge is
+   * rejecting the service key. Without the guard the probe reports healthy on
+   * a database no route can actually read from, since it only ever looks at
+   * the release. Found by mutation -- deleting the check left every other test
+   * here passing, because none of them had a read that failed without throwing.
+   */
+  it('does not accept a healthy release from a database it cannot read', async () => {
+    let readinessAsked = 0;
+    const healthy = await databaseHealthy(env, async (input) => {
+      if (input.includes('/brands?')) return new Response('forbidden', { status: 401 });
+      readinessAsked += 1;
+      return Response.json(REQUIRED_DATABASE_RELEASE);
+    }, 50);
+    assert.equal(healthy, false);
+    assert.equal(readinessAsked, 0, 'the release was consulted despite an unreadable database');
+  });
+
   it('retries transient read failures once', async () => {
     let calls = 0;
     const healthy = await databaseHealthy(env, async () => {
