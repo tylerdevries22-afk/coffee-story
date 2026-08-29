@@ -950,3 +950,82 @@ Two hardenings and one honest limit from this side:
   against accident, not a proof against intent; closing it needs a module-graph
   walk. The direct and one-hop paths are the ones anyone reaches for by
   accident, which is what a guard on this surface is for.
+
+## Mutation testing — 2026-08-29
+
+A passing suite proves the tests ran, not that they would notice if the code
+were wrong. `pnpm mutate` rewrites one operator at a time in a target file and
+re-runs that package's suite; a mutant that survives is a change no test
+objected to. It is pointed at the five surfaces where a silent wrong answer is
+a security or money bug, not at the monorepo, because a whole-repo number is one
+nobody reads.
+
+| Target | Area | Killed | Survivors |
+|---|---|---|---|
+| `packages/schema/src/claims.ts` | tenant isolation | 40/40 | — |
+| `apps/hq/lib/device-admin.ts` | authorization | 42/42 | — |
+| `packages/schema/src/order-status.ts` | order state | 27/28 | 1 |
+| `packages/engine/src/devices.ts` | device credentials | 184/188 | 4 |
+| `apps/hq/lib/api-auth.ts` | authorization | 71/73 | 2 |
+| `apps/hq/lib/deep-health.ts` | release gate | 14/15 | 1 |
+
+378 of 386, with all eight survivors read and accounted for below. `devices.ts`
+entered at 136/188 and `api-auth.ts` had no tests at all.
+
+### What it found that review had not
+
+- **A health check that fails against a correctly migrated database.**
+  `REQUIRED_DATABASE_RELEASE` had gone three migrations stale, and every test in
+  the file imported the constant and fed it back to the fetcher it was asserting
+  against, so any value passed. The drift check now derives the expectation from
+  `supabase/migrations` the way `verify.yml` does.
+- **A test helper that silently emptied the payload it was handed.**
+  `devices.test.ts` spread its overrides *after* `app_metadata`, so a case
+  written for the token-version guard shipped a token carrying only a version
+  and died several lines earlier for its missing brand id. It passed throughout
+  and proved nothing.
+- **A staff guard nothing could see.** `device-admin.ts` refuses a roleless
+  caller before validating input or querying, but the existing test asserted
+  only the error code — which the *later* location check also produces. The
+  guard's job is ordering: without it an unauthorized caller learns 400 from 403
+  and a database query runs on their behalf. Asserting the read counter is what
+  made it visible.
+- **A refusal that would have become a caller.** `authenticateAny` returns the
+  user path's `Response` as a response; spread into the caller shape instead it
+  becomes `{ kind: 'user' }` with no claims and no userId, which every
+  downstream route reads as authenticated.
+- **A deep health probe that would accept an unreadable database**, because the
+  only test of a failing read threw rather than returning a refusal cleanly.
+
+### The eight survivors, and why they stay
+
+Defence in depth is not free to measure: where a rule is enforced twice, no test
+can tell the layers apart, and the second copy always survives.
+
+- **`devices.ts` ×4.** `redeemPairingCode` checks revocation and expiry in
+  TypeScript and again in the compare-and-clear `WHERE` of the update, and both
+  paths throw the *same* error object. Four of its guards are that shape.
+- **`api-auth.ts` ×2.** Both are `persistSession: false` in a `createClient`
+  options object — behaviour inside the Supabase SDK, not on any surface this
+  module exposes. Killing them means asserting a config literal against a mock.
+- **`order-status.ts` ×1.** The visited set in `transitionPath` is a performance
+  guard while the graph is acyclic and a termination guard the moment anyone
+  adds a re-do edge. `order-status.test.ts` asserts acyclicity directly, so the
+  day the assumption stops holding is the day a test fails rather than the day
+  the board hangs.
+- **`deep-health.ts` ×1.** The 5000ms default timeout, off by one. Not a
+  behaviour any test can hold.
+
+Two of these were killable and are now killed: `authenticateAny`'s header guards
+are redundant with the identical pair inside `authenticate`, which re-reads the
+header itself — so the status is the same 401 either way and only the *wording*
+distinguishes them. That wording is the contract: this is the route a device
+reaches, and telling a kiosk to send a Supabase access token names a credential
+it has no way to obtain.
+
+### Limit
+
+The tool skips type nodes — it was scoring a `false` inside the return type
+`string | null | false` and reporting an unkillable survivor, since types are
+erased before anything runs. Its operator set is deliberately small, so a score
+here is evidence about the operators it applies and not a general claim.
