@@ -46,7 +46,17 @@ describe('hosted database promotion gate', () => {
     const deploymentSecrets = /const required:[\s\S]*?if \(process\.env\.OPENAI_API_KEY\)/.exec(factory)?.[0] ?? '';
     assert.ok(deploymentSecrets);
     assert.doesNotMatch(deploymentSecrets, /SUPABASE_DB_PASSWORD/);
-    assert.match(factory, /const retrySafe = \['GET', 'HEAD', 'OPTIONS', 'PUT', 'DELETE'\]\.includes\(method\)/);
+    // A blindly retried POST is how one run ends up with two repositories or
+    // two billed Supabase projects. Assert the property rather than the line:
+    // retries are gated on a method allowlist that POST is not in, and a POST
+    // earns one only by an opt-in the caller has to write down. Pinning the
+    // exact source text instead makes every reformat look like a regression
+    // and every real regression look like a reformat.
+    const retrySafe = /const retrySafe = ([\s\S]*?);\n/.exec(factory)?.[1] ?? '';
+    assert.ok(retrySafe, 'providerFetch must still decide retries from a retrySafe expression');
+    assert.match(retrySafe, /\['GET', 'HEAD', 'OPTIONS', 'PUT', 'DELETE'\]\.includes\(method\)/);
+    assert.doesNotMatch(retrySafe, /'POST'/);
+    assert.match(factory, /const attempts = retrySafe \? 2 : 1;/);
   });
 
   // A moving tag is resolved at run time, so a retagged or compromised upstream

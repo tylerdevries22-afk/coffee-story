@@ -82,3 +82,45 @@
   - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: There has been exactly **one** genuine user message in this entire conversation (delivered before the earlie
   - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. **Primary Request and Intent:** There has been exactly **one** genuine user message in this entire conversation (delivered before an ear
   - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. **Primary Request and Intent:** There has been exactly **one** genuine user message in this entire conversation (delivered before an ear
+
+## Compaction checkpoint — 2026-08-29 18:50:37 (auto)
+
+- branch: `feat/device-refresh-secrets`
+- uncommitted (2):
+  - ?? .claude/session-notes.md
+  - ?? apps/display/.claude/
+- recent commits:
+  - fc52103 fix: make the 86-clearing path agree on brand across both references
+  - 51d35aa test: assert the retry invariant rather than the line that expresses it
+  - acf783e test: derive the readiness chain instead of pinning one link
+  - 9de18dd fix: give every factory provider create a safe retry path
+  - 524bc02 feat: issue and deploy the durable display credential
+- recent asks:
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: The user issued a single large handoff prompt (delivered as a shell heredoc launching `claude --model opus -
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: There has been exactly **one** genuine user message in this conversation: a large shell handoff prompt (deli
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: There has been exactly **one** genuine user message in this entire conversation (delivered before the earlie
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. **Primary Request and Intent:** There has been exactly **one** genuine user message in this entire conversation (delivered before an ear
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. **Primary Request and Intent:** There has been exactly **one** genuine user message in this entire conversation (delivered before an ear
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. **Primary Request and Intent:** There has been exactly **one** genuine user message in this entire conversation (delivered before two ea
+
+## Compaction checkpoint — 2026-08-29 19:04:40 (auto)
+
+- branch: `feat/device-refresh-secrets`
+- uncommitted (4):
+  - ?? .claude/session-notes.md
+  - ?? apps/display/.claude/
+  - ?? apps/hq/lib/device-admin.test.ts
+  - ?? apps/hq/lib/device-admin.ts
+- recent commits:
+  - 38ccafa docs: record the adversarial tenant-isolation evidence
+  - fc52103 fix: make the 86-clearing path agree on brand across both references
+  - 51d35aa test: assert the retry invariant rather than the line that expresses it
+  - acf783e test: derive the readiness chain instead of pinning one link
+  - 9de18dd fix: give every factory provider create a safe retry path
+- recent asks:
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: There has been exactly **one** genuine user message in this conversation: a large shell handoff prompt (deli
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: There has been exactly **one** genuine user message in this entire conversation (delivered before the earlie
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. **Primary Request and Intent:** There has been exactly **one** genuine user message in this entire conversation (delivered before an ear
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. **Primary Request and Intent:** There has been exactly **one** genuine user message in this entire conversation (delivered before an ear
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. **Primary Request and Intent:** There has been exactly **one** genuine user message in this entire conversation (delivered before two ea
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. **Primary Request and Intent:** There has been exactly **one** genuine user message in this entire conversation (delivered before earlie
