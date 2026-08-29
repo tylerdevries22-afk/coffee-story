@@ -1029,3 +1029,51 @@ The tool skips type nodes — it was scoring a `false` inside the return type
 `string | null | false` and reporting an unkillable survivor, since types are
 erased before anything runs. Its operator set is deliberately small, so a score
 here is evidence about the operators it applies and not a general claim.
+
+## Supabase advisors — 2026-08-29
+
+Run against production (`jdujvkrigxyfutydfhob`) with the platform's own advisor
+API, both lint sets, immediately before promotion.
+
+| Set | Lints | ERROR | WARN | INFO |
+|---|---|---|---|---|
+| security | 4 | 0 | 0 | 4 |
+| performance | 384 | 0 | 0 | 384 |
+
+Zero WARN and zero ERROR, so nothing here blocks the release gate. The INFO
+lints are recorded below rather than dismissed, because two of the four
+security ones would be serious if the reading behind them were wrong.
+
+### `rls_enabled_no_policy` ×4 — verified fail-closed, not a gap
+
+`operation_action_receipts`, `operation_notification_outbox`,
+`platform_billing_webhook_events`, `platform_factory_audit_events` each have
+RLS enabled and no policy. The lint is written for the common mistake — RLS
+switched on and then left without a policy, so the table is unreachable by
+accident. These four are unreachable *by design*: they are service-role-only
+ledgers, and a table with RLS on and no policy denies every non-superuser role
+that is not `service_role` (which bypasses RLS).
+
+That reasoning only holds if the grants are actually absent, so it was checked
+rather than assumed — `has_table_privilege` against the live database, not the
+migration text:
+
+    anon           select/insert/update/delete = false on all four
+    authenticated  select/insert/update/delete = false on all four
+    service_role   all four privileges on all four
+
+So both layers deny: no grant to reach the table with, and no policy to pass if
+something did. Only `operation_action_receipts` spells the revoke out in its
+migration; the other three inherit the same end state. Adding explicit
+`revoke all ... from public, anon, authenticated` to the remaining three would
+make the intent legible in the SQL, but it would change no privilege — it is a
+readability change, and it needs a migration that extends the readiness chain,
+so it belongs after this release rather than inside it.
+
+### Performance INFO
+
+328 `unused_index`, 55 `unindexed_foreign_keys`, 1
+`auth_db_connections_absolute`. Unused-index counts are meaningless on a
+database that has not yet carried production traffic — every index looks unused
+before the first real week — so these are deliberately not acted on now. Revisit
+once the live order volume has had time to make the numbers mean something.
