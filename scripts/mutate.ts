@@ -76,6 +76,11 @@ function mutantsFor(source: ts.SourceFile): Mutant[] {
   };
 
   const visit = (node: ts.Node): void => {
+    // Types are erased before anything runs, so a mutant inside one cannot
+    // change behaviour and no test can kill it. `string | null | false` was
+    // reported as a surviving boolean for exactly this reason.
+    if (ts.isTypeNode(node)) return;
+
     if (ts.isBinaryExpression(node)) {
       const token = node.operatorToken;
       const swaps = BINARY[text.slice(token.getStart(source), token.getEnd())];
