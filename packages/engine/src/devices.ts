@@ -368,7 +368,10 @@ export async function refreshDeviceToken(deps: DeviceDeps, claims: DeviceClaims)
   const nowMs = deps.now?.() ?? Date.now();
   const device = await loadActiveDevice(deps, claims);
   if (!device) throw new DeviceError('device_revoked', 'This device is no longer paired.');
-  void deps.db.from('devices').update({ last_seen_at: new Date(nowMs).toISOString() }).eq('id', device.id);
+  const heartbeat = await deps.db.from('devices')
+    .update({ last_seen_at: new Date(nowMs).toISOString() })
+    .eq('id', device.id);
+  if (heartbeat.error) throw new DeviceError('invalid_request', heartbeat.error.message);
   return tokenFor(device, deps.key, nowMs);
 }
 

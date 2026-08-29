@@ -59,7 +59,12 @@ function logFactory(event: string, metadata: Record<string, unknown>): void {
 
 async function providerFetch(url: RequestInfo | URL, init: RequestInit): Promise<Response> {
   let failure: Error | null = null;
-  for (let attempt = 1; attempt <= 2; attempt += 1) {
+  const method = (init.method ?? 'GET').toUpperCase();
+  const headers = new Headers(init.headers);
+  const retrySafe = ['GET', 'HEAD', 'OPTIONS', 'PUT', 'DELETE'].includes(method)
+    || headers.has('Idempotency-Key');
+  const attempts = retrySafe ? 2 : 1;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
       const response = await fetch(url, { ...init, signal: AbortSignal.timeout(45_000) });
       if (response.ok || (response.status < 500 && response.status !== 429)) return response;
@@ -410,7 +415,6 @@ async function synchronizeGitHubDeployment(run: FactoryRunRow, repository: strin
   const secrets = await readDopplerSecrets(run.tenantSlug);
   const required: Record<string, string | undefined> = {
     SUPABASE_ACCESS_TOKEN: requiredEnvironment('SUPABASE_MANAGEMENT_TOKEN'),
-    SUPABASE_DB_PASSWORD: secrets.SUPABASE_DB_PASSWORD,
     SUPABASE_URL: secrets.SUPABASE_URL,
     SUPABASE_PUBLISHABLE_KEY: secrets.SUPABASE_PUBLISHABLE_KEY,
     SUPABASE_SERVICE_ROLE_KEY: secrets.SUPABASE_SERVICE_ROLE_KEY,
