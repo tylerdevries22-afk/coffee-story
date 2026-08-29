@@ -18,7 +18,9 @@ const volatilityFix = readFileSync(join(dirname(fileURLToPath(import.meta.url)),
   '20260828152200_release_readiness_volatility.sql'), 'utf8');
 const competencyAward = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'supabase', 'migrations',
   '20260828163000_award_training_competencies.sql'), 'utf8');
-const operationsSql = `${migration}\n${hardening}\n${advisorHardening}\n${releaseHardening}\n${reviewFixes}\n${volatilityFix}\n${competencyAward}`;
+const readinessRepair = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'supabase', 'migrations',
+  '20260828192003_repair_release_readiness_chain.sql'), 'utf8');
+const operationsSql = `${migration}\n${hardening}\n${advisorHardening}\n${releaseHardening}\n${reviewFixes}\n${volatilityFix}\n${competencyAward}\n${readinessRepair}`;
 
 describe('tenant operations migration', () => {
   it('keeps the platform schema industry-neutral', () => {
@@ -56,6 +58,10 @@ describe('tenant operations migration', () => {
       /create or replace function public\.platform_release_readiness\(\)\s+returns text language plpgsql stable security invoker/);
     assert.match(competencyAward,
       /create or replace function public\.platform_release_readiness\(\)\s+returns text language plpgsql stable security invoker/);
+    assert.match(readinessRepair,
+      /create or replace function app\.platform_release_readiness_20260828104000\(\)/);
+    assert.match(readinessRepair,
+      /app\.platform_release_readiness_20260828104000\(\) <> '20260828104000'/);
   });
 
   it('issues training competencies through one tenant-safe idempotent contract', () => {

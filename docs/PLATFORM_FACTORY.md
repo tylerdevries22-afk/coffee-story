@@ -2,10 +2,11 @@
 
 ![Platform factory flow](./assets/platform-factory-flow.svg)
 
-The recommended model is **one isolated GitHub/Supabase/Vercel stack per industry**
-and **many RLS-isolated tenant brands inside that stack**. This gives franchise
-operators shared upgrades without mixing mutable customer data, and lets a materially
-different industry evolve independently.
+The canonical model is **one isolated GitHub/Supabase/Vercel stack per tenant brand**,
+created from a shared, versioned industry blueprint. This gives each franchise a
+separate failure, billing, credential, and data boundary while shared packages and
+templates preserve one upgrade path. A materially different industry changes its
+blueprint and vocabulary, not the tenant-safe runtime contracts.
 
 The HQ **Settings → Onboarding** page is the operator surface. It creates a private,
 idempotent run in hosted Supabase, exposes reviewed credential walkthroughs, and
@@ -86,7 +87,8 @@ Owner: platform or client organization. Use a fine-grained Management API token 
 project-creation access for the selected organization. Project creation requires a
 database password; generate it in the workflow and store it immediately in Doppler as
 `SUPABASE_DB_PASSWORD` for initial project creation and emergency direct access.
-Deployments use the Management API token instead. Supabase deliberately does not return
+Never copy that password into GitHub Actions or Vercel. Deployments use the Management
+API token instead. Supabase deliberately does not return
 the production database password later. Never return it to a browser or persist it in
 the control-plane tables. The Management
 API is rate-limited, so the factory tasks use bounded retries and idempotency.
