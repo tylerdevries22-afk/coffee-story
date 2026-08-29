@@ -4,11 +4,13 @@ import { describe, it } from 'node:test';
 import {
   campaignSummariesOf,
   customerSummariesOf,
+  deviceSummariesOf,
   dropSummariesOf,
   feeRowsOf,
   kpiDaysOf,
   locationSummariesOf,
   menuSummariesOf,
+  type DeviceRowLike,
 } from './live-mappers';
 
 describe('kpiDaysOf', () => {
@@ -118,5 +120,51 @@ describe('feeRowsOf', () => {
     assert.equal(rows.length, 2);
     assert.deepEqual(rows[0], { month: '2026-08', locationId: 'l1', locationName: 'Main', grossCents: 3000, feeCents: 90, payments: 2 });
     assert.equal(rows[1]!.month, '2026-07');
+  });
+});
+
+describe('deviceSummariesOf', () => {
+  const row: DeviceRowLike = {
+    id: 'd1', location_id: 'l1', role: 'display', label: 'Pickup board',
+    paired_at: '2026-08-20T10:00:00.000Z', revoked_at: null, last_seen_at: '2026-08-22T17:00:00.000Z',
+    refresh_secret_hash: null, refresh_secret_issued_at: null, refresh_secret_last_used_at: null,
+  };
+  const names = new Map([['l1', 'Havana St']]);
+  const one = (overrides: Partial<DeviceRowLike>) => deviceSummariesOf([{ ...row, ...overrides }], names)[0]!;
+
+  it('reads a paired screen holding only a twelve-hour token as expiring', () => {
+    assert.equal(one({}).health, 'expiring');
+  });
+
+  it('reads a screen holding a refresh secret as durable', () => {
+    assert.equal(one({ refresh_secret_hash: 'hmac' }).health, 'durable');
+  });
+
+  /**
+   * Revocation leaves paired_at and the timestamps in place, so a revoked
+   * screen would otherwise read as healthy on the one page an operator checks
+   * to find out why a wall went dark.
+   */
+  it('lets revoked win over a credential it still appears to hold', () => {
+    assert.equal(one({ refresh_secret_hash: 'hmac', revoked_at: '2026-08-22T18:00:00.000Z' }).health, 'revoked');
+  });
+
+  it('reads a device that has never paired as unpaired', () => {
+    assert.equal(one({ paired_at: null }).health, 'unpaired');
+  });
+
+  /** The hash is selectable brand-wide by any staff account, so it must not reach a page. */
+  it('never carries the secret hash into the summary', () => {
+    assert.equal(JSON.stringify(one({ refresh_secret_hash: 'hmac' })).includes('hmac'), false);
+  });
+
+  it('names the location, and says so plainly when it cannot', () => {
+    assert.equal(one({}).locationName, 'Havana St');
+    assert.equal(one({ location_id: 'gone' }).locationName, 'Unknown location');
+  });
+
+  it('falls back rather than trusting an unexpected role string', () => {
+    assert.equal(one({ role: 'brand_owner' }).role, 'prep');
+    assert.equal(one({ label: '' }).label, 'Unlabelled');
   });
 });

@@ -214,6 +214,17 @@ label.field input, label.field select, label.field textarea {
   margin-bottom: 24px;
 }
 
+/* A notice that reports a failure has to look unlike one that reports success;
+   without this the two were the same accent rule. */
+.notice.danger { border-left-color: var(--danger); color: var(--text); }
+
+/* ---- devices ---- */
+.device-pair-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
+.device-pair-form label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--text-muted); }
+.device-pair-form input, .device-pair-form select { padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: inherit; font-size: 15px; }
+.device-secret { display: block; margin: 10px 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; overflow-wrap: anywhere; user-select: all; font-size: 14px; }
+.device-actions { display: inline-flex; gap: 8px; justify-content: flex-end; }
+
 /* ---- sign-in ---- */
 .login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
 .login-card { width: 100%; max-width: 420px; }

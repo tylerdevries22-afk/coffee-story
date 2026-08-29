@@ -8,6 +8,8 @@ import { resolveBoardConfig, type BoardConfig } from '@platform/domain';
 import type { BoardTicketRow } from '@platform/schema';
 import { resolveCopy, type BrandCopy } from '@platform/ui/copy';
 
+import { deviceToken, deviceTokenConfigured } from './device-token';
+
 import { DEMO_BRAND_CONFIG, demoBoardAt, demoLocationName } from './demo-board';
 import { displayTheme, type DisplayTheme } from './theme';
 
@@ -54,16 +56,27 @@ const synchronizedPreview = previewWallEnabled(
  * Found by the session working device pairing, whose 0038 issues the real
  * tokens this now requires.
  */
-function client(): SupabaseClient | null {
+async function client(): Promise<SupabaseClient | null> {
   if (synchronizedPreview) return null;
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.DISPLAY_DEVICE_TOKEN;
+  // DISPLAY_DEVICE_TOKEN, or a token derived from the refresh secret when one
+  // is configured. Never the anon key, for the reason above.
+  const key = await deviceToken();
   if (!url || !key) return null;
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
+/**
+ * Whether this screen has a credential at all.
+ *
+ * Stays synchronous, and deliberately does not mint a token: the callers are
+ * route guards deciding between the board and the unpaired screen, and making
+ * that decision depend on a network round trip would turn a slow HQ into a
+ * screen that claims it was never paired.
+ */
 export function isConfigured(): boolean {
-  return client() !== null;
+  return !synchronizedPreview && Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL)
+    && deviceTokenConfigured();
 }
 
 /**
@@ -238,7 +251,7 @@ export async function synchronizedFixtureTickets(
  * header, rather than taking the whole surface down.
  */
 export async function loadBoard(locationId: string): Promise<BoardSnapshot> {
-  const db = client();
+  const db = await client();
   if (!db) {
     if (!demoAllowed()) return unpaired();
     try { return fixtures(locationId, false, await synchronizedFixtureTickets(locationId)); }
@@ -278,7 +291,7 @@ export async function loadBoard(locationId: string): Promise<BoardSnapshot> {
  * working, and cannot catch it when it stops.
  */
 export async function loadBoardTickets(locationId: string): Promise<BoardTicketRow[]> {
-  const db = client();
+  const db = await client();
   if (!db) {
     if (!demoAllowed()) return [];
     return synchronizedFixtureTickets(locationId);

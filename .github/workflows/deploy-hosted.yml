@@ -43,6 +43,8 @@ on:
         required: false
       DISPLAY_DEVICE_TOKEN:
         required: false
+      DISPLAY_DEVICE_REFRESH_SECRET:
+        required: false
       EXPO_TOKEN:
         required: false
       EXPO_PUBLIC_API_URL:
@@ -106,11 +108,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
         with:
           version: 10.33.0
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
           cache: pnpm
@@ -133,16 +135,16 @@ jobs:
     outputs:
       url: ${{ steps.deploy.outputs.url }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
         with:
           version: 10.33.0
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - uses: supabase/setup-cli@v3
+      - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
         with:
           version: 2.116.0
       - name: Resolve the target Supabase project
@@ -265,16 +267,16 @@ jobs:
           - surface: operator
           - surface: kiosk
     steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
         with:
           version: 10.33.0
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - uses: supabase/setup-cli@v3
+      - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
         with:
           version: 2.116.0
       - name: Resolve the target Supabase public configuration
@@ -294,6 +296,7 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           DISPLAY_DEVICE_TOKEN: ${{ secrets.DISPLAY_DEVICE_TOKEN }}
+          DISPLAY_DEVICE_REFRESH_SECRET: ${{ secrets.DISPLAY_DEVICE_REFRESH_SECRET }}
         run: |
           set -euo pipefail
           add_public() {
@@ -313,7 +316,11 @@ jobs:
             add_public NEXT_PUBLIC_SUPABASE_URL "$SUPABASE_URL"
             add_public HQ_ORIGIN "${{ needs.deploy-hq.outputs.url }}"
             if [ "$DEPLOY_ENVIRONMENT" = production ]; then
-              test -n "$DISPLAY_DEVICE_TOKEN" || { echo '::error::Set DISPLAY_DEVICE_TOKEN after pairing the production screen.'; exit 1; }
+              # Either credential keeps the screen up, so the two can be rolled
+              # out in either order. The refresh secret is the durable one: a
+              # static token goes dark twelve hours after this deploy.
+              test -n "$DISPLAY_DEVICE_REFRESH_SECRET" || test -n "$DISPLAY_DEVICE_TOKEN" \
+                || { echo '::error::Set DISPLAY_DEVICE_REFRESH_SECRET (preferred) or DISPLAY_DEVICE_TOKEN after pairing the production screen.'; exit 1; }
               add_public DISPLAY_DEMO_MODE 0
             else
               # A branch preview is a review surface, not a paired shop screen.
@@ -322,6 +329,7 @@ jobs:
               add_public DISPLAY_DEMO_MODE 1
             fi
             add_secret DISPLAY_DEVICE_TOKEN "$DISPLAY_DEVICE_TOKEN"
+            add_secret DISPLAY_DEVICE_REFRESH_SECRET "$DISPLAY_DEVICE_REFRESH_SECRET"
           else
             api_url="${{ needs.deploy-hq.outputs.url }}"
             api_host="${api_url#https://}"
@@ -375,16 +383,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
         with:
           version: 10.33.0
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - uses: supabase/setup-cli@v3
+      - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
         with:
           version: 2.116.0
       - name: Resolve the target Supabase public configuration

@@ -2,7 +2,21 @@ import type { ServerEnv } from './api-auth';
 
 export type HealthFetch = (input: string, init: RequestInit) => Promise<Response>;
 
-export const REQUIRED_DATABASE_RELEASE = '20260828163000';
+/**
+ * The schema this build was verified against, as the release-readiness chain
+ * reports it: the timestamp of the newest migration.
+ *
+ * Hand-maintained because the check runs on Vercel, where the migrations
+ * directory is not in the bundle -- but not hand-trusted. `deep-health.test.ts`
+ * derives the same value from `supabase/migrations` the way verify.yml does
+ * and fails if the two ever part company. It had gone three releases stale
+ * before that test existed, which would have answered 503 to every deep health
+ * probe against a correctly migrated database.
+ *
+ * Equality, not a floor: `migrate-database` runs before `deploy-hq`, so the
+ * database is never behind the code it is asked to serve.
+ */
+export const REQUIRED_DATABASE_RELEASE = '20260829190000';
 
 /** One bounded retry against the database REST edge used by every API route. */
 export async function databaseHealthy(

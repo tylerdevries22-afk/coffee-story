@@ -1,11 +1,23 @@
-import { loadLocations } from '@/lib/data';
+import { canManageLocation } from '@platform/schema';
+
+import { DevicePanel, type DevicePanelDevice } from '@/components/device-panel';
+import { currentClaims } from '@/lib/auth';
+import { loadDevices, loadLocations } from '@/lib/data';
 // The console is live data behind a session: never prerender a fixture
 // snapshot at build time and serve it as if it were today's numbers.
 export const dynamic = 'force-dynamic';
 
 
 export default async function LocationsPage() {
-  const locations = await loadLocations();
+  const [locations, devices, claims] = await Promise.all([
+    loadLocations(), loadDevices(), currentClaims(),
+  ]);
+  // Whether a control is drawn; never whether the write is allowed. The same
+  // check runs again in lib/device-admin, against the same claims.
+  const manages = (locationId: string) => claims !== null && canManageLocation(claims, locationId);
+  const panelDevices: DevicePanelDevice[] = devices.map((device) => ({
+    ...device, manageable: manages(device.locationId),
+  }));
   return (
     <>
       <h1>Locations</h1>
@@ -48,6 +60,12 @@ export default async function LocationsPage() {
           </tbody>
         </table>
       </div>
+      <DevicePanel
+        configured={claims !== null}
+        devices={panelDevices}
+        pairableLocations={locations.filter((location) => manages(location.id))
+          .map((location) => ({ id: location.id, name: location.name }))}
+      />
       <div className="notice">
         Add a location from Onboarding — it creates the row, seeds hours, and
         walks Square connection in one pass.
