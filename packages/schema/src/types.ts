@@ -26,6 +26,16 @@ export type OrderChannel = 'app' | 'web' | 'kiosk' | 'pos';
  */
 export type OrderTenderType = 'pay_at_pickup' | 'external' | 'square_link' | 'square_card';
 export type DeviceRole = 'kiosk' | 'pos' | 'display' | 'prep';
+
+/**
+ * The same four roles as a value, so a form can offer them and a server can
+ * check them against one list.
+ *
+ * It lives here rather than beside the pairing code because the console's
+ * device form is a client component: importing the allowlist from the module
+ * that also imports the engine would pull node crypto into a browser bundle.
+ */
+export const DEVICE_ROLES: readonly DeviceRole[] = ['kiosk', 'pos', 'display', 'prep'];
 export type PrepStatus = 'pending' | 'in_progress' | 'done' | 'abandoned';
 export type TaskRecurrence = 'opening' | 'closing' | 'daily' | 'weekly';
 export type OperationOccurrenceStatus =

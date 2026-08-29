@@ -124,3 +124,49 @@
   - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. **Primary Request and Intent:** There has been exactly **one** genuine user message in this entire conversation (delivered before an ear
   - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. **Primary Request and Intent:** There has been exactly **one** genuine user message in this entire conversation (delivered before two ea
   - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. **Primary Request and Intent:** There has been exactly **one** genuine user message in this entire conversation (delivered before earlie
+
+## Compaction checkpoint — 2026-08-29 20:19:33 (auto)
+
+- branch: `feat/device-refresh-secrets`
+- uncommitted (4):
+  - M .env.example
+  - ?? .claude/session-notes.md
+  - ?? apps/display/.claude/
+  - ?? apps/hq/.claude/
+- recent commits:
+  - 7a4eee7 Add a focused mutation tester, and close the two gaps it found
+  - 6c623bc Add the Devices surface the display runbook already pointed at
+  - 8fef666 Move device authorization into lib, and gate revoke on the location
+  - 38ccafa docs: record the adversarial tenant-isolation evidence
+  - fc52103 fix: make the 86-clearing path agree on brand across both references
+- recent asks:
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. **Primary Request and Intent:** There has been exactly **one** genuine user message in this entire conversation (delivered before an ear
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. **Primary Request and Intent:** There has been exactly **one** genuine user message in this entire conversation (delivered before an ear
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. **Primary Request and Intent:** There has been exactly **one** genuine user message in this entire conversation (delivered before two ea
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. **Primary Request and Intent:** There has been exactly **one** genuine user message in this entire conversation (delivered before earlie
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: ## 1. Primary Request and Intent There has been exactly **one** genuine user message in this entire conversation — a large shell handoff pr
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: There has been exactly **one** genuine user message in this entire conversation — a large shell handoff prom
+
+## Compaction checkpoint — 2026-08-29 20:31:49 (auto)
+
+- branch: `feat/device-refresh-secrets` · 1 unpushed commit(s)
+- uncommitted (6):
+  - M .env.example
+  - M packages/engine/src/devices.test.ts
+  - M packages/engine/src/devices.ts
+  - ?? .claude/session-notes.md
+  - ?? apps/display/.claude/
+  - ?? apps/hq/.claude/
+- recent commits:
+  - 86a8949 Stop advertising a SendGrid key the engine never reads
+  - 7a4eee7 Add a focused mutation tester, and close the two gaps it found
+  - 6c623bc Add the Devices surface the display runbook already pointed at
+  - 8fef666 Move device authorization into lib, and gate revoke on the location
+  - 38ccafa docs: record the adversarial tenant-isolation evidence
+- recent asks:
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. **Primary Request and Intent:** There has been exactly **one** genuine user message in this entire conversation (delivered before an ear
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. **Primary Request and Intent:** There has been exactly **one** genuine user message in this entire conversation (delivered before two ea
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. **Primary Request and Intent:** There has been exactly **one** genuine user message in this entire conversation (delivered before earlie
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: ## 1. Primary Request and Intent There has been exactly **one** genuine user message in this entire conversation — a large shell handoff pr
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: There has been exactly **one** genuine user message in this entire conversation — a large shell handoff prom
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: There has been exactly **one** genuine user message in this entire conversation — a large shell handoff prom

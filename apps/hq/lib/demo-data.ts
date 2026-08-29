@@ -34,6 +34,27 @@ export type LocationSummary = {
   hours: string;
 };
 
+/**
+ * A screen on a wall, as the console shows it.
+ *
+ * `health` is the operator-facing question -- is this thing going to keep
+ * working -- rather than a raw column. A device holding only a twelve-hour
+ * token is "expiring": it works now and stops at the end of the day with
+ * nobody to notice, which is the failure the durable secret exists to end.
+ */
+export type DeviceSummary = {
+  id: string;
+  locationId: string;
+  locationName: string;
+  role: 'kiosk' | 'pos' | 'display' | 'prep';
+  label: string;
+  health: 'revoked' | 'unpaired' | 'durable' | 'expiring';
+  pairedAt: string | null;
+  lastSeenAt: string | null;
+  secretIssuedAt: string | null;
+  secretLastUsedAt: string | null;
+};
+
 export type MenuItemSummary = {
   id: string;
   name: string;
@@ -101,6 +122,26 @@ export const DEMO_SESSION: SessionInfo = {
 export const DEMO_LOCATIONS: LocationSummary[] = [
   { id: 'loc-downtown', name: 'Downtown', city: 'Denver, CO', timezone: 'America/Denver', squareConnected: true, orderingPaused: false, hours: 'Mon–Thu 8–23 · Fri–Sat 8–24 · Sun 8–23' },
   { id: 'loc-uptown', name: 'Uptown', city: 'Denver, CO', timezone: 'America/Denver', squareConnected: false, orderingPaused: false, hours: 'Mon–Sun 8–22' },
+];
+
+export const DEMO_DEVICES: DeviceSummary[] = [
+  {
+    id: 'dev-lobby-display', locationId: 'loc-downtown', locationName: 'Downtown',
+    role: 'display', label: 'Pickup board', health: 'durable',
+    pairedAt: '2026-08-14T15:04:00.000Z', lastSeenAt: '2026-08-22T17:41:00.000Z',
+    secretIssuedAt: '2026-08-14T15:05:00.000Z', secretLastUsedAt: '2026-08-22T17:30:00.000Z',
+  },
+  {
+    id: 'dev-lobby-kiosk', locationId: 'loc-downtown', locationName: 'Downtown',
+    role: 'kiosk', label: 'Lobby kiosk 1', health: 'expiring',
+    pairedAt: '2026-08-14T15:12:00.000Z', lastSeenAt: '2026-08-22T17:39:00.000Z',
+    secretIssuedAt: null, secretLastUsedAt: null,
+  },
+  {
+    id: 'dev-uptown-display', locationId: 'loc-uptown', locationName: 'Uptown',
+    role: 'display', label: 'Pickup board', health: 'unpaired',
+    pairedAt: null, lastSeenAt: null, secretIssuedAt: null, secretLastUsedAt: null,
+  },
 ];
 
 const DAYS = ['2026-08-16', '2026-08-17', '2026-08-18', '2026-08-19', '2026-08-20', '2026-08-21', '2026-08-22'];

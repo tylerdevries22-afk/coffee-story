@@ -9,6 +9,7 @@
 import {
   DEMO_CAMPAIGNS,
   DEMO_CUSTOMERS,
+  DEMO_DEVICES,
   DEMO_DROPS,
   DEMO_FEES,
   DEMO_KPIS,
@@ -16,6 +17,7 @@ import {
   DEMO_MENU,
   type CampaignSummary,
   type CustomerSummary,
+  type DeviceSummary,
   type DropSummary,
   type FeeRow,
   type KpiDay,
@@ -27,6 +29,7 @@ import {
 import {
   campaignSummariesOf,
   customerSummariesOf,
+  deviceSummariesOf,
   dropSummariesOf,
   feeRowsOf,
   kpiDaysOf,
@@ -35,6 +38,7 @@ import {
   type CampaignRowLike,
   type CustomerOrderRow,
   type CustomerRowLike,
+  type DeviceRowLike,
   type DropPerformanceRow,
   type DropRowLike,
   type LocationRowLike,
@@ -155,6 +159,32 @@ export async function loadLocations(): Promise<LocationSummary[]> {
       square_connection_id: connected.has(row.id) ? row.id : null,
     })),
   );
+}
+
+/**
+ * Every screen in the brand, newest first.
+ *
+ * Deliberately brand-wide rather than filtered to the caller's locations:
+ * `devices_select` already admits any staff account brand-wide, so filtering
+ * here would hide rows without protecting them, and an operator who cannot see
+ * the display at the other store cannot tell you it has stopped. What is
+ * location-scoped is doing something to one -- that check lives in
+ * lib/device-admin and runs on every write.
+ */
+export async function loadDevices(): Promise<DeviceSummary[]> {
+  const client = await serverClient();
+  if (!client) return DEMO_DEVICES;
+  const [rows, names] = await Promise.all([
+    client
+      .from('devices')
+      .select('id, location_id, role, label, paired_at, revoked_at, last_seen_at, '
+        + 'refresh_secret_hash, refresh_secret_issued_at, refresh_secret_last_used_at')
+      .order('created_at', { ascending: false })
+      .returns<DeviceRowLike[]>(),
+    locationNames(),
+  ]);
+  if (rows.error) throw new Error(`devices: ${rows.error.message}`);
+  return deviceSummariesOf(rows.data ?? [], names);
 }
 
 export async function loadCampaigns(): Promise<CampaignSummary[]> {

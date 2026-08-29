@@ -7,6 +7,7 @@
     "typecheck": "pnpm -r --workspace-concurrency=1 typecheck && tsc -p scripts",
     "test": "pnpm -r --workspace-concurrency=1 test",
     "verify": "pnpm -r --workspace-concurrency=1 verify",
+    "mutate": "tsx scripts/mutate.ts",
     "preview": "tsx scripts/preview.ts",
     "onboard": "tsx scripts/onboard.ts",
     "supabase:promote": "tsx scripts/apply-hosted-migrations.ts",

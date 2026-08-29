@@ -1,5 +1,6 @@
-import { DeviceError, loadDeviceSigningKey, revokeDevice } from '@platform/engine';
+import { loadDeviceSigningKey } from '@platform/engine';
 
+import { deviceAdminStatus, revokePairedDevice } from '../../../../lib/device-admin';
 import {
   authenticate, corsPreflight, jsonError, jsonWithCors, notConfigured,
   parseJsonBody, serverEnv, serviceDb,
@@ -16,6 +17,9 @@ export function OPTIONS() { return corsPreflight(); }
  * because the engine zeroes `token_version`, and every request compares the
  * version in the token against the row. A stolen tablet stops working on the
  * next request rather than at the end of the shift.
+ *
+ * Gated on the device's location, not merely on holding a role -- see
+ * lib/device-admin for why that changed.
  */
 export async function POST(request: Request) {
   const env = serverEnv();
@@ -24,22 +28,20 @@ export async function POST(request: Request) {
 
   const auth = await authenticate(request, db);
   if (auth instanceof Response) return auth;
-  if (!auth.claims.role) return jsonError(403, 'forbidden', 'Only staff can revoke a device.');
 
   const body = await parseJsonBody<{ deviceId?: unknown }>(request);
   if (body instanceof Response) return body;
-  const deviceId = typeof body.deviceId === 'string' ? body.deviceId : '';
-  if (!deviceId) return jsonError(400, 'invalid_request', 'deviceId is required.');
 
   try {
-    // Scoped to the caller's brand, so a token from one tenant cannot revoke
-    // another tenant's hardware even with a correct device id.
-    await revokeDevice({ db, key: loadDeviceSigningKey() }, { brandId: auth.claims.brand_id, deviceId });
+    await revokePairedDevice(
+      { db, loadKey: loadDeviceSigningKey },
+      auth.claims,
+      typeof body.deviceId === 'string' ? body.deviceId : '',
+    );
     return jsonWithCors({ revoked: true }, 200);
   } catch (error) {
-    if (error instanceof DeviceError) {
-      return jsonError(error.code === 'not_configured' ? 501 : 400, error.code, error.message);
-    }
+    const answer = deviceAdminStatus(error);
+    if (answer) return jsonError(answer.status, answer.code, answer.message);
     throw error;
   }
 }

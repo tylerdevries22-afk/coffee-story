@@ -12,19 +12,28 @@
  * So it lives here instead: one implementation, callable from a route handler
  * and from a server action, and tested.
  */
-import { canManageLocation, type DeviceRole, type TenantClaims } from '@platform/schema';
+import { canManageLocation, DEVICE_ROLES, type DeviceRole, type TenantClaims } from '@platform/schema';
 import {
   DeviceError,
   issueDeviceRefreshSecret,
   issuePairingCode,
   revokeDevice,
-  type DeviceDeps,
   type DeviceRefreshSecret,
+  type DeviceSigningKey,
   type PairingInvite,
 } from '@platform/engine';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
-/** Roles a physical screen can be paired as. A person's role is not one of these. */
-export const PAIRABLE_ROLES: readonly DeviceRole[] = ['kiosk', 'pos', 'display', 'prep'];
+/**
+ * The signing key arrives as a thunk, not a value, so that authorization is
+ * decided before configuration is consulted.
+ *
+ * Loaded eagerly, a caller who may not touch a device got 501 "not configured"
+ * on a deployment missing its JWT secret instead of the 403 they had earned --
+ * and an answer that depends on deployment state is an answer that changes
+ * when the deployment is fixed.
+ */
+export type DeviceAdminDeps = { db: SupabaseClient; loadKey: () => DeviceSigningKey };
 
 const LABEL_MAX = 60;
 
@@ -49,7 +58,7 @@ function assertStaff(claims: TenantClaims): void {
  * elsewhere from one that does not exist at all.
  */
 export async function locationOfManagedDevice(
-  deps: Pick<DeviceDeps, 'db'>,
+  deps: Pick<DeviceAdminDeps, 'db'>,
   claims: TenantClaims,
   deviceId: string,
 ): Promise<string> {
@@ -72,14 +81,14 @@ export async function locationOfManagedDevice(
 }
 
 export async function pairDevice(
-  deps: DeviceDeps,
+  deps: DeviceAdminDeps,
   claims: TenantClaims,
   input: { locationId: string; role: string; label: string },
 ): Promise<PairingInvite> {
   assertStaff(claims);
   const label = input.label.trim();
   if (!input.locationId) throw new DeviceAdminError('invalid_request', 'locationId is required.');
-  if (!PAIRABLE_ROLES.includes(input.role as DeviceRole)) {
+  if (!DEVICE_ROLES.includes(input.role as DeviceRole)) {
     throw new DeviceAdminError('invalid_request', 'role must be kiosk, pos, display or prep.');
   }
   if (label.length === 0 || label.length > LABEL_MAX) {
@@ -89,7 +98,7 @@ export async function pairDevice(
   if (!canManageLocation(claims, input.locationId)) {
     throw new DeviceAdminError('forbidden', 'You do not manage that location.');
   }
-  return issuePairingCode(deps, {
+  return issuePairingCode({ db: deps.db, key: deps.loadKey() }, {
     brandId: claims.brand_id,
     locationId: input.locationId,
     role: input.role as DeviceRole,
@@ -98,12 +107,15 @@ export async function pairDevice(
 }
 
 export async function issueRefreshSecret(
-  deps: DeviceDeps,
+  deps: DeviceAdminDeps,
   claims: TenantClaims,
   deviceId: string,
 ): Promise<DeviceRefreshSecret> {
   await locationOfManagedDevice(deps, claims, deviceId);
-  return issueDeviceRefreshSecret(deps, { brandId: claims.brand_id, deviceId });
+  return issueDeviceRefreshSecret(
+    { db: deps.db, key: deps.loadKey() },
+    { brandId: claims.brand_id, deviceId },
+  );
 }
 
 /**
@@ -117,12 +129,12 @@ export async function issueRefreshSecret(
  * the only callers who lose anything are the ones who should never have had it.
  */
 export async function revokePairedDevice(
-  deps: DeviceDeps,
+  deps: DeviceAdminDeps,
   claims: TenantClaims,
   deviceId: string,
 ): Promise<void> {
   await locationOfManagedDevice(deps, claims, deviceId);
-  await revokeDevice(deps, { brandId: claims.brand_id, deviceId });
+  await revokeDevice({ db: deps.db, key: deps.loadKey() }, { brandId: claims.brand_id, deviceId });
 }
 
 /** Maps an engine or admin failure onto the status the API surface should answer. */

@@ -1,0 +1,33 @@
+
+## Compaction checkpoint — 2026-08-29 20:02:08 (auto)
+
+- branch: `feat/device-refresh-secrets` · 1 unpushed commit(s)
+- uncommitted (15):
+  - M apps/display/.env.example
+  - M apps/hq/app/(console)/locations/page.tsx
+  - M apps/hq/app/globals.css
+  - M apps/hq/lib/auth.ts
+  - M apps/hq/lib/data.ts
+  - M apps/hq/lib/demo-data.ts
+  - M apps/hq/lib/device-admin.ts
+  - M apps/hq/lib/live-mappers.test.ts
+  - M apps/hq/lib/live-mappers.ts
+  - M packages/schema/src/types.ts
+  - ?? .claude/session-notes.md
+  - ?? apps/display/.claude/
+  - ?? apps/hq/app/(console)/locations/actions.ts
+  - ?? apps/hq/components/device-panel.tsx
+  - ?? apps/hq/lib/device-action-state.ts
+- recent commits:
+  - 8fef666 Move device authorization into lib, and gate revoke on the location
+  - 38ccafa docs: record the adversarial tenant-isolation evidence
+  - fc52103 fix: make the 86-clearing path agree on brand across both references
+  - 51d35aa test: assert the retry invariant rather than the line that expresses it
+  - acf783e test: derive the readiness chain instead of pinning one link
+- recent asks:
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: There has been exactly **one** genuine user message in this entire conversation (delivered before the earlie
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. **Primary Request and Intent:** There has been exactly **one** genuine user message in this entire conversation (delivered before an ear
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. **Primary Request and Intent:** There has been exactly **one** genuine user message in this entire conversation (delivered before an ear
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. **Primary Request and Intent:** There has been exactly **one** genuine user message in this entire conversation (delivered before two ea
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. **Primary Request and Intent:** There has been exactly **one** genuine user message in this entire conversation (delivered before earlie
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: ## 1. Primary Request and Intent There has been exactly **one** genuine user message in this entire conversation — a large shell handoff pr

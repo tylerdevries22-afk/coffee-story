@@ -39,7 +39,7 @@ function deviceDb(row: { location_id: string } | null): SupabaseClient {
   return { from: () => lookup } as unknown as SupabaseClient;
 }
 
-const deps = (row: { location_id: string } | null) => ({ db: deviceDb(row), key: KEY });
+const deps = (row: { location_id: string } | null) => ({ db: deviceDb(row), loadKey: () => KEY });
 
 describe('locationOfManagedDevice', () => {
   it('gives a manager the location of a device at their own store', async () => {
