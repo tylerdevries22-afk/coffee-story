@@ -53,4 +53,22 @@ describe('canManageLocation', () => {
   it('gives customers nothing', () => {
     assert.equal(canManageLocation(parseTenantClaims({ brand_id: BRAND }), LOC), false);
   });
+
+  /**
+   * A customer's claim can carry location_ids -- an app that remembers a home
+   * store has every reason to put one there. Membership of that list is not
+   * authority, so the role check has to come first and has to be the one that
+   * decides. Found by mutation: dropping the `!claims?.role` guard left every
+   * other test passing, because until now no roleless claim in this file
+   * carried a location for the fallthrough to match.
+   */
+  it('refuses a customer who carries a location id', () => {
+    const guest = parseTenantClaims({ brand_id: BRAND, location_ids: [LOC] });
+    assert.equal(guest?.location_ids.includes(LOC), true);
+    assert.equal(canManageLocation(guest, LOC), false);
+  });
+
+  it('refuses a missing claim rather than throwing on it', () => {
+    assert.equal(canManageLocation(null, LOC), false);
+  });
 });

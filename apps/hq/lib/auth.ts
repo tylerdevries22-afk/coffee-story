@@ -4,7 +4,7 @@
  * console runs on the demo session so the whole surface is reviewable with
  * zero infrastructure. Role checks are the same code either way.
  */
-import { parseTenantClaims, type BrandRole } from '@platform/schema';
+import { parseTenantClaims, type BrandRole, type TenantClaims } from '@platform/schema';
 
 import { DEMO_SESSION, type SessionInfo } from './demo-data';
 import { previewWallRuntimeEnabled } from './demo-sync-http';
@@ -42,6 +42,34 @@ export async function currentSession(): Promise<SessionInfo | null> {
     brandId: claims.brand_id,
     brandName: brandNameFromMetadata(metadata) ?? 'Your brand',
   };
+}
+
+/**
+ * The signed-in user's full tenancy claims.
+ *
+ * SessionInfo carries a role but not location_ids, and "which locations" is
+ * exactly the part a role name cannot answer -- a location_manager is trusted
+ * at their own store and nowhere else. Device administration needs that, so it
+ * asks here rather than inferring it from the role.
+ *
+ * Null when unconfigured: there is no demo fallback, because every caller of
+ * this mutates real hardware and a fixture claim would authorize nothing
+ * truthfully.
+ */
+export async function currentClaims(): Promise<TenantClaims | null> {
+  if (!isConfigured()) return null;
+  const { serverClient } = await import('./supabase-server');
+  const client = await serverClient();
+  if (!client) return null;
+  // getUser verifies the token with GoTrue; getSession alone would trust
+  // whatever the cookie says. The claims still have to come out of the token's
+  // own payload -- the hook mints them there and never onto the user row.
+  const { data } = await client.auth.getUser();
+  if (!data.user) return null;
+  const { data: sessionData } = await client.auth.getSession();
+  const accessToken = sessionData.session?.access_token;
+  if (!accessToken) return null;
+  return parseTenantClaims(tokenAppMetadata(accessToken));
 }
 
 const ROLE_RANK: Record<BrandRole, number> = {

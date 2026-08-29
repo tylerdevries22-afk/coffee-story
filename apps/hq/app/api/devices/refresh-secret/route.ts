@@ -1,6 +1,6 @@
 import { loadDeviceSigningKey } from '@platform/engine';
 
-import { deviceAdminStatus, revokePairedDevice } from '../../../../lib/device-admin';
+import { deviceAdminStatus, issueRefreshSecret } from '../../../../lib/device-admin';
 import {
   authenticate, corsPreflight, jsonError, jsonWithCors, notConfigured,
   parseJsonBody, serverEnv, serviceDb,
@@ -10,16 +10,15 @@ export const dynamic = 'force-dynamic';
 export function OPTIONS() { return corsPreflight(); }
 
 /**
- * POST /api/devices/revoke — stop a screen, now.
+ * POST /api/devices/refresh-secret — mint the durable credential for a screen.
  *
- * Revocation has to bite on both paths. RLS sees it immediately because
- * `app.device_is_active` re-reads the row; the service-role path sees it
- * because the engine zeroes `token_version`, and every request compares the
- * version in the token against the row. A stolen tablet stops working on the
- * next request rather than at the end of the shift.
+ * A display is hardware nobody signs into, so its twelve-hour token has to be
+ * derived from something that outlives a deploy. This returns that something
+ * ONCE: only its HMAC is stored, for the reason `POST /api/devices` documents.
  *
- * Gated on the device's location, not merely on holding a role -- see
- * lib/device-admin for why that changed.
+ * Rotating is the same call. The outgoing secret keeps working for an overlap
+ * window, so a screen mid-render when an operator rotates does not go dark
+ * waiting to be handed the new one.
  */
 export async function POST(request: Request) {
   const env = serverEnv();
@@ -33,12 +32,12 @@ export async function POST(request: Request) {
   if (body instanceof Response) return body;
 
   try {
-    await revokePairedDevice(
+    const issued = await issueRefreshSecret(
       { db, loadKey: loadDeviceSigningKey },
       auth.claims,
       typeof body.deviceId === 'string' ? body.deviceId : '',
     );
-    return jsonWithCors({ revoked: true }, 200);
+    return jsonWithCors(issued, 201);
   } catch (error) {
     const answer = deviceAdminStatus(error);
     if (answer) return jsonError(answer.status, answer.code, answer.message);

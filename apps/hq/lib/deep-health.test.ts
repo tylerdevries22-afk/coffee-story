@@ -1,9 +1,35 @@
 import assert from 'node:assert/strict';
+import { readdirSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, it } from 'node:test';
 
 import { databaseHealthy, REQUIRED_DATABASE_RELEASE } from './deep-health';
 
 const env = { url: 'https://database.example.test', serviceRoleKey: 'service-key' };
+
+const MIGRATIONS = join(dirname(fileURLToPath(import.meta.url)), '../../../supabase/migrations');
+
+describe('REQUIRED_DATABASE_RELEASE', () => {
+  /**
+   * Every other test in this file feeds the constant back to itself, so a
+   * stale value passes them all -- and one did, three releases out of date,
+   * which fails the deep health probe against a correctly migrated database.
+   *
+   * This derives the expectation the way verify.yml derives its own: the
+   * timestamp prefix of the newest migration filename, which is what the
+   * readiness chain returns once that migration is applied. Adding a migration
+   * without moving the constant now fails here rather than in production.
+   */
+  it('names the newest migration, the way the release gate computes it', () => {
+    const newest = readdirSync(MIGRATIONS)
+      .filter((name) => name.endsWith('.sql'))
+      .sort()
+      .at(-1);
+    assert.ok(newest, 'no migrations found');
+    assert.equal(REQUIRED_DATABASE_RELEASE, newest.split('_')[0]);
+  });
+});
 
 describe('databaseHealthy', () => {
   it('requires both a database read and the exact release contract', async () => {
@@ -31,6 +57,25 @@ describe('databaseHealthy', () => {
     }, 50);
     assert.equal(healthy, false);
     assert.equal(calls, 4);
+  });
+
+  /**
+   * A refused read with a healthy release is the shape that matters: the RPC
+   * answers correctly because the function is there, while the REST edge is
+   * rejecting the service key. Without the guard the probe reports healthy on
+   * a database no route can actually read from, since it only ever looks at
+   * the release. Found by mutation -- deleting the check left every other test
+   * here passing, because none of them had a read that failed without throwing.
+   */
+  it('does not accept a healthy release from a database it cannot read', async () => {
+    let readinessAsked = 0;
+    const healthy = await databaseHealthy(env, async (input) => {
+      if (input.includes('/brands?')) return new Response('forbidden', { status: 401 });
+      readinessAsked += 1;
+      return Response.json(REQUIRED_DATABASE_RELEASE);
+    }, 50);
+    assert.equal(healthy, false);
+    assert.equal(readinessAsked, 0, 'the release was consulted despite an unreadable database');
   });
 
   it('retries transient read failures once', async () => {

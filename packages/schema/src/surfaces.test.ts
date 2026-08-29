@@ -18,6 +18,21 @@ function migrationNames(): string[] {
   return readdirSync(MIGRATIONS).filter((name) => name.endsWith('.sql')).sort();
 }
 
+/**
+ * The readiness versions, oldest first.
+ *
+ * Only a migration that extends the chain redefines the public function, so
+ * this is those files rather than every migration. Derived rather than written
+ * down: a hardcoded link has to be edited by hand on every migration, and the
+ * edit that gets forgotten is the one that matters.
+ */
+function readinessChain(): string[] {
+  return migrationNames()
+    .filter((name) => /create or replace function public\.platform_release_readiness\b/
+      .test(readFileSync(join(MIGRATIONS, name), 'utf8')))
+    .map((name) => name.split('_')[0] ?? '');
+}
+
 function allSql(): string {
   return readdirSync(MIGRATIONS)
     .filter((name) => name.endsWith('.sql'))
@@ -366,8 +381,19 @@ describe('atomic order commit', () => {
     assert.match(readiness, /security invoker/);
     assert.match(readiness, /language plpgsql stable/,
       'the read-only release contract remains callable through GET');
-    assert.match(readiness,
-      /app\.platform_release_readiness_20260828163000\(\) <> '20260828163000'/);
+    const chain = readinessChain();
+    const current = chain.at(-1) ?? '';
+    const previous = chain.at(-2) ?? '';
+    assert.ok(current && previous, 'the readiness chain needs at least two links');
+    // verify.yml derives the expected readiness from the newest migration
+    // filename, so a migration that does not extend the chain fails the gate
+    // closed against a version nothing returns. Assert that here, where the
+    // failure names the cause, rather than in CI where it names a mismatch.
+    assert.equal(current, migrationNames().at(-1)?.split('_')[0],
+      'the newest migration must extend the readiness chain');
+    assert.match(readiness, new RegExp(
+      `app\\.platform_release_readiness_${previous}\\(\\) <> '${previous}'`),
+    'each link asserts the one before it, so a skipped migration cannot pass');
     for (const contract of [
       /procedure\.proname = 'commit_order'/,
       /procedure\.pronargs = 18/,
@@ -385,7 +411,7 @@ describe('atomic order commit', () => {
       /tablename = 'operations_change_signals'/,
     ]) assert.match(releaseSql, contract);
     assert.match(releaseSql, /operation_queue_eligibility/);
-    assert.match(readiness, /return '20260828192003'/);
+    assert.match(readiness, new RegExp(`return '${current}'`));
     assert.match(releaseSql,
       /revoke all on function public\.platform_release_readiness\(\)[\s\S]*?to service_role;/);
   });

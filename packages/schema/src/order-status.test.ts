@@ -10,8 +10,10 @@ import {
   OPERATOR_TRANSITIONS,
   REVENUE_ORDER_STATUSES,
   canTransition,
+  isTerminal,
   isRevenueOrderStatus,
   transitionPath,
+  type OrderStatus,
 } from './order-status';
 
 // Migrations live in the repo-root supabase/ dir (CLI layout) since 0009+.
@@ -104,6 +106,34 @@ describe('transitionPath', () => {
     assert.equal(transitionPath('picked_up', 'in_progress'), null, 'the machine does not run backwards');
   });
 
+  /**
+   * transitionPath's visited set is a performance guard today and a
+   * termination guard the moment anyone adds a re-do edge -- a 'ready' that
+   * can go back to 'in_progress', say. Mutation testing cannot see the
+   * difference: with the graph acyclic, deleting the check changes only how
+   * much work the search does, so the mutant survives every behavioural test
+   * that could be written. This asserts the property that makes it survivable,
+   * so the day the assumption stops holding is the day this fails rather than
+   * the day the board hangs.
+   */
+  it('walks an acyclic graph, which is the only reason the visited set is optional', () => {
+    const edges = new Map<OrderStatus, OrderStatus[]>();
+    for (const [from, to] of ORDER_TRANSITIONS) {
+      edges.set(from, [...(edges.get(from) ?? []), to]);
+    }
+    const settled = new Set<OrderStatus>();
+    const onStack = new Set<OrderStatus>();
+    const walk = (node: OrderStatus, trail: OrderStatus[]): void => {
+      if (settled.has(node)) return;
+      assert.equal(onStack.has(node), false, `cycle: ${[...trail, node].join(' -> ')}`);
+      onStack.add(node);
+      for (const next of edges.get(node) ?? []) walk(next, [...trail, node]);
+      onStack.delete(node);
+      settled.add(node);
+    };
+    for (const status of ORDER_STATUSES) walk(status, []);
+  });
+
   it('agrees with canTransition on every single step it returns', () => {
     for (const from of ORDER_STATUSES) {
       for (const to of ORDER_STATUSES) {
@@ -116,5 +146,30 @@ describe('transitionPath', () => {
         }
       }
     }
+  });
+});
+
+describe('isTerminal', () => {
+  /**
+   * The whole enum, so a state added later has to be classified here rather
+   * than defaulting to "still moving" and quietly keeping a dead order on the
+   * board. Only these two are ends: picked_up is not, because a collected
+   * drink can still be refunded.
+   */
+  const TERMINAL: readonly OrderStatus[] = ['cancelled', 'refunded'];
+
+  it('ends at cancelled and refunded, and nowhere else', () => {
+    for (const status of ORDER_STATUSES) {
+      assert.equal(isTerminal(status), TERMINAL.includes(status), status);
+    }
+  });
+
+  /**
+   * The distinction the kiosk and the customer app both branch on: a picked-up
+   * order is finished for the barista and still open for the till.
+   */
+  it('keeps picked_up open, because it can still be refunded', () => {
+    assert.equal(isTerminal('picked_up'), false);
+    assert.equal(canTransition('picked_up', 'refunded'), true);
   });
 });

@@ -17,6 +17,7 @@ import {
   type FactoryRunInput,
 } from '../lib/factory-automation';
 import { encryptGitHubActionsSecret } from '../lib/github-actions-secrets';
+import { createOrAdopt } from '../lib/provider-create';
 
 type PlatformFactoryInput = { runId: string };
 type FactoryRunRow = FactoryRunInput & { id: string; supabaseRegion: string };
@@ -57,11 +58,17 @@ function logFactory(event: string, metadata: Record<string, unknown>): void {
   console.info(JSON.stringify({ severity: 'info', component: 'platform-factory', event, ...metadata }));
 }
 
-async function providerFetch(url: RequestInfo | URL, init: RequestInit): Promise<Response> {
+/**
+ * `idempotent` marks a POST whose repetition is harmless -- an upsert keyed by
+ * something the caller supplies. Creates are not that, and get their retry from
+ * createOrAdopt, which can tell a lost response from a write that never landed.
+ */
+async function providerFetch(url: RequestInfo | URL, init: RequestInit, idempotent = false): Promise<Response> {
   let failure: Error | null = null;
   const method = (init.method ?? 'GET').toUpperCase();
   const headers = new Headers(init.headers);
-  const retrySafe = ['GET', 'HEAD', 'OPTIONS', 'PUT', 'DELETE'].includes(method)
+  const retrySafe = idempotent
+    || ['GET', 'HEAD', 'OPTIONS', 'PUT', 'DELETE'].includes(method)
     || headers.has('Idempotency-Key');
   const attempts = retrySafe ? 2 : 1;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
@@ -234,13 +241,18 @@ async function provisionGitHub(run: FactoryRunRow): Promise<SafeResource> {
   const owner = requiredEnvironment('GITHUB_REPOSITORY_OWNER');
   const repository = `${owner}/${run.tenantSlug}`;
   const token = await githubInstallationToken();
-  let response = await providerFetch(`https://api.github.com/repos/${repository}`, { headers: githubHeaders(token) });
-  if (response.status === 404) {
+  const lookup = async (): Promise<Response | null> => {
+    const found = await providerFetch(`https://api.github.com/repos/${repository}`, { headers: githubHeaders(token) });
+    return found.status === 404 ? null : found;
+  };
+  let response = await lookup();
+  if (!response) {
     const templateOwner = encodeURIComponent(requiredEnvironment('GITHUB_TEMPLATE_OWNER'));
     const templateRepository = encodeURIComponent(requiredEnvironment('GITHUB_TEMPLATE_REPOSITORY'));
-    response = await providerFetch(`https://api.github.com/repos/${templateOwner}/${templateRepository}/generate`, {
-      method: 'POST', headers: githubHeaders(token), body: JSON.stringify(githubTemplateRequest(run.tenantSlug, owner)),
-    });
+    response = await createOrAdopt(`GitHub repository ${repository}`, () => providerFetch(
+      `https://api.github.com/repos/${templateOwner}/${templateRepository}/generate`,
+      { method: 'POST', headers: githubHeaders(token), body: JSON.stringify(githubTemplateRequest(run.tenantSlug, owner)) },
+    ), lookup, { onEvent: logFactory });
   }
   const payload = await providerJson<{ full_name?: string; html_url?: string }>(response, 'GitHub repository provisioning');
   const resource: SafeResource = { provider: 'github', kind: 'repository', externalId: payload.full_name ?? repository, displayName: repository, metadata: { url: payload.html_url ?? `https://github.com/${repository}` } };
@@ -258,11 +270,16 @@ async function provisionDoppler(run: FactoryRunRow): Promise<SafeResource> {
   const prior = await existingResource(run.id, 'doppler', 'project');
   if (prior) return prior;
   const project = run.tenantSlug;
-  let response = await providerFetch(`https://api.doppler.com/v3/projects/project?project=${encodeURIComponent(project)}`, { headers: dopplerHeaders() });
-  if (response.status === 404) {
-    response = await providerFetch('https://api.doppler.com/v3/projects', {
-      method: 'POST', headers: dopplerHeaders(), body: JSON.stringify(dopplerProjectRequest(project)),
-    });
+  const lookup = async (): Promise<Response | null> => {
+    const found = await providerFetch(`https://api.doppler.com/v3/projects/project?project=${encodeURIComponent(project)}`, { headers: dopplerHeaders() });
+    return found.status === 404 ? null : found;
+  };
+  let response = await lookup();
+  if (!response) {
+    response = await createOrAdopt(`Doppler project ${project}`, () => providerFetch(
+      'https://api.doppler.com/v3/projects',
+      { method: 'POST', headers: dopplerHeaders(), body: JSON.stringify(dopplerProjectRequest(project)) },
+    ), lookup, { onEvent: logFactory });
   }
   const payload = await providerJson<{ id?: string; name?: string }>(response, 'Doppler project provisioning');
   const resource: SafeResource = { provider: 'doppler', kind: 'project', externalId: payload.id ?? project, displayName: payload.name ?? project, metadata: { project } };
@@ -275,7 +292,7 @@ async function writeDopplerSecrets(project: string, secrets: Record<string, stri
   const config = process.env.DOPPLER_PRODUCTION_CONFIG?.trim() || 'prd';
   const response = await providerFetch('https://api.doppler.com/v3/configs/config/secrets', {
     method: 'POST', headers: dopplerHeaders(), body: JSON.stringify({ project, config, secrets }),
-  });
+  }, true);
   if (!response.ok) throw new Error(`Doppler secret synchronization failed (${response.status}).`);
 }
 
@@ -308,8 +325,10 @@ async function provisionSupabase(run: FactoryRunRow): Promise<SafeResource> {
     await writeDopplerSecrets(run.tenantSlug, { SUPABASE_DB_PASSWORD: databasePassword });
     const token = requiredEnvironment('SUPABASE_MANAGEMENT_TOKEN');
     const body = supabaseProjectRequest(run.tenantSlug, requiredEnvironment('SUPABASE_ORGANIZATION_SLUG'), run.supabaseRegion, databasePassword);
-    const response = await providerFetch('https://api.supabase.com/v1/projects', { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    project = await providerJson<SupabaseProject>(response, 'Supabase project provisioning');
+    project = await createOrAdopt(`Supabase project ${run.tenantSlug}`, async () => providerJson<SupabaseProject>(
+      await providerFetch('https://api.supabase.com/v1/projects', { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
+      'Supabase project provisioning',
+    ), () => findSupabaseProject(run.tenantSlug), { onEvent: logFactory });
   } else if (!storedSecrets.SUPABASE_DB_PASSWORD) {
     throw new Error('Existing Supabase project is missing its managed database-password reference.');
   }
@@ -355,10 +374,17 @@ function vercelVariables(surface: string, tenantSlug: string, secrets: Record<st
 
 async function createVercelProject(specification: ReturnType<typeof vercelProjectSpecifications>[number], variables: Array<Record<string, unknown>>): Promise<{ id?: string; name?: string; link?: { repo?: string } }> {
   const scope = vercelScopeQuery();
-  let response = await providerFetch(`https://api.vercel.com/v9/projects/${encodeURIComponent(specification.name)}?${scope}`, { headers: vercelHeaders() });
-  if (response.status === 404) {
+  const lookup = async (): Promise<Response | null> => {
+    const found = await providerFetch(`https://api.vercel.com/v9/projects/${encodeURIComponent(specification.name)}?${scope}`, { headers: vercelHeaders() });
+    return found.status === 404 ? null : found;
+  };
+  let response = await lookup();
+  if (!response) {
     const body = { name: specification.name, rootDirectory: specification.rootDirectory, gitRepository: { type: 'github', repo: specification.repository }, environmentVariables: variables, ...(specification.framework ? { framework: specification.framework } : {}) };
-    response = await providerFetch(`https://api.vercel.com/v11/projects?${scope}`, { method: 'POST', headers: vercelHeaders(), body: JSON.stringify(body) });
+    response = await createOrAdopt(`Vercel project ${specification.name}`, () => providerFetch(
+      `https://api.vercel.com/v11/projects?${scope}`,
+      { method: 'POST', headers: vercelHeaders(), body: JSON.stringify(body) },
+    ), lookup, { onEvent: logFactory });
   }
   return providerJson(response, `Vercel project provisioning for ${specification.name}`);
 }
@@ -397,7 +423,7 @@ async function putGitHubSecret(repository: string, token: string, publicKey: { k
 
 async function putGitHubVariable(repository: string, token: string, name: string, value: string): Promise<void> {
   const endpoint = `https://api.github.com/repos/${repository}/actions/variables`;
-  let response = await providerFetch(endpoint, { method: 'POST', headers: githubHeaders(token), body: JSON.stringify({ name, value }) });
+  let response = await providerFetch(endpoint, { method: 'POST', headers: githubHeaders(token), body: JSON.stringify({ name, value }) }, true);
   if (response.status === 409) {
     response = await providerFetch(`${endpoint}/${encodeURIComponent(name)}`, { method: 'PATCH', headers: githubHeaders(token), body: JSON.stringify({ name, value }) });
   }
