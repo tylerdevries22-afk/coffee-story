@@ -38,8 +38,20 @@ variables from `apps/kiosk/.env.example`, then use its preview or production
 build script.
 
 **Pickup display:** deploy `apps/display` with the values in
-`apps/display/.env.example`. `DISPLAY_DEVICE_TOKEN` must be the paired display
-JWT for the location shown; an anon key intentionally reads no tickets.
+`apps/display/.env.example`. Set `DISPLAY_DEVICE_REFRESH_SECRET` (with
+`HQ_ORIGIN`): the screen exchanges it for a twelve-hour token whenever it needs
+one, so a wall board survives a deploy and a night switched off.
+`DISPLAY_DEVICE_TOKEN` remains supported for a screen not yet migrated, but it
+expires twelve hours after it is issued and only a human can replace it. An anon
+key intentionally reads no tickets, in either mode.
+
+**Rotate a display credential:** `POST /api/devices/refresh-secret` with the
+device id, as staff who manage that location. The new secret is returned once;
+the outgoing one keeps working for a one-hour overlap, so the screen does not go
+dark between the call and the redeploy. Put the new value in the
+`DISPLAY_DEVICE_REFRESH_SECRET` Actions secret and re-run `deploy-hosted.yml`.
+To stop a screen outright use `POST /api/devices/revoke`, which zeroes the token
+version and clears the stored secret in the same write.
 
 **Jobs:** Vercel Cron calls authenticated `/api/jobs/run` every five minutes
 from `apps/hq/vercel.json`. Set `CRON_SECRET`; do not expose the route without

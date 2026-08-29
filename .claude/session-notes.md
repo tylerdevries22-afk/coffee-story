@@ -43,3 +43,42 @@
   - cd /Users/tylerdevries/Dev/coffee-story || exit 1 handoff_prompt=$(cat <<'CLAUDE_HANDOFF' Take exclusive ownership of completing and consolidating the Coffee Story platform. Work autonomously until every safe, in-scope task is finished, committed, pushed, merged through dev to main, deployed, and ve
   - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: The user issued a single large handoff prompt (delivered as a shell heredoc launching `claude --model opus -
   - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: There has been exactly **one** genuine user message in this conversation: a large shell handoff prompt (deli
+
+## Compaction checkpoint — 2026-08-29 18:22:51 (auto)
+
+- branch: `feat/device-refresh-secrets` · 3 unpushed commit(s)
+- uncommitted (2):
+  - ?? .claude/session-notes.md
+  - ?? apps/display/.claude/
+- recent commits:
+  - 524bc02 feat: issue and deploy the durable display credential
+  - f1df79b test: cover the display device-token resolver
+  - 7b002d4 feat: durable, revocable device refresh secrets
+  - fb598be ci: pin external actions to immutable commit SHAs (#52)
+  - a952500 Merge pull request #50 from tylerdevries22-afk/codex/release-readiness-repair
+- recent asks:
+  - cd /Users/tylerdevries/Dev/coffee-story || exit 1 handoff_prompt=$(cat <<'CLAUDE_HANDOFF' Take exclusive ownership of completing and consolidating the Coffee Story platform. Work autonomously until every safe, in-scope task is finished, committed, pushed, merged through dev to main, deployed, and ve
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: The user issued a single large handoff prompt (delivered as a shell heredoc launching `claude --model opus -
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: There has been exactly **one** genuine user message in this conversation: a large shell handoff prompt (deli
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: There has been exactly **one** genuine user message in this entire conversation (delivered before the earlie
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. **Primary Request and Intent:** There has been exactly **one** genuine user message in this entire conversation (delivered before an ear
+
+## Compaction checkpoint — 2026-08-29 18:34:13 (auto)
+
+- branch: `feat/device-refresh-secrets`
+- uncommitted (2):
+  - ?? .claude/session-notes.md
+  - ?? apps/display/.claude/
+- recent commits:
+  - acf783e test: derive the readiness chain instead of pinning one link
+  - 9de18dd fix: give every factory provider create a safe retry path
+  - 524bc02 feat: issue and deploy the durable display credential
+  - f1df79b test: cover the display device-token resolver
+  - 7b002d4 feat: durable, revocable device refresh secrets
+- recent asks:
+  - cd /Users/tylerdevries/Dev/coffee-story || exit 1 handoff_prompt=$(cat <<'CLAUDE_HANDOFF' Take exclusive ownership of completing and consolidating the Coffee Story platform. Work autonomously until every safe, in-scope task is finished, committed, pushed, merged through dev to main, deployed, and ve
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: The user issued a single large handoff prompt (delivered as a shell heredoc launching `claude --model opus -
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: There has been exactly **one** genuine user message in this conversation: a large shell handoff prompt (deli
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: There has been exactly **one** genuine user message in this entire conversation (delivered before the earlie
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. **Primary Request and Intent:** There has been exactly **one** genuine user message in this entire conversation (delivered before an ear
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. **Primary Request and Intent:** There has been exactly **one** genuine user message in this entire conversation (delivered before an ear

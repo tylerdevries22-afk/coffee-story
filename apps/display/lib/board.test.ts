@@ -303,13 +303,21 @@ describe('demoLocationName', () => {
  */
 describe('the display credential', () => {
   it('requires a device token and never falls back to the anon key', () => {
-    const source = readFileSync(join(process.cwd(), 'lib', 'board.ts'), 'utf8');
-    const fn = /function client\(\)[\s\S]*?\n}/.exec(source);
+    const board = readFileSync(join(process.cwd(), 'lib', 'board.ts'), 'utf8');
+    const fn = /async function client\(\)[\s\S]*?\n}/.exec(board);
     assert.ok(fn, 'client() is not defined');
-    assert.match(fn[0], /DISPLAY_DEVICE_TOKEN/);
-    assert.ok(!fn[0].includes('ANON_KEY'),
-      'the anon key satisfies app.can_read_board for nothing: it reads zero '
-      + 'rows and the board calls that "Live"');
+    // Resolving the credential moved to device-token.ts when the static token
+    // gained a refresh path, so this follows it there rather than matching a
+    // name that no longer appears here.
+    assert.match(fn[0], /await deviceToken\(\)/);
+
+    const resolver = readFileSync(join(process.cwd(), 'lib', 'device-token.ts'), 'utf8');
+    for (const [name, source] of [['board.ts', board], ['device-token.ts', resolver]] as const) {
+      // Reading it is the defect; board.ts explains in a comment why it stopped.
+      assert.ok(!/process\.env\.[A-Z_]*ANON[A-Z_]*/.test(source),
+        `${name}: the anon key satisfies app.can_read_board for nothing: it `
+        + 'reads zero rows and the board calls that "Live"');
+    }
   });
 });
 
