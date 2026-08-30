@@ -20,7 +20,7 @@ import {
   type OrderCart,
   type OrderLine,
 } from './cart';
-import { optionGroupsFor } from './menu-options';
+import { optionGroupsFor } from './menu-options.fixture';
 
 /**
  * The line at `index`, or a failed assertion naming which one was missing.
