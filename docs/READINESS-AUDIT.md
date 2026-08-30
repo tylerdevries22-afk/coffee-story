@@ -15,6 +15,43 @@ dropped rather than softened, so the absence of a concern is meaningful.
 
 ---
 
+## Status as of 2026-08-30
+
+This file is a dated snapshot, not a live checklist. The tree has moved since it
+was written; what follows is what a re-read of the current tree found, with the
+evidence for each. Everything not listed here still stands as written below.
+
+**Closed since 2026-08-23** — each verified by grep against the tree, not by
+recollection:
+
+| Finding | Evidence it is closed |
+|---|---|
+| `TAX_JURISDICTIONS` / `COMBINED_TAX_RATE` hardcoded one state's authorities in `packages/domain` | Both constants are gone; the only mentions left are comments recording why. Tax reads `tenants/<slug>/brand.json` `tax.jurisdictions` through `TENANT_TAX_JURISDICTIONS`. |
+| `PICKUP_LOCATIONS` hardcoded one shop's address | Constant gone; `resolvePickupLocations(config)` reads the tenant's own `location`/`locations`, covered by `fulfillment.test.ts`. |
+| `INFORMATION_PAGES` shipped one shop's copy | `information-pages.ts` derives its pages from `brand.json`; the tenant proper nouns that remain are in comments explaining what was removed. |
+| `MenuCategoryId` typed one shop's seven categories, so another tenant's menu would not typecheck | Gone from `menu-options.ts`; the shop's vocabulary now lives in `menu-options.fixture.ts`, which is not exported from the package and is imported only by tests. |
+| `REWARD_TIERS` shipped one shop's ladder on the live checkout | The ladder is tenant data: `loyalty.tiers` in `brand.json`, read by `resolveRewardTiers`. The shipped fallback names no trade, and `rules.test.ts` fails if it starts to. |
+| The order channel was inferred rather than recorded | `resolveOrderChannel` at `apps/hq/app/api/orders/route.ts:11`, tested in `order-channel.test.ts`. |
+| The display fell back to an anonymous "Live" read | Gone; the board reads with the server-held device token. |
+| No in-app account deletion, and no privacy policy in the tree | `apps/customer/src/screens/client/more/profile-and-preferences.tsx` and `docs/legal/privacy-policy.md`. |
+| An unused `@stripe/stripe-react-native` dependency in the customer app | Not in `apps/customer/package.json`. |
+
+**Still open**, both deliberate and both scoped to one market rather than one
+tenant, so neither blocks a second franchisee in the US:
+
+- **Currency is a literal.** `currency: 'USD'` appears 8 times in
+  `packages/engine/src/square/client.ts`, and `formatMoney` in
+  `packages/domain/src/money.ts:17` writes a `$` and formats with `en-US`.
+  A tenant outside the US would be charged and shown the wrong currency.
+- **Number and date formatting is `en-US` throughout** the HQ console and both
+  apps (`toLocaleString('en-US')`, ~14 call sites).
+
+**Not certifiable.** This document says which findings were checked and what was
+found. It does not say the platform has no defects; that is not something a
+re-read can establish.
+
+---
+
 ## Settled: the kiosk reads its menu live
 
 Recorded as an open decision on 2026-08-23 because a test assertion was
