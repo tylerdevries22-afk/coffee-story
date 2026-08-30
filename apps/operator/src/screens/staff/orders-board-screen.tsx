@@ -40,7 +40,6 @@ import {
 } from '@/features/operator/pin-lock';
 import { operatorLayout } from '@/lib/responsive-layout';
 import { formatMoney, queuePositions } from '@platform/domain';
-import { MENU_ITEMS } from '@/data/catalog';
 import { useOperator } from '@/state/operator-store';
 import { alpha, disabledState, toggleState } from '@platform/ui';
 import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
@@ -553,18 +552,23 @@ function MenuControlSheet({ visible, onClose }: { visible: boolean; onClose: () 
         86&rsquo;d items stay on the menu marked sold out today and cannot be added
         to a bag. Everything resets at open.
       </Text>
-      {MENU_ITEMS.map((service) => {
-        const is86d = operator.eightySixed.has(service.id);
+      {operator.menuItems.length === 0 ? (
+        <Text style={styles.refundHint}>
+          This shop&rsquo;s menu has not loaded yet. Nothing can be 86&rsquo;d until it does.
+        </Text>
+      ) : null}
+      {operator.menuItems.map((item) => {
+        const is86d = operator.eightySixed.has(item.slug);
         return (
           <Pressable
-            key={service.id}
+            key={item.slug}
             accessibilityRole="switch"
             {...toggleState(is86d)}
-            accessibilityLabel={`${service.name}. ${is86d ? '86’d — tap to restore' : 'Available — tap to 86'}`}
-            onPress={() => operator.toggleEightySix(service.id)}
+            accessibilityLabel={`${item.name}. ${is86d ? '86’d — tap to restore' : 'Available — tap to 86'}`}
+            onPress={() => operator.toggleEightySix(item.slug)}
             style={({ pressed }) => [styles.eightySixRow, pressed && styles.pressed]}
           >
-            <Text style={[styles.locationName, is86d && styles.eightySixName]}>{service.name}</Text>
+            <Text style={[styles.locationName, is86d && styles.eightySixName]}>{item.name}</Text>
             <Text style={is86d ? styles.eightySixTag : styles.locationCurrent}>
               {is86d ? "86'd" : 'Available'}
             </Text>

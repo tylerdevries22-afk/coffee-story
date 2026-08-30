@@ -61,7 +61,13 @@ export function StaffWorkspaceProvider({ children }: PropsWithChildren) {
   const { isDemo, brandName, liveLocations } = useAuth();
   const [dashboard, setDashboard] = useState<StaffDashboard>(DEMO_STAFF);
   const [liveOrderableItems, setLiveOrderableItems] = useState<OrderableItem[]>([]);
-  const orderableItems = isDemo || !liveOrderableItems.length ? demoOrderableItems : liveOrderableItems;
+  // Demo only. The bundled catalogue is the launch shop's menu, and one
+  // listing serves every tenant (rule 7), so standing it in whenever the live
+  // read came back empty offered a second brand's staff 61 items that brand
+  // does not sell -- against slugs its own menu has never heard of. An empty
+  // list is the honest answer while the live catalogue has no schema behind
+  // it; the screens say so rather than substituting.
+  const orderableItems = isDemo ? demoOrderableItems : liveOrderableItems;
 
   /**
    * The shops this signed-in brand collects from.
