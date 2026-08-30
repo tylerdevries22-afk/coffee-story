@@ -1,4 +1,4 @@
-import { TabScreenSafeArea } from '@/components/navigation/tab-screen';
+import { TabScreenSafeArea } from '@platform/ui';
 import { OrderScreen } from '@/screens/client/order-screen';
 
 export default function ClientBookRoute() {

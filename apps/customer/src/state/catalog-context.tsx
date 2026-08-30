@@ -20,7 +20,7 @@ import { catalogAddOns, customerCatalogFromTree, type CustomerCatalog } from '@/
 import { liveBrand } from '@/lib/live-portal';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/state/auth-context';
-import { createRequestSequence } from '@/state/request-sequence';
+import { createRequestSequence } from '@platform/domain';
 import { TENANT_MENU_MEDIA } from '@/tenant/menu-media';
 
 export type CustomerCatalogStatus = 'demo' | 'loading' | 'live' | 'unavailable';

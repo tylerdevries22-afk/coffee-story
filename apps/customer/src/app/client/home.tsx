@@ -1,4 +1,4 @@
-import { TabScreenSafeArea } from '@/components/navigation/tab-screen';
+import { TabScreenSafeArea } from '@platform/ui';
 import { HomeScreen } from '@/screens/client/home-screen';
 
 export default function ClientHomeRoute() {

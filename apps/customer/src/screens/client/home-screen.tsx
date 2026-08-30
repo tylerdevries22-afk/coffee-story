@@ -21,7 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 
 import { AppIcon } from '@/components/icon';
-import { useTabBarClearance } from '@/components/navigation/tab-screen';
+import { useTabBarClearance } from '@platform/ui';
 import { Screen } from '@/components/ui';
 import type { MenuCategoryId, MenuItem } from '@/data/catalog';
 import { useAppState } from '@/state/app-context';

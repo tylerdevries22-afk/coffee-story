@@ -1,4 +1,4 @@
-import { TabScreenSafeArea } from '@/components/navigation/tab-screen';
+import { TabScreenSafeArea } from '@platform/ui';
 import { CrewScreen } from '@/screens/staff/crew-screen';
 
 export default function StaffCrewRoute() {

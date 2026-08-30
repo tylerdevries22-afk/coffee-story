@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { fontGateReady } from '@/lib/font-gate';
+import { fontGateReady } from './font-gate';
 
 test('keeps holding the splash while the brand fonts are still loading', () => {
   assert.equal(fontGateReady(false, null), false);

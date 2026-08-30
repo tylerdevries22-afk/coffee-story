@@ -5,13 +5,12 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { Platform } from 'react-native';
 
 import { platformApi } from '@/lib/api';
-import { recoveryCodeFromUrl, recoveryRedirectUrl } from '@platform/domain';
+import { createRequestSequence, recoveryCodeFromUrl, recoveryRedirectUrl } from '@platform/domain';
 import { loadLivePortal } from '@/lib/live-portal';
 import { registerForPush } from '@/lib/push';
 import { hasSupabaseConfig, supabase } from '@/lib/supabase';
 import { TENANT } from '@/tenant';
 import { useDemo } from '@/state/demo-context';
-import { createRequestSequence } from '@/state/request-sequence';
 import type { AppRole, PortalBundle } from '@platform/domain';
 
 type AuthState = {

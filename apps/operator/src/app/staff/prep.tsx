@@ -1,4 +1,4 @@
-import { TabScreenSafeArea } from '@/components/navigation/tab-screen';
+import { TabScreenSafeArea } from '@platform/ui';
 import { PrepScreen } from '@/screens/staff/prep-screen';
 
 export default function StaffPrepRoute() {

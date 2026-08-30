@@ -5,7 +5,7 @@ import {
   captureAppError,
   clearAppError,
   initialAppErrorBoundaryState,
-} from './app-error-boundary-state';
+} from './app-error-state';
 
 test('the app error boundary starts ready', () => {
   assert.deepEqual(initialAppErrorBoundaryState, { status: 'ready' });

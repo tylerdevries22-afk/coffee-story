@@ -2,7 +2,7 @@ import { Platform } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { PropsWithChildren } from 'react';
 
-/** Height of the web fallback pill in `components/bottom-nav.tsx`. */
+/** Height of the web fallback pill each app draws in `components/bottom-nav.tsx`. */
 export const WEB_TAB_BAR_HEIGHT = 64;
 
 /**
@@ -32,7 +32,7 @@ export function TabScreenSafeArea({ children }: PropsWithChildren) {
  * Never hard-code a bar height: it differs between devices, between iOS
  * versions, and shrinks when the iOS 26 bar minimises on scroll. Native
  * reports it through the nested provider above; the web build still draws the
- * floating pill from `components/bottom-nav.tsx`, which is a sibling overlay
+ * floating pill from its own `components/bottom-nav.tsx`, a sibling overlay
  * rather than a real bar, so nothing has added its height to any inset and it
  * has to be paid for explicitly.
  */

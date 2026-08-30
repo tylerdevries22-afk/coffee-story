@@ -1,4 +1,4 @@
-import { TabScreenSafeArea } from '@/components/navigation/tab-screen';
+import { TabScreenSafeArea } from '@platform/ui';
 import { GiftScreen } from '@/screens/client/gift-screen';
 import { useAppState } from '@/state/app-context';
 

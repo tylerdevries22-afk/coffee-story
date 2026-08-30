@@ -1,6 +1,6 @@
 import { Linking } from 'react-native';
 
-import { resolveWebsiteUrl } from '@/lib/website-url';
+import { resolveWebsiteUrl } from '@platform/domain';
 import { TENANT } from '@/tenant';
 
 /** Opens a path on the brand's public website (tenant config). */

@@ -25,8 +25,7 @@ import { AppIcon } from '@/components/icon';
 import { MenuImage } from '@/components/menu-image';
 import { CategoryStrip } from '@/components/order/category-strip';
 import { CartPill, Ribbon } from '@/components/order/order-chrome';
-import { disabledState } from '@platform/ui';
-import { useTabBarClearance } from '@/components/navigation/tab-screen';
+import { disabledState, useTabBarClearance } from '@platform/ui';
 import type { MenuItem } from '@/data/catalog';
 import {
   fulfillmentDetail, fulfillmentLabel, describePickupWindow, menuPriceLabel,

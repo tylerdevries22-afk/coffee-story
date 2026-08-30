@@ -19,3 +19,4 @@ export * from './toast';
 export * from './drop-countdown-logic';
 export * from './loyalty-logic';
 export * from './order-status-pill-logic';
+export * from './tab-screen';

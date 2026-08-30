@@ -2,7 +2,7 @@ import { Fraunces_700Bold } from '@expo-google-fonts/fraunces/700Bold';
 import { Inter_400Regular } from '@expo-google-fonts/inter/400Regular';
 import { Inter_600SemiBold } from '@expo-google-fonts/inter/600SemiBold';
 import { Inter_700Bold } from '@expo-google-fonts/inter/700Bold';
-import { fontGateReady } from '@/lib/font-gate';
+import { fontGateReady } from '@platform/domain';
 import { initMobileMonitoring } from '@platform/monitoring';
 import {
   createAnalyticsSurfaceObserver,
