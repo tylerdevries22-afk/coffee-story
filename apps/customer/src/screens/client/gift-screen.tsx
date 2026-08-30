@@ -13,7 +13,7 @@ import { giftDesignByKey, type GiftDesign } from '@/data/gift-designs';
 import { tierForAnnualPoints } from '@platform/domain';
 import { BUSINESS, BUSINESS_MONOGRAM } from '@/data/business';
 import type { GiftCard } from '@platform/domain';
-import { TENANT } from '@/tenant';
+import { TENANT, TENANT_REWARD_TIERS } from '@/tenant';
 import { choiceState } from '@platform/ui';
 import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
@@ -166,7 +166,7 @@ export function GiftScreen({
           design={design}
           amount={amount}
           quantity={quantity}
-          pointsPerDollar={tierForAnnualPoints(portal.rewardAccount.annualPoints).pointsPerDollar}
+          pointsPerDollar={tierForAnnualPoints(portal.rewardAccount.annualPoints, TENANT_REWARD_TIERS).pointsPerDollar}
           paymentMethod={selectedPaymentMethod}
           loading={loading}
           onAmountChange={setAmount}

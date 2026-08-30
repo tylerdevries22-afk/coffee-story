@@ -1,10 +1,13 @@
-// The loyalty ladder every tenant starts from, and the arithmetic behind it.
+// The loyalty ladder, and the arithmetic behind it.
 //
-// Tier names and copy are owner-editable, so the name is free text rather than
-// a union and nothing here switches on a specific one without a fallback. The
-// shipped rungs name no tenant: this constant is what a brand that has not
-// written its own ladder renders, and it used to tell a second franchisee's
-// guests they were making the first franchisee's shop part of their day.
+// The ladder is tenant data: a brand writes `loyalty.tiers` in its brand.json
+// and `resolveRewardTiers` reads it. Tier names are free text rather than a
+// union, and nothing here switches on a specific one without a fallback.
+//
+// The rungs shipped below are the fallback a brand that has not written its own
+// ladder renders, so they are deliberately generic -- they named a coffee shop
+// once, which told a bakery franchisee's guests they had become a Coffee
+// Legend.
 export type RewardTierName = string;
 
 export type RewardTier = {
@@ -16,17 +19,17 @@ export type RewardTier = {
 };
 
 /**
- * The ladder as shipped. This constant is the fallback for surfaces that must
- * render with no backend -- the marketing site and the Expo Go demo -- and the
- * default for callers that do not pass a ladder.
+ * The ladder as shipped. The fallback for surfaces that must render with no
+ * tenant config -- the marketing site and the Expo Go demo -- and the default
+ * for callers that do not pass a ladder.
  */
-const BASE_TIER: RewardTier = { name: 'First Sip', minimumAnnualPoints: 0, pointsPerDollar: 10, description: 'Where every regular starts.', perks: ['Member-only drink offers'] };
+const BASE_TIER: RewardTier = { name: 'Member', minimumAnnualPoints: 0, pointsPerDollar: 10, description: 'Where every regular starts.', perks: ['Member-only offers'] };
 
 export const REWARD_TIERS: readonly RewardTier[] = [
   BASE_TIER,
-  { name: 'Daily Ritual', minimumAnnualPoints: 500, pointsPerDollar: 11, description: 'For guests settling into a daily rhythm.', perks: ['Birthday drink on us'] },
-  { name: 'House Regular', minimumAnnualPoints: 1500, pointsPerDollar: 12, description: 'For guests who make us part of their day.', perks: ['Free size upgrade'] },
-  { name: 'Coffee Legend', minimumAnnualPoints: 2500, pointsPerDollar: 13, description: 'Our most dedicated regulars.', perks: ['5% off + priority pickup'] },
+  { name: 'Regular', minimumAnnualPoints: 500, pointsPerDollar: 11, description: 'For guests settling into a rhythm.', perks: ['A birthday reward'] },
+  { name: 'Insider', minimumAnnualPoints: 1500, pointsPerDollar: 12, description: 'For guests who make us part of their day.', perks: ['Free upgrades'] },
+  { name: 'Legend', minimumAnnualPoints: 2500, pointsPerDollar: 13, description: 'Our most dedicated regulars.', perks: ['5% off + priority pickup'] },
 ] as const;
 
 export type PurchaseBreakdown = {
@@ -46,6 +49,49 @@ export type PurchaseBreakdown = {
  */
 export function sortedTiers(tiers: readonly RewardTier[]): readonly RewardTier[] {
   return [...tiers].sort((left, right) => left.minimumAnnualPoints - right.minimumAnnualPoints);
+}
+
+/**
+ * A ladder from a brand config's `loyalty.tiers`, or null when the tenant has
+ * not written one.
+ *
+ * All-or-nothing, like `weekFromHours`. A half-parsed ladder would put a guest
+ * on a rung the owner never published, and every rung carries an earn rate, so
+ * a dropped row is money. Null means "the shipped ladder", which is generic on
+ * purpose.
+ */
+export function rewardTiersFrom(value: unknown): readonly RewardTier[] | null {
+  if (!Array.isArray(value) || value.length === 0) return null;
+  const tiers: RewardTier[] = [];
+  for (const entry of value) {
+    if (typeof entry !== 'object' || entry === null) return null;
+    const row = entry as Record<string, unknown>;
+    const name = typeof row.name === 'string' ? row.name.trim() : '';
+    const minimumAnnualPoints = Number(row.minimumAnnualPoints);
+    const pointsPerDollar = Number(row.pointsPerDollar);
+    if (!name) return null;
+    if (!Number.isInteger(minimumAnnualPoints) || minimumAnnualPoints < 0) return null;
+    if (!Number.isFinite(pointsPerDollar) || pointsPerDollar <= 0) return null;
+    tiers.push({
+      name,
+      minimumAnnualPoints,
+      pointsPerDollar,
+      description: typeof row.description === 'string' ? row.description : '',
+      perks: Array.isArray(row.perks) ? row.perks.filter((perk): perk is string => typeof perk === 'string') : [],
+    });
+  }
+  // A ladder whose lowest rung is not zero leaves a new guest on no rung at
+  // all, which every caller here would then have to invent an answer for.
+  if (!tiers.some((tier) => tier.minimumAnnualPoints === 0)) return null;
+  return sortedTiers(tiers);
+}
+
+/** The same, reached through a brand config's `loyalty` block. */
+export function resolveRewardTiers(config: unknown): readonly RewardTier[] | null {
+  if (typeof config !== 'object' || config === null) return null;
+  const loyalty = (config as { loyalty?: unknown }).loyalty;
+  if (typeof loyalty !== 'object' || loyalty === null) return null;
+  return rewardTiersFrom((loyalty as { tiers?: unknown }).tiers);
 }
 
 export function tierForAnnualPoints(annualPoints: number, tiers: readonly RewardTier[] = REWARD_TIERS): RewardTier {

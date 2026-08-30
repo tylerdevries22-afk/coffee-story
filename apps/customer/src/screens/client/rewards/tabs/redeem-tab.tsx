@@ -7,6 +7,7 @@ import { GlassCup, POUR_MS, pourFillAt, useLiquidDrag } from '@/components/rewar
 import { POINTS_LABEL } from '@/features/rewards/presentation';
 import { nextRewardForBalance, rewardFillPercent, rewardIsLocked } from '@/features/rewards/redeem';
 import { tierForAnnualPoints } from '@platform/domain';
+import { TENANT_REWARD_TIERS } from '@/tenant';
 import type { RewardAccount, RewardCatalogItem } from '@platform/domain';
 import { AppIcon } from '@/components/icon';
 
@@ -53,7 +54,7 @@ export function RedeemTab({
 }) {
   const styles = useRewardStyles();
   const tokens = useBrandTokens();
-  const tier = tierForAnnualPoints(account.annualPoints);
+  const tier = tierForAnnualPoints(account.annualPoints, TENANT_REWARD_TIERS);
   const { dragAngle, dragLateral, gesture } = useLiquidDrag(!reducedMotion);
   // Keyed on the tier so the demo switch replays the pour and the counter
   // together, even when the fill percentage happens to be unchanged.

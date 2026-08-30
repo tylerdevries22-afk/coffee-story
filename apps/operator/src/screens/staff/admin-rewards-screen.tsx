@@ -1,8 +1,9 @@
+import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { CollapsingScreen } from '@/components/collapsing-screen';
 import { Body, Card } from '@/components/ui';
-import { REWARD_TIERS, pointsForPurchase } from '@platform/domain';
+import { REWARD_TIERS, pointsForPurchase, resolveRewardTiers } from '@platform/domain';
 import { workspaceTone } from '@/features/staff/workspace';
 import { useAuth } from '@/state/auth-context';
 import { hairline, useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
@@ -53,10 +54,12 @@ function Row({ label, value }: { label: string; value: string }) {
 export function AdminRewardsScreen({ onBack }: { onBack: () => void }) {
   const tokens = useBrandTokens();
   const styles = createStyles(tokens);
-  const { role } = useAuth();
-  // The bundled ladder is the truth until brand_config carries tiers (the
-  // white-label sweep); the legacy portal endpoint this used to poll is gone.
-  const tiers = REWARD_TIERS;
+  const { role, brandConfig } = useAuth();
+  // The signed-in brand's own ladder. One listing serves every tenant (rule 7),
+  // so a constant compiled into this binary is one shop's ladder shown to
+  // whoever signed in. The shipped rungs stay as the fallback for demo mode and
+  // for a brand that has not published a ladder -- they name no shop.
+  const tiers = useMemo(() => resolveRewardTiers(brandConfig) ?? REWARD_TIERS, [brandConfig]);
 
   const examplePoints = pointsForPurchase(EXAMPLE, 0, tiers);
 

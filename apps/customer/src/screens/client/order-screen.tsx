@@ -24,7 +24,7 @@ import type { MenuItem } from '@/data/catalog';
 import type { OrderFulfillment, FulfillmentMode , OrderableItem } from '@platform/domain';
 import {
   formatMoney, fulfillmentDetail, fulfillmentLabel, orderTotals, pointsForOrder,
-  REWARD_TIERS, tierForAnnualPoints,
+  tierForAnnualPoints,
   PICKUP_WINDOW_MINUTES, describePickupWindow, isWindowStillBookable,
 } from '@platform/domain';
 import {
@@ -42,7 +42,7 @@ import {
 import { POINTS_LABEL } from '@/features/rewards/presentation';
 import { simulateProgress, trackingView } from '@/features/tracking';
 import { sizeSuffix } from '@/data/menu-export';
-import { TENANT_TAX_JURISDICTIONS, tenantFeature } from '@/tenant';
+import { TENANT_REWARD_TIERS, TENANT_TAX_JURISDICTIONS, tenantFeature } from '@/tenant';
 import { useBusiness } from '@/state/business';
 import {
   newIdempotencyKey,
@@ -169,8 +169,8 @@ export function OrderScreen() {
   useEffect(() => {
     checkoutKey.current = null;
   }, [cartSignature]);
-  const pointsPerDollar = tierForAnnualPoints(annualPoints, REWARD_TIERS).pointsPerDollar;
-  const pointsEarned = pointsForOrder(totals, annualPoints);
+  const pointsPerDollar = tierForAnnualPoints(annualPoints, TENANT_REWARD_TIERS).pointsPerDollar;
+  const pointsEarned = pointsForOrder(totals, annualPoints, TENANT_REWARD_TIERS);
 
   // Live orders settle at the counter until the brand connects card
   // payments; the demo keeps its saved-card flow.

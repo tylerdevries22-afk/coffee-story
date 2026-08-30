@@ -129,7 +129,37 @@
     ]
   },
   "loyalty": {
-    "$note": "What Beans buy, served by /api/loyalty/redeem. points_cost is integer points.",
+    "$note": "tiers is the earning ladder the apps render and earn against -- name, minimumAnnualPoints (trailing year), pointsPerDollar, description, perks. The lowest rung must sit at 0 or the ladder is ignored and the shipped generic one is used instead. Keep the names in step with board.tiers, which is the same ladder on the public wall. rewards is what Beans buy, served by /api/loyalty/redeem; points_cost is integer points.",
+    "tiers": [
+      {
+        "name": "First Sip",
+        "minimumAnnualPoints": 0,
+        "pointsPerDollar": 10,
+        "description": "Where every regular starts.",
+        "perks": ["Member-only drink offers"]
+      },
+      {
+        "name": "Daily Ritual",
+        "minimumAnnualPoints": 500,
+        "pointsPerDollar": 11,
+        "description": "For guests settling into a daily rhythm.",
+        "perks": ["Birthday drink on us"]
+      },
+      {
+        "name": "House Regular",
+        "minimumAnnualPoints": 1500,
+        "pointsPerDollar": 12,
+        "description": "For guests who make us part of their day.",
+        "perks": ["Free size upgrade"]
+      },
+      {
+        "name": "Coffee Legend",
+        "minimumAnnualPoints": 2500,
+        "pointsPerDollar": 13,
+        "description": "Our most dedicated regulars.",
+        "perks": ["5% off + priority pickup"]
+      }
+    ],
     "rewards": [
       {
         "slug": "drink-credit-5",
@@ -154,7 +184,7 @@
     ]
   },
   "board": {
-    "$note": "The in-store order board (0030). showGuestStatus is opt-in per brand because a tier badge on a public wall tells the room roughly what someone spends. tiers mirror the REWARD_TIERS ladder's names, read against loyalty_accounts.lifetime_points; slug is the stable key the SQL projection emits, so renaming a label never orphans a badge. color and icon draw the badge -- both optional, both editable in HQ (Brand config -> Status badges), and both fall back to the tier's semantic token role and the brand's rewardMark when unset. appUrl is what the QR panel encodes -- point it at the app-download landing page once the store listings are live.",
+    "$note": "The in-store order board (0030). showGuestStatus is opt-in per brand because a tier badge on a public wall tells the room roughly what someone spends. tiers mirror loyalty.tiers -- the same ladder, read here against loyalty_accounts.lifetime_points rather than the trailing year; slug is the stable key the SQL projection emits, so renaming a label never orphans a badge. color and icon draw the badge -- both optional, both editable in HQ (Brand config -> Status badges), and both fall back to the tier's semantic token role and the brand's rewardMark when unset. appUrl is what the QR panel encodes -- point it at the app-download landing page once the store listings are live.",
     "showGuestStatus": true,
     "showChannel": true,
     "maxLines": 9,

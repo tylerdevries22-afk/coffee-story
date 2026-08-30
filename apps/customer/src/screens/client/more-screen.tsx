@@ -13,12 +13,12 @@ import { HeaderIconButton } from '@/components/more-page-header';
 import { MoreSearchTakeover } from '@/components/more-search-takeover';
 import { PortalProfileCard } from '@/components/portal-profile-card';
 import { BUSINESS } from '@/data/business';
-import { buildClientNotifications , projectFirstVariants } from '@platform/domain';
+import { buildClientNotifications , projectFirstVariants, tierForAnnualPoints } from '@platform/domain';
 import { searchClientAccount, type ClientSearchResult , OrderableItem } from '@platform/domain';
 import { summarizeGiftCardOwnership } from '@/features/gifts/ownership';
 import { useFeedVoice } from '@/lib/feed-voice';
 import { useAppState, type MoreView } from '@/state/app-context';
-import { TENANT, tenantFeature } from '@/tenant';
+import { TENANT, TENANT_REWARD_TIERS, tenantFeature } from '@/tenant';
 import { useAuth } from '@/state/auth-context';
 import { useDemo } from '@/state/demo-context';
 import { useCustomerCatalog } from '@/state/catalog-context';
@@ -151,7 +151,7 @@ export function MoreScreen() {
       <PortalProfileCard
         name={portal.profile.fullName || 'Member'}
         avatarUrl={portal.profile.avatarUrl}
-        roleLabel="Coffee Legend member"
+        roleLabel={`${tierForAnnualPoints(portal.rewardAccount.annualPoints, TENANT_REWARD_TIERS).name} member`}
         previewLabel={isDemo ? 'Client preview' : 'Live account'}
         metrics={clientMetrics}
         profileLabel="Open account settings"

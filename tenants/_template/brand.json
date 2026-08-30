@@ -81,7 +81,8 @@
     "jurisdictions": []
   },
   "loyalty": {
-    "$docs": "Optional. The rewards points buy, served by /api/loyalty/redeem. points_cost is integer points.",
+    "$docs": "Optional. tiers is the earning ladder the apps render and earn against -- name (free text), minimumAnnualPoints (points in the trailing year), pointsPerDollar, description, perks[]. Leave it empty to inherit a generic four-rung ladder; write it and the lowest rung must sit at 0, or the whole ladder is ignored rather than half-applied. Keep the names in step with board.tiers, which is the same ladder on the public wall. rewards is what points buy, served by /api/loyalty/redeem; points_cost is integer points.",
+    "tiers": [],
     "rewards": []
   },
   "board": {
