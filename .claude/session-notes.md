@@ -277,3 +277,24 @@
   - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: There has been exactly **one** genuine user message in this entire conversation — a large shell handoff prom
   - The previous response failed to produce a valid tool call. Please retry the tool call now.
   - Try again
+
+## Compaction checkpoint — 2026-08-30 07:36:14 (auto)
+
+- branch: `main`
+- uncommitted (3):
+  - ?? .claude/session-notes.md
+  - ?? apps/display/.claude/
+  - ?? apps/hq/.claude/
+- recent commits:
+  - f69ebfe Merge pull request #59 from tylerdevries22-afk/dev
+  - 241c368 Merge pull request #58 from tylerdevries22-afk/docs/release-verification-2026-08-30
+  - d6354f2 docs: record the release verification run against production
+  - 6af0cb7 Merge pull request #56 from tylerdevries22-afk/dev
+  - ab7c017 Merge pull request #57 from tylerdevries22-afk/fix/cron-get-handler
+- recent asks:
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: There has been exactly **one** genuine user message in this entire conversation — a large shell handoff prom
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: There has been exactly **one** genuine user message in this entire conversation — a large shell handoff prom
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: There has been exactly **one** genuine user message in this entire conversation — a large shell handoff prom
+  - The previous response failed to produce a valid tool call. Please retry the tool call now.
+  - Try again
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: There has been exactly **one** genuine user message in this entire conversation — a large shell handoff prom
