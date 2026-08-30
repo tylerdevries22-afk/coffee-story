@@ -147,12 +147,12 @@ function healthyRelease(release: TrainingReleaseRow | undefined, runId: string |
 }
 
 /**
- * POST /api/jobs/run — the scheduled tick (Vercel Cron via vercel.json;
- * Vercel sends `Authorization: Bearer $CRON_SECRET` automatically when the
- * env var is set). Applies the engine's pure selectors: drop windows open
- * and close, due campaigns move to sent. Campaign delivery itself (push/SMS
- * fan-out) arrives with a provider; until then the transition is recorded
- * with delivered: 0 so the console shows the truth.
+ * The scheduled tick, reached as GET from Vercel Cron (via vercel.json) and as
+ * POST from a manual run. Vercel sends `Authorization: Bearer $CRON_SECRET`
+ * automatically when the env var is set. Applies the engine's pure selectors:
+ * drop windows open and close, due campaigns move to sent. Campaign delivery
+ * itself (push/SMS fan-out) arrives with a provider; until then the transition
+ * is recorded with delivered: 0 so the console shows the truth.
  */
 export async function POST(request: Request): Promise<Response> {
   const secret = process.env.CRON_SECRET;
@@ -300,4 +300,18 @@ export async function POST(request: Request): Promise<Response> {
       retention: operationsRetention.data,
     },
   });
+}
+
+/**
+ * GET /api/jobs/run — the same tick, under the method Vercel Cron actually
+ * uses. Cron invokes a scheduled path with GET and offers no way to choose
+ * another; this route was POST-only, so every tick since the schedule was
+ * added answered 405 and none of the work above ran. The 405 is invisible
+ * from the outside: nothing retries it and nothing alerts on it.
+ *
+ * POST stays for manual invocation with the same bearer secret.
+ * `lib/cron-contract.test.ts` fails if a scheduled path loses its GET again.
+ */
+export async function GET(request: Request): Promise<Response> {
+  return POST(request);
 }
