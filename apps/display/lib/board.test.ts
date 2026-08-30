@@ -7,8 +7,7 @@ import { resolveBoardConfig, toEntry } from '@platform/domain';
 import type { BoardTicketRow } from '@platform/schema';
 
 import {
-  demoAllowed, isLocationId, previewWallEnabled, prioritizeSynchronizedTickets,
-  synchronizedFixtureTickets,
+  demoAllowed, isLocationId, previewWallEnabled, synchronizedFixtureTickets,
 } from './board';
 import {
   DEMO_BRAND_CONFIG, DEMO_STEP_MS, DEMO_TICKETS, demoBoardAt, demoLocationName,
@@ -195,30 +194,33 @@ describe('the board read', () => {
     assert.ok((await synchronizedFixtureTickets('demo', null, 0)).length > 0);
   });
 
-  it('uses fixtures only for rows not occupied by synchronized sales', () => {
+  it('shows the broker roster alone, never mixed with the local one', async () => {
     const fixtures = demoBoardAt(0);
-    const first = fixtures[0];
-    const second = fixtures[1];
-    assert.ok(first && second);
     const synchronized: BoardTicketRow[] = [
-      { ...first, id: 'shared-1', daily_number: 46 },
-      { ...second, id: 'shared-2', daily_number: 47 },
+      { ...fixtures[0]!, id: 'shared-1', daily_number: 46 },
+      { ...fixtures[1]!, id: 'shared-2', daily_number: 47 },
     ];
-    const merged = prioritizeSynchronizedTickets(fixtures, synchronized, 5);
-    assert.equal(merged.length, 5);
-    assert.deepEqual(merged.slice(-2).map((ticket) => ticket.id), ['shared-1', 'shared-2']);
-    assert.deepEqual(prioritizeSynchronizedTickets(fixtures, synchronized, 0), [
-      ...fixtures, ...synchronized,
-    ]);
+    const board = await synchronizedFixtureTickets('demo', {
+      board: async () => synchronized.map((ticket) => ({
+        id: ticket.id,
+        dailyNumber: ticket.daily_number ?? 0,
+        guestName: ticket.guest_label ?? '',
+        status: ticket.status,
+        fulfillmentType: ticket.fulfillment_type,
+        channel: ticket.channel,
+        updatedAt: ticket.updated_at,
+      })),
+    }, 0);
+
+    // Every row an operator can act on, and no row it has never heard of: a
+    // board carrying local fixtures beside broker orders is a board where
+    // pressing Ready appears to do nothing.
+    assert.deepEqual(board.map((ticket) => ticket.id), ['shared-1', 'shared-2']);
   });
 
-  it('replaces viewport-tested fixture rows even when maxLines claims spare capacity', () => {
-    const fixtures = demoBoardAt(0);
-    const synchronized = [{ ...fixtures[0]!, id: 'shared-visible', daily_number: 46 }];
-    const merged = prioritizeSynchronizedTickets(fixtures, synchronized, 9);
-
-    assert.equal(merged.length, fixtures.length);
-    assert.equal(merged.at(-1)?.id, 'shared-visible');
+  it('falls back to the local roster while the broker is still empty', async () => {
+    const board = await synchronizedFixtureTickets('demo', { board: async () => [] }, 0);
+    assert.deepEqual(board, demoBoardAt(0, 'demo'));
   });
 
   it('is gated by the view, not by the app remembering to ask nicely', () => {
@@ -274,6 +276,42 @@ describe('displayTheme', () => {
     const theme = displayTheme({ tokens: { ...DEMO_BRAND_CONFIG.tokens, accent: 'not-a-color' } });
     assert.equal(theme.cssVariables['--board-surface'], DEMO_BRAND_CONFIG.tokens.surface);
     assert.notEqual(theme.cssVariables['--board-accent'], 'not-a-color');
+  });
+
+  /*
+   * The board renders place in line, not the daily call-out.
+   *
+   * A source assertion because this app has no component renderer: the bug it
+   * guards shipped as one word, a row rendering `entry.callout` into a span
+   * named `ticket-position`, and it made the wall answer a question nobody in
+   * the queue was asking. The domain has always computed `position`; only the
+   * view was reading the wrong field, and nothing here could catch it.
+   */
+  it('draws the queue position rather than the call-out', () => {
+    const view = readFileSync(
+      join(process.cwd(), 'app', 'board', '[location]', 'board-view.tsx'),
+      'utf8',
+    );
+    const mark = view.slice(view.indexOf('function QueueMark'), view.indexOf('function StatusPill'));
+    assert.match(mark, /entry\.position/, 'the mark must read the position');
+    assert.doesNotMatch(
+      mark.slice(mark.indexOf('return (')),
+      /className="ticket-position"[^>]*>\{[^}]*callout/,
+      'the call-out is the order identity, not the place in line',
+    );
+  });
+
+  /* Ready swaps the mark: two marks in one box is what the wall showed before. */
+  it('retires the number as the check arrives', () => {
+    const css = readFileSync(join(process.cwd(), 'app', 'display.css'), 'utf8');
+    const ready = css.slice(css.indexOf(".ticket-mark[data-ready='true'] .ticket-position"));
+    assert.match(ready.slice(0, 200), /opacity:\s*0;/,
+      'the number must leave when the check lands');
+    assert.match(
+      css,
+      /\.ticket-mark\[data-ready='true'\] \.ticket-check \{[^}]*opacity:\s*1;/,
+      'the check must arrive at full strength, not as a wash behind a number',
+    );
   });
 
   it('names every variable the stylesheet reads', () => {
@@ -380,5 +418,33 @@ describe('the configuration reference', () => {
         `${name} is read by the app but absent from apps/display/.env.example — `
         + 'a deployment has no way to know it is needed');
     }
+  });
+});
+
+describe('the wall content security policy', () => {
+  /*
+   * The dev runtime needs `eval` and the shipped one does not. Losing that
+   * distinction is silent in both directions: without the dev relaxation the
+   * board stops hydrating and freezes mid-service with no error a shop would
+   * ever see, and with it applied to production the wall ships a policy far
+   * wider than the one surface that only ever draws same-origin markup.
+   */
+  const config = readFileSync(join(process.cwd(), 'next.config.ts'), 'utf8');
+  const policy = config.slice(
+    config.indexOf('function displayContentSecurityPolicy'),
+    config.indexOf('const nextConfig'),
+  );
+
+  it('lets the dev runtime evaluate its own chunks', () => {
+    const scripts = policy.slice(policy.indexOf('const scripts'));
+    assert.match(scripts.slice(0, 200), /development\s*\n?\s*\?[^:]*'unsafe-eval'/,
+      'the development branch must allow eval or the board never hydrates');
+  });
+
+  it('never ships unsafe-eval', () => {
+    const scripts = policy.slice(policy.indexOf('const scripts'), policy.indexOf('return ['));
+    const shipped = scripts.slice(scripts.indexOf(':') + 1);
+    assert.doesNotMatch(shipped, /unsafe-eval/,
+      'the production branch must stay the narrowest policy the app can run under');
   });
 });

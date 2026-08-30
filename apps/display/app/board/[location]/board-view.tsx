@@ -158,15 +158,22 @@ export function BoardView({ initialTickets, config, copy, live, degraded, demoSy
 }
 
 /**
- * The mark at the head of a row: the order call-out, plus a ready check.
+ * The mark at the head of a row: the place in line, which becomes a check.
  *
- * Both are mounted at once and swapped with a transition rather than a
+ * The number is `entry.position`, not `entry.callout`. A guest reads this
+ * column as "how many people are ahead of me", so it has to start at one and
+ * count the line -- a daily call-out starting at 38 answers a question nobody
+ * asked. The call-out still identifies the order and stays in the row's
+ * accessible label, where it is the thing a name gets called with.
+ *
+ * Both marks are mounted at once and swapped with a transition rather than a
  * keyframe animation. A CSS transition settles at its end state; a keyframe
  * animation holds its *start* state for as long as it is paused, and a browser
  * pauses animations in a backgrounded tab -- which is how "Here" managed to be
  * invisible. The resting state of a check is therefore declared, not animated.
  */
 function QueueMark({ entry, copy }: { entry: BoardEntry; copy: BrandCopy }) {
+  const place = entry.position === null ? '' : String(entry.position);
   return (
     <span
       className="ticket-mark"
@@ -174,13 +181,37 @@ function QueueMark({ entry, copy }: { entry: BoardEntry; copy: BrandCopy }) {
       role="img"
       aria-label={entry.ready
         ? `${entry.callout}, ${formatCopy(copy, 'boardReady')}`
-        : entry.callout}
+        : `${entry.callout}, ${formatCopy(copy, 'boardPosition', { position: place })}`}
     >
-      <span className="ticket-position" aria-hidden="true">{entry.callout}</span>
+      <span className="ticket-position" aria-hidden="true">{place}</span>
       <svg className="ticket-check" viewBox="0 0 24 24" aria-hidden="true">
         <circle className="ticket-check-ring" cx="12" cy="12" r="10.5" />
         <path className="ticket-check-tick" d="M6.8 12.4l3.4 3.4 6.9-7.3" />
       </svg>
+    </span>
+  );
+}
+
+/**
+ * The live state of one order, as a word beside the name.
+ *
+ * `ready` is deliberately absent: the check and the top of the list already
+ * say it twice, and a third mark saying it again is noise on a wall. This pill
+ * exists for the difference the board could not previously show at all --
+ * between an order the shop has taken and one a barista is making right now.
+ */
+const WAITING_STATUS_COPY: Partial<Record<BoardEntry['status'], string>> = {
+  paid: 'boardQueued',
+  in_progress: 'boardMaking',
+};
+
+function StatusPill({ entry, copy }: { entry: BoardEntry; copy: BrandCopy }) {
+  const key = entry.ready ? undefined : WAITING_STATUS_COPY[entry.status];
+  if (!key) return null;
+  return (
+    <span className="ticket-status" data-status={entry.status}>
+      <i className="ticket-status-dot" aria-hidden="true" />
+      {formatCopy(copy, key)}
     </span>
   );
 }
@@ -219,6 +250,7 @@ function Ticket({ entry, copy }: { entry: BoardEntry; copy: BrandCopy }) {
       <QueueMark entry={entry} copy={copy} />
       {entry.name ? <span className="ticket-name">{entry.name}</span> : <span />}
       <span className="ticket-marks">
+        <StatusPill entry={entry} copy={copy} />
         {entry.tier ? <TierBadge tier={entry.tier} copy={copy} /> : null}
         {entry.arrived ? (
           <span className="ticket-arrived">{formatCopy(copy, 'boardArrived')}</span>

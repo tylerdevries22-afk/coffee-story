@@ -325,6 +325,13 @@ export type BoardEntry = {
   position: number | null;
   /** True once the order is ready: the check, and the top of the list. */
   ready: boolean;
+  /**
+   * The order's live lifecycle state, so a waiting row can say whether the
+   * shop has merely taken the order or is making it right now. `ready` stays
+   * separate because the whole layout keys off it; this is the finer grain
+   * the row's status pill needs.
+   */
+  status: OrderStatus;
   name: string;
   tier: BoardTier | null;
   provenance: string | null;
@@ -410,6 +417,7 @@ export function toEntry(
     callout: ticketCallout(ticket.daily_number, ticket.guest_label),
     position,
     ready: ticket.status === 'ready',
+    status: ticket.status,
     name: displayName(ticket.guest_label),
     tier: config.showGuestStatus ? tierBySlug(ticket.loyalty_tier, config.ladder) : null,
     provenance: config.showChannel
