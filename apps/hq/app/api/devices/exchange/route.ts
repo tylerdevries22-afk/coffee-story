@@ -3,6 +3,7 @@ import { DeviceError, exchangeDeviceRefreshSecret, loadDeviceSigningKey } from '
 import {
   corsPreflight, jsonError, jsonWithCors, notConfigured, parseJsonBody, serverEnv, serviceDb,
 } from '../../../../lib/api-auth';
+import { clientIdentity, rateLimited } from '../../../../lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 export function OPTIONS() { return corsPreflight(); }
@@ -17,11 +18,20 @@ export function OPTIONS() { return corsPreflight(); }
  * Unauthenticated for the same reason `/pair` is — the credential presented IS
  * the authentication — and answers uniformly for the same reason: a caller
  * holding a candidate secret must not learn whether it is unknown, revoked or
- * merely outside its rotation window. Throttling belongs at the edge, per IP.
+ * merely outside its rotation window.
+ *
+ * Throttled harder than `/pair`: the secret behind this route is long-lived
+ * where a pairing code expires in fifteen minutes, so an attacker has as long
+ * as they like to spend attempts against it. A screen exchanges once when it
+ * wakes, which needs nowhere near five a minute.
  */
 export async function POST(request: Request) {
   const env = serverEnv();
   if (!env) return notConfigured();
+
+  if (rateLimited(clientIdentity(request), 'devices/exchange', Date.now(), 5)) {
+    return jsonError(429, 'rate_limited', 'Too many device exchanges. Try again shortly.');
+  }
   const db = serviceDb(env);
 
   const body = await parseJsonBody<{ secret?: unknown }>(request);

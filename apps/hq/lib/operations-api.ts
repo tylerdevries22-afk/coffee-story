@@ -12,14 +12,9 @@ import {
   serviceDb,
   type AuthedRequest,
 } from './api-auth';
+import { rateLimited } from './rate-limit';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const RATE_LIMIT_WINDOW_MS = 60_000;
-const RATE_LIMIT_MAX_ENTRIES = 10_000;
-
-type RateLimitBucket = { count: number; resetsAt: number };
-const rateLimitBuckets = new Map<string, RateLimitBucket>();
-
 export type OperationsRequestContext = {
   auth: AuthedRequest;
   db: SupabaseClient;
@@ -81,25 +76,21 @@ export function roleAtLeast(role: BrandRole | undefined, required: BrandRole): b
  * Postgres. Vercel instances enforce their own window, while database RPCs
  * still provide idempotency and transaction-level contention protection.
  */
+/**
+ * The operations budget, keyed on the authenticated user rather than an IP.
+ *
+ * Delegates to the shared limiter so there is one window, one eviction policy
+ * and one place to change either. Kept as a named function because these
+ * routes throttle a signed-in person, which is a different policy from the
+ * per-IP budget the unauthenticated device routes spend.
+ */
 export function operationsRateLimited(
   identity: string,
   route: string,
   now = Date.now(),
   maximum = 60,
 ): boolean {
-  if (rateLimitBuckets.size >= RATE_LIMIT_MAX_ENTRIES) {
-    for (const [key, bucket] of rateLimitBuckets) {
-      if (bucket.resetsAt <= now) rateLimitBuckets.delete(key);
-    }
-  }
-  const key = `${identity}:${route}`;
-  const current = rateLimitBuckets.get(key);
-  if (!current || current.resetsAt <= now) {
-    rateLimitBuckets.set(key, { count: 1, resetsAt: now + RATE_LIMIT_WINDOW_MS });
-    return false;
-  }
-  current.count += 1;
-  return current.count > maximum;
+  return rateLimited(identity, route, now, maximum);
 }
 
 export function validIsoInstant(value: unknown): value is string {
