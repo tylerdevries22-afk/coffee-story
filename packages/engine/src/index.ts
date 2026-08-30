@@ -1,7 +1,6 @@
 export * from './fees';
 export * from './crypto';
 export * from './devices';
-export * from './loyalty';
 export * from './menu-pricing';
 export * from './tax';
 export * from './stored-value';

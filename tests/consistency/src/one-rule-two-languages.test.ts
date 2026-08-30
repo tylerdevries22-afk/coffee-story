@@ -110,4 +110,29 @@ describe('one rule, two languages', () => {
       'the hardcoded ten points per dollar is back; every brand would earn '
       + "the first tenant's rate again");
   });
+
+  it('keeps the three clamps a refund reversal depends on', () => {
+    // packages/engine/src/loyalty.ts held a second, unreferenced copy of this
+    // arithmetic -- `pointsToReverse` and `applyLedger`, tested against
+    // themselves, called by nothing, and already carrying the flat ten points
+    // per dollar that the trigger had just been corrected off. A copy nobody
+    // runs protects nothing, so it went; these are its invariants, moved onto
+    // the function that actually pays guests back.
+    const bodies = [...orderedSql().matchAll(
+      /create or replace function public\.loyalty_reverse_earn[\s\S]*?\nend \$\$;/g)];
+    const inForce = bodies[bodies.length - 1]?.[0] ?? '';
+    assert.ok(inForce, 'loyalty_reverse_earn is gone');
+    // Proportional to the refunded share, and a full refund is the whole earn
+    // rather than more than it.
+    assert.match(inForce, /least\(1::numeric, refunded_cents::numeric \/ order_total_cents\)/,
+      'a refund larger than the order would now reverse more than was earned');
+    // Never more than remains unreversed: two partial refunds must not add up
+    // to more than one earn.
+    assert.match(inForce, /least\(proportional_points, greatest\(0, earned_points - already_reversed\)\)/,
+      'repeated partial refunds could now over-reverse');
+    // A reversal racing a redemption must not drive the balance below zero;
+    // the event log carries the truth either way.
+    assert.match(inForce, /greatest\(0, points_balance - reversal_points\)/,
+      'a reversal could now leave a guest owing points');
+  });
 });
