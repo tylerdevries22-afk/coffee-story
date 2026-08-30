@@ -363,7 +363,7 @@ export function HomeScreen() {
               the same header + staggered-row grammar as the rest of the page,
               so a second drop in the window slots in without a new layout. */}
           <SectionHeader
-            pill={dropWindowLabel(weekly.map((entry) => entry.drop))}
+            pill={dropWindowLabel(weekly.map((entry) => entry.drop), TENANT.location.timezone)}
             title="Weekly Drops"
             body="New and returning pours land each week. Order them before they're gone."
           />

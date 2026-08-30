@@ -3,6 +3,10 @@ import { describe, it } from 'node:test';
 
 import { dropArchive, dropStatus, dropWindowLabel, featuredDrop, weeklyDrops, type Drop } from './drops';
 
+/** The zone the fixtures below are written in. Passed explicitly now that
+ * dropWindowLabel refuses to guess which shop it is formatting for. */
+const ZONE = 'America/Denver';
+
 const drop = (id: string, startsAt: string, endsAt: string): Drop => ({
   id, itemId: `item-${id}`, title: id, blurb: '', startsAt, endsAt,
 });
@@ -64,16 +68,16 @@ describe('weeklyDrops', () => {
 
 describe('dropWindowLabel', () => {
   it('spans earliest start to latest end within a month', () => {
-    assert.equal(dropWindowLabel([live, soon]), 'Aug 20 – 28');
+    assert.equal(dropWindowLabel([live, soon], ZONE), 'Aug 20 – 28');
   });
 
   it('names both months when the window crosses one', () => {
     const straddle = drop('straddle', '2026-08-30T14:00:00Z', '2026-09-05T14:00:00Z');
-    assert.equal(dropWindowLabel([straddle]), 'Aug 30 – Sep 5');
+    assert.equal(dropWindowLabel([straddle], ZONE), 'Aug 30 – Sep 5');
   });
 
   it('returns empty for malformed windows instead of NaN dates', () => {
-    assert.equal(dropWindowLabel([drop('bad', 'nonsense', 'worse')]), '');
+    assert.equal(dropWindowLabel([drop('bad', 'nonsense', 'worse')], ZONE), '');
   });
 });
 
