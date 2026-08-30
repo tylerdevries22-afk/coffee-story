@@ -15,6 +15,66 @@ dropped rather than softened, so the absence of a concern is meaningful.
 
 ---
 
+## Status as of 2026-08-30
+
+This file is a dated snapshot, not a live checklist. The tree has moved since it
+was written; what follows is what a re-read of the current tree found, with the
+evidence for each. Everything not listed here still stands as written below.
+
+**Closed since 2026-08-23** — each verified by grep against the tree, not by
+recollection:
+
+| Finding | Evidence it is closed |
+|---|---|
+| `TAX_JURISDICTIONS` / `COMBINED_TAX_RATE` hardcoded one state's authorities in `packages/domain` | Both constants are gone; the only mentions left are comments recording why. Tax reads `tenants/<slug>/brand.json` `tax.jurisdictions` through `TENANT_TAX_JURISDICTIONS`. |
+| `PICKUP_LOCATIONS` hardcoded one shop's address | Constant gone; `resolvePickupLocations(config)` reads the tenant's own `location`/`locations`, covered by `fulfillment.test.ts`. |
+| `INFORMATION_PAGES` shipped one shop's copy | `information-pages.ts` derives its pages from `brand.json`; the tenant proper nouns that remain are in comments explaining what was removed. |
+| `MenuCategoryId` typed one shop's seven categories, so another tenant's menu would not typecheck | Gone from `menu-options.ts`; the shop's vocabulary now lives in `menu-options.fixture.ts`, which is not exported from the package and is imported only by tests. |
+| `REWARD_TIERS` shipped one shop's ladder on the live checkout | The ladder is tenant data: `loyalty.tiers` in `brand.json`, read by `resolveRewardTiers`. The shipped fallback names no trade, and `rules.test.ts` fails if it starts to. |
+| The order channel was inferred rather than recorded | `resolveOrderChannel` at `apps/hq/app/api/orders/route.ts:11`, tested in `order-channel.test.ts`. |
+| The display fell back to an anonymous "Live" read | Gone; the board reads with the server-held device token. |
+| No in-app account deletion, and no privacy policy in the tree | `apps/customer/src/screens/client/more/profile-and-preferences.tsx` and `docs/legal/privacy-policy.md`. |
+| An unused `@stripe/stripe-react-native` dependency in the customer app | Not in `apps/customer/package.json`. |
+
+**Closed 2026-08-30, and it was not the finding it looked like.** Chasing the
+currency literal is what surfaced the worst defect in this pass:
+
+- **Connecting Square never bound a Square location.** `square_connections`
+  carries `square_location_id`; `squareRuntimeFor` returns `null` without it,
+  and every card order then answers `503 tender_unavailable`. Nothing in the
+  application ever wrote that column -- the only `INSERT` naming it in the whole
+  repository was an integration test's own fixture. So an owner finished Square
+  consent, the callback stored the tokens and set `locations.square_connection_id`,
+  and the console drew **Connected** and *removed* the Connect Square button
+  behind that same back-pointer. The shop could not take a card and could not
+  retry. Fixed in `apps/hq/app/api/square/callback/route.ts`: the callback now
+  reads the merchant's locations (`listSquareLocations`), binds one, and writes
+  nothing at all if it cannot -- so a failed re-connect leaves a working
+  connection alone, and the back-pointer is set last, once "Connected" is true.
+- **Currency, consequently, is asserted rather than threaded.** The 8 `'USD'`
+  literals are now one exported `PLATFORM_CURRENCY`, checked against the
+  merchant's own Square location at connect time (`chooseSquareLocation`). A
+  merchant settling in another currency is refused there, in one message, rather
+  than at a guest's first checkout. Threading a currency code instead would have
+  been decoration: tax is modelled as US jurisdictions, delivery validates a
+  two-letter state and a ZIP, and `formatMoney` prints a bare `$`. That would
+  take a foreign shop's money into a system that still could not serve it.
+
+**Still open**, deliberate, scoped to one market rather than one tenant, so it
+does not block a second franchisee in the US:
+
+- **Number and date formatting is `en-US` throughout** the HQ console and both
+  apps (`toLocaleString('en-US')`, ~40 call sites). Note this is a *choice*, not
+  an oversight: passing `undefined` would format a US shop's pickup times by the
+  guest's device locale, so `en-US` is load-bearing until the platform sells
+  outside it.
+
+**Not certifiable.** This document says which findings were checked and what was
+found. It does not say the platform has no defects; that is not something a
+re-read can establish.
+
+---
+
 ## Settled: the kiosk reads its menu live
 
 Recorded as an open decision on 2026-08-23 because a test assertion was

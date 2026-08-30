@@ -3,15 +3,22 @@ import { canManageLocation } from '@platform/schema';
 import { DevicePanel, type DevicePanelDevice } from '@/components/device-panel';
 import { currentClaims } from '@/lib/auth';
 import { loadDevices, loadLocations } from '@/lib/data';
+import { squareConnectNotice } from '@/lib/square-connect-notice';
 // The console is live data behind a session: never prerender a fixture
 // snapshot at build time and serve it as if it were today's numbers.
 export const dynamic = 'force-dynamic';
 
 
-export default async function LocationsPage() {
-  const [locations, devices, claims] = await Promise.all([
-    loadLocations(), loadDevices(), currentClaims(),
+type LocationsPageProps = {
+  searchParams: Promise<{ connected?: string; square?: string }>;
+};
+
+export default async function LocationsPage({ searchParams }: LocationsPageProps) {
+  const [locations, devices, claims, params] = await Promise.all([
+    loadLocations(), loadDevices(), currentClaims(), searchParams,
   ]);
+  // Square consent redirects back here, and it can come back refused.
+  const notice = squareConnectNotice(params);
   // Whether a control is drawn; never whether the write is allowed. The same
   // check runs again in lib/device-admin, against the same claims.
   const manages = (locationId: string) => claims !== null && canManageLocation(claims, locationId);
@@ -22,6 +29,9 @@ export default async function LocationsPage() {
     <>
       <h1>Locations</h1>
       <p className="subtitle">Each location connects its own Square account; tokens never leave the server.</p>
+      {notice ? (
+        <div className={notice.failed ? 'notice danger' : 'notice'} role="status">{notice.message}</div>
+      ) : null}
       <div className="card">
         <table>
           <thead>
