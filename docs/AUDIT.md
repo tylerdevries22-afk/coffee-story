@@ -1077,3 +1077,227 @@ so it belongs after this release rather than inside it.
 database that has not yet carried production traffic — every index looks unused
 before the first real week — so these are deliberately not acted on now. Revisit
 once the live order volume has had time to make the numbers mean something.
+
+## Security surfaces — 2026-08-29
+
+Run against production, as an attacker would reach it: the publishable key,
+which ships in every app bundle and is therefore public. Every result below is
+a live response, not a reading of the SQL.
+
+### What is closed
+
+| Surface | Probe as `anon` | Result |
+|---|---|---|
+| `brands` (fee terms live here) | `select=id,slug,fee_bps` | `[]` — RLS denies |
+| `orders` | `select=id,total_cents` | `[]` |
+| `order_events` | `select=*` | `[]` |
+| `customers` | `select=*` | `[]` |
+| `devices` | `select=*` | `[]` |
+| `brand_users` | `select=*` | `[]` |
+| `square_connections` | `select=*` | `42501 permission denied` — the grant is gone, so RLS is never even consulted |
+| `board_tickets` (SECURITY DEFINER) | `select=id,guest_label` | `[]` — `app.can_read_board` holds inside the definer |
+| `brand_storefront` | `select=fee_bps` | `42703` — the fee terms are not in the projection at all |
+
+`board_tickets` is the one worth dwelling on: it is a SECURITY DEFINER function
+behind a view, so RLS on `public.orders` does not apply to it. The tenancy check
+is re-implemented *inside* the function, and the empty result above is the
+evidence that the re-implementation actually holds rather than merely existing.
+
+### What is open, and the one thing wrong with it
+
+`public.brand_storefront` returns brand identity, the seven feature flags and
+`brand_config` to any anonymous caller. That much is deliberate and correct: a
+guest's app has to render the brand before anyone signs in, so the bootstrap
+read cannot require auth. The projection is careful — the fee terms stay on
+`brands` under RLS, and asking the view for them is a column error.
+
+What is missing is any *narrowing*. `app.brand_storefront_rows()` selects
+`from public.brands` with no `where` clause at all, so the view returns every
+brand row on the platform. Today that is one row and the exposure is exactly
+the intended one. At tenant #2 it becomes tenant enumeration: anyone holding
+any tenant's publishable key can list every brand on the platform, with each
+one's slug, name, feature flags, and `brand_config` (which carries
+`business` — legal name, email, phone, website — plus `tax.jurisdictions` and
+the loyalty reward catalogue).
+
+None of that is a credential and all of it is visible to anyone who downloads
+that tenant's own app. The disclosure is the *list*: the platform's customer
+roster, readable by any one of its customers.
+
+Clients already filter — `fetchBrandBySlug` sends `?slug=eq.<slug>` — but a
+filter applied after the definer has returned every row is a convenience, not a
+boundary.
+
+**Recommended fix, deliberately not taken here.** Make the caller name the
+brand and return at most that one: a parameterised
+`app.brand_storefront_rows(brand_slug text)` exposed as an RPC, with
+`fetchBrandBySlug` and `fetchBrandConfig` passing what they already know. This
+is a change to the coldest, most load-bearing read in the product — every app's
+first request — and it needs a migration that extends the readiness chain plus a
+matching bump of `REQUIRED_DATABASE_RELEASE`. Landing that on the eve of a
+promotion, to close an exposure that is latent until a second tenant exists,
+trades a real risk for a theoretical one. It should be the first change after
+this release, verified against a running system.
+
+### OAuth (Square)
+
+State binds three things — location, signed-in user, expiry — under one HMAC,
+and the callback re-checks that the person finishing consent still holds the
+session and still manages the location. Signature is verified before expiry, so
+a tampered value never reports "expired" and leaks that its MAC was accepted.
+PKCE does not apply: this is a confidential client that holds the application
+secret server-side, and state with a TTL and a user binding is the control that
+matters here.
+
+One accepted residual: state is not single-use, so it is replayable inside its
+15-minute window — but only by the same signed-in user, whose replay merely
+re-connects the same location. A third party would need that user's session
+cookie, at which point the state is the least of it.
+
+### Webhooks (Square)
+
+The raw body is read before anything parses it, the HMAC is computed over
+`notification_url + rawBody` and compared in constant time (with the length
+check that `timingSafeEqual` requires), and nothing else in the route runs until
+that passes. Delivery is logged *before* the work, gated on `processed_at`, and
+stamped only after the money and points have actually landed — so an unstamped
+row is precisely "arrived and did not finish". Replays die on
+`order_events.square_event_id UNIQUE` rather than in application logic.
+
+There is no attempt counter on `webhook_events`: the retry engine is Square
+itself, and the route returns 503 to ask for another delivery. That is a
+legitimate choice for a provider that retries, and it is worth stating out loud
+rather than leaving as an omission. The notification outbox, which has no such
+provider, does carry the full shape — `attempt_count` bounded at 20,
+`available_at` for backoff, `last_error`, and a terminal `failed` status.
+
+### SECURITY DEFINER inventory
+
+62 functions across `app`, `public` and `storage`. 61 pin `search_path = ''`.
+The exception is `app.signal_brand_config_change`, which runs with
+`search_path = public, app`. That is the classic definer-escalation shape, so it
+was checked rather than assumed: neither `anon` nor `authenticated` holds CREATE
+on `public`, `app` or `storage`, so no client role can plant an object for it to
+resolve. Not exploitable, but it is the only one out of step, and it should be
+brought in line with the other 61 in the same follow-up migration.
+
+### Storage
+
+Three public buckets with MIME allowlists and size caps. Writes are prefix-
+isolated by `app.is_brand_staff(foldername[1]::uuid)`. `menu-images` and
+`training-media` have no update or delete policy for client roles at all — only
+`brand-assets` does — which makes their objects append-only from every app, with
+retention left to the service role. That is the immutability the media-history
+design depends on, enforced by the absence of a policy rather than by a rule
+anyone has to remember.
+
+### Rate limiting
+
+There is none, at the application layer, and the one place it would matter says
+so in its own comment. `POST /api/devices/pair` is the platform's single
+unauthenticated write; it is designed so that brute force is the only attack
+left — every failure returns the same `pairing_unknown`, and codes are 15-minute
+single-use — and the route explicitly defers throttling to the edge. That is a
+defensible split, but nothing is currently doing the throttling, so the residual
+is real: an attacker who can guess a live code inside its 15-minute window pairs
+a device. It belongs on the Vercel edge (per-IP, on this one path), not in the
+handler, and it is the kind of thing worth having before a second tenant makes
+codes more numerous.
+
+### Accepted residuals, stated plainly
+
+- `brand_storefront` returns every brand; harmless at one tenant, an enumeration
+  hole at two. Fix before onboarding tenant #2, not after.
+- `app.signal_brand_config_change` runs with a non-empty `search_path`. Not
+  exploitable — no client role holds CREATE on any schema it resolves through —
+  but it is the only definer out of step with the other 61.
+- Square OAuth state is replayable within its 15-minute TTL by the same
+  signed-in user. Cost of a replay: the same location reconnects.
+- `webhook_events` has no attempt counter; Square's own retry engine is the
+  backstop, and the route returns 503 to ask for one.
+- No per-IP throttle on the pairing route, as above.
+
+## Production configuration — what is actually set, 2026-08-29
+
+The promotion to `main` at `2e389ad` went cleanly and all five surfaces are live
+on that exact commit. What that does *not* mean is that production is fully
+configured, and the gap is worth writing down precisely, because from the
+outside every URL returns 200.
+
+Vercel's own Git integration is what has been deploying this project. It fires
+on push and needs nothing from us, which is why HQ served `2e389ad42fd8` from
+`/api/health` four minutes after the merge. `deploy-hosted.yml` — the workflow
+that is *supposed* to own production — has never completed: it fails at
+`deploy-hq` because `VERCEL_TOKEN` no longer has access to the account
+(`err.sh/vercel/scope-not-accessible`). Every deploy this project has had came
+from the Git integration instead.
+
+That matters because the env-configuration steps live inside the workflow. They
+have therefore never run, and production is running on whatever was set by hand
+earlier. Read against the live projects, names only:
+
+| Project | Production env |
+|---|---|
+| `coffee-story-customer` | complete (5 vars) |
+| `coffee-story-operator` | complete (5 vars) |
+| `coffee-story-kiosk` | complete (5 vars) |
+| `coffee-story-hq` | 5 of 9 — see below |
+| `coffee-story-display` | **1 of 4** — `NEXT_PUBLIC_SUPABASE_URL` only |
+
+HQ's five are `SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`,
+`NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` and `CRON_SECRET`.
+Of the four absent, three are the OpenAI trio the factory's research step wants
+and one is `SUPABASE_JWT_SECRET`, which is the one that matters today. The
+display's four are `NEXT_PUBLIC_SUPABASE_URL`, `HQ_ORIGIN`, `DISPLAY_DEMO_MODE`
+and one of the two device credentials.
+
+### What each gap actually does
+
+**`SUPABASE_JWT_SECRET` is absent from HQ.** Device pairing fails closed, which
+is the correct behaviour and also a hard block: a well-formed request to
+`POST /api/devices/pair` answers
+
+    501 {"error":{"code":"not_configured",
+         "message":"SUPABASE_JWT_SECRET is not set; device pairing is unavailable."}}
+
+This corrects an earlier reading in this session. The same endpoint answers
+`400 code is required` to a *malformed* request, because the ≤32-character
+length check runs before the config check — so probing it with a long string
+makes a missing secret look like a working endpoint. It is only configured if a
+valid-length code gets past that first gate.
+
+**The display has no device credential of any kind.** Not an expired one — none.
+`DISPLAY_DEVICE_TOKEN`, `DISPLAY_DEVICE_REFRESH_SECRET`, `HQ_ORIGIN` and
+`DISPLAY_DEMO_MODE` are all unset, because the step that sets them is inside the
+workflow that has never run. The board renders "This screen is not paired",
+which is the honest state.
+
+The device row itself exists and looks paired — `paired_at` set, `revoked_at`
+null, `token_version` 1 — but `last_seen_at` is null, so nothing has ever
+authenticated as it. Issuing a credential for it needs the pairing flow, which
+needs the JWT secret above, which needs an owner. There is no shortcut: minting
+one by direct SQL would bypass the pairing design this same audit just checked.
+
+**`ANALYTICS_ALLOWED_ORIGINS` is unset**, so analytics from the three web
+surfaces is being dropped. Verified against production rather than inferred:
+
+    Origin: https://coffee-story-customer.vercel.app  ->  403 origin_forbidden
+    (no Origin header, i.e. a native app)             ->  428 idempotency_key_required
+
+The 428 is the route working correctly — it demands a UUID idempotency key per
+batch. Native clients are unaffected; the web builds are not. Note that this
+variable is set by hand per `docs/PRODUCTION.md`; `deploy-hosted.yml` does not
+manage it, so fixing the workflow would not fix this.
+
+**`HEALTH_CHECK_TOKEN` is unset**, so `/api/health?deep=1` returns 501 and the
+deep check — the one that compares the database's release readiness against
+`REQUIRED_DATABASE_RELEASE` — cannot be run from outside. Also owner-set, also
+not managed by the workflow.
+
+### The ordering trade-off, left as it is
+
+`migrate-database` runs before `deploy-hq` and `deploy-web`. A Vercel failure
+after a successful migration therefore leaves the database ahead of the app
+code. That is deliberate: the deep-health equality check requires the database
+to already carry the release the app expects, so the migration has to land
+first. It is recorded here rather than changed.
