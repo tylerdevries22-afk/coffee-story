@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { coffeeStoryTrainingManifest } from './training-baseline';
+import { cafeTrainingManifest } from './training-baseline';
 import {
   trainingTrackArtworkSvg,
   withTrainingArtwork,
@@ -24,7 +24,7 @@ describe('trainingTrackArtworkSvg', () => {
 
 describe('withTrainingArtwork', () => {
   it('adds one URL to every core module and leaves custom modules unchanged', () => {
-    const manifest = coffeeStoryTrainingManifest({ businessName: 'Coffee Story', industry: 'Coffee', locale: 'en-US' });
+    const manifest = cafeTrainingManifest({ businessName: 'Coffee Story', industry: 'Coffee', locale: 'en-US' });
     manifest.modules.push({ slug: 'local', trackKey: 'custom', title: 'Local', summary: '', icon: { symbol: 'pin', prompt: 'pin' }, lessons: [] });
     const urls = Object.fromEntries(TRAINING_TRACK_ORDER.map((track) => [track, `https://media.example/${track}.webp`])) as TrainingArtworkUrls;
     const result = withTrainingArtwork(manifest, urls);

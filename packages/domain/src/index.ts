@@ -14,6 +14,7 @@ export * from './totals';
 export * from './fulfillment';
 export * from './request-key';
 export * from './rules';
+export * from './slug';
 export * from './hours';
 export * from './pickup';
 export * from './information-pages';

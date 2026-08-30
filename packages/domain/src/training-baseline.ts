@@ -5,6 +5,7 @@ import type {
   TrainingModule,
   TrainingTrackKey,
 } from './training';
+import { slugify } from './slug';
 
 const SOURCES = [
   { title: 'Coffee standards', url: 'https://sca.coffee/research/coffee-standards', publisher: 'Specialty Coffee Association', accessedAt: '2026-08-26' },
@@ -27,9 +28,9 @@ type LessonSeed = {
 const TRACKS: { key: TrainingTrackKey; title: string; summary: string; symbol: string; lessons: LessonSeed[] }[] = [
   {
     key: 'knowledge', title: 'Knowledge', summary: 'Products, standards, and guest-ready explanations.', symbol: 'book-open', lessons: [
-      { slug: 'coffee-story-menu', title: 'Tell the Coffee Story menu', objective: 'Explain the menu in a clear, guest-ready way', sourceUrl: SOURCES[0].url, menuItemSlugs: ['espresso', 'latte', 'cold-brew'] },
+      { slug: 'menu-fluency', title: 'Tell the {brand} menu', objective: 'Explain the menu in a clear, guest-ready way', sourceUrl: SOURCES[0].url, menuItemSlugs: ['espresso', 'latte', 'cold-brew'] },
       { slug: 'flavor-and-allergen-guidance', title: 'Flavor and allergen guidance', objective: 'Handle flavor questions and allergy concerns safely', sourceUrl: SOURCES[1].url },
-      { slug: 'quality-standard', title: 'Recognize the quality standard', objective: 'Describe what a consistent Coffee Story beverage looks and tastes like', sourceUrl: SOURCES[0].url },
+      { slug: 'quality-standard', title: 'Recognize the quality standard', objective: 'Describe what a consistent {brand} beverage looks and tastes like', sourceUrl: SOURCES[0].url },
     ],
   },
   {
@@ -70,18 +71,32 @@ const TRACKS: { key: TrainingTrackKey; title: string; summary: string; symbol: s
   },
 ];
 
-function lesson(seed: LessonSeed): TrainingLesson {
+/**
+ * The tenant's own name, wherever a lesson has to say one.
+ *
+ * These seeds are the shared starting template every tenant is bootstrapped
+ * from, so they carry a placeholder rather than a brand. They used to carry
+ * "Coffee Story" outright, which meant the manifest generated for the second
+ * shop on the platform would have told its staff to follow the first shop's
+ * procedure -- named, in writing, in a lesson they are marked complete on.
+ */
+function branded(text: string, businessName: string): string {
+  return text.replace(/\{brand\}/g, businessName);
+}
+
+function lesson(seed: LessonSeed, businessName: string): TrainingLesson {
+  const objective = branded(seed.objective, businessName);
   return {
     slug: seed.slug,
-    title: seed.title,
-    objective: seed.objective,
-    content: seed.content ?? `${seed.objective}. Follow the current Coffee Story procedure, verify the result against the station standard, and pause to ask a shift lead whenever equipment, ingredients, guest needs, or local requirements fall outside the documented process. Record the handoff so the next operator can continue safely and consistently.`,
+    title: branded(seed.title, businessName),
+    objective,
+    content: seed.content ?? `${objective}. Follow the current ${businessName} procedure, verify the result against the station standard, and pause to ask a shift lead whenever equipment, ingredients, guest needs, or local requirements fall outside the documented process. Record the handoff so the next operator can continue safely and consistently.`,
     estimatedMinutes: 8,
     sourceUrls: [seed.sourceUrl],
     ...(seed.menuItemSlugs ? { menuItemSlugs: seed.menuItemSlugs } : {}),
     media: [],
     quiz: [
-      { prompt: `What is the safest first step for ${seed.title.toLowerCase()}?`, choices: ['Follow the approved procedure', 'Guess from memory', 'Skip the check'], correctChoice: 0, explanation: 'The approved procedure is the tenant source of truth.' },
+      { prompt: `What is the safest first step for ${branded(seed.title, businessName).toLowerCase()}?`, choices: ['Follow the approved procedure', 'Guess from memory', 'Skip the check'], correctChoice: 0, explanation: 'The approved procedure is the tenant source of truth.' },
       { prompt: 'What should you do when the situation is not covered?', choices: ['Continue anyway', 'Ask a shift lead', 'Hide the issue'], correctChoice: 1, explanation: 'Escalation protects guests, operators, and the business.' },
     ],
     ...(seed.grantsCompetencyKeys ? { grantsCompetencyKeys: seed.grantsCompetencyKeys } : {}),
@@ -89,8 +104,26 @@ function lesson(seed: LessonSeed): TrainingLesson {
   };
 }
 
-export function coffeeStoryTrainingManifest(profile: TenantTrainingProfile): TrainingManifest {
-  const tenant = { ...profile, templateKey: profile.templateKey ?? 'coffee-story', templateVersion: profile.templateVersion ?? 1 };
+/**
+ * The starting manifest a tenant is bootstrapped from.
+ *
+ * The template key defaults to the tenant's own slug rather than to one
+ * shop's. `slugify('Coffee Story')` is `coffee-story`, so the first tenant's
+ * published templates keep resolving; every tenant after it now gets a key of
+ * its own instead of reading the first one's lessons.
+ *
+ * The version is deliberately left unset. It used to default to 1, which
+ * pinned every lookup to the first version ever published -- so a template
+ * republished at version 2 was written, stored, and never read. Absent, the
+ * lookup takes the highest published version, and a brand config that wants a
+ * specific one still says so.
+ */
+export function cafeTrainingManifest(profile: TenantTrainingProfile): TrainingManifest {
+  // A plain noun, not an invented brand: it has to read correctly in the
+  // sentences above ("Tell the shop menu"), and a nameless tenant is a
+  // misconfiguration the lesson body should not paper over with a fake name.
+  const businessName = profile.businessName.trim() || 'shop';
+  const tenant = { ...profile, templateKey: profile.templateKey ?? slugify(businessName) };
   const modules: TrainingModule[] = TRACKS.map((track, sortOrder) => ({
     slug: track.key,
     trackKey: track.key,
@@ -98,7 +131,7 @@ export function coffeeStoryTrainingManifest(profile: TenantTrainingProfile): Tra
     title: track.title,
     summary: track.summary,
     icon: { symbol: track.symbol, prompt: `Simple monochrome ${track.title.toLowerCase()} line icon` },
-    lessons: track.lessons.map(lesson),
+    lessons: track.lessons.map((seed) => lesson(seed, businessName)),
   }));
   return { schemaVersion: 2, generatedAt: new Date().toISOString(), tenant, sources: [...SOURCES], modules };
 }

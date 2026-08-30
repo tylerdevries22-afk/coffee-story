@@ -2,13 +2,13 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
-  coffeeStoryTrainingManifest,
+  cafeTrainingManifest,
 } from './training-baseline';
 import { normalizeTrainingManifest, scoreTrainingQuiz, TRAINING_TRACK_ORDER } from './training';
 
 describe('training manifest v2', () => {
-  it('seeds the Coffee Story franchise baseline with five tracks and fifteen lessons', () => {
-    const manifest = coffeeStoryTrainingManifest({ businessName: 'Coffee Story', industry: 'Coffee', locale: 'en-US' });
+  it('seeds the franchise baseline with five tracks and fifteen lessons', () => {
+    const manifest = cafeTrainingManifest({ businessName: 'Coffee Story', industry: 'Coffee', locale: 'en-US' });
     assert.equal(manifest.schemaVersion, 2);
     assert.deepEqual(manifest.modules.map((module) => module.trackKey), [...TRAINING_TRACK_ORDER]);
     assert.equal(manifest.modules.reduce((total, module) => total + module.lessons.length, 0), 15);
@@ -16,6 +16,30 @@ describe('training manifest v2', () => {
       .find((lesson) => lesson.slug === 'chemicals-and-incidents');
     assert.deepEqual(sanitation?.grantsCompetencyKeys, ['restroom-sanitation']);
     assert.equal(sanitation?.competencyValidityDays, 365);
+  });
+
+  it('names the tenant it was handed, and nobody else', () => {
+    // The baseline is the shared starting template. It used to say "Coffee
+    // Story" in a lesson title, an objective, and the body every lesson without
+    // its own copy falls back to -- so the second shop on the platform would
+    // have trained its staff on the first shop's procedure, by name.
+    const manifest = cafeTrainingManifest({ businessName: 'Riverbend Roasters', industry: 'Coffee', locale: 'en-US' });
+    const lessons = manifest.modules.flatMap((module) => module.lessons);
+    const written = lessons.flatMap((lesson) => [lesson.title, lesson.objective, lesson.content]);
+    for (const text of written) assert.doesNotMatch(text, /coffee story/i);
+    assert.ok(lessons.some((lesson) => lesson.title === 'Tell the Riverbend Roasters menu'));
+    for (const text of written) assert.doesNotMatch(text, /\{brand\}/);
+  });
+
+  it('derives a template key per tenant, keeping the first tenant on its own', () => {
+    // slugify('Coffee Story') is the key its published templates are already
+    // stored under, so generalizing the default did not orphan them.
+    assert.equal(cafeTrainingManifest({ businessName: 'Coffee Story', industry: 'Coffee', locale: 'en-US' }).tenant.templateKey, 'coffee-story');
+    assert.equal(cafeTrainingManifest({ businessName: 'Riverbend Roasters', industry: 'Coffee', locale: 'en-US' }).tenant.templateKey, 'riverbend-roasters');
+    // Left unset on purpose: the lookup then takes the highest published
+    // version instead of pinning every tenant to the first one ever published.
+    assert.equal(cafeTrainingManifest({ businessName: 'Coffee Story', industry: 'Coffee', locale: 'en-US' }).tenant.templateVersion, undefined);
+    assert.equal(cafeTrainingManifest({ businessName: '  ', industry: 'Coffee', locale: 'en-US' }).tenant.templateKey, 'shop');
   });
 
   it('upgrades legacy modules without changing their portable slugs', () => {

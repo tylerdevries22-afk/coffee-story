@@ -2,6 +2,8 @@ import type { CSSProperties, ReactNode } from 'react';
 import { headers } from 'next/headers';
 import { after } from 'next/server';
 
+import { slugify } from '@platform/domain';
+
 import { currentSession, hasRole } from '@/lib/auth';
 import { isConfigured } from '@/lib/supabase-server';
 import { Icon } from '@/components/icon';
@@ -89,7 +91,7 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
     .map((word) => word.charAt(0))
     .join('')
     .toUpperCase() || 'HQ';
-  const statusSlug = brandName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 64) || 'tenant';
+  const statusSlug = slugify(brandName, 64) || 'tenant';
   const menuHref = hasRole(session, 'brand_owner') ? '/catalog' : '/menu';
   const canManageTraining = hasRole(session, 'location_manager');
   const canManagePlatform = hasRole(session, 'platform_admin');

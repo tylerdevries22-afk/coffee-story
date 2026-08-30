@@ -3,7 +3,7 @@ import type {
   TrainingAnswerKey,
   TrainingManifest,
 } from './training-bootstrap';
-import { normalizeTrainingManifest, TRAINING_TRACK_ORDER, type TrainingTrackKey } from '@platform/domain';
+import { normalizeTrainingManifest, slugify, TRAINING_TRACK_ORDER, type TrainingTrackKey } from '@platform/domain';
 
 export type ContentMenuSize = {
   slug: string;
@@ -227,13 +227,7 @@ function isLessonPayload(value: unknown): boolean {
 }
 
 export function slugFromLabel(label: string): string {
-  return label
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
-    .slice(0, 80);
+  return slugify(label, 80);
 }
 
 export function validateMenuItemDraft(

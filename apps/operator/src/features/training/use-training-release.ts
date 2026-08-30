@@ -1,22 +1,24 @@
 import { AppState } from 'react-native';
 import { useEffect, useState } from 'react';
-import { coffeeStoryTrainingManifest, type TrainingManifest } from '@platform/domain';
+import { cafeTrainingManifest, type TrainingManifest } from '@platform/domain';
 import { subscribeToTrainingReleases } from '@platform/data';
 
+import { BUSINESS } from '@/data/business';
 import { mobileApi } from '@/lib/mobile-api';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/state/auth-context';
 
 export type OperatorTrainingRelease = { id: string; manifest: TrainingManifest };
 
+// The demo shop, named once in data/business.ts rather than restated here.
+// The template key is derived from the name, so the fixture does not carry a
+// second copy of it either.
 const DEMO_TRAINING_RELEASE: OperatorTrainingRelease = {
-  id: 'demo-coffee-story-training-v1',
-  manifest: coffeeStoryTrainingManifest({
-    businessName: 'Coffee Story',
+  id: 'demo-training-v1',
+  manifest: cafeTrainingManifest({
+    businessName: BUSINESS.name,
     industry: 'Coffee shop',
     locale: 'en-US',
-    templateKey: 'coffee-story',
-    templateVersion: 1,
   }),
 };
 

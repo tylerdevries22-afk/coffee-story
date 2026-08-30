@@ -1,3 +1,5 @@
+import { slugify } from './slug';
+
 /**
  * How an order reaches the guest.
  *
@@ -54,11 +56,6 @@ function cityLineOf(address: Record<string, unknown> | null): string {
   return [head, postal].filter(Boolean).join(' ');
 }
 
-/** A stable id for a location the tenant did not give one, from its name. */
-function slug(value: string): string {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-}
-
 function pickupLocationOf(
   entry: Record<string, unknown>,
   fallbackName: string,
@@ -72,7 +69,7 @@ function pickupLocationOf(
   // taps it, and the order is placed against an address the shop never gave.
   if (!name || (!street && !cityLine)) return null;
   return {
-    id: text(entry.id) || slug(name) || `location-${index + 1}`,
+    id: text(entry.id) || slugify(name) || `location-${index + 1}`,
     name,
     address: street,
     cityLine,
