@@ -25,8 +25,8 @@ import type { OrderFulfillment, FulfillmentMode , OrderableItem } from '@platfor
 import {
   formatMoney, fulfillmentDetail, fulfillmentLabel, orderTotals, pointsForOrder,
   REWARD_TIERS, tierForAnnualPoints,
+  PICKUP_WINDOW_MINUTES, describePickupWindow, isWindowStillBookable,
 } from '@platform/domain';
-import { PICKUP_WINDOW_MINUTES, describePickupWindow, isWindowStillBookable } from '@/features/order/pickup';
 import {
   checkoutAttemptSignature,
   checkoutGuestLabel,

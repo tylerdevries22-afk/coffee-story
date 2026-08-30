@@ -24,9 +24,9 @@ import { fulfillmentDetail, fulfillmentLabel, type OrderFulfillment ,
   orderLineTotalCents,
   type OrderCart,
   type OrderLine,
+  formatMoney,
+  describePickupWindow,
 } from '@platform/domain';
-import { formatMoney } from '@platform/domain';
-import { describePickupWindow } from '@/features/order/pickup';
 import { POINTS_LABEL } from '@/features/rewards/presentation';
 import { useCustomerCatalog } from '@/state/catalog-context';
 import { menuImageFrame } from '@platform/ui';

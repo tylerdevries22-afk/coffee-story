@@ -31,9 +31,11 @@ import {
   type DeliveryAddress,
   type PickupLocation,
   type FulfillmentMode,
+  type PickupWindow,
+  formatMoney,
+  DELIVERY_FEE_CENTS,
 } from '@platform/domain';
-import { formatMoney , DELIVERY_FEE_CENTS } from '@platform/domain';
-import { pickupWindows, shopStatus, type PickupWindow } from '@/features/order/pickup';
+import { pickupWindows, shopStatus } from '@/features/order/schedule';
 import { TENANT } from '@/tenant';
 import { choiceState } from '@platform/ui';
 import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
