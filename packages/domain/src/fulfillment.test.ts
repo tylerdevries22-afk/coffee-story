@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import coffeeStory from '../../../tenants/coffee-story/brand.json';
 import {
   deliveryAddressLine,
+  emptyDeliveryAddress,
   fulfillmentDetail,
-  PICKUP_LOCATIONS,
+  resolvePickupLocations,
   validateDeliveryAddress,
   type DeliveryAddress,
 } from './fulfillment';
@@ -40,10 +42,50 @@ test('formats optional units and normalizes the state', () => {
 });
 
 test('describes pickup fulfillment from the selected location', () => {
-  const location = PICKUP_LOCATIONS[0];
+  const location = resolvePickupLocations(coffeeStory)[0];
   assert.ok(location, 'there must be at least one pickup location');
   assert.equal(
     fulfillmentDetail({ mode: 'pickup', location }),
     '2222 S Havana St Unit A1, Aurora, CO 80014',
   );
+});
+
+test('reads the tenant it was handed, and nobody else', () => {
+  const [location] = resolvePickupLocations({
+    identity: { name: 'Riverbend Roasters' },
+    location: { address: { street: '4 Mill Lane', city: 'Ely', region: 'MN', postal: '55731' } },
+  });
+  assert.deepEqual(location, {
+    id: 'riverbend-roasters',
+    name: 'Riverbend Roasters',
+    address: '4 Mill Lane',
+    cityLine: 'Ely, MN 55731',
+    note: '',
+  });
+});
+
+test('lists every shop once multi-location is on', () => {
+  const locations = resolvePickupLocations({
+    identity: { name: 'Riverbend Roasters' },
+    locations: [
+      { id: 'mill', name: 'Riverbend — Mill Lane', address: { street: '4 Mill Lane', city: 'Ely', region: 'MN', postal: '55731' } },
+      { name: 'Riverbend — Depot', address: { street: '90 Depot St', city: 'Ely', region: 'MN', postal: '55731' }, note: 'Free parking' },
+    ],
+  });
+  assert.deepEqual(locations.map((entry) => entry.id), ['mill', 'riverbend-depot']);
+  assert.equal(locations[1]?.note, 'Free parking');
+});
+
+test('drops a shop with nowhere to walk to', () => {
+  // A card the guest can tap but not find is worse than no card: the order is
+  // placed against an address the shop never gave.
+  assert.deepEqual(resolvePickupLocations({ location: { name: 'Nowhere' } }), []);
+  assert.deepEqual(resolvePickupLocations(null), []);
+  assert.deepEqual(resolvePickupLocations({ location: 'nonsense' }), []);
+});
+
+test('pre-fills only the state, and only when it is one', () => {
+  assert.equal(emptyDeliveryAddress(coffeeStory).state, 'CO');
+  assert.equal(emptyDeliveryAddress({ location: { address: { region: 'Colorado' } } }).state, '');
+  assert.equal(emptyDeliveryAddress(null).street, '');
 });

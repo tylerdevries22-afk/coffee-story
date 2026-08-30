@@ -80,11 +80,7 @@ function spansOf(value: unknown): readonly HourSpan[] | null {
  * open, and the app has an honest answer for not knowing -- it stops offering
  * windows and says hours are unavailable -- which a manager can act on.
  */
-export function resolveWeekHours(config: unknown): WeekHours | null {
-  if (typeof config !== 'object' || config === null) return null;
-  const location = (config as { location?: unknown }).location;
-  if (typeof location !== 'object' || location === null) return null;
-  const hours = (location as { hours?: unknown }).hours;
+export function weekFromHours(hours: unknown): WeekHours | null {
   if (typeof hours !== 'object' || hours === null) return null;
   const week: (readonly HourSpan[])[] = [];
   for (const key of DAY_KEYS) {
@@ -93,6 +89,14 @@ export function resolveWeekHours(config: unknown): WeekHours | null {
     week.push(spans);
   }
   return week;
+}
+
+/** The same, reached through a brand config's single `location`. */
+export function resolveWeekHours(config: unknown): WeekHours | null {
+  if (typeof config !== 'object' || config === null) return null;
+  const location = (config as { location?: unknown }).location;
+  if (typeof location !== 'object' || location === null) return null;
+  return weekFromHours((location as { hours?: unknown }).hours);
 }
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];

@@ -23,8 +23,6 @@ import { AppIcon } from '@/components/icon';
 import { ActionButton, StickyActionBar, useStickyBarClearance } from '@/components/order/order-chrome';
 import { Body } from '@/components/ui';
 import {
-  EMPTY_DELIVERY_ADDRESS,
-  PICKUP_LOCATIONS,
   deliveryAddressLine,
   validateDeliveryAddress,
   type OrderFulfillment,
@@ -35,6 +33,7 @@ import {
   formatMoney,
   DELIVERY_FEE_CENTS,
 } from '@platform/domain';
+import { EMPTY_DELIVERY_ADDRESS, PICKUP_LOCATIONS } from '@/features/order/locations';
 import { pickupWindows, shopStatus } from '@/features/order/schedule';
 import { TENANT } from '@/tenant';
 import { choiceState } from '@platform/ui';
