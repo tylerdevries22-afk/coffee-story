@@ -1,22 +1,25 @@
 /**
- * Mirrors the `intake_forms` catalog that the web app seeds and both admin
- * portals read.
+ * The starting text of the agreements an admin can edit in Settings.
  *
- * The three clinical forms this list inherited from the massage business --
- * a health history, a massage consent and a cancellation policy for reserved
- * order time -- are gone. A coffee shop does not take a health history,
- * and an admin opening Settings should not be offered one. The wording below
- * still needs counsel's review before it is put in front of a guest; see
- * PRODUCTION_SETUP.md.
+ * Three earlier claims in this comment were false and are worth naming, since
+ * they would each send someone looking for a file: there is no `intake_forms`
+ * table and no migration seeding one, no catalog test keeping this list
+ * honest, and no second copy in a web app. A byte-identical duplicate did
+ * live in the customer binary -- admin copy shipped to guests, against the
+ * rule that operator functionality stays out of that build -- and it was
+ * imported by nothing; it is gone.
  *
- * Bundled rather than fetched: this panel has to be correct with no backend at
- * all -- the Expo Go demo runs entirely offline, and an admin opening Settings
- * on a bad connection should still see the real documents rather than an empty
- * list. The catalog only changes when a release changes it, so there is nothing
- * a live fetch would catch.
+ * Bundled rather than fetched, so the panel is correct with no backend at all:
+ * the demo runs offline, and an admin on a bad connection should see the real
+ * documents rather than an empty list.
  *
- * Kept honest by `lib/preferences-forms-catalog.test.ts` in the web app, which fails
- * CI if this list stops matching the rows the migration seeds.
+ * Nothing persists yet -- `mobileApi.updateIntakeForms` answers 501 on a live
+ * account and says so to the admin. The wording still needs counsel's review
+ * before it is put in front of a guest; see docs/PRODUCTION_SETUP.md.
+ *
+ * The copy is deliberately shop-neutral. This binary is one App Store listing
+ * serving every tenant, so a brand name written in here would be the wrong
+ * brand for all but one of them.
  */
 export type IntakeFormCatalogEntry = {
   id: string;

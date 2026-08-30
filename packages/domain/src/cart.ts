@@ -7,9 +7,8 @@
  * back up in `data/catalog.ts` by `itemId`, which keeps the asset imports out
  * of this module.
  *
- * Prices are integer cents throughout, matching `features/staff/pos-totals.ts`
- * and every `*Cents` field in `types/domain.ts`. Nothing here ever sees a
- * float dollar amount.
+ * Prices are integer cents throughout, matching every `*Cents` field in
+ * `types/domain.ts`. Nothing here ever sees a float dollar amount.
  */
 import { formatPriceDelta } from './money';
 

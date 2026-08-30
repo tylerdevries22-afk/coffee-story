@@ -59,6 +59,35 @@ currency literal is what surfaced the worst defect in this pass:
   been decoration: tax is modelled as US jurisdictions, delivery validates a
   two-letter state and a ZIP, and `formatMoney` prints a bare `$`. That would
   take a foreign shop's money into a system that still could not serve it.
+- **Square access tokens were never refreshed.** `refreshOAuthToken` was
+  exported with zero callers and `square_connections.expires_at` was written by
+  the callback and read by nothing -- `squareRuntimeFor` selected only
+  `square_location_id, access_token_encrypted`. Square access tokens last thirty
+  days, so every connected shop would have stopped taking cards a month after
+  connecting, on a 401 nothing in the product explained. Renewal now happens in
+  `squareRuntimeFor`, the one chokepoint every money path already crosses,
+  rather than on a schedule: a cron that quietly stops running is the same
+  failure this was. A token inside the seven-day margin still takes the sale if
+  the renewal fails; an expired one is refused rather than sent to Square as if
+  it were money. `apps/hq/lib/square-runtime.test.ts` is the first test this
+  module has had.
+- **D4, the fourth tender vocabulary, is gone.** Three of the four now agree by
+  construction -- `contract.ts` imports `@platform/schema`'s `OrderTenderType`,
+  and `kiosk-flow.ts` maps `KioskTender` onto it through `settlementFor`, which
+  is total or a type error. The fourth,
+  `apps/operator/src/features/staff/payment-availability.ts`, was imported by
+  nothing but its own test and has been removed, which closes D4 and task 0.1.
+- **Four dead modules removed, two of them carrying one shop's money.**
+  `pos-totals.ts` (190 lines) was a till register imported by nothing but its
+  own test, holding `DISCOUNT_CODE_CENTS = 1500`, `MEMBERSHIP_CREDIT_CENTS =
+  2500`, a fixed add-on list and fixed gift amounts as module constants -- the
+  same defect as the loyalty ladder, waiting for whoever built the till screen
+  to import it. `apps/customer/src/features/intake-forms.ts` was a
+  byte-identical copy of the operator's admin agreements catalog, imported by
+  nothing, shipping operator copy inside the guest binary against rule 7. Its
+  surviving counterpart's doc comment claimed an `intake_forms` table, a
+  seeding migration and a catalog test, none of which exist; it now says what
+  is actually true.
 
 **Still open**, deliberate, scoped to one market rather than one tenant, so it
 does not block a second franchisee in the US:
@@ -209,7 +238,7 @@ This is broader than "pairing UI is missing": the claim schema, the minter, and 
 **D3. `orders.guest_label` is written by nothing.** Verified: `placeOrder`'s insert (`orders.ts:256`) lists 14 columns and not this one; `PlaceOrderRequest` (`packages/api-client/src/contract.ts:24-39`) has no field to carry it. Readers exist — `apps/display/app/board/[location]/board-view.tsx:104` `{ticket.guest_label ?? ''}` — plus a whole tested kiosk module (`apps/kiosk/src/features/guest-label.ts`) with zero non-test call sites. `apps/display/lib/demo-board.ts` fixtures all carry names, so the surface demos correctly and fails silently in production.
 **Fix:** add `guestLabel?: string` to `PlaceOrderRequest`, validate in the route using the promoted `guest-label.ts` rules, write it in the insert. Add a `packages/schema/src/surfaces.test.ts` assertion that every column `board_tickets` projects has a writer in the engine.
 
-**D4. Tender vocabularies have zero overlap.** `packages/domain/src/kiosk-flow.ts:43` `KioskTender = 'card' | 'gift_card' | 'stored_value' | 'cash'` vs `packages/api-client/src/contract.ts:13` `TenderType = 'pay_at_pickup' | 'external' | 'square_link' | 'square_card'` vs the DB CHECK (`…000012:13`) matching the latter. `tenants/coffee-story/brand.json:271` already declares `["card","stored_value"]`. A fourth vocabulary exists at `apps/operator/src/features/staff/payment-availability.ts:1-9`. Not one value the kiosk can emit is postable.
+**D4. Tender vocabularies have zero overlap.** *Closed 2026-08-30 -- see the status section.* `packages/domain/src/kiosk-flow.ts:43` `KioskTender = 'card' | 'gift_card' | 'stored_value' | 'cash'` vs `packages/api-client/src/contract.ts:13` `TenderType = 'pay_at_pickup' | 'external' | 'square_link' | 'square_card'` vs the DB CHECK (`…000012:13`) matching the latter. `tenants/coffee-story/brand.json:271` already declares `["card","stored_value"]`. A fourth vocabulary exists at `apps/operator/src/features/staff/payment-availability.ts:1-9`. Not one value the kiosk can emit is postable.
 **Fix:** pick one enum. Either widen the CHECK + contract, or make `KioskTender` a mapping onto `TenderType` and assert totality in `kiosk-flow.test.ts`. Do it before the checkout screens are written, not after.
 
 ---
@@ -281,7 +310,7 @@ Ordered by dependency. Each stage assumes the one above it landed.
 
 ### Stage 0 — Contract spine (nothing else can be correct until these agree)
 
-**0.1 Unify the tender vocabulary.** `packages/domain/src/kiosk-flow.ts:43`, `packages/api-client/src/contract.ts:13`, `supabase/migrations/…000012_order_idempotency.sql:13`, `apps/operator/src/features/staff/payment-availability.ts:1-9`. *Done:* one enum, or an explicit total mapping asserted in `kiosk-flow.test.ts`; a `cash` or `stored_value` kiosk config produces a value the DB CHECK accepts.
+**0.1 Unify the tender vocabulary.** *Done 2026-08-30.* `packages/domain/src/kiosk-flow.ts:43`, `packages/api-client/src/contract.ts:13`, `supabase/migrations/…000012_order_idempotency.sql:13`, `apps/operator/src/features/staff/payment-availability.ts:1-9`. *Done:* one enum, or an explicit total mapping asserted in `kiosk-flow.test.ts`; a `cash` or `stored_value` kiosk config produces a value the DB CHECK accepts.
 
 **0.2 Add `guestLabel` and `dailyNumber` to the wire contract.** `packages/api-client/src/contract.ts` (`PlaceOrderRequest` + `PlaceOrderResponse`), `packages/engine/src/orders.ts:256` insert and `.select(...)`, `apps/hq/app/api/orders/route.ts`. Promote `apps/kiosk/src/features/guest-label.ts` into `packages/domain` and validate with it. *Done:* a placed order returns the number the display will show, and `board_tickets.guest_label` is non-null for an order that supplied one.
 
