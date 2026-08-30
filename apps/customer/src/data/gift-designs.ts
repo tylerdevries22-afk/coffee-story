@@ -31,7 +31,9 @@ export const GIFT_DESIGN_CATEGORIES: readonly GiftDesignCategory[] = [
     title: 'Featured',
     designs: [
       { key: 'quiet-hour', name: 'Slow Morning', art: quietHour },
-      { key: 'healing', name: 'A Blessing In Every Cup', art: healingOil },
+      // The house design carries the shop's own line. The key is persisted, so
+      // it stays put; only the name a member reads follows the tenant.
+      { key: 'healing', name: TENANT.business.tagline, art: healingOil },
     ],
   },
   {

@@ -1,8 +1,10 @@
-// Staged replacement for src/features/rewards/rules.ts
+// The loyalty ladder every tenant starts from, and the arithmetic behind it.
 //
-// Coffee Story loyalty ladder. Tier names are owner-editable, so this is free
-// text rather than a union. Anything switching on a specific name carries a
-// fallback.
+// Tier names and copy are owner-editable, so the name is free text rather than
+// a union and nothing here switches on a specific one without a fallback. The
+// shipped rungs name no tenant: this constant is what a brand that has not
+// written its own ladder renders, and it used to tell a second franchisee's
+// guests they were making the first franchisee's shop part of their day.
 export type RewardTierName = string;
 
 export type RewardTier = {
@@ -18,12 +20,12 @@ export type RewardTier = {
  * render with no backend -- the marketing site and the Expo Go demo -- and the
  * default for callers that do not pass a ladder.
  */
-const BASE_TIER: RewardTier = { name: 'First Sip', minimumAnnualPoints: 0, pointsPerDollar: 10, description: 'Where every coffee story begins.', perks: ['Member-only drink offers'] };
+const BASE_TIER: RewardTier = { name: 'First Sip', minimumAnnualPoints: 0, pointsPerDollar: 10, description: 'Where every regular starts.', perks: ['Member-only drink offers'] };
 
 export const REWARD_TIERS: readonly RewardTier[] = [
   BASE_TIER,
   { name: 'Daily Ritual', minimumAnnualPoints: 500, pointsPerDollar: 11, description: 'For guests settling into a daily rhythm.', perks: ['Birthday drink on us'] },
-  { name: 'House Regular', minimumAnnualPoints: 1500, pointsPerDollar: 12, description: 'For guests who make Coffee Story part of their day.', perks: ['Free size upgrade'] },
+  { name: 'House Regular', minimumAnnualPoints: 1500, pointsPerDollar: 12, description: 'For guests who make us part of their day.', perks: ['Free size upgrade'] },
   { name: 'Coffee Legend', minimumAnnualPoints: 2500, pointsPerDollar: 13, description: 'Our most dedicated regulars.', perks: ['5% off + priority pickup'] },
 ] as const;
 

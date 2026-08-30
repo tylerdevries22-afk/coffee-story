@@ -245,7 +245,9 @@ export const createStyles = (tokens: BrandTokens) => StyleSheet.create({
   cashHint: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 14 },
   cashBalance: { position: 'absolute', top: tokens.spacing.xl, right: tokens.spacing.xl, color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: 34 },
   cashBottom: { flex: 1, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
-  cashBrand: { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: 33 },
+  // The wordmark is set lower case by design; it used to be typed that way in
+  // the screen, which made the casing a property of one tenant's name.
+  cashBrand: { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: 33, textTransform: 'lowercase' },
   cashSubbrand: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 10, letterSpacing: 1.5 },
   currencyPill: { borderRadius: tokens.radius.pill, backgroundColor: mixHex(tokens.surface, tokens.accent, 0.12), paddingHorizontal: tokens.spacing.lg, paddingVertical: tokens.spacing.md },
   currencyText: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 14 },

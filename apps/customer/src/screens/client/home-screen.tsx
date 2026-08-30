@@ -332,7 +332,7 @@ export function HomeScreen() {
                 ) : null}
                 {slide === 'gifting' ? (
                   <View style={styles.storyContent}>
-                    <Text style={styles.storyEyebrow}>A blessing in every cup</Text>
+                    <Text style={styles.storyEyebrow}>{TENANT.business.tagline}</Text>
                     <Text style={styles.storyTitle}>Gift their next favorite cup.</Text>
                     <Text style={styles.storyBody}>Digital gift cards arrive beautifully and never expire.</Text>
                     <Pressable
