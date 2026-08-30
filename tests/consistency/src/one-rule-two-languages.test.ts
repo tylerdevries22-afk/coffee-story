@@ -7,6 +7,7 @@ import { describe, it } from 'node:test';
 // are not, so Node's CJS named-export detection cannot see through an
 // `export *` barrel.
 import { isOwnedChannel } from '@platform/domain/src/order-channel.ts';
+import { REWARD_TIERS } from '@platform/domain/src/rules.ts';
 
 /**
  * Rules that exist in two languages.
@@ -63,5 +64,50 @@ describe('one rule, two languages', () => {
     assert.match(inForce, /app\.is_owned_channel\(o\.channel\)/);
     assert.ok(!/channel in \('app', 'web'\)/.test(inForce),
       'the old literal is back; the function exists so it does not have to be');
+  });
+
+  it('falls back to the same generic ladder the apps fall back to', () => {
+    // A tenant that leaves `loyalty.tiers` empty inherits a ladder, and the
+    // template promises which one. The apps read REWARD_TIERS for it; the
+    // ledger cannot import them, so it writes the rungs out. Before this
+    // function existed the ledger had no ladder at all -- one hardcoded rate
+    // for every brand -- which is the drift this test exists to keep out.
+    const fn = /create or replace function app\.loyalty_earn_rate_for[\s\S]*?\$\$;/
+      .exec(orderedSql());
+    assert.ok(fn, 'app.loyalty_earn_rate_for is not defined');
+    const clause = /from \(values ([\s\S]*?)\) as g \(minimum, rate\)/.exec(fn[0])?.[1];
+    assert.ok(clause, 'the fallback ladder is not a values list any more');
+    const inSql = [...clause.matchAll(
+      /\(\s*(\d+)(?:::bigint)?\s*,\s*(\d+(?:\.\d+)?)(?:::numeric)?\s*\)/g)]
+      .map((rung) => ({ minimumAnnualPoints: Number(rung[1]), pointsPerDollar: Number(rung[2]) }));
+    const inTs = REWARD_TIERS.map((tier) => ({
+      minimumAnnualPoints: tier.minimumAnnualPoints, pointsPerDollar: tier.pointsPerDollar,
+    }));
+    assert.deepEqual(inSql, inTs,
+      'the ledger and the apps disagree about the inherited ladder: a guest at '
+      + 'a brand with no published tiers would be shown one rate and paid another');
+  });
+
+  it('reads the ladder out of the same three keys the apps parse', () => {
+    // `rewardTiersFrom` is all-or-nothing on these three; a key renamed on one
+    // side only would quietly drop every tenant back to the generic ladder.
+    const fn = /create or replace function app\.loyalty_earn_rate_for[\s\S]*?\$\$;/
+      .exec(orderedSql())?.[0] ?? '';
+    for (const key of ['minimumAnnualPoints', 'pointsPerDollar', 'name']) {
+      assert.ok(fn.includes(`'${key}'`), `the SQL no longer reads ${key}`);
+    }
+  });
+
+  it('has the ledger call the rate function rather than inline a constant', () => {
+    // The same shape as the view above: the rule drifted because it was a
+    // literal -- `subtotal_cents / 10` -- inside the trigger that pays guests.
+    const bodies = [...orderedSql().matchAll(
+      /create or replace function app\.apply_order_event_side_effects[\s\S]*?\nend \$\$;/g)];
+    const inForce = bodies[bodies.length - 1]?.[0] ?? '';
+    assert.match(inForce, /app\.loyalty_earn_rate_for\(/,
+      'the earn branch no longer asks for the tenant rate');
+    assert.ok(!/subtotal_cents\s*\/\s*10\b(?!0)/.test(inForce),
+      'the hardcoded ten points per dollar is back; every brand would earn '
+      + "the first tenant's rate again");
   });
 });

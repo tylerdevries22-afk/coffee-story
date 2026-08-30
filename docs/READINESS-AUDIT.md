@@ -89,6 +89,56 @@ currency literal is what surfaced the worst defect in this pass:
   seeding migration and a catalog test, none of which exist; it now says what
   is actually true.
 
+- **The earn rate was a constant in a migration, so every brand paid the first
+  tenant's rate.** `app.apply_order_event_side_effects` credited
+  `target.subtotal_cents / 10` -- ten points per dollar, for every guest, at
+  every brand, whatever ladder that brand published. 20260722000035 had written
+  down what the figure means in its own words ("the earn RATE, which is an
+  entitlement") and supplied `app.annual_points_for` to read it; nothing on the
+  earn path ever called it. Meanwhile `pointsForPurchase` in `packages/domain`
+  reads the rung the guest is standing on, and the customer app promises that
+  number in seven places. On Coffee Story's own published ladder a Daily Ritual
+  regular is told 11 points per dollar and paid 10; a Coffee Legend is told 13.
+  The guest sees the shortfall in their balance and the shop cannot explain it.
+  Fixed in `supabase/migrations/20260830010000_tenant_earn_rate.sql`:
+  `app.loyalty_earn_rate_for(account, brand)` reads `brand_config.loyalty.tiers`
+  with the same all-or-nothing rule as `rewardTiersFrom` -- every rung parses
+  and some rung sits at 0, or the ladder is ignored whole rather than
+  half-applied -- and the trigger multiplies by what it returns. Three new
+  assertions in `tests/consistency/src/one-rule-two-languages.test.ts` compare
+  the SQL against `REWARD_TIERS`; each was mutation-checked (change a fallback
+  rate, rename a JSON key, restore the constant) and each mutation failed
+  exactly its own test.
+
+**Open, and each one is the owner's call rather than a defect to fix:**
+
+- **This migration changes payouts, and should not be described as inert.** The
+  ledger's fallback is now the generic four-rung ladder a tenant inherits by
+  leaving `loyalty.tiers` empty -- the one `tenants/_template/brand.json`
+  documents and `REWARD_TIERS` ships -- rather than the flat 10 the constant
+  gave. A guest with 500 or more annual points at a brand with no published
+  ladder therefore earns 11 per dollar where they earned 10 the day before.
+  That is the number the app was already promising them, but it is live money
+  and the owner should know the date it moved.
+- **The ledger earns on the subtotal; the app quotes on the subtotal plus tip.**
+  `pointsForPurchase` is called with `qualifyingSpendCents`, which includes the
+  tip; the trigger uses `orders.subtotal_cents`, which does not. This migration
+  deliberately did not close that: whether a tip earns points is a business
+  policy about money that goes to staff, not a bug with a right answer, and
+  changing it silently would move every tipping guest's balance. Both readings
+  are defensible; the owner picks one. Whichever is picked, both sides should
+  then read the same base.
+- **A tenant's `brand.json` can disagree with its `brand_config`, and nothing
+  notices.** Coffee Story's ladder was committed to `tenants/coffee-story/brand.json`
+  in `5f0c4b6` and has never reached the database, because `pnpm onboard` has
+  not been re-run since; the hosted `brand_config -> 'loyalty'` holds only
+  `$note` and `rewards`, with no `tiers` key at all. So the customer binary
+  reads the published ladder out of its bundle while the ledger, reading the
+  database, falls back to the generic one. Until `pnpm onboard --tenant
+  coffee-story` is re-run they agree only by coincidence -- the two ladders
+  happen to carry the same thresholds and rates. There is no check anywhere
+  that the checked-in tenant file and the row it seeds are the same document.
+
 **Still open**, deliberate, scoped to one market rather than one tenant, so it
 does not block a second franchisee in the US:
 
