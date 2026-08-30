@@ -8,6 +8,7 @@
     "location": "The first location, created by onboarding. hours uses 24h HH:MM in the location's timezone; a day maps to a list of open/close spans, [] = closed.",
     "illustrations": "Optional named palettes for brand illustration work (e.g. the rewards cup). Free-form; read by the app's illustration components.",
     "business": "Contact + legal identity the apps print (error screens, receipts, calendar notes, gift codes). monogram is the 1-3 letter fallback mark; giftCodePrefix prefixes every issued gift code.",
+    "information": "Optional overrides for the five reference pages behind More (location, resources, faq, order-policy, privacy). Every page has a brand-neutral default, and the location page is derived from `location` and `business` above rather than retyped -- leave this out entirely and the app still renders all five. Per page: eyebrow/title/summary/webPath/action replace the default string; `rows` replaces the default rows; `addRows` appends to whatever rows are in effect. A row is {title, detail}; a row missing either is dropped rather than rendered blank.",
     "modifiers.json": "Sibling file: option groups per item slug, in the JSONB shape packages/engine/src/menu-pricing.ts reads -- each slug maps to an array of groups {id, name, select: 'single' | 'multi', required, maxChoices, dependsOn?, choices: [{id, name, priceDeltaCents}]}. Optional; items absent from it sell plain. Every key must be a slug in menu.csv -- onboarding validates that."
   },
   "identity": {
@@ -145,6 +146,7 @@
     "giftCodePrefix": "YB",
     "monogram": "YB"
   },
+  "information": {},
   "kiosk": {
     "$docs": "The lobby kiosk's flow. Shape and rules: packages/domain/src/kiosk-flow.ts. EVERY FIELD IS OPTIONAL -- delete this whole block and a device still opens on a first screen derived from your menu.csv categories. Fill it in when you want a say over the order.",
     "attract": {
