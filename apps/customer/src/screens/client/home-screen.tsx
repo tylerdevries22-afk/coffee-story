@@ -65,7 +65,7 @@ import {
   shadowOpacityRange,
   shadowScaleRange,
 } from '@/features/glass-feature';
-import { disabledState, DropCountdown, useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
+import { alpha, disabledState, DropCountdown, useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 import heroVideo from '../../../assets/hero/home-hero.mp4';
 import packagesMedia from '../../../assets/hero/stones.webp';
@@ -293,7 +293,7 @@ export function HomeScreen() {
                 </Animated.View>
                 <LinearGradient
                   pointerEvents="none"
-                  colors={['rgba(36,23,16,0.38)', 'rgba(36,23,16,0.02)', 'rgba(36,23,16,0.56)']}
+                  colors={[alpha(tokens.textPrimary, 0.38), alpha(tokens.textPrimary, 0.02), alpha(tokens.textPrimary, 0.56)]}
                   locations={[0, 0.42, 1]}
                   style={StyleSheet.absoluteFill}
                 />
@@ -895,7 +895,7 @@ const createStyles = (tokens: BrandTokens) => StyleSheet.create({
     borderRadius: tokens.radius.lg,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.78)',
-    backgroundColor: 'rgba(255,253,248,0.94)',
+    backgroundColor: alpha(tokens.surfaceElevated, 0.94),
     padding: tokens.spacing.lg,
   },
   packageHeadingRow: { minHeight: 54, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

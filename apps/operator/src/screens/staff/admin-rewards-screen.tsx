@@ -5,7 +5,7 @@ import { Body, Card } from '@/components/ui';
 import { REWARD_TIERS, pointsForPurchase } from '@platform/domain';
 import { workspaceTone } from '@/features/staff/workspace';
 import { useAuth } from '@/state/auth-context';
-import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
+import { hairline, useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 /**
  * Read-only: the ladder is authored on the web admin, which is where reordering
@@ -108,7 +108,7 @@ export function AdminRewardsScreen({ onBack }: { onBack: () => void }) {
 const createStyles = (tokens: BrandTokens) => StyleSheet.create({
   card: { gap: tokens.spacing.md },
   heading: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 16 },
-  tier: { gap: 2, paddingTop: tokens.spacing.md, borderTopWidth: 1, borderTopColor: 'rgba(70,48,78,0.12)' },
+  tier: { gap: 2, paddingTop: tokens.spacing.md, borderTopWidth: 1, borderTopColor: hairline(tokens) },
   tierHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: tokens.spacing.md },
   tierName: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 15 },
   tierRate: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 13 },
@@ -119,7 +119,7 @@ const createStyles = (tokens: BrandTokens) => StyleSheet.create({
     gap: tokens.spacing.md,
     paddingTop: tokens.spacing.md,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(70,48,78,0.12)',
+    borderTopColor: hairline(tokens),
   },
   rowLabel: { flex: 1, color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 15 },
   rowValue: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 14 },

@@ -6,7 +6,7 @@
     "lint": "pnpm -r --workspace-concurrency=1 lint",
     "typecheck": "pnpm -r --workspace-concurrency=1 typecheck && tsc -p scripts",
     "test": "pnpm -r --workspace-concurrency=1 test",
-    "verify": "pnpm -r --workspace-concurrency=1 verify",
+    "verify": "pnpm audit:tokens && pnpm -r --workspace-concurrency=1 verify",
     "mutate": "tsx scripts/mutate.ts",
     "preview": "tsx scripts/preview.ts",
     "onboard": "tsx scripts/onboard.ts",
@@ -15,7 +15,8 @@
     "normalize-menu-images": "tsx scripts/normalize-menu-images.ts",
     "normalize-product-cutouts": "tsx scripts/normalize-product-cutouts.ts",
     "training:bootstrap": "tsx scripts/training-bootstrap.ts",
-    "training:seed-coffee-story": "tsx scripts/seed-coffee-story-training.ts"
+    "training:seed-coffee-story": "tsx scripts/seed-coffee-story-training.ts",
+    "audit:tokens": "tsx scripts/audit-tokens.ts"
   },
   "devDependencies": {
     "@types/node": "^26.1.2",

@@ -246,7 +246,7 @@ function createStyles({ colors, fonts, radius, spacing }: AppTokens) {
   avatarTextSelected: { color: colors.brand700 },
   personName: { color: colors.ink500, fontFamily: fonts.sansMedium, fontSize: 9 },
   personNameSelected: { color: colors.ink900 },
-  modeSwitch: { height: 38, flexDirection: 'row', backgroundColor: '#EEEDEB', borderRadius: 9, padding: 3 },
+  modeSwitch: { height: 38, flexDirection: 'row', backgroundColor: colors.brand100, borderRadius: 9, padding: 3 },
   modeButton: { flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 7 },
   modeButtonSelected: { backgroundColor: colors.white },
   modeText: { color: colors.ink500, fontFamily: fonts.sansMedium, fontSize: 13 },

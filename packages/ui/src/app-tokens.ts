@@ -14,6 +14,7 @@ export const APP_COLOR_KEYS = [
 ] as const;
 
 export type AppColorName = (typeof APP_COLOR_KEYS)[number];
+
 export type AppColors = Record<AppColorName, string>;
 
 export type AppTokens = {
@@ -54,6 +55,40 @@ export function mixHex(from: string, to: string, weight: number): string {
   const start = rgb(from);
   const end = rgb(to);
   return `#${start.map((value, index) => hexChannel(value + ((end[index] ?? value) - value) * bounded)).join('')}`;
+}
+
+/**
+ * The divider, derived rather than drawn.
+ *
+ * Screens had been spelling this out as `rgba(70,48,78,0.12)` -- one brand's
+ * plum ink at twelve percent, pasted into seven files. It is the same line
+ * `ink200` already computes, so it is the same mix here: brand ink laid on the
+ * raised surface at the weight where a hairline reads as a line and not a bar.
+ * A brand with black ink gets a grey line; a brand with plum ink gets a plum
+ * one, which is what the literal was quietly assuming everyone had.
+ */
+export function hairline(tokens: Pick<BrandTokens, 'surfaceElevated' | 'textPrimary'>): string {
+  return mixHex(tokens.surfaceElevated, tokens.textPrimary, 0.16);
+}
+
+/**
+ * A token colour at a stated opacity.
+ *
+ * Screens reach for translucency constantly -- a scrim over a sheet, the wash
+ * a web glass bar falls back to, the gradient that keeps white type legible
+ * over a photograph -- and every one of those had been written as an `rgba()`
+ * with one brand's ink typed into it. The colour is not the decision there;
+ * the opacity is. This keeps the opacity in the screen and takes the colour
+ * from the tenant, which is the whole of rule 4 for these cases.
+ *
+ * Eight-digit hex rather than `rgba()`: React Native and react-native-web both
+ * parse `#RRGGBBAA`, so one string serves both targets and the value stays a
+ * token the ramp can still override.
+ */
+export function alpha(color: string, opacity: number): string {
+  if (!HEX.test(color)) throw new RangeError('alpha expects a #RRGGBB colour.');
+  if (!Number.isFinite(opacity)) throw new RangeError('alpha opacity must be finite.');
+  return `${color}${hexChannel(Math.min(1, Math.max(0, opacity)) * 255)}`;
 }
 
 function derivedColors(tokens: BrandTokens): AppColors {
