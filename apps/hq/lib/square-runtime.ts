@@ -15,8 +15,11 @@
  */
 import {
   decryptToken,
+  encryptToken,
   loadTokenKey,
+  refreshOAuthToken,
   squareConfigFromEnv,
+  squareTokenState,
   resolveFeeConfig,
   type BrandFeeTerms,
   type FeeConfig,
@@ -35,6 +38,8 @@ export type SquareRuntime = {
 type ConnectionRow = {
   square_location_id: string | null;
   access_token_encrypted: string;
+  refresh_token_encrypted: string | null;
+  expires_at: string | null;
 };
 
 type LocationRow = {
@@ -72,7 +77,7 @@ export async function squareRuntimeFor(
       .eq('brand_id', input.brandId)
       .maybeSingle<LocationRow>(),
     db.from('square_connections')
-      .select('square_location_id, access_token_encrypted')
+      .select('square_location_id, access_token_encrypted, refresh_token_encrypted, expires_at')
       .eq('location_id', input.locationId)
       .eq('brand_id', input.brandId)
       .maybeSingle<ConnectionRow>(),
@@ -94,6 +99,26 @@ export async function squareRuntimeFor(
     return null;
   }
 
+  // Square access tokens last thirty days. `refreshOAuthToken` shipped with
+  // nothing calling it and `expires_at` was written and never read, so every
+  // connected shop would have stopped taking cards a month after connecting,
+  // on a 401 nothing in the product explained. Renewing here rather than on a
+  // schedule means it happens exactly when a sale needs it, and cannot be
+  // silently skipped by a cron that stopped running.
+  const state = squareTokenState(connection.expires_at, Date.now());
+  if (state !== 'fresh' && connection.refresh_token_encrypted) {
+    const renewed = await renewAccessToken(db, square, {
+      locationId: input.locationId,
+      refreshTokenEncrypted: connection.refresh_token_encrypted,
+    });
+    if (renewed) locationAccessToken = renewed;
+    // A token inside the margin has not expired yet, so a failed renewal still
+    // takes the sale. An expired one must not be sent to Square as if it were
+    // money: the caller turns null into "this tender is not available", which
+    // is the truth.
+    else if (state === 'expired') return null;
+  } else if (state === 'expired') return null;
+
   return {
     square,
     locationAccessToken,
@@ -101,4 +126,39 @@ export async function squareRuntimeFor(
     feeConfig: resolveFeeConfig(input.brand, data),
     locationTimezone: data.timezone ?? 'America/Denver',
   };
+}
+
+/**
+ * Trades the stored refresh token for a new access token and persists both.
+ *
+ * Returns null on any failure -- a network error, a refresh token Square has
+ * revoked, or a write that lost a race with a concurrent order. The caller
+ * decides what that means, because it depends on whether the token it already
+ * holds is still spendable.
+ */
+async function renewAccessToken(
+  db: SupabaseClient,
+  square: SquareConfig,
+  input: { locationId: string; refreshTokenEncrypted: string },
+): Promise<string | null> {
+  try {
+    const key = loadTokenKey();
+    const tokens = await refreshOAuthToken(square, decryptToken(input.refreshTokenEncrypted, key));
+    if (!tokens.access_token) return null;
+    // The new token is good whether or not this write lands; a failed write only
+    // means the next order renews again, so the result is deliberately ignored.
+    await db
+      .from('square_connections')
+      .update({
+        access_token_encrypted: encryptToken(tokens.access_token, key),
+        // Square reissues the refresh token on some grants and echoes the old
+        // one otherwise, so writing whichever came back is correct either way.
+        ...(tokens.refresh_token ? { refresh_token_encrypted: encryptToken(tokens.refresh_token, key) } : {}),
+        expires_at: tokens.expires_at,
+      })
+      .eq('location_id', input.locationId);
+    return tokens.access_token;
+  } catch {
+    return null;
+  }
 }

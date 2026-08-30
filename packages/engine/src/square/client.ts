@@ -18,6 +18,23 @@ const HOSTS: Record<SquareEnv, string> = {
 
 const API_VERSION = '2025-01-23';
 
+/**
+ * The one currency the platform settles in.
+ *
+ * Deliberately a constant rather than a parameter. Currency is not the only
+ * thing a shop outside this world would need changed: tax is modelled as US
+ * jurisdictions, a delivery address validates a two-letter state and a ZIP,
+ * and `formatMoney` prints a bare `$`. A code threaded onto the payment would
+ * take that shop's money into a system that still could not serve it.
+ *
+ * So it is asserted once here, and checked against the merchant's own Square
+ * location before a shop is connected -- not assumed eight times over, in the
+ * calls where the money actually moves.
+ */
+export const PLATFORM_CURRENCY = 'USD';
+
+export type PlatformCurrency = typeof PLATFORM_CURRENCY;
+
 export type SquareConfig = {
   env: SquareEnv;
   applicationId: string;
@@ -125,10 +142,101 @@ export function revokeOAuthToken(config: SquareConfig, accessToken: string): Pro
   });
 }
 
+/**
+ * A stored access token, judged against its recorded expiry.
+ *
+ * `refreshOAuthToken` existed and nothing called it: `square_connections`
+ * stored `expires_at` and no code read it. A Square access token lasts thirty
+ * days, so every connected shop would have stopped taking cards a month after
+ * connecting, on a 401 from Square that nothing in the product explained.
+ *
+ * Three states rather than a boolean, because what to do when the refresh
+ * itself fails depends on which one it is: a token inside the margin is still
+ * good and the sale should go through on it, while an expired one must not be
+ * sent to Square as if it were money.
+ *
+ * An absent or unreadable expiry reads as `refresh_soon`: a connection stored
+ * before this was checked should be renewed if it can be, and still spend if
+ * it cannot.
+ */
+export type SquareTokenState = 'fresh' | 'refresh_soon' | 'expired';
+
+/** Seven days: long enough that a shop trading weekly still renews in time. */
+export const SQUARE_REFRESH_MARGIN_MS = 7 * 24 * 60 * 60 * 1000;
+
+export function squareTokenState(
+  expiresAt: string | null | undefined,
+  nowMs: number,
+  marginMs: number = SQUARE_REFRESH_MARGIN_MS,
+): SquareTokenState {
+  if (!expiresAt) return 'refresh_soon';
+  const expiry = Date.parse(expiresAt);
+  if (!Number.isFinite(expiry)) return 'refresh_soon';
+  if (nowMs >= expiry) return 'expired';
+  return nowMs >= expiry - marginMs ? 'refresh_soon' : 'fresh';
+}
+
+/** One of the merchant's own Square locations, as `/v2/locations` reports it. */
+export type SquareMerchantLocation = {
+  id: string;
+  name?: string;
+  status?: string;
+  currency?: string;
+};
+
+/**
+ * The merchant's Square locations. `MERCHANT_PROFILE_READ` is requested at
+ * consent for this call and nothing else.
+ */
+export async function listSquareLocations(
+  config: SquareConfig,
+  token: string,
+): Promise<SquareMerchantLocation[]> {
+  const body = await call<{ locations?: SquareMerchantLocation[] }>(config, '/v2/locations', {
+    method: 'GET',
+    token,
+  });
+  return body.locations ?? [];
+}
+
+export type SquareLocationRefusal = 'no_active_location' | 'unsupported_currency' | 'several_locations';
+
+export type SquareLocationChoice =
+  | { ok: true; location: SquareMerchantLocation }
+  | { ok: false; reason: SquareLocationRefusal };
+
+/**
+ * Which of a merchant's Square locations a shop bills against.
+ *
+ * Only an unambiguous answer counts. Binding the wrong one sends a shop's
+ * takings to a sibling store's books, and no heuristic over names or addresses
+ * is worth that: several candidates is a question for the owner, not a guess.
+ * Refusing is safe, because nothing is written until this says yes.
+ *
+ * A missing `status` or `currency` is read generously -- Square sends both, and
+ * refusing a whole merchant over a field that did not arrive would be a worse
+ * failure than the one this guards against.
+ */
+export function chooseSquareLocation(
+  locations: readonly SquareMerchantLocation[],
+): SquareLocationChoice {
+  const active = locations.filter((location) => location.id && (location.status ?? 'ACTIVE') === 'ACTIVE');
+  if (active.length === 0) return { ok: false, reason: 'no_active_location' };
+  // A merchant who settles in another currency cannot be served by this
+  // platform at all (see PLATFORM_CURRENCY), and the honest place to say so is
+  // here, once, rather than as a rejected payment at a guest's first checkout.
+  const payable = active.filter((location) => (location.currency ?? PLATFORM_CURRENCY) === PLATFORM_CURRENCY);
+  if (payable.length === 0) return { ok: false, reason: 'unsupported_currency' };
+  if (payable.length > 1) return { ok: false, reason: 'several_locations' };
+  const [only] = payable;
+  if (!only) return { ok: false, reason: 'no_active_location' };
+  return { ok: true, location: only };
+}
+
 export type SquareOrderLine = {
   name: string;
   quantity: string;               // Square wants a string
-  base_price_money: { amount: number; currency: 'USD' };
+  base_price_money: { amount: number; currency: PlatformCurrency };
   note?: string;
 };
 
@@ -186,13 +294,13 @@ export function createPaymentLink(
   const serviceCharges = [
     ...(input.taxCents > 0 ? [{
       name: input.taxLabel,
-      amount_money: { amount: input.taxCents, currency: 'USD' as const },
+      amount_money: { amount: input.taxCents, currency: PLATFORM_CURRENCY },
       calculation_phase: 'TOTAL_PHASE',
       taxable: false,
     }] : []),
     ...(input.tipCents > 0 ? [{
       name: 'Tip',
-      amount_money: { amount: input.tipCents, currency: 'USD' as const },
+      amount_money: { amount: input.tipCents, currency: PLATFORM_CURRENCY },
       calculation_phase: 'TOTAL_PHASE',
       taxable: false,
     }] : []),
@@ -212,7 +320,7 @@ export function createPaymentLink(
         allow_tipping: false,          // the tip is already priced into the order
         ask_for_shipping_address: false,
         ...(input.appFeeCents > 0
-          ? { app_fee_money: { amount: input.appFeeCents, currency: 'USD' } }
+          ? { app_fee_money: { amount: input.appFeeCents, currency: PLATFORM_CURRENCY } }
           : {}),
         ...(input.redirectUrl ? { redirect_url: input.redirectUrl } : {}),
       },
@@ -241,9 +349,9 @@ export function createSquarePayment(
       idempotency_key: `pay-${input.referenceId}`,
       source_id: input.sourceId,
       order_id: input.squareOrderId,
-      amount_money: { amount: input.amountCents, currency: 'USD' },
-      ...(input.tipCents > 0 ? { tip_money: { amount: input.tipCents, currency: 'USD' } } : {}),
-      app_fee_money: { amount: input.appFeeCents, currency: 'USD' },
+      amount_money: { amount: input.amountCents, currency: PLATFORM_CURRENCY },
+      ...(input.tipCents > 0 ? { tip_money: { amount: input.tipCents, currency: PLATFORM_CURRENCY } } : {}),
+      app_fee_money: { amount: input.appFeeCents, currency: PLATFORM_CURRENCY },
     },
   });
 }
@@ -259,7 +367,7 @@ export function refundSquarePayment(
     body: {
       idempotency_key: `refund-${input.referenceId}`,
       payment_id: input.paymentId,
-      amount_money: { amount: input.amountCents, currency: 'USD' },
+      amount_money: { amount: input.amountCents, currency: PLATFORM_CURRENCY },
       reason: input.reason,
     },
   });
