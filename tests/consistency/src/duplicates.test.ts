@@ -47,12 +47,6 @@ const DIVERGENT_BY_DESIGN = [
   // Each install prompt is dismissed independently; sharing this key would
   // let installing one persona suppress the other app's prompt.
   'components/install-prompt.web.tsx',
-  'components/navigation/client-tabs.tsx',
-  'components/navigation/native-tabs-compat.tsx',
-  'components/navigation/staff-tabs.tsx',
-  'components/portal-profile-card.tsx',
-  'components/push-from-right.tsx',
-  'components/siri/siri-assistant.tsx',
   'data/business.ts',
   // The customer validates its generated tenant menu; the neutral operator
   // validates the platform demo fallback it can use before staff sign-in.
@@ -126,6 +120,7 @@ describe('customer/operator duplicated-module drift guard', () => {
     }
   });
 
+  const paired = new Set(shared);
   const divergent = shared.filter(
     (path) => readFileSync(join(CUSTOMER, path), 'utf8') !== readFileSync(join(OPERATOR, path), 'utf8'),
   );
@@ -140,11 +135,25 @@ describe('customer/operator duplicated-module drift guard', () => {
   });
 
   it('the divergent-by-design list carries no stale entries', () => {
-    const converged = DIVERGENT_BY_DESIGN.filter((path) => !divergent.includes(path));
+    const converged = DIVERGENT_BY_DESIGN.filter((path) => paired.has(path) && !divergent.includes(path));
     assert.deepEqual(
       converged,
       [],
       `These files are identical again — remove them from DIVERGENT_BY_DESIGN so the guard protects them:\n  ${converged.join('\n  ')}`,
+    );
+  });
+
+  // Split from the check above because the two failures need different
+  // answers. A converged pair means "delete the entry, the guard now protects
+  // you"; an unpaired entry means one copy is gone -- promoted or deleted --
+  // and there is nothing left to guard. Reported together, the message sent
+  // you to diff two files when one of them no longer existed.
+  it('the divergent-by-design list names only live pairs', () => {
+    const unpaired = DIVERGENT_BY_DESIGN.filter((path) => !paired.has(path));
+    assert.deepEqual(
+      unpaired,
+      [],
+      `These entries no longer exist in both apps — one copy was promoted or deleted, so drop them from DIVERGENT_BY_DESIGN:\n  ${unpaired.join('\n  ')}`,
     );
   });
 

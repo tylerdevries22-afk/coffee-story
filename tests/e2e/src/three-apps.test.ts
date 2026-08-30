@@ -3,6 +3,16 @@ import { after, before, describe, it } from 'node:test';
 import type { Page } from 'playwright';
 
 import { ticketCallout } from '@platform/domain/src/board-display.ts';
+// Read from each app rather than restated here. The customer key used to be
+// prefixed with the first tenant's slug; when it was renamed to the neutral
+// platform.customer.* form, this file kept writing the old one, so both
+// tests were seeding a key nothing read and getting the app's default mode
+// instead of the one they asked for. Importing the constant makes the next
+// rename a compile error rather than a silent no-op.
+import { APP_MODE_STORAGE_KEY as CUSTOMER_APP_MODE_KEY }
+  from '../../../apps/customer/src/state/demo-storage-keys.ts';
+import { APP_MODE_STORAGE_KEY as OPERATOR_APP_MODE_KEY }
+  from '../../../apps/operator/src/state/demo-storage-keys.ts';
 
 import { clickLabel, clickText, closeBrowser, fillLabel, openApp, waitText } from './driver.ts';
 import { createGuestAccount, createStaffAccount, onboardedBrand, seedRivalBrandOrder, type SeededBrand } from './seed.ts';
@@ -19,8 +29,6 @@ const HQ_URL = `http://127.0.0.1:${HQ_PORT}`;
 const IPHONE = { width: 390, height: 844 };
 const IPAD_LANDSCAPE = { width: 1194, height: 834 };
 const DESKTOP = { width: 1440, height: 900 };
-const CUSTOMER_APP_MODE_KEY = 'coffee-story.app-mode.v1';
-const OPERATOR_APP_MODE_KEY = 'platform.operator.app-mode.v1';
 
 function money(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
