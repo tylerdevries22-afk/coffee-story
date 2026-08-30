@@ -50,6 +50,13 @@ export const DEFAULT_COPY: BrandCopy = {
   boardUnpairedTitle: 'This screen is not paired',
   boardUnpairedBody: 'Pair it from the console under Locations → Devices.',
   boardReady: 'Ready',
+  /**
+   * The two states before ready, shown as a small live pill on each row so a
+   * guest can tell "we have your order" from "we are making it" without
+   * asking. Short because they sit beside the name on one line.
+   */
+  boardQueued: 'In line',
+  boardMaking: 'Making',
   /** Read out by assistive tech in place of the bare digit. */
   boardPosition: 'Number {position} in line',
   boardEmpty: 'Nothing in the queue',
