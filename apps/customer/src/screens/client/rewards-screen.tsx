@@ -16,8 +16,8 @@ import {
 
 import { Screen } from '@/components/ui';
 import { POINTS_LABEL } from '@/features/rewards/presentation';
+import { useReducedMotion } from '@platform/ui';
 import { tierForAnnualPoints, REWARD_TIERS, type RewardTierName , RewardCatalogItem } from '@platform/domain';
-import { useReducedMotion } from '@/hooks/use-reduced-motion';
 import { mobileApi } from '@/lib/mobile-api';
 import { useAppState } from '@/state/app-context';
 import { useAuth } from '@/state/auth-context';

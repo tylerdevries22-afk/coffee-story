@@ -33,7 +33,6 @@ import { dropStatus, dropWindowLabel, weeklyDrops, type Drop } from '@/features/
 import { cutoutFeatureLineup, formatMoney, resolveProductMedia } from '@platform/domain';
 import { MenuImage } from '@/components/menu-image';
 import { SiriAssistant, type SiriCommand } from '@/components/siri/siri-assistant';
-import { useReducedMotion } from '@/hooks/use-reduced-motion';
 import { TENANT, tenantFeature } from '@/tenant';
 import { ProductCutout, productCutoutSource, type ProductCutoutSource } from '@/components/product-cutout';
 import { TENANT_PRODUCT_MEDIA } from '@/tenant/product-media';
@@ -65,7 +64,7 @@ import {
   shadowOpacityRange,
   shadowScaleRange,
 } from '@/features/glass-feature';
-import { alpha, disabledState, DropCountdown, useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
+import { DropCountdown, alpha, disabledState, type BrandTokens, useReducedMotion, useTokens as useBrandTokens } from '@platform/ui';
 
 import heroVideo from '../../../assets/hero/home-hero.mp4';
 import packagesMedia from '../../../assets/hero/stones.webp';

@@ -11,8 +11,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppIcon } from '@/components/icon';
-import { useReducedMotion } from '@/hooks/use-reduced-motion';
-import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
+import { type BrandTokens, useReducedMotion, useTokens as useBrandTokens } from '@platform/ui';
 
 /**
  * A tab header that follows the iOS large-title pattern: the title starts
