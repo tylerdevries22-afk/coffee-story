@@ -53,14 +53,14 @@ jobs:
       # silently resolves a different tree is not verifying what ships.
       - run: pnpm install --frozen-lockfile
 
-      - name: Lint all workspaces
-        run: pnpm -r --workspace-concurrency=1 lint
-
-      - name: Typecheck all workspaces
-        run: pnpm -r --workspace-concurrency=1 typecheck
-
-      - name: Test all workspaces
-        run: pnpm -r --workspace-concurrency=1 test
+      # One command, defined once in the root package.json, so this job and a
+      # developer's `pnpm verify` cannot drift. They had: the tenancy audits
+      # (rule 4) and the typecheck of scripts/ ran only locally, so the gate
+      # that keeps one shop's address out of every other shop's binary could
+      # not fail a build; lint ran only here, so a warning passed locally.
+      # Whatever this gate is, both sides now run all of it.
+      - name: Verify all workspaces
+        run: pnpm verify
 
       # The runner is UTC, and that hid a customer-facing bug for a whole
       # release: the drop board formatted its date range through the device
