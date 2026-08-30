@@ -210,23 +210,18 @@ function demoSyncTickets(tickets: DemoSyncBoardTicket[], locationId: string): Bo
   }));
 }
 
-/** Keep synchronized sales visible by using fixtures only for otherwise empty board rows. */
-export function prioritizeSynchronizedTickets(
-  fixtureTickets: readonly BoardTicketRow[],
-  synchronizedTickets: readonly BoardTicketRow[],
-  maxLines: number,
-): BoardTicketRow[] {
-  if (maxLines <= 0) return [...fixtureTickets, ...synchronizedTickets];
-  // `maxLines` is an upper bound, not proof that every tenant row shape fits
-  // the physical screen. The fixture roster is the viewport-tested baseline,
-  // so replace one of those rows for every real demo sale instead of filling
-  // nominal spare slots that may sit below the clipped list.
-  const testedCapacity = Math.min(fixtureTickets.length, maxLines);
-  const fixtureLimit = Math.max(0, testedCapacity - synchronizedTickets.length);
-  return [...fixtureTickets.slice(0, fixtureLimit), ...synchronizedTickets];
-}
-
-/** Build a fixture board around broker orders; a configured broker failure stays a failure. */
+/**
+ * The broker is the board whenever it holds anything.
+ *
+ * This used to interleave: the local clock-driven roster filled the screen and
+ * broker sales replaced rows off the end of it. That produced a board of
+ * orders no operator could act on -- the two rosters were different orders
+ * with different numbers, and a barista pressing Ready moved a ticket the wall
+ * had never heard of. One roster, held by the broker, is the whole point of
+ * the shared demo plane; the local roster stays as the standalone fallback for
+ * a display running with no broker configured, and as the opening screen in
+ * the moment before the broker answers.
+ */
 export async function synchronizedFixtureTickets(
   locationId: string,
   syncClient: Pick<DemoSyncClient, 'board'> | null = demoSyncClient,
@@ -235,11 +230,7 @@ export async function synchronizedFixtureTickets(
   const base = demoBoardAt(now, locationId);
   if (!syncClient) return base;
   const synchronized = demoSyncTickets(await syncClient.board(), locationId);
-  return prioritizeSynchronizedTickets(
-    base,
-    synchronized,
-    resolveBoardConfig(DEMO_BRAND_CONFIG).maxLines,
-  );
+  return synchronized.length > 0 ? synchronized : base;
 }
 
 /**

@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import type { PlaceOrderRequest } from '@platform/api-client';
 import {
-  createDemoSyncStore, demoSyncBoardTickets, demoSyncStore, DemoSyncError, isDemoSyncError,
+  createDemoSyncStore, DEMO_OPENING_ROSTER, demoSyncBoardTickets, demoSyncStore,
+  DemoSyncError, isDemoSyncError, seedDemoRoster,
 } from './demo-order-sync';
 
 const ORDER: PlaceOrderRequest = {
@@ -139,5 +140,65 @@ describe('demo order sync store', () => {
     assert.equal(first.replayed, false);
     assert.equal(replay.replayed, true);
     assert.deepEqual(replay.response, first.response);
+  });
+});
+
+/*
+ * The roster is the fix for "pressing Ready does nothing".
+ *
+ * Every surface on the demo plane reads this one list, so what it is allowed
+ * to contain is a contract rather than sample data: it has to survive the real
+ * state machine, and it has to project onto the wall.
+ */
+describe('the shared opening roster', () => {
+  it('reaches every declared status through the real state machine', () => {
+    const store = seedDemoRoster(createDemoSyncStore(
+      () => new Date('2026-08-24T12:00:00.000Z'),
+      'session-open',
+    ));
+    const byId = new Map(store.snapshot().orders.map((order) => [order.id, order] as const));
+
+    assert.equal(byId.size, DEMO_OPENING_ROSTER.length);
+    for (const entry of DEMO_OPENING_ROSTER) {
+      assert.equal(byId.get(entry.id)?.status, entry.status, entry.id);
+    }
+  });
+
+  it('opens the board with people waiting and people served', () => {
+    const store = seedDemoRoster(createDemoSyncStore(
+      () => new Date('2026-08-24T12:00:00.000Z'),
+      'session-open',
+    ));
+    const tickets = demoSyncBoardTickets(store.snapshot());
+
+    assert.equal(tickets.length, DEMO_OPENING_ROSTER.length,
+      'every opening order is a board-visible status');
+    for (const status of ['paid', 'in_progress', 'ready'] as const) {
+      assert.ok(tickets.some((ticket) => ticket.status === status),
+        `the opening board must exercise ${status}`);
+    }
+    // The wall has to stay legible for a guest who gave no name and for the
+    // longest one it accepts; both are in the roster rather than in a fixture
+    // only one of the three surfaces ever loads.
+    assert.ok(tickets.some((ticket) => ticket.guestName === ''));
+    assert.ok(tickets.some((ticket) => ticket.guestName.length > 18));
+  });
+
+  it('is replayable, so a hot reload does not double the shop', () => {
+    const store = seedDemoRoster(createDemoSyncStore());
+    seedDemoRoster(store);
+    assert.equal(store.snapshot().orders.length, DEMO_OPENING_ROSTER.length);
+  });
+
+  it('leaves room for the orders the preview places on top of it', () => {
+    const store = seedDemoRoster(createDemoSyncStore());
+    const placed = store.place(ORDER, 'e0f1a2b3-c4d5-4e6f-8a9b-0c1d2e3f4a5b', 'kiosk');
+    const rosterHigh = Math.max(...store.snapshot().orders
+      .filter((order) => order.id !== placed.response.orderId)
+      .map((order) => order.dailyNumber));
+    assert.ok(
+      (placed.response.dailyNumber ?? 0) > rosterHigh,
+      'a new sale must number past the roster, not collide with it',
+    );
   });
 });

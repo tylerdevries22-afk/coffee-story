@@ -154,11 +154,13 @@ html, body {
 /* The mark ------------------------------------------------------------- */
 
 /*
- * The shared call-out stays visible when ready; the check appears behind it.
+ * The place in line becomes the check: the number leaves as the check arrives.
  *
  * Both live in the same fixed box and cross-fade, so the row never reflows as
  * a ticket becomes ready -- a list that shuffles its own heights while people
- * are reading it is the fastest way to lose the glance.
+ * are reading it is the fastest way to lose the glance. The number used to
+ * stay behind the check at full strength, which read as two marks arguing;
+ * one mark at a time is what a wall can be read by.
  *
  * Transitions, not keyframes. A transition settles at its end state; a
  * keyframe animation holds its *start* state for as long as it is paused, and
@@ -222,12 +224,18 @@ html, body {
   transition: stroke-dashoffset calc(var(--board-motion, 220ms) * 1.6) ease-out;
 }
 
+/*
+ * The number hands over: it lifts and fades as the check springs in. Both
+ * legs run on the same duration, so there is no frame where the box is empty
+ * and none where it holds two marks at once.
+ */
 .ticket-mark[data-ready='true'] .ticket-position {
-  color: var(--board-success, #2f6844);
+  opacity: 0;
+  transform: scale(0.55);
 }
 
 .ticket-mark[data-ready='true'] .ticket-check {
-  opacity: 0.32;
+  opacity: 1;
   transform: none;
 }
 
@@ -321,6 +329,57 @@ html, body {
   letter-spacing: 0.04em;
   color: var(--board-ink-muted, #57534e);
   white-space: nowrap;
+}
+
+/*
+ * The live state of a waiting order.
+ *
+ * A dot and a word, no border: the tier tag and the arrival badge already own
+ * the enclosed shapes on this screen, and a third one turns the right column
+ * into a row of boxes. Muted by default and warm once a barista starts the
+ * drink, so the difference a guest is actually watching for -- taken versus
+ * being made -- is a colour change they can catch without reading.
+ *
+ * The dot breathes only while in progress. It is the single moving thing on an
+ * otherwise still screen, which is what makes it read as "now" rather than as
+ * decoration; a transition drives the colour so the state is still correct in
+ * a backgrounded tab, and the pulse is the one keyframe on the board, on an
+ * element whose resting appearance does not depend on it.
+ */
+.ticket-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45em;
+  font-size: clamp(12px, 1.5vmin, 24px);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--board-ink-muted, #57534e);
+  white-space: nowrap;
+}
+
+.ticket-status-dot {
+  width: 0.62em;
+  height: 0.62em;
+  border-radius: var(--board-radius-pill, 999px);
+  background: currentcolor;
+  opacity: 0.55;
+  flex: none;
+  transition: opacity var(--board-motion, 220ms) ease;
+}
+
+.ticket-status[data-status='in_progress'] {
+  color: var(--board-accent, #8a7350);
+}
+
+.ticket-status[data-status='in_progress'] .ticket-status-dot {
+  opacity: 1;
+  animation: ticket-status-pulse 2s ease-in-out infinite;
+}
+
+@keyframes ticket-status-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
 }
 
 /* Curbside arrival: the one genuinely urgent thing on an ambient screen. */
@@ -447,7 +506,8 @@ html, body {
 @media (prefers-reduced-motion: reduce) {
   .ticket-position,
   .ticket-check,
-  .ticket-check-tick { transition: none; }
+  .ticket-check-tick,
+  .ticket-status-dot { transition: none; animation: none; }
   .ticket-check-tick { stroke-dashoffset: 0; }
 }
 

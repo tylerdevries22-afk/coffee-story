@@ -123,7 +123,19 @@ export function OperatorProvider({ children }: PropsWithChildren) {
   const { isDemo, tenant, liveLocations, user } = useAuth();
   const live = !isDemo && supabase !== null && tenant !== null;
 
-  const [orders, setOrders] = useState<BoardOrder[]>(() => initialDemoOrders());
+  /*
+   * One roster, held by whoever is authoritative.
+   *
+   * With the shared demo plane on, that is the broker: seeding local fixtures
+   * here as well produced two disjoint sets of orders on one screen, and the
+   * local half could not be moved anywhere the wall would see -- which is
+   * exactly what "pressing Ready does nothing" looked like. Start empty and
+   * let the first reconcile (one second away) bring the shop in.
+   */
+  const brokered = demoSyncEnabled(isDemo);
+  const [orders, setOrders] = useState<BoardOrder[]>(
+    () => (brokered ? [] : initialDemoOrders()),
+  );
   const [unseenIds, setUnseenIds] = useState<ReadonlySet<string>>(new Set());
   const [location, setLocation] = useState<OperatorLocation>(DEFAULT_DEMO_LOCATION);
   const [settings, setSettings] = useState<OperatorSettings>({
@@ -137,10 +149,14 @@ export function OperatorProvider({ children }: PropsWithChildren) {
   const [hoursOverride, setHoursOverride] = useState('');
   const queueRef = useRef<QueuedTransition[]>([]);
   const spawnIndex = useRef(0);
-  const seenRef = useRef<Set<string>>(new Set(initialDemoOrders().map((order) => order.id)));
+  const seenRef = useRef<Set<string>>(new Set(
+    brokered ? [] : initialDemoOrders().map((order) => order.id),
+  ));
   const ordersRef = useRef<BoardOrder[]>([]);
   const refundInFlightRef = useRef<Set<string>>(new Set());
   const syncedDemoIdsRef = useRef<Set<string>>(new Set());
+  // The opening roster is not eight new orders arriving at once.
+  const demoSyncPrimedRef = useRef(false);
   const demoModeRef = useRef(isDemo);
   const demoReconcileInFlightRef = useRef(false);
   const queueFlushInFlightRef = useRef(false);
@@ -355,9 +371,12 @@ export function OperatorProvider({ children }: PropsWithChildren) {
     };
   }, [live, location.id, locationReady, tenant]);
 
-  // The demo shop stays busy: a new order lands every couple of minutes.
+  // The demo shop stays busy: a new order lands every couple of minutes. On the
+  // shared plane the kiosk and customer apps do that for real, through the
+  // broker, so a local spawn here would only re-create the phantom orders the
+  // wall cannot see.
   useEffect(() => {
-    if (!isDemo) return undefined;
+    if (!isDemo || brokered) return undefined;
     const timer = setInterval(() => {
       const next = spawnDemoOrder(spawnIndex.current++);
       setOrders((current) => {
@@ -367,7 +386,7 @@ export function OperatorProvider({ children }: PropsWithChildren) {
       });
     }, 120_000);
     return () => clearInterval(timer);
-  }, [isDemo, trackFresh]);
+  }, [brokered, isDemo, trackFresh]);
 
   const markSeen = useCallback(() => setUnseenIds(new Set()), []);
 
@@ -409,6 +428,10 @@ export function OperatorProvider({ children }: PropsWithChildren) {
       }
       if (!demoModeRef.current) return;
       const nextIds = new Set(snapshot.orders.map((order) => order.id));
+      if (!demoSyncPrimedRef.current) {
+        for (const id of nextIds) seenRef.current.add(id);
+        demoSyncPrimedRef.current = true;
+      }
       setOrders((current) => {
         const local = current.filter((order) => !syncedDemoIdsRef.current.has(order.id));
         const merged = [...local, ...snapshot.orders.map(normalizeBoardOrderGuest)];
@@ -427,10 +450,12 @@ export function OperatorProvider({ children }: PropsWithChildren) {
     if (!demoSyncEnabled(isDemo)) return undefined;
     void reconcileDemoSync();
     const timer = setInterval(() => void reconcileDemoSync(), DEMO_SYNC_RECONCILE_MS);
-    return () => {
-      demoModeRef.current = false;
-      clearInterval(timer);
-    };
+    // Only the interval is torn down here. Clearing `demoModeRef` was a latch:
+    // `reconcileDemoSync` returns early while it is false, and nothing but a
+    // change of `isDemo` ever set it back -- so any re-run of this effect that
+    // was not a mode change (a new `reconcileDemoSync` identity, a remount)
+    // stopped the operator syncing for the rest of the session, silently.
+    return () => clearInterval(timer);
   }, [isDemo, reconcileDemoSync]);
 
   /**
