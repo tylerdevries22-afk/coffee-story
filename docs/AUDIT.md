@@ -1301,3 +1301,165 @@ after a successful migration therefore leaves the database ahead of the app
 code. That is deliberate: the deep-health equality check requires the database
 to already carry the release the app expects, so the migration has to land
 first. It is recorded here rather than changed.
+
+## Release verification — 2026-08-30
+
+Everything below was run against the hosted project and the live production
+deployments, at `main` = `6af0cb7a15aa`, after `dev` was promoted. Where a check
+could not be run, it says so instead of being reported as a pass.
+
+### The scheduled tick had never run once
+
+`apps/hq/vercel.json` schedules `/api/jobs/run` every five minutes.
+`app/api/jobs/run/route.ts` exported only `POST`. Vercel Cron invokes a
+scheduled path with `GET` and offers no way to choose another method, so every
+tick since the schedule was added answered 405.
+
+The failure is invisible from every angle except the work not happening: Vercel
+does not retry a 405, the deployment reports no error, and the schedule shows as
+healthy. It was found by reading production runtime logs — not by any check we
+had — on a five-minute cadence through the whole retained window:
+
+    requestMethod GET  requestPath /api/jobs/run  responseStatusCode 405
+
+What had not been running, for the life of the schedule: drop windows opening
+and closing, campaigns moving to `sent`, analytics rollup refresh and retention
+pruning, operations maintenance, escalation queueing, the notification outbox
+drain, operations retention, and training-bootstrap retry scanning.
+
+The fix is a `GET` that delegates to `POST`, so both methods share one
+authenticated body. `lib/cron-contract.ts` and its test read the real
+`vercel.json` and the real route files and fail if any scheduled path ever loses
+its `GET` again — the same shape as `deep-health.test.ts`, and for the same
+reason: the constant that drifts silently needs a test that derives it.
+
+Confirmed live after promotion, in that order:
+
+    unauthenticated GET  -> 401 {"error":{"code":"unauthorized", ...}}   (was 405)
+    unauthenticated POST -> 401
+    scheduled tick       -> 200   06:55:32Z, from Vercel Cron
+
+The 401 is the point: the route now answers the method and rejects on the
+secret, rather than refusing the method before authentication is ever reached.
+Production carries no orders and no analytics events, so the successful tick had
+nothing to change; the 200 is evidence the handler ran, not evidence of work.
+
+### Tenancy, exercised rather than reasoned about
+
+The RLS helpers were called directly with forged `request.jwt.claims`, in a
+read-only transaction, one case per row. Only Supabase Auth can mint a signed
+`app_metadata`, so this tests the helpers rather than a reachable attack — but
+it tests them with values a bug could plausibly produce.
+
+| claim under test | `is_brand_staff`(real) | `is_brand_owner`(real) | `at_location`(real) |
+|---|---|---|---|
+| no claims at all | false | false | false |
+| staff of a brand that does not exist | false | false | false |
+| location_manager of another brand, carrying the real location id | false | false | false |
+| brand_owner of another brand | false | false | false |
+| guest of the real brand, no role | false | false | false |
+| unknown role string (`superuser`) | false | false | false |
+| staff of the real brand, wrong location | true | false | false |
+| staff of the real brand | true | false | true |
+
+The row that matters most is the third: holding a valid location id from another
+tenant grants nothing, because every helper anchors on `brand_id` first.
+
+One rough edge, recorded rather than changed. `app.jwt_brand_id()` casts the
+claim straight to `uuid`, so a malformed `brand_id` raises `22P02` inside every
+policy that calls it. That fails closed — the request errors and returns no rows
+— but it fails as a 500 rather than a clean deny. It is not reachable by a
+client, since the claim is signed, so this is a note for whoever next touches
+the helper, not a defect to chase into a migration.
+
+`app.can_read_board` could not be exercised this way: it calls
+`app.device_is_active`, which the read-only MCP role may not execute.
+
+### What anonymous callers can actually reach
+
+Swept against production PostgREST with the publishable key. Two outcomes, both
+correct, and one of them is stronger evidence than an empty table:
+
+    401 (no grant at all)   square_connections, training_releases,
+                            connector_installations, operation_occurrences,
+                            calendar_entries, platform_factory_audit_events
+    200 []  (RLS filtered)  orders, order_events, devices, customers, brands
+    200 rows (by design)    menu_items — the storefront catalog
+
+`devices` and `brands` each hold exactly one row in production and anon sees
+zero, so the empty arrays there are RLS doing its job, not an empty table
+flattering the result. `training_releases` — which holds the quiz answer keys —
+has no grant to `anon` or `authenticated` at all, which makes its select policy
+unreachable over PostgREST. That is the fail-closed posture, and it is
+deliberate.
+
+### What production actually holds
+
+    brands 1   locations 1   devices 1   menu_items 61   menu_categories 7
+    orders 0   order_events 0   customers 0   square_connections 0
+    connector_registry 20   connector_capabilities 23   connector_installations 0
+    calendar_categories 7   calendar_entries 0
+    operation_task_templates 0   operation_schedules 0   operation_occurrences 0
+    drops 0   campaigns 0
+
+Catalog: all 61 items listed, all 61 carrying an image, none 86'd, no item
+priced at or below zero, 7 categories used of 7 defined.
+
+Connectors: 20 providers, every one with a logo and a documentation URL, and
+every one in an honest state — `setup_required` (11), `coming_soon` (8),
+`provider_approval_required` (1, Google). Zero installations, so nothing in the
+console claims to be connected that is not.
+
+Realtime: the `supabase_realtime` publication carries 11 relations, including
+`orders`, `board_change_signals`, `menu_items` and `operations_change_signals`.
+`order_events` is deliberately not published — the board reads current state.
+
+### The production display device is paired with nothing
+
+`devices` holds one row, role `display`, `paired_at` set, `revoked_at` null —
+and `refresh_secret_hash` null, `pairing_code_hash` null, `last_seen_at` null.
+It was seeded as paired without going through pairing, so it carries no
+credential material and has never connected. The board renders because the page
+renders; it is not evidence that a device can authenticate.
+
+Pairing it needs `SUPABASE_JWT_SECRET` on the HQ deployment, which is unset.
+Minting a credential by direct SQL would bypass the pairing design, so it stays
+an owner action.
+
+### Two hardening items were already done
+
+Checked rather than assumed, because both were on the list to do:
+
+- **Actions are pinned.** All 38 `uses:` references across the four workflows
+  resolve to 40-character commit SHAs — five distinct actions, each with a
+  version comment. The only unpinned-looking matches are two `./`
+  reusable-workflow references, which are pinned by being in this repo at this
+  ref.
+- **`main` and `dev` are protected.** Both require a pull request, both require
+  `verify` and `audit`, both block force pushes and deletions, and both set
+  `enforce_admins: false` with zero required approvals — which is what keeps a
+  solo owner from being locked out of their own repository.
+
+### Supabase advisors
+
+Security: 4 INFO, no WARN, no ERROR — `rls_enabled_no_policy` on
+`operation_action_receipts`, `operation_notification_outbox`,
+`platform_billing_webhook_events`, `platform_factory_audit_events`. RLS on with
+no policy denies everything to anon and authenticated, which is the intended
+posture for four service-role-only tables.
+
+Performance: 386 INFO, no WARN, no ERROR — 328 `unused_index`, 57
+`unindexed_foreign_keys`, 1 `auth_db_connections_absolute`. Unused indexes on a
+database with no traffic yet are not a finding.
+
+### What could not be verified from here
+
+- **A live order end to end.** Production holds zero orders, zero order events
+  and zero customers. Placing one requires creating an account and entering a
+  password, and the pickup-display leg requires a device credential that does
+  not exist. Both stay owner actions.
+- **`deploy-hosted.yml` promoting the web surfaces.** `deploy-hq` fails with
+  `You do not have access to the specified account` — `VERCEL_TOKEN` is invalid
+  or not scoped to the team. All five surfaces were promoted at exactly
+  `6af0cb7a15aa` by Vercel's own Git integration, which is what has actually
+  been deploying this project.
