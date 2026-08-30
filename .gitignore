@@ -68,3 +68,11 @@ supabase/.temp/
 # stray bytecode from repo scripts
 __pycache__/
 .scratch-glass/
+
+# Agent scratch notes. `~/Dev/.sync/dev-sync.sh` snapshots any dirty working
+# tree onto the `wip/macbook` branch every 15 minutes and skips ignored paths,
+# so these entries are what keeps session scratch out of both commits and that
+# branch. `.claude/` itself stays tracked: launch.json, settings.json, hooks
+# and skills are real project config.
+**/.claude/session-notes.md
+apps/*/.claude/
