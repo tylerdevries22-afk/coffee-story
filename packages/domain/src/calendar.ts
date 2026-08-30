@@ -44,24 +44,57 @@ export type CalendarCategory = {
   sortOrder: number;
 };
 
+/**
+ * The tone a category carries when the tenant has not named a colour.
+ *
+ * Semantic, not literal. This package is framework-free and has no access to a
+ * brand's palette, so it names the *role* and the view layer resolves it
+ * against that tenant's tokens -- the same indirection the board's tier badges
+ * use. The defaults here used to be literal hexes (a violet `#7C3AED` for
+ * training, a magenta `#DB2777` for orders), which meant every brand onboarded
+ * after the first inherited a palette nobody chose for it, on the screen its
+ * own staff read all day. Rule 4 exists for exactly this.
+ *
+ * Seven roles for eight kinds is deliberate, not an oversight. Each kind
+ * already carries a distinct icon, so identity is the icon's job; colour is
+ * left free to say what *sort* of thing this is -- confirmed, wanted, blocked,
+ * ordinary -- which is the question a glance at a day actually asks.
+ */
+export const CALENDAR_TONES = [
+  'primary', 'secondary', 'accent', 'success', 'warning', 'danger', 'muted',
+] as const;
+
+export type CalendarTone = (typeof CALENDAR_TONES)[number];
+
 export type CalendarCategoryPresentation = {
   label: string;
   iconKey: CalendarIconKey;
-  accentColor: string;
+  /**
+   * The tenant's own colour, or null when they never set a valid one. Null is
+   * the signal to resolve `accentTone` against the brand's tokens instead --
+   * distinct from "resolved to a default", which is what a hex here used to
+   * mean and could not be told apart from a deliberate choice.
+   */
+  accentColor: string | null;
+  accentTone: CalendarTone;
   usedFallback: boolean;
 };
 
-type DefaultCategoryPresentation = Omit<CalendarCategoryPresentation, 'usedFallback'>;
+type DefaultCategoryPresentation = {
+  label: string;
+  iconKey: CalendarIconKey;
+  accentTone: CalendarTone;
+};
 
 const DEFAULT_CATEGORY_PRESENTATION: Record<CalendarCoreKind, DefaultCategoryPresentation> = {
-  training: { label: 'Training', iconKey: 'graduation-cap', accentColor: '#7C3AED' },
-  project: { label: 'Project', iconKey: 'briefcase-business', accentColor: '#2563EB' },
-  scheduled_shift: { label: 'Scheduled shift', iconKey: 'clock-3', accentColor: '#059669' },
-  task: { label: 'Task', iconKey: 'square-check-big', accentColor: '#D97706' },
-  order: { label: 'Order', iconKey: 'shopping-bag', accentColor: '#DB2777' },
-  event: { label: 'Event', iconKey: 'calendar-days', accentColor: '#0891B2' },
-  blockout: { label: 'Blockout', iconKey: 'calendar-off', accentColor: '#DC2626' },
-  custom: { label: 'Calendar item', iconKey: 'shapes', accentColor: '#64748B' },
+  training: { label: 'Training', iconKey: 'graduation-cap', accentTone: 'secondary' },
+  project: { label: 'Project', iconKey: 'briefcase-business', accentTone: 'primary' },
+  scheduled_shift: { label: 'Scheduled shift', iconKey: 'clock-3', accentTone: 'success' },
+  task: { label: 'Task', iconKey: 'square-check-big', accentTone: 'warning' },
+  order: { label: 'Order', iconKey: 'shopping-bag', accentTone: 'accent' },
+  event: { label: 'Event', iconKey: 'calendar-days', accentTone: 'secondary' },
+  blockout: { label: 'Blockout', iconKey: 'calendar-off', accentTone: 'danger' },
+  custom: { label: 'Calendar item', iconKey: 'shapes', accentTone: 'muted' },
 };
 
 const HEX_COLOR = /^#[\dA-F]{6}$/i;
@@ -79,7 +112,8 @@ export function resolveCalendarCategoryPresentation(
   return {
     label: label || defaults.label,
     iconKey: category?.iconKey ?? defaults.iconKey,
-    accentColor: hasValidColor ? (category?.accentColor as string) : defaults.accentColor,
+    accentColor: hasValidColor ? (category?.accentColor as string) : null,
+    accentTone: defaults.accentTone,
     usedFallback,
   };
 }

@@ -12,7 +12,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/state/auth-context';
 import { useOperations } from '@/state/operations-store';
 import { useOperator } from '@/state/operator-store';
-import { useAppTokens, type AppTokens } from '@platform/ui';
+import { useAppTokens, useTokens as useBrandTokens, type AppTokens } from '@platform/ui';
 
 export function CalendarDetailScreen({ itemId }: { itemId: string }) {
   const { isDemo, tenant } = useAuth();
@@ -45,8 +45,8 @@ export function CalendarDetailScreen({ itemId }: { itemId: string }) {
 }
 
 function CalendarItemDetailShell({ item }: { item: CalendarItem }) {
-  const { styles } = useCalendarDetailTheme();
-  const category = calendarCategoryForItem(item);
+  const { tokens, styles } = useCalendarDetailTheme();
+  const category = calendarCategoryForItem(item, tokens);
   return (
     <SafeAreaView edges={['top']} style={styles.safe}>
       <DetailHeader />
@@ -69,8 +69,8 @@ function DetailHeader() {
 }
 
 function DetailHero({ item }: { item: CalendarItem }) {
-  const { styles } = useCalendarDetailTheme();
-  const category = calendarCategoryForItem(item);
+  const { tokens, styles } = useCalendarDetailTheme();
+  const category = calendarCategoryForItem(item, tokens);
   return <View style={styles.hero}><View style={[styles.categoryIcon, { backgroundColor: category.tint }]}><AppIcon name={category.icon} size={26} tintColor={category.color} weight="semibold" /></View><View style={styles.heroCopy}><Text style={[styles.category, { color: category.color }]}>{category.label.toUpperCase()}</Text><Text style={styles.title}>{item.title}</Text><Text style={styles.summary}>{item.summary}</Text></View></View>;
 }
 
@@ -151,12 +151,12 @@ function MissingCalendarItem() {
 
 function useCalendarDetailTheme() {
   const appTokens = useAppTokens();
-  return { colors: appTokens.colors, styles: createStyles(appTokens) };
+  return { colors: appTokens.colors, tokens: useBrandTokens(), styles: createStyles(appTokens) };
 }
 
 function createStyles({ colors, fonts, radius, spacing }: AppTokens) {
   return StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F4F3F1' },
+  safe: { flex: 1, backgroundColor: colors.warm },
   header: { minHeight: 58, backgroundColor: colors.white, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.ink200, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.sm },
   backButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: radius.sm },
   headerTitle: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 17 },
