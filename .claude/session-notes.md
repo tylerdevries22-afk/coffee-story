@@ -256,3 +256,24 @@
   - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: There has been exactly **one** genuine user message in this entire conversation — a large shell handoff prom
   - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: There has been exactly **one** genuine user message in this entire conversation — a large shell handoff prom
   - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: There has been exactly **one** genuine user message in this entire conversation — a large shell handoff prom
+
+## Compaction checkpoint — 2026-08-30 06:29:29 (auto)
+
+- branch: `fix/cron-get-handler`
+- uncommitted (3):
+  - ?? .claude/session-notes.md
+  - ?? apps/display/.claude/
+  - ?? apps/hq/.claude/
+- recent commits:
+  - e416f10 fix: answer the cron tick on GET, which is the only method Vercel sends
+  - 2e389ad Merge pull request #54 from tylerdevries22-afk/dev
+  - 9a4f72f Merge pull request #53 from tylerdevries22-afk/feat/device-refresh-secrets
+  - 32d25d0 Record the advisor run, and check the grants it depends on
+  - 7551778 Document the five credentials the factory walkthroughs skipped
+- recent asks:
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: There has been exactly **one** genuine user message in this entire conversation — a large shell handoff prom
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: There has been exactly **one** genuine user message in this entire conversation — a large shell handoff prom
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: There has been exactly **one** genuine user message in this entire conversation — a large shell handoff prom
+  - This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary: 1. Primary Request and Intent: There has been exactly **one** genuine user message in this entire conversation — a large shell handoff prom
+  - The previous response failed to produce a valid tool call. Please retry the tool call now.
+  - Try again
