@@ -43,6 +43,7 @@ import { POINTS_LABEL } from '@/features/rewards/presentation';
 import { simulateProgress, trackingView } from '@/features/tracking';
 import { sizeSuffix } from '@/data/menu-export';
 import { TENANT_TAX_JURISDICTIONS, tenantFeature } from '@/tenant';
+import { useBusiness } from '@/state/business';
 import {
   newIdempotencyKey,
   startSerializedPolling,
@@ -590,8 +591,16 @@ function OrderHub({
 }) {
   const tokens = useBrandTokens();
   const styles = createStyles(tokens);
+  const business = useBusiness();
   const { width } = useWindowDimensions();
   const compact = width < 360;
+  // Rule 5: these three are brand flags, and the hub offered all three to
+  // everyone. A shop with delivery off still showed a Delivery card that
+  // started a flow it cannot fulfil, and one without stored value still
+  // offered gift cards -- the balance was already gated, the entry point
+  // was not. They are all on for the launch tenant, so nothing moves here
+  // until the second brand, which is exactly when it would have hurt.
+  const deliveryEnabled = tenantFeature('delivery');
 
   return (
     <CollapsingScreen
@@ -603,13 +612,15 @@ function OrderHub({
       contentContainerStyle={[styles.content, compact && styles.contentCompact]}
     >
       <View accessibilityRole="radiogroup" style={[styles.modeRow, compact && styles.modeRowCompact]}>
-        <ModeCard
-          mode="delivery"
-          label="Delivery"
-          compact={compact}
-          selected={mode === 'delivery'}
-          onPress={() => onStart('delivery')}
-        />
+        {deliveryEnabled ? (
+          <ModeCard
+            mode="delivery"
+            label="Delivery"
+            compact={compact}
+            selected={mode === 'delivery'}
+            onPress={() => onStart('delivery')}
+          />
+        ) : null}
         <ModeCard
           mode="pickup"
           label="Pickup"
@@ -619,18 +630,22 @@ function OrderHub({
         />
       </View>
 
-      <HubRow
-        icon="person.2"
-        title="Catering"
-        detail="Coffee cart for your event — message the shop"
-        onPress={onOpenCatering}
-      />
-      <HubRow
-        icon="giftcard"
-        title="Digital Gift Cards"
-        detail="Send a blessing in a few taps."
-        onPress={onOpenGift}
-      />
+      {tenantFeature('catering') ? (
+        <HubRow
+          icon="person.2"
+          title="Catering"
+          detail="Coffee cart for your event — message the shop"
+          onPress={onOpenCatering}
+        />
+      ) : null}
+      {tenantFeature('stored_value') ? (
+        <HubRow
+          icon="giftcard"
+          title="Digital Gift Cards"
+          detail="Send a blessing in a few taps."
+          onPress={onOpenGift}
+        />
+      ) : null}
 
       <Pressable
         accessibilityRole="button"
@@ -650,7 +665,9 @@ function OrderHub({
         </View>
       </Pressable>
 
-      <Body muted>Pickup at the shop on Havana St, or delivery to your door.</Body>
+      <Body muted>
+        Pickup at {business.street}{deliveryEnabled ? ', or delivery to your door' : ''}.
+      </Body>
     </CollapsingScreen>
   );
 }

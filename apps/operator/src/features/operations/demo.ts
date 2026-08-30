@@ -2,7 +2,7 @@ import type { OperatorTaskOccurrence } from './model';
 
 export const DEMO_OPERATIONS_BRAND_ID = '20000000-0000-4000-8000-000000000001';
 const DEMO_LOCATION_IDS: Readonly<Record<string, string>> = {
-  'loc-havana': '20000000-0000-4000-8000-000000000002',
+  'loc-uptown': '20000000-0000-4000-8000-000000000002',
   'loc-downtown': '20000000-0000-4000-8000-000000000003',
 };
 

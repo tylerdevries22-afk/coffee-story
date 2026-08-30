@@ -17,7 +17,7 @@ function demoBatch(input: {
   return {
     id: input.id,
     brand_id: 'demo-brand',
-    location_id: 'loc-havana',
+    location_id: 'loc-uptown',
     recipe_id: `recipe-${input.id}`,
     service_date: 'demo',
     target_qty: input.targetQty,

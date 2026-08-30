@@ -45,8 +45,35 @@ function boundary(value: string): RegExp {
   return new RegExp(`${lead}${escaped(value)}${tail}`, 'i');
 }
 
+/** A place name as prose writes it, ignoring the "America/Denver" path form. */
+function placeName(value: string): RegExp {
+  return new RegExp(`(?<!/)${boundary(value).source}`, 'i');
+}
+
 function str(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+/**
+ * The street without its house number, directional, or unit.
+ *
+ * The full line is what brand.json stores and what a receipt prints, but it is
+ * not what prose says: a screen writes "the shop on Havana St", never "the
+ * shop on 2222 S Havana St Unit A1". Matching only the stored line let exactly
+ * that sentence ship in the customer order screen, naming one franchisee's
+ * street to every other franchisee's guests. The trimmed form is what a person
+ * would type, so it is what this checks.
+ *
+ * Returns '' when trimming leaves nothing distinctive -- a street that is only
+ * a number, or a name so short it would match prose.
+ */
+function streetName(street: string): string {
+  const trimmed = street
+    .replace(/^\d+[a-z]?\s+/i, '')
+    .replace(/\s+(?:unit|ste\.?|suite|apt\.?|apartment|bldg\.?|#)\s*\S*$/i, '')
+    .replace(/^(?:n|s|e|w|ne|nw|se|sw|north|south|east|west)\.?\s+/i, '')
+    .trim();
+  return trimmed === street ? '' : trimmed;
 }
 
 /** Every identity string one tenant folder claims. */
@@ -58,7 +85,7 @@ function needlesFor(tenantFile: string): Needle[] {
   const location = (config.location ?? {}) as Record<string, unknown>;
   const address = (location.address ?? {}) as Record<string, unknown>;
   const host = str(business.website).replace(/^https?:\/\//, '').replace(/\/$/, '');
-  const candidates: [string, string][] = [
+  const candidates: [string, string, RegExp?][] = [
     ['identity.name', str(identity.name)],
     ['identity.slug', str(identity.slug)],
     ['business.legalName', str(business.legalName)],
@@ -67,11 +94,22 @@ function needlesFor(tenantFile: string): Needle[] {
     ['business.email', str(business.email)],
     ['business.phone', str(business.phone)],
     ['location.address.street', str(address.street)],
+    ['location.address.streetName', streetName(str(address.street))],
+    // Where the shop is, as a guest says it. A second franchisee's app telling
+    // its guests the shop is in another state is the same class of defect as
+    // printing another shop's name, and nothing here caught it: the city is
+    // not part of the street line, so it slipped through untouched.
+    //
+    // Not preceded by a slash: "America/Denver" is an IANA identifier, and a
+    // timezone is infrastructure every tenant in that zone shares, not a claim
+    // about where this shop is. The exclusion is the city's alone -- a website
+    // needle has to keep matching in "https://<host>", which is the same slash.
+    ['location.address.city', str(address.city), placeName(str(address.city))],
   ];
   return candidates
     // Three characters is the floor: shorter strings match prose, not identity.
     .filter(([, value]) => value.length > 3)
-    .map(([field, value]) => ({ tenant, field, value, pattern: boundary(value) }));
+    .map(([field, value, pattern]) => ({ tenant, field, value, pattern: pattern ?? boundary(value) }));
 }
 
 /**
