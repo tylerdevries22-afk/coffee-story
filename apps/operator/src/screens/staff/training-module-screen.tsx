@@ -49,7 +49,7 @@ function useTrainingModuleTheme() {
 
 function createStyles({ colors, fonts, spacing }: AppTokens) {
   return StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F1F0EE' },
+  safe: { flex: 1, backgroundColor: colors.warm },
   header: { minHeight: 58, paddingHorizontal: spacing.sm, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.white, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.ink200 },
   back: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 17 },
@@ -67,7 +67,7 @@ function createStyles({ colors, fonts, spacing }: AppTokens) {
   meta: { color: colors.ink500, fontFamily: fonts.sans, fontSize: 12 },
   empty: { minHeight: 120, alignItems: 'center', justifyContent: 'center', gap: spacing.sm, padding: spacing.lg, borderRadius: 12, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.ink200 },
   pressed: { opacity: 0.72 },
-  message: { flex: 1, padding: spacing.xl, alignItems: 'center', justifyContent: 'center', gap: spacing.md, backgroundColor: '#F1F0EE' },
+  message: { flex: 1, padding: spacing.xl, alignItems: 'center', justifyContent: 'center', gap: spacing.md, backgroundColor: colors.warm },
   messageButton: { minHeight: 46, paddingHorizontal: spacing.lg, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.ink900 },
   messageButtonText: { color: colors.white, fontFamily: fonts.sansBold, fontSize: 14 },
   });

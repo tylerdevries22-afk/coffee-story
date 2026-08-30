@@ -10,3 +10,15 @@ test('HQ variables resolve through the shared tenant token contract', () => {
   assert.equal(variables['--radius'], '20px');
   assert.match(variables['--bg-hover'] ?? '', /#123456/);
 });
+
+test('the kiosk preview takes its surface from the tenant, not from one shop', () => {
+  const mine = hqTheme({ tokens: { surface: '#FAF5EF', textPrimary: '#241710', primary: '#2E211A' } });
+  const theirs = hqTheme({ tokens: { surface: '#F0F4FA', textPrimary: '#101724', primary: '#1A212E' } });
+  assert.equal(mine['--kiosk-surface'], '#FAF5EF');
+  assert.equal(theirs['--kiosk-surface'], '#F0F4FA');
+  assert.equal(theirs['--kiosk-ink'], '#101724');
+  assert.equal(theirs['--kiosk-hero'], '#1A212E');
+  // The derived lines follow whichever palette they were given.
+  assert.match(theirs['--kiosk-line'] ?? '', /#F0F4FA/);
+  assert.notEqual(mine['--kiosk-line'], theirs['--kiosk-line']);
+});

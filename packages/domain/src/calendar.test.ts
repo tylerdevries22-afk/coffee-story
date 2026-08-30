@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  CALENDAR_CORE_KINDS,
+  CALENDAR_TONES,
   calendarPermissionsForRole,
   resolveCalendarCategoryPresentation,
   resolveCalendarDetailTemplate,
@@ -49,6 +51,7 @@ test('category presentation prefers valid tenant label, icon, and color', () => 
       label: 'Certifications',
       iconKey: 'star',
       accentColor: '#123ABC',
+      accentTone: 'secondary',
       usedFallback: false,
     },
   );
@@ -64,11 +67,27 @@ test('category presentation falls back deterministically for invalid tenant data
     {
       label: 'Scheduled shift',
       iconKey: 'clock-3',
-      accentColor: '#059669',
+      // Null, not a hex: an unset tenant colour resolves to the brand's own
+      // token through `accentTone`, which is the whole point of rule 4 here.
+      accentColor: null,
+      accentTone: 'success',
       usedFallback: true,
     },
   );
   assert.equal(resolveCalendarCategoryPresentation(null).iconKey, 'shapes');
+});
+
+test('every calendar kind names a tone and never a literal colour', () => {
+  for (const kind of CALENDAR_CORE_KINDS) {
+    const presentation = resolveCalendarCategoryPresentation({
+      coreKind: kind, label: '', iconKey: null, accentColor: null,
+    });
+    assert.equal(presentation.accentColor, null, `${kind} must defer to the brand's tokens`);
+    assert.ok(
+      (CALENDAR_TONES as readonly string[]).includes(presentation.accentTone),
+      `${kind} must name a token role, not invent one`,
+    );
+  }
 });
 
 test('detail template resolution covers every core behavior and unknown input', () => {

@@ -42,7 +42,7 @@ import { operatorLayout } from '@/lib/responsive-layout';
 import { formatMoney, queuePositions } from '@platform/domain';
 import { MENU_ITEMS } from '@/data/catalog';
 import { useOperator } from '@/state/operator-store';
-import { disabledState, toggleState } from '@platform/ui';
+import { alpha, disabledState, toggleState } from '@platform/ui';
 import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 type BoardSheet = 'none' | 'day' | 'menu' | 'settings' | 'location';
@@ -833,7 +833,7 @@ const createStyles = (tokens: BrandTokens) => StyleSheet.create({
 
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(20,12,8,0.45)',
+    backgroundColor: alpha(tokens.primary, 0.45),
   },
   sheet: {
     position: 'absolute',

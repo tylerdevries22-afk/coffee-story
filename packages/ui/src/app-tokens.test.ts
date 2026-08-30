@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import coffeeStory from '../../../tenants/coffee-story/brand.json';
-import { mixHex, resolveAppTokens } from './app-tokens';
+import { alpha, hairline, mixHex, resolveAppTokens } from './app-tokens';
 
 describe('mixHex', () => {
   it('mixes endpoints and clamps the weight', () => {
@@ -52,4 +52,23 @@ describe('resolveAppTokens', () => {
       sans: 'System', sansMedium: 'System', sansBold: 'System', display: 'System',
     });
   });
+});
+
+it('alpha keeps the opacity in the screen and the colour in the tenant', () => {
+  assert.equal(alpha('#241710', 0.38), '#24171061');
+  assert.equal(alpha('#FFFFFF', 1), '#FFFFFFFF');
+  assert.equal(alpha('#FFFFFF', 0), '#FFFFFF00');
+  // Clamped rather than thrown: a computed opacity drifting past the ends is a
+  // rounding artefact, not a reason to blank a screen.
+  assert.equal(alpha('#000000', 4), '#000000FF');
+  assert.equal(alpha('#000000', -1), '#00000000');
+  assert.throws(() => alpha('rgb(0,0,0)', 0.5), RangeError);
+  assert.throws(() => alpha('#000000', Number.NaN), RangeError);
+});
+
+it('hairline is the same line ink200 draws, from whatever ink a brand has', () => {
+  const warm = { surfaceElevated: '#FFFFFF', textPrimary: '#241710' };
+  const cool = { surfaceElevated: '#FFFFFF', textPrimary: '#101724' };
+  assert.equal(hairline(warm), resolveAppTokens(warm).colors.ink200);
+  assert.notEqual(hairline(warm), hairline(cool));
 });

@@ -14,7 +14,7 @@ import { useAuth } from '@/state/auth-context';
 import { useBusiness } from '@/state/business';
 import { useOperations } from '@/state/operations-store';
 import { useOperator } from '@/state/operator-store';
-import { useAppTokens, type AppTokens } from '@platform/ui';
+import { useAppTokens, useTokens as useBrandTokens, type AppTokens } from '@platform/ui';
 
 type CalendarMode = 'list' | 'day';
 type DayKey = string;
@@ -128,8 +128,8 @@ function CalendarList({ items, day }: { items: readonly CalendarItem[]; day: Day
 }
 
 function ScheduleCard({ item }: { item: CalendarItem }) {
-  const { colors, styles } = useCalendarTheme();
-  const category = calendarCategoryForItem(item);
+  const { colors, tokens, styles } = useCalendarTheme();
+  const category = calendarCategoryForItem(item, tokens);
   const open = () => router.push(calendarItemHref(item.id) as Href);
   return (
     <Pressable
@@ -195,8 +195,8 @@ function DayTimeline({ items }: { items: readonly CalendarItem[] }) {
 }
 
 function TimelineItem({ item }: { item: CalendarItem }) {
-  const { styles } = useCalendarTheme();
-  const category = calendarCategoryForItem(item);
+  const { tokens, styles } = useCalendarTheme();
+  const category = calendarCategoryForItem(item, tokens);
   return (
     <Pressable onPress={() => router.push(calendarItemHref(item.id) as Href)} style={[styles.timelineItem, { borderLeftColor: category.color, backgroundColor: category.tint }]}>
       <AppIcon name={category.icon} size={15} tintColor={category.color} />
@@ -212,7 +212,10 @@ function EmptySchedule() {
 
 function useCalendarTheme() {
   const appTokens = useAppTokens();
-  return { colors: appTokens.colors, styles: createStyles(appTokens) };
+  // Brand tokens alongside the legacy palette: category colour is resolved from
+  // the tenant's own tokens (rule 4), and the legacy palette has no accent role
+  // to resolve it against.
+  return { colors: appTokens.colors, tokens: useBrandTokens(), styles: createStyles(appTokens) };
 }
 
 function createStyles({ colors, fonts, radius, spacing }: AppTokens) {
@@ -243,7 +246,7 @@ function createStyles({ colors, fonts, radius, spacing }: AppTokens) {
   avatarTextSelected: { color: colors.brand700 },
   personName: { color: colors.ink500, fontFamily: fonts.sansMedium, fontSize: 9 },
   personNameSelected: { color: colors.ink900 },
-  modeSwitch: { height: 38, flexDirection: 'row', backgroundColor: '#EEEDEB', borderRadius: 9, padding: 3 },
+  modeSwitch: { height: 38, flexDirection: 'row', backgroundColor: colors.brand100, borderRadius: 9, padding: 3 },
   modeButton: { flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 7 },
   modeButtonSelected: { backgroundColor: colors.white },
   modeText: { color: colors.ink500, fontFamily: fonts.sansMedium, fontSize: 13 },

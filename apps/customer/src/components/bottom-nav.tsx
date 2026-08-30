@@ -5,7 +5,7 @@ import { Fragment } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { tabState } from '@platform/ui';
+import { alpha, tabState } from '@platform/ui';
 import { useAppState, type ClientTab, type StaffTab } from '@/state/app-context';
 import { CLIENT_TAB_LABELS } from '@/state/navigation-state';
 import { AppIcon } from '@/components/icon';
@@ -148,7 +148,7 @@ const createStyles = (tokens: BrandTokens) => StyleSheet.create({
   wrap: { position: 'absolute', left: 15, right: 15, height: 64, borderRadius: tokens.radius.pill, overflow: 'hidden', zIndex: 30, shadowColor: tokens.textPrimary, shadowOffset: { width: 0, height: 8 }, shadowOpacity: tokens.elevation.card, shadowRadius: 24, elevation: 5 },
   surface: { borderRadius: tokens.radius.pill },
   content: { flex: 1, padding: 4, flexDirection: 'row' },
-  webGlassFallback: { backgroundColor: 'rgba(255,252,254,0.82)', borderWidth: 1, borderColor: tokens.secondary },
+  webGlassFallback: { backgroundColor: alpha(tokens.surfaceElevated, 0.82), borderWidth: 1, borderColor: tokens.secondary },
   item: { flex: 1, borderRadius: tokens.radius.pill, alignItems: 'center', justifyContent: 'center', gap: 2 },
   itemFill: { borderRadius: tokens.radius.pill },
   itemFillSelected: { borderWidth: 1, borderColor: tokens.surface },

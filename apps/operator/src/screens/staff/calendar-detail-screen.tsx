@@ -12,7 +12,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/state/auth-context';
 import { useOperations } from '@/state/operations-store';
 import { useOperator } from '@/state/operator-store';
-import { useAppTokens, type AppTokens } from '@platform/ui';
+import { useAppTokens, useTokens as useBrandTokens, type AppTokens } from '@platform/ui';
 
 export function CalendarDetailScreen({ itemId }: { itemId: string }) {
   const { isDemo, tenant } = useAuth();
@@ -45,8 +45,8 @@ export function CalendarDetailScreen({ itemId }: { itemId: string }) {
 }
 
 function CalendarItemDetailShell({ item }: { item: CalendarItem }) {
-  const { styles } = useCalendarDetailTheme();
-  const category = calendarCategoryForItem(item);
+  const { tokens, styles } = useCalendarDetailTheme();
+  const category = calendarCategoryForItem(item, tokens);
   return (
     <SafeAreaView edges={['top']} style={styles.safe}>
       <DetailHeader />
@@ -69,8 +69,8 @@ function DetailHeader() {
 }
 
 function DetailHero({ item }: { item: CalendarItem }) {
-  const { styles } = useCalendarDetailTheme();
-  const category = calendarCategoryForItem(item);
+  const { tokens, styles } = useCalendarDetailTheme();
+  const category = calendarCategoryForItem(item, tokens);
   return <View style={styles.hero}><View style={[styles.categoryIcon, { backgroundColor: category.tint }]}><AppIcon name={category.icon} size={26} tintColor={category.color} weight="semibold" /></View><View style={styles.heroCopy}><Text style={[styles.category, { color: category.color }]}>{category.label.toUpperCase()}</Text><Text style={styles.title}>{item.title}</Text><Text style={styles.summary}>{item.summary}</Text></View></View>;
 }
 
@@ -151,12 +151,12 @@ function MissingCalendarItem() {
 
 function useCalendarDetailTheme() {
   const appTokens = useAppTokens();
-  return { colors: appTokens.colors, styles: createStyles(appTokens) };
+  return { colors: appTokens.colors, tokens: useBrandTokens(), styles: createStyles(appTokens) };
 }
 
 function createStyles({ colors, fonts, radius, spacing }: AppTokens) {
   return StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F4F3F1' },
+  safe: { flex: 1, backgroundColor: colors.warm },
   header: { minHeight: 58, backgroundColor: colors.white, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.ink200, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.sm },
   backButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: radius.sm },
   headerTitle: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 17 },
@@ -167,21 +167,21 @@ function createStyles({ colors, fonts, radius, spacing }: AppTokens) {
   category: { fontFamily: fonts.sansBold, fontSize: 10, letterSpacing: 0.8 },
   title: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 24, letterSpacing: -0.5 },
   summary: { color: colors.ink600, fontFamily: fonts.sans, fontSize: 14, lineHeight: 20 },
-  progressCard: { minHeight: 82, backgroundColor: colors.white, borderRadius: 12, borderWidth: 1, borderColor: '#E9E6E2', flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.md },
+  progressCard: { minHeight: 82, backgroundColor: colors.white, borderRadius: 12, borderWidth: 1, borderColor: colors.ink200, flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.md },
   progressStep: { width: 70, alignItems: 'center', gap: 6 },
   progressDot: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: colors.ink300, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
   progressDotActive: { borderColor: colors.brand700, backgroundColor: colors.brand700 },
   progressText: { color: colors.ink500, fontFamily: fonts.sansMedium, fontSize: 9 },
   progressTextActive: { color: colors.ink900, fontFamily: fonts.sansBold },
   progressLine: { flex: 1, height: 2, backgroundColor: colors.ink200, marginTop: -15 },
-  summaryCard: { backgroundColor: colors.white, borderRadius: 12, borderWidth: 1, borderColor: '#E9E6E2', overflow: 'hidden' },
+  summaryCard: { backgroundColor: colors.white, borderRadius: 12, borderWidth: 1, borderColor: colors.ink200, overflow: 'hidden' },
   detailRow: { minHeight: 66, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.ink200 },
   detailIcon: { width: 34, height: 34, borderRadius: 9, backgroundColor: colors.brand50, alignItems: 'center', justifyContent: 'center' },
   detailCopy: { flex: 1, gap: 2 },
   rowLabel: { color: colors.ink500, fontFamily: fonts.sansMedium, fontSize: 11 },
   detailValue: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 14 },
   lastRow: { borderBottomWidth: 0 },
-  sectionCard: { backgroundColor: colors.white, borderRadius: 12, borderWidth: 1, borderColor: '#E9E6E2', paddingHorizontal: spacing.md, paddingTop: spacing.md },
+  sectionCard: { backgroundColor: colors.white, borderRadius: 12, borderWidth: 1, borderColor: colors.ink200, paddingHorizontal: spacing.md, paddingTop: spacing.md },
   sectionTitle: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 17, marginBottom: spacing.sm },
   people: { paddingBottom: spacing.md, gap: spacing.sm },
   person: { minHeight: 42, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
@@ -199,7 +199,7 @@ function createStyles({ colors, fonts, radius, spacing }: AppTokens) {
   primaryAction: { minHeight: 52, borderRadius: 8, paddingHorizontal: spacing.md, backgroundColor: colors.ink900, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm },
   primaryActionText: { color: colors.white, fontFamily: fonts.sansBold, fontSize: 15 },
   pressed: { opacity: 0.78 },
-  missing: { flex: 1, backgroundColor: '#F4F3F1', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, padding: spacing.xl },
+  missing: { flex: 1, backgroundColor: colors.warm, alignItems: 'center', justifyContent: 'center', gap: spacing.sm, padding: spacing.xl },
   secondaryAction: { minHeight: 48, paddingHorizontal: spacing.lg, marginTop: spacing.sm, borderRadius: 8, borderWidth: 1, borderColor: colors.ink300, alignItems: 'center', justifyContent: 'center' },
   secondaryActionText: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 14 },
   });

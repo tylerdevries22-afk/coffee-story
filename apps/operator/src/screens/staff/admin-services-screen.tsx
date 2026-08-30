@@ -7,7 +7,7 @@ import { formatMoney, sizeLabelFor, sizePriceCents } from '@platform/domain';
 import { DEMO_ADD_ONS, MENU_ITEMS } from '@/data/catalog';
 import { workspaceTone } from '@/features/staff/workspace';
 import { useAuth } from '@/state/auth-context';
-import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
+import { hairline, useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 /**
  * The item menu, read from the catalog the app actually ships.
@@ -110,7 +110,7 @@ const createStyles = (tokens: BrandTokens) => StyleSheet.create({
     justifyContent: 'space-between',
     minHeight: 44,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(70,48,78,0.12)',
+    borderTopColor: hairline(tokens),
   },
   rowLabel: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 15 },
   rowValue: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 16 },

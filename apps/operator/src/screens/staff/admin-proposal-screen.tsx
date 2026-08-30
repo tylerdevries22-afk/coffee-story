@@ -7,7 +7,7 @@ import { workspaceTone } from '@/features/staff/workspace';
 import { openWebPath } from '@/lib/web-navigation';
 import { useAuth } from '@/state/auth-context';
 import { AppIcon } from '@/components/icon';
-import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
+import { hairline, useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 export function AdminProposalScreen({ onBack }: { onBack: () => void }) {
   const tokens = useBrandTokens();
@@ -71,7 +71,7 @@ const createStyles = (tokens: BrandTokens) => StyleSheet.create({
   heroMark: { width: 52, height: 52, borderRadius: tokens.radius.lg, alignItems: 'center', justifyContent: 'center', backgroundColor: tokens.surfaceElevated },
   heroTitle: { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: 27, lineHeight: 31 },
   sectionTitle: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 22, marginTop: tokens.spacing.lg },
-  row: { minHeight: 78, flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.lg, borderBottomWidth: 1, borderBottomColor: 'rgba(70,48,78,0.12)' },
+  row: { minHeight: 78, flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.lg, borderBottomWidth: 1, borderBottomColor: hairline(tokens) },
   dot: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: tokens.primary },
   copy: { flex: 1, gap: 3 },
   rowTitle: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 16 },

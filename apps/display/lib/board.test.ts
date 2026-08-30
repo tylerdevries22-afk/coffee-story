@@ -420,3 +420,31 @@ describe('the configuration reference', () => {
     }
   });
 });
+
+describe('the wall content security policy', () => {
+  /*
+   * The dev runtime needs `eval` and the shipped one does not. Losing that
+   * distinction is silent in both directions: without the dev relaxation the
+   * board stops hydrating and freezes mid-service with no error a shop would
+   * ever see, and with it applied to production the wall ships a policy far
+   * wider than the one surface that only ever draws same-origin markup.
+   */
+  const config = readFileSync(join(process.cwd(), 'next.config.ts'), 'utf8');
+  const policy = config.slice(
+    config.indexOf('function displayContentSecurityPolicy'),
+    config.indexOf('const nextConfig'),
+  );
+
+  it('lets the dev runtime evaluate its own chunks', () => {
+    const scripts = policy.slice(policy.indexOf('const scripts'));
+    assert.match(scripts.slice(0, 200), /development\s*\n?\s*\?[^:]*'unsafe-eval'/,
+      'the development branch must allow eval or the board never hydrates');
+  });
+
+  it('never ships unsafe-eval', () => {
+    const scripts = policy.slice(policy.indexOf('const scripts'), policy.indexOf('return ['));
+    const shipped = scripts.slice(scripts.indexOf(':') + 1);
+    assert.doesNotMatch(shipped, /unsafe-eval/,
+      'the production branch must stay the narrowest policy the app can run under');
+  });
+});

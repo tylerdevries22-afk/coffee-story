@@ -20,14 +20,25 @@ function hqOrigin(): string {
 }
 
 function displayContentSecurityPolicy(): string {
-  const ancestors = process.env.NODE_ENV === 'production'
-    ? `'self' ${hqOrigin()}`
-    : "'self' http://localhost:4170 http://127.0.0.1:4170 http://localhost:3300 http://127.0.0.1:3300";
+  const development = process.env.NODE_ENV !== 'production';
+  const ancestors = development
+    ? "'self' http://localhost:4170 http://127.0.0.1:4170 http://localhost:3300 http://127.0.0.1:3300"
+    : `'self' ${hqOrigin()}`;
+  // Next's dev runtime evaluates its own chunks with `eval`, so the shipped
+  // policy killed `main-app.js` before React could hydrate: the board rendered
+  // once on the server and then never polled again. On a wall that looks like
+  // a screen quietly refusing to follow the kitchen, and it is exactly how the
+  // operator's taps appeared to go nowhere. A production build needs no `eval`,
+  // so the relaxation lives on the dev branch and the shipped policy is
+  // unchanged.
+  const scripts = development
+    ? "'self' 'unsafe-inline' 'unsafe-eval'"
+    : "'self' 'unsafe-inline'";
   return [
     "default-src 'self'",
     "img-src 'self' data:",
     "style-src 'self' 'unsafe-inline'",
-    "script-src 'self' 'unsafe-inline'",
+    `script-src ${scripts}`,
     "connect-src 'self'",
     `frame-ancestors ${ancestors}`,
     "base-uri 'none'",
