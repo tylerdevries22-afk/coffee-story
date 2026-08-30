@@ -134,6 +134,16 @@ td.num, th.num { text-align: right; }
   color: var(--text);
   border: 1px solid var(--line);
 }
+/* Outlined, not filled: a destructive control should read as one without
+   competing with the page's primary action for attention. */
+.button.danger {
+  background: transparent;
+  color: var(--danger);
+  border: 1px solid color-mix(in srgb, var(--danger) 40%, transparent);
+}
+.button.danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+}
 .button:disabled { opacity: 0.4; cursor: default; }
 
 label.field { display: block; margin-bottom: 14px; font-size: 13px; color: var(--text-muted); }

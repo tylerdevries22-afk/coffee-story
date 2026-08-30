@@ -25,9 +25,40 @@ const REFUSALS: Record<SquareLocationRefusal | 'unreachable', string> = {
     'Square did not answer when asked which location to bill. Nothing was changed — try connecting again.',
 };
 
+/**
+ * What a disconnect leaves behind, in the two states it can end in.
+ *
+ * `local_only` is not a failure of the disconnect -- the shop is disconnected
+ * either way -- but it leaves the owner a job only they can do, so it is
+ * styled as a warning rather than a confirmation.
+ */
+const DISCONNECTS: Record<string, SquareConnectNotice> = {
+  revoked: {
+    failed: false,
+    message: 'Square is disconnected and the token was revoked at Square. This location can no longer take card payments.',
+  },
+  local_only: {
+    failed: true,
+    message: 'Square is disconnected here, but Square did not confirm the revocation. That token can stay usable for the rest of its thirty days — revoke this app from your Square dashboard to be certain.',
+  },
+  stranded: {
+    failed: true,
+    message: 'Square was told to revoke this token, but the connection could not be cleared here. This location cannot take card payments until it is — disconnect it again.',
+  },
+  failed: {
+    failed: true,
+    message: 'Square could not be disconnected. Nothing was changed — try again.',
+  },
+};
+
 export function squareConnectNotice(
-  params: { connected?: string; square?: string },
+  params: { connected?: string; square?: string; disconnect?: string },
 ): SquareConnectNotice | null {
+  if (params.disconnect) {
+    // Same rule as a refusal below: attacker-supplied, so it selects a
+    // sentence and is never echoed into one.
+    return DISCONNECTS[params.disconnect] ?? DISCONNECTS.failed ?? null;
+  }
   if (params.square) {
     const message = REFUSALS[params.square as SquareLocationRefusal | 'unreachable'];
     // An unknown reason still has to say something: the owner watched a

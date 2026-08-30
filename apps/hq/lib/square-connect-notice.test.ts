@@ -32,4 +32,24 @@ describe('squareConnectNotice', () => {
   it('prefers the failure when both parameters arrive', () => {
     assert.equal(squareConnectNotice({ connected: '1', square: 'unreachable' })?.failed, true);
   });
+
+  it('reports both endings a disconnect can have, and says which job is left', () => {
+    const revoked = squareConnectNotice({ disconnect: 'revoked' });
+    assert.equal(revoked?.failed, false);
+    assert.match(revoked?.message ?? '', /revoked at Square/);
+
+    // The shop IS disconnected here; what is left is a token only the owner
+    // can kill, so this must not read as a confirmation.
+    const partial = squareConnectNotice({ disconnect: 'local_only' });
+    assert.equal(partial?.failed, true);
+    assert.match(partial?.message ?? '', /Square dashboard/);
+
+    assert.equal(squareConnectNotice({ disconnect: 'failed' })?.failed, true);
+  });
+
+  it('never echoes a disconnect parameter back into the page either', () => {
+    const notice = squareConnectNotice({ disconnect: '<img src=x onerror=alert(1)>' });
+    assert.equal(notice?.failed, true);
+    assert.ok(!notice?.message.includes('<'), 'the message must not carry the parameter');
+  });
 });

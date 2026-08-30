@@ -69,8 +69,29 @@ To rotate the **encryption key** (`SQUARE_TOKEN_KEY`):
 3. Swap the env var, redeploy, delete the old key. If a token fails to
    decrypt after rotation, disconnect and reconnect that location's Square —
    reconnection is always safe.
-To revoke a location outright: `revokeOAuthToken`, delete the row, clear
-`locations.square_connection_id`.
+
+## Disconnect a location's Square
+
+HQ → Locations → **Disconnect Square** on the connected row. Brand owners,
+platform admins, and that shop's manager can do it; nobody else, and never
+across brands. The action tells Square to revoke the token *before* deleting
+the row, because the encrypted blob is the only copy the platform holds —
+delete first and the token stays live at Square with nothing left to revoke
+it with. The row goes either way, so an owner disconnecting *because*
+something is wrong is never stuck; the banner says which of three things
+happened:
+
+- **Revoked** — Square confirmed. Nothing further to do.
+- **Cleared here, still live at Square** — Square could not be reached, or
+  this deployment could not read `SQUARE_TOKEN_KEY`. Revoke the authorization
+  from the merchant's own Square dashboard (Settings → Apps).
+- **Token revoked, connection not cleared** — the delete failed after the
+  revoke landed. The location cannot take cards until the
+  `square_connections` row is removed; retry the button, and if it keeps
+  failing delete the row directly. `locations.square_connection_id` clears
+  itself (`on delete set null`).
+
+Reconnecting afterwards is always safe: Connect Square issues a fresh grant.
 
 ## Add a location
 

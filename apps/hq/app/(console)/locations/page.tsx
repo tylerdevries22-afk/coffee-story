@@ -4,13 +4,16 @@ import { DevicePanel, type DevicePanelDevice } from '@/components/device-panel';
 import { currentClaims } from '@/lib/auth';
 import { loadDevices, loadLocations } from '@/lib/data';
 import { squareConnectNotice } from '@/lib/square-connect-notice';
+
+import { disconnectSquareAction } from './actions';
+
 // The console is live data behind a session: never prerender a fixture
 // snapshot at build time and serve it as if it were today's numbers.
 export const dynamic = 'force-dynamic';
 
 
 type LocationsPageProps = {
-  searchParams: Promise<{ connected?: string; square?: string }>;
+  searchParams: Promise<{ connected?: string; square?: string; disconnect?: string }>;
 };
 
 export default async function LocationsPage({ searchParams }: LocationsPageProps) {
@@ -57,7 +60,19 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
                     : <span className="pill success">Taking orders</span>}
                 </td>
                 <td className="num">
-                  {location.squareConnected ? null : (
+                  {location.squareConnected ? (
+                    // Drawn only for a manager of this shop, and checked again
+                    // in lib/square-admin against the same claims. A shop that
+                    // changes hands, or a merchant account that is compromised,
+                    // needs its token revoked from here -- the runbook's manual
+                    // procedure named an engine function nobody could call.
+                    manages(location.id) ? (
+                      <form action={disconnectSquareAction}>
+                        <input type="hidden" name="locationId" value={location.id} />
+                        <button type="submit" className="button danger">Disconnect Square</button>
+                      </form>
+                    ) : null
+                  ) : (
                     // Phase 7's engine serves this route: it redirects into
                     // Square's OAuth consent and stores the tokens encrypted.
                     <a className="button secondary" href={`/api/square/connect?location_id=${location.id}`}>
