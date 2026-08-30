@@ -4,7 +4,7 @@ import { resolveTokens, type BrandTokens } from './tokens';
 const HEX = /^#[0-9a-fA-F]{6}$/;
 
 export const APP_COLOR_KEYS = [
-  'successTint', 'dangerTint', 'liveGlow',
+  'successTint', 'warningTint', 'dangerTint', 'liveGlow',
   'brand50', 'brand100', 'brand200', 'brand300', 'brand400', 'brand500',
   'brand600', 'brand700', 'brand800', 'brand900',
   'gold50', 'gold300', 'gold400', 'gold500',
@@ -63,6 +63,7 @@ function derivedColors(tokens: BrandTokens): AppColors {
   const darkInk = tokens.textPrimary;
   return {
     successTint: mixHex(tokens.surfaceElevated, tokens.success, 0.12),
+    warningTint: mixHex(tokens.surfaceElevated, tokens.warning, 0.12),
     dangerTint: mixHex(tokens.surfaceElevated, tokens.danger, 0.12),
     liveGlow: mixHex(tokens.success, tokens.surfaceElevated, 0.28),
     brand50: mixHex(lightBrand, darkBrand, 0.02),
