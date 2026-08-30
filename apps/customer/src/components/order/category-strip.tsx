@@ -11,8 +11,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
-import { useReducedMotion } from '@/hooks/use-reduced-motion';
-import { tabState, useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
+import { tabState, type BrandTokens, useReducedMotion, useTokens as useBrandTokens } from '@platform/ui';
 
 export type CategoryTab = { id: string; label: string };
 

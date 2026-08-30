@@ -2,6 +2,8 @@ import type { CSSProperties, ReactNode } from 'react';
 import { headers } from 'next/headers';
 import { after } from 'next/server';
 
+import { slugify } from '@platform/domain';
+
 import { currentSession, hasRole } from '@/lib/auth';
 import { isConfigured } from '@/lib/supabase-server';
 import { Icon } from '@/components/icon';
@@ -34,8 +36,8 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
             <h1>Tenant access required</h1>
             <p className="subtitle">
               {user?.data.user?.email
-                ? `You are signed in as ${user.data.user.email}, but this account is not assigned to a tenant. Ask a Coffee Story owner to add your staff role, then sign in again.`
-                : 'Your session is not assigned to a tenant. Sign in again or ask a Coffee Story owner to add your staff role.'}
+                ? `You are signed in as ${user.data.user.email}, but this account is not assigned to a tenant. Ask a brand owner to add your staff role, then sign in again.`
+                : 'Your session is not assigned to a tenant. Sign in again or ask a brand owner to add your staff role.'}
             </p>
             <form action={signOut}>
               <button type="submit" className="button">Sign out</button>
@@ -81,15 +83,18 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
       });
     }
   }
-  const brandName = session?.brandName ?? 'Coffee Story';
-  const initials = brandName
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((word) => word.charAt(0))
-    .join('')
-    .toUpperCase() || 'HQ';
-  const statusSlug = brandName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 64) || 'tenant';
+  // Signed out there is no tenant to name, so the rail wears the console's own
+  // identity rather than the first tenant onboarded to it. Reachable only on
+  // /login and /status/*: every other path with no session returned above.
+  const brandName = session?.brandName ?? 'HQ';
+  const words = brandName.split(/\s+/).filter(Boolean);
+  // A one-word brand takes two letters from that word -- "Bloom" reads as BL,
+  // where one initial reads as a stray letter next to a two-initial neighbour.
+  const initials = (words.length === 1
+    ? (words[0] ?? '').slice(0, 2)
+    : words.slice(0, 2).map((word) => word.charAt(0)).join('')
+  ).toUpperCase() || 'HQ';
+  const statusSlug = slugify(brandName, 64) || 'tenant';
   const menuHref = hasRole(session, 'brand_owner') ? '/catalog' : '/menu';
   const canManageTraining = hasRole(session, 'location_manager');
   const canManagePlatform = hasRole(session, 'platform_admin');

@@ -25,8 +25,8 @@ import type { OrderFulfillment, FulfillmentMode , OrderableItem } from '@platfor
 import {
   formatMoney, fulfillmentDetail, fulfillmentLabel, orderTotals, pointsForOrder,
   REWARD_TIERS, tierForAnnualPoints,
+  PICKUP_WINDOW_MINUTES, describePickupWindow, isWindowStillBookable,
 } from '@platform/domain';
-import { PICKUP_WINDOW_MINUTES, describePickupWindow, isWindowStillBookable } from '@/features/order/pickup';
 import {
   checkoutAttemptSignature,
   checkoutGuestLabel,
@@ -51,7 +51,7 @@ import {
 } from '@platform/api-client';
 import { subscribeToOrderStatus } from '@platform/data';
 import type { OrderStatus } from '@platform/schema';
-import { choiceState, disabledState } from '@platform/ui';
+import { choiceState, disabledState, useReducedMotion } from '@platform/ui';
 import { platformApi } from '@/lib/api';
 import { demoSyncClient } from '@/lib/demo-sync';
 import { liveOrderContext } from '@/lib/live-portal';
@@ -61,7 +61,6 @@ import { useAppState } from '@/state/app-context';
 import { useAuth } from '@/state/auth-context';
 import { useDemo } from '@/state/demo-context';
 import { useOrder } from '@/state/order-context';
-import { useReducedMotion } from '@/hooks/use-reduced-motion';
 
 import { BagStep, NoteStep } from './order/bag-step';
 import { CheckoutStep, type CheckoutPaymentMethod } from './order/checkout-step';

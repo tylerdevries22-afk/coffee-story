@@ -1,7 +1,7 @@
+import { useReducedMotion } from '@platform/ui';
 import { useEffect, useState, type PropsWithChildren } from 'react';
 import { Animated, Easing, StyleSheet, useWindowDimensions } from 'react-native';
 
-import { useReducedMotion } from '@/hooks/use-reduced-motion';
 
 const ENTER_MS = 280;
 

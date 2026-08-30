@@ -28,9 +28,10 @@ import { CartPill, Ribbon } from '@/components/order/order-chrome';
 import { disabledState } from '@platform/ui';
 import { useTabBarClearance } from '@/components/navigation/tab-screen';
 import type { MenuItem } from '@/data/catalog';
-import { fulfillmentDetail, fulfillmentLabel, type OrderFulfillment } from '@platform/domain';
-import { describePickupWindow } from '@/features/order/pickup';
-import { menuPriceLabel } from '@platform/domain';
+import {
+  fulfillmentDetail, fulfillmentLabel, describePickupWindow, menuPriceLabel,
+  type OrderFulfillment,
+} from '@platform/domain';
 import { TENANT } from '@/tenant';
 import { useCustomerCatalog } from '@/state/catalog-context';
 

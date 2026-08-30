@@ -23,17 +23,18 @@ import { AppIcon } from '@/components/icon';
 import { ActionButton, StickyActionBar, useStickyBarClearance } from '@/components/order/order-chrome';
 import { Body } from '@/components/ui';
 import {
-  EMPTY_DELIVERY_ADDRESS,
-  PICKUP_LOCATIONS,
   deliveryAddressLine,
   validateDeliveryAddress,
   type OrderFulfillment,
   type DeliveryAddress,
   type PickupLocation,
   type FulfillmentMode,
+  type PickupWindow,
+  formatMoney,
+  DELIVERY_FEE_CENTS,
 } from '@platform/domain';
-import { formatMoney , DELIVERY_FEE_CENTS } from '@platform/domain';
-import { pickupWindows, shopStatus, type PickupWindow } from '@/features/order/pickup';
+import { EMPTY_DELIVERY_ADDRESS, PICKUP_LOCATIONS } from '@/features/order/locations';
+import { pickupWindows, shopStatus } from '@/features/order/schedule';
 import { TENANT } from '@/tenant';
 import { choiceState } from '@platform/ui';
 import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';

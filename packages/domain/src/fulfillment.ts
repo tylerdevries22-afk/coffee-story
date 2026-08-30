@@ -1,3 +1,5 @@
+import { slugify } from './slug';
+
 /**
  * How an order reaches the guest.
  *
@@ -34,27 +36,95 @@ export type OrderFulfillment =
   | { mode: 'pickup'; location: PickupLocation }
   | { mode: 'delivery'; address: DeliveryAddress };
 
-export const PICKUP_LOCATIONS: readonly PickupLocation[] = [
-  {
-    id: 'coffee-story-havana',
-    name: 'Coffee Story — Havana St',
-    address: '2222 S Havana St Unit A1',
-    cityLine: 'Aurora, CO 80014',
-    // Must agree with SHOP_HOURS in features/order/pickup.ts. It said
-    // "Open daily 8am-11pm", which on a Friday at 11:30pm sat next to a
-    // computed "Now brewing" badge -- one card contradicting itself.
-    note: 'Sun–Thu to 11pm, Fri–Sat to midnight · free parking',
-  },
-] as const;
+function record(value: unknown): Record<string, unknown> | null {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
 
-export const EMPTY_DELIVERY_ADDRESS: DeliveryAddress = {
-  street: '',
-  unit: '',
-  city: '',
-  state: 'CO',
-  postalCode: '',
-  instructions: '',
-};
+function text(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+/** "Aurora, CO 80014" from whichever of the three parts the tenant supplied. */
+function cityLineOf(address: Record<string, unknown> | null): string {
+  if (!address) return '';
+  const city = text(address.city);
+  const region = text(address.region);
+  const postal = text(address.postal);
+  const head = [city, region].filter(Boolean).join(', ');
+  return [head, postal].filter(Boolean).join(' ');
+}
+
+function pickupLocationOf(
+  entry: Record<string, unknown>,
+  fallbackName: string,
+  index: number,
+): PickupLocation | null {
+  const address = record(entry.address);
+  const name = text(entry.name) || fallbackName;
+  const street = text(address?.street);
+  const cityLine = cityLineOf(address);
+  // A card with a name and nothing to walk to is worse than no card: a guest
+  // taps it, and the order is placed against an address the shop never gave.
+  if (!name || (!street && !cityLine)) return null;
+  return {
+    id: text(entry.id) || slugify(name) || `location-${index + 1}`,
+    name,
+    address: street,
+    cityLine,
+    note: text(entry.note),
+  };
+}
+
+/**
+ * The shops a guest may collect from, read from the tenant config.
+ *
+ * This was a frozen array holding one brand's street address, which every
+ * tenant built on this engine would have shipped. It is now derived: a single
+ * `location`, or a `locations` array once `multi_location` is on.
+ *
+ * The note stays whatever the tenant wrote -- "Free parking", "Enter from the
+ * alley". It deliberately does not restate opening hours: the old constant did,
+ * had to be kept in step with a separate table by hand, and the comment saying
+ * so was the only thing holding the two together.
+ */
+export function resolvePickupLocations(config: unknown): readonly PickupLocation[] {
+  const source = record(config);
+  if (!source) return [];
+  const fallbackName = text(record(source.identity)?.name);
+  const listed = Array.isArray(source.locations)
+    ? source.locations
+    : [source.location];
+  const locations: PickupLocation[] = [];
+  listed.forEach((entry, index) => {
+    const resolved = record(entry);
+    if (!resolved) return;
+    const location = pickupLocationOf(resolved, fallbackName, index);
+    if (location) locations.push(location);
+  });
+  return locations;
+}
+
+/**
+ * A blank delivery address, pre-filled with the state the shop is in.
+ *
+ * Only the state, and only because a guest ordering delivery is almost always
+ * in the same one -- guessing a city or a ZIP would put a wrong address in
+ * front of someone who then confirms it without reading.
+ */
+export function emptyDeliveryAddress(config: unknown): DeliveryAddress {
+  const location = record(record(config)?.location);
+  const region = text(record(location?.address)?.region);
+  return {
+    street: '',
+    unit: '',
+    city: '',
+    state: /^[A-Za-z]{2}$/.test(region) ? region.toUpperCase() : '',
+    postalCode: '',
+    instructions: '',
+  };
+}
 
 export function validateDeliveryAddress(address: DeliveryAddress): string | null {
   if (address.street.trim().length < 4) return 'Enter the street address for the delivery.';

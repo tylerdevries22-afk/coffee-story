@@ -14,6 +14,8 @@
  * Everything else has a brand-neutral default that names the brand and says
  * only what is true of any shop running this platform.
  */
+import { resolveWeekHours, summarizeWeek } from './hours';
+
 export type InformationPageKey = 'location' | 'resources' | 'faq' | 'order-policy' | 'privacy';
 
 export type InformationRow = { title: string; detail: string };
@@ -30,12 +32,6 @@ export type InformationPageConfig = {
 export const INFORMATION_PAGE_KEYS: readonly InformationPageKey[] = [
   'location', 'resources', 'faq', 'order-policy', 'privacy',
 ];
-
-/** Two-letter-ish day keys as brand.json writes them, in reading order. */
-const DAYS = [
-  ['mon', 'Monday'], ['tue', 'Tuesday'], ['wed', 'Wednesday'], ['thu', 'Thursday'],
-  ['fri', 'Friday'], ['sat', 'Saturday'], ['sun', 'Sunday'],
-] as const;
 
 function record(value: unknown): Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -56,78 +52,6 @@ function rowsOf(value: unknown): InformationRow[] {
     if (title && detail) rows.push({ title, detail });
   }
   return rows;
-}
-
-/**
- * "8am" and "12am", not "08:00" and "24:00".
- *
- * brand.json writes a close past midnight as 24:00 or 25:30 so that a span is
- * always ordered and comparable; a guest reading a shop door has never seen
- * either. Anything unparseable is returned as written rather than guessed at,
- * because a wrong closing time is worse than an odd-looking one.
- */
-export function formatClockLabel(value: string): string {
-  const match = /^(\d{1,2}):(\d{2})$/.exec(value.trim());
-  if (!match) return value;
-  const hours = Number(match[1]);
-  const minutes = Number(match[2]);
-  if (!Number.isInteger(hours) || !Number.isInteger(minutes) || minutes > 59) return value;
-  const wrapped = hours % 24;
-  const suffix = wrapped < 12 ? 'am' : 'pm';
-  const twelve = wrapped % 12 === 0 ? 12 : wrapped % 12;
-  return minutes === 0 ? `${twelve}${suffix}` : `${twelve}:${match[2]}${suffix}`;
-}
-
-/**
- * A day's opening, or null when the tenant has not said.
- *
- * An absent key and an empty array are deliberately different. `[]` is a shop
- * declaring itself closed that day; a missing key is a brand.json nobody has
- * finished filling in, and printing "Sunday Closed" over that sends a guest
- * away from a shop that was open. Not knowing propagates up and the hours line
- * is simply omitted.
- */
-function spanLabel(spans: unknown): string | null {
-  if (!Array.isArray(spans)) return null;
-  if (spans.length === 0) return 'Closed';
-  const parts: string[] = [];
-  for (const span of spans) {
-    const open = text(record(span).open);
-    const close = text(record(span).close);
-    if (open && close) parts.push(`${formatClockLabel(open)}–${formatClockLabel(close)}`);
-  }
-  return parts.length > 0 ? parts.join(', ') : null;
-}
-
-/**
- * The week, collapsed onto its runs.
- *
- * A shop open the same hours all week should read "Every day 8am–11pm", not
- * seven identical lines; one that differs at the weekend should say so once.
- * Consecutive days sharing a span are therefore merged, which is how the hours
- * are written on the door.
- */
-export function summarizeWeek(hours: unknown): string | null {
-  const week = record(hours);
-  const labels: { day: string; span: string }[] = [];
-  for (const [key, name] of DAYS) {
-    const span = spanLabel(week[key]);
-    if (span === null) return null;
-    labels.push({ day: name, span });
-  }
-  if (labels.length === 0) return null;
-  if (labels.every((entry) => entry.span === labels[0]?.span)) {
-    return labels[0]?.span === 'Closed' ? null : `Every day ${labels[0]?.span}`;
-  }
-  const runs: { from: string; to: string; span: string }[] = [];
-  for (const entry of labels) {
-    const last = runs[runs.length - 1];
-    if (last && last.span === entry.span) last.to = entry.day;
-    else runs.push({ from: entry.day, to: entry.day, span: entry.span });
-  }
-  return runs
-    .map((run) => `${run.from === run.to ? run.from : `${run.from}–${run.to}`} ${run.span}`)
-    .join(' · ');
 }
 
 function addressLine(address: unknown): string | null {
@@ -161,7 +85,7 @@ function factsOf(config: unknown): BrandFacts {
     phone: text(business.phone),
     email: text(business.email),
     address: addressLine(location.address),
-    hours: summarizeWeek(location.hours),
+    hours: summarizeWeek(resolveWeekHours(source)),
   };
 }
 

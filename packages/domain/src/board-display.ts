@@ -20,6 +20,7 @@ import type {
 } from '@platform/schema';
 
 import { REWARD_TIERS, sortedTiers, type RewardTier } from './rules';
+import { slugify } from './slug';
 
 /**
  * A rung of the ladder as a wall screen shows it.
@@ -80,13 +81,7 @@ const TIER_TONES: readonly TierTone[] = ['muted', 'accent', 'success', 'primary'
  * what the badge says.
  */
 export function tierSlug(name: string): string {
-  return name
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 64);
+  return slugify(name, 64);
 }
 
 /**

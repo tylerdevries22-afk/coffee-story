@@ -87,10 +87,39 @@ function money(cents: number): string {
 }
 
 /**
+ * Who the shop is, in the two places this feed speaks as it.
+ *
+ * `actor` drives the row's lead-in and its avatar monogram, so it has to be
+ * the guest's own shop -- and `pointsName` is whatever that shop calls its
+ * points, which is already a copy key every tenant sets. Both had been typed
+ * in as "Coffee Story" and "Beans", which is one shop's name and one shop's
+ * word for points, inside the package every tenant compiles against.
+ *
+ * Passed in rather than read: packages/domain stays framework-free, so it has
+ * no theme to ask.
+ */
+export type FeedVoice = {
+  brandName: string;
+  pointsName: string;
+};
+
+/**
+ * Deliberately plain rather than a placeholder like "{brand}". A caller that
+ * forgets to pass a voice should render a sentence that is merely generic, not
+ * one that shows the guest an unresolved template.
+ */
+const DEFAULT_VOICE: FeedVoice = { brandName: 'The shop', pointsName: 'Points' };
+
+/**
  * The client's feed, assembled from data the app already holds: upcoming and
  * just-finished orders, reward movement, and gift cards received.
  */
-export function buildClientNotifications(portal: PortalBundle, now: Date): NotificationItem[] {
+export function buildClientNotifications(
+  portal: PortalBundle,
+  now: Date,
+  voice: Partial<FeedVoice> = {},
+): NotificationItem[] {
+  const { brandName, pointsName } = { ...DEFAULT_VOICE, ...voice };
   const items: NotificationItem[] = [];
 
   for (const order of portal.orders) {
@@ -101,7 +130,7 @@ export function buildClientNotifications(portal: PortalBundle, now: Date): Notif
     if (order.status === 'paid' && ahead > 0 && ahead < 3 * DAY) {
       items.push({
         id: `order-soon-${order.id}`,
-        actor: 'Coffee Story',
+        actor: brandName,
         title: 'Your order is coming up',
         detail: `${order.summary} · ${formatWhen(order.scheduledFor ?? order.placedAt)}`,
         at: new Date(dueAt.getTime() - 2 * DAY).toISOString(),
@@ -112,7 +141,7 @@ export function buildClientNotifications(portal: PortalBundle, now: Date): Notif
     if (order.status === 'picked_up' && now.getTime() - dueAt.getTime() < 30 * DAY) {
       items.push({
         id: `order-done-${order.id}`,
-        actor: 'Coffee Story',
+        actor: brandName,
         title: 'Thanks for stopping by',
         detail: `${order.summary} · ${formatWhen(order.placedAt)}`,
         at: order.scheduledFor ?? order.placedAt,
@@ -128,7 +157,7 @@ export function buildClientNotifications(portal: PortalBundle, now: Date): Notif
     if (entry.points <= 0) continue;
     items.push({
       id: `reward-${entry.id}`,
-      actor: 'Beans',
+      actor: pointsName,
       title: `You earned ${entry.points} points`,
       detail: entry.description,
       at: entry.earnedAt,

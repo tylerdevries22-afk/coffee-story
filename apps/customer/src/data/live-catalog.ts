@@ -1,5 +1,5 @@
 import type { MenuTree } from '@platform/data';
-import { parseOptionGroups, parseSizes } from '@platform/domain';
+import { parseOptionGroups, parseSizes, slugify } from '@platform/domain';
 
 import type { MenuAddOn } from './catalog-data';
 import type { MenuCategory, MenuImageSource, MenuItem } from './catalog';
@@ -12,8 +12,7 @@ export type CustomerCatalog = {
 
 function stableCategoryId(title: string, bundled: readonly MenuCategory[], used: Set<string>): string {
   const known = bundled.find((category) => category.title === title)?.id;
-  const generated = title.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 72);
+  const generated = slugify(title);
   const base = (known ?? generated) || 'category';
   let candidate = base;
   let suffix = 2;

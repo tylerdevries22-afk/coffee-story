@@ -12,7 +12,20 @@ import { join } from 'node:path';
 
 import type { ConfigContext, ExpoConfig } from 'expo/config';
 
-const slug = process.env.TENANT ?? 'coffee-story';
+/**
+ * The tenant to build, defaulting to the one already applied here.
+ *
+ * `src/tenant/brand.json` is what `pnpm onboard --tenant <slug> --apply` writes
+ * and what apps/kiosk reads outright, so it is the honest answer to "which
+ * brand is this checkout configured for". Naming the first tenant instead meant
+ * a franchisee who forgot `TENANT=` shipped somebody else's binary -- correctly
+ * signed, correctly named, wrong shop.
+ */
+const applied: { identity?: { slug?: string } } = JSON.parse(
+  readFileSync(join(__dirname, 'src', 'tenant', 'brand.json'), 'utf8'),
+);
+const slug = process.env.TENANT ?? applied.identity?.slug;
+if (!slug) throw new Error('No tenant: set TENANT, or apply one with `pnpm onboard --tenant <slug> --apply`.');
 
 type BrandFile = {
   identity: { slug: string; name: string; bundleId: string; scheme: string; easProjectId: string };

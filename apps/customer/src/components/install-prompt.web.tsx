@@ -28,7 +28,7 @@ type InstallEvent = Event & {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 };
 
-const DISMISSED_KEY = 'coffee-story.install-prompt-dismissed.v1';
+const DISMISSED_KEY = 'platform.customer.install-prompt-dismissed.v1';
 
 function isStandalone(): boolean {
   if (typeof window === 'undefined') return false;

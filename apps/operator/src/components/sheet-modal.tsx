@@ -18,10 +18,9 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { useReducedMotion } from '@/hooks/use-reduced-motion';
 
 import { scrimOpacity, sheetOffset } from './sheet-presentation';
-import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
+import { type BrandTokens, useReducedMotion, useTokens as useBrandTokens } from '@platform/ui';
 
 /**
  * A bottom sheet whose scrim fades while the sheet itself slides.

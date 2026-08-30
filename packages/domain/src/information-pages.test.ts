@@ -2,9 +2,8 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import coffeeStory from '../../../tenants/coffee-story/brand.json';
-import {
-  formatClockLabel, resolveInformationPages, summarizeWeek,
-} from './information-pages';
+import { formatClockLabel, resolveWeekHours, summarizeWeek } from './hours';
+import { resolveInformationPages } from './information-pages';
 
 const KEYS = ['location', 'resources', 'faq', 'order-policy', 'privacy'];
 
@@ -79,13 +78,16 @@ test('hours read the way a door reads, not the way a database stores them', () =
 });
 
 test('a week of identical hours reads as one line', () => {
+  const week = (hours: Record<string, unknown>) => resolveWeekHours({ location: { hours } });
   const same = Object.fromEntries(
     ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].map((day) => [day, [{ open: '08:00', close: '18:00' }]]),
   );
-  assert.equal(summarizeWeek(same), 'Every day 8am–6pm');
+  assert.equal(summarizeWeek(week(same)), 'Every day 8am–6pm');
   // A missing day is not an empty day: refuse rather than print a wrong week.
-  assert.equal(summarizeWeek({ ...same, sun: undefined }), null);
+  assert.equal(week({ ...same, sun: undefined }), null);
   assert.equal(summarizeWeek(null), null);
+  // An explicit [] is a shop saying it is closed that day, and prints.
+  assert.equal(summarizeWeek(week({ ...same, sun: [] })), 'Monday–Saturday 8am–6pm · Sunday Closed');
 });
 
 test('tenant rows replace, addRows append', () => {

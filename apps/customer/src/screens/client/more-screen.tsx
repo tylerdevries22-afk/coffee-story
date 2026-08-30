@@ -16,6 +16,7 @@ import { BUSINESS } from '@/data/business';
 import { buildClientNotifications , projectFirstVariants } from '@platform/domain';
 import { searchClientAccount, type ClientSearchResult , OrderableItem } from '@platform/domain';
 import { summarizeGiftCardOwnership } from '@/features/gifts/ownership';
+import { useFeedVoice } from '@/lib/feed-voice';
 import { useAppState, type MoreView } from '@/state/app-context';
 import { TENANT, tenantFeature } from '@/tenant';
 import { useAuth } from '@/state/auth-context';
@@ -62,7 +63,8 @@ export function MoreScreen() {
   const onScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     scrollY.setValue(event.nativeEvent.contentOffset.y);
   }, [scrollY]);
-  const notifications = useMemo(() => buildClientNotifications(portal, now), [now, portal]);
+  const voice = useFeedVoice();
+  const notifications = useMemo(() => buildClientNotifications(portal, now, voice), [now, portal, voice]);
   const unreadCount = notifications.filter((item) => !readNotificationIds.has(item.id)).length;
 
   const liveOrders = portal.orders ?? [];
