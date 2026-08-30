@@ -277,6 +277,26 @@ describe('boardQueue', () => {
     assert.deepEqual(queue.entries.map((e) => e.position), [null, 1, 2]);
   });
 
+  /*
+   * A waiting row needs more than "not ready".
+   *
+   * "We have your order" and "a barista is making it right now" are the two
+   * facts a guest is actually watching for, and the board collapsed both into
+   * an undifferentiated number. `ready` stays as its own field because the
+   * layout keys off it; this is the finer grain beside it.
+   */
+  it('carries the live status of each order, not only whether it is ready', () => {
+    const queue = boardQueue([
+      ticket({ id: 'w1', status: 'paid', daily_number: 1 }),
+      ticket({ id: 'w2', status: 'in_progress', daily_number: 2 }),
+      ticket({ id: 'r1', status: 'ready', daily_number: 3 }),
+    ], config);
+    assert.deepEqual(
+      queue.entries.map((e) => [e.status, e.ready]),
+      [['ready', true], ['paid', false], ['in_progress', false]],
+    );
+  });
+
   it('uses one database-backed call-out with a name and generic fallback', () => {
     const queue = boardQueue([
       ticket({ id: 'number', daily_number: 47, guest_label: 'Sara D.' }),
