@@ -102,9 +102,9 @@ export async function squareRuntimeFor(
   // Square access tokens last thirty days. `refreshOAuthToken` shipped with
   // nothing calling it and `expires_at` was written and never read, so every
   // connected shop would have stopped taking cards a month after connecting,
-  // on a 401 nothing in the product explained. Renewing here rather than on a
-  // schedule means it happens exactly when a sale needs it, and cannot be
-  // silently skipped by a cron that stopped running.
+  // on a 401 nothing in the product explained. The first runtime resolution
+  // after day seven renews the token (23 days remain); keeping this lazy
+  // backstop means a stopped maintenance job cannot strand the next sale.
   const state = squareTokenState(connection.expires_at, Date.now());
   if (state !== 'fresh' && connection.refresh_token_encrypted) {
     const renewal = await renewAccessToken(db, square, {

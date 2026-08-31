@@ -59,8 +59,15 @@ it.
 
 ## Rotate Square tokens
 
-Per-location access tokens refresh themselves via
-`refreshOAuthToken` before expiry (see `square_connections.expires_at`).
+Per-location access tokens refresh themselves via `refreshOAuthToken` on the
+first Square runtime resolution after a token is seven days old (when 23 days
+remain; see `square_connections.expires_at`). This demand-driven backstop keeps
+the next sale independent of the cron, but it does not renew a completely
+inactive seller. Square recommends automatic renewal every seven days or less,
+irrespective of seller activity. Monitor for a connected row with fewer than 22
+days remaining: it means the shop has been inactive or renewal is failing and
+the authorization should be exercised or reconnected before it expires.
+
 To rotate the **encryption key** (`SQUARE_TOKEN_KEY`):
 1. Generate 32 fresh bytes: `openssl rand -base64 32`.
 2. With both keys available, decrypt every `square_connections` row with the

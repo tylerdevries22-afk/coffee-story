@@ -67,10 +67,12 @@ currency literal is what surfaced the worst defect in this pass:
   connecting, on a 401 nothing in the product explained. Renewal now happens in
   `squareRuntimeFor`, the one chokepoint every money path already crosses,
   rather than on a schedule: a cron that quietly stops running is the same
-  failure this was. A token inside the seven-day margin still takes the sale if
-  the renewal fails; an expired one is refused rather than sent to Square as if
-  it were money. `apps/hq/lib/square-runtime.test.ts` is the first test this
-  module has had.
+  failure this was. The first runtime resolution after day seven renews the
+  token, while a still-valid token takes the sale if that renewal fails; an
+  expired one is refused rather than sent to Square as if it were money. The
+  runbook records the residual operational monitor for inactive sellers, which
+  a demand-driven path cannot refresh. `apps/hq/lib/square-runtime.test.ts` is
+  the first test this module has had.
 - **D4, the fourth tender vocabulary, is gone.** Three of the four now agree by
   construction -- `contract.ts` imports `@platform/schema`'s `OrderTenderType`,
   and `kiosk-flow.ts` maps `KioskTender` onto it through `settlementFor`, which
