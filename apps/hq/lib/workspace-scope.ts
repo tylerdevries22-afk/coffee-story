@@ -14,7 +14,8 @@ import { slugify } from '@platform/domain';
 import type { SessionInfo } from './demo-data';
 import { isConfigured, serverClient } from './supabase-server';
 import { demoLocationsFor } from './demo-locations';
-import { TENANT_ORGS, tenantOrgById, type WorkspaceOrgKind } from './tenants';
+import { allDemoOrgs, demoOrgById } from './demo-orgs';
+import type { WorkspaceOrgKind } from './tenants';
 import { isWorkspaceCookieValue, LOCATION_COOKIE, ORG_COOKIE } from './workspace-cookie';
 
 export type WorkspaceOrg = {
@@ -55,7 +56,7 @@ async function authorizedOrgs(session: SessionInfo): Promise<readonly {
   brandConfig: unknown;
 }[]> {
   if (!isConfigured()) {
-    return TENANT_ORGS.map((org) => ({
+    return allDemoOrgs().map((org) => ({
       org: { id: org.id, name: org.name, kind: org.kind },
       brandConfig: org.brandConfig,
     }));
@@ -130,7 +131,7 @@ export async function readWorkspaceScope(session: SessionInfo): Promise<Workspac
     ? locationCookie
     : null;
 
-  const registry = tenantOrgById(selected.org.id);
+  const registry = demoOrgById(selected.org.id);
   return {
     organizations: orgs.map((entry) => entry.org),
     locations,

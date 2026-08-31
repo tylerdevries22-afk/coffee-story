@@ -10,7 +10,9 @@
  * Location only renders when the selected org has locations, so a single-office
  * tenant shows one control and the operator view shows the region list.
  */
+import Link from 'next/link';
 import { useEffect, useId, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 
 import { Icon } from './icon';
 
@@ -31,6 +33,8 @@ type ScopeSwitcherProps = {
   readonly placeholder: string;
   /** Hidden fields posted alongside the choice (e.g. the owning org id). */
   readonly hidden?: Readonly<Record<string, string>>;
+  /** Optional action row pinned under the options (e.g. "New organization"). */
+  readonly footer?: ReactNode;
 };
 
 const SEARCH_THRESHOLD = 6;
@@ -43,7 +47,7 @@ function Check() {
   );
 }
 
-function ScopeSwitcher({ options, selectedId, fieldName, action, icon, ariaLabel, placeholder, hidden }: ScopeSwitcherProps) {
+function ScopeSwitcher({ options, selectedId, fieldName, action, icon, ariaLabel, placeholder, hidden, footer }: ScopeSwitcherProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
@@ -126,6 +130,7 @@ function ScopeSwitcher({ options, selectedId, fieldName, action, icon, ariaLabel
             ))}
             {visible.length === 0 ? <p className="scope-empty">No matches</p> : null}
           </div>
+          {footer ? <div className="scope-menu-footer" onClick={() => setOpen(false)}>{footer}</div> : null}
         </div>
       ) : null}
     </div>
@@ -139,6 +144,8 @@ export type WorkspaceSwitcherProps = {
   readonly locationId: string | null;
   readonly selectOrganizationAction: (formData: FormData) => void;
   readonly selectLocationAction: (formData: FormData) => void;
+  /** When set, the org menu shows a "New organization" row (platform admins). */
+  readonly createOrgHref?: string;
 };
 
 const ALL_LOCATIONS: Option = { id: '', label: 'All locations' };
@@ -164,6 +171,11 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
         icon="brand"
         ariaLabel="Switch organization"
         placeholder="Select organization"
+        footer={props.createOrgHref ? (
+          <Link href={props.createOrgHref} className="scope-create" role="menuitem">
+            <span className="scope-create-plus" aria-hidden="true">+</span> New organization
+          </Link>
+        ) : undefined}
       />
       {props.locations.length > 0 ? (
         <>

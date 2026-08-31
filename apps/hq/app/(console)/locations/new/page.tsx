@@ -46,21 +46,21 @@ export default async function NewLocationPage({ searchParams }: NewLocationPageP
           <div className="location-form-row">
             <label className="field">
               Street
-              <input name="street" placeholder="123 Main St" />
+              <input name="street" placeholder="Street address" />
             </label>
             <label className="field">
               City
-              <input name="city" placeholder="Chicago" />
+              <input name="city" placeholder="City" />
             </label>
           </div>
           <div className="location-form-row">
             <label className="field">
               Region / state
-              <input name="region" placeholder="IL" />
+              <input name="region" placeholder="State or province" />
             </label>
             <label className="field">
               Postal code
-              <input name="postal" placeholder="60654" />
+              <input name="postal" placeholder="ZIP or postal code" />
             </label>
           </div>
           <label className="field">

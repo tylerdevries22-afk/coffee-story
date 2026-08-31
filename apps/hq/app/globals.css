@@ -1346,6 +1346,20 @@ body {
 .scope-check { color: var(--accent); flex: none; }
 .scope-empty { margin: 0; padding: 12px 10px; color: var(--text-muted); font-size: 12px; }
 
+.scope-menu-footer { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); }
+.scope-create {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+}
+.scope-create:hover { background: var(--bg-hover); }
+.scope-create-plus { font-size: 15px; line-height: 1; }
+
 @media (max-width: 720px) {
   .scope-trigger-label { max-width: 96px; }
   .workspace-switcher .scope-switcher:nth-of-type(2) { display: none; }

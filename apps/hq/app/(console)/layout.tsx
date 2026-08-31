@@ -131,6 +131,7 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
           locationId={scope.locationId}
           selectOrganizationAction={selectOrganization}
           selectLocationAction={selectLocation}
+          createOrgHref={canManagePlatform ? '/organizations/new' : undefined}
         />
       ) : undefined}
       sessionFooter={(
