@@ -85,6 +85,15 @@ describe('recordPlatformAccess', () => {
     assert.deepEqual(calls.failures, []);
   });
 
+  it('can require an audited privileged write inside the home tenant', async () => {
+    const { calls, deps } = dependencies();
+    assert.equal(await recordPlatformAccess(session(), {
+      ...target, action: 'fees.location.update', brandId: HOME, required: true,
+    }, deps), true);
+    assert.equal(calls.event?.action, 'fees.location.update');
+    assert.deepEqual(calls.event?.metadata, { source: 'operate_as_brand', surface: 'hq' });
+  });
+
   it('fails closed and logs only a safe error code when the audit RPC refuses', async () => {
     const { calls, deps } = dependencies({ code: '42501' });
     assert.equal(await recordPlatformAccess(session(), target, deps), false);

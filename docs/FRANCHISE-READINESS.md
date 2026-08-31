@@ -1,10 +1,9 @@
 # Franchise readiness — organization/location switcher and the road to industry-neutral
 
-This document records what shipped in the HQ organization/location switcher
-work, and — per the brief — **identifies the remaining gaps without building
-them out**, so the platform can be driven from Coffee Story (a fully working
-demo) to a franchise-ready, industry-neutral product across all five front
-ends.
+This document preserves the original audit history. Its formerly deferred
+production items were completed in the August 31 control-plane pass; the
+current operational contract, release gates, and remaining external approvals
+are recorded in [FRANCHISE-PRODUCTION.md](./FRANCHISE-PRODUCTION.md).
 
 ## What shipped (built and verified)
 
@@ -174,25 +173,15 @@ typed. Neutral theme comes from the token resolver's defaults (no tokens in the
 config), never from another tenant; unit tests assert the config has no
 `tokens`/`copy`.
 
-## Remaining plan (staged, not yet built)
+## Production-readiness continuation
 
-- **Full-auto content (Phase 4).** Menu import (CSV/PDF/photo → `menu.csv` +
-  categories) and logo → icon/splash/`brand.json` generation. The machinery
-  exists in `scripts/onboard.ts` (`sharp` pipeline, menu seeding); the work is
-  an in-app importer that feeds it and wires the Platform Factory's
-  `publish-content` step to real seeding. Largest remaining piece.
-- **Staff/manager scoping UI.** An in-app writer for `brand_users` /
-  `location_ids` (RLS already allows brand_owner) so a manager can be scoped to
-  a new store, with a prompt to refresh their token.
-- **Square + device pairing inline** in the add-location wizard (create → connect
-  → pair in one pass); both endpoints already exist.
-- **Configured-mode cross-tenant operation flow.** The `brand_directory` view,
-  append-only `platform_access_events` table, and audited scope selection have
-  shipped. The remaining work is a scoped "operate as brand X" mutation flow
-  that audits each privileged write and replaces reliance on the blanket
-  `is_platform_admin()` short-circuit.
-- **Per-location fee overrides** and **multi-location gating** on the
-  `multi_location` flag.
+The remaining plan above is now implemented by the franchise production pass:
+review-first PDF/photo/CSV menu ingestion, deterministic logo-to-native assets,
+EAS release metadata, staff invitation and location scoping, inline device
+pairing, audited operate-as-brand mutations, the per-location fee writer, and
+preview-only customer/kiosk/display tenant directories. See
+`docs/FRANCHISE-PRODUCTION.md` for the operating contract and external release
+evidence that repository code cannot supply.
 
 ---
 
@@ -219,19 +208,8 @@ Continuing the plan above, the following were researched and built (all behind
   actor/env or RPC failure fails closed; home-tenant and unconfigured demo
   selections never touch the audit path.
 
-## Deferred, with reasons (not silently dropped)
+## Deliberate policy decision
 
-- **Logo → assets / EAS automation.** Needs an image pipeline (`sharp`) in a
-  server route and external EAS/App-Store accounts; belongs to the CLI/infra
-  path, not an in-app action.
-- **Full staff-invite UI.** Writing `brand_users` needs an email → `user_id`
-  lookup that only the auth-admin (service role) can do safely; deferred rather
-  than expose that surface casually.
-- **Per-location fee overrides in the wizard.** The fee columns are revoked from
-  `authenticated` at the column level (they are commercial terms), so a write
-  needs a reviewed service-role path — not a quick wizard field.
-- **Five-app RN switchers** (customer/kiosk/display). Architectural/preview-flag
-  work on the Expo binaries; operator already has the real switcher.
-- **Relaxing org creation to brand_owner.** Kept `platform_admin` — `brands_insert`
-  is admin-only and minting a tenant is an operator action; relaxing it is a
-  security-posture change that should be a deliberate, separate migration.
+Organization creation remains platform-admin-only. Minting a tenant changes
+billing, credential, data-retention, and provider-account boundaries; a brand
+owner may administer an existing organization but cannot create a new one.

@@ -49,4 +49,19 @@ describe('parseMenuCsv', () => {
     assert.equal(rows.length, 0);
     assert.equal(errors.length, 1);
   });
+
+  it('bounds user-visible fields, sizes, prices, and malformed quotes', () => {
+    for (const row of [
+      'blank,,Coffee,,450,',
+      'huge,Huge,Coffee,,10000001,',
+      'sizes,Sizes,Coffee,,450,small:450|small:500',
+      'quote,"Unclosed,Coffee,,450,',
+    ]) {
+      assert.ok(parseMenuCsv(`${HEADER}\n${row}`).errors.length > 0);
+    }
+  });
+
+  it('rejects an oversized document before parsing rows', () => {
+    assert.match(parseMenuCsv(`${HEADER}\n${'x'.repeat(1024 * 1024)}`).errors[0] ?? '', /1 MB/);
+  });
 });

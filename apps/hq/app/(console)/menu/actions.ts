@@ -7,22 +7,69 @@
  * sizes), parsed by the shared, unit-tested parser so the two paths cannot
  * drift.
  *
- * The write runs as the signed-in owner: menus/menu_categories/menu_items all
- * admit is_brand_owner on insert, so RLS is the authority and no service role is
- * involved. Rows upsert on their natural keys, so a re-import is idempotent. In
- * the demo (no database) the parse still runs and reports what it would import,
- * so the flow is exercisable with no infrastructure.
+ * Home owners use an invariant-preserving authenticated RPC. Platform support
+ * uses the audited service-only companion. Rows upsert on natural keys, so a
+ * re-import is idempotent. In demo mode the parse still runs and reports what
+ * would land, keeping the flow reviewable without infrastructure.
  */
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
 import { parseMenuCsv } from '@platform/schema';
 
+import { serverEnv, serviceDb } from '@/lib/api-auth';
 import { currentSession, hasRole } from '@/lib/auth';
 import { isConfigured, serverClient } from '@/lib/supabase-server';
-import { planImportCategories } from '@/lib/menu-import-categories';
-import { selectedOrganizationId } from '@/lib/workspace-scope';
-import { mayMutateSelectedOrganization } from '@/lib/workspace-mutation';
+import {
+  extractMenuFromSource, validateMenuSource, validateMenuSourceMetadata,
+} from '@/lib/menu-ingestion';
+import { authorizeWorkspaceMutation } from '@/lib/workspace-mutation';
+
+export type MenuExtractionState =
+  | { kind: 'idle' }
+  | { kind: 'error'; message: string }
+  | { kind: 'ready'; csv: string };
+
+export async function extractMenuAction(
+  _previous: MenuExtractionState,
+  formData: FormData,
+): Promise<MenuExtractionState> {
+  const session = await currentSession();
+  if (!session || !hasRole(session, 'brand_owner')) {
+    return { kind: 'error', message: 'Only a brand owner can prepare a menu import.' };
+  }
+  const mutation = await authorizeWorkspaceMutation(session, { action: 'menu.extract' });
+  if (!mutation) return { kind: 'error', message: 'This organization is not authorized.' };
+  const file = formData.get('menuFile');
+  if (!(file instanceof File)) return { kind: 'error', message: 'Choose a menu file.' };
+  const metadataError = validateMenuSourceMetadata({ mime: file.type, size: file.size });
+  if (metadataError) return { kind: 'error', message: metadataError };
+  const apiKey = process.env.OPENAI_API_KEY;
+  const model = process.env.OPENAI_MENU_MODEL ?? process.env.OPENAI_RESEARCH_MODEL;
+  if (!apiKey || !model) return { kind: 'error', message: 'Menu extraction is not configured.' };
+  if (!isConfigured()) {
+    return { kind: 'error', message: 'Menu extraction requires a configured database.' };
+  }
+  const client = await serverClient();
+  if (!client) return { kind: 'error', message: 'Menu extraction is not configured.' };
+  const source = {
+    bytes: new Uint8Array(await file.arrayBuffer()), filename: file.name, mime: file.type,
+  };
+  const sourceError = validateMenuSource(source);
+  if (sourceError) return { kind: 'error', message: sourceError };
+  const budget = await client.rpc('consume_menu_extraction_budget', {
+    p_brand_id: mutation.brandId,
+  });
+  if (budget.error || budget.data !== true) {
+    return { kind: 'error', message: 'The hourly menu extraction limit has been reached. Try again later.' };
+  }
+  try {
+    const csv = await extractMenuFromSource(source, { apiKey, model, brandId: mutation.brandId });
+    return { kind: 'ready', csv };
+  } catch {
+    return { kind: 'error', message: 'The file could not be transcribed safely. Try a clearer image or paste CSV.' };
+  }
+}
 
 function fail(message: string): never {
   redirect(`/menu/import?error=${encodeURIComponent(message)}`);
@@ -45,11 +92,8 @@ export async function importMenuAction(formData: FormData): Promise<void> {
     fail(`This import has ${rows.length} rows; a single menu import is limited to ${MAX_MENU_ROWS}. Split it into smaller files.`);
   }
 
-  const brandId = await selectedOrganizationId(session);
-  if (!mayMutateSelectedOrganization(session.brandId, brandId)) {
-    fail('Cross-organization menu imports require the audited support workflow.');
-  }
-
+  const mutation = await authorizeWorkspaceMutation(session, { action: 'menu.import' });
+  if (!mutation) fail('You are not authorized to import this organization’s menu.');
   if (!isConfigured()) {
     // Demo: nothing to write, but the parse is real -- report what would land.
     redirect(`/menu?imported=${rows.length}&preview=1`);
@@ -58,39 +102,19 @@ export async function importMenuAction(formData: FormData): Promise<void> {
   const client = await serverClient();
   if (!client) fail('This deployment is not connected to Supabase.');
 
-  const menu = await client
-    .from('menus')
-    .upsert({ brand_id: brandId, name: 'Menu', is_published: true }, { onConflict: 'brand_id,name' })
-    .select('id')
-    .single<{ id: string }>();
-  if (menu.error || !menu.data) fail('Could not open the brand menu.');
-  const menuId = menu.data.id;
-
-  // Categories first: items carry a NOT NULL category_id, so every category the
-  // rows name has to exist before the items reference it.
-  const categoryTitles = [...new Set(rows.map((row) => row.category))];
-  const existing = await client.from('menu_categories').select('id,title,slug')
-    .eq('menu_id', menuId).returns<{ id: string; title: string; slug: string }[]>();
-  if (existing.error) fail('Could not read the menu categories.');
-  const planned = planImportCategories(categoryTitles, existing.data ?? []);
-  const categories = planned.length > 0
-    ? await client.from('menu_categories').insert(planned.map((category) => ({
-      brand_id: brandId, menu_id: menuId, slug: category.slug,
-      title: category.title, sort_order: category.sortOrder,
-    }))).select('id,title').returns<{ id: string; title: string }[]>()
-    : { data: [], error: null };
-  if (categories.error) fail('Could not create the menu categories.');
-  const categoryId = new Map(
-    [...(existing.data ?? []), ...(categories.data ?? [])].map((row) => [row.title, row.id]),
-  );
-
-  const itemRows = rows.map((row, index) => ({
-    brand_id: brandId, menu_id: menuId, category_id: categoryId.get(row.category) ?? '',
-    slug: row.slug, name: row.name, description: row.description,
-    base_price_cents: row.basePriceCents, sizes: row.sizes, sort_order: index,
-  }));
-  const items = await client.from('menu_items').upsert(itemRows, { onConflict: 'menu_id,slug' });
-  if (items.error) fail('Could not import the menu items.');
+  const input = { p_brand_id: mutation.brandId, p_rows: rows };
+  const environment = mutation.serviceRole ? serverEnv() : null;
+  if (mutation.serviceRole && (!environment || !session.userId || !mutation.auditCorrelationId)) {
+    fail('The audited menu writer is not configured.');
+  }
+  const imported = mutation.serviceRole
+    ? await serviceDb(environment!).rpc('import_platform_brand_menu', {
+      ...input,
+      p_actor_id: session.userId,
+      p_correlation_id: mutation.auditCorrelationId,
+    })
+    : await client.rpc('import_brand_menu', input);
+  if (imported.error || imported.data !== rows.length) fail('Could not import the menu items.');
 
   revalidatePath('/menu');
   redirect(`/menu?imported=${rows.length}`);

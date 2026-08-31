@@ -50,25 +50,14 @@ export async function createOrganizationAction(formData: FormData): Promise<void
 
   const client = await serverClient();
   if (!client) redirect('/organizations/new?error=' + encodeURIComponent('This deployment is not connected to Supabase.'));
-  const insert = await client
-    .from('brands')
-    .insert({
-      slug: draft.slug,
-      name: draft.name,
-      // Blank slate: flag columns off (drops defaults on, so set it), stores allowed.
-      drops: false,
-      catering: false,
-      delivery: false,
-      multi_location: true,
-      sms: false,
-      stored_value: false,
-      referrals: false,
-      brand_config: draft.brandConfig,
-    })
-    .select('id')
-    .single<{ id: string }>();
-  if (insert.error || !insert.data) {
+  const insert = await client.rpc('create_platform_organization', {
+    p_brand_config: draft.brandConfig,
+    p_correlation_id: crypto.randomUUID(),
+    p_name: draft.name,
+    p_slug: draft.slug,
+  });
+  if (insert.error || typeof insert.data !== 'string') {
     redirect('/organizations/new?error=' + encodeURIComponent('Could not create the organization — that handle may already be taken.'));
   }
-  switchTo(insert.data.id);
+  switchTo(insert.data);
 }

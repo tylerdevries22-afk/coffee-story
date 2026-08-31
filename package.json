@@ -10,6 +10,7 @@
     "mutate": "tsx scripts/mutate.ts",
     "preview": "tsx scripts/preview.ts",
     "onboard": "tsx scripts/onboard.ts",
+    "release:gate": "tsx scripts/release-gate.ts",
     "supabase:promote": "tsx scripts/apply-hosted-migrations.ts",
     "supabase:verify": "supabase db lint --linked --level warning --fail-on warning && supabase db advisors --linked --type security --level warn --fail-on warn && supabase db advisors --linked --type performance --level warn --fail-on warn",
     "normalize-menu-images": "tsx scripts/normalize-menu-images.ts",

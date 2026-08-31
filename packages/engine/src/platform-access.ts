@@ -8,7 +8,7 @@ export type PlatformAccessEnvironment = {
 };
 
 export type PlatformAccessEvent = {
-  action: 'workspace.location.select' | 'workspace.organization.select';
+  action: string;
   actorId: string;
   brandId: string;
   correlationId: string;
@@ -21,12 +21,23 @@ export type PlatformAccessWriteResult =
   | { ok: false; errorCode: string; reason: 'invalid_event' | 'rpc_failed' | 'rpc_unavailable' };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const ACTION = /^[a-z][a-z0-9_.]{2,95}$/;
+const MAX_METADATA_ENTRIES = 16;
+
+function validMetadata(metadata: Readonly<Record<string, string>>): boolean {
+  const entries = Object.entries(metadata);
+  return entries.length <= MAX_METADATA_ENTRIES && entries.every(([key, value]) => (
+    key.length > 0 && key.length <= 64 && value.length <= 256
+  ));
+}
 
 function validEvent(event: PlatformAccessEvent): boolean {
-  return UUID.test(event.actorId)
+  return ACTION.test(event.action)
+    && UUID.test(event.actorId)
     && UUID.test(event.brandId)
     && UUID.test(event.correlationId)
-    && (event.locationId === null || UUID.test(event.locationId));
+    && (event.locationId === null || UUID.test(event.locationId))
+    && validMetadata(event.metadata);
 }
 
 /**

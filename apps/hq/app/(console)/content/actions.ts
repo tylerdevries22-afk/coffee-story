@@ -36,7 +36,8 @@ import {
 } from '@/lib/training-bootstrap';
 import { trainingProfileFingerprint } from '@/lib/training-fingerprint';
 import { bootstrapTenantTraining } from '@/workflows/tenant-training-bootstrap';
-import { selectedOrganizationId } from '@/lib/workspace-scope';
+import { ensurePlatformBrandMembership } from '@/lib/platform-membership';
+import { authorizeWorkspaceMutation } from '@/lib/workspace-mutation';
 
 type Failure = { ok: false; error: string };
 type ManagerContext = {
@@ -66,31 +67,36 @@ type MenuItemRow = {
 const RETRYABLE_CODES = /^(08|53|57P|PGRST000)/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-async function managerContext(): Promise<ManagerContext | Failure | null> {
+async function managerContext(action: string): Promise<ManagerContext | Failure | null> {
   const session = await currentSession();
   if (!session || !hasRole(session, 'brand_owner')) {
     return { ok: false, error: 'Only a brand owner can manage tenant content.' };
   }
-  if (await selectedOrganizationId(session) !== session.brandId) {
-    return { ok: false, error: 'Cross-organization content changes require the audited support workflow.' };
-  }
+  const mutation = await authorizeWorkspaceMutation(session, { action });
+  if (!mutation) return { ok: false, error: 'This tenant content change was not authorized.' };
   const client = await serverClient();
   if (!client) return null;
   const env = serverEnv();
   if (!env) return { ok: false, error: 'Server-side Supabase credentials are not configured.' };
-  const user = await client.auth.getUser();
-  if (!user.data.user) return { ok: false, error: 'Your session has expired. Sign in again.' };
-  const membership = await client.from('brand_users').select('id, role')
-    .eq('brand_id', session.brandId).eq('user_id', user.data.user.id)
-    .single<{ id: string; role: string }>();
-  if (membership.error || !['brand_owner', 'platform_admin'].includes(membership.data.role)) {
-    return { ok: false, error: 'Your tenant owner access is no longer active.' };
+  if (!session.userId) return { ok: false, error: 'Your session has expired. Sign in again.' };
+  const privileged = serviceDb(env);
+  let brandUserId: string | null = null;
+  if (mutation.serviceRole) {
+    brandUserId = await ensurePlatformBrandMembership(privileged, session.userId, mutation.brandId);
+  } else {
+    const membership = await client.from('brand_users').select('id, role')
+      .eq('brand_id', mutation.brandId).eq('user_id', session.userId)
+      .single<{ id: string; role: string }>();
+    if (!membership.error && ['brand_owner', 'platform_admin'].includes(membership.data.role)) {
+      brandUserId = membership.data.id;
+    }
   }
+  if (!brandUserId) return { ok: false, error: 'Your tenant owner access is no longer active.' };
   return {
-    brandId: session.brandId,
-    brandUserId: membership.data.id,
+    brandId: mutation.brandId,
+    brandUserId,
     client,
-    privileged: serviceDb(env),
+    privileged,
   };
 }
 
@@ -190,7 +196,7 @@ export async function saveMenuItem(
 ): Promise<Failure | { ok: true; item: ContentMenuItem; persisted: boolean }> {
   if (!isMenuItemDraft(input)) return { ok: false, error: 'The menu item payload is invalid.' };
   const draft: MenuItemDraft = input;
-  const context = await managerContext();
+  const context = await managerContext('content.menu_item.save');
   if (isFailure(context)) return context;
   if (!context) {
     const previewIssues = validateMenuItemDraft(
@@ -270,7 +276,7 @@ export async function addMenuCategory(
   if (cleanTitle.length < 2 || cleanTitle.length > 80 || cleanTagline.length > 160) {
     return { ok: false, error: 'Category names need 2–80 characters; taglines can use up to 160.' };
   }
-  const context = await managerContext();
+  const context = await managerContext('content.category.add');
   if (isFailure(context)) return context;
   if (parentId !== null && !UUID.test(parentId) && !parentId.startsWith('preview-')) {
     return { ok: false, error: 'The parent folder is invalid.' };
@@ -320,7 +326,7 @@ export async function saveMenuCategory(
   if (cleanTitle.length < 2 || cleanTitle.length > 80 || cleanTagline.length > 160) {
     return { ok: false, error: 'Category names need 2–80 characters; taglines can use up to 160.' };
   }
-  const context = await managerContext();
+  const context = await managerContext('content.category.save');
   if (isFailure(context)) return context;
   if (!['public', 'staff', 'manager', 'owner'].includes(audience)) return { ok: false, error: 'The audience is invalid.' };
   const preview: ContentCategory = {
@@ -370,7 +376,7 @@ export async function moveCatalogNode(
   if (!UUID.test(nodeId) || !UUID.test(parentId) || nodeId === parentId) {
     return { ok: false, error: 'Choose a valid destination folder.' };
   }
-  const context = await managerContext();
+  const context = await managerContext('content.catalog.move');
   if (isFailure(context)) return context;
   if (!context) return { ok: true };
   if (kind === 'folder') {
@@ -402,7 +408,7 @@ export async function addCatalogAlias(
   if (!UUID.test(nodeId) || !UUID.test(parentId) || nodeId === parentId) {
     return { ok: false, error: 'Choose a valid alias destination.' };
   }
-  const context = await managerContext();
+  const context = await managerContext('content.catalog.alias.add');
   if (isFailure(context)) return context;
   const placement: ContentCatalogPlacement = {
     id: randomUUID(), nodeId, parentId, sortOrder: 1000, isPrimary: false,
@@ -425,7 +431,7 @@ export async function archiveCatalogNode(
   nodeId: string,
 ): Promise<Failure | { ok: true; persisted: boolean }> {
   if (!UUID.test(nodeId)) return { ok: false, error: 'Choose a valid catalog entry.' };
-  const context = await managerContext();
+  const context = await managerContext('content.catalog.archive');
   if (isFailure(context)) return context;
   if (!context) return { ok: true, persisted: false };
   if (kind === 'folder') {
@@ -462,7 +468,7 @@ export async function addCatalogResource(
   if (!kinds.includes(kind) || !audiences.includes(audience) || cleanTitle.length < 2 || cleanTitle.length > 160 || summary.length > 1200) {
     return { ok: false, error: 'The resource details are invalid.' };
   }
-  const context = await managerContext();
+  const context = await managerContext('content.resource.add');
   if (isFailure(context)) return context;
   const resource: ContentCatalogResource = {
     id: randomUUID(), kind, slug: slugFromLabel(cleanTitle), title: cleanTitle,
@@ -484,7 +490,7 @@ export async function saveCatalogResourceImage(
   resourceId: string,
   imageUrl: string | null,
 ): Promise<Failure | { ok: true; imageUrl: string | null; persisted: boolean }> {
-  const context = await managerContext();
+  const context = await managerContext('content.resource.image.save');
   if (isFailure(context)) return context;
   if (!context) return { ok: true, imageUrl, persisted: false };
   if (!UUID.test(resourceId) || (imageUrl !== null && (imageUrl.length > 2048 || !imageUrl.startsWith('https://')))) {
@@ -504,7 +510,7 @@ export async function linkCatalogResource(
 ): Promise<Failure | { ok: true; relation: ContentCatalogRelation; persisted: boolean }> {
   const relationKinds: ContentCatalogRelation['kind'][] = ['requires', 'follows', 'teaches', 'develops', 'covers', 'prerequisite', 'related', 'substitute'];
   if (!UUID.test(nodeId) || !UUID.test(resourceId) || !relationKinds.includes(kind)) return { ok: false, error: 'The relationship is invalid.' };
-  const context = await managerContext();
+  const context = await managerContext('content.resource.link');
   if (isFailure(context)) return context;
   const relation: ContentCatalogRelation = { id: randomUUID(), sourceId: nodeId, targetId: resourceId, kind };
   if (!context) return { ok: true, relation, persisted: false };
@@ -528,7 +534,7 @@ export async function setMenuPublished(
   published: boolean,
   expectedUpdatedAt: string | null,
 ): Promise<Failure | { ok: true; updatedAt: string; publishedVersion: number | null; persisted: boolean }> {
-  const context = await managerContext();
+  const context = await managerContext('content.menu.publish');
   if (isFailure(context)) return context;
   if (!context) return { ok: true, updatedAt: new Date().toISOString(), publishedVersion: 1, persisted: false };
   if (!UUID.test(menuId) || !expectedUpdatedAt) return { ok: false, error: 'Reload the menu before publishing.' };
@@ -557,7 +563,7 @@ export async function setMenuPublished(
 export async function uploadContentImage(
   formData: FormData,
 ): Promise<Failure | { ok: true; url: string; persisted: boolean }> {
-  const context = await managerContext();
+  const context = await managerContext('content.image.upload');
   if (isFailure(context)) return context;
   const file = formData.get('file');
   const family = formData.get('family') === 'training' ? 'training' : 'menu';
@@ -591,7 +597,7 @@ export async function saveTrainingDraft(
   const draft = { ...normalizeTrainingManifest(manifest), generatedAt: new Date().toISOString() };
   const issues = validateTrainingDraft(draft);
   if (issues.length > 0) return { ok: false, error: issues.join(' ') };
-  const context = await managerContext();
+  const context = await managerContext('content.training.save');
   if (isFailure(context)) return context;
   if (!context) {
     return { ok: true, persisted: false, releaseId: `preview-${randomUUID()}`, version: 1, updatedAt: draft.generatedAt };
@@ -646,7 +652,7 @@ export async function publishTrainingDraft(
   releaseId: string,
   expectedUpdatedAt: string | null,
 ): Promise<Failure | { ok: true; version: number; persisted: boolean }> {
-  const context = await managerContext();
+  const context = await managerContext('content.training.publish');
   if (isFailure(context)) return context;
   if (!context) return { ok: true, version: 1, persisted: false };
   if (!UUID.test(releaseId) || !expectedUpdatedAt) return { ok: false, error: 'Reload the training draft before publishing.' };
@@ -704,7 +710,7 @@ export async function startTrainingAutomation(
   const profile = normalizeTrainingProfile(requestedProfile);
   const issues = validateTrainingProfile(profile);
   if (issues.length > 0) return { ok: false, error: issues.join('; ') };
-  const context = await managerContext();
+  const context = await managerContext('content.training.automation.start');
   if (isFailure(context)) return context;
   if (!context) return { ok: true, persisted: false, runId: `preview-${randomUUID()}` };
   const stored = await context.privileged.rpc('store_training_profile', {

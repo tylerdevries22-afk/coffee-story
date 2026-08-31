@@ -23,6 +23,34 @@ html, body {
   background: #000;
 }
 
+.preview-switcher {
+  position: fixed;
+  z-index: 100;
+  top: 1rem;
+  right: 1rem;
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+  padding: 0.45rem;
+  border: 1px solid var(--board-line, #d6d3d1);
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--board-raised, #fff) 94%, transparent);
+  color: var(--board-ink-muted, #57534e);
+  font: 12px/1.2 ui-sans-serif, system-ui, sans-serif;
+}
+
+.preview-switcher a {
+  color: var(--board-ink, #292524);
+  padding: 0.4rem 0.55rem;
+  border-radius: 0.5rem;
+}
+
+.preview-switcher a[aria-current='page'] {
+  background: var(--board-ink, #292524);
+  color: var(--board-raised, #fff);
+  pointer-events: none;
+}
+
 .display-root {
   position: fixed;
   inset: 0;

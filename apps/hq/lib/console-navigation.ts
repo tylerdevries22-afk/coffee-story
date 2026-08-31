@@ -132,6 +132,9 @@ function settingsSection(access: ConsoleNavigationAccess): ConsoleSection {
     ...(access.canManageBrand
       ? [{ href: '/brand', label: 'Brand config', icon: 'brand' as const }]
       : []),
+    ...(access.canManageBrand
+      ? [{ href: '/staff', label: 'Staff access', icon: 'users' as const }]
+      : []),
     ...(access.canManagePlatform
       ? [{ href: '/fees', label: 'Platform fees', icon: 'settings' as const }]
       : []),

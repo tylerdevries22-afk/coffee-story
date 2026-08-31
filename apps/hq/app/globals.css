@@ -1278,6 +1278,8 @@ body {
 }
 .location-form-days legend { padding: 0 4px; color: var(--text-muted); font-size: 13px; }
 .location-form-day { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; }
+.fee-override-form { padding: 16px 0; border-top: 1px solid var(--line); }
+.fee-override-form:first-of-type { margin-top: 16px; }
 .location-form-check { display: flex; align-items: center; gap: 8px; margin: 8px 0; font-size: 14px; color: var(--text-muted); }
 .menu-csv-input {
   width: 100%;

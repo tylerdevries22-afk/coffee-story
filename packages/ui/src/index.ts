@@ -23,3 +23,4 @@ export * from './tab-screen';
 export * from './icon-map';
 // Platform split: Metro picks app-icon.web.tsx for web, app-icon.tsx elsewhere.
 export * from './app-icon';
+export * from './preview-switcher';
