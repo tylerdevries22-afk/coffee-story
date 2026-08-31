@@ -31,17 +31,17 @@ create policy square_access_token_retirements_service
 -- Keep the release probe fail-closed: deployment must not serve code that can
 -- queue an old token but has no durable, private worker queue to retire it.
 alter function public.platform_release_readiness()
-  rename to platform_release_readiness_20260831000000;
-alter function public.platform_release_readiness_20260831000000() set schema app;
-revoke all on function app.platform_release_readiness_20260831000000()
+  rename to platform_release_readiness_20260831000100;
+alter function public.platform_release_readiness_20260831000100() set schema app;
+revoke all on function app.platform_release_readiness_20260831000100()
   from public, anon, authenticated;
-grant execute on function app.platform_release_readiness_20260831000000()
+grant execute on function app.platform_release_readiness_20260831000100()
   to service_role;
 
 create or replace function public.platform_release_readiness()
 returns text language plpgsql stable security invoker set search_path = '' as $$
 begin
-  if app.platform_release_readiness_20260831000000() <> '20260831000000' then
+  if app.platform_release_readiness_20260831000100() <> '20260831000100' then
     raise exception 'Square renewal readiness prerequisite is incomplete';
   end if;
   if pg_catalog.to_regclass('public.square_access_token_retirements') is null

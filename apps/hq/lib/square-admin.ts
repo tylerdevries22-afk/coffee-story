@@ -57,7 +57,7 @@ export type SquareConnectionReplacement =
   | { ok: true; connectionId: string; previousRetirementFailed: boolean }
   | { ok: false; cleanupFailed: boolean };
 
-/** Revoke one access token without terminating the seller authorization. */
+/** Revoke the seller authorization before removing the local connection. */
 export async function revokeSquareAccessToken(
   config: SquareConfig,
   accessToken: string,

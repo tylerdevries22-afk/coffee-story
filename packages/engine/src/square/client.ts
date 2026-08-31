@@ -137,17 +137,21 @@ export function refreshOAuthToken(config: SquareConfig, refreshToken: string): P
   });
 }
 
-export function revokeOAuthToken(config: SquareConfig, accessToken: string): Promise<unknown> {
+export function revokeOAuthToken(
+  config: SquareConfig,
+  accessToken: string,
+  options: { revokeOnlyAccessToken?: boolean } = {},
+): Promise<unknown> {
   return call(config, '/oauth2/revoke', {
     method: 'POST',
     clientAuthorization: true,
     body: {
       client_id: config.applicationId,
       access_token: accessToken,
-      // Connections are location-scoped in this platform. Without this flag,
-      // Square revokes every token for the merchant and disconnecting one shop
-      // can silently break another shop using the same Square authorization.
-      revoke_only_access_token: true,
+      // Token retirement during a refresh must preserve the refresh grant;
+      // an explicit disconnect leaves the default false so the grant cannot
+      // remain usable after the local connection is deleted.
+      ...(options.revokeOnlyAccessToken ? { revoke_only_access_token: true } : {}),
     },
   });
 }

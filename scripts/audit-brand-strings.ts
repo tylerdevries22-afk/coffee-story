@@ -122,6 +122,7 @@ function needlesFor(tenantFile: string): Needle[] {
 const ALLOWED = new Map<string, string>([
   ['apps/display/lib/demo-board.ts', 'a fixture brand, playing the part of tenant data on a screen with no database'],
   ['apps/hq/lib/demo-data.ts', 'the console fixtures HQ renders with no database configured'],
+  ['apps/hq/lib/tenants.ts', 'the demo tenant registry the organization switcher lists with no database configured'],
   ['apps/hq/lib/content-data.ts', 'as apps/hq/lib/demo-data.ts'],
   ['apps/hq/lib/factory-data.ts', 'as apps/hq/lib/demo-data.ts'],
   ['apps/hq/lib/demo-menu-media.ts', 'as apps/hq/lib/demo-data.ts'],

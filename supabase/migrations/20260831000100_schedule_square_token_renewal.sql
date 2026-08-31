@@ -10,23 +10,23 @@ create index square_connections_renewal_due_idx
 -- migration as its minimum database release, so readiness must prove both the
 -- preceding release and this migration's operational contract.
 alter function public.platform_release_readiness()
-  rename to platform_release_readiness_20260830020000;
-alter function public.platform_release_readiness_20260830020000() set schema app;
-revoke all on function app.platform_release_readiness_20260830020000()
+  rename to platform_release_readiness_20260831000000;
+alter function public.platform_release_readiness_20260831000000() set schema app;
+revoke all on function app.platform_release_readiness_20260831000000()
   from public, anon, authenticated;
-grant execute on function app.platform_release_readiness_20260830020000()
+grant execute on function app.platform_release_readiness_20260831000000()
   to service_role;
 
 create or replace function public.platform_release_readiness()
 returns text language plpgsql stable security invoker set search_path = '' as $$
 begin
-  if app.platform_release_readiness_20260830020000() <> '20260830020000' then
-    raise exception 'foreign-key index readiness prerequisite is incomplete';
+  if app.platform_release_readiness_20260831000000() <> '20260831000000' then
+    raise exception 'brand-directory readiness prerequisite is incomplete';
   end if;
   if pg_catalog.to_regclass('public.square_connections_renewal_due_idx') is null then
     raise exception 'Square token renewal index is missing';
   end if;
-  return '20260831000000';
+  return '20260831000100';
 end $$;
 revoke all on function public.platform_release_readiness()
   from public, anon, authenticated;

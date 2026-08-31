@@ -112,7 +112,9 @@ async function retireSquareAccessToken(
   if (!await claimSquareAccessTokenRetirement(db, row, nowMs)) return 'stale';
 
   try {
-    await revokeOAuthToken(square, decryptToken(row.access_token_encrypted, loadTokenKey()));
+      await revokeOAuthToken(square, decryptToken(row.access_token_encrypted, loadTokenKey()), {
+        revokeOnlyAccessToken: true,
+      });
   } catch {
     return 'failed';
   }
@@ -242,7 +244,7 @@ export async function renewSquareConnection(
   const revoke = async (token: string): Promise<boolean> => {
     if (!token.trim()) return true;
     try {
-      await revokeOAuthToken(square, token);
+      await revokeOAuthToken(square, token, { revokeOnlyAccessToken: true });
       return true;
     } catch {
       return false;
