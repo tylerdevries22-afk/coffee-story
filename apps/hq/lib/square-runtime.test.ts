@@ -19,7 +19,12 @@ type ConnectionRow = {
   expires_at: string | null;
 };
 
-type DbState = { connection: ConnectionRow | null; updates: Record<string, unknown>[] };
+type DbState = {
+  connection: ConnectionRow | null;
+  updates: Record<string, unknown>[];
+  updateFilters?: Record<string, unknown>[];
+  updateResult?: { data: { location_id: string } | null; error: { message: string } | null };
+};
 
 /**
  * The two rows `squareRuntimeFor` reads, and a record of what it writes back.
@@ -41,7 +46,17 @@ function runtimeDb(state: DbState): SupabaseClient {
     maybeSingle: async () => ({ data: state.connection, error: null }),
     update: (values: Record<string, unknown>) => {
       state.updates.push(values);
-      return { eq: async () => ({ error: null }) };
+      const update = {
+        eq: (column: string, value: unknown) => {
+          state.updateFilters?.push({ [column]: value });
+          return update;
+        },
+        select: () => update,
+        maybeSingle: async () => state.updateResult ?? {
+          data: { location_id: LOCATION }, error: null,
+        },
+      };
+      return update;
     },
   };
   return { from: (table: string) => (table === 'locations' ? location : connection) } as unknown as SupabaseClient;
@@ -111,7 +126,9 @@ describe('squareRuntimeFor', () => {
 
   it('renews a token near its expiry and stores what came back', async () => {
     stubSquare({ ok: true, body: { access_token: 'renewed', refresh_token: 'next-refresh', expires_at: at(30 * DAY) } });
-    const state: DbState = { connection: connectionRow({ expires_at: at(DAY) }), updates: [] };
+    const state: DbState = {
+      connection: connectionRow({ expires_at: at(DAY) }), updates: [], updateFilters: [],
+    };
     const runtime = await resolve(state);
     assert.equal(runtime?.locationAccessToken, 'renewed');
     assert.equal(refreshCalls, 1);
@@ -121,6 +138,42 @@ describe('squareRuntimeFor', () => {
     assert.ok(typeof written.refresh_token_encrypted === 'string', 'a reissued refresh token must be kept');
     assert.ok(typeof written.expires_at === 'string', 'the new expiry is what stops the next order renewing again');
     assert.notEqual(written.access_token_encrypted, state.connection?.access_token_encrypted);
+    assert.deepEqual(state.updateFilters?.slice(0, 2), [
+      { location_id: LOCATION }, { brand_id: BRAND },
+    ], 'the service-role write is tenant-scoped');
+    assert.equal(state.updateFilters?.[2]?.refresh_token_encrypted, state.connection?.refresh_token_encrypted,
+      'the write may only replace the authorization whose refresh token was traded');
+  });
+
+  it('does not spend a renewed token when reconnect replaced the authorization mid-refresh', async () => {
+    stubSquare({ ok: true, body: { access_token: 'stale-renewal', refresh_token: 'next-refresh', expires_at: at(30 * DAY) } });
+    const state: DbState = {
+      connection: connectionRow({ expires_at: at(DAY) }),
+      updates: [],
+      updateResult: { data: null, error: null },
+    };
+    assert.equal(await resolve(state), null,
+      'the stored token and merchant location both became stale when the compare-and-set lost');
+  });
+
+  it('refuses an expired token when its refresh write loses a reconnect race', async () => {
+    stubSquare({ ok: true, body: { access_token: 'stale-renewal', refresh_token: 'next-refresh', expires_at: at(30 * DAY) } });
+    const state: DbState = {
+      connection: connectionRow({ expires_at: at(-DAY) }),
+      updates: [],
+      updateResult: { data: null, error: null },
+    };
+    assert.equal(await resolve(state), null);
+  });
+
+  it('fails closed when the renewed credentials cannot be persisted', async () => {
+    stubSquare({ ok: true, body: { access_token: 'renewed', refresh_token: 'next-refresh', expires_at: at(30 * DAY) } });
+    const state: DbState = {
+      connection: connectionRow({ expires_at: at(DAY) }),
+      updates: [],
+      updateResult: { data: null, error: { message: 'write failed' } },
+    };
+    assert.equal(await resolve(state), null);
   });
 
   it('still takes the sale when a renewal fails but the token has not expired', async () => {

@@ -5,7 +5,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { encryptToken, loadTokenKey } from '@platform/engine';
 import type { TenantClaims } from '@platform/schema';
 
-import { disconnectSquare, SquareAdminError } from './square-admin';
+import { disconnectSquare, recordSquareConnectionPointer, SquareAdminError } from './square-admin';
 
 const BRAND = '11111111-1111-4111-8111-111111111111';
 const LOCATION = '22222222-2222-4222-8222-222222222222';
@@ -22,6 +22,7 @@ const manager: TenantClaims = { brand_id: BRAND, location_ids: [LOCATION], role:
 type DbState = {
   connection: { access_token_encrypted: string } | null;
   deleteError: { message: string } | null;
+  deleteResult?: { location_id: string } | null;
   /** Every table-and-verb this call touched, in order. */
   trail: string[];
   filters: Record<string, unknown>[];
@@ -40,12 +41,7 @@ function adminDb(state: DbState): SupabaseClient {
     },
     delete: () => {
       state.trail.push('delete');
-      return {
-        eq: (column: string, value: unknown) => {
-          state.filters.push({ [column]: value });
-          return { ...deleted, eq: deleted.eq };
-        },
-      };
+      return deleted;
     },
   };
   const deleted = {
@@ -53,7 +49,11 @@ function adminDb(state: DbState): SupabaseClient {
       state.filters.push({ [column]: value });
       return deleted;
     },
-    then: (resolve: (value: { error: unknown }) => unknown) => resolve({ error: state.deleteError }),
+    select: () => deleted,
+    maybeSingle: async () => ({
+      data: state.deleteResult === undefined ? { location_id: LOCATION } : state.deleteResult,
+      error: state.deleteError,
+    }),
   };
   return { from: () => connection } as unknown as SupabaseClient;
 }
@@ -162,6 +162,14 @@ describe('disconnectSquare', () => {
     assert.deepEqual(await disconnectSquare(adminDb(db), owner, LOCATION), { outcome: 'stranded' });
   });
 
+  it('does not delete credentials written by a reconnect while revocation was in flight', async () => {
+    stubSquare('ok');
+    const db = state({ deleteResult: null });
+    assert.deepEqual(await disconnectSquare(adminDb(db), owner, LOCATION), { outcome: 'stranded' });
+    assert.ok(db.filters.some((filter) =>
+      filter.access_token_encrypted === db.connection?.access_token_encrypted));
+  });
+
   it('refuses a guest, a shop the caller does not manage, and one that is not connected', async () => {
     stubSquare('ok');
     for (const [claims, locationId, code] of [
@@ -184,5 +192,71 @@ describe('disconnectSquare', () => {
     );
     assert.deepEqual(missing.trail, ['select'], 'nothing is deleted when there was no connection');
     assert.equal(calls, 0);
+  });
+});
+
+describe('recordSquareConnectionPointer', () => {
+  it('scopes the pointer to the brand and confirms the row was actually updated', async () => {
+    const tables: string[] = [];
+    const updates: unknown[] = [];
+    const selections: string[] = [];
+    const filters: Record<string, unknown>[] = [];
+    const query = {
+      update: (value: unknown) => {
+        updates.push(value);
+        return query;
+      },
+      eq: (column: string, value: unknown) => {
+        filters.push({ [column]: value });
+        return query;
+      },
+      select: (columns: string) => {
+        selections.push(columns);
+        return query;
+      },
+      maybeSingle: async () => ({ data: { id: LOCATION }, error: null }),
+    };
+    const db = {
+      from: (table: string) => {
+        tables.push(table);
+        return query;
+      },
+    } as unknown as SupabaseClient;
+
+    assert.equal(await recordSquareConnectionPointer(db, {
+      brandId: BRAND, locationId: LOCATION, connectionId: 'connection',
+    }), true);
+    assert.deepEqual(tables, ['locations']);
+    assert.deepEqual(updates, [{ square_connection_id: 'connection' }]);
+    assert.deepEqual(filters, [{ id: LOCATION }, { brand_id: BRAND }]);
+    assert.deepEqual(selections, ['id']);
+  });
+
+  it('does not call a zero-row update success', async () => {
+    const query = {
+      update: () => query,
+      eq: () => query,
+      select: () => query,
+      maybeSingle: async () => ({ data: null, error: null }),
+    };
+    const db = { from: () => query } as unknown as SupabaseClient;
+
+    assert.equal(await recordSquareConnectionPointer(db, {
+      brandId: BRAND, locationId: LOCATION, connectionId: 'connection',
+    }), false);
+  });
+
+  it('does not call a failed update success', async () => {
+    const query = {
+      update: () => query,
+      eq: () => query,
+      select: () => query,
+      maybeSingle: async () => ({ data: null, error: { message: 'write failed' } }),
+    };
+    const db = { from: () => query } as unknown as SupabaseClient;
+
+    assert.equal(await recordSquareConnectionPointer(db, {
+      brandId: BRAND, locationId: LOCATION, connectionId: 'connection',
+    }), false);
   });
 });

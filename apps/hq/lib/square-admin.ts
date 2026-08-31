@@ -50,6 +50,32 @@ export type SquareDisconnectResult = { outcome: SquareDisconnectOutcome };
 type ConnectionRow = { access_token_encrypted: string };
 
 /**
+ * Records the console-facing pointer only after the authoritative connection
+ * row is complete.
+ *
+ * `square_connections.location_id` is authoritative for payment resolution
+ * and the console status view; `locations.square_connection_id` is a legacy
+ * relational back-pointer. The callback keeps it synchronized for diagnostics
+ * and compatibility, but a failure cannot make the usable authorization a
+ * failed one. Returning false also covers a location deleted between callback
+ * authorization and this final write; PostgREST considers a zero-row update
+ * successful unless the row is selected back.
+ */
+export async function recordSquareConnectionPointer(
+  db: SupabaseClient,
+  input: { brandId: string; locationId: string; connectionId: string },
+): Promise<boolean> {
+  const linked = await db
+    .from('locations')
+    .update({ square_connection_id: input.connectionId })
+    .eq('id', input.locationId)
+    .eq('brand_id', input.brandId)
+    .select('id')
+    .maybeSingle<{ id: string }>();
+  return !linked.error && linked.data?.id === input.locationId;
+}
+
+/**
  * Severs one location's Square connection, telling Square first.
  *
  * The order is deliberate and is the whole security argument: the stored
@@ -113,13 +139,18 @@ export async function disconnectSquare(
     .from('square_connections')
     .delete()
     .eq('location_id', locationId)
-    .eq('brand_id', claims.brand_id);
+    .eq('brand_id', claims.brand_id)
+    // Do not let an older disconnect erase credentials written by a reconnect
+    // while Square was answering the revocation request.
+    .eq('access_token_encrypted', found.data.access_token_encrypted)
+    .select('location_id')
+    .maybeSingle<{ location_id: string }>();
   // `locations.square_connection_id` references this row `on delete set null`
-  // (0005), so the back-pointer the console reads clears itself.
+  // (0005), so the compatibility back-pointer clears itself.
 
   // A failed delete is reported, not thrown: by this point the token may
   // already be dead at Square, and "nothing was changed" would be a lie about
   // money on the one path where the owner most needs the truth.
-  if (removed.error) return { outcome: 'stranded' };
+  if (removed.error || removed.data?.location_id !== locationId) return { outcome: 'stranded' };
   return { outcome: revokedAtSquare ? 'revoked' : 'local_only' };
 }

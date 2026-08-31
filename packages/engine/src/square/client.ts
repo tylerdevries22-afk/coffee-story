@@ -74,14 +74,16 @@ export class SquareApiError extends Error {
 async function call<T>(
   config: SquareConfig,
   path: string,
-  init: { method: string; token?: string; body?: unknown },
+  init: { method: string; token?: string; clientAuthorization?: boolean; body?: unknown },
 ): Promise<T> {
   const response = await fetchExternalWithRetry(`${config.apiBase ?? HOSTS[config.env]}${path}`, {
     method: init.method,
     headers: {
       'Square-Version': API_VERSION,
       'Content-Type': 'application/json',
-      ...(init.token ? { Authorization: `Bearer ${init.token}` } : {}),
+      ...(init.clientAuthorization
+        ? { Authorization: `Client ${config.applicationSecret}` }
+        : init.token ? { Authorization: `Bearer ${init.token}` } : {}),
     },
     body: init.body === undefined ? undefined : JSON.stringify(init.body),
   });
@@ -138,7 +140,15 @@ export function refreshOAuthToken(config: SquareConfig, refreshToken: string): P
 export function revokeOAuthToken(config: SquareConfig, accessToken: string): Promise<unknown> {
   return call(config, '/oauth2/revoke', {
     method: 'POST',
-    body: { client_id: config.applicationId, access_token: accessToken },
+    clientAuthorization: true,
+    body: {
+      client_id: config.applicationId,
+      access_token: accessToken,
+      // Connections are location-scoped in this platform. Without this flag,
+      // Square revokes every token for the merchant and disconnecting one shop
+      // can silently break another shop using the same Square authorization.
+      revoke_only_access_token: true,
+    },
   });
 }
 
@@ -161,8 +171,15 @@ export function revokeOAuthToken(config: SquareConfig, accessToken: string): Pro
  */
 export type SquareTokenState = 'fresh' | 'refresh_soon' | 'expired';
 
-/** Seven days: long enough that a shop trading weekly still renews in time. */
-export const SQUARE_REFRESH_MARGIN_MS = 7 * 24 * 60 * 60 * 1000;
+/**
+ * Square's 30-day token lifetime minus its required seven-day renewal age.
+ *
+ * The comparison below is against time *remaining*, so a seven-day refresh
+ * cadence is a 23-day expiry margin. Using seven here waits until day 23 to
+ * renew, which is the inverse of Square's requirement and leaves only one
+ * week to discover a broken refresh path.
+ */
+export const SQUARE_REFRESH_MARGIN_MS = 23 * 24 * 60 * 60 * 1000;
 
 export function squareTokenState(
   expiresAt: string | null | undefined,

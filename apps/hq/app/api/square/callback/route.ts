@@ -12,6 +12,7 @@ import { createClient } from '@supabase/supabase-js';
 
 import { authorizeSquareCallback, refusalResponse } from '../../../../lib/square-callback-auth';
 import { decodeOAuthState } from '../../../../lib/square-oauth-state';
+import { recordSquareConnectionPointer } from '../../../../lib/square-admin';
 import { serverClient } from '../../../../lib/supabase-server';
 import { tokenAppMetadata } from '../../../../lib/token-claims';
 
@@ -136,11 +137,30 @@ export async function GET(request: Request): Promise<Response> {
     )
     .select('id')
     .single();
-  if (upsertError) return new Response(`Could not store the connection: ${upsertError.message}`, { status: 500 });
+  if (upsertError) {
+    console.error('Square connection could not be stored.', {
+      code: upsertError.code,
+      brandId: location!.brand_id,
+      locationId: decision.locationId,
+    });
+    return new Response('Could not store the Square connection. Try again from Locations.', { status: 500 });
+  }
 
-  // The console reads this back-pointer as "Connected" and hides the retry
-  // button behind it, so it is set last -- only once there is a Square
-  // location to bill against and the shop really can take a card.
-  await db.from('locations').update({ square_connection_id: connection.id }).eq('id', decision.locationId);
+  // Keep the legacy back-pointer synchronized after the authoritative row is
+  // complete. Checkout and the console both read square_connections directly,
+  // so a failed compatibility write is logged but cannot turn a working
+  // authorization into a false failure page.
+  const linked = await recordSquareConnectionPointer(db, {
+    brandId: location!.brand_id,
+    locationId: decision.locationId,
+    connectionId: connection.id,
+  });
+  if (!linked) {
+    console.warn('Square connection back-pointer was not synchronized.', {
+      brandId: location!.brand_id,
+      locationId: decision.locationId,
+      connectionId: connection.id,
+    });
+  }
   return Response.redirect(new URL('/locations?connected=1', url.origin), 302);
 }
