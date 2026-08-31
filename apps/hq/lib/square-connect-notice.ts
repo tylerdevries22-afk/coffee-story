@@ -25,6 +25,20 @@ const REFUSALS: Record<SquareLocationRefusal | 'unreachable', string> = {
     'Square did not answer when asked which location to bill. Nothing was changed — try connecting again.',
 };
 
+const CONNECT_FAILURES: Record<string, string> = {
+  authorization_failed:
+    'Square did not complete the authorization exchange. This shop was not connected — start again from Locations.',
+  storage_failed:
+    'Square authorized the request, but the encrypted connection could not be stored. The issued token was revoked; try connecting again.',
+};
+
+const CONNECT_WARNINGS: Record<string, string> = {
+  issued_token_active:
+    ' Square did not confirm cleanup of the newly issued token. Revoke this app from the Square dashboard before trying again.',
+  previous_token_active:
+    ' The new connection is active, but the previous token could not be queued for safe retirement. Revoke this app from the Square dashboard, then reconnect this location.',
+};
+
 /**
  * What a disconnect leaves behind, in the two states it can end in.
  *
@@ -52,7 +66,7 @@ const DISCONNECTS: Record<string, SquareConnectNotice> = {
 };
 
 export function squareConnectNotice(
-  params: { connected?: string; square?: string; disconnect?: string },
+  params: { connected?: string; square?: string; square_warning?: string; disconnect?: string },
 ): SquareConnectNotice | null {
   if (params.disconnect) {
     // Same rule as a refusal below: attacker-supplied, so it selects a
@@ -60,14 +74,22 @@ export function squareConnectNotice(
     return DISCONNECTS[params.disconnect] ?? DISCONNECTS.failed ?? null;
   }
   if (params.square) {
-    const message = REFUSALS[params.square as SquareLocationRefusal | 'unreachable'];
+    const message = REFUSALS[params.square as SquareLocationRefusal | 'unreachable']
+      ?? CONNECT_FAILURES[params.square];
+    const warning = params.square_warning ? CONNECT_WARNINGS[params.square_warning] : undefined;
     // An unknown reason still has to say something: the owner watched a
     // redirect happen and a silent page would read as a button that does
     // nothing. It must not echo the parameter -- that is attacker-supplied.
-    return { failed: true, message: message ?? 'Square could not be connected. Nothing was changed — try again.' };
+    return {
+      failed: true,
+      message: `${message ?? 'Square could not be connected. Nothing was changed — try again.'}${warning ?? ''}`,
+    };
   }
   if (params.connected === '1') {
-    return { failed: false, message: 'Square is connected. This location can take card payments.' };
+    const warning = params.square_warning ? CONNECT_WARNINGS[params.square_warning] : undefined;
+    return warning
+      ? { failed: true, message: `Square is connected. This location can take card payments.${warning}` }
+      : { failed: false, message: 'Square is connected. This location can take card payments.' };
   }
   return null;
 }

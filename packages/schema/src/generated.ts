@@ -6654,6 +6654,27 @@ export type Database = {
           },
         ]
       }
+      square_access_token_retirements: {
+        Row: {
+          access_token_encrypted: string
+          created_at: string
+          id: string
+          retire_after: string
+        }
+        Insert: {
+          access_token_encrypted: string
+          created_at?: string
+          id?: string
+          retire_after: string
+        }
+        Update: {
+          access_token_encrypted?: string
+          created_at?: string
+          id?: string
+          retire_after?: string
+        }
+        Relationships: []
+      }
       stored_value_ledger: {
         Row: {
           amount_cents: number

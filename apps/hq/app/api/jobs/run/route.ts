@@ -4,9 +4,12 @@ import {
   deliverOperationPushBatch,
   dueCampaigns,
   dueDropTransitions,
+  loadTokenKey,
   liveTransport,
+  squareConfigFromEnv,
   type OperationPushResult,
   type OperationPushWork,
+  type SquareConfig,
 } from '@platform/engine';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { start } from 'workflow/api';
@@ -18,7 +21,15 @@ import {
 } from '../../../../lib/training-bootstrap';
 import { analyticsMaintenanceCutoffs } from '../../../../lib/analytics-maintenance';
 import { trainingProfileFingerprint } from '../../../../lib/training-fingerprint';
+import {
+  renewDueSquareConnections,
+  retireDueSquareAccessTokens,
+  type SquareAccessTokenRetirementSummary,
+  type SquareRenewalSummary,
+} from '../../../../lib/square-renewal';
 import { bootstrapTenantTraining } from '../../../../workflows/tenant-training-bootstrap';
+
+export const maxDuration = 300;
 
 type TrainingBrandRow = { id: string; name: string; brand_config: unknown };
 type TrainingRunRow = { id: string; brand_id: string; profile_fingerprint: string; status: string; updated_at: string; retry_count: number; next_attempt_at: string | null };
@@ -168,6 +179,44 @@ export async function POST(request: Request): Promise<Response> {
   const db = serviceDb(env);
   const now = new Date();
 
+  let square: SquareConfig | null = null;
+  try {
+    square = squareConfigFromEnv();
+    loadTokenKey();
+  } catch {
+    // Square is optional for a tenant, but the cron response makes a missing
+    // server configuration observable without failing unrelated maintenance.
+    console.warn('Square token renewal skipped: server credentials are not configured.');
+  }
+  const emptySquareRenewals: SquareRenewalSummary = {
+    scanned: 0, renewed: 0, failed: 0, stale: 0, scanFailed: false, cleanupFailed: 0,
+  };
+  const emptySquareRetirements: SquareAccessTokenRetirementSummary = {
+    scanned: 0, retired: 0, failed: 0, stale: 0, scanFailed: false,
+  };
+  const squareRenewals = square
+    ? { configured: true, ...await renewDueSquareConnections(db, square, now) }
+    : { configured: false, ...emptySquareRenewals };
+  const squareRetirements = square
+    ? await retireDueSquareAccessTokens(db, square, now)
+    : emptySquareRetirements;
+  if (
+    squareRenewals.scanFailed
+    || squareRenewals.failed > 0
+    || squareRenewals.cleanupFailed > 0
+    || squareRetirements.scanFailed
+    || squareRetirements.failed > 0
+  ) {
+    console.error('Square token renewal requires attention.', {
+      scanFailed: squareRenewals.scanFailed,
+      renewalFailures: squareRenewals.failed,
+      renewalCredentialQueueFailures: squareRenewals.cleanupFailed,
+      retirementScanFailed: squareRetirements.scanFailed,
+      retirementFailures: squareRetirements.failed,
+      scanned: squareRenewals.scanned,
+    });
+  }
+
   const drops = await db
     .from('drops')
     .select('id, status, starts_at, ends_at')
@@ -292,6 +341,7 @@ export async function POST(request: Request): Promise<Response> {
     drops: dropTransitions.length,
     campaigns: dueCampaignIds.length,
     trainingBootstraps,
+    square: { ...squareRenewals, retirements: squareRetirements },
     analytics: { rollups: rollups.data, retention: retention.data },
     operations: {
       maintenance: operations.data,

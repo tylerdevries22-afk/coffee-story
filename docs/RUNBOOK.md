@@ -59,8 +59,22 @@ it.
 
 ## Rotate Square tokens
 
-Per-location access tokens refresh themselves via
-`refreshOAuthToken` before expiry (see `square_connections.expires_at`).
+The authenticated five-minute job renews a bounded batch of per-location
+access tokens once they are seven days old (when 23 days remain; see
+`square_connections.expires_at`). It covers inactive sellers as well as shops
+taking orders. Checkout retains the same lazy renewal as a backstop if the job
+stops, and both paths share a 15-minute retry cooldown after a provider error.
+
+Monitor the job response's `square` object. A nonzero renewal `failed` count,
+a true renewal `scanFailed`, a nonzero `cleanupFailed`, or a nonzero
+`retirements.failed` / true `retirements.scanFailed` needs attention. The
+retirement worker waits one five-minute interval before revoking a superseded
+access token, so a checkout or refund that already had the prior runtime can
+finish safely. Any signal, or a connected row with fewer than 22 days remaining,
+needs attention;
+check the Square credentials, token encryption key, and provider status. If it
+cannot be recovered before expiry, disconnect and reconnect that location.
+
 To rotate the **encryption key** (`SQUARE_TOKEN_KEY`):
 1. Generate 32 fresh bytes: `openssl rand -base64 32`.
 2. With both keys available, decrypt every `square_connections` row with the
@@ -92,6 +106,12 @@ happened:
   itself (`on delete set null`).
 
 Reconnecting afterwards is always safe: Connect Square issues a fresh grant.
+The callback revokes an issued token whenever connection validation or storage
+fails. After a successful reconnect it queues the superseded access token for
+revocation after one cron interval, so in-flight checkout/refund work cannot be
+invalidated mid-request. If either cleanup cannot be guaranteed, Locations
+shows the exact manual dashboard action instead of silently leaving an
+untracked credential active.
 
 ## Add a location
 

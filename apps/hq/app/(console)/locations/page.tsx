@@ -13,7 +13,12 @@ export const dynamic = 'force-dynamic';
 
 
 type LocationsPageProps = {
-  searchParams: Promise<{ connected?: string; square?: string; disconnect?: string }>;
+  searchParams: Promise<{
+    connected?: string;
+    square?: string;
+    square_warning?: string;
+    disconnect?: string;
+  }>;
 };
 
 export default async function LocationsPage({ searchParams }: LocationsPageProps) {

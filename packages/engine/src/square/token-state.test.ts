@@ -5,6 +5,13 @@ import { SQUARE_REFRESH_MARGIN_MS, squareTokenState } from './client';
 
 const NOW = Date.parse('2026-08-30T12:00:00.000Z');
 const at = (offsetMs: number): string => new Date(NOW + offsetMs).toISOString();
+const DAY = 24 * 60 * 60 * 1000;
+
+test('the expiry margin renews a 30-day token by day seven', () => {
+  assert.equal(SQUARE_REFRESH_MARGIN_MS, 23 * DAY);
+  assert.equal(squareTokenState(at(23 * DAY + 1), NOW), 'fresh');
+  assert.equal(squareTokenState(at(23 * DAY), NOW), 'refresh_soon');
+});
 
 test('leaves a token with room to spare alone', () => {
   assert.equal(squareTokenState(at(SQUARE_REFRESH_MARGIN_MS + 60_000), NOW), 'fresh');
