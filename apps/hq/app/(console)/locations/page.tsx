@@ -33,7 +33,7 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
   const notice = squareConnectNotice(params);
   const createdNotice = params.created ? CREATED_NOTICE[params.created] ?? null : null;
   // An owner may add a store only when the brand is licensed for more than one.
-  const canAddLocation = hasRole(session, 'brand_owner') && multiLocation;
+  const canAddLocation = hasRole(session, 'brand_owner') && (multiLocation || locations.length === 0);
   // Whether a control is drawn; never whether the write is allowed. The same
   // check runs again in lib/device-admin, against the same claims.
   const manages = (locationId: string) => claims !== null && canManageLocation(claims, locationId);

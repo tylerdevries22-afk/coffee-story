@@ -46,6 +46,10 @@ create table public.platform_access_events (
 
 create index platform_access_brand_created_idx
   on public.platform_access_events (brand_id, created_at desc);
+create index platform_access_actor_idx
+  on public.platform_access_events (actor_id);
+create index platform_access_location_idx
+  on public.platform_access_events (location_id);
 create unique index platform_access_action_correlation_uidx
   on public.platform_access_events (action, correlation_id);
 
