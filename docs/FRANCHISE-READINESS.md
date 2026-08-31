@@ -192,3 +192,42 @@ config), never from another tenant; unit tests assert the config has no
   short-circuit.
 - **Per-location fee overrides** and **multi-location gating** on the
   `multi_location` flag.
+
+---
+
+# Autonomous completion pass
+
+Continuing the plan above, the following were researched and built (all behind
+`pnpm verify`, green):
+
+- **Location scoping finished where it belongs.** The operations workspace
+  (occurrences + schedules) now follows the header location; a codebase audit
+  confirmed drops, menu, campaigns, customers have no `location_id` and devices
+  are deliberately brand-wide, so those are correctly left alone. KPIs and fees
+  were already scoped.
+- **Operational add-location chain.** The wizard offers to continue into Square
+  consent after creating a store, and the "Add location" button is gated on the
+  brand's `multi_location` flag.
+- **Menu CSV import** (`/menu/import`) — brand-owner self-serve, RLS-authored,
+  idempotent, reusing the shared parser; the concrete slice of "menu import".
+- **`brand_directory` view + `platform_access_events` audit log** migration
+  (`20260831000000…`), extending the release-readiness chain.
+
+## Deferred, with reasons (not silently dropped)
+
+- **Logo → assets / EAS automation.** Needs an image pipeline (`sharp`) in a
+  server route and external EAS/App-Store accounts; belongs to the CLI/infra
+  path, not an in-app action.
+- **Full staff-invite UI.** Writing `brand_users` needs an email → `user_id`
+  lookup that only the auth-admin (service role) can do safely; deferred rather
+  than expose that surface casually.
+- **Per-location fee overrides in the wizard.** The fee columns are revoked from
+  `authenticated` at the column level (they are commercial terms), so a write
+  needs a reviewed service-role path — not a quick wizard field.
+- **Five-app RN switchers** (customer/kiosk/display). Architectural/preview-flag
+  work on the Expo binaries; operator already has the real switcher.
+- **Wiring the `record_platform_access` log calls.** The schema exists; the calls
+  belong in the service-role platform paths, not in RLS page reads.
+- **Relaxing org creation to brand_owner.** Kept `platform_admin` — `brands_insert`
+  is admin-only and minting a tenant is an operator action; relaxing it is a
+  security-posture change that should be a deliberate, separate migration.
