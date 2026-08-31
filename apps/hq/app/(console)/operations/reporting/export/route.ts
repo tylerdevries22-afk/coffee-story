@@ -1,6 +1,12 @@
 import { hasRole, currentSession } from '@/lib/auth';
-import { operationReportCsv, operationReportFilters } from '@/lib/operations-report';
+import {
+  operationReportCsv,
+  operationReportFilters,
+  operationReportLocationId,
+} from '@/lib/operations-report';
 import { serverClient } from '@/lib/supabase-server';
+import { authorizedSelectedLocationId } from '@/lib/workspace-location';
+import { selectedOrganizationId } from '@/lib/workspace-scope';
 
 type OccurrenceRow = {
   id: string;
@@ -28,22 +34,26 @@ export async function GET(request: Request): Promise<Response> {
   if (!filters) {
     return Response.json({ error: { code: 'invalid_request', message: 'Report filters are invalid.' } }, { status: 400 });
   }
-  const feature = await client.from('brands').select('operations').eq('id', session.brandId)
+  const [brandId, workspaceLocationId] = await Promise.all([
+    selectedOrganizationId(session), authorizedSelectedLocationId(),
+  ]);
+  const locationId = operationReportLocationId(filters.locationId, workspaceLocationId);
+  const feature = await client.from('brands').select('operations').eq('id', brandId)
     .maybeSingle<{ operations: boolean }>();
   if (feature.error || !feature.data?.operations) {
     return Response.json({ error: { code: 'operations_disabled', message: 'Operations are not enabled.' } }, { status: 404 });
   }
   let occurrenceQuery = client.from('operation_occurrences')
     .select('id,location_id,template_snapshot,status,scheduled_for,due_at,completed_at')
-    .eq('brand_id', session.brandId).gte('scheduled_for', filters.from).lte('scheduled_for', filters.to)
+    .eq('brand_id', brandId).gte('scheduled_for', filters.from).lte('scheduled_for', filters.to)
     .order('scheduled_for', { ascending: false }).limit(10_000);
-  if (filters.locationId) occurrenceQuery = occurrenceQuery.eq('location_id', filters.locationId);
+  if (locationId) occurrenceQuery = occurrenceQuery.eq('location_id', locationId);
   if (filters.status) occurrenceQuery = occurrenceQuery.eq('status', filters.status);
   const [occurrences, locations, issues] = await Promise.all([
     occurrenceQuery.returns<OccurrenceRow[]>(),
-    client.from('locations').select('id,name').eq('brand_id', session.brandId)
+    client.from('locations').select('id,name').eq('brand_id', brandId)
       .returns<{ id: string; name: string }[]>(),
-    client.from('operation_issues').select('occurrence_id,category').eq('brand_id', session.brandId)
+    client.from('operation_issues').select('occurrence_id,category').eq('brand_id', brandId)
       .returns<IssueRow[]>(),
   ]);
   if (occurrences.error || locations.error || issues.error) {

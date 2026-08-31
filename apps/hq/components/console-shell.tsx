@@ -17,7 +17,10 @@ import { NavLink } from './nav-link';
 const PAGE_TITLES: Readonly<Record<string, string>> = {
   '/': 'Overview',
   '/locations': 'Locations',
+  '/locations/new': 'Add location',
+  '/organizations/new': 'Create organization',
   '/menu': 'Menu',
+  '/menu/import': 'Import menu',
   '/catalog': 'Catalog',
   '/content': 'Catalog',
   '/fees': 'Platform fees',
@@ -73,6 +76,8 @@ type ConsoleShellProps = {
   readonly statusHref: string;
   readonly dataMode: 'hosted' | 'preview';
   readonly sessionFooter: ReactNode;
+  readonly orgSwitcher?: ReactNode;
+  readonly locationSwitcher?: ReactNode;
 };
 
 type ConsoleRailProps = Pick<
@@ -148,13 +153,14 @@ function ConsoleRail({
               key={section.key}
               href={section.home}
               icon={section.icon}
+              ariaLabel={section.title}
               className="console-nav-link console-section-link"
               active={section.items.some((item) => pathMatchesHref(pathname, item.href))}
             >
               {section.title}
             </NavLink>
           ))}
-          <NavLink href={statusHref} icon="activity" className="console-nav-link console-section-link">
+          <NavLink href={statusHref} icon="activity" ariaLabel="System" className="console-nav-link console-section-link">
             System
           </NavLink>
         </div>
@@ -200,6 +206,8 @@ function ConsoleTopbar({
   onOpenNavigation,
   triggerButtonRef,
   dataMode,
+  orgSwitcher,
+  locationSwitcher,
 }: {
   section: ConsoleSection;
   pageTitle: string;
@@ -208,9 +216,11 @@ function ConsoleTopbar({
   onOpenNavigation: () => void;
   triggerButtonRef: RefObject<HTMLButtonElement | null>;
   dataMode: 'hosted' | 'preview';
+  orgSwitcher?: ReactNode;
+  locationSwitcher?: ReactNode;
 }) {
   return (
-    <header className="topbar">
+    <header className="topbar" aria-hidden={navigationOpen || undefined} inert={navigationOpen || undefined}>
       <div className="topbar-context">
         <button
           ref={triggerButtonRef}
@@ -223,6 +233,10 @@ function ConsoleTopbar({
         >
           <Icon name="menu" size={18} />
         </button>
+        {orgSwitcher}
+        {orgSwitcher && locationSwitcher ? <span className="topbar-separator" aria-hidden="true">/</span> : null}
+        {locationSwitcher}
+        {locationSwitcher ? <span className="topbar-separator" aria-hidden="true">/</span> : null}
         <div className="breadcrumb" aria-label="Current page">
           <span className="breadcrumb-muted">{section.title}</span>
           <Icon name="chevron" size={15} />
@@ -317,6 +331,17 @@ export function ConsoleShell(props: ConsoleShellProps) {
         onClose={() => setNavigationOpen(false)}
         closeButtonRef={closeButtonRef}
       />
+      <ConsoleTopbar
+        section={activeSection}
+        pageTitle={pageTitle}
+        initials={props.initials}
+        navigationOpen={drawerOpen}
+        onOpenNavigation={() => setNavigationOpen(true)}
+        triggerButtonRef={triggerButtonRef}
+        dataMode={props.dataMode}
+        orgSwitcher={props.orgSwitcher}
+        locationSwitcher={props.locationSwitcher}
+      />
       <button
         className={`rail-scrim${drawerOpen ? ' open' : ''}`}
         type="button"
@@ -326,15 +351,6 @@ export function ConsoleShell(props: ConsoleShellProps) {
         onClick={() => setNavigationOpen(false)}
       />
       <div className="app-content" aria-hidden={drawerOpen || undefined} inert={drawerOpen || undefined}>
-        <ConsoleTopbar
-          section={activeSection}
-          pageTitle={pageTitle}
-          initials={props.initials}
-          navigationOpen={drawerOpen}
-          onOpenNavigation={() => setNavigationOpen(true)}
-          triggerButtonRef={triggerButtonRef}
-          dataMode={props.dataMode}
-        />
         <ContextRail section={activeSection} statusHref={props.statusHref} />
         <main id="main-content" className="main">{props.children}</main>
       </div>

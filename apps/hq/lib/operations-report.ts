@@ -22,6 +22,14 @@ export type OperationReportRow = {
   issueTypes: readonly string[];
 };
 
+/** An explicit report filter wins; otherwise the export follows the workspace. */
+export function operationReportLocationId(
+  requestedLocationId: string | null,
+  workspaceLocationId: string | null,
+): string | null {
+  return requestedLocationId ?? workspaceLocationId;
+}
+
 export function operationReportFilters(
   searchParams: URLSearchParams,
   now = new Date(),

@@ -15,7 +15,10 @@ describe('squareConnectNotice', () => {
   });
 
   it('explains every refusal the callback can redirect with', () => {
-    for (const reason of ['several_locations', 'unsupported_currency', 'no_active_location', 'unreachable']) {
+    for (const reason of [
+      'several_locations', 'unsupported_currency', 'no_active_location', 'unreachable',
+      'authorization_failed', 'storage_failed',
+    ]) {
       const notice = squareConnectNotice({ square: reason });
       assert.equal(notice?.failed, true, reason);
       assert.ok((notice?.message.length ?? 0) > 20, `${reason} needs a real message`);
@@ -31,6 +34,20 @@ describe('squareConnectNotice', () => {
 
   it('prefers the failure when both parameters arrive', () => {
     assert.equal(squareConnectNotice({ connected: '1', square: 'unreachable' })?.failed, true);
+  });
+
+  it('makes an unconfirmed token cleanup actionable', () => {
+    const refused = squareConnectNotice({
+      square: 'several_locations', square_warning: 'issued_token_active',
+    });
+    assert.equal(refused?.failed, true);
+    assert.match(refused?.message ?? '', /Square dashboard/);
+
+    const replaced = squareConnectNotice({
+      connected: '1', square_warning: 'previous_token_active',
+    });
+    assert.equal(replaced?.failed, true);
+    assert.match(replaced?.message ?? '', /Square dashboard.*reconnect/i);
   });
 
   it('reports both endings a disconnect can have, and says which job is left', () => {

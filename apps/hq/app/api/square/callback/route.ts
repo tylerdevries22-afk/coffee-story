@@ -1,6 +1,5 @@
 import {
   chooseSquareLocation,
-  encryptToken,
   exchangeOAuthCode,
   listSquareLocations,
   loadTokenKey,
@@ -12,6 +11,11 @@ import { createClient } from '@supabase/supabase-js';
 
 import { authorizeSquareCallback, refusalResponse } from '../../../../lib/square-callback-auth';
 import { decodeOAuthState } from '../../../../lib/square-oauth-state';
+import {
+  recordSquareConnectionPointer,
+  replaceSquareConnection,
+  revokeSquareAccessToken,
+} from '../../../../lib/square-admin';
 import { serverClient } from '../../../../lib/supabase-server';
 import { tokenAppMetadata } from '../../../../lib/token-claims';
 
@@ -95,7 +99,41 @@ export async function GET(request: Request): Promise<Response> {
     return new Response(refusal.body, { status: refusal.status });
   }
 
-  const tokens = await exchangeOAuthCode(config, code);
+  // Fail before exchanging Square's one-time code if this deployment cannot
+  // encrypt what comes back. Otherwise Square would issue a live credential
+  // that the platform can neither store nor revoke.
+  try {
+    loadTokenKey();
+  } catch {
+    return new Response('Square token encryption is not configured on this deployment.', { status: 501 });
+  }
+
+  // Read the credential that a reconnect will replace before exchanging the
+  // code. A database outage after the exchange would otherwise strand the new
+  // token before the callback even reached its guarded upsert.
+  const previous = await db
+    .from('square_connections')
+    .select('access_token_encrypted, refresh_token_encrypted')
+    .eq('location_id', decision.locationId)
+    .eq('brand_id', location!.brand_id)
+    .maybeSingle<{ access_token_encrypted: string; refresh_token_encrypted: string }>();
+  if (previous.error) {
+    return new Response('Could not prepare the Square connection. Try again from Locations.', { status: 500 });
+  }
+
+  let tokens: Awaited<ReturnType<typeof exchangeOAuthCode>>;
+  try {
+    tokens = await exchangeOAuthCode(config, code);
+  } catch {
+    return Response.redirect(new URL('/locations?square=authorization_failed', url.origin), 302);
+  }
+
+  const refuseIssuedGrant = async (reason: string): Promise<Response> => {
+    const revoked = await revokeSquareAccessToken(config, tokens.access_token);
+    const target = new URL(`/locations?square=${reason}`, url.origin);
+    if (!revoked) target.searchParams.set('square_warning', 'issued_token_active');
+    return Response.redirect(target, 302);
+  };
 
   // Which of the merchant's Square locations this shop bills against.
   //
@@ -112,35 +150,53 @@ export async function GET(request: Request): Promise<Response> {
   try {
     chosen = chooseSquareLocation(await listSquareLocations(config, tokens.access_token));
   } catch {
-    return Response.redirect(new URL('/locations?square=unreachable', url.origin), 302);
+    return refuseIssuedGrant('unreachable');
   }
   if (!chosen.ok) {
-    return Response.redirect(new URL(`/locations?square=${chosen.reason}`, url.origin), 302);
+    return refuseIssuedGrant(chosen.reason);
   }
 
-  const key = loadTokenKey();
+  const replacement = await replaceSquareConnection(db, config, {
+    brandId: location!.brand_id,
+    locationId: decision.locationId,
+    squareLocationId: chosen.location.id,
+    tokens,
+    previousConnection: previous.data ?? null,
+  });
+  if (!replacement.ok) {
+    console.error('Square connection could not be stored.', {
+      brandId: location!.brand_id,
+      locationId: decision.locationId,
+      cleanupFailed: replacement.cleanupFailed,
+    });
+    const target = new URL('/locations?square=storage_failed', url.origin);
+    if (replacement.cleanupFailed) target.searchParams.set('square_warning', 'issued_token_active');
+    return Response.redirect(target, 302);
+  }
 
-  const { data: connection, error: upsertError } = await db
-    .from('square_connections')
-    .upsert(
-      {
-        brand_id: location!.brand_id,
-        location_id: decision.locationId,
-        merchant_id: tokens.merchant_id,
-        square_location_id: chosen.location.id,
-        access_token_encrypted: encryptToken(tokens.access_token, key),
-        refresh_token_encrypted: encryptToken(tokens.refresh_token, key),
-        expires_at: tokens.expires_at,
-      },
-      { onConflict: 'location_id' },
-    )
-    .select('id')
-    .single();
-  if (upsertError) return new Response(`Could not store the connection: ${upsertError.message}`, { status: 500 });
-
-  // The console reads this back-pointer as "Connected" and hides the retry
-  // button behind it, so it is set last -- only once there is a Square
-  // location to bill against and the shop really can take a card.
-  await db.from('locations').update({ square_connection_id: connection.id }).eq('id', decision.locationId);
-  return Response.redirect(new URL('/locations?connected=1', url.origin), 302);
+  // Keep the legacy back-pointer synchronized after the authoritative row is
+  // complete. Checkout and the console both read square_connections directly,
+  // so a failed compatibility write is logged but cannot turn a working
+  // authorization into a false failure page.
+  const linked = await recordSquareConnectionPointer(db, {
+    brandId: location!.brand_id,
+    locationId: decision.locationId,
+    connectionId: replacement.connectionId,
+  });
+  if (!linked) {
+    console.warn('Square connection back-pointer was not synchronized.', {
+      brandId: location!.brand_id,
+      locationId: decision.locationId,
+      connectionId: replacement.connectionId,
+    });
+  }
+  const target = new URL('/locations?connected=1', url.origin);
+  if (replacement.previousRetirementFailed) {
+    console.warn('Previous Square access token retirement was not queued.', {
+      brandId: location!.brand_id,
+      locationId: decision.locationId,
+    });
+    target.searchParams.set('square_warning', 'previous_token_active');
+  }
+  return Response.redirect(target, 302);
 }

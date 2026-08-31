@@ -2,8 +2,6 @@ import type { CSSProperties, ReactNode } from 'react';
 import { headers } from 'next/headers';
 import { after } from 'next/server';
 
-import { slugify } from '@platform/domain';
-
 import { currentSession, hasRole } from '@/lib/auth';
 import { isConfigured } from '@/lib/supabase-server';
 import { Icon } from '@/components/icon';
@@ -12,6 +10,9 @@ import { consoleSectionsFor } from '@/lib/console-navigation';
 import { serverClient } from '@/lib/supabase-server';
 import { hqTheme } from '@/lib/theme';
 import { recordHqScreen } from '@/lib/hq-telemetry';
+import { readWorkspaceScope, orgSlug } from '@/lib/workspace-scope';
+import { OrganizationSwitcher, LocationSwitcher } from '@/components/workspace-switcher';
+import { selectOrganization, selectLocation } from '@/app/actions/workspace';
 
 import { signOut } from './login/actions';
 
@@ -51,8 +52,10 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
   // lives in this route group so it can reuse the session-bound data layer,
   // but must not inherit the sidebar or console chrome inside the iframe.
   if (pathname.startsWith('/wall/preview/')) return children;
-  const brand = client && session
-    ? await client.from('brands').select('brand_config, operations').eq('id', session.brandId)
+  const scope = session ? await readWorkspaceScope(session) : null;
+  const selectedBrandId = scope?.organizationId ?? session?.brandId ?? null;
+  const brand = client && selectedBrandId
+    ? await client.from('brands').select('brand_config, operations').eq('id', selectedBrandId)
       .maybeSingle<{ brand_config: unknown; operations: boolean }>()
     : null;
   const brandConfig = brand && !brand.error ? brand.data?.brand_config : null;
@@ -76,7 +79,7 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
         await recordHqScreen({
           accessToken,
           behavioralConsent: tenantPolicy && userConsent,
-          brandId: session.brandId,
+          brandId: selectedBrandId ?? session.brandId,
           endpointOrigin,
           pathname,
         });
@@ -86,7 +89,10 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
   // Signed out there is no tenant to name, so the rail wears the console's own
   // identity rather than the first tenant onboarded to it. Reachable only on
   // /login and /status/*: every other path with no session returned above.
-  const brandName = session?.brandName ?? 'HQ';
+  // Scope drives the shell's identity so the console themes and titles itself
+  // for whichever organization is selected, not only the session's home brand.
+  const themeConfig = scope?.brandConfig ?? brandConfig;
+  const brandName = scope?.brandName ?? session?.brandName ?? 'HQ';
   const words = brandName.split(/\s+/).filter(Boolean);
   // A one-word brand takes two letters from that word -- "Bloom" reads as BL,
   // where one initial reads as a stray letter next to a two-initial neighbour.
@@ -94,7 +100,7 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
     ? (words[0] ?? '').slice(0, 2)
     : words.slice(0, 2).map((word) => word.charAt(0)).join('')
   ).toUpperCase() || 'HQ';
-  const statusSlug = slugify(brandName, 64) || 'tenant';
+  const statusSlug = orgSlug(brandName);
   const menuHref = hasRole(session, 'brand_owner') ? '/catalog' : '/menu';
   const canManageTraining = hasRole(session, 'location_manager');
   const canManagePlatform = hasRole(session, 'platform_admin');
@@ -112,12 +118,27 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
   });
   return (
     <ConsoleShell
-      theme={hqTheme(brandConfig) as CSSProperties}
+      theme={hqTheme(themeConfig) as CSSProperties}
       sections={consoleSections}
       brandName={brandName}
       initials={initials}
       statusHref={`/status/${statusSlug}`}
       dataMode={isConfigured() ? 'hosted' : 'preview'}
+      orgSwitcher={session && scope ? (
+        <OrganizationSwitcher
+          organizations={scope.organizations}
+          organizationId={scope.organizationId}
+          selectOrganizationAction={selectOrganization}
+          createOrgHref={canManagePlatform ? '/organizations/new' : undefined}
+        />
+      ) : undefined}
+      locationSwitcher={session && scope ? (
+        <LocationSwitcher
+          locations={scope.locations}
+          locationId={scope.locationId}
+          selectLocationAction={selectLocation}
+        />
+      ) : undefined}
       sessionFooter={(
         <div className="session">
           {session ? (

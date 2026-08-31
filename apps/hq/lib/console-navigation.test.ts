@@ -40,6 +40,7 @@ describe('consoleSectionsFor', () => {
       '/locations',
       '/wall',
       '/catalog',
+      '/menu/import',
       '/kiosk',
       '/training',
       '/drops',

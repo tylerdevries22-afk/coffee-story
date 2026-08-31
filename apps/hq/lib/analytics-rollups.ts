@@ -2,6 +2,7 @@ import type { AnalyticsSurface } from '@platform/analytics';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { serverClient } from './supabase-server';
+import { currentSession } from './auth';
 
 export type AnalyticsRollup = Readonly<{
   day: string;
@@ -25,6 +26,20 @@ type AnalyticsRollupRow = {
   readonly duration_p95_ms: number | null;
 };
 
+type AnalyticsScopeQuery<T> = {
+  eq(column: string, value: string): T;
+};
+
+/** Applies the re-authorized workspace scope before any telemetry is read. */
+export function scopeAnalyticsRollups<T extends AnalyticsScopeQuery<T>>(
+  query: T,
+  brandId: string,
+  locationId: string | null,
+): T {
+  const tenantQuery = query.eq('brand_id', brandId);
+  return locationId ? tenantQuery.eq('location_id', locationId) : tenantQuery;
+}
+
 /** Converts PostgREST numeric values into the bounded dashboard contract. */
 export function analyticsRollupsOf(rows: readonly AnalyticsRollupRow[]): readonly AnalyticsRollup[] {
   return rows.map((row) => Object.freeze({
@@ -45,10 +60,16 @@ export async function loadAnalyticsRollups(
 ): Promise<readonly AnalyticsRollup[]> {
   const client = providedClient === undefined ? await serverClient() : providedClient;
   if (!client) return [];
+  const session = await currentSession();
+  if (!session) return [];
+  const { readWorkspaceScope } = await import('./workspace-scope');
+  const scope = await readWorkspaceScope(session);
+  const brandId = scope.organizationId ?? session.brandId;
   const from = new Date();
   from.setUTCDate(from.getUTCDate() - 30);
-  const result = await client.from('analytics_daily_rollups')
-    .select('day, surface, metric_key, event_count, success_count, failure_count, duration_p50_ms, duration_p95_ms')
+  const base = client.from('analytics_daily_rollups')
+    .select('day, surface, metric_key, event_count, success_count, failure_count, duration_p50_ms, duration_p95_ms');
+  const result = await scopeAnalyticsRollups(base, brandId, scope.locationId)
     .gte('day', from.toISOString().slice(0, 10))
     .order('day', { ascending: false })
     .limit(5_000)

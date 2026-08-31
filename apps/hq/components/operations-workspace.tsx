@@ -9,11 +9,12 @@ import {
   cancelOperation,
 } from '@/app/(console)/operations/actions';
 import { OperationScheduleForm } from '@/components/operation-schedule-form';
+import { ConsoleState } from '@/components/console-state';
 
 export type OperationsView = 'live' | 'templates' | 'schedules' | 'history' | 'reporting' | 'retention';
 
 function EmptyState({ children }: { children: string }) {
-  return <div className="notice" role="status">{children}</div>;
+  return <ConsoleState title="Nothing to review" description={children} />;
 }
 
 function StatusPill({ status }: { status: string }) {

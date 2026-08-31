@@ -98,6 +98,16 @@ export async function pairDevice(
   if (!canManageLocation(claims, input.locationId)) {
     throw new DeviceAdminError('forbidden', 'You do not manage that location.');
   }
+  // Platform admins manage every location by role, so role authorization is
+  // not enough to bind a service-role insert to the JWT's home tenant. Verify
+  // ownership before minting a token or writing a device row.
+  const location = await deps.db.from('locations').select('id')
+    .eq('id', input.locationId).eq('brand_id', claims.brand_id)
+    .maybeSingle<{ id: string }>();
+  if (location.error) throw new DeviceAdminError('invalid_request', location.error.message);
+  if (!location.data) {
+    throw new DeviceAdminError('forbidden', 'You do not manage that location.');
+  }
   return issuePairingCode({ db: deps.db, key: deps.loadKey() }, {
     brandId: claims.brand_id,
     locationId: input.locationId,

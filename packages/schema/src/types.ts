@@ -156,6 +156,20 @@ export type SquareConnectionRow = {
   updated_at: string;
 };
 
+/**
+ * A server-only, short-lived copy of a replaced Square access credential.
+ * Tenant identifiers are retained without foreign keys: deleting a location
+ * must not strand a previously issued token before the worker revokes it.
+ */
+export type SquareAccessTokenRetirementRow = {
+  id: string;
+  brand_id: string;
+  location_id: string;
+  access_token_encrypted: string;
+  retire_after: string;
+  created_at: string;
+};
+
 export type MenuRow = {
   id: string;
   brand_id: string;

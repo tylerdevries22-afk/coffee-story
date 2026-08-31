@@ -115,6 +115,9 @@ function contentSection(access: ConsoleNavigationAccess): ConsoleSection {
     items: [
       { href: access.menuHref, label: access.menuHref === '/catalog' ? 'Catalog' : 'Menu', icon: 'menu' },
       ...(access.canManageBrand
+        ? [{ href: '/menu/import', label: 'Import CSV', icon: 'menu' as const }]
+        : []),
+      ...(access.canManageBrand
         ? [{ href: '/kiosk', label: 'Kiosk', icon: 'kiosk' as const }]
         : []),
       ...(access.canManageTraining

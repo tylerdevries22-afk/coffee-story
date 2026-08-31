@@ -15,8 +15,15 @@ import {
 import { GET as getOperationQueue } from '../../../apps/hq/app/api/operations/queue/route.ts';
 
 import {
-  createSignedInUser, seedBrand, serviceClient, skipUnlessConfigured, sql, userClient,
+  createSignedInUser, seedBrand, serviceClient, skipUnlessConfigured, sql, stack, userClient,
 } from './stack.ts';
+
+// The handlers run in-process and read their deployment configuration when a
+// request arrives. Keep this suite executable with the documented
+// SUPABASE_TEST_* variables alone, just like the other route integration
+// suites.
+process.env.SUPABASE_URL = stack.url;
+process.env.SUPABASE_SERVICE_ROLE_KEY = stack.serviceRoleKey;
 
 type Tenant = { brandId: string; locationId: string };
 type Member = {

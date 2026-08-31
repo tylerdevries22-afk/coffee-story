@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { currentSession, hasRole } from '@/lib/auth';
 import { brandSettingsPatch } from '@/lib/brand-config';
 import { serverClient } from '@/lib/supabase-server';
+import { selectedOrganizationId } from '@/lib/workspace-scope';
 
 export type SaveBrandResult =
   | { ok: true; updatedAt: string }
@@ -18,6 +19,9 @@ export async function saveBrandConfig(
   const session = await currentSession();
   if (!hasRole(session, 'brand_owner')) {
     return { ok: false, error: 'Only a brand owner can change brand settings.' };
+  }
+  if (!session || await selectedOrganizationId(session) !== session.brandId) {
+    return { ok: false, error: 'Cross-organization settings changes require the audited support workflow.' };
   }
   const client = await serverClient();
   if (!client) return { ok: false, error: 'This deployment has no database configured.' };

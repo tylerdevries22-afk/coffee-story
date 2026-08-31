@@ -2,6 +2,7 @@ import { AnalyticsDashboard } from '@/components/analytics-dashboard';
 import { buildAnalyticsDashboard, type AnalyticsViewKey } from '@/lib/analytics-dashboard';
 import { loadAnalyticsRollups } from '@/lib/analytics-rollups';
 import { loadCampaigns, loadCustomers, loadDrops, loadKpis } from '@/lib/data';
+import { selectedLocationLabel } from '@/lib/workspace-location';
 
 type AnalyticsRouteProps = {
   view: AnalyticsViewKey;
@@ -10,16 +11,17 @@ type AnalyticsRouteProps = {
 /** Load tenant-scoped operational facts and render one analytics view. */
 export async function AnalyticsRoute({ view }: AnalyticsRouteProps) {
   try {
-    const [kpis, drops, campaigns, customers, telemetry] = await Promise.all([
+    const [kpis, drops, campaigns, customers, telemetry, locationLabel] = await Promise.all([
       loadKpis(),
       loadDrops(),
       loadCampaigns(),
       loadCustomers(),
       loadAnalyticsRollups(),
+      selectedLocationLabel(),
     ]);
 
     const model = buildAnalyticsDashboard(view, { kpis, drops, campaigns, customers, telemetry });
-    return <AnalyticsDashboard model={model} />;
+    return <AnalyticsDashboard model={model} locationLabel={locationLabel} />;
   } catch {
     return (
       <section className="analytics-load-error" role="alert">

@@ -8,6 +8,9 @@ import {
 
 import { currentSession, hasRole } from './auth';
 import { serverClient } from './supabase-server';
+import { selectedLocationId } from './workspace-location';
+import { liveScope } from './live-scope';
+import { scopeWorkspaceToLocation } from './operations-workspace-scope';
 
 export type OperationsTemplateSummary = {
   id: string; key: string; revision: number; title: string; locationId: string | null;
@@ -115,20 +118,27 @@ function emptyWorkspace(enabled: boolean, owner: boolean): OperationsWorkspace {
 }
 
 export async function loadOperationsWorkspace(): Promise<OperationsWorkspace> {
-  const [session, client] = await Promise.all([currentSession(), serverClient()]);
-  if (!client) return demoWorkspace();
+  const [session, client, demoLocationId] = await Promise.all([currentSession(), serverClient(), selectedLocationId()]);
+  if (!client) return scopeWorkspaceToLocation(demoWorkspace(), demoLocationId);
   if (!session || !hasRole(session, 'location_manager')) return emptyWorkspace(false, false);
-  const brandId = session.brandId;
+  const scope = await liveScope(client);
+  if (!scope.orgId) return emptyWorkspace(false, hasRole(session, 'brand_owner'));
+  const brandId = scope.orgId;
+  const locationId = scope.locationId;
   const brand = await client.from('brands').select('operations').eq('id', brandId)
     .maybeSingle<{ operations: boolean }>();
   if (brand.error || !brand.data?.operations) return emptyWorkspace(false, hasRole(session, 'brand_owner'));
   const since = new Date(Date.now() - 31 * 24 * 60 * 60 * 1_000).toISOString();
+  // The header location scopes the per-store work -- schedules and occurrences
+  // -- at the query, so the database returns only that store's rows.
+  const schedulesQuery = client.from('operation_schedules').select('id,schedule_key,location_id,template_id,recurrence_rule,weekdays,local_start_time,schedule_kind,due_window_minutes,grace_minutes,is_enabled').eq('brand_id', brandId).order('local_start_time');
+  const occurrencesQuery = client.from('operation_occurrences').select('id,location_id,template_snapshot,status,scheduled_for,due_at,grace_minutes,claimed_by,completed_at,completion_note').eq('brand_id', brandId).gte('scheduled_for', since).order('scheduled_for', { ascending: false }).limit(500);
   const [locations, templates, schedules, occurrences, issues, retention] = await Promise.all([
     client.from('locations').select('id,name,timezone').eq('brand_id', brandId)
       .returns<{ id: string; name: string; timezone: string }[]>(),
     client.from('operation_task_templates').select('id,template_key,revision,title,location_id,routine_kind,estimated_minutes,is_active,managed_by_config').eq('brand_id', brandId).order('title').returns<TemplateRow[]>(),
-    client.from('operation_schedules').select('id,schedule_key,location_id,template_id,recurrence_rule,weekdays,local_start_time,schedule_kind,due_window_minutes,grace_minutes,is_enabled').eq('brand_id', brandId).order('local_start_time').returns<ScheduleRow[]>(),
-    client.from('operation_occurrences').select('id,location_id,template_snapshot,status,scheduled_for,due_at,grace_minutes,claimed_by,completed_at,completion_note').eq('brand_id', brandId).gte('scheduled_for', since).order('scheduled_for', { ascending: false }).limit(500).returns<OccurrenceRow[]>(),
+    (locationId ? schedulesQuery.eq('location_id', locationId) : schedulesQuery).returns<ScheduleRow[]>(),
+    (locationId ? occurrencesQuery.eq('location_id', locationId) : occurrencesQuery).returns<OccurrenceRow[]>(),
     client.from('operation_issues').select('id,occurrence_id,category,severity,status,created_at').eq('brand_id', brandId).order('created_at', { ascending: false }).limit(200).returns<IssueRow[]>(),
     client.from('operation_retention_policies').select('evidence_days,issue_days,actor_identity_days').eq('brand_id', brandId).maybeSingle<{ evidence_days: number; issue_days: number; actor_identity_days: number }>(),
   ]);
@@ -146,7 +156,7 @@ export async function loadOperationsWorkspace(): Promise<OperationsWorkspace> {
     dueAt: row.due_at, graceMinutes: row.grace_minutes, claimedBy: row.claimed_by,
     completedAt: row.completed_at, completionNote: row.completion_note,
   }));
-  return {
+  return scopeWorkspaceToLocation({
     enabled: true, canEditBrandDefaults: hasRole(session, 'brand_owner'),
     locations: locations.data ?? [],
     templates: (templates.data ?? []).map((row) => ({ id: row.id, key: row.template_key,
@@ -165,5 +175,5 @@ export async function loadOperationsWorkspace(): Promise<OperationsWorkspace> {
     retention: retention.data ? { evidenceDays: retention.data.evidence_days,
       issueDays: retention.data.issue_days, actorIdentityDays: retention.data.actor_identity_days }
       : { evidenceDays: 365, issueDays: 730, actorIdentityDays: 365 },
-  };
+  }, locationId);
 }

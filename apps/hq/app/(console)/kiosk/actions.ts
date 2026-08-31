@@ -6,6 +6,7 @@ import { normalizeForSave, resolveKioskFlow, type KioskMenuFacts } from '@platfo
 
 import { serverClient } from '@/lib/supabase-server';
 import { currentSession, hasRole } from '@/lib/auth';
+import { selectedOrganizationId } from '@/lib/workspace-scope';
 
 export type SaveResult =
   | { ok: true; updatedAt: string }
@@ -35,6 +36,9 @@ export async function saveKioskFlow(
   // Nav visibility is not authorisation; the page checks too, and so does RLS.
   if (!hasRole(session, 'brand_owner')) {
     return { ok: false, error: 'Only a brand owner can change the kiosk flow.' };
+  }
+  if (!session || await selectedOrganizationId(session) !== session.brandId) {
+    return { ok: false, error: 'Cross-organization kiosk changes require the audited support workflow.' };
   }
 
   const client = await serverClient();

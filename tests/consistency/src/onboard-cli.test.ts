@@ -4,13 +4,19 @@ import { join } from 'node:path';
 import { describe, it } from 'node:test';
 
 const ROOT = join(process.cwd(), '..', '..');
-const TSX = join(ROOT, 'node_modules', '.bin', 'tsx');
 
 describe('tenant onboarding CLI', () => {
   it('rejects --owner-user-id when its UUID value is missing', () => {
     const result = spawnSync(
-      TSX,
-      [join(ROOT, 'scripts', 'onboard.ts'), '--tenant', 'demo-roastery', '--owner-user-id'],
+      process.execPath,
+      [
+        '--import',
+        'tsx',
+        join(ROOT, 'scripts', 'onboard.ts'),
+        '--tenant',
+        'demo-roastery',
+        '--owner-user-id',
+      ],
       { cwd: ROOT, encoding: 'utf8', timeout: 10_000 },
     );
 

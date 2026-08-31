@@ -2,20 +2,23 @@ import { loadDrops, loadKpis } from '@/lib/data';
 import { formatMoney, formatShare, rollupByLocation, rollupKpis } from '@/lib/kpi';
 import { demoSyncRuntimeEnabled } from '@/lib/demo-sync-http';
 import { DemoLiveActivity } from './demo-live-activity';
+import { selectedLocationLabel } from '@/lib/workspace-location';
 // The console is live data behind a session: never prerender a fixture
 // snapshot at build time and serve it as if it were today's numbers.
 export const dynamic = 'force-dynamic';
 
 
 export default async function DashboardPage() {
-  const [kpis, drops] = await Promise.all([loadKpis(), loadDrops()]);
+  const [kpis, drops, locationLabel] = await Promise.all([
+    loadKpis(), loadDrops(), selectedLocationLabel(),
+  ]);
   const totals = rollupKpis(kpis);
   const byLocation = rollupByLocation(kpis);
   const liveDrop = drops.find((drop) => drop.status === 'live');
   return (
     <>
       <h1>This week</h1>
-      <p className="subtitle">All locations · last 7 days</p>
+      <p className="subtitle">{locationLabel} · last 7 days</p>
 
       {demoSyncRuntimeEnabled() ? <DemoLiveActivity /> : null}
 
