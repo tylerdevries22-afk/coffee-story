@@ -232,13 +232,13 @@ function ConsoleTopbar({
         >
           <Icon name="menu" size={18} />
         </button>
-        {orgSwitcher}
+        {orgSwitcher ? <div className="topbar-scope topbar-org-scope">{orgSwitcher}</div> : null}
         <div className="breadcrumb" aria-label="Current page">
           <span className="breadcrumb-muted">{section.title}</span>
           <Icon name="chevron" size={15} />
           <strong>{pageTitle}</strong>
         </div>
-        {locationSwitcher}
+        {locationSwitcher ? <div className="topbar-scope topbar-location-scope">{locationSwitcher}</div> : null}
       </div>
       <div className="topbar-actions">
         <span className={`sync-state ${dataMode}`}><span className="sync-dot" /> {dataMode === 'hosted' ? 'Supabase synced' : 'Local preview data'}</span>
