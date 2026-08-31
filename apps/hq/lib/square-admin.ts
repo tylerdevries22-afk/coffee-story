@@ -65,14 +65,18 @@ export async function recordSquareConnectionPointer(
   db: SupabaseClient,
   input: { brandId: string; locationId: string; connectionId: string },
 ): Promise<boolean> {
-  const linked = await db
-    .from('locations')
-    .update({ square_connection_id: input.connectionId })
-    .eq('id', input.locationId)
-    .eq('brand_id', input.brandId)
-    .select('id')
-    .maybeSingle<{ id: string }>();
-  return !linked.error && linked.data?.id === input.locationId;
+  try {
+    const linked = await db
+      .from('locations')
+      .update({ square_connection_id: input.connectionId })
+      .eq('id', input.locationId)
+      .eq('brand_id', input.brandId)
+      .select('id')
+      .maybeSingle<{ id: string }>();
+    return !linked.error && linked.data?.id === input.locationId;
+  } catch {
+    return false;
+  }
 }
 
 /**

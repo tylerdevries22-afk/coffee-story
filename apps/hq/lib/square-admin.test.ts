@@ -259,4 +259,18 @@ describe('recordSquareConnectionPointer', () => {
       brandId: BRAND, locationId: LOCATION, connectionId: 'connection',
     }), false);
   });
+
+  it('keeps a rejected compatibility write from failing the connection', async () => {
+    const query = {
+      update: () => query,
+      eq: () => query,
+      select: () => query,
+      maybeSingle: async () => { throw new Error('network failed'); },
+    };
+    const db = { from: () => query } as unknown as SupabaseClient;
+
+    assert.equal(await recordSquareConnectionPointer(db, {
+      brandId: BRAND, locationId: LOCATION, connectionId: 'connection',
+    }), false);
+  });
 });
