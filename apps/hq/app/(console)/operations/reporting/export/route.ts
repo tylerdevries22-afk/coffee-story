@@ -1,6 +1,11 @@
 import { hasRole, currentSession } from '@/lib/auth';
-import { operationReportCsv, operationReportFilters } from '@/lib/operations-report';
+import {
+  operationReportCsv,
+  operationReportFilters,
+  operationReportLocationId,
+} from '@/lib/operations-report';
 import { serverClient } from '@/lib/supabase-server';
+import { selectedLocationId } from '@/lib/workspace-location';
 import { selectedOrganizationId } from '@/lib/workspace-scope';
 
 type OccurrenceRow = {
@@ -29,7 +34,10 @@ export async function GET(request: Request): Promise<Response> {
   if (!filters) {
     return Response.json({ error: { code: 'invalid_request', message: 'Report filters are invalid.' } }, { status: 400 });
   }
-  const brandId = await selectedOrganizationId(session);
+  const [brandId, workspaceLocationId] = await Promise.all([
+    selectedOrganizationId(session), selectedLocationId(),
+  ]);
+  const locationId = operationReportLocationId(filters.locationId, workspaceLocationId);
   const feature = await client.from('brands').select('operations').eq('id', brandId)
     .maybeSingle<{ operations: boolean }>();
   if (feature.error || !feature.data?.operations) {
@@ -39,7 +47,7 @@ export async function GET(request: Request): Promise<Response> {
     .select('id,location_id,template_snapshot,status,scheduled_for,due_at,completed_at')
     .eq('brand_id', brandId).gte('scheduled_for', filters.from).lte('scheduled_for', filters.to)
     .order('scheduled_for', { ascending: false }).limit(10_000);
-  if (filters.locationId) occurrenceQuery = occurrenceQuery.eq('location_id', filters.locationId);
+  if (locationId) occurrenceQuery = occurrenceQuery.eq('location_id', locationId);
   if (filters.status) occurrenceQuery = occurrenceQuery.eq('status', filters.status);
   const [occurrences, locations, issues] = await Promise.all([
     occurrenceQuery.returns<OccurrenceRow[]>(),
