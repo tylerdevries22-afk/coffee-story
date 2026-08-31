@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { Fragment, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, ReactNode, RefObject } from 'react';
 
 import {
@@ -233,9 +233,9 @@ function ConsoleTopbar({
         >
           <Icon name="menu" size={18} />
         </button>
-        {orgSwitcher}
+        {orgSwitcher ? <Fragment key="organization-switcher">{orgSwitcher}</Fragment> : null}
         {orgSwitcher && locationSwitcher ? <span className="topbar-separator" aria-hidden="true">/</span> : null}
-        {locationSwitcher}
+        {locationSwitcher ? <Fragment key="location-switcher">{locationSwitcher}</Fragment> : null}
         {locationSwitcher ? <span className="topbar-separator" aria-hidden="true">/</span> : null}
         <div className="breadcrumb" aria-label="Current page">
           <span className="breadcrumb-muted">{section.title}</span>
