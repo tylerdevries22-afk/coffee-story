@@ -14,6 +14,7 @@ import { currentSession } from '@/lib/auth';
 import {
   authorizeLocation,
   authorizeOrganization,
+  selectedOrganizationId,
 } from '@/lib/workspace-scope';
 import {
   isWorkspaceCookieValue,
@@ -41,7 +42,9 @@ export async function selectLocation(formData: FormData): Promise<void> {
   const session = await currentSession();
   if (!session) return;
   const store = await cookies();
-  const orgId = store.get(ORG_COOKIE)?.value ?? session.brandId;
+  // Re-authorize the remembered org exactly as the layout does. A stale
+  // cookie from an earlier session must not poison an otherwise valid choice.
+  const orgId = await selectedOrganizationId(session);
   const posted = String(formData.get('locationId') ?? '');
   // The empty value is the "All locations" row -- a valid choice that clears
   // the scope rather than selecting one store.

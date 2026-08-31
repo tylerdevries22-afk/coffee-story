@@ -33,7 +33,12 @@ class ReachedEngine extends Error {}
  * forbidden, so the only thing separating "refused on sight" from "refused
  * after a query ran on their behalf" is whether the table was consulted.
  */
-type DbState = { reads: number; row: { location_id: string } | null; error: string | null };
+type DbState = {
+  reads: number;
+  row: { location_id: string } | null;
+  location: { id: string } | null;
+  error: string | null;
+};
 
 function deviceDb(state: DbState): SupabaseClient {
   const lookup = {
@@ -48,11 +53,20 @@ function deviceDb(state: DbState): SupabaseClient {
     insert: () => { throw new ReachedEngine('insert'); },
     update: () => { throw new ReachedEngine('update'); },
   };
-  return { from: () => lookup } as unknown as SupabaseClient;
+  const locationLookup = {
+    select: () => locationLookup,
+    eq: () => locationLookup,
+    maybeSingle: async () => ({ data: state.location, error: null }),
+  };
+  return { from: (table: string) => table === 'locations' ? locationLookup : lookup } as unknown as SupabaseClient;
 }
 
-const deps = (row: { location_id: string } | null, error: string | null = null) => {
-  const state: DbState = { reads: 0, row, error };
+const deps = (
+  row: { location_id: string } | null,
+  error: string | null = null,
+  location: { id: string } | null = { id: HERE },
+) => {
+  const state: DbState = { reads: 0, row, error, location };
   return { db: deviceDb(state), loadKey: () => KEY, state };
 };
 
@@ -181,6 +195,13 @@ describe('pairDevice', () => {
 
   it('reaches the engine once the caller and the location check out', async () => {
     await assert.rejects(() => pairDevice(deps(null), manager, good), ReachedEngine);
+  });
+
+  it('refuses an owner-level role when the location belongs to another tenant', async () => {
+    await assert.rejects(
+      () => pairDevice(deps(null, null, null), owner, { ...good, locationId: ELSEWHERE }),
+      forbidden,
+    );
   });
 });
 
