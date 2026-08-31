@@ -8,6 +8,8 @@ test('HQ variables resolve through the shared tenant token contract', () => {
   assert.equal(variables['--bg'], '#123456');
   assert.equal(variables['--accent'], '#654321');
   assert.equal(variables['--radius'], '20px');
+  assert.equal(variables['--primary'], '#654321');
+  assert.equal(variables['--background'], '#123456');
   assert.match(variables['--bg-hover'] ?? '', /#123456/);
 });
 

@@ -17,6 +17,32 @@ export function hqTheme(brandConfig: unknown): Record<string, string> {
     '--success': tokens.success,
     '--warning': tokens.warning,
     '--danger': tokens.danger,
+    // The generated shadcn/ReUI primitives deliberately consume the same
+    // tenant variables as the pre-existing console. Mapping their semantic
+    // roles here keeps generated components white-label instead of locking
+    // them to a neutral preset.
+    '--background': tokens.primary,
+    '--foreground': tokens.surfaceElevated,
+    '--card': tokens.secondary,
+    '--card-foreground': tokens.surfaceElevated,
+    '--popover': tokens.secondary,
+    '--popover-foreground': tokens.surfaceElevated,
+    '--primary': tokens.accent,
+    '--primary-foreground': tokens.primary,
+    '--secondary': `color-mix(in srgb, ${tokens.secondary} 76%, ${tokens.primary})`,
+    '--secondary-foreground': tokens.surfaceElevated,
+    '--muted': `color-mix(in srgb, ${tokens.secondary} 68%, ${tokens.primary})`,
+    '--muted-foreground': `color-mix(in srgb, ${tokens.surface} 62%, ${tokens.primary})`,
+    '--accent-foreground': tokens.primary,
+    '--destructive': tokens.danger,
+    '--destructive-foreground': tokens.surfaceElevated,
+    '--border': `color-mix(in srgb, ${tokens.surface} 18%, ${tokens.primary})`,
+    '--input': `color-mix(in srgb, ${tokens.surface} 22%, ${tokens.primary})`,
+    '--ring': tokens.accent,
+    '--info': tokens.accent,
+    '--info-foreground': tokens.surfaceElevated,
+    '--success-foreground': tokens.surfaceElevated,
+    '--warning-foreground': tokens.primary,
     // The kiosk preview draws the tenant's warm surface inside the dark
     // console, so it needs the same tokens read the other way up: ink on
     // surface, not surface on ink. Same brand, the app's expression of it
@@ -36,6 +62,7 @@ export function hqTheme(brandConfig: unknown): Record<string, string> {
     '--space-xl': `${tokens.spacing.xl}px`,
     '--space-xxl': `${tokens.spacing.xxl}px`,
     '--font': `"${tokens.fontBody}", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif`,
+    '--font-sans': `"${tokens.fontBody}", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif`,
     '--font-display': `"${tokens.fontDisplay}", Georgia, "Iowan Old Style", serif`,
   };
 }
