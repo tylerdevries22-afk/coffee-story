@@ -89,17 +89,81 @@ permissions:
 env:
   VERCEL_CLI_VERSION: 59.3.0
   VERCEL_SCOPE: ${{ vars.VERCEL_SCOPE || 'tylerdevries222s-projects' }}
-  SUPABASE_PROJECT_REF: ${{ inputs.supabase_project_ref || vars.SUPABASE_PROJECT_REF }}
+  SUPABASE_PROJECT_REF: ${{ inputs.supabase_project_ref || (inputs.environment == 'preview' && vars.SUPABASE_PREVIEW_PROJECT_REF) || vars.SUPABASE_PROJECT_REF }}
+  PRODUCTION_SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+  PREVIEW_SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PREVIEW_PROJECT_REF }}
   TENANT: ${{ inputs.tenant || 'coffee-story' }}
   PROJECT_PREFIX: ${{ inputs.project_prefix || 'coffee-story' }}
   DEPLOY_ENVIRONMENT: ${{ inputs.environment || 'production' }}
 
 jobs:
+  release-policy:
+    name: Validate tenant release policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: ${{ inputs.environment || 'production' }}
+    steps:
+      - name: Enforce deployment and database isolation
+        run: |
+          set -euo pipefail
+          test -n "$PRODUCTION_SUPABASE_PROJECT_REF" || {
+            echo '::error::Set the canonical production SUPABASE_PROJECT_REF repository variable.'
+            exit 1
+          }
+          test -n "$SUPABASE_PROJECT_REF" || {
+            echo '::error::Set a Supabase project reference for this deployment environment.'
+            exit 1
+          }
+          case "$DEPLOY_ENVIRONMENT" in
+            preview)
+              test -n "$PREVIEW_SUPABASE_PROJECT_REF" || {
+                echo '::error::Set the canonical SUPABASE_PREVIEW_PROJECT_REF repository variable.'
+                exit 1
+              }
+              test "$SUPABASE_PROJECT_REF" = "$PREVIEW_SUPABASE_PROJECT_REF" || {
+                echo '::error::Preview deployments must target the canonical preview Supabase project.'
+                exit 1
+              }
+              ;;
+            production)
+              test "$SUPABASE_PROJECT_REF" = "$PRODUCTION_SUPABASE_PROJECT_REF" || {
+                echo '::error::Production deployments must target the canonical production Supabase project.'
+                exit 1
+              }
+              ;;
+            *)
+              echo "::error::Unsupported deployment environment: $DEPLOY_ENVIRONMENT"
+              exit 1
+              ;;
+          esac
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: 10.33.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Require approved production evidence and generated assets
+        if: (inputs.environment || 'production') == 'production'
+        run: |
+          set -euo pipefail
+          pnpm release:gate --tenant "$TENANT"
+          pnpm onboard --tenant "$TENANT" --apply
+          generated_changes=$(git status --porcelain=v1 --untracked-files=all -- tenants apps/customer apps/kiosk)
+          test -z "$generated_changes" || {
+            echo '::error::Tenant onboarding output must be generated and committed before production deployment.'
+            printf '%s\n' "$generated_changes"
+            exit 1
+          }
+
   gate:
     name: Verify before deployment
+    needs: release-policy
     uses: ./.github/workflows/verify.yml
     with:
-      supabase_project_ref: ${{ inputs.supabase_project_ref || vars.SUPABASE_PROJECT_REF }}
+      supabase_project_ref: ${{ inputs.supabase_project_ref || (inputs.environment == 'preview' && vars.SUPABASE_PREVIEW_PROJECT_REF) || vars.SUPABASE_PROJECT_REF }}
     secrets: inherit
 
   migrate-database:
@@ -182,6 +246,7 @@ jobs:
           SUPABASE_JWT_SECRET: ${{ secrets.SUPABASE_JWT_SECRET }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_MENU_MODEL: ${{ vars.OPENAI_MENU_MODEL }}
           OPENAI_RESEARCH_MODEL: ${{ vars.OPENAI_RESEARCH_MODEL }}
           OPENAI_EVALUATION_MODEL: ${{ vars.OPENAI_EVALUATION_MODEL }}
         run: |
@@ -204,6 +269,7 @@ jobs:
           add_public SUPABASE_URL "$SUPABASE_URL"
           add_public NEXT_PUBLIC_SUPABASE_URL "$SUPABASE_URL"
           add_public NEXT_PUBLIC_SUPABASE_ANON_KEY "$SUPABASE_PUBLISHABLE_KEY"
+          add_public NEXT_PUBLIC_HQ_URL "https://${project}.vercel.app"
           add_secret SUPABASE_SERVICE_ROLE_KEY "$SUPABASE_SERVICE_ROLE_KEY"
           # Required for issuing and validating kiosk/display device tokens.
           # Keep this optional so a web-only deployment can still fail closed
@@ -211,6 +277,7 @@ jobs:
           add_secret SUPABASE_JWT_SECRET "$SUPABASE_JWT_SECRET"
           add_secret CRON_SECRET "$CRON_SECRET"
           add_secret OPENAI_API_KEY "$OPENAI_API_KEY"
+          add_public OPENAI_MENU_MODEL "$OPENAI_MENU_MODEL"
           add_public OPENAI_RESEARCH_MODEL "$OPENAI_RESEARCH_MODEL"
           add_public OPENAI_EVALUATION_MODEL "$OPENAI_EVALUATION_MODEL"
       - name: Promote the exact verified HQ commit
@@ -297,10 +364,12 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           DISPLAY_DEVICE_TOKEN: ${{ secrets.DISPLAY_DEVICE_TOKEN }}
           DISPLAY_DEVICE_REFRESH_SECRET: ${{ secrets.DISPLAY_DEVICE_REFRESH_SECRET }}
+          PREVIEW_DIRECTORY: ${{ vars.PREVIEW_DIRECTORY }}
         run: |
           set -euo pipefail
           add_public() {
             local name="$1" value="$2"
+            test -n "$value" || return 0
             npx --yes "vercel@${VERCEL_CLI_VERSION}" env add "$name" "$DEPLOY_ENVIRONMENT" \
               --project "${PROJECT_PREFIX}-${{ matrix.surface }}" --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN" \
               --value "$value" --no-sensitive --force --yes >/dev/null
@@ -315,6 +384,7 @@ jobs:
           if [ "${{ matrix.surface }}" = display ]; then
             add_public NEXT_PUBLIC_SUPABASE_URL "$SUPABASE_URL"
             add_public HQ_ORIGIN "${{ needs.deploy-hq.outputs.url }}"
+            add_public TENANT "$TENANT"
             if [ "$DEPLOY_ENVIRONMENT" = production ]; then
               # Either credential keeps the screen up, so the two can be rolled
               # out in either order. The refresh secret is the durable one: a
@@ -327,6 +397,7 @@ jobs:
               # Keep production fail-closed while making preview deployments
               # independently demonstrable without reusing a live device token.
               add_public DISPLAY_DEMO_MODE 1
+              add_public PREVIEW_DIRECTORY "$PREVIEW_DIRECTORY"
             fi
             add_secret DISPLAY_DEVICE_TOKEN "$DISPLAY_DEVICE_TOKEN"
             add_secret DISPLAY_DEVICE_REFRESH_SECRET "$DISPLAY_DEVICE_REFRESH_SECRET"
@@ -343,6 +414,9 @@ jobs:
             add_public EXPO_PUBLIC_API_URL "$api_url"
             add_public EXPO_PUBLIC_ALLOWED_API_HOST "$api_host"
             add_public TENANT "$TENANT"
+            if [ "$DEPLOY_ENVIRONMENT" = preview ]; then
+              add_public EXPO_PUBLIC_PREVIEW_DIRECTORY "$PREVIEW_DIRECTORY"
+            fi
           fi
       - name: Promote the exact verified web commit
         env:
@@ -392,6 +466,8 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Materialize the approved tenant assets and app configuration
+        run: pnpm onboard --tenant "$TENANT" --apply
       - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
         with:
           version: 2.116.0

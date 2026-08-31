@@ -5,8 +5,9 @@ import { revalidatePath } from 'next/cache';
 import { normalizeForSave, resolveKioskFlow, type KioskMenuFacts } from '@platform/domain';
 
 import { serverClient } from '@/lib/supabase-server';
+import { serverEnv, serviceDb } from '@/lib/api-auth';
 import { currentSession, hasRole } from '@/lib/auth';
-import { selectedOrganizationId } from '@/lib/workspace-scope';
+import { authorizeWorkspaceMutation } from '@/lib/workspace-mutation';
 
 export type SaveResult =
   | { ok: true; updatedAt: string }
@@ -37,18 +38,31 @@ export async function saveKioskFlow(
   if (!hasRole(session, 'brand_owner')) {
     return { ok: false, error: 'Only a brand owner can change the kiosk flow.' };
   }
-  if (!session || await selectedOrganizationId(session) !== session.brandId) {
-    return { ok: false, error: 'Cross-organization kiosk changes require the audited support workflow.' };
-  }
+  if (!session) return { ok: false, error: 'Your session has expired.' };
+  const mutation = await authorizeWorkspaceMutation(session, { action: 'kiosk.config.update' });
+  if (!mutation) return { ok: false, error: 'This kiosk change was not authorized.' };
 
   const client = await serverClient();
   if (!client) return { ok: false, error: 'This deployment has no database configured.' };
 
   const resolved = resolveKioskFlow(draft, { menu });
-  const { data, error } = await client.rpc('set_brand_kiosk_config', {
-    config: normalizeForSave(resolved),
-    expected_updated_at: expectedUpdatedAt,
-  });
+  const config = normalizeForSave(resolved);
+  const environment = mutation.serviceRole ? serverEnv() : null;
+  if (mutation.serviceRole && (!environment || !session.userId || !mutation.auditCorrelationId)) {
+    return { ok: false, error: 'The trusted kiosk writer is not configured.' };
+  }
+  const { data, error } = mutation.serviceRole
+    ? await serviceDb(environment!).rpc('set_platform_kiosk_config', {
+      p_actor_id: session.userId,
+      p_brand_id: mutation.brandId,
+      p_config: config,
+      p_correlation_id: mutation.auditCorrelationId,
+      p_expected_updated_at: expectedUpdatedAt,
+    })
+    : await client.rpc('set_brand_kiosk_config', {
+      config,
+      expected_updated_at: expectedUpdatedAt,
+    });
 
   if (error) {
     // The two the editor can actually act on get a sentence a person can read.
@@ -58,7 +72,7 @@ export async function saveKioskFlow(
     if (error.message.includes('kiosk_config_too_large')) {
       return { ok: false, error: 'That configuration is too large. Shorten the copy or use shorter image URLs.' };
     }
-    return { ok: false, error: error.message };
+    return { ok: false, error: 'The kiosk configuration could not be saved.' };
   }
 
   revalidatePath('/kiosk');

@@ -12,9 +12,12 @@ import { isConfigured } from './auth';
 import type { SessionInfo } from './demo-data';
 
 export type PlatformAccessAuditTarget = {
-  action: 'workspace.location.select' | 'workspace.organization.select';
+  action: string;
   brandId: string;
+  correlationId?: string;
   locationId: string | null;
+  metadata?: Readonly<Record<string, string>>;
+  required?: boolean;
 };
 
 export type PlatformAccessAuditDependencies = {
@@ -50,7 +53,8 @@ export async function recordPlatformAccess(
   target: PlatformAccessAuditTarget,
   dependencies: PlatformAccessAuditDependencies = defaults,
 ): Promise<boolean> {
-  if (!dependencies.configured() || target.brandId === session.brandId) return true;
+  if (!dependencies.configured()) return !target.required;
+  if (target.brandId === session.brandId && !target.required) return true;
   if (session.role !== 'platform_admin' || !session.userId) {
     dependencies.logFailure({ action: target.action, reason: 'invalid_actor' });
     return false;
@@ -66,9 +70,12 @@ export async function recordPlatformAccess(
       action: target.action,
       actorId: session.userId,
       brandId: target.brandId,
-      correlationId: dependencies.correlationId(),
+      correlationId: target.correlationId ?? dependencies.correlationId(),
       locationId: target.locationId,
-      metadata: { source: 'workspace_switcher', surface: 'hq' },
+      metadata: target.metadata ?? {
+        source: target.action.startsWith('workspace.') ? 'workspace_switcher' : 'operate_as_brand',
+        surface: 'hq',
+      },
     });
   } catch {
     dependencies.logFailure({ action: target.action, reason: 'rpc_unavailable' });

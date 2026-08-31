@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 
 import './display.css';
+import { PreviewSwitcher } from './preview-switcher';
 
 export const metadata: Metadata = {
   title: 'Pickup',
@@ -34,7 +35,10 @@ export const viewport: Viewport = {
 export default function DisplayLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        {children}
+        <PreviewSwitcher currentSlug={process.env.TENANT ?? ''} />
+      </body>
     </html>
   );
 }

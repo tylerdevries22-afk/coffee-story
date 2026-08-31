@@ -13,7 +13,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 
 import { previewWallRuntimeEnabled } from './lib/demo-sync-http';
 
-const PUBLIC_PREFIXES = ['/login', '/api/', '/status/'];
+const PUBLIC_PREFIXES = ['/login', '/auth/callback', '/api/', '/status/'];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

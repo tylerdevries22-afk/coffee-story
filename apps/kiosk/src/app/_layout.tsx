@@ -1,18 +1,12 @@
 import { Fraunces_700Bold } from '@expo-google-fonts/fraunces';
 import { Inter_400Regular, Inter_600SemiBold, Inter_700Bold, useFonts } from '@expo-google-fonts/inter';
-import {
-  createAnalyticsSurfaceObserver,
-  createAnalyticsTransport,
-  screenKeyFor,
-} from '@platform/analytics';
-import Constants from 'expo-constants';
-import { Stack, usePathname } from 'expo-router';
+import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useMemo, useRef } from 'react';
-import { AppState, Platform, View } from 'react-native';
+import { useEffect, useMemo } from 'react';
+import { Platform, View } from 'react-native';
 import * as ScreenOrientation from 'expo-screen-orientation';
 
-import { DEFAULT_TOKENS, ThemeProvider } from '@platform/ui';
+import { DEFAULT_TOKENS, PreviewSwitcher, ThemeProvider } from '@platform/ui';
 import { initMobileMonitoring } from '@platform/monitoring';
 
 import TENANT_BRAND_CONFIG from '@/tenant/brand.json';
@@ -20,12 +14,13 @@ import TENANT_BRAND_CONFIG from '@/tenant/brand.json';
 import { menuFactsFrom } from '@platform/domain';
 
 import { IdleNotice } from '@/components/idle-notice';
+import { KioskTelemetry } from '@/components/kiosk-telemetry';
 import { MenuProvider, useKioskMenu } from '@/data/menu-store';
 import { DeviceProvider, useDevice } from '@/state/device';
 import { BuilderProvider } from '@/state/builder';
 import { FlowProvider, useFlow } from '@/state/flow';
 import { GuestProvider } from '@/state/guest';
-import { KioskSessionProvider, useKioskSession } from '@/state/session';
+import { KioskSessionProvider } from '@/state/session';
 
 const SPLASH_GROUND = TENANT_BRAND_CONFIG.tokens?.surface ?? DEFAULT_TOKENS.surface;
 
@@ -124,92 +119,15 @@ function KioskSurface() {
           screen, which is why an abandoned session at tender had its cart
           cleared under a live Pay button. */}
       <IdleNotice />
+      {posture.unattended ? (
+        <PreviewSwitcher
+          currentSlug={TENANT_BRAND_CONFIG.identity.slug}
+          directory={process.env.EXPO_PUBLIC_PREVIEW_DIRECTORY}
+          surface="kiosk"
+        />
+      ) : null}
       </BuilderProvider>
       </GuestProvider>
     </KioskSessionProvider>
   );
-}
-
-const KIOSK_SCREENS: Readonly<Record<string, string>> = {
-  '/': 'entry',
-  '/pair': 'device_pairing',
-  '/bag': 'bag',
-  '/checkout/balance': 'balance',
-  '/checkout/identify': 'identify',
-  '/checkout/keypad': 'keypad',
-  '/checkout/name': 'guest_name',
-  '/checkout/pay': 'payment',
-  '/checkout/processing': 'payment_processing',
-  '/checkout/tip': 'tip',
-  '/done': 'confirmation',
-  '/order/entry': 'order_entry',
-  '/order/fill': 'order_fill',
-  '/order/item': 'item_detail',
-  '/order/node': 'order_category',
-  '/order/options': 'item_options',
-  '/order/pack': 'pack_builder',
-  '/order/review': 'order_review',
-};
-
-function kioskAnalyticsPolicy(value: unknown): boolean {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
-  const privacy = (value as { privacy?: unknown }).privacy;
-  return Boolean(privacy && typeof privacy === 'object'
-    && !Array.isArray(privacy)
-    && (privacy as { analyticsBehavioral?: unknown }).analyticsBehavioral === true);
-}
-
-/** A kiosk emits behavioral journeys only under an explicit tenant privacy policy. */
-function KioskTelemetry() {
-  const pathname = usePathname();
-  const device = useDevice();
-  const { resetSeq } = useKioskSession();
-  const behavioralConsent = kioskAnalyticsPolicy(TENANT_BRAND_CONFIG);
-  const consentUpdatedAt = useRef(new Date().toISOString());
-  const endpoint = useMemo(() => {
-    const baseUrl = process.env.EXPO_PUBLIC_API_URL;
-    if (!baseUrl) return null;
-    try { return new URL('/api/analytics/events', baseUrl).toString(); }
-    catch { return null; }
-  }, []);
-  const transport = useMemo(() => {
-    if (!endpoint) return null;
-    try {
-      return createAnalyticsTransport({ endpoint, getAccessToken: async () => device.accessToken });
-    } catch {
-      return null;
-    }
-  }, [device.accessToken, endpoint]);
-  const observer = useMemo(() => transport ? createAnalyticsSurfaceObserver(transport) : null, [transport]);
-
-  useEffect(() => () => transport?.dispose(), [transport]);
-  useEffect(() => {
-    if (!transport) return undefined;
-    const subscription = AppState.addEventListener('change', (state) => {
-      if (state === 'active') void transport.flush();
-    });
-    return () => subscription.remove();
-  }, [transport]);
-  useEffect(() => {
-    if (!observer || device.status !== 'ready' || !device.brandId || !device.locationId) return;
-    const owner = `${device.deviceId}:${resetSeq}:${behavioralConsent ? 'allowed' : 'essential'}`;
-    const screenKey = screenKeyFor(pathname, KIOSK_SCREENS);
-    observer.observe({
-      sessionIdentity: owner,
-      screenKey,
-      context: {
-        brandId: device.brandId,
-        locationId: device.locationId,
-        surface: 'kiosk',
-        appVersion: Constants.expoConfig?.version ?? 'unknown',
-        consent: {
-          essential: true,
-          behavioral: behavioralConsent,
-          source: 'tenant_policy',
-          updatedAt: consentUpdatedAt.current,
-        },
-      },
-    });
-  }, [behavioralConsent, device, observer, pathname, resetSeq]);
-  return null;
 }

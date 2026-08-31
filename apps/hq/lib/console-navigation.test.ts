@@ -64,6 +64,7 @@ describe('consoleSectionsFor', () => {
       '/integrations/activity',
       '/integrations/health',
       '/brand',
+      '/staff',
       '/fees',
       '/onboarding',
     ]);
@@ -121,6 +122,7 @@ describe('consoleSectionsFor', () => {
     assert.ok(ownerDestinations.includes('/catalog'));
     assert.ok(ownerDestinations.includes('/kiosk'));
     assert.ok(ownerDestinations.includes('/brand'));
+    assert.ok(ownerDestinations.includes('/staff'));
     assert.equal(ownerDestinations.includes('/fees'), false);
     assert.equal(ownerDestinations.includes('/onboarding'), false);
   });

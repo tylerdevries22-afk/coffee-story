@@ -3,105 +3,19 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
-import { loadDeviceSigningKey } from '@platform/engine';
-
-import { currentClaims, currentSession, hasRole } from '@/lib/auth';
+import { currentSession, hasRole } from '@/lib/auth';
 import { disconnectSquare } from '@/lib/square-admin';
-import type { DeviceActionState } from '@/lib/device-action-state';
 import { serverEnv, serviceDb } from '@/lib/api-auth';
 import { isConfigured, serverClient } from '@/lib/supabase-server';
 import { parseLocationDraft } from '@/lib/location-input';
 import { locationCreationContinuation } from '@/lib/location-onboarding';
 import { addDemoLocation } from '@/lib/demo-locations';
-import { selectedOrgId } from '@/lib/workspace-location';
-import { authorizeOrganization } from '@/lib/workspace-scope';
 import {
-  deviceAdminStatus, issueRefreshSecret, pairDevice, revokePairedDevice,
-  type DeviceAdminDeps,
-} from '@/lib/device-admin';
-
-/**
- * Device writes run as the service role, and that is not a shortcut.
- *
- * `app.protect_device_lifecycle` refuses any caller carrying a jwt_role that
- * touches pairing or refresh-secret columns, precisely so a location_manager
- * cannot plant a hash whose preimage they chose. The signed-in user's client
- * therefore cannot perform these writes at all; authorization is decided in
- * lib/device-admin against the caller's own claims, and only then is the write
- * handed to a client that RLS does not apply to.
- */
-async function deviceContext(): Promise<
-  { deps: DeviceAdminDeps; claims: NonNullable<Awaited<ReturnType<typeof currentClaims>>> } | string
-> {
-  const env = serverEnv();
-  if (!env) return 'This deployment is not connected to Supabase, so devices cannot be managed here.';
-  const claims = await currentClaims();
-  if (!claims) return 'Your session has expired. Sign in again to manage devices.';
-  return { deps: { db: serviceDb(env), loadKey: loadDeviceSigningKey }, claims };
-}
-
-/** Turns any failure into a sentence an operator can act on, never a stack trace. */
-function failure(error: unknown): DeviceActionState {
-  const answer = deviceAdminStatus(error);
-  if (answer) return { kind: 'error', message: answer.message };
-  return { kind: 'error', message: 'That device action could not be completed.' };
-}
-
+  authorizeWorkspaceMutation, claimsForWorkspaceMutation,
+} from '@/lib/workspace-mutation';
 function text(formData: FormData, key: string): string {
   const value = formData.get(key);
   return typeof value === 'string' ? value : '';
-}
-
-export async function pairDeviceAction(
-  _previous: DeviceActionState, formData: FormData,
-): Promise<DeviceActionState> {
-  const context = await deviceContext();
-  if (typeof context === 'string') return { kind: 'error', message: context };
-  try {
-    const invite = await pairDevice(context.deps, context.claims, {
-      locationId: text(formData, 'locationId'),
-      role: text(formData, 'role'),
-      label: text(formData, 'label'),
-    });
-    revalidatePath('/locations');
-    return { kind: 'paired', deviceId: invite.deviceId, code: invite.code, expiresAt: invite.expiresAt };
-  } catch (error) {
-    return failure(error);
-  }
-}
-
-export async function issueRefreshSecretAction(
-  _previous: DeviceActionState, formData: FormData,
-): Promise<DeviceActionState> {
-  const context = await deviceContext();
-  if (typeof context === 'string') return { kind: 'error', message: context };
-  try {
-    const issued = await issueRefreshSecret(context.deps, context.claims, text(formData, 'deviceId'));
-    revalidatePath('/locations');
-    return {
-      kind: 'secret',
-      deviceId: issued.deviceId,
-      secret: issued.secret,
-      previousExpiresAt: issued.previousExpiresAt ?? null,
-    };
-  } catch (error) {
-    return failure(error);
-  }
-}
-
-export async function revokeDeviceAction(
-  _previous: DeviceActionState, formData: FormData,
-): Promise<DeviceActionState> {
-  const context = await deviceContext();
-  if (typeof context === 'string') return { kind: 'error', message: context };
-  const deviceId = text(formData, 'deviceId');
-  try {
-    await revokePairedDevice(context.deps, context.claims, deviceId);
-    revalidatePath('/locations');
-    return { kind: 'revoked', deviceId };
-  } catch (error) {
-    return failure(error);
-  }
 }
 
 /**
@@ -134,12 +48,14 @@ export async function createLocationAction(formData: FormData): Promise<void> {
   if (!parsed.ok) redirect(`/locations/new?error=${encodeURIComponent(parsed.error)}`);
   const draft = parsed.draft;
 
-  const cookieOrg = await selectedOrgId();
-  const orgId = (cookieOrg ? await authorizeOrganization(session, cookieOrg) : null) ?? session.brandId;
+  const mutation = await authorizeWorkspaceMutation(session, { action: 'locations.create' });
+  if (!mutation) redirect('/locations?created=denied');
+  const orgId = mutation.brandId;
 
   if (!isConfigured()) {
+    const locationId = `loc-${crypto.randomUUID()}`.slice(0, 60);
     addDemoLocation(orgId, {
-      id: `loc-${crypto.randomUUID()}`.slice(0, 60),
+      id: locationId,
       name: draft.name,
       city: draft.city,
       timezone: draft.timezone,
@@ -149,7 +65,12 @@ export async function createLocationAction(formData: FormData): Promise<void> {
     });
     revalidatePath('/locations');
     revalidatePath('/', 'layout');
-    redirect('/locations?created=1');
+    redirect(locationCreationContinuation({
+      locationId,
+      homeOrganizationId: session.brandId,
+      selectedOrganizationId: orgId,
+      connectSquare: false,
+    }).href);
   }
 
   const client = await serverClient();
@@ -176,8 +97,7 @@ export async function createLocationAction(formData: FormData): Promise<void> {
     selectedOrganizationId: orgId,
     connectSquare: formData.get('connectSquare') === 'on',
   });
-  if (continuation.kind === 'connect') redirect(continuation.href);
-  redirect(`/locations?created=${continuation.notice}`);
+  redirect(continuation.href);
 }
 
 /**
@@ -190,11 +110,16 @@ export async function createLocationAction(formData: FormData): Promise<void> {
  */
 export async function disconnectSquareAction(formData: FormData): Promise<void> {
   const env = serverEnv();
-  const claims = env ? await currentClaims() : null;
+  const session = env ? await currentSession() : null;
+  const locationId = text(formData, 'locationId');
+  const mutation = session
+    ? await authorizeWorkspaceMutation(session, { action: 'square.disconnect', locationId })
+    : null;
+  const claims = session && mutation ? claimsForWorkspaceMutation(session, mutation) : null;
   let outcome = 'failed';
   if (env && claims) {
     try {
-      outcome = (await disconnectSquare(serviceDb(env), claims, text(formData, 'locationId'))).outcome;
+      outcome = (await disconnectSquare(serviceDb(env), claims, locationId)).outcome;
     } catch {
       // Refused, or not connected: both leave the connection exactly as it
       // was, which is what "nothing was changed" means. An end state that

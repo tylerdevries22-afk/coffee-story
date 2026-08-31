@@ -1,20 +1,24 @@
 export type LocationCreationContinuation =
-  | { kind: 'connect'; href: string }
-  | { kind: 'created'; notice: '1' | 'square_deferred' };
+  { kind: 'onboard'; href: string; squareHref: string | null; squareDeferred: boolean };
 
-/** Keeps Square consent on the JWT's home tenant until audited support exists. */
+/** Keeps one-time pairing output in action state and Square consent on the home tenant. */
 export function locationCreationContinuation(input: {
   locationId: string;
   homeOrganizationId: string;
   selectedOrganizationId: string;
   connectSquare: boolean;
 }): LocationCreationContinuation {
-  if (!input.connectSquare) return { kind: 'created', notice: '1' };
-  if (input.selectedOrganizationId !== input.homeOrganizationId) {
-    return { kind: 'created', notice: 'square_deferred' };
-  }
+  const squareAllowed = input.connectSquare
+    && input.selectedOrganizationId === input.homeOrganizationId;
+  const params = new URLSearchParams({ created: input.locationId });
+  if (squareAllowed) params.set('square', '1');
+  if (input.connectSquare && !squareAllowed) params.set('square', 'deferred');
   return {
-    kind: 'connect',
-    href: `/api/square/connect?location_id=${encodeURIComponent(input.locationId)}`,
+    kind: 'onboard',
+    href: `/locations/new?${params.toString()}`,
+    squareHref: squareAllowed
+      ? `/api/square/connect?location_id=${encodeURIComponent(input.locationId)}`
+      : null,
+    squareDeferred: input.connectSquare && !squareAllowed,
   };
 }

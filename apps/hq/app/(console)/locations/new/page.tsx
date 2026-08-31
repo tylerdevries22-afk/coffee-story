@@ -2,9 +2,13 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
 import { currentSession, hasRole } from '@/lib/auth';
+import { InlineDevicePairing } from '@/components/inline-device-pairing';
+import { currentClaims } from '@/lib/auth';
+import { loadLocations } from '@/lib/data';
 import { isConfigured } from '@/lib/supabase-server';
 import { selectedOrganizationId } from '@/lib/workspace-scope';
 import { WEEKDAYS } from '@/lib/location-input';
+import { locationCreationContinuation } from '@/lib/location-onboarding';
 
 import { createLocationAction } from '../actions';
 
@@ -23,22 +27,43 @@ const DAY_LABEL: Record<string, string> = {
   mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun',
 };
 
-type NewLocationPageProps = { searchParams: Promise<{ error?: string }> };
+type NewLocationPageProps = {
+  searchParams: Promise<{ created?: string; error?: string; square?: string }>;
+};
 
 export default async function NewLocationPage({ searchParams }: NewLocationPageProps) {
   const [session, params] = await Promise.all([currentSession(), searchParams]);
   // Only an owner (or platform admin) may add a store; a manager can run one
   // but not create another. The write is checked again by RLS.
   if (!session || !hasRole(session, 'brand_owner')) redirect('/locations');
-  const canContinueToSquare = isConfigured()
-    && await selectedOrganizationId(session) === session.brandId;
+  const [selectedId, locations, claims] = await Promise.all([
+    selectedOrganizationId(session), loadLocations(), currentClaims(),
+  ]);
+  const canContinueToSquare = isConfigured() && selectedId === session.brandId;
+  const created = params.created
+    ? locations.find((location) => location.id === params.created) ?? null
+    : null;
+  if (created) {
+    const continuation = locationCreationContinuation({
+      locationId: created.id,
+      homeOrganizationId: session.brandId,
+      selectedOrganizationId: selectedId,
+      connectSquare: params.square === '1' || params.square === 'deferred',
+    });
+    return <InlineDevicePairing
+      configured={claims !== null}
+      location={{ id: created.id, name: created.name }}
+      squareDeferred={params.square === 'deferred'}
+      squareHref={params.square === '1' ? continuation.squareHref : null}
+    />;
+  }
 
   return (
     <>
       <h1>Add a location</h1>
       <p className="subtitle">
         A new location starts blank — only what you enter here. Connect Square and
-        pair devices from the locations list once it’s created.
+        pair its first device in the next step.
       </p>
       {params.error ? <div className="notice danger" role="status">{params.error}</div> : null}
       <div className="card">

@@ -37,9 +37,9 @@ const config: NextConfig = {
     'libsodium-wrappers',
   ],
   experimental: {
-    // HQ accepts owner-managed menu/training images up to 6 MB. The extra MB
-    // covers multipart framing while staying below Supabase's 10 MiB bucket cap.
-    serverActions: { bodySizeLimit: '7mb' },
+    // HQ accepts 8 MB menu source documents and 6 MB managed images. The extra
+    // MB covers action framing; each boundary still enforces its tighter limit.
+    serverActions: { bodySizeLimit: '9mb' },
   },
   // `pnpm lint` is the authoritative zero-warning gate and runs before build.
   eslint: { ignoreDuringBuilds: true },

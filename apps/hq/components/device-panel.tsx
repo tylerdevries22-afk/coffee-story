@@ -6,7 +6,7 @@ import { DEVICE_ROLES } from '@platform/schema';
 
 import {
   issueRefreshSecretAction, pairDeviceAction, revokeDeviceAction,
-} from '@/app/(console)/locations/actions';
+} from '@/app/(console)/locations/device-actions';
 import { IDLE, type DeviceActionState } from '@/lib/device-action-state';
 import type { DeviceSummary } from '@/lib/demo-data';
 
@@ -143,12 +143,14 @@ export function DevicePanel({ devices, pairableLocations, configured }: Props) {
                     <span className="device-actions">
                       <form action={issueSecret}>
                         <input name="deviceId" type="hidden" value={device.id} />
+                        <input name="locationId" type="hidden" value={device.locationId} />
                         <button className="button secondary" disabled={issuing} type="submit">
                           {device.health === 'durable' ? 'Rotate secret' : 'Issue refresh secret'}
                         </button>
                       </form>
                       <form action={revoke}>
                         <input name="deviceId" type="hidden" value={device.id} />
+                        <input name="locationId" type="hidden" value={device.locationId} />
                         <button className="button secondary" disabled={revoking} type="submit">
                           Revoke
                         </button>

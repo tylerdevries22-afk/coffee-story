@@ -4,35 +4,30 @@ import { Inter_600SemiBold } from '@expo-google-fonts/inter/600SemiBold';
 import { Inter_700Bold } from '@expo-google-fonts/inter/700Bold';
 import { fontGateReady } from '@platform/domain';
 import { initMobileMonitoring } from '@platform/monitoring';
-import {
-  createAnalyticsSurfaceObserver,
-  createAnalyticsTransport,
-  screenKeyFor,
-  tenantIdHintFromJwt,
-} from '@platform/analytics';
 import { liveConfigFromEnv, missingLiveConfig, type MobileLiveConfig } from '@/lib/runtime-config';
-import Constants from 'expo-constants';
 import { useFonts } from 'expo-font';
-import { Stack, usePathname } from 'expo-router';
+import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useMemo, useRef } from 'react';
-import { AppState, Platform, Text, View } from 'react-native';
+import { useEffect } from 'react';
+import { Platform, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AppErrorBoundary } from '@/components/app-error-boundary';
+import { CustomerTelemetry } from '@/components/customer-telemetry';
 import { Button } from '@/components/ui';
 import { InstallPrompt } from '@/components/install-prompt';
 import { brandCache } from '@/lib/brand-cache';
 import { AppStateProvider } from '@/state/app-context';
-import { AuthProvider, useAuth } from '@/state/auth-context';
+import { AuthProvider } from '@/state/auth-context';
 import { CustomerCatalogProvider } from '@/state/catalog-context';
 import { DemoProvider, useDemo } from '@/state/demo-context';
 import { OrderProvider } from '@/state/order-context';
-import { TENANT_BRAND_CONFIG } from '@/tenant';
+import { TENANT, TENANT_BRAND_CONFIG } from '@/tenant';
 import {
   ThemeProvider,
+  PreviewSwitcher,
   ToastProvider,
   useTokens,
   useTokens as useBrandTokens,
@@ -114,6 +109,11 @@ function ConfiguredApp({ config }: { config: MobileLiveConfig }) {
             <CustomerTelemetry />
             <StatusBar style="dark" />
             <CustomerStack />
+            <PreviewSwitcher
+              currentSlug={TENANT.identity.slug}
+              directory={process.env.EXPO_PUBLIC_PREVIEW_DIRECTORY}
+              surface="customer"
+            />
             {/* Global chrome that used to live in `app/index.tsx` when it was the
                 entire app. It sits above the Stack so it survives navigating into
                 `/client` or `/staff` instead of unmounting the moment the
@@ -124,96 +124,6 @@ function ConfiguredApp({ config }: { config: MobileLiveConfig }) {
       </CustomerCatalogProvider>
     </AuthProvider>
   );
-}
-
-const CUSTOMER_SCREENS: Readonly<Record<string, string>> = {
-  '/': 'entry',
-  '/client': 'customer_shell',
-  '/client/home': 'home',
-  '/client/book': 'order',
-  '/client/gift': 'gift',
-  '/client/rewards': 'rewards',
-  '/client/more': 'more',
-  '/client/more/catering': 'catering',
-  '/client/more/drops': 'drops',
-  '/client/more/faq': 'faq',
-  '/client/more/gift-balance': 'gift_balance',
-  '/client/more/location': 'location',
-  '/client/more/membership': 'membership',
-  '/client/more/menu-prices': 'menu_prices',
-  '/client/more/messages': 'messages',
-  '/client/more/order-policy': 'order_policy',
-  '/client/more/orders': 'orders',
-  '/client/more/payments': 'payments',
-  '/client/more/preferences': 'preferences',
-  '/client/more/privacy': 'privacy',
-  '/client/more/profile': 'profile',
-  '/client/more/referrals': 'referrals',
-  '/client/more/resources': 'resources',
-  '/drops/:id': 'drop_detail',
-  '/notifications': 'notifications',
-  '/refer/:code': 'referral_landing',
-};
-
-function customerRoute(pathname: string): string {
-  if (pathname.startsWith('/drops/')) return '/drops/:id';
-  if (pathname.startsWith('/refer/')) return '/refer/:code';
-  return pathname;
-}
-
-/** Behavioral screen events stay suppressed until the customer explicitly opts in. */
-function CustomerTelemetry() {
-  const pathname = usePathname();
-  const { session } = useAuth();
-  const accessToken = session?.access_token ?? null;
-  const brandId = accessToken ? tenantIdHintFromJwt(accessToken) : null;
-  const userConsent = session?.user.user_metadata?.analytics_consent === true;
-  const consentUpdatedAt = useRef(new Date().toISOString());
-  const endpoint = useMemo(() => {
-    const baseUrl = process.env.EXPO_PUBLIC_API_URL;
-    if (!baseUrl) return null;
-    try { return new URL('/api/analytics/events', baseUrl).toString(); }
-    catch { return null; }
-  }, []);
-  const transport = useMemo(() => {
-    if (!endpoint) return null;
-    try {
-      return createAnalyticsTransport({ endpoint, getAccessToken: async () => accessToken });
-    } catch {
-      return null;
-    }
-  }, [accessToken, endpoint]);
-  const observer = useMemo(() => transport ? createAnalyticsSurfaceObserver(transport) : null, [transport]);
-
-  useEffect(() => () => transport?.dispose(), [transport]);
-  useEffect(() => {
-    if (!transport) return undefined;
-    const subscription = AppState.addEventListener('change', (state) => {
-      if (state === 'active') void transport.flush();
-    });
-    return () => subscription.remove();
-  }, [transport]);
-  useEffect(() => {
-    if (!observer || !session || !brandId) return;
-    const consentKey = `${session.user.id}:${userConsent ? 'allowed' : 'essential'}`;
-    const screenKey = screenKeyFor(customerRoute(pathname), CUSTOMER_SCREENS);
-    observer.observe({
-      sessionIdentity: consentKey,
-      screenKey,
-      context: {
-        brandId,
-        surface: 'customer',
-        appVersion: Constants.expoConfig?.version ?? 'unknown',
-        consent: {
-          essential: true,
-          behavioral: userConsent,
-          source: 'user',
-          updatedAt: consentUpdatedAt.current,
-        },
-      },
-    });
-  }, [brandId, observer, pathname, session, userConsent]);
-  return null;
 }
 
 function CustomerStack() {

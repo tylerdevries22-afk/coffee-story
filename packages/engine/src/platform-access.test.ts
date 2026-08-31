@@ -53,6 +53,10 @@ describe('recordPlatformAccessEvent', () => {
         await recordPlatformAccessEvent(environment, { ...event, brandId: '../foreign' }),
         { ok: false, errorCode: 'invalid_event', reason: 'invalid_event' },
       );
+      assert.deepEqual(
+        await recordPlatformAccessEvent(environment, { ...event, action: 'Bad action' }),
+        { ok: false, errorCode: 'invalid_event', reason: 'invalid_event' },
+      );
       assert.equal(calls, 0);
     } finally {
       globalThis.fetch = originalFetch;

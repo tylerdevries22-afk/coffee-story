@@ -22,7 +22,12 @@ const middleware = readFileSync(
 
 // The complete set of prefixes allowed to render without a session. Adding one
 // is a security decision, so it has to be made here, in the test, on purpose.
-const ALLOWED_PUBLIC_PREFIXES = ["'/login'", "'/api/'", "'/status/'"];
+const ALLOWED_PUBLIC_PREFIXES = [
+  "'/login'",
+  "'/auth/callback'",
+  "'/api/'",
+  "'/status/'",
+];
 
 test('the public allowlist is exactly the reviewed set', () => {
   const body = middleware.match(/const PUBLIC_PREFIXES = \[([^\]]*)\]/)?.[1];

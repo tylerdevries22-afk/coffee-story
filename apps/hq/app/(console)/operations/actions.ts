@@ -6,21 +6,29 @@ import { revalidatePath } from 'next/cache';
 import { validateOperationRetention } from '@platform/domain';
 
 import { currentSession, hasRole } from '@/lib/auth';
+import { serverEnv, serviceDb } from '@/lib/api-auth';
 import { operationScheduleKindForRoutine, operationScheduleRule } from '@/lib/operations-schedule';
+import { ensurePlatformBrandMembership } from '@/lib/platform-membership';
 import { serverClient } from '@/lib/supabase-server';
+import { authorizeWorkspaceMutation } from '@/lib/workspace-mutation';
 
-async function managerContext() {
+async function managerContext(action: string, locationId?: string) {
   const [session, client] = await Promise.all([currentSession(), serverClient()]);
   if (!session || !client || !hasRole(session, 'location_manager')) {
     throw new Error('Operations manager access is required.');
   }
-  if (session.role === 'platform_admin') {
-    throw new Error('Platform support changes require the audited support workflow.');
+  const mutation = await authorizeWorkspaceMutation(session, { action, locationId });
+  if (!mutation) throw new Error('The operations change was not authorized.');
+  if (mutation.serviceRole) {
+    const environment = serverEnv();
+    if (!environment || !session.userId || !await ensurePlatformBrandMembership(
+      serviceDb(environment), session.userId, mutation.brandId,
+    )) throw new Error('Platform support access could not be established.');
   }
-  const feature = await client.from('brands').select('operations').eq('id', session.brandId)
+  const feature = await client.from('brands').select('operations').eq('id', mutation.brandId)
     .maybeSingle<{ operations: boolean }>();
   if (feature.error || !feature.data?.operations) throw new Error('Operations are not enabled for this tenant.');
-  return { session, client };
+  return { brandId: mutation.brandId, session, client };
 }
 
 function requiredFormText(formData: FormData, key: string): string {
@@ -38,8 +46,8 @@ function boundedInteger(formData: FormData, key: string, minimum: number, maximu
 }
 
 export async function createManualOperation(formData: FormData): Promise<void> {
-  const { client } = await managerContext();
   const locationId = requiredFormText(formData, 'locationId');
+  const { client } = await managerContext('operations.occurrence.create', locationId);
   const templateId = requiredFormText(formData, 'templateId');
   const dueWindowMinutes = boundedInteger(formData, 'dueWindowMinutes', 1, 1_440);
   const result = await client.rpc('create_manual_operation_occurrence', {
@@ -51,19 +59,19 @@ export async function createManualOperation(formData: FormData): Promise<void> {
 }
 
 export async function createOperationSchedule(formData: FormData): Promise<void> {
-  const { session, client } = await managerContext();
   const scheduleKey = requiredFormText(formData, 'scheduleKey');
   const locationId = requiredFormText(formData, 'locationId');
+  const { brandId, client } = await managerContext('operations.schedule.create', locationId);
   const templateId = requiredFormText(formData, 'templateId');
   const rule = operationScheduleRule(formData);
   if (!/^[a-z0-9][a-z0-9-]{0,79}$/.test(scheduleKey) || !rule) {
     throw new Error('Schedule key or timing rule is invalid.');
   }
   const [location, template] = await Promise.all([
-    client.from('locations').select('timezone').eq('brand_id', session.brandId)
+    client.from('locations').select('timezone').eq('brand_id', brandId)
       .eq('id', locationId).maybeSingle<{ timezone: string }>(),
     client.from('operation_task_templates').select('routine_kind')
-      .eq('brand_id', session.brandId).eq('id', templateId)
+      .eq('brand_id', brandId).eq('id', templateId)
       .maybeSingle<{ routine_kind: 'opening' | 'interval' | 'closing' | 'ad_hoc' }>(),
   ]);
   if (location.error || !location.data) throw new Error('The schedule location is not available.');
@@ -78,7 +86,7 @@ export async function createOperationSchedule(formData: FormData): Promise<void>
     throw new Error('Select valid, unique weekdays.');
   }
   const result = await client.from('operation_schedules').insert({
-    brand_id: session.brandId, location_id: locationId, template_id: templateId,
+    brand_id: brandId, location_id: locationId, template_id: templateId,
     timezone: location.data.timezone, recurrence_rule: recurrence,
     local_start_time: rule.localStartTime,
     anchor_offset_minutes: rule.anchorOffsetMinutes,
@@ -94,20 +102,23 @@ export async function createOperationSchedule(formData: FormData): Promise<void>
 }
 
 export async function toggleOperationSchedule(formData: FormData): Promise<void> {
-  const { session, client } = await managerContext();
+  const { brandId, client } = await managerContext('operations.schedule.toggle');
   const scheduleId = requiredFormText(formData, 'scheduleId');
   const enabled = formData.get('enabled') === 'true';
   const result = await client.from('operation_schedules').update({ is_enabled: enabled })
-    .eq('brand_id', session.brandId).eq('id', scheduleId).select('id').maybeSingle();
+    .eq('brand_id', brandId).eq('id', scheduleId).select('id').maybeSingle();
   if (result.error || !result.data) throw new Error('The schedule could not be updated.');
   revalidatePath('/operations');
   revalidatePath('/operations/schedules');
 }
 
 export async function cancelOperation(formData: FormData): Promise<void> {
-  const { client } = await managerContext();
+  const { brandId, client } = await managerContext('operations.occurrence.cancel');
   const occurrenceId = requiredFormText(formData, 'occurrenceId');
   const reason = requiredFormText(formData, 'reason');
+  const target = await client.from('operation_occurrences').select('id')
+    .eq('id', occurrenceId).eq('brand_id', brandId).maybeSingle();
+  if (target.error || !target.data) throw new Error('The operation is not available in this tenant.');
   const result = await client.rpc('cancel_operation_occurrence', {
     target_occurrence: occurrenceId, target_action_id: randomUUID(), target_reason: reason,
   });
@@ -117,9 +128,12 @@ export async function cancelOperation(formData: FormData): Promise<void> {
 }
 
 export async function resolveOperationIssue(formData: FormData): Promise<void> {
-  const { client } = await managerContext();
+  const { brandId, client } = await managerContext('operations.issue.resolve');
   const issueId = requiredFormText(formData, 'issueId');
   const resolution = requiredFormText(formData, 'resolution');
+  const target = await client.from('operation_issues').select('id')
+    .eq('id', issueId).eq('brand_id', brandId).maybeSingle();
+  if (target.error || !target.data) throw new Error('The issue is not available in this tenant.');
   const result = await client.rpc('update_operation_issue', {
     target_issue: issueId, target_action_id: randomUUID(), target_status: 'resolved',
     target_resolution: resolution,
@@ -130,7 +144,7 @@ export async function resolveOperationIssue(formData: FormData): Promise<void> {
 }
 
 export async function saveOperationRetention(formData: FormData): Promise<void> {
-  const { session, client } = await managerContext();
+  const { brandId, session, client } = await managerContext('operations.retention.save');
   if (!hasRole(session, 'brand_owner')) throw new Error('Brand owner access is required.');
   const policy = {
     evidenceDays: Number(formData.get('evidenceDays')),
@@ -139,7 +153,7 @@ export async function saveOperationRetention(formData: FormData): Promise<void> 
   };
   if (validateOperationRetention(policy).length > 0) throw new Error('Retention values are invalid.');
   const result = await client.from('operation_retention_policies').upsert({
-    brand_id: session.brandId, evidence_days: policy.evidenceDays,
+    brand_id: brandId, evidence_days: policy.evidenceDays,
     issue_days: policy.issueDays, actor_identity_days: policy.actorIdentityDays,
   }, { onConflict: 'brand_id' });
   if (result.error) throw new Error('Retention settings could not be saved.');
