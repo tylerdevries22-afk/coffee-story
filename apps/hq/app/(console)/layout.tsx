@@ -11,7 +11,7 @@ import { serverClient } from '@/lib/supabase-server';
 import { hqTheme } from '@/lib/theme';
 import { recordHqScreen } from '@/lib/hq-telemetry';
 import { readWorkspaceScope, orgSlug } from '@/lib/workspace-scope';
-import { WorkspaceSwitcher } from '@/components/workspace-switcher';
+import { OrganizationSwitcher, LocationSwitcher } from '@/components/workspace-switcher';
 import { selectOrganization, selectLocation } from '@/app/actions/workspace';
 
 import { signOut } from './login/actions';
@@ -123,15 +123,19 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
       initials={initials}
       statusHref={`/status/${statusSlug}`}
       dataMode={isConfigured() ? 'hosted' : 'preview'}
-      switcher={session && scope ? (
-        <WorkspaceSwitcher
+      orgSwitcher={session && scope ? (
+        <OrganizationSwitcher
           organizations={scope.organizations}
-          locations={scope.locations}
           organizationId={scope.organizationId}
-          locationId={scope.locationId}
           selectOrganizationAction={selectOrganization}
-          selectLocationAction={selectLocation}
           createOrgHref={canManagePlatform ? '/organizations/new' : undefined}
+        />
+      ) : undefined}
+      locationSwitcher={session && scope ? (
+        <LocationSwitcher
+          locations={scope.locations}
+          locationId={scope.locationId}
+          selectLocationAction={selectLocation}
         />
       ) : undefined}
       sessionFooter={(

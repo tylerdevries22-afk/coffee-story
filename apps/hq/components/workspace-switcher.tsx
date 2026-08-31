@@ -1,11 +1,14 @@
 'use client';
 
 /**
- * The franchise breadcrumb in the topbar: an organization switcher, then a
- * location switcher for the selected org. Both are custom popovers rather than
- * a native <select> so each row can carry a badge and a checkmark, and each
- * row is a submit button posting to a server action -- selecting is a
- * server-side, re-authorized write, never client navigation.
+ * The franchise scope controls that frame the breadcrumb in the topbar: an
+ * organization switcher pinned to the far left, then the page's breadcrumb
+ * trail, then a location switcher for the selected org. They are exported
+ * separately so the shell can place each one around the breadcrumb rather than
+ * as one right-aligned cluster. Both are custom popovers rather than a native
+ * <select> so each row can carry a badge and a checkmark, and each row is a
+ * submit button posting to a server action -- selecting is a server-side,
+ * re-authorized write, never client navigation.
  *
  * Location only renders when the selected org has locations, so a single-office
  * tenant shows one control and the operator view shows the region list.
@@ -31,6 +34,10 @@ type ScopeSwitcherProps = {
   readonly icon: 'brand' | 'locations';
   readonly ariaLabel: string;
   readonly placeholder: string;
+  /** Menu edge to anchor to: 'start' (left) for left-of-topbar triggers. */
+  readonly align?: 'start' | 'end';
+  /** Extra class on the trigger so the shell can shape it (chip vs. pill). */
+  readonly triggerClassName?: string;
   /** Hidden fields posted alongside the choice (e.g. the owning org id). */
   readonly hidden?: Readonly<Record<string, string>>;
   /** Optional action row pinned under the options (e.g. "New organization"). */
@@ -47,7 +54,7 @@ function Check() {
   );
 }
 
-function ScopeSwitcher({ options, selectedId, fieldName, action, icon, ariaLabel, placeholder, hidden, footer }: ScopeSwitcherProps) {
+function ScopeSwitcher({ options, selectedId, fieldName, action, icon, ariaLabel, placeholder, align = 'end', triggerClassName, hidden, footer }: ScopeSwitcherProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
@@ -80,7 +87,7 @@ function ScopeSwitcher({ options, selectedId, fieldName, action, icon, ariaLabel
     <div className="scope-switcher" ref={containerRef}>
       <button
         type="button"
-        className="scope-trigger"
+        className={`scope-trigger${triggerClassName ? ` ${triggerClassName}` : ''}`}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={menuId}
@@ -92,7 +99,7 @@ function ScopeSwitcher({ options, selectedId, fieldName, action, icon, ariaLabel
         <Icon name="chevron" size={14} className="scope-trigger-chevron" />
       </button>
       {open ? (
-        <div className="scope-menu" id={menuId} role="menu" aria-label={ariaLabel}>
+        <div className={`scope-menu align-${align}`} id={menuId} role="menu" aria-label={ariaLabel}>
           {showSearch ? (
             <input
               className="scope-search"
@@ -137,60 +144,68 @@ function ScopeSwitcher({ options, selectedId, fieldName, action, icon, ariaLabel
   );
 }
 
-export type WorkspaceSwitcherProps = {
+export type OrganizationSwitcherProps = {
   readonly organizations: readonly { id: string; name: string; kind: 'operator' | 'brand' }[];
-  readonly locations: readonly { id: string; name: string; city: string }[];
   readonly organizationId: string | null;
-  readonly locationId: string | null;
   readonly selectOrganizationAction: (formData: FormData) => void;
-  readonly selectLocationAction: (formData: FormData) => void;
   /** When set, the org menu shows a "New organization" row (platform admins). */
   readonly createOrgHref?: string;
 };
 
-const ALL_LOCATIONS: Option = { id: '', label: 'All locations' };
-
-export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
+/** The org chip that leads the topbar, left of the breadcrumb trail. */
+export function OrganizationSwitcher(props: OrganizationSwitcherProps) {
   if (props.organizations.length === 0) return null;
   const orgOptions: Option[] = props.organizations.map((org) => ({
     id: org.id,
     label: org.name,
     badge: org.kind === 'operator' ? 'Operator' : undefined,
   }));
+  return (
+    <ScopeSwitcher
+      options={orgOptions}
+      selectedId={props.organizationId}
+      fieldName="orgId"
+      action={props.selectOrganizationAction}
+      icon="brand"
+      ariaLabel="Switch organization"
+      placeholder="Select organization"
+      align="start"
+      triggerClassName="scope-trigger-org"
+      footer={props.createOrgHref ? (
+        <Link href={props.createOrgHref} className="scope-create" role="menuitem">
+          <span className="scope-create-plus" aria-hidden="true">+</span> New organization
+        </Link>
+      ) : undefined}
+    />
+  );
+}
+
+export type LocationSwitcherProps = {
+  readonly locations: readonly { id: string; name: string; city: string }[];
+  readonly locationId: string | null;
+  readonly selectLocationAction: (formData: FormData) => void;
+};
+
+const ALL_LOCATIONS: Option = { id: '', label: 'All locations' };
+
+/** The location pill that follows the breadcrumb; hidden when there are none. */
+export function LocationSwitcher(props: LocationSwitcherProps) {
+  if (props.locations.length === 0) return null;
   const locationOptions: Option[] = [
     ALL_LOCATIONS,
     ...props.locations.map((location) => ({ id: location.id, label: location.name, hint: location.city })),
   ];
   return (
-    <div className="workspace-switcher" aria-label="Workspace scope">
-      <ScopeSwitcher
-        options={orgOptions}
-        selectedId={props.organizationId}
-        fieldName="orgId"
-        action={props.selectOrganizationAction}
-        icon="brand"
-        ariaLabel="Switch organization"
-        placeholder="Select organization"
-        footer={props.createOrgHref ? (
-          <Link href={props.createOrgHref} className="scope-create" role="menuitem">
-            <span className="scope-create-plus" aria-hidden="true">+</span> New organization
-          </Link>
-        ) : undefined}
-      />
-      {props.locations.length > 0 ? (
-        <>
-          <Icon name="chevron" size={14} className="workspace-sep" />
-          <ScopeSwitcher
-            options={locationOptions}
-            selectedId={props.locationId ?? ''}
-            fieldName="locationId"
-            action={props.selectLocationAction}
-            icon="locations"
-            ariaLabel="Switch location"
-            placeholder="All locations"
-          />
-        </>
-      ) : null}
-    </div>
+    <ScopeSwitcher
+      options={locationOptions}
+      selectedId={props.locationId ?? ''}
+      fieldName="locationId"
+      action={props.selectLocationAction}
+      icon="locations"
+      ariaLabel="Switch location"
+      placeholder="All locations"
+      align="start"
+      triggerClassName="scope-trigger-location"
+    />
   );
 }

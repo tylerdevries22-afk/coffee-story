@@ -1264,15 +1264,23 @@ body {
 }
 .location-form-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 10px; }
 
-.workspace-switcher {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 2px;
-}
-.workspace-sep { color: var(--text-muted); opacity: 0.6; transform: rotate(-90deg); }
-
 .scope-switcher { position: relative; min-width: 0; }
+
+/* The org chip leads the topbar; the breadcrumb trail is nudged off it and the
+   location pill follows the trail, so the header reads org -> page -> location
+   left to right rather than one right-aligned cluster. */
+.topbar-context > .scope-switcher:first-of-type { margin-right: 2px; }
+.topbar-context .breadcrumb { margin-left: 2px; }
+.topbar-context .breadcrumb + .scope-switcher { margin-left: 4px; }
+
+/* Org: a rounded-rectangle chip, tinted so the current tenant reads as the
+   anchor of the header. Location: a fully-rounded pill after the trail. */
+.scope-trigger-org {
+  border-color: color-mix(in srgb, var(--accent) 34%, var(--line));
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-raised));
+}
+.scope-trigger-org:hover { background: color-mix(in srgb, var(--accent) 18%, var(--bg-raised)); }
+.scope-trigger-location { border-radius: 999px; }
 
 .scope-trigger {
   display: inline-flex;
@@ -1299,7 +1307,6 @@ body {
   position: absolute;
   z-index: 40;
   top: calc(100% + 6px);
-  right: 0;
   width: 264px;
   max-width: min(264px, calc(100vw - 32px));
   padding: 6px;
@@ -1308,6 +1315,8 @@ body {
   background: var(--bg-raised);
   box-shadow: 0 18px 40px color-mix(in srgb, #000 44%, transparent);
 }
+.scope-menu.align-end { right: 0; left: auto; }
+.scope-menu.align-start { left: 0; right: auto; }
 
 .scope-search {
   width: 100%;
@@ -1374,7 +1383,8 @@ body {
 
 @media (max-width: 720px) {
   .scope-trigger-label { max-width: 96px; }
-  .workspace-switcher .scope-switcher:nth-of-type(2) { display: none; }
+  /* Narrow: keep the org chip and breadcrumb; drop the location pill. */
+  .topbar-context .scope-switcher:has(.scope-trigger-location) { display: none; }
 }
 
 .main {

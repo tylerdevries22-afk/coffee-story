@@ -76,7 +76,8 @@ type ConsoleShellProps = {
   readonly statusHref: string;
   readonly dataMode: 'hosted' | 'preview';
   readonly sessionFooter: ReactNode;
-  readonly switcher?: ReactNode;
+  readonly orgSwitcher?: ReactNode;
+  readonly locationSwitcher?: ReactNode;
 };
 
 type ConsoleRailProps = Pick<
@@ -204,7 +205,8 @@ function ConsoleTopbar({
   onOpenNavigation,
   triggerButtonRef,
   dataMode,
-  switcher,
+  orgSwitcher,
+  locationSwitcher,
 }: {
   section: ConsoleSection;
   pageTitle: string;
@@ -213,7 +215,8 @@ function ConsoleTopbar({
   onOpenNavigation: () => void;
   triggerButtonRef: RefObject<HTMLButtonElement | null>;
   dataMode: 'hosted' | 'preview';
-  switcher?: ReactNode;
+  orgSwitcher?: ReactNode;
+  locationSwitcher?: ReactNode;
 }) {
   return (
     <header className="topbar">
@@ -229,14 +232,15 @@ function ConsoleTopbar({
         >
           <Icon name="menu" size={18} />
         </button>
+        {orgSwitcher}
         <div className="breadcrumb" aria-label="Current page">
           <span className="breadcrumb-muted">{section.title}</span>
           <Icon name="chevron" size={15} />
           <strong>{pageTitle}</strong>
         </div>
+        {locationSwitcher}
       </div>
       <div className="topbar-actions">
-        {switcher}
         <span className={`sync-state ${dataMode}`}><span className="sync-dot" /> {dataMode === 'hosted' ? 'Supabase synced' : 'Local preview data'}</span>
         <span className="topbar-avatar" aria-hidden="true">{initials}</span>
       </div>
@@ -341,7 +345,8 @@ export function ConsoleShell(props: ConsoleShellProps) {
           onOpenNavigation={() => setNavigationOpen(true)}
           triggerButtonRef={triggerButtonRef}
           dataMode={props.dataMode}
-          switcher={props.switcher}
+          orgSwitcher={props.orgSwitcher}
+          locationSwitcher={props.locationSwitcher}
         />
         <ContextRail section={activeSection} statusHref={props.statusHref} />
         <main id="main-content" className="main">{props.children}</main>
