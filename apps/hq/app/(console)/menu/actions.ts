@@ -20,6 +20,7 @@ import { parseMenuCsv } from '@platform/schema';
 
 import { currentSession, hasRole } from '@/lib/auth';
 import { isConfigured, serverClient } from '@/lib/supabase-server';
+import { planImportCategories } from '@/lib/menu-import-categories';
 import { selectedOrganizationId } from '@/lib/workspace-scope';
 import { mayMutateSelectedOrganization } from '@/lib/workspace-mutation';
 
@@ -68,23 +69,20 @@ export async function importMenuAction(formData: FormData): Promise<void> {
   // Categories first: items carry a NOT NULL category_id, so every category the
   // rows name has to exist before the items reference it.
   const categoryTitles = [...new Set(rows.map((row) => row.category))];
-  // menu_categories has no slug or unique (menu_id,title) constraint. Read
-  // existing folders first, then insert only missing titles; this avoids a
-  // false upsert contract and makes titles such as "Tea" and "tea" safe.
-  const existingCategories = await client.from('menu_categories').select('id,title')
-    .eq('brand_id', brandId).eq('menu_id', menuId).in('title', categoryTitles)
-    .returns<{ id: string; title: string }[]>();
-  if (existingCategories.error) fail('Could not read the menu categories.');
-  const categoryId = new Map((existingCategories.data ?? []).map((row) => [row.title, row.id]));
-  const missingCategories = categoryTitles
-    .filter((title) => !categoryId.has(title))
-    .map((title, index) => ({ brand_id: brandId, menu_id: menuId, title, sort_order: categoryTitles.length + index }));
-  if (missingCategories.length > 0) {
-    const inserted = await client.from('menu_categories').insert(missingCategories)
-      .select('id,title').returns<{ id: string; title: string }[]>();
-    if (inserted.error) fail('Could not create the menu categories.');
-    for (const row of inserted.data ?? []) categoryId.set(row.title, row.id);
-  }
+  const existing = await client.from('menu_categories').select('id,title,slug')
+    .eq('menu_id', menuId).returns<{ id: string; title: string; slug: string }[]>();
+  if (existing.error) fail('Could not read the menu categories.');
+  const planned = planImportCategories(categoryTitles, existing.data ?? []);
+  const categories = planned.length > 0
+    ? await client.from('menu_categories').insert(planned.map((category) => ({
+      brand_id: brandId, menu_id: menuId, slug: category.slug,
+      title: category.title, sort_order: category.sortOrder,
+    }))).select('id,title').returns<{ id: string; title: string }[]>()
+    : { data: [], error: null };
+  if (categories.error) fail('Could not create the menu categories.');
+  const categoryId = new Map(
+    [...(existing.data ?? []), ...(categories.data ?? [])].map((row) => [row.title, row.id]),
+  );
 
   const itemRows = rows.map((row, index) => ({
     brand_id: brandId, menu_id: menuId, category_id: categoryId.get(row.category) ?? '',
