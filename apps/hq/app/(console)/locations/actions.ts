@@ -11,6 +11,7 @@ import type { DeviceActionState } from '@/lib/device-action-state';
 import { serverEnv, serviceDb } from '@/lib/api-auth';
 import { isConfigured, serverClient } from '@/lib/supabase-server';
 import { parseLocationDraft } from '@/lib/location-input';
+import { locationCreationAllowed } from '@/lib/location-capacity';
 import { addDemoLocation } from '@/lib/demo-locations';
 import { selectedOrgId } from '@/lib/workspace-location';
 import { authorizeOrganization } from '@/lib/workspace-scope';
@@ -18,7 +19,6 @@ import {
   deviceAdminStatus, issueRefreshSecret, pairDevice, revokePairedDevice,
   type DeviceAdminDeps,
 } from '@/lib/device-admin';
-
 
 /**
  * Device writes run as the service role, and that is not a shortcut.
@@ -154,20 +154,9 @@ export async function createLocationAction(formData: FormData): Promise<void> {
 
   const client = await serverClient();
   if (!client) redirect('/locations?created=failed');
-  // Re-read the entitlement and current count at the write boundary. The
-  // page's button is only a convenience; a direct POST must not turn a
-  // single-location plan into a multi-location tenant.
-  const [brand, existing] = await Promise.all([
-    client.from('brands').select('multi_location').eq('id', orgId)
-      .maybeSingle<{ multi_location: boolean }>(),
-    client.from('locations').select('id', { count: 'exact', head: true }).eq('brand_id', orgId),
-  ]);
-  if (brand.error || !brand.data || existing.error) {
-    redirect(`/locations/new?error=${encodeURIComponent('Could not verify location capacity.')}`);
-  }
-  if (!brand.data.multi_location && (existing.count ?? 0) > 0) {
-    redirect(`/locations/new?error=${encodeURIComponent('Your plan allows one location.')}`);
-  }
+  const allowed = await locationCreationAllowed(client, orgId);
+  if (allowed === null) redirect('/locations?created=failed');
+  if (!allowed) redirect('/locations?created=limit');
   const insert = await client
     .from('locations')
     .insert({ brand_id: orgId, name: draft.name, address: draft.address, hours: draft.hours, timezone: draft.timezone })

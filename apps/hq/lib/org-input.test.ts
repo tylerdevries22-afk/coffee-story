@@ -28,3 +28,13 @@ test('an empty name is rejected', () => {
 test('a name with no alphanumerics is rejected', () => {
   assert.equal(parseOrgDraft({ name: '—•—' }).ok, false);
 });
+
+test('a one-character handle is rejected by the parser, not the database', () => {
+  assert.equal(parseOrgDraft({ name: 'A' }).ok, false);
+});
+
+test('a long name produces a database-safe 63-character handle', () => {
+  const result = parseOrgDraft({ name: 'A'.repeat(80) });
+  assert.ok(result.ok);
+  assert.equal(result.draft.slug.length, 63);
+});

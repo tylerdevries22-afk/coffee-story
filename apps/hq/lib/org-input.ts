@@ -38,8 +38,9 @@ export function parseOrgDraft(input: { name?: string }): { ok: true; draft: OrgD
   const name = (input.name ?? '').trim();
   if (!name) return { ok: false, error: 'Enter an organization name.' };
   if (name.length > 120) return { ok: false, error: 'That organization name is too long.' };
-  const slug = slugify(name, 64);
+  const slug = slugify(name, 63);
   if (!slug) return { ok: false, error: 'That name has no letters or numbers to build a handle from.' };
+  if (slug.length < 2) return { ok: false, error: 'Enter at least two letters or numbers for the organization handle.' };
   return {
     ok: true,
     draft: {

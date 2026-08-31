@@ -21,6 +21,7 @@ type LocationsPageProps = {
 const CREATED_NOTICE: Record<string, { message: string; failed: boolean }> = {
   '1': { message: 'Location created. Connect Square and pair its devices below.', failed: false },
   denied: { message: 'Only a brand owner can add a location.', failed: true },
+  limit: { message: 'This organization is limited to one location.', failed: true },
   failed: { message: 'That location could not be created. Try again.', failed: true },
 };
 
