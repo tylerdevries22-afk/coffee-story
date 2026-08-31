@@ -6,6 +6,7 @@ export * from './tax';
 export * from './stored-value';
 export * from './notifications';
 export * from './operations';
+export * from './platform-access';
 export * from './http';
 export * from './jobs';
 export * from './orders';

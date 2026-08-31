@@ -37,6 +37,7 @@ export async function currentSession(): Promise<SessionInfo | null> {
   const claims = parseTenantClaims(metadata);
   if (!claims?.role) return null;
   return {
+    userId: data.user.id,
     email: data.user.email ?? '',
     role: claims.role,
     brandId: claims.brand_id,
