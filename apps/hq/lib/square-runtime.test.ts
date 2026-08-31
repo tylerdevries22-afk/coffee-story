@@ -193,6 +193,29 @@ describe('squareRuntimeFor', () => {
       'the stored token and merchant location both became stale when the compare-and-set lost');
   });
 
+  it('keeps using an unexpired token when another worker owns the renewal claim', async () => {
+    stubSquare({ ok: true });
+    const state: DbState = {
+      connection: connectionRow({ expires_at: at(DAY) }),
+      updates: [],
+      updateResults: [{ data: null, error: null }],
+    };
+    const runtime = await resolve(state);
+    assert.equal(runtime?.locationAccessToken, 'stored-access');
+    assert.equal(refreshCalls, 0, 'the losing worker must not call Square');
+  });
+
+  it('does not use an expired token when another worker owns renewal', async () => {
+    stubSquare({ ok: true });
+    const state: DbState = {
+      connection: connectionRow({ expires_at: at(-DAY) }),
+      updates: [],
+      updateResults: [{ data: null, error: null }],
+    };
+    assert.equal(await resolve(state), null);
+    assert.equal(refreshCalls, 0);
+  });
+
   it('refuses an expired token when its refresh write loses a reconnect race', async () => {
     stubSquare({ ok: true, body: { access_token: 'stale-renewal', refresh_token: 'next-refresh', expires_at: at(30 * DAY) } });
     const state: DbState = {

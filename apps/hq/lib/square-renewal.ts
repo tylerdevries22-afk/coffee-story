@@ -30,7 +30,7 @@ export type SquareRenewalConnection = {
 export type SquareRenewalResult =
   | { outcome: 'renewed'; accessToken: string; cleanupFailed: boolean }
   | { outcome: 'failed'; cleanupFailed: boolean }
-  | { outcome: 'stale'; cleanupFailed: boolean };
+  | { outcome: 'stale'; stage: 'claim' | 'persist'; cleanupFailed: boolean };
 
 export type SquareRenewalSummary = {
   scanned: number;
@@ -225,7 +225,7 @@ export async function renewSquareConnection(
   nowMs: number = Date.now(),
 ): Promise<SquareRenewalResult> {
   if (!await claimRenewalAttempt(db, input)) {
-    return { outcome: 'stale', cleanupFailed: false };
+    return { outcome: 'stale', stage: 'claim', cleanupFailed: false };
   }
 
   let previousAccessToken: string;
@@ -294,9 +294,9 @@ export async function renewSquareConnection(
           }),
       };
     }
-    return { outcome: 'stale', cleanupFailed: !await cleanupIssued(accessToken) };
+    return { outcome: 'stale', stage: 'persist', cleanupFailed: !await cleanupIssued(accessToken) };
   } catch {
-    return { outcome: 'stale', cleanupFailed: !await cleanupIssued(accessToken) };
+    return { outcome: 'stale', stage: 'persist', cleanupFailed: !await cleanupIssued(accessToken) };
   }
 }
 

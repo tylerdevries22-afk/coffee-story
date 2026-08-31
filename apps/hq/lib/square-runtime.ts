@@ -122,11 +122,12 @@ export async function squareRuntimeFor(
       updated_at: connection.updated_at,
     });
     if (renewal.outcome === 'renewed') locationAccessToken = renewal.accessToken;
-    // A failed compare-and-set means another request disconnected, reconnected,
-    // or renewed this location while Square was answering. The connection we
-    // read above is stale, including its merchant location and access token, so
-    // this order must resolve the runtime again instead of spending either one.
-    else if (renewal.outcome === 'stale') return null;
+    // Losing the initial claim only means another worker already owns renewal.
+    // The token read above is still safe until expiry. Losing persistence is
+    // different: a reconnect may have changed both token and merchant location,
+    // so the runtime must not spend the stale snapshot.
+    else if (renewal.outcome === 'stale'
+      && (renewal.stage === 'persist' || state === 'expired')) return null;
     // A token inside the margin has not expired yet, so a failed renewal still
     // takes the sale. An expired one must not be sent to Square as if it were
     // money: the caller turns null into "this tender is not available", which

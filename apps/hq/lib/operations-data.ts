@@ -9,8 +9,8 @@ import {
 import { currentSession, hasRole } from './auth';
 import { serverClient } from './supabase-server';
 import { selectedLocationId } from './workspace-location';
-import { scopeRowsToLocation } from './location-scope';
 import { liveScope } from './live-scope';
+import { scopeWorkspaceToLocation } from './operations-workspace-scope';
 
 export type OperationsTemplateSummary = {
   id: string; key: string; revision: number; title: string; locationId: string | null;
@@ -117,26 +117,6 @@ function emptyWorkspace(enabled: boolean, owner: boolean): OperationsWorkspace {
   };
 }
 
-/**
- * Narrow a workspace to the selected store. Occurrences and schedules are the
- * per-location work, so they follow the header; templates and the location
- * roster stay brand-wide (a brand-default template applies to every store, and
- * the roster is what the switcher itself is drawn from). Metrics re-derive from
- * the scoped occurrences so the counts match what is shown.
- */
-function scopeWorkspaceToLocation(workspace: OperationsWorkspace, locationId: string | null): OperationsWorkspace {
-  if (!locationId) return workspace;
-  const occurrences = scopeRowsToLocation(workspace.occurrences, locationId);
-  const occurrenceIds = new Set(occurrences.map((row) => row.id));
-  return {
-    ...workspace,
-    occurrences,
-    schedules: scopeRowsToLocation(workspace.schedules, locationId),
-    issues: workspace.issues.filter((issue) => occurrenceIds.has(issue.occurrenceId)),
-    metrics: metricsOf(occurrences),
-  };
-}
-
 export async function loadOperationsWorkspace(): Promise<OperationsWorkspace> {
   const [session, client, demoLocationId] = await Promise.all([currentSession(), serverClient(), selectedLocationId()]);
   if (!client) return scopeWorkspaceToLocation(demoWorkspace(), demoLocationId);
@@ -176,7 +156,7 @@ export async function loadOperationsWorkspace(): Promise<OperationsWorkspace> {
     dueAt: row.due_at, graceMinutes: row.grace_minutes, claimedBy: row.claimed_by,
     completedAt: row.completed_at, completionNote: row.completion_note,
   }));
-  return {
+  return scopeWorkspaceToLocation({
     enabled: true, canEditBrandDefaults: hasRole(session, 'brand_owner'),
     locations: locations.data ?? [],
     templates: (templates.data ?? []).map((row) => ({ id: row.id, key: row.template_key,
@@ -195,5 +175,5 @@ export async function loadOperationsWorkspace(): Promise<OperationsWorkspace> {
     retention: retention.data ? { evidenceDays: retention.data.evidence_days,
       issueDays: retention.data.issue_days, actorIdentityDays: retention.data.actor_identity_days }
       : { evidenceDays: 365, issueDays: 730, actorIdentityDays: 365 },
-  };
+  }, locationId);
 }

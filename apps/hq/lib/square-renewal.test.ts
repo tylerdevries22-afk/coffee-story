@@ -215,7 +215,7 @@ describe('Square token renewal', () => {
       square,
       connection,
       NOW.getTime(),
-    ), { outcome: 'stale', cleanupFailed: false });
+    ), { outcome: 'stale', stage: 'claim', cleanupFailed: false });
     assert.equal(refreshCalls, 0);
     assert.equal(updates.length, 1);
   });
