@@ -142,6 +142,20 @@ export async function readWorkspaceScope(session: SessionInfo): Promise<Workspac
   };
 }
 
+/** The selected organization after re-authorizing the cookie for this session.
+ * Data loaders use this instead of trusting the raw cookie or JWT home brand. */
+export async function selectedOrganizationId(session: SessionInfo): Promise<string> {
+  const orgs = await authorizedOrgs(session);
+  const value = (await cookies()).get(ORG_COOKIE)?.value;
+  const selected = isWorkspaceCookieValue(value)
+    ? orgs.find((entry) => entry.org.id === value)
+    : undefined;
+  return selected?.org.id
+    ?? orgs.find((entry) => entry.org.id === session.brandId)?.org.id
+    ?? orgs[0]?.org.id
+    ?? session.brandId;
+}
+
 /** Validate a posted org id against the session's real authorized set. Returns
  *  the id when the session may select it, null otherwise -- the gate both the
  *  select action and any scope-consuming write share. */

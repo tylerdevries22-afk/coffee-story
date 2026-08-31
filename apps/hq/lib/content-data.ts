@@ -16,6 +16,7 @@ import {
 import { serverEnv, serviceDb } from './api-auth';
 import { serverClient } from './supabase-server';
 import { resolveTenantTrainingProfile } from './training-bootstrap';
+import { selectedOrganizationId } from './workspace-scope';
 
 import demoMenuJson from '../../customer/src/tenant/menu.json';
 
@@ -204,6 +205,7 @@ export async function loadContentWorkspace(options: { includeDraft?: boolean; in
   if (!client) return DEMO_WORKSPACE;
   const user = await client.auth.getUser();
   if (!user.data.user) throw new Error('Content management requires an active session.');
+  const brandId = await selectedOrganizationId(session);
   const membership = await client.from('brand_users').select('role')
     .eq('brand_id', session.brandId).eq('user_id', user.data.user.id)
     .single<{ role: string }>();
@@ -216,12 +218,12 @@ export async function loadContentWorkspace(options: { includeDraft?: boolean; in
 
   const brandResult = await client.from('brands')
     .select('id, name, brand_config')
-    .eq('id', session.brandId)
+    .eq('id', brandId)
     .single<BrandRow>();
   if (brandResult.error) throw new Error(`content brand: ${brandResult.error.message}`);
   const profile = resolveTenantTrainingProfile(brandResult.data.name, brandResult.data.brand_config);
 
-  const menu = await loadOrCreateTenantMenu(client, session.brandId);
+  const menu = await loadOrCreateTenantMenu(client, brandId);
 
   const [categories, items, releases, runs, mediaVersions, catalog, publication, catalogResources, catalogRelations, catalogPlacements] = await Promise.all([
     client.from('menu_categories').select('id, title, tagline, slug, parent_id, image_url, audience, archived_at, sort_order')
@@ -230,21 +232,21 @@ export async function loadContentWorkspace(options: { includeDraft?: boolean; in
       .select('id, name, slug, description, category_id, base_price_cents, sizes, modifiers, image_url, catalog_audience, is_listed, is_86d, sort_order, updated_at')
       .eq('menu_id', menu.id).order('sort_order').returns<ItemRow[]>(),
     client.from('training_releases').select('id, version, status, manifest, updated_at')
-      .eq('brand_id', session.brandId).in('status', ['draft', 'published'])
+      .eq('brand_id', brandId).in('status', ['draft', 'published'])
       .order('created_at', { ascending: false }).returns<ReleaseRow[]>(),
     client.from('training_bootstrap_runs').select('id, status, stage, progress, created_at')
-      .eq('brand_id', session.brandId).order('created_at', { ascending: false }).limit(1).returns<RunRow[]>(),
+      .eq('brand_id', brandId).order('created_at', { ascending: false }).limit(1).returns<RunRow[]>(),
     client.from('content_media_versions').select('id, entity_type, entity_key, slot, public_url, created_at')
-      .eq('brand_id', session.brandId)
+      .eq('brand_id', brandId)
       .order('created_at', { ascending: false }).limit(500).returns<MediaVersionRow[]>(),
     client.from('catalogs').select('draft_version').eq('id', menu.id).maybeSingle<{ draft_version: number }>(),
-    client.from('catalog_publications').select('version').eq('brand_id', session.brandId).maybeSingle<{ version: number }>(),
+    client.from('catalog_publications').select('version').eq('brand_id', brandId).maybeSingle<{ version: number }>(),
     client.from('catalog_resources').select('id, kind, slug, title, summary, audience, external_ref, image_url')
-      .eq('brand_id', session.brandId).is('archived_at', null).order('kind').order('title').returns<CatalogResourceRow[]>(),
+      .eq('brand_id', brandId).is('archived_at', null).order('kind').order('title').returns<CatalogResourceRow[]>(),
     client.from('catalog_relations').select('id, source_key, target_key, kind')
-      .eq('brand_id', session.brandId).order('sort_order').returns<CatalogRelationRow[]>(),
+      .eq('brand_id', brandId).order('sort_order').returns<CatalogRelationRow[]>(),
     client.from('catalog_placements').select('id, node_id, parent_id, sort_order, is_primary')
-      .eq('brand_id', session.brandId).order('sort_order').returns<CatalogPlacementRow[]>(),
+      .eq('brand_id', brandId).order('sort_order').returns<CatalogPlacementRow[]>(),
   ]);
   if (categories.error) throw new Error(`content categories: ${categories.error.message}`);
   if (items.error) throw new Error(`content items: ${items.error.message}`);
@@ -262,7 +264,7 @@ export async function loadContentWorkspace(options: { includeDraft?: boolean; in
   let manifest = asManifest(selected?.manifest, profile);
   if (selected && options.includeAnswers !== false) {
     const privateRelease = await privileged.from('training_releases')
-      .select('answer_key').eq('id', selected.id).eq('brand_id', session.brandId)
+      .select('answer_key').eq('id', selected.id).eq('brand_id', brandId)
       .single<{ answer_key: unknown }>();
     if (privateRelease.error) throw new Error(`content answer key: ${privateRelease.error.message}`);
     manifest = restoreTrainingAnswers(manifest, privateRelease.data.answer_key as TrainingAnswerKey);

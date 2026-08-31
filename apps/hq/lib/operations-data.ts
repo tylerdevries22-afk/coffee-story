@@ -10,6 +10,7 @@ import { currentSession, hasRole } from './auth';
 import { serverClient } from './supabase-server';
 import { selectedLocationId } from './workspace-location';
 import { scopeRowsToLocation } from './location-scope';
+import { selectedOrganizationId } from './workspace-scope';
 
 export type OperationsTemplateSummary = {
   id: string; key: string; revision: number; title: string; locationId: string | null;
@@ -32,7 +33,8 @@ export type OperationsOccurrenceSummary = {
 };
 
 export type OperationsIssueSummary = {
-  id: string; occurrenceId: string; category: string; severity: 'low' | 'normal' | 'high' | 'urgent';
+  id: string; occurrenceId: string; locationId: string; category: string;
+  severity: 'low' | 'normal' | 'high' | 'urgent';
   status: 'open' | 'acknowledged' | 'resolved' | 'dismissed'; createdAt: string;
 };
 
@@ -65,7 +67,8 @@ type OccurrenceRow = {
   completed_at: string | null; completion_note: string;
 };
 type IssueRow = {
-  id: string; occurrence_id: string; category: string; severity: OperationsIssueSummary['severity'];
+  id: string; occurrence_id: string; location_id: string; category: string;
+  severity: OperationsIssueSummary['severity'];
   status: OperationsIssueSummary['status']; created_at: string;
 };
 
@@ -130,6 +133,7 @@ function scopeWorkspaceToLocation(workspace: OperationsWorkspace, locationId: st
     ...workspace,
     occurrences,
     schedules: scopeRowsToLocation(workspace.schedules, locationId),
+    issues: scopeRowsToLocation(workspace.issues, locationId),
     metrics: metricsOf(occurrences),
   };
 }
@@ -138,7 +142,7 @@ export async function loadOperationsWorkspace(): Promise<OperationsWorkspace> {
   const [session, client, locationId] = await Promise.all([currentSession(), serverClient(), selectedLocationId()]);
   if (!client) return scopeWorkspaceToLocation(demoWorkspace(), locationId);
   if (!session || !hasRole(session, 'location_manager')) return emptyWorkspace(false, false);
-  const brandId = session.brandId;
+  const brandId = await selectedOrganizationId(session);
   const brand = await client.from('brands').select('operations').eq('id', brandId)
     .maybeSingle<{ operations: boolean }>();
   if (brand.error || !brand.data?.operations) return emptyWorkspace(false, hasRole(session, 'brand_owner'));
@@ -147,13 +151,14 @@ export async function loadOperationsWorkspace(): Promise<OperationsWorkspace> {
   // -- at the query, so the database returns only that store's rows.
   const schedulesQuery = client.from('operation_schedules').select('id,schedule_key,location_id,template_id,recurrence_rule,weekdays,local_start_time,schedule_kind,due_window_minutes,grace_minutes,is_enabled').eq('brand_id', brandId).order('local_start_time');
   const occurrencesQuery = client.from('operation_occurrences').select('id,location_id,template_snapshot,status,scheduled_for,due_at,grace_minutes,claimed_by,completed_at,completion_note').eq('brand_id', brandId).gte('scheduled_for', since).order('scheduled_for', { ascending: false }).limit(500);
+  const issuesQuery = client.from('operation_issues').select('id,occurrence_id,location_id,category,severity,status,created_at').eq('brand_id', brandId).order('created_at', { ascending: false }).limit(200);
   const [locations, templates, schedules, occurrences, issues, retention] = await Promise.all([
     client.from('locations').select('id,name,timezone').eq('brand_id', brandId)
       .returns<{ id: string; name: string; timezone: string }[]>(),
     client.from('operation_task_templates').select('id,template_key,revision,title,location_id,routine_kind,estimated_minutes,is_active,managed_by_config').eq('brand_id', brandId).order('title').returns<TemplateRow[]>(),
     (locationId ? schedulesQuery.eq('location_id', locationId) : schedulesQuery).returns<ScheduleRow[]>(),
     (locationId ? occurrencesQuery.eq('location_id', locationId) : occurrencesQuery).returns<OccurrenceRow[]>(),
-    client.from('operation_issues').select('id,occurrence_id,category,severity,status,created_at').eq('brand_id', brandId).order('created_at', { ascending: false }).limit(200).returns<IssueRow[]>(),
+    (locationId ? issuesQuery.eq('location_id', locationId) : issuesQuery).returns<IssueRow[]>(),
     client.from('operation_retention_policies').select('evidence_days,issue_days,actor_identity_days').eq('brand_id', brandId).maybeSingle<{ evidence_days: number; issue_days: number; actor_identity_days: number }>(),
   ]);
   const failed = [locations, templates, schedules, occurrences, issues].find((result) => result.error);
@@ -184,6 +189,7 @@ export async function loadOperationsWorkspace(): Promise<OperationsWorkspace> {
       dueWindowMinutes: row.due_window_minutes, graceMinutes: row.grace_minutes, enabled: row.is_enabled })),
     occurrences: occurrenceRows,
     issues: (issues.data ?? []).map((row) => ({ id: row.id, occurrenceId: row.occurrence_id,
+      locationId: row.location_id,
       category: row.category, severity: row.severity, status: row.status, createdAt: row.created_at })),
     metrics: metricsOf(occurrenceRows),
     retention: retention.data ? { evidenceDays: retention.data.evidence_days,

@@ -50,9 +50,11 @@ import {
 import type { KioskMenuFacts } from '@platform/domain';
 
 import { serverClient } from './supabase-server';
+import { currentSession } from './auth';
 import { selectedLocationId, selectedOrgId } from './workspace-location';
 import { scopeRowsToLocation } from './location-scope';
 import { demoLocationsFor } from './demo-locations';
+import { selectedOrganizationId } from './workspace-scope';
 
 function sevenDaysAgo(): string {
   const date = new Date();
@@ -60,47 +62,60 @@ function sevenDaysAgo(): string {
   return date.toISOString().slice(0, 10);
 }
 
-async function locationNames(): Promise<ReadonlyMap<string, string>> {
+async function organizationId(): Promise<string | null> {
+  const session = await currentSession();
+  return session ? selectedOrganizationId(session) : null;
+}
+
+async function locationNames(brandId: string): Promise<ReadonlyMap<string, string>> {
   const client = await serverClient();
   if (!client) return new Map();
-  const rows = await client.from('locations').select('id, name').returns<{ id: string; name: string }[]>();
+  const rows = await client.from('locations').select('id, name').eq('brand_id', brandId)
+    .returns<{ id: string; name: string }[]>();
   if (rows.error) throw new Error(`locations: ${rows.error.message}`);
   return new Map((rows.data ?? []).map((row) => [row.id, row.name]));
 }
 
 export async function loadKpis(): Promise<KpiDay[]> {
-  const locationId = await selectedLocationId();
-  const client = await serverClient();
+  const [locationId, brandId, client] = await Promise.all([
+    selectedLocationId(), organizationId(), serverClient(),
+  ]);
   if (!client) return scopeRowsToLocation(DEMO_KPIS, locationId);
+  if (!brandId) return [];
   // The header location scopes the query itself when set, so the database
   // returns only that store's days rather than filtering after the read.
   const base = client
     .from('location_daily_metrics')
     .select('location_id, day, orders_count, revenue_cents, aov_cents, in_app_share, loyalty_redemption_rate, revenue_by_channel')
+    .eq('brand_id', brandId)
     .gte('day', sevenDaysAgo())
     .order('day');
   const [metrics, names] = await Promise.all([
     (locationId ? base.eq('location_id', locationId) : base).returns<MetricsRow[]>(),
-    locationNames(),
+    locationNames(brandId),
   ]);
   if (metrics.error) throw new Error(`location_daily_metrics: ${metrics.error.message}`);
   return kpiDaysOf(metrics.data ?? [], names);
 }
 
 export async function loadDrops(): Promise<DropSummary[]> {
-  const client = await serverClient();
+  const [client, brandId] = await Promise.all([serverClient(), organizationId()]);
   if (!client) return DEMO_DROPS;
+  if (!brandId) return [];
   const [drops, performance, items] = await Promise.all([
     client
       .from('drops')
       .select('id, item_id, starts_at, ends_at, status')
+      .eq('brand_id', brandId)
       .order('starts_at', { ascending: false })
       .returns<DropRowLike[]>(),
     client
       .from('drop_performance')
       .select('drop_id, orders_count, revenue_cents')
+      .eq('brand_id', brandId)
       .returns<DropPerformanceRow[]>(),
-    client.from('menu_items').select('id, name').returns<{ id: string; name: string }[]>(),
+    client.from('menu_items').select('id, name').eq('brand_id', brandId)
+      .returns<{ id: string; name: string }[]>(),
   ]);
   if (drops.error) throw new Error(`drops: ${drops.error.message}`);
   if (items.error) throw new Error(`menu_items: ${items.error.message}`);
@@ -116,15 +131,18 @@ export async function loadDrops(): Promise<DropSummary[]> {
 }
 
 export async function loadMenu(): Promise<MenuItemSummary[]> {
-  const client = await serverClient();
+  const [client, brandId] = await Promise.all([serverClient(), organizationId()]);
   if (!client) return DEMO_MENU;
+  if (!brandId) return [];
   const [items, categories] = await Promise.all([
     client
       .from('menu_items')
       .select('id, name, category_id, base_price_cents, sizes, modifiers, is_86d, image_url')
+      .eq('brand_id', brandId)
       .order('sort_order')
       .returns<MenuItemRowLike[]>(),
-    client.from('menu_categories').select('id, title').returns<{ id: string; title: string }[]>(),
+    client.from('menu_categories').select('id, title').eq('brand_id', brandId)
+      .returns<{ id: string; title: string }[]>(),
   ]);
   if (items.error) throw new Error(`menu_items: ${items.error.message}`);
   if (categories.error) throw new Error(`menu_categories: ${categories.error.message}`);
@@ -141,22 +159,23 @@ export async function loadMenu(): Promise<MenuItemSummary[]> {
  * default to enabled so the wizard is reachable with no database.
  */
 export async function loadMultiLocationEnabled(): Promise<boolean> {
-  const client = await serverClient();
+  const [client, orgId] = await Promise.all([serverClient(), organizationId()]);
   if (!client) return true;
-  const orgId = (await selectedOrgId()) ?? DEMO_SESSION.brandId;
+  if (!orgId) return false;
   const row = await client.from('brands').select('multi_location').eq('id', orgId)
     .maybeSingle<{ multi_location: boolean }>();
   return row.error ? false : row.data?.multi_location === true;
 }
 
 export async function loadLocations(): Promise<LocationSummary[]> {
-  const client = await serverClient();
+  const [client, brandId] = await Promise.all([serverClient(), organizationId()]);
   if (!client) {
     // Demo: the selected org's stores from the in-memory store, so a location
     // added through the wizard shows up here for the rest of the session.
     const orgId = (await selectedOrgId()) ?? DEMO_SESSION.brandId;
     return demoLocationsFor(orgId);
   }
+  if (!brandId) return [];
   // `square_connection_id` is NOT selected: 0040 revokes it from
   // `authenticated` at column level, and this client is the signed-in user, so
   // naming it here makes the whole query fail with "permission denied for
@@ -168,11 +187,13 @@ export async function loadLocations(): Promise<LocationSummary[]> {
     client
       .from('locations')
       .select('id, name, address, timezone, ordering_paused, hours')
+      .eq('brand_id', brandId)
       .order('created_at')
       .returns<Omit<LocationRowLike, 'square_connection_id'>[]>(),
     client
       .from('location_square_status')
       .select('location_id')
+      .eq('brand_id', brandId)
       .returns<{ location_id: string }[]>(),
   ]);
   if (rows.error) throw new Error(`locations: ${rows.error.message}`);
@@ -198,27 +219,31 @@ export async function loadLocations(): Promise<LocationSummary[]> {
  * lib/device-admin and runs on every write.
  */
 export async function loadDevices(): Promise<DeviceSummary[]> {
-  const client = await serverClient();
+  const [client, brandId] = await Promise.all([serverClient(), organizationId()]);
   if (!client) return DEMO_DEVICES;
+  if (!brandId) return [];
   const [rows, names] = await Promise.all([
     client
       .from('devices')
       .select('id, location_id, role, label, paired_at, revoked_at, last_seen_at, '
         + 'refresh_secret_hash, refresh_secret_issued_at, refresh_secret_last_used_at')
+      .eq('brand_id', brandId)
       .order('created_at', { ascending: false })
       .returns<DeviceRowLike[]>(),
-    locationNames(),
+    locationNames(brandId),
   ]);
   if (rows.error) throw new Error(`devices: ${rows.error.message}`);
   return deviceSummariesOf(rows.data ?? [], names);
 }
 
 export async function loadCampaigns(): Promise<CampaignSummary[]> {
-  const client = await serverClient();
+  const [client, brandId] = await Promise.all([serverClient(), organizationId()]);
   if (!client) return DEMO_CAMPAIGNS;
+  if (!brandId) return [];
   const rows = await client
     .from('campaigns')
     .select('id, name, channel, status, scheduled_at, audience, stats')
+    .eq('brand_id', brandId)
     .order('created_at', { ascending: false })
     .returns<CampaignRowLike[]>();
   if (rows.error) throw new Error(`campaigns: ${rows.error.message}`);
@@ -226,21 +251,25 @@ export async function loadCampaigns(): Promise<CampaignSummary[]> {
 }
 
 export async function loadCustomers(): Promise<CustomerSummary[]> {
-  const client = await serverClient();
+  const [client, brandId] = await Promise.all([serverClient(), organizationId()]);
   if (!client) return DEMO_CUSTOMERS;
+  if (!brandId) return [];
   // RLS already narrows what this role may see (managers brand-wide, shift
   // staff only guests with orders at their locations).
   const [customers, points, orders] = await Promise.all([
     client
       .from('customers')
       .select('id, full_name, phone')
+      .eq('brand_id', brandId)
       .order('created_at', { ascending: false })
       .limit(200)
       .returns<CustomerRowLike[]>(),
-    client.from('loyalty_accounts').select('customer_id, points_balance').returns<PointsRow[]>(),
+    client.from('loyalty_accounts').select('customer_id, points_balance').eq('brand_id', brandId)
+      .returns<PointsRow[]>(),
     client
       .from('orders')
       .select('customer_id, total_cents, status, created_at')
+      .eq('brand_id', brandId)
       .order('created_at', { ascending: false })
       .limit(2000)
       .returns<CustomerOrderRow[]>(),
@@ -252,17 +281,20 @@ export async function loadCustomers(): Promise<CustomerSummary[]> {
 }
 
 export async function loadFees(): Promise<FeeRow[]> {
-  const locationId = await selectedLocationId();
-  const client = await serverClient();
+  const [locationId, brandId, client] = await Promise.all([
+    selectedLocationId(), organizationId(), serverClient(),
+  ]);
   if (!client) return scopeRowsToLocation(DEMO_FEES, locationId);
+  if (!brandId) return [];
   const base = client
     .from('platform_fees')
     .select('location_id, gross_cents, fee_cents, created_at')
+    .eq('brand_id', brandId)
     .order('created_at', { ascending: false })
     .limit(5000);
   const [rows, names] = await Promise.all([
     (locationId ? base.eq('location_id', locationId) : base).returns<PlatformFeeRowLike[]>(),
-    locationNames(),
+    locationNames(brandId),
   ]);
   if (rows.error) throw new Error(`platform_fees: ${rows.error.message}`);
   return feeRowsOf(rows.data ?? [], names);
@@ -285,9 +317,10 @@ export type BrandConfigView = {
 
 /** Current settings and row version for the concurrency-safe brand editor. */
 export async function loadBrandConfig(): Promise<BrandConfigView> {
-  const client = await serverClient();
+  const [client, brandId] = await Promise.all([serverClient(), organizationId()]);
   if (!client) return { config: null, updatedAt: null };
-  const result = await client.from('brands').select('brand_config, updated_at').maybeSingle<{
+  if (!brandId) return { config: null, updatedAt: null };
+  const result = await client.from('brands').select('brand_config, updated_at').eq('id', brandId).maybeSingle<{
     brand_config: unknown;
     updated_at: string;
   }>();
@@ -306,10 +339,12 @@ export async function loadBrandConfig(): Promise<BrandConfigView> {
  * a category by.
  */
 export async function loadKioskConfig(): Promise<KioskConfigView> {
-  const client = await serverClient();
+  const [client, selectedBrandId] = await Promise.all([serverClient(), organizationId()]);
   if (!client) return { kiosk: DEMO_KIOSK_FLOW, menu: DEMO_KIOSK_MENU, updatedAt: null };
+  if (!selectedBrandId) throw new Error('brands: no tenant in scope');
 
-  const brand = await client.from('brands').select('id, brand_config, updated_at').maybeSingle<{
+  const brand = await client.from('brands').select('id, brand_config, updated_at')
+    .eq('id', selectedBrandId).maybeSingle<{
     id: string;
     brand_config: Record<string, unknown> | null;
     updated_at: string;

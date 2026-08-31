@@ -52,8 +52,10 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
   // lives in this route group so it can reuse the session-bound data layer,
   // but must not inherit the sidebar or console chrome inside the iframe.
   if (pathname.startsWith('/wall/preview/')) return children;
-  const brand = client && session
-    ? await client.from('brands').select('brand_config, operations').eq('id', session.brandId)
+  const scope = session ? await readWorkspaceScope(session) : null;
+  const selectedBrandId = scope?.organizationId ?? session?.brandId ?? null;
+  const brand = client && selectedBrandId
+    ? await client.from('brands').select('brand_config, operations').eq('id', selectedBrandId)
       .maybeSingle<{ brand_config: unknown; operations: boolean }>()
     : null;
   const brandConfig = brand && !brand.error ? brand.data?.brand_config : null;
@@ -77,7 +79,7 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
         await recordHqScreen({
           accessToken,
           behavioralConsent: tenantPolicy && userConsent,
-          brandId: session.brandId,
+          brandId: selectedBrandId ?? session.brandId,
           endpointOrigin,
           pathname,
         });
@@ -89,7 +91,6 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
   // /login and /status/*: every other path with no session returned above.
   // Scope drives the shell's identity so the console themes and titles itself
   // for whichever organization is selected, not only the session's home brand.
-  const scope = session ? await readWorkspaceScope(session) : null;
   const themeConfig = scope?.brandConfig ?? brandConfig;
   const brandName = scope?.brandName ?? session?.brandName ?? 'HQ';
   const words = brandName.split(/\s+/).filter(Boolean);

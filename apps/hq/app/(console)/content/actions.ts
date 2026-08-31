@@ -36,6 +36,7 @@ import {
 } from '@/lib/training-bootstrap';
 import { trainingProfileFingerprint } from '@/lib/training-fingerprint';
 import { bootstrapTenantTraining } from '@/workflows/tenant-training-bootstrap';
+import { selectedOrganizationId } from '@/lib/workspace-scope';
 
 type Failure = { ok: false; error: string };
 type ManagerContext = {
@@ -69,6 +70,9 @@ async function managerContext(): Promise<ManagerContext | Failure | null> {
   const session = await currentSession();
   if (!session || !hasRole(session, 'brand_owner')) {
     return { ok: false, error: 'Only a brand owner can manage tenant content.' };
+  }
+  if (await selectedOrganizationId(session) !== session.brandId) {
+    return { ok: false, error: 'Cross-organization content changes require the audited support workflow.' };
   }
   const client = await serverClient();
   if (!client) return null;

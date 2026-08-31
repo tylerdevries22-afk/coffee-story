@@ -2,6 +2,7 @@ import type { AnalyticsSurface } from '@platform/analytics';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { serverClient } from './supabase-server';
+import { currentSession } from './auth';
 
 export type AnalyticsRollup = Readonly<{
   day: string;
@@ -45,10 +46,15 @@ export async function loadAnalyticsRollups(
 ): Promise<readonly AnalyticsRollup[]> {
   const client = providedClient === undefined ? await serverClient() : providedClient;
   if (!client) return [];
+  const session = await currentSession();
+  if (!session) return [];
+  const { selectedOrganizationId } = await import('./workspace-scope');
+  const brandId = await selectedOrganizationId(session);
   const from = new Date();
   from.setUTCDate(from.getUTCDate() - 30);
   const result = await client.from('analytics_daily_rollups')
     .select('day, surface, metric_key, event_count, success_count, failure_count, duration_p50_ms, duration_p95_ms')
+    .eq('brand_id', brandId)
     .gte('day', from.toISOString().slice(0, 10))
     .order('day', { ascending: false })
     .limit(5_000)

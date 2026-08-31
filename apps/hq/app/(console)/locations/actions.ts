@@ -11,6 +11,7 @@ import type { DeviceActionState } from '@/lib/device-action-state';
 import { serverEnv, serviceDb } from '@/lib/api-auth';
 import { isConfigured, serverClient } from '@/lib/supabase-server';
 import { parseLocationDraft } from '@/lib/location-input';
+import { locationCreationAllowed } from '@/lib/location-capacity';
 import { addDemoLocation } from '@/lib/demo-locations';
 import { selectedOrgId } from '@/lib/workspace-location';
 import { authorizeOrganization } from '@/lib/workspace-scope';
@@ -18,7 +19,6 @@ import {
   deviceAdminStatus, issueRefreshSecret, pairDevice, revokePairedDevice,
   type DeviceAdminDeps,
 } from '@/lib/device-admin';
-
 
 /**
  * Device writes run as the service role, and that is not a shortcut.
@@ -154,6 +154,9 @@ export async function createLocationAction(formData: FormData): Promise<void> {
 
   const client = await serverClient();
   if (!client) redirect('/locations?created=failed');
+  const allowed = await locationCreationAllowed(client, orgId);
+  if (allowed === null) redirect('/locations?created=failed');
+  if (!allowed) redirect('/locations?created=limit');
   const insert = await client
     .from('locations')
     .insert({ brand_id: orgId, name: draft.name, address: draft.address, hours: draft.hours, timezone: draft.timezone })

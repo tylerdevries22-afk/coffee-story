@@ -1,6 +1,7 @@
 import type { BoardTicketRow } from '@platform/schema';
 
 import { serverClient } from './supabase-server';
+import { currentSession } from './auth';
 
 export type WallPreviewTicket = Pick<
   BoardTicketRow,
@@ -34,10 +35,15 @@ const DEMO_TICKETS: WallPreviewTicket[] = [
 export async function loadWallPreviewTickets(locationId: string): Promise<WallPreviewTicket[]> {
   const client = await serverClient();
   if (!client) return DEMO_TICKETS.map((ticket) => ({ ...ticket, location_id: locationId }));
+  const session = await currentSession();
+  if (!session) return [];
+  const { selectedOrganizationId } = await import('./workspace-scope');
+  const brandId = await selectedOrganizationId(session);
 
   const rows = await client
     .from('board_tickets')
     .select('id, brand_id, location_id, daily_number, guest_label, status, fulfillment_type, channel, arrived_at, loyalty_tier, updated_at')
+    .eq('brand_id', brandId)
     .eq('location_id', locationId)
     .in('status', ['paid', 'in_progress', 'ready'])
     .order('updated_at', { ascending: true })

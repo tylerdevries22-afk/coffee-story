@@ -9,6 +9,14 @@ import {
   type IntegrationActivity,
 } from './integration-cards';
 import { serverClient } from './supabase-server';
+import { currentSession } from './auth';
+
+async function selectedBrandId(): Promise<string | null> {
+  const session = await currentSession();
+  if (!session) return null;
+  const { selectedOrganizationId } = await import('./workspace-scope');
+  return selectedOrganizationId(session);
+}
 
 /** Loads tenant-visible connector metadata while keeping an unavailable schema non-fatal. */
 export async function loadConnectorCards(
@@ -16,6 +24,8 @@ export async function loadConnectorCards(
 ): Promise<readonly ConnectorCard[]> {
   const client = providedClient === undefined ? await serverClient() : providedClient;
   if (!client) return defaultConnectorCards();
+  const brandId = await selectedBrandId();
+  if (!brandId) return defaultConnectorCards();
   const [registry, installations] = await Promise.all([
     client
       .from('connector_registry')
@@ -25,6 +35,7 @@ export async function loadConnectorCards(
     client
       .from('connector_installations')
       .select('id, provider_id, status, external_account_label, enabled_capabilities, connected_at, last_synced_at, updated_at')
+      .eq('brand_id', brandId)
       .order('updated_at', { ascending: false })
       .returns<ConnectorInstallationRow[]>(),
   ]);
@@ -54,11 +65,15 @@ export async function loadIntegrationActivity(
 ): Promise<readonly IntegrationActivity[]> {
   const client = providedClient === undefined ? await serverClient() : providedClient;
   if (!client) return [];
+  const brandId = await selectedBrandId();
+  if (!brandId) return [];
   const [runs, installations, providers] = await Promise.all([
     client.from('connector_sync_runs')
       .select('id, installation_id, capability_key, status, trigger_kind, records_read, records_written, created_at')
+      .eq('brand_id', brandId)
       .order('created_at', { ascending: false }).limit(100).returns<SyncRunRow[]>(),
-    client.from('connector_installations').select('id, provider_id').returns<InstallationProviderRow[]>(),
+    client.from('connector_installations').select('id, provider_id').eq('brand_id', brandId)
+      .returns<InstallationProviderRow[]>(),
     client.from('connector_registry').select('id, display_name').returns<{ id: string; display_name: string }[]>(),
   ]);
   if (runs.error || installations.error || providers.error) return [];
