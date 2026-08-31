@@ -168,7 +168,7 @@ export async function createLocationAction(formData: FormData): Promise<void> {
   // Operational chain: hand a new store straight to Square consent so it can
   // take payment, unless the operator opted out. The connect route re-authorizes
   // the location, so this adds no trust assumption.
-  if (formData.get('connectSquare') === 'on') redirect(`/api/square/connect?location_id=${insert.data.id}`);
+  if (formData.get('connectSquare') === 'on' && orgId === session.brandId) redirect(`/api/square/connect?location_id=${insert.data.id}`);
   redirect('/locations?created=1');
 }
 
