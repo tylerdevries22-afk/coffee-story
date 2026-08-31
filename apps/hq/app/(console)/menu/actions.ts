@@ -28,6 +28,11 @@ function fail(message: string): never {
   redirect(`/menu/import?error=${encodeURIComponent(message)}`);
 }
 
+// A single paste seeds one brand's catalog, not a bulk data load; a sane ceiling
+// keeps one import from issuing an unbounded upsert (and one mistaken paste from
+// trying to write tens of thousands of rows under the owner's RLS in one call).
+const MAX_MENU_ROWS = 500;
+
 export async function importMenuAction(formData: FormData): Promise<void> {
   const session = await currentSession();
   if (!session || !hasRole(session, 'brand_owner')) redirect('/menu?imported=denied');
@@ -36,6 +41,9 @@ export async function importMenuAction(formData: FormData): Promise<void> {
   const { rows, errors } = parseMenuCsv(csv);
   if (errors.length > 0) fail(errors[0] ?? 'The menu CSV could not be parsed.');
   if (rows.length === 0) fail('The CSV has a header but no menu rows.');
+  if (rows.length > MAX_MENU_ROWS) {
+    fail(`This import has ${rows.length} rows; a single menu import is limited to ${MAX_MENU_ROWS}. Split it into smaller files.`);
+  }
 
   if (!isConfigured()) {
     // Demo: nothing to write, but the parse is real -- report what would land.

@@ -17,7 +17,10 @@ import { NavLink } from './nav-link';
 const PAGE_TITLES: Readonly<Record<string, string>> = {
   '/': 'Overview',
   '/locations': 'Locations',
+  '/locations/new': 'Add location',
+  '/organizations/new': 'Create organization',
   '/menu': 'Menu',
+  '/menu/import': 'Import menu',
   '/catalog': 'Catalog',
   '/content': 'Catalog',
   '/fees': 'Platform fees',
