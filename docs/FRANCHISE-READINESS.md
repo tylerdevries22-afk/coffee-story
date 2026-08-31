@@ -114,3 +114,81 @@ Stillpoint Builders’ operator portal is the source pattern for this switcher
 and remains the canonical, DB-backed reference. It was intentionally left
 unchanged — porting a foreign tenant into its production switcher would be
 incorrect; instead its architecture was mirrored into HQ.
+
+---
+
+# Onboarding deep audit and the self-serve build
+
+A deep audit of how organizations and locations are created (org onboarding,
+location creation, and the multi-tenant/RLS layer) produced the findings and
+the staged build below.
+
+## Audit findings (why creating orgs/locations was hard)
+
+- **Two disconnected onboarding systems.** A CLI pipeline (`scripts/onboard.ts`
+  + `tenants/<slug>/`) actually seeds a brand/menu/first-location into the
+  shared DB; an in-app **Platform Factory** (`(console)/onboarding`) provisions
+  per-tenant cloud infra but stops at an unimplemented `publish-content` step
+  and never writes a brand/location row. Nothing joined them.
+- **No in-app "add location" path at all** — no form, no server action; and
+  `onboard.ts` reads a *singular* `brand.location`, so there was no supported
+  way to add the 2nd/Nth store.
+- **The header location switcher didn't scope data** — it re-themed but no query
+  filtered KPIs/orders/fees by the selected location.
+- **No in-app staff scoping** (`brand_users.location_ids`) — manual SQL + token
+  refresh.
+- **`workspace-scope` hard-returned `[]` for any non-home brand** in configured
+  mode, so a `platform_admin` couldn't drill into a franchisee's stores even
+  though RLS permits it; the justifying comments were factually wrong.
+- **Industry hard-coded to coffee**; menu authoring is 100% manual
+  transcription; identity design is manual.
+- **No `brand_directory` view, no cross-tenant access audit trail.**
+
+Foundations (schema, RLS, Square OAuth, device pairing, claims hook) are solid
+and location-aware — the gaps were missing product surfaces, not broken plumbing.
+
+## Delivered (built, tested, `pnpm verify` green)
+
+1. **The switcher is now real.** `workspace-scope` resolves orgs from one
+   RLS-driven `brands` read (every brand for a platform_admin, home brand
+   otherwise) carrying `brand_config` for theming, and reads locations for the
+   selected org; the location the header selects now filters data
+   (`loadKpis`/`loadFees`) via a server-only cookie reader and a pure,
+   unit-tested `scopeRowsToLocation` helper, applied identically to live rows
+   and demo fixtures.
+2. **Add-Location wizard** (`/locations/new`, `createLocationAction`) —
+   brand_owner + platform_admin, blank slate (name/address/hours/timezone
+   only). Writes as the signed-in owner (RLS `locations_write` = `is_brand_owner`);
+   the target org is the header's, re-authorized against the session. Demo mode
+   uses an in-memory per-org store the page and switcher both read.
+3. **Create-Organization wizard** (`/organizations/new`,
+   `createOrganizationAction`, reachable from the switcher's "New organization"
+   row) — platform_admin (matches `brands_insert`), blank-slate/industry-neutral
+   brand (`org-input.ts`: name → slug, empty `brand_config` → neutral theme, no
+   copy/contact carried over). Switches to the new org and hands off to
+   add-location. Demo mode uses an in-memory org store.
+
+**Blank-slate guarantee:** a new org/location carries only what the operator
+typed. Neutral theme comes from the token resolver's defaults (no tokens in the
+config), never from another tenant; unit tests assert the config has no
+`tokens`/`copy`.
+
+## Remaining plan (staged, not yet built)
+
+- **Full-auto content (Phase 4).** Menu import (CSV/PDF/photo → `menu.csv` +
+  categories) and logo → icon/splash/`brand.json` generation. The machinery
+  exists in `scripts/onboard.ts` (`sharp` pipeline, menu seeding); the work is
+  an in-app importer that feeds it and wires the Platform Factory's
+  `publish-content` step to real seeding. Largest remaining piece.
+- **Staff/manager scoping UI.** An in-app writer for `brand_users` /
+  `location_ids` (RLS already allows brand_owner) so a manager can be scoped to
+  a new store, with a prompt to refresh their token.
+- **Square + device pairing inline** in the add-location wizard (create → connect
+  → pair in one pass); both endpoints already exist.
+- **Configured-mode cross-tenant hardening.** A `brand_directory`
+  security-barrier view for platform operators and an append-only
+  `platform_access_events` audit log + a scoped "operate as brand X"
+  impersonation flow, replacing reliance on the blanket `is_platform_admin()`
+  short-circuit.
+- **Per-location fee overrides** and **multi-location gating** on the
+  `multi_location` flag.
