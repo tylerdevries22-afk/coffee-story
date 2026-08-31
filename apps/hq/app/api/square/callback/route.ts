@@ -12,6 +12,7 @@ import { createClient } from '@supabase/supabase-js';
 
 import { authorizeSquareCallback, refusalResponse } from '../../../../lib/square-callback-auth';
 import { decodeOAuthState } from '../../../../lib/square-oauth-state';
+import { recordSquareConnectionPointer } from '../../../../lib/square-admin';
 import { serverClient } from '../../../../lib/supabase-server';
 import { tokenAppMetadata } from '../../../../lib/token-claims';
 
@@ -141,6 +142,16 @@ export async function GET(request: Request): Promise<Response> {
   // The console reads this back-pointer as "Connected" and hides the retry
   // button behind it, so it is set last -- only once there is a Square
   // location to bill against and the shop really can take a card.
-  await db.from('locations').update({ square_connection_id: connection.id }).eq('id', decision.locationId);
+  const linked = await recordSquareConnectionPointer(db, {
+    brandId: location!.brand_id,
+    locationId: decision.locationId,
+    connectionId: connection.id,
+  });
+  if (!linked) {
+    return new Response(
+      'Square authorized the connection, but the location could not be marked connected. Retry or disconnect it before taking orders.',
+      { status: 500 },
+    );
+  }
   return Response.redirect(new URL('/locations?connected=1', url.origin), 302);
 }

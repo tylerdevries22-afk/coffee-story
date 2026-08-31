@@ -50,6 +50,32 @@ export type SquareDisconnectResult = { outcome: SquareDisconnectOutcome };
 type ConnectionRow = { access_token_encrypted: string };
 
 /**
+ * Records the console-facing pointer only after the authoritative connection
+ * row is complete.
+ *
+ * `square_connections.location_id` is what payment resolution reads, while
+ * `locations.square_connection_id` is what the console uses to render the
+ * connected state. Letting the second write fail silently leaves those two
+ * surfaces disagreeing: checkout can charge against a connection the owner is
+ * still invited to replace. Returning false also covers a location deleted
+ * between callback authorization and this final write; PostgREST considers an
+ * update of zero rows successful unless the row is selected back.
+ */
+export async function recordSquareConnectionPointer(
+  db: SupabaseClient,
+  input: { brandId: string; locationId: string; connectionId: string },
+): Promise<boolean> {
+  const linked = await db
+    .from('locations')
+    .update({ square_connection_id: input.connectionId })
+    .eq('id', input.locationId)
+    .eq('brand_id', input.brandId)
+    .select('id')
+    .maybeSingle<{ id: string }>();
+  return !linked.error && linked.data?.id === input.locationId;
+}
+
+/**
  * Severs one location's Square connection, telling Square first.
  *
  * The order is deliberate and is the whole security argument: the stored
