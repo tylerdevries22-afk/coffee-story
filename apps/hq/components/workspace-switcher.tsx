@@ -1,10 +1,9 @@
 'use client';
 
 /**
- * The franchise scope controls that frame the console: the organization
- * switcher lives in the navigation rail, while the location switcher leads the
- * topbar's compact page trail. They are exported separately so the shell can
- * place each control in its owning region. Both are custom popovers rather than a native
+ * The franchise scope controls that frame the console: organization and
+ * location switchers lead the topbar's compact page trail. They are exported
+ * separately so the shell can place each control in its owning region. Both are custom popovers rather than a native
  * <select> so each row can carry a badge and a checkmark, and each row is a
  * submit button posting to a server action -- selecting is a server-side,
  * re-authorized write, never client navigation.
@@ -162,7 +161,7 @@ export type OrganizationSwitcherProps = {
   readonly rail?: boolean;
 };
 
-/** The organization menu, shown as the branded rail control. */
+/** The organization menu, shown as the branded topbar control. */
 export function OrganizationSwitcher(props: OrganizationSwitcherProps) {
   if (props.organizations.length === 0) return null;
   const orgOptions: Option[] = props.organizations.map((org) => ({
