@@ -357,9 +357,16 @@ export async function loadKioskConfig(): Promise<KioskConfigView> {
     .eq('is_published', true).maybeSingle<{ id: string }>();
   if (publishedMenu.error) throw new Error(`menus: ${publishedMenu.error.message}`);
   const menuId = publishedMenu.data?.id;
+  if (!menuId) {
+    return {
+      kiosk: brandRow.brand_config?.kiosk ?? null,
+      menu: { categories: [], itemSlugs: [] },
+      updatedAt: brandRow.updated_at ?? null,
+    };
+  }
   const [categories, items] = await Promise.all([
-    client.from('menu_categories').select('title').eq('brand_id', brandId).eq('menu_id', menuId ?? '').returns<{ title: string }[]>(),
-    client.from('menu_items').select('slug, image_url').eq('brand_id', brandId).eq('menu_id', menuId ?? '').returns<{ slug: string; image_url: string | null }[]>(),
+    client.from('menu_categories').select('title').eq('brand_id', brandId).eq('menu_id', menuId).returns<{ title: string }[]>(),
+    client.from('menu_items').select('slug, image_url').eq('brand_id', brandId).eq('menu_id', menuId).returns<{ slug: string; image_url: string | null }[]>(),
   ]);
   if (categories.error) throw new Error(`menu_categories: ${categories.error.message}`);
   if (items.error) throw new Error(`menu_items: ${items.error.message}`);

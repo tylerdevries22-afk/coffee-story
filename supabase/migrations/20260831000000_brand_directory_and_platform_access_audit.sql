@@ -93,6 +93,52 @@ end $$;
 revoke all on function public.record_platform_access(uuid, uuid, uuid, text, uuid, jsonb) from public, anon, authenticated;
 grant execute on function public.record_platform_access(uuid, uuid, uuid, text, uuid, jsonb) to service_role;
 
+-- Serialize location capacity against the brand row. A UI preflight cannot
+-- enforce the single-location plan because two first-store requests can both
+-- observe a count of zero; this transaction makes the check and insert one
+-- indivisible operation while still relying on the caller's RLS identity.
+create or replace function public.create_location_if_allowed(
+  target_brand_id uuid,
+  location_name text,
+  location_address jsonb,
+  location_hours jsonb,
+  location_timezone text
+) returns uuid
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  multi_location_enabled boolean;
+  created_location_id uuid;
+begin
+  select brand.multi_location
+    into multi_location_enabled
+    from public.brands as brand
+   where brand.id = target_brand_id
+     and app.is_brand_owner(target_brand_id)
+     for update;
+
+  if not found then
+    raise exception using errcode = '42501', message = 'location_access_denied';
+  end if;
+  if not multi_location_enabled and exists (
+    select 1 from public.locations where brand_id = target_brand_id
+  ) then
+    raise exception using errcode = '23514', message = 'single_location_limit_reached';
+  end if;
+
+  insert into public.locations (brand_id, name, address, hours, timezone)
+  values (target_brand_id, location_name, location_address, location_hours, location_timezone)
+  returning id into created_location_id;
+  return created_location_id;
+end $$;
+
+revoke all on function public.create_location_if_allowed(uuid, text, jsonb, jsonb, text)
+  from public, anon, authenticated;
+grant execute on function public.create_location_if_allowed(uuid, text, jsonb, jsonb, text)
+  to authenticated;
+
 -- Extend the release-readiness chain so the deploy gate proves the database is
 -- migrated up to this version and every prior link is intact.
 alter function public.platform_release_readiness()

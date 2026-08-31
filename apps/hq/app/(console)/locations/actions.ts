@@ -11,7 +11,6 @@ import type { DeviceActionState } from '@/lib/device-action-state';
 import { serverEnv, serviceDb } from '@/lib/api-auth';
 import { isConfigured, serverClient } from '@/lib/supabase-server';
 import { parseLocationDraft } from '@/lib/location-input';
-import { locationCreationAllowed } from '@/lib/location-capacity';
 import { locationCreationContinuation } from '@/lib/location-onboarding';
 import { addDemoLocation } from '@/lib/demo-locations';
 import { selectedOrgId } from '@/lib/workspace-location';
@@ -155,19 +154,24 @@ export async function createLocationAction(formData: FormData): Promise<void> {
 
   const client = await serverClient();
   if (!client) redirect('/locations?created=failed');
-  const allowed = await locationCreationAllowed(client, orgId);
-  if (allowed === null) redirect('/locations?created=failed');
-  if (!allowed) redirect('/locations?created=limit');
-  const insert = await client
-    .from('locations')
-    .insert({ brand_id: orgId, name: draft.name, address: draft.address, hours: draft.hours, timezone: draft.timezone })
-    .select('id')
-    .single<{ id: string }>();
-  if (insert.error) redirect(`/locations/new?error=${encodeURIComponent('Could not create the location.')}`);
+  const insert = await client.rpc('create_location_if_allowed', {
+    target_brand_id: orgId,
+    location_name: draft.name,
+    location_address: draft.address,
+    location_hours: draft.hours,
+    location_timezone: draft.timezone,
+  });
+  if (insert.error?.message.includes('single_location_limit_reached')) {
+    redirect('/locations?created=limit');
+  }
+  const locationId = typeof insert.data === 'string' ? insert.data : null;
+  if (insert.error || !locationId) {
+    redirect(`/locations/new?error=${encodeURIComponent('Could not create the location.')}`);
+  }
   revalidatePath('/locations');
   revalidatePath('/', 'layout');
   const continuation = locationCreationContinuation({
-    locationId: insert.data.id,
+    locationId,
     homeOrganizationId: session.brandId,
     selectedOrganizationId: orgId,
     connectSquare: formData.get('connectSquare') === 'on',
