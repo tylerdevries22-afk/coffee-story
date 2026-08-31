@@ -17,6 +17,7 @@ import {
   selectedOrganizationId,
 } from '@/lib/workspace-scope';
 import {
+  expiredWorkspaceCookieOptions,
   isWorkspaceCookieValue,
   LOCATION_COOKIE,
   ORG_COOKIE,
@@ -34,7 +35,7 @@ export async function selectOrganization(formData: FormData): Promise<void> {
   store.set(ORG_COOKIE, authorized, workspaceCookieOptions());
   // A location id only means something inside its owning org, so switching org
   // drops the remembered location rather than carrying a now-foreign one.
-  store.delete(LOCATION_COOKIE);
+  store.set(LOCATION_COOKIE, '', expiredWorkspaceCookieOptions());
   revalidatePath('/', 'layout');
 }
 
@@ -49,7 +50,7 @@ export async function selectLocation(formData: FormData): Promise<void> {
   // The empty value is the "All locations" row -- a valid choice that clears
   // the scope rather than selecting one store.
   if (posted === '') {
-    store.delete(LOCATION_COOKIE);
+    store.set(LOCATION_COOKIE, '', expiredWorkspaceCookieOptions());
     revalidatePath('/', 'layout');
     return;
   }

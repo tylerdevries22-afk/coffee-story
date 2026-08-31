@@ -19,7 +19,12 @@ import { currentSession, hasRole } from '@/lib/auth';
 import { addDemoOrg } from '@/lib/demo-orgs';
 import { parseOrgDraft } from '@/lib/org-input';
 import { isConfigured, serverClient } from '@/lib/supabase-server';
-import { LOCATION_COOKIE, ORG_COOKIE, workspaceCookieOptions } from '@/lib/workspace-cookie';
+import {
+  expiredWorkspaceCookieOptions,
+  LOCATION_COOKIE,
+  ORG_COOKIE,
+  workspaceCookieOptions,
+} from '@/lib/workspace-cookie';
 
 export async function createOrganizationAction(formData: FormData): Promise<void> {
   const session = await currentSession();
@@ -33,7 +38,7 @@ export async function createOrganizationAction(formData: FormData): Promise<void
   const switchTo = (orgId: string): never => {
     store.set(ORG_COOKIE, orgId, workspaceCookieOptions());
     // A location id only means something inside its owning org.
-    store.delete(LOCATION_COOKIE);
+    store.set(LOCATION_COOKIE, '', expiredWorkspaceCookieOptions());
     revalidatePath('/', 'layout');
     redirect('/locations/new');
   };
