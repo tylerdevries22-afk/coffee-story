@@ -11,12 +11,14 @@ import { cookies } from 'next/headers';
 
 import { slugify } from '@platform/domain';
 
+import { currentClaims } from './auth';
 import type { SessionInfo } from './demo-data';
 import { isConfigured, serverClient } from './supabase-server';
 import { demoLocationsFor } from './demo-locations';
 import { allDemoOrgs, demoOrgById } from './demo-orgs';
 import type { WorkspaceOrgKind } from './tenants';
 import { isWorkspaceCookieValue, LOCATION_COOKIE, ORG_COOKIE } from './workspace-cookie';
+import { visibleWorkspaceLocations } from './workspace-location-access';
 
 export type WorkspaceOrg = {
   readonly id: string;
@@ -81,11 +83,10 @@ async function authorizedOrgs(session: SessionInfo): Promise<readonly {
 
 /**
  * Locations for the selected org. Demo: the registry's own list. Configured: a
- * lean read filtered to the authorized org's id -- `locations_select` is
- * `using(true)`, so a platform_admin who selected a franchisee reads that
- * org's stores, while a brand_owner only ever reaches an org id that is their
- * own (authorizedOrgs never returns another). The org authorization gate, not
- * this query, is what keeps a tenant out of a neighbour's stores.
+ * lean read filtered to the authorized org's id. The result is also narrowed
+ * through the JWT's `location_ids`: a restricted manager cannot remember a
+ * store that RLS will later hide, while owners and platform admins retain the
+ * brand-wide access encoded by `canManageLocation`.
  */
 async function locationsForSelectedOrg(
   selected: { org: WorkspaceOrg },
@@ -97,14 +98,16 @@ async function locationsForSelectedOrg(
   }
   const client = await serverClient();
   if (!client) return [];
-  const rows = await client
-    .from('locations')
-    .select('id, name, address')
-    .eq('brand_id', selected.org.id)
-    .order('name')
-    .returns<LocationRow[]>();
+  const [rows, claims] = await Promise.all([
+    client.from('locations').select('id, name, address')
+      .eq('brand_id', selected.org.id).order('name').returns<LocationRow[]>(),
+    currentClaims(),
+  ]);
   if (rows.error) return [];
-  return (rows.data ?? []).map((row) => ({ id: row.id, name: row.name, city: row.address?.city ?? '' }));
+  const locations = (rows.data ?? []).map((row) => ({
+    id: row.id, name: row.name, city: row.address?.city ?? '',
+  }));
+  return visibleWorkspaceLocations(locations, claims);
 }
 
 export async function readWorkspaceScope(session: SessionInfo): Promise<WorkspaceScope> {
