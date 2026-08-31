@@ -8,7 +8,7 @@ import {
 
 import { currentSession, hasRole } from './auth';
 import { serverClient } from './supabase-server';
-import { selectedLocationId } from './workspace-location';
+import { authorizedSelectedLocationId } from './workspace-location';
 import { scopeRowsToLocation } from './location-scope';
 import { selectedOrganizationId } from './workspace-scope';
 
@@ -139,7 +139,9 @@ function scopeWorkspaceToLocation(workspace: OperationsWorkspace, locationId: st
 }
 
 export async function loadOperationsWorkspace(): Promise<OperationsWorkspace> {
-  const [session, client, locationId] = await Promise.all([currentSession(), serverClient(), selectedLocationId()]);
+  const [session, client, locationId] = await Promise.all([
+    currentSession(), serverClient(), authorizedSelectedLocationId(),
+  ]);
   if (!client) return scopeWorkspaceToLocation(demoWorkspace(), locationId);
   if (!session || !hasRole(session, 'location_manager')) return emptyWorkspace(false, false);
   const brandId = await selectedOrganizationId(session);

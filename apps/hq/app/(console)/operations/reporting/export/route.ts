@@ -5,7 +5,7 @@ import {
   operationReportLocationId,
 } from '@/lib/operations-report';
 import { serverClient } from '@/lib/supabase-server';
-import { selectedLocationId } from '@/lib/workspace-location';
+import { authorizedSelectedLocationId } from '@/lib/workspace-location';
 import { selectedOrganizationId } from '@/lib/workspace-scope';
 
 type OccurrenceRow = {
@@ -35,7 +35,7 @@ export async function GET(request: Request): Promise<Response> {
     return Response.json({ error: { code: 'invalid_request', message: 'Report filters are invalid.' } }, { status: 400 });
   }
   const [brandId, workspaceLocationId] = await Promise.all([
-    selectedOrganizationId(session), selectedLocationId(),
+    selectedOrganizationId(session), authorizedSelectedLocationId(),
   ]);
   const locationId = operationReportLocationId(filters.locationId, workspaceLocationId);
   const feature = await client.from('brands').select('operations').eq('id', brandId)

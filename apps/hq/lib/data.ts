@@ -51,7 +51,7 @@ import type { KioskMenuFacts } from '@platform/domain';
 
 import { serverClient } from './supabase-server';
 import { currentSession } from './auth';
-import { selectedLocationId, selectedOrgId } from './workspace-location';
+import { authorizedSelectedLocationId, selectedOrgId } from './workspace-location';
 import { scopeRowsToLocation } from './location-scope';
 import { demoLocationsFor } from './demo-locations';
 import { selectedOrganizationId } from './workspace-scope';
@@ -78,7 +78,7 @@ async function locationNames(brandId: string): Promise<ReadonlyMap<string, strin
 
 export async function loadKpis(): Promise<KpiDay[]> {
   const [locationId, brandId, client] = await Promise.all([
-    selectedLocationId(), organizationId(), serverClient(),
+    authorizedSelectedLocationId(), organizationId(), serverClient(),
   ]);
   if (!client) return scopeRowsToLocation(DEMO_KPIS, locationId);
   if (!brandId) return [];
@@ -282,7 +282,7 @@ export async function loadCustomers(): Promise<CustomerSummary[]> {
 
 export async function loadFees(): Promise<FeeRow[]> {
   const [locationId, brandId, client] = await Promise.all([
-    selectedLocationId(), organizationId(), serverClient(),
+    authorizedSelectedLocationId(), organizationId(), serverClient(),
   ]);
   if (!client) return scopeRowsToLocation(DEMO_FEES, locationId);
   if (!brandId) return [];
