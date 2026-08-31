@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
 import { currentSession, hasRole } from '@/lib/auth';
+import { isConfigured } from '@/lib/supabase-server';
+import { selectedOrganizationId } from '@/lib/workspace-scope';
 import { WEEKDAYS } from '@/lib/location-input';
 
 import { createLocationAction } from '../actions';
@@ -28,6 +30,8 @@ export default async function NewLocationPage({ searchParams }: NewLocationPageP
   // Only an owner (or platform admin) may add a store; a manager can run one
   // but not create another. The write is checked again by RLS.
   if (!session || !hasRole(session, 'brand_owner')) redirect('/locations');
+  const canContinueToSquare = isConfigured()
+    && await selectedOrganizationId(session) === session.brandId;
 
   return (
     <>
@@ -88,10 +92,16 @@ export default async function NewLocationPage({ searchParams }: NewLocationPageP
               <input name="closeTime" type="time" defaultValue="20:00" required />
             </label>
           </div>
-          <label className="location-form-check">
-            <input type="checkbox" name="connectSquare" defaultChecked />
-            Continue to Square connection after creating
-          </label>
+          {canContinueToSquare ? (
+            <label className="location-form-check">
+              <input type="checkbox" name="connectSquare" defaultChecked />
+              Continue to Square connection after creating
+            </label>
+          ) : (
+            <p className="muted">
+              Square connection is available from the location’s home-tenant session after creation.
+            </p>
+          )}
           <div className="location-form-actions">
             <Link href="/locations" className="button secondary">Cancel</Link>
             <button type="submit" className="button">Create location</button>

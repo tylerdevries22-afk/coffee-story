@@ -23,6 +23,10 @@ const CREATED_NOTICE: Record<string, { message: string; failed: boolean }> = {
   denied: { message: 'Only a brand owner can add a location.', failed: true },
   limit: { message: 'This organization is limited to one location.', failed: true },
   failed: { message: 'That location could not be created. Try again.', failed: true },
+  square_deferred: {
+    message: 'Location created. Connect Square from that organization’s home-tenant session, then pair its devices below.',
+    failed: false,
+  },
 };
 
 export default async function LocationsPage({ searchParams }: LocationsPageProps) {
