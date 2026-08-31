@@ -73,6 +73,7 @@ type ConsoleShellProps = {
   readonly statusHref: string;
   readonly dataMode: 'hosted' | 'preview';
   readonly sessionFooter: ReactNode;
+  readonly switcher?: ReactNode;
 };
 
 type ConsoleRailProps = Pick<
@@ -200,6 +201,7 @@ function ConsoleTopbar({
   onOpenNavigation,
   triggerButtonRef,
   dataMode,
+  switcher,
 }: {
   section: ConsoleSection;
   pageTitle: string;
@@ -208,6 +210,7 @@ function ConsoleTopbar({
   onOpenNavigation: () => void;
   triggerButtonRef: RefObject<HTMLButtonElement | null>;
   dataMode: 'hosted' | 'preview';
+  switcher?: ReactNode;
 }) {
   return (
     <header className="topbar">
@@ -230,6 +233,7 @@ function ConsoleTopbar({
         </div>
       </div>
       <div className="topbar-actions">
+        {switcher}
         <span className={`sync-state ${dataMode}`}><span className="sync-dot" /> {dataMode === 'hosted' ? 'Supabase synced' : 'Local preview data'}</span>
         <span className="topbar-avatar" aria-hidden="true">{initials}</span>
       </div>
@@ -334,6 +338,7 @@ export function ConsoleShell(props: ConsoleShellProps) {
           onOpenNavigation={() => setNavigationOpen(true)}
           triggerButtonRef={triggerButtonRef}
           dataMode={props.dataMode}
+          switcher={props.switcher}
         />
         <ContextRail section={activeSection} statusHref={props.statusHref} />
         <main id="main-content" className="main">{props.children}</main>
