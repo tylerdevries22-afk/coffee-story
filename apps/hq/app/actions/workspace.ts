@@ -11,6 +11,7 @@ import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 
 import { currentSession } from '@/lib/auth';
+import { recordPlatformAccess } from '@/lib/platform-access-audit';
 import {
   authorizeLocation,
   authorizeOrganization,
@@ -31,6 +32,12 @@ export async function selectOrganization(formData: FormData): Promise<void> {
   if (!isWorkspaceCookieValue(posted)) return;
   const authorized = await authorizeOrganization(session, posted);
   if (!authorized) return;
+  const audited = await recordPlatformAccess(session, {
+    action: 'workspace.organization.select',
+    brandId: authorized,
+    locationId: null,
+  });
+  if (!audited) return;
   const store = await cookies();
   store.set(ORG_COOKIE, authorized, workspaceCookieOptions());
   // A location id only means something inside its owning org, so switching org
@@ -50,6 +57,12 @@ export async function selectLocation(formData: FormData): Promise<void> {
   // The empty value is the "All locations" row -- a valid choice that clears
   // the scope rather than selecting one store.
   if (posted === '') {
+    const audited = await recordPlatformAccess(session, {
+      action: 'workspace.location.select',
+      brandId: orgId,
+      locationId: null,
+    });
+    if (!audited) return;
     store.set(LOCATION_COOKIE, '', expiredWorkspaceCookieOptions());
     revalidatePath('/', 'layout');
     return;
@@ -57,6 +70,12 @@ export async function selectLocation(formData: FormData): Promise<void> {
   if (!isWorkspaceCookieValue(posted) || !isWorkspaceCookieValue(orgId)) return;
   const authorized = await authorizeLocation(session, orgId, posted);
   if (!authorized) return;
+  const audited = await recordPlatformAccess(session, {
+    action: 'workspace.location.select',
+    brandId: orgId,
+    locationId: authorized,
+  });
+  if (!audited) return;
   store.set(LOCATION_COOKIE, authorized, workspaceCookieOptions());
   revalidatePath('/', 'layout');
 }

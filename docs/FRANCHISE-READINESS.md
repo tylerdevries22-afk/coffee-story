@@ -58,10 +58,11 @@ selected location to scope KPIs, orders, devices, fees, etc.
 prevents cross-tenant reads; this is a within-tenant filter for focus, so it is
 safe to add incrementally.
 
-### 3. Impersonation audit trail
-When a `platform_admin` acts inside another tenant's org, that crossing should
-be audited (who, which brand, when) the way the operator portal logs
-privileged actions. No audit row is written today.
+### 3. Impersonation audit trail (scope selection closed)
+Configured cross-tenant organization and location selections are now audited
+before the scope cookie changes. A future "operate as" mutation workflow still
+needs to log each privileged write, rather than treating one scope-selection
+event as permission for later actions.
 
 ## The five apps — switcher UI rollout (UI only, not wired)
 
@@ -185,11 +186,11 @@ config), never from another tenant; unit tests assert the config has no
   a new store, with a prompt to refresh their token.
 - **Square + device pairing inline** in the add-location wizard (create → connect
   → pair in one pass); both endpoints already exist.
-- **Configured-mode cross-tenant hardening.** A `brand_directory`
-  security-barrier view for platform operators and an append-only
-  `platform_access_events` audit log + a scoped "operate as brand X"
-  impersonation flow, replacing reliance on the blanket `is_platform_admin()`
-  short-circuit.
+- **Configured-mode cross-tenant operation flow.** The `brand_directory` view,
+  append-only `platform_access_events` table, and audited scope selection have
+  shipped. The remaining work is a scoped "operate as brand X" mutation flow
+  that audits each privileged write and replaces reliance on the blanket
+  `is_platform_admin()` short-circuit.
 - **Per-location fee overrides** and **multi-location gating** on the
   `multi_location` flag.
 
@@ -212,6 +213,11 @@ Continuing the plan above, the following were researched and built (all behind
   idempotent, reusing the shared parser; the concrete slice of "menu import".
 - **`brand_directory` view + `platform_access_events` audit log** migration
   (`20260831000000…`), extending the release-readiness chain.
+- **Platform access audit wiring.** Configured cross-tenant organization and
+  location selections call `record_platform_access` through the engine's
+  server-only, retry-safe service-role writer before changing scope. Missing
+  actor/env or RPC failure fails closed; home-tenant and unconfigured demo
+  selections never touch the audit path.
 
 ## Deferred, with reasons (not silently dropped)
 
@@ -226,8 +232,6 @@ Continuing the plan above, the following were researched and built (all behind
   needs a reviewed service-role path — not a quick wizard field.
 - **Five-app RN switchers** (customer/kiosk/display). Architectural/preview-flag
   work on the Expo binaries; operator already has the real switcher.
-- **Wiring the `record_platform_access` log calls.** The schema exists; the calls
-  belong in the service-role platform paths, not in RLS page reads.
 - **Relaxing org creation to brand_owner.** Kept `platform_admin` — `brands_insert`
   is admin-only and minting a tenant is an operator action; relaxing it is a
   security-posture change that should be a deliberate, separate migration.

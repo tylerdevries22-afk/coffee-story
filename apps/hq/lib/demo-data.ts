@@ -106,6 +106,7 @@ export type FeeRow = {
 };
 
 export type SessionInfo = {
+  userId: string | null;
   email: string;
   role: BrandRole;
   brandId: string;
@@ -113,6 +114,7 @@ export type SessionInfo = {
 };
 
 export const DEMO_SESSION: SessionInfo = {
+  userId: null,
   email: 'owner@coffee-story.demo',
   role: 'platform_admin',
   brandId: '00000000-0000-4000-8000-000000000101',
