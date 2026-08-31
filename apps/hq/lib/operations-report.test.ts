@@ -1,7 +1,19 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { operationReportCsv, operationReportFilters } from './operations-report';
+import {
+  operationReportCsv,
+  operationReportFilters,
+  operationReportLocationId,
+} from './operations-report';
+
+describe('operationReportLocationId', () => {
+  it('inherits workspace scope unless the report names a location', () => {
+    assert.equal(operationReportLocationId(null, 'workspace-location'), 'workspace-location');
+    assert.equal(operationReportLocationId('report-location', 'workspace-location'), 'report-location');
+    assert.equal(operationReportLocationId(null, null), null);
+  });
+});
 
 describe('operationReportFilters', () => {
   it('uses a bounded default window and accepts supported filters', () => {
