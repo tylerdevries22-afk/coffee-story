@@ -27,8 +27,8 @@ import {
   type SharedValue,
 } from 'react-native-reanimated';
 
+import { useReducedMotion } from '@platform/ui';
 import type { RewardTierName } from '@platform/domain';
-import { useReducedMotion } from '@/hooks/use-reduced-motion';
 
 import { paletteForTier, type GlassCupPalette } from './glass-cup-palettes';
 import {

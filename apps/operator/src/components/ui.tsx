@@ -7,11 +7,8 @@ import {
   AppMoreFooter as MoreFooter, AppPillRow, AppScreen as Screen,
   AppSectionTitle as SectionTitle, AppSegmented as Segmented,
   AppStaticScreen as StaticScreen, AppTitle as Title,
-  useOnDarkSurface, useSurfaceTone, useTokens, type SurfaceTone,
-} from '@platform/ui';
+  useOnDarkSurface, useSurfaceTone, useTokens, type SurfaceTone, AppIcon, type AppIconName } from '@platform/ui';
 
-import { AppIcon } from '@/components/icon';
-import type { AppIconName } from '@/components/icon-map';
 import { useBusiness } from '@/state/business';
 
 export {

@@ -12,7 +12,7 @@ export const NATIVE_ADMIN_PAGES: Readonly<Record<string, NativeAdminPageConfig>>
     eyebrow: 'Reputation', title: 'Reviews', summary: 'Respond to client feedback and track the studio experience.',
     metrics: [{ label: 'Rating', value: '4.9' }, { label: 'Reviews', value: '128' }, { label: 'Unanswered', value: '2' }],
     rows: [
-      { title: 'Alex Rivera · 5 stars', subtitle: '“Best pistachio latte in Aurora, and the prayer room is a blessing.”' },
+      { title: 'Alex Rivera · 5 stars', subtitle: '“Best pistachio latte in the neighbourhood, and the prayer room is a blessing.”' },
       { title: 'Jamie Lee · 5 stars', subtitle: '“Open late, great Wi-Fi, and the Adeni chai is the real thing.”' },
     ],
     action: 'Draft reply',
@@ -70,8 +70,8 @@ export const NATIVE_ADMIN_PAGES: Readonly<Record<string, NativeAdminPageConfig>>
     eyebrow: 'Acquisition', title: 'Google Ads', summary: 'Monitor spend, search terms, bookings, and campaign recommendations.',
     metrics: [{ label: 'Spend', value: '$612' }, { label: 'Bookings', value: '18' }, { label: 'Cost / booking', value: '$34' }],
     rows: [
-      { title: 'Coffee shop near Aurora', subtitle: 'Active · $28/day' },
-      { title: 'Late night coffee Denver', subtitle: 'Active · $18/day' },
+      { title: 'Coffee shop near me', subtitle: 'Active · $28/day' },
+      { title: 'Late night coffee near me', subtitle: 'Active · $18/day' },
     ],
     action: 'New campaign',
   },

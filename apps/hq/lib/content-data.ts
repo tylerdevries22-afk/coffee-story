@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { coffeeStoryTrainingManifest, normalizeTrainingManifest, parseOptionGroups, parseSizes } from '@platform/domain';
+import { cafeTrainingManifest, normalizeTrainingManifest, parseOptionGroups, parseSizes } from '@platform/domain';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { TrainingAnswerKey, TrainingManifest } from './training-bootstrap';
@@ -76,7 +76,7 @@ type DemoMenu = {
 const DEMO_MENU = demoMenuJson as DemoMenu;
 
 function demoManifest(): TrainingManifest {
-  return coffeeStoryTrainingManifest(DEMO_PROFILE);
+  return cafeTrainingManifest(DEMO_PROFILE);
 }
 
 const DEMO_WORKSPACE: ContentWorkspaceData = {

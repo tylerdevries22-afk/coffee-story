@@ -81,7 +81,7 @@ describe('tierFor', () => {
 
 describe('tierBySlug', () => {
   it('resolves what the SQL projection emitted', () => {
-    assert.equal(tierBySlug('house-regular')?.label, 'House Regular');
+    assert.equal(tierBySlug('insider')?.label, 'Insider');
   });
 
   it('is null for a slug the current ladder no longer has', () => {
@@ -190,12 +190,12 @@ describe('toEntry', () => {
   const config = { ...DEFAULT_BOARD_CONFIG, showGuestStatus: true };
 
   it('badges the tier the projection resolved', () => {
-    const entry = toEntry(ticket({ id: '1', loyalty_tier: 'house-regular' }), config, 1);
-    assert.equal(entry.tier?.label, 'House Regular');
+    const entry = toEntry(ticket({ id: '1', loyalty_tier: 'insider' }), config, 1);
+    assert.equal(entry.tier?.label, 'Insider');
   });
 
   it('withholds the badge entirely when the brand keeps status private', () => {
-    const entry = toEntry(ticket({ id: '1', loyalty_tier: 'house-regular' }),
+    const entry = toEntry(ticket({ id: '1', loyalty_tier: 'insider' }),
       { ...config, showGuestStatus: false }, 1);
     assert.equal(entry.tier, null);
   });

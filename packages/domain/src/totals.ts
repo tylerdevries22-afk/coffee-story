@@ -1,15 +1,14 @@
 /**
  * Register arithmetic for a client order.
  *
- * Integer cents throughout, for the same reason `features/staff/pos-totals.ts`
- * works in cents: every amount the app already handles is integer cents, and
- * routing money through floats to share one module would reintroduce the
- * rounding that representation exists to avoid.
+ * Integer cents throughout: every amount the app already handles is integer
+ * cents, and routing money through floats to share one module would
+ * reintroduce the rounding that representation exists to avoid.
  *
- * The two registers stay separate on purpose. The staff one settles an
- * order balance against a percentage tip and a flat discount code; this
- * one prices a bag of goods against a fixed-dollar tip and an itemised tax
- * breakdown the guest can read line by line.
+ * This is the only register. A second one lived in the operator app --
+ * order balance, percentage tip, flat discount code -- carrying one shop's
+ * prices as module constants and imported by nothing; it was removed rather
+ * than promoted, since a till built on it would inherit those prices.
  */
 import { pointsForPurchase, REWARD_TIERS, type PurchaseBreakdown, type RewardTier } from './rules';
 import { taxRowsFor, type TaxJurisdiction, type TaxRow } from './tax';

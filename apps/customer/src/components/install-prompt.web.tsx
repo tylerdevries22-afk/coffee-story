@@ -2,9 +2,8 @@ import { useEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AppIcon } from '@/components/icon';
 import { useBusiness } from '@/state/business';
-import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
+import { useTokens as useBrandTokens, type BrandTokens, AppIcon } from '@platform/ui';
 
 /**
  * Offers to install the web demo to the home screen, so it launches without
@@ -28,7 +27,7 @@ type InstallEvent = Event & {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 };
 
-const DISMISSED_KEY = 'coffee-story.install-prompt-dismissed.v1';
+const DISMISSED_KEY = 'platform.customer.install-prompt-dismissed.v1';
 
 function isStandalone(): boolean {
   if (typeof window === 'undefined') return false;

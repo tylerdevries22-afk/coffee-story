@@ -32,7 +32,9 @@ function imageSlugFor(label: string, configured?: string): string | null {
 export function KioskFlowPreview({
   flow,
   menu,
-  brandName = 'Coffee Story',
+  // Only reached with no session, where there is no tenant to name. The same
+  // placeholder lib/auth.ts uses, so a signed-out console says one thing.
+  brandName = 'Your brand',
 }: {
   flow: KioskFlow;
   menu: KioskMenuFacts;

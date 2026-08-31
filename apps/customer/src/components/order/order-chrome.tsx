@@ -1,10 +1,8 @@
 import {
   ActionButton, CountBadge, Ribbon, SharedCartPill, SharedRewardsBanner,
   Skeleton, StickyActionBar, STICKY_BAR_HEIGHT, useCoveringBottomInset,
-  useStickyBarClearance, useTokens, type RibbonTone,
-} from '@platform/ui';
+  useStickyBarClearance, useTokens, type RibbonTone, AppIcon } from '@platform/ui';
 
-import { AppIcon } from '@/components/icon';
 
 export {
   ActionButton, CountBadge, Ribbon, Skeleton, StickyActionBar, STICKY_BAR_HEIGHT,

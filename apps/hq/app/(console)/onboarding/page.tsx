@@ -134,7 +134,7 @@ export default async function OnboardingPage({ searchParams }: { searchParams: S
           {error === 'automation' ? 'The run was saved, but its hosted automation could not start. No provider resources were created.' : null}
         </div>
       ) : null}
-      {overview.issue ? <div className="notice">{overview.issue} Apply the factory migration to the hosted Coffee Story project to enable live runs.</div> : null}
+      {overview.issue ? <div className="notice">{overview.issue} Apply the factory migration to the hosted platform project to enable live runs.</div> : null}
 
       <section className="factory-metrics" aria-label="Factory overview">
         <article><span>Deployment model</span><strong>One stack</strong><small>per industry</small></article>

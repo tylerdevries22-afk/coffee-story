@@ -19,3 +19,7 @@ export * from './toast';
 export * from './drop-countdown-logic';
 export * from './loyalty-logic';
 export * from './order-status-pill-logic';
+export * from './tab-screen';
+export * from './icon-map';
+// Platform split: Metro picks app-icon.web.tsx for web, app-icon.tsx elsewhere.
+export * from './app-icon';

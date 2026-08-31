@@ -8,7 +8,6 @@
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { CollapsingScreen } from '@/components/collapsing-screen';
-import { AppIcon } from '@/components/icon';
 import { MenuImage } from '@/components/menu-image';
 import { QuantityStepper } from '@/components/order/option-controls';
 import {
@@ -24,12 +23,12 @@ import { fulfillmentDetail, fulfillmentLabel, type OrderFulfillment ,
   orderLineTotalCents,
   type OrderCart,
   type OrderLine,
+  formatMoney,
+  describePickupWindow,
 } from '@platform/domain';
-import { formatMoney } from '@platform/domain';
-import { describePickupWindow } from '@/features/order/pickup';
 import { POINTS_LABEL } from '@/features/rewards/presentation';
 import { useCustomerCatalog } from '@/state/catalog-context';
-import { menuImageFrame } from '@platform/ui';
+import { menuImageFrame, AppIcon } from '@platform/ui';
 
 import { findMenuItem } from './menu-data';
 import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';

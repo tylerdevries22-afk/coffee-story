@@ -2,9 +2,7 @@ import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Eyebrow } from '@/components/ui';
-import { AppIcon, type AppIconName } from '@/components/icon';
-import { toggleState } from '@platform/ui';
-import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
+import { toggleState, AppIcon, type AppIconName, useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 type SymbolName = AppIconName;
 

@@ -22,12 +22,16 @@
   "peerDependencies": {
     "react": "*",
     "react-native": "*",
-    "react-native-safe-area-context": "*"
+    "react-native-safe-area-context": "*",
+    "@expo/vector-icons": "*",
+    "expo-symbols": "*"
   },
   "devDependencies": {
     "@types/react": "~19.1.10",
     "react": "19.1.0",
-    "react-native": "0.81.5"
+    "react-native": "0.81.5",
+    "@expo/vector-icons": "^15.0.3",
+    "expo-symbols": "~1.0.8"
   },
   "dependencies": {
     "@platform/domain": "workspace:*",

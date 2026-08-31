@@ -11,7 +11,6 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { CollapsingScreen } from '@/components/collapsing-screen';
-import { AppIcon } from '@/components/icon';
 import {
   ActionButton,
   RewardsBanner,
@@ -22,7 +21,7 @@ import {
 import { formatMoney, formatRate } from '@platform/domain';
 import { TIP_PRESETS_CENTS, type OrderTotals , PaymentMethod } from '@platform/domain';
 import { POINTS_LABEL } from '@/features/rewards/presentation';
-import { choiceState, toggleState } from '@platform/ui';
+import { choiceState, toggleState, AppIcon } from '@platform/ui';
 import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 export type CheckoutPaymentMethod =

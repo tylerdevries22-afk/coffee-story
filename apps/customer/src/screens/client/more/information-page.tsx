@@ -3,8 +3,9 @@ import { Alert, StyleSheet, Text } from 'react-native';
 
 import { CollapsingScreen } from '@/components/collapsing-screen';
 import { Body, Button, Card, PillRow } from '@/components/ui';
-import { INFORMATION_PAGES, type InformationPageKey } from '@platform/domain';
+import { resolveInformationPages, type InformationPageKey } from '@platform/domain';
 import { openWebPath } from '@/lib/web-navigation';
+import { TENANT_BRAND_CONFIG } from '@/tenant';
 import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 export const createStyles = (tokens: BrandTokens) => StyleSheet.create({
@@ -40,6 +41,12 @@ export const createStyles = (tokens: BrandTokens) => StyleSheet.create({
   myMessage: { alignSelf: 'flex-end', backgroundColor: tokens.surface },
   messageSender: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 11 },
 });
+
+/**
+ * Resolved once: brand.json is compiled into the bundle, so there is nothing
+ * for a render to react to.
+ */
+const INFORMATION_PAGES = resolveInformationPages(TENANT_BRAND_CONFIG);
 
 export function useInformationStyles() { return createStyles(useBrandTokens()); }
 

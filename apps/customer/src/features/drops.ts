@@ -49,18 +49,15 @@ export function weeklyDrops(drops: readonly Drop[], now: Date): Drop[] {
 }
 
 /**
- * The shop's own timezone.
- *
- * A drop window is a shop-local fact -- "this week's lineup" means the week the
- * shop is having, not the one the guest's phone is in -- so the label is
- * formatted in the location's zone rather than the device's. Defaulted here and
- * wired from `locations.timezone` when the menu moves server-side.
- */
-const SHOP_TIME_ZONE = 'America/Denver';
-
-/**
  * The date-range chip over the drop board, spanning the earliest start to the
  * latest end: "Aug 18 – 24" within a month, "Aug 30 – Sep 5" across one.
+ *
+ * The zone is required, not defaulted. A drop window is a shop-local fact --
+ * "this week's lineup" means the week the shop is having, not the one the
+ * guest's phone is in -- and this module cannot know which shop it is being
+ * asked about. It used to answer America/Denver for all of them, so the second
+ * tenant's board would have been labelled in the first tenant's week. Callers
+ * pass `useBusiness().timezone`, which reads the tenant's own config.
  *
  * Every part is read in one explicit zone. This used to mix `getDate()` and
  * `toLocaleDateString()`, both of which read the *device's* zone: a window
@@ -70,7 +67,7 @@ const SHOP_TIME_ZONE = 'America/Denver';
  */
 export function dropWindowLabel(
   drops: readonly Drop[],
-  timeZone: string = SHOP_TIME_ZONE,
+  timeZone: string,
 ): string {
   const starts = drops.map((drop) => new Date(drop.startsAt)).filter((date) => !Number.isNaN(date.getTime()));
   const ends = drops.map((drop) => new Date(drop.endsAt)).filter((date) => !Number.isNaN(date.getTime()));

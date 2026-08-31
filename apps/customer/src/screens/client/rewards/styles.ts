@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
+import { mixHex, useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 
 /**
@@ -56,7 +56,7 @@ export const createStyles = (tokens: BrandTokens) => StyleSheet.create({
   tierChip: {
     minHeight: 34,
     borderRadius: tokens.radius.pill,
-    backgroundColor: 'rgba(110,75,122,0.11)',
+    backgroundColor: mixHex(tokens.surface, tokens.primary, 0.11),
     paddingLeft: tokens.spacing.md,
     paddingRight: tokens.spacing.sm,
     flexDirection: 'row',
@@ -70,7 +70,7 @@ export const createStyles = (tokens: BrandTokens) => StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(110,75,122,0.11)',
+    backgroundColor: mixHex(tokens.surface, tokens.primary, 0.11),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -245,9 +245,11 @@ export const createStyles = (tokens: BrandTokens) => StyleSheet.create({
   cashHint: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 14 },
   cashBalance: { position: 'absolute', top: tokens.spacing.xl, right: tokens.spacing.xl, color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: 34 },
   cashBottom: { flex: 1, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
-  cashBrand: { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: 33 },
+  // The wordmark is set lower case by design; it used to be typed that way in
+  // the screen, which made the casing a property of one tenant's name.
+  cashBrand: { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: 33, textTransform: 'lowercase' },
   cashSubbrand: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 10, letterSpacing: 1.5 },
-  currencyPill: { borderRadius: tokens.radius.pill, backgroundColor: 'rgba(125,90,60,0.12)', paddingHorizontal: tokens.spacing.lg, paddingVertical: tokens.spacing.md },
+  currencyPill: { borderRadius: tokens.radius.pill, backgroundColor: mixHex(tokens.surface, tokens.accent, 0.12), paddingHorizontal: tokens.spacing.lg, paddingVertical: tokens.spacing.md },
   currencyText: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 14 },
   actionRow: { minHeight: 82, borderRadius: tokens.radius.pill, backgroundColor: tokens.surface, borderWidth: 1, borderColor: tokens.secondary, paddingHorizontal: tokens.spacing.xl, flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.lg },
   actionRowLabel: { flex: 1, color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 17 },

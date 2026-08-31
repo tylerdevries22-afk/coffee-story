@@ -30,8 +30,11 @@ export type ClientSearchResult = {
 const PAGES: readonly { view: string; title: string; detail: string }[] = [
   { view: 'gift-balance', title: 'Gift card balance', detail: 'Stored value, claimed cards, and gifts you sent' },
   { view: 'book', title: 'Menu & prices', detail: 'Browse signature lattes and the full menu, with sizes and prices' },
-  { view: 'location', title: 'Shop location & hours', detail: 'Aurora, Colorado, with parking, Wi-Fi, and late-night hours' },
-  { view: 'resources', title: 'Our story & brewing guides', detail: 'Our roaster, the halal-friendly menu, and staying a while' },
+  // Descriptions of the destination, not of one shop. These named a city, a
+  // state, and one shop's menu -- from a module every tenant's binary reads,
+  // so a search sheet in another state advertised this one's address.
+  { view: 'location', title: 'Shop location & hours', detail: 'Address, directions, parking, and opening hours' },
+  { view: 'resources', title: 'Our story & brewing guides', detail: 'Our roaster, the menu we serve, and staying a while' },
   { view: 'faq', title: 'Frequently asked questions', detail: 'Answers about the coffee menu, gift cards, and rewards' },
   { view: 'order-policy', title: 'Order & refund policy', detail: 'Changes, late pickup, and refund exceptions' },
   { view: 'privacy', title: 'Privacy & terms', detail: 'Order records, payments, and account control' },

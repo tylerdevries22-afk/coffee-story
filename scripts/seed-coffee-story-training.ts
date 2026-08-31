@@ -10,7 +10,7 @@ import {
   type TrainingArtworkUrls,
   type TrainingManifest,
 } from '../packages/domain/src';
-import { coffeeStoryTrainingManifest } from '../packages/domain/src/training-baseline';
+import { cafeTrainingManifest } from '../packages/domain/src/training-baseline';
 import {
   normalizeTrainingProfile,
   prepareTrainingRelease,
@@ -101,7 +101,7 @@ async function main(): Promise<void> {
     products: ['Espresso', 'Tea', 'Pastries'],
   });
   const artworkUrls = await syncModuleArtwork(db, url, brand.data.id);
-  const manifest = withTrainingArtwork(coffeeStoryTrainingManifest(profile), artworkUrls);
+  const manifest = withTrainingArtwork(cafeTrainingManifest(profile), artworkUrls);
   const issues = validateTrainingManifest(manifest);
   if (issues.length > 0) throw new Error(`Baseline curriculum is invalid: ${issues.join('; ')}`);
   const prepared = prepareTrainingRelease(manifest);

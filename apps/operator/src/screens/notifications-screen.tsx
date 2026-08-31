@@ -3,8 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Avatar } from '@/components/staff/workspace-ui';
 import { CollapsingScreen } from '@/components/collapsing-screen';
 import { groupNotifications, relativeAge, type NotificationItem } from '@platform/domain';
-import { AppIcon } from '@/components/icon';
-import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
+import { useTokens as useBrandTokens, type BrandTokens, AppIcon } from '@platform/ui';
 
 /**
  * The notifications page, laid out the way Instagram lays its own out: one

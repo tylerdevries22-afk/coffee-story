@@ -1,13 +1,13 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { AppIcon } from '@/components/icon';
+import { TENANT } from '@/tenant';
 import { cashEntries } from '@/features/rewards/cash-entries';
 import { formatRewardDate } from '@/features/rewards/presentation';
 import type { RewardAccount, RewardEntry } from '@platform/domain';
 
 import { useRewardStyles } from '../styles';
-import { useTokens as useBrandTokens } from '@platform/ui';
+import { useTokens as useBrandTokens, AppIcon } from '@platform/ui';
 
 export function CashTab({
   account,
@@ -41,7 +41,7 @@ export function CashTab({
         <Text style={styles.cashBalance}>${(account.cashCents / 100).toFixed(2)}</Text>
         <View style={styles.cashBottom}>
           <View>
-            <Text style={styles.cashBrand}>coffee story</Text>
+            <Text style={styles.cashBrand}>{TENANT.identity.name}</Text>
             <Text style={styles.cashSubbrand}>BREW BUCKS</Text>
           </View>
           <View style={styles.currencyPill}><Text style={styles.currencyText}>USD⌄</Text></View>

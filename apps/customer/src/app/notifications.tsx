@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 
 import { buildClientNotifications, type NotificationItem } from '@platform/domain';
 import { NotificationsScreen } from '@/screens/notifications-screen';
+import { useFeedVoice } from '@/lib/feed-voice';
 import { useAppState } from '@/state/app-context';
 import { useAuth } from '@/state/auth-context';
 
@@ -16,7 +17,8 @@ export default function NotificationsRoute() {
     closeNotifications, openMore, setClientTab, unreadNotificationIds,
   } = useAppState();
   const { portal } = useAuth();
-  const notifications = useMemo(() => buildClientNotifications(portal, new Date()), [portal]);
+  const voice = useFeedVoice();
+  const notifications = useMemo(() => buildClientNotifications(portal, new Date(), voice), [portal, voice]);
 
   function follow(item: NotificationItem) {
     closeNotifications();

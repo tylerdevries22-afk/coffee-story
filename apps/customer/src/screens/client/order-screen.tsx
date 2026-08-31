@@ -17,16 +17,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
 import { CollapsingScreen } from '@/components/collapsing-screen';
-import { AppIcon } from '@/components/icon';
 import { PushFromRight } from '@/components/push-from-right';
 import { Body } from '@/components/ui';
 import type { MenuItem } from '@/data/catalog';
 import type { OrderFulfillment, FulfillmentMode , OrderableItem } from '@platform/domain';
 import {
   formatMoney, fulfillmentDetail, fulfillmentLabel, orderTotals, pointsForOrder,
-  REWARD_TIERS, tierForAnnualPoints,
+  tierForAnnualPoints,
+  PICKUP_WINDOW_MINUTES, describePickupWindow, isWindowStillBookable,
 } from '@platform/domain';
-import { PICKUP_WINDOW_MINUTES, describePickupWindow, isWindowStillBookable } from '@/features/order/pickup';
 import {
   checkoutAttemptSignature,
   checkoutGuestLabel,
@@ -42,7 +41,8 @@ import {
 import { POINTS_LABEL } from '@/features/rewards/presentation';
 import { simulateProgress, trackingView } from '@/features/tracking';
 import { sizeSuffix } from '@/data/menu-export';
-import { TENANT_TAX_JURISDICTIONS, tenantFeature } from '@/tenant';
+import { TENANT_REWARD_TIERS, TENANT_TAX_JURISDICTIONS, tenantFeature } from '@/tenant';
+import { useBusiness } from '@/state/business';
 import {
   newIdempotencyKey,
   startSerializedPolling,
@@ -51,7 +51,7 @@ import {
 } from '@platform/api-client';
 import { subscribeToOrderStatus } from '@platform/data';
 import type { OrderStatus } from '@platform/schema';
-import { choiceState, disabledState } from '@platform/ui';
+import { choiceState, disabledState, useReducedMotion, AppIcon } from '@platform/ui';
 import { platformApi } from '@/lib/api';
 import { demoSyncClient } from '@/lib/demo-sync';
 import { liveOrderContext } from '@/lib/live-portal';
@@ -61,7 +61,6 @@ import { useAppState } from '@/state/app-context';
 import { useAuth } from '@/state/auth-context';
 import { useDemo } from '@/state/demo-context';
 import { useOrder } from '@/state/order-context';
-import { useReducedMotion } from '@/hooks/use-reduced-motion';
 
 import { BagStep, NoteStep } from './order/bag-step';
 import { CheckoutStep, type CheckoutPaymentMethod } from './order/checkout-step';
@@ -169,8 +168,8 @@ export function OrderScreen() {
   useEffect(() => {
     checkoutKey.current = null;
   }, [cartSignature]);
-  const pointsPerDollar = tierForAnnualPoints(annualPoints, REWARD_TIERS).pointsPerDollar;
-  const pointsEarned = pointsForOrder(totals, annualPoints);
+  const pointsPerDollar = tierForAnnualPoints(annualPoints, TENANT_REWARD_TIERS).pointsPerDollar;
+  const pointsEarned = pointsForOrder(totals, annualPoints, TENANT_REWARD_TIERS);
 
   // Live orders settle at the counter until the brand connects card
   // payments; the demo keeps its saved-card flow.
@@ -591,8 +590,16 @@ function OrderHub({
 }) {
   const tokens = useBrandTokens();
   const styles = createStyles(tokens);
+  const business = useBusiness();
   const { width } = useWindowDimensions();
   const compact = width < 360;
+  // Rule 5: these three are brand flags, and the hub offered all three to
+  // everyone. A shop with delivery off still showed a Delivery card that
+  // started a flow it cannot fulfil, and one without stored value still
+  // offered gift cards -- the balance was already gated, the entry point
+  // was not. They are all on for the launch tenant, so nothing moves here
+  // until the second brand, which is exactly when it would have hurt.
+  const deliveryEnabled = tenantFeature('delivery');
 
   return (
     <CollapsingScreen
@@ -604,13 +611,15 @@ function OrderHub({
       contentContainerStyle={[styles.content, compact && styles.contentCompact]}
     >
       <View accessibilityRole="radiogroup" style={[styles.modeRow, compact && styles.modeRowCompact]}>
-        <ModeCard
-          mode="delivery"
-          label="Delivery"
-          compact={compact}
-          selected={mode === 'delivery'}
-          onPress={() => onStart('delivery')}
-        />
+        {deliveryEnabled ? (
+          <ModeCard
+            mode="delivery"
+            label="Delivery"
+            compact={compact}
+            selected={mode === 'delivery'}
+            onPress={() => onStart('delivery')}
+          />
+        ) : null}
         <ModeCard
           mode="pickup"
           label="Pickup"
@@ -620,18 +629,22 @@ function OrderHub({
         />
       </View>
 
-      <HubRow
-        icon="person.2"
-        title="Catering"
-        detail="Coffee cart for your event — message the shop"
-        onPress={onOpenCatering}
-      />
-      <HubRow
-        icon="giftcard"
-        title="Digital Gift Cards"
-        detail="Send a blessing in a few taps."
-        onPress={onOpenGift}
-      />
+      {tenantFeature('catering') ? (
+        <HubRow
+          icon="person.2"
+          title="Catering"
+          detail="Coffee cart for your event — message the shop"
+          onPress={onOpenCatering}
+        />
+      ) : null}
+      {tenantFeature('stored_value') ? (
+        <HubRow
+          icon="giftcard"
+          title="Digital Gift Cards"
+          detail="Send a blessing in a few taps."
+          onPress={onOpenGift}
+        />
+      ) : null}
 
       <Pressable
         accessibilityRole="button"
@@ -651,7 +664,9 @@ function OrderHub({
         </View>
       </Pressable>
 
-      <Body muted>Pickup at the shop on Havana St, or delivery to your door.</Body>
+      <Body muted>
+        Pickup at {business.street}{deliveryEnabled ? ', or delivery to your door' : ''}.
+      </Body>
     </CollapsingScreen>
   );
 }

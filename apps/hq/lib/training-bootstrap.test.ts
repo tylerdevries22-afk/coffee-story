@@ -42,9 +42,20 @@ describe('training bootstrap contracts', () => {
   });
 
   it('derives a safe research profile when a tenant has not authored one yet', () => {
+    // The template key is the tenant's own slug. It used to be set only for a
+    // business literally named "Coffee Story", so every other tenant reached
+    // the bootstrap with no key -- and regenerated a curriculum from scratch
+    // rather than reusing the template someone had already published for them.
     assert.deepEqual(resolveTenantTrainingProfile('Still Point', { business: { website: 'https://stillpoint.example' } }), {
-      businessName: 'Still Point', industry: 'Business operations and customer service', locale: 'en-US', website: 'https://stillpoint.example',
+      businessName: 'Still Point', industry: 'Business operations and customer service', locale: 'en-US',
+      templateKey: 'still-point', website: 'https://stillpoint.example',
     });
+    // No version pin: the lookup takes the highest published version, so a
+    // template republished at 2 is actually read.
+    assert.equal(resolveTenantTrainingProfile('Still Point', {}).templateVersion, undefined);
+    // A name that cannot produce a valid key leaves it unset rather than
+    // writing one its own validator would reject.
+    assert.equal(resolveTenantTrainingProfile('%%', {}).templateKey, undefined);
   });
 
   it('accepts a complete, sourced curriculum manifest', () => {

@@ -21,16 +21,15 @@ import {
 } from 'react-native';
 
 import { CollapsingPageHeader } from '@/components/collapsing-page-header';
-import { AppIcon } from '@/components/icon';
 import { MenuImage } from '@/components/menu-image';
 import { CategoryStrip } from '@/components/order/category-strip';
 import { CartPill, Ribbon } from '@/components/order/order-chrome';
-import { disabledState } from '@platform/ui';
-import { useTabBarClearance } from '@/components/navigation/tab-screen';
+import { disabledState, useTabBarClearance, AppIcon } from '@platform/ui';
 import type { MenuItem } from '@/data/catalog';
-import { fulfillmentDetail, fulfillmentLabel, type OrderFulfillment } from '@platform/domain';
-import { describePickupWindow } from '@/features/order/pickup';
-import { menuPriceLabel } from '@platform/domain';
+import {
+  fulfillmentDetail, fulfillmentLabel, describePickupWindow, menuPriceLabel,
+  type OrderFulfillment,
+} from '@platform/domain';
 import { TENANT } from '@/tenant';
 import { useCustomerCatalog } from '@/state/catalog-context';
 

@@ -16,13 +16,13 @@ import {
 
 import { Screen } from '@/components/ui';
 import { POINTS_LABEL } from '@/features/rewards/presentation';
-import { tierForAnnualPoints, REWARD_TIERS, type RewardTierName , RewardCatalogItem } from '@platform/domain';
-import { useReducedMotion } from '@/hooks/use-reduced-motion';
+import { useReducedMotion } from '@platform/ui';
+import { tierForAnnualPoints, type RewardTierName , RewardCatalogItem } from '@platform/domain';
 import { mobileApi } from '@/lib/mobile-api';
 import { useAppState } from '@/state/app-context';
 import { useAuth } from '@/state/auth-context';
 import { useDemo } from '@/state/demo-context';
-import { TENANT } from '@/tenant';
+import { TENANT, TENANT_REWARD_TIERS } from '@/tenant';
 
 import { hapticError, hapticSelection, hapticSuccess } from './rewards/haptics';
 import { RewardsHeader, RewardTabs, type RewardTab } from './rewards/header';
@@ -70,11 +70,11 @@ export function RewardsScreen() {
     ? {
         ...portal.rewardAccount,
         annualPoints:
-          REWARD_TIERS.find((entry) => entry.name === tierOverride)?.minimumAnnualPoints
+          TENANT_REWARD_TIERS.find((entry) => entry.name === tierOverride)?.minimumAnnualPoints
           ?? portal.rewardAccount.annualPoints,
       }
     : portal.rewardAccount;
-  const tier = tierForAnnualPoints(account.annualPoints);
+  const tier = tierForAnnualPoints(account.annualPoints, TENANT_REWARD_TIERS);
   const [reveal] = useState(() => new Animated.Value(1));
   const [scrollY] = useState(() => new Animated.Value(0));
   const onScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {

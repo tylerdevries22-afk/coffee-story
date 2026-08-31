@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Animated, Pressable, Text, View, useWindowDimensions } from 'react-native';
 
-import { AppIcon } from '@/components/icon';
 import { GlassCup } from '@/components/rewards/glass-cup';
 import { annualPeriodYear, POINTS_LABEL, rewardProgress } from '@/features/rewards/presentation';
-import { nextTier, REWARD_TIERS, rewardMilestoneStates, tierForAnnualPoints } from '@platform/domain';
+import { nextTier, rewardMilestoneStates, tierForAnnualPoints } from '@platform/domain';
+import { TENANT_REWARD_TIERS } from '@/tenant';
 import type { RewardTierName , RewardAccount } from '@platform/domain';
 
 import { RewardMark } from '../reward-mark';
@@ -12,7 +12,7 @@ import { DemoTierToggle } from '../demo-tier-toggle';
 import { perkDescription } from '../sheets';
 import { useRewardStyles } from '../styles';
 import type { PerkDetail } from '../types';
-import { useTokens as useBrandTokens } from '@platform/ui';
+import { useTokens as useBrandTokens, AppIcon } from '@platform/ui';
 
 export function StatusTab({
   account,
@@ -31,16 +31,16 @@ export function StatusTab({
 }) {
   const styles = useRewardStyles();
   const tokens = useBrandTokens();
-  const tier = tierForAnnualPoints(account.annualPoints);
-  const upcoming = nextTier(account.annualPoints);
+  const tier = tierForAnnualPoints(account.annualPoints, TENANT_REWARD_TIERS);
+  const upcoming = nextTier(account.annualPoints, TENANT_REWARD_TIERS);
   const progress = upcoming
     ? rewardProgress(account.annualPoints, tier.minimumAnnualPoints, upcoming.minimumAnnualPoints)
     : rewardProgress(account.annualPoints, tier.minimumAnnualPoints, tier.minimumAnnualPoints + 1);
-  const unlockedPerks = REWARD_TIERS
+  const unlockedPerks = TENANT_REWARD_TIERS
     .filter((item) => item.minimumAnnualPoints <= account.annualPoints)
     .flatMap((item) => item.perks.map((label) => ({ label, tier: item.name })));
   const periodYear = annualPeriodYear(account.annualPeriodStart);
-  const milestoneStates = rewardMilestoneStates(account.annualPoints);
+  const milestoneStates = rewardMilestoneStates(account.annualPoints, TENANT_REWARD_TIERS);
   const [progressOpen, setProgressOpen] = useState(false);
   const [progressReveal] = useState(() => new Animated.Value(0));
 
@@ -106,7 +106,7 @@ export function StatusTab({
               </View>
               <View style={styles.progressMilestones}>
                 {milestoneStates.map((complete, index) => (
-                  <Text key={REWARD_TIERS[index]?.name ?? index} style={complete ? styles.progressCheck : styles.progressLock}>
+                  <Text key={TENANT_REWARD_TIERS[index]?.name ?? index} style={complete ? styles.progressCheck : styles.progressLock}>
                     {complete ? '✓' : '◇'}
                   </Text>
                 ))}

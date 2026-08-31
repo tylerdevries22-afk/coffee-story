@@ -35,19 +35,26 @@ export type BrandEditorState = {
 };
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
+/**
+ * What an unconfigured brand sees in this editor, and what it persists if the
+ * owner saves without touching a field. Neutral on purpose: these were the
+ * launch tenant's palette and its ladder down to `coffee-legend`, so a second
+ * franchisee opening Brand config was shown another shop's identity already
+ * filled in, one Save away from being written to their own brand row.
+ */
 const DEFAULT_TOKENS: EditableTokens = {
-  primary: '#2E211A',
-  surface: '#FAF5EF',
+  primary: '#1F2933',
+  surface: '#F7F7F5',
   surfaceElevated: '#FFFFFF',
-  accent: '#B08D57',
-  textPrimary: '#241710',
-  textMuted: '#6B5B4E',
+  accent: '#4A5568',
+  textPrimary: '#1A202C',
+  textMuted: '#5A6472',
 };
 const DEFAULT_TIERS: EditableTier[] = [
-  { slug: 'first-sip', label: 'First Sip', minLifetimePoints: 0, tone: 'muted', color: '#8C7A6B', icon: '◇' },
-  { slug: 'daily-ritual', label: 'Daily Ritual', minLifetimePoints: 500, tone: 'accent', color: '#B08D57', icon: '◆' },
-  { slug: 'house-regular', label: 'House Regular', minLifetimePoints: 1500, tone: 'success', color: '#3E6B4F', icon: '✦' },
-  { slug: 'coffee-legend', label: 'Coffee Legend', minLifetimePoints: 2500, tone: 'primary', color: '#2E211A', icon: '★' },
+  { slug: 'member', label: 'Member', minLifetimePoints: 0, tone: 'muted', color: '', icon: '' },
+  { slug: 'regular', label: 'Regular', minLifetimePoints: 500, tone: 'accent', color: '', icon: '' },
+  { slug: 'insider', label: 'Insider', minLifetimePoints: 1500, tone: 'success', color: '', icon: '' },
+  { slug: 'legend', label: 'Legend', minLifetimePoints: 2500, tone: 'primary', color: '', icon: '' },
 ];
 
 function objectOf(value: unknown): Record<string, unknown> {

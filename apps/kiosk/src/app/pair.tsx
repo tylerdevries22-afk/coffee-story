@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 
 import { KioskPressable } from '@/components/chrome/kiosk-pressable';
 import { StepHeading } from '@/components/chrome/step-heading';
+import { PAIR_KEY_GAP, PAIR_PAD_MAX_WIDTH } from '@/features/pair-layout';
 import * as haptics from '@/lib/haptics';
 import { useDevice } from '@/state/device';
 
@@ -109,9 +110,13 @@ export default function PairScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, alignItems: 'center', paddingHorizontal: 32, paddingTop: 12, gap: 12 },
   code: { letterSpacing: 10 },
+  // Geometry from features/pair-layout, which is where the test proves all 29
+  // keys still fit a 1024pt landscape tablet. Typed here as literals, the two
+  // could drift apart and the test would keep passing about numbers the screen
+  // no longer used.
   pad: {
-    flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center',
-    width: '100%', maxWidth: 860,
+    flexDirection: 'row', flexWrap: 'wrap', gap: PAIR_KEY_GAP, justifyContent: 'center',
+    width: '100%', maxWidth: PAIR_PAD_MAX_WIDTH,
   },
   error: { textAlign: 'center' },
   actions: { flexDirection: 'row', gap: 16, paddingTop: 8 },

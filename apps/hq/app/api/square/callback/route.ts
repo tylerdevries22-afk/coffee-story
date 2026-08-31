@@ -1,4 +1,12 @@
-import { encryptToken, exchangeOAuthCode, loadTokenKey, squareConfigFromEnv } from '@platform/engine';
+import {
+  chooseSquareLocation,
+  encryptToken,
+  exchangeOAuthCode,
+  listSquareLocations,
+  loadTokenKey,
+  squareConfigFromEnv,
+  type SquareLocationChoice,
+} from '@platform/engine';
 import { parseTenantClaims } from '@platform/schema';
 import { createClient } from '@supabase/supabase-js';
 
@@ -88,6 +96,28 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   const tokens = await exchangeOAuthCode(config, code);
+
+  // Which of the merchant's Square locations this shop bills against.
+  //
+  // This step was missing, and its absence was silent: consent stored the
+  // tokens and set the back-pointer, the console drew "Connected" and dropped
+  // the retry button, and `square_connections.square_location_id` stayed null
+  // -- which is exactly what `squareRuntimeFor` returns null on. Every card
+  // order then answered 503 "not connected for this location yet", with
+  // nothing in the product able to fix it.
+  //
+  // Resolved before anything is written, so a re-connect that cannot pick a
+  // location leaves a working one alone instead of blanking it.
+  let chosen: SquareLocationChoice;
+  try {
+    chosen = chooseSquareLocation(await listSquareLocations(config, tokens.access_token));
+  } catch {
+    return Response.redirect(new URL('/locations?square=unreachable', url.origin), 302);
+  }
+  if (!chosen.ok) {
+    return Response.redirect(new URL(`/locations?square=${chosen.reason}`, url.origin), 302);
+  }
+
   const key = loadTokenKey();
 
   const { data: connection, error: upsertError } = await db
@@ -97,6 +127,7 @@ export async function GET(request: Request): Promise<Response> {
         brand_id: location!.brand_id,
         location_id: decision.locationId,
         merchant_id: tokens.merchant_id,
+        square_location_id: chosen.location.id,
         access_token_encrypted: encryptToken(tokens.access_token, key),
         refresh_token_encrypted: encryptToken(tokens.refresh_token, key),
         expires_at: tokens.expires_at,
@@ -107,6 +138,9 @@ export async function GET(request: Request): Promise<Response> {
     .single();
   if (upsertError) return new Response(`Could not store the connection: ${upsertError.message}`, { status: 500 });
 
+  // The console reads this back-pointer as "Connected" and hides the retry
+  // button behind it, so it is set last -- only once there is a Square
+  // location to bill against and the shop really can take a card.
   await db.from('locations').update({ square_connection_id: connection.id }).eq('id', decision.locationId);
   return Response.redirect(new URL('/locations?connected=1', url.origin), 302);
 }

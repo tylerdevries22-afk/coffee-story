@@ -9,7 +9,7 @@ import {
   clearAppError,
   initialAppErrorBoundaryState,
   type AppErrorBoundaryState,
-} from './app-error-boundary-state';
+} from '@platform/domain';
 import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 function errorDetails(error: unknown): { errorName: string; errorMessage: string } {

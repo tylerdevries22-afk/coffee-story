@@ -15,6 +15,145 @@ dropped rather than softened, so the absence of a concern is meaningful.
 
 ---
 
+## Status as of 2026-08-30
+
+This file is a dated snapshot, not a live checklist. The tree has moved since it
+was written; what follows is what a re-read of the current tree found, with the
+evidence for each. Everything not listed here still stands as written below.
+
+**Closed since 2026-08-23** — each verified by grep against the tree, not by
+recollection:
+
+| Finding | Evidence it is closed |
+|---|---|
+| `TAX_JURISDICTIONS` / `COMBINED_TAX_RATE` hardcoded one state's authorities in `packages/domain` | Both constants are gone; the only mentions left are comments recording why. Tax reads `tenants/<slug>/brand.json` `tax.jurisdictions` through `TENANT_TAX_JURISDICTIONS`. |
+| `PICKUP_LOCATIONS` hardcoded one shop's address | Constant gone; `resolvePickupLocations(config)` reads the tenant's own `location`/`locations`, covered by `fulfillment.test.ts`. |
+| `INFORMATION_PAGES` shipped one shop's copy | `information-pages.ts` derives its pages from `brand.json`; the tenant proper nouns that remain are in comments explaining what was removed. |
+| `MenuCategoryId` typed one shop's seven categories, so another tenant's menu would not typecheck | Gone from `menu-options.ts`; the shop's vocabulary now lives in `menu-options.fixture.ts`, which is not exported from the package and is imported only by tests. |
+| `REWARD_TIERS` shipped one shop's ladder on the live checkout | The ladder is tenant data: `loyalty.tiers` in `brand.json`, read by `resolveRewardTiers`. The shipped fallback names no trade, and `rules.test.ts` fails if it starts to. |
+| The order channel was inferred rather than recorded | `resolveOrderChannel` at `apps/hq/app/api/orders/route.ts:11`, tested in `order-channel.test.ts`. |
+| The display fell back to an anonymous "Live" read | Gone; the board reads with the server-held device token. |
+| No in-app account deletion, and no privacy policy in the tree | `apps/customer/src/screens/client/more/profile-and-preferences.tsx` and `docs/legal/privacy-policy.md`. |
+| An unused `@stripe/stripe-react-native` dependency in the customer app | Not in `apps/customer/package.json`. |
+
+**Closed 2026-08-30, and it was not the finding it looked like.** Chasing the
+currency literal is what surfaced the worst defect in this pass:
+
+- **Connecting Square never bound a Square location.** `square_connections`
+  carries `square_location_id`; `squareRuntimeFor` returns `null` without it,
+  and every card order then answers `503 tender_unavailable`. Nothing in the
+  application ever wrote that column -- the only `INSERT` naming it in the whole
+  repository was an integration test's own fixture. So an owner finished Square
+  consent, the callback stored the tokens and set `locations.square_connection_id`,
+  and the console drew **Connected** and *removed* the Connect Square button
+  behind that same back-pointer. The shop could not take a card and could not
+  retry. Fixed in `apps/hq/app/api/square/callback/route.ts`: the callback now
+  reads the merchant's locations (`listSquareLocations`), binds one, and writes
+  nothing at all if it cannot -- so a failed re-connect leaves a working
+  connection alone, and the back-pointer is set last, once "Connected" is true.
+- **Currency, consequently, is asserted rather than threaded.** The 8 `'USD'`
+  literals are now one exported `PLATFORM_CURRENCY`, checked against the
+  merchant's own Square location at connect time (`chooseSquareLocation`). A
+  merchant settling in another currency is refused there, in one message, rather
+  than at a guest's first checkout. Threading a currency code instead would have
+  been decoration: tax is modelled as US jurisdictions, delivery validates a
+  two-letter state and a ZIP, and `formatMoney` prints a bare `$`. That would
+  take a foreign shop's money into a system that still could not serve it.
+- **Square access tokens were never refreshed.** `refreshOAuthToken` was
+  exported with zero callers and `square_connections.expires_at` was written by
+  the callback and read by nothing -- `squareRuntimeFor` selected only
+  `square_location_id, access_token_encrypted`. Square access tokens last thirty
+  days, so every connected shop would have stopped taking cards a month after
+  connecting, on a 401 nothing in the product explained. Renewal now happens in
+  `squareRuntimeFor`, the one chokepoint every money path already crosses,
+  rather than on a schedule: a cron that quietly stops running is the same
+  failure this was. A token inside the seven-day margin still takes the sale if
+  the renewal fails; an expired one is refused rather than sent to Square as if
+  it were money. `apps/hq/lib/square-runtime.test.ts` is the first test this
+  module has had.
+- **D4, the fourth tender vocabulary, is gone.** Three of the four now agree by
+  construction -- `contract.ts` imports `@platform/schema`'s `OrderTenderType`,
+  and `kiosk-flow.ts` maps `KioskTender` onto it through `settlementFor`, which
+  is total or a type error. The fourth,
+  `apps/operator/src/features/staff/payment-availability.ts`, was imported by
+  nothing but its own test and has been removed, which closes D4 and task 0.1.
+- **Four dead modules removed, two of them carrying one shop's money.**
+  `pos-totals.ts` (190 lines) was a till register imported by nothing but its
+  own test, holding `DISCOUNT_CODE_CENTS = 1500`, `MEMBERSHIP_CREDIT_CENTS =
+  2500`, a fixed add-on list and fixed gift amounts as module constants -- the
+  same defect as the loyalty ladder, waiting for whoever built the till screen
+  to import it. `apps/customer/src/features/intake-forms.ts` was a
+  byte-identical copy of the operator's admin agreements catalog, imported by
+  nothing, shipping operator copy inside the guest binary against rule 7. Its
+  surviving counterpart's doc comment claimed an `intake_forms` table, a
+  seeding migration and a catalog test, none of which exist; it now says what
+  is actually true.
+
+- **The earn rate was a constant in a migration, so every brand paid the first
+  tenant's rate.** `app.apply_order_event_side_effects` credited
+  `target.subtotal_cents / 10` -- ten points per dollar, for every guest, at
+  every brand, whatever ladder that brand published. 20260722000035 had written
+  down what the figure means in its own words ("the earn RATE, which is an
+  entitlement") and supplied `app.annual_points_for` to read it; nothing on the
+  earn path ever called it. Meanwhile `pointsForPurchase` in `packages/domain`
+  reads the rung the guest is standing on, and the customer app promises that
+  number in seven places. On Coffee Story's own published ladder a Daily Ritual
+  regular is told 11 points per dollar and paid 10; a Coffee Legend is told 13.
+  The guest sees the shortfall in their balance and the shop cannot explain it.
+  Fixed in `supabase/migrations/20260830010000_tenant_earn_rate.sql`:
+  `app.loyalty_earn_rate_for(account, brand)` reads `brand_config.loyalty.tiers`
+  with the same all-or-nothing rule as `rewardTiersFrom` -- every rung parses
+  and some rung sits at 0, or the ladder is ignored whole rather than
+  half-applied -- and the trigger multiplies by what it returns. Three new
+  assertions in `tests/consistency/src/one-rule-two-languages.test.ts` compare
+  the SQL against `REWARD_TIERS`; each was mutation-checked (change a fallback
+  rate, rename a JSON key, restore the constant) and each mutation failed
+  exactly its own test.
+
+**Open, and each one is the owner's call rather than a defect to fix:**
+
+- **This migration changes payouts, and should not be described as inert.** The
+  ledger's fallback is now the generic four-rung ladder a tenant inherits by
+  leaving `loyalty.tiers` empty -- the one `tenants/_template/brand.json`
+  documents and `REWARD_TIERS` ships -- rather than the flat 10 the constant
+  gave. A guest with 500 or more annual points at a brand with no published
+  ladder therefore earns 11 per dollar where they earned 10 the day before.
+  That is the number the app was already promising them, but it is live money
+  and the owner should know the date it moved.
+- **The ledger earns on the subtotal; the app quotes on the subtotal plus tip.**
+  `pointsForPurchase` is called with `qualifyingSpendCents`, which includes the
+  tip; the trigger uses `orders.subtotal_cents`, which does not. This migration
+  deliberately did not close that: whether a tip earns points is a business
+  policy about money that goes to staff, not a bug with a right answer, and
+  changing it silently would move every tipping guest's balance. Both readings
+  are defensible; the owner picks one. Whichever is picked, both sides should
+  then read the same base.
+- **A tenant's `brand.json` can disagree with its `brand_config`, and nothing
+  notices.** Coffee Story's ladder was committed to `tenants/coffee-story/brand.json`
+  in `5f0c4b6` and has never reached the database, because `pnpm onboard` has
+  not been re-run since; the hosted `brand_config -> 'loyalty'` holds only
+  `$note` and `rewards`, with no `tiers` key at all. So the customer binary
+  reads the published ladder out of its bundle while the ledger, reading the
+  database, falls back to the generic one. Until `pnpm onboard --tenant
+  coffee-story` is re-run they agree only by coincidence -- the two ladders
+  happen to carry the same thresholds and rates. There is no check anywhere
+  that the checked-in tenant file and the row it seeds are the same document.
+
+**Still open**, deliberate, scoped to one market rather than one tenant, so it
+does not block a second franchisee in the US:
+
+- **Number and date formatting is `en-US` throughout** the HQ console and both
+  apps (`toLocaleString('en-US')`, ~40 call sites). Note this is a *choice*, not
+  an oversight: passing `undefined` would format a US shop's pickup times by the
+  guest's device locale, so `en-US` is load-bearing until the platform sells
+  outside it.
+
+**Not certifiable.** This document says which findings were checked and what was
+found. It does not say the platform has no defects; that is not something a
+re-read can establish.
+
+---
+
 ## Settled: the kiosk reads its menu live
 
 Recorded as an open decision on 2026-08-23 because a test assertion was
@@ -149,7 +288,7 @@ This is broader than "pairing UI is missing": the claim schema, the minter, and 
 **D3. `orders.guest_label` is written by nothing.** Verified: `placeOrder`'s insert (`orders.ts:256`) lists 14 columns and not this one; `PlaceOrderRequest` (`packages/api-client/src/contract.ts:24-39`) has no field to carry it. Readers exist — `apps/display/app/board/[location]/board-view.tsx:104` `{ticket.guest_label ?? ''}` — plus a whole tested kiosk module (`apps/kiosk/src/features/guest-label.ts`) with zero non-test call sites. `apps/display/lib/demo-board.ts` fixtures all carry names, so the surface demos correctly and fails silently in production.
 **Fix:** add `guestLabel?: string` to `PlaceOrderRequest`, validate in the route using the promoted `guest-label.ts` rules, write it in the insert. Add a `packages/schema/src/surfaces.test.ts` assertion that every column `board_tickets` projects has a writer in the engine.
 
-**D4. Tender vocabularies have zero overlap.** `packages/domain/src/kiosk-flow.ts:43` `KioskTender = 'card' | 'gift_card' | 'stored_value' | 'cash'` vs `packages/api-client/src/contract.ts:13` `TenderType = 'pay_at_pickup' | 'external' | 'square_link' | 'square_card'` vs the DB CHECK (`…000012:13`) matching the latter. `tenants/coffee-story/brand.json:271` already declares `["card","stored_value"]`. A fourth vocabulary exists at `apps/operator/src/features/staff/payment-availability.ts:1-9`. Not one value the kiosk can emit is postable.
+**D4. Tender vocabularies have zero overlap.** *Closed 2026-08-30 -- see the status section.* `packages/domain/src/kiosk-flow.ts:43` `KioskTender = 'card' | 'gift_card' | 'stored_value' | 'cash'` vs `packages/api-client/src/contract.ts:13` `TenderType = 'pay_at_pickup' | 'external' | 'square_link' | 'square_card'` vs the DB CHECK (`…000012:13`) matching the latter. `tenants/coffee-story/brand.json:271` already declares `["card","stored_value"]`. A fourth vocabulary exists at `apps/operator/src/features/staff/payment-availability.ts:1-9`. Not one value the kiosk can emit is postable.
 **Fix:** pick one enum. Either widen the CHECK + contract, or make `KioskTender` a mapping onto `TenderType` and assert totality in `kiosk-flow.test.ts`. Do it before the checkout screens are written, not after.
 
 ---
@@ -221,7 +360,7 @@ Ordered by dependency. Each stage assumes the one above it landed.
 
 ### Stage 0 — Contract spine (nothing else can be correct until these agree)
 
-**0.1 Unify the tender vocabulary.** `packages/domain/src/kiosk-flow.ts:43`, `packages/api-client/src/contract.ts:13`, `supabase/migrations/…000012_order_idempotency.sql:13`, `apps/operator/src/features/staff/payment-availability.ts:1-9`. *Done:* one enum, or an explicit total mapping asserted in `kiosk-flow.test.ts`; a `cash` or `stored_value` kiosk config produces a value the DB CHECK accepts.
+**0.1 Unify the tender vocabulary.** *Done 2026-08-30.* `packages/domain/src/kiosk-flow.ts:43`, `packages/api-client/src/contract.ts:13`, `supabase/migrations/…000012_order_idempotency.sql:13`, `apps/operator/src/features/staff/payment-availability.ts:1-9`. *Done:* one enum, or an explicit total mapping asserted in `kiosk-flow.test.ts`; a `cash` or `stored_value` kiosk config produces a value the DB CHECK accepts.
 
 **0.2 Add `guestLabel` and `dailyNumber` to the wire contract.** `packages/api-client/src/contract.ts` (`PlaceOrderRequest` + `PlaceOrderResponse`), `packages/engine/src/orders.ts:256` insert and `.select(...)`, `apps/hq/app/api/orders/route.ts`. Promote `apps/kiosk/src/features/guest-label.ts` into `packages/domain` and validate with it. *Done:* a placed order returns the number the display will show, and `board_tickets.guest_label` is non-null for an order that supplied one.
 
@@ -253,7 +392,7 @@ Ordered by dependency. Each stage assumes the one above it landed.
 
 **2.3 Harden the cancel guard.** `packages/engine/src/orders.ts:862` — also refuse `tender_type = 'square_link'` with `status <> 'created'`. *Done:* a cancel-after-webhook-paid test returns `cancel_unavailable`.
 
-**2.4 Refresh and revoke Square tokens.** `refreshOAuthToken` / `revokeOAuthToken` (`square/client.ts:107-124`) have zero callers and `expires_at` is read by no application code. Add a refresh pass to the cron tick (`expires_at < now() + 7 days`), a lazy refresh backstop in `apps/hq/lib/square-runtime.ts:78-89`, and a console action for revoke. *Done:* a location connected 30 days ago still takes cards; `docs/RUNBOOK.md` stops describing behaviour that does not exist.
+**2.4 Refresh and revoke Square tokens.** `refreshOAuthToken` / `revokeOAuthToken` (`square/client.ts:107-124`) have zero callers and `expires_at` is read by no application code. Add a refresh pass to the cron tick (`expires_at < now() + 7 days`), a lazy refresh backstop in `apps/hq/lib/square-runtime.ts:78-89`, and a console action for revoke. *Refresh done* (`apps/hq/lib/square-runtime.ts` renews on the order path rather than on a cron that can stop running). *Revoke done* (`apps/hq/lib/square-admin.ts` + Locations → Disconnect Square). *Done:* a location connected 30 days ago still takes cards; `docs/RUNBOOK.md` stops describing behaviour that does not exist.
 
 **2.5 Collapse the forked scheduled tick.** Verified divergence: `apps/hq/app/api/jobs/run/route.ts:27-30` selects `'id, status, starts_at, ends_at'` over `['scheduled','live']` and marks due campaigns `status: 'sent', stats: { delivered: 0 }`; `scripts/run-jobs.ts:26-29` selects `reveal_at` over `['scheduled','revealed','live']` and claims `status: 'sending'`. Vercel crons the route. Move the body into `runScheduledTick(db, now)` in `packages/engine`; keep the `'sending'` claim; add `'revealed'` to both filters; update `docs/RUNBOOK.md:29` to name the cron route as the single scheduler. *Done:* one implementation, and no campaign reaches `'sent'` having delivered zero.
 

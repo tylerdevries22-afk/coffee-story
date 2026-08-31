@@ -1,4 +1,4 @@
-import { TabScreenSafeArea } from '@/components/navigation/tab-screen';
+import { TabScreenSafeArea } from '@platform/ui';
 import { RewardsScreen } from '@/screens/client/rewards-screen';
 
 export default function ClientRewardsRoute() {

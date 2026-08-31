@@ -1,6 +1,7 @@
 import {
   normalizeTrainingManifest,
   scoreTrainingQuiz,
+  slugify,
   TRAINING_TRACK_ORDER,
   type TenantTrainingProfile,
   type TrainingManifest,
@@ -57,13 +58,16 @@ export function normalizeTrainingProfile(profile: TenantTrainingProfile): Tenant
   return normalized;
 }
 
+/** The shape a stored template key has to hold, for both writers below. */
+const TEMPLATE_KEY = /^[a-z0-9][a-z0-9-]{1,79}$/;
+
 export function validateTrainingProfile(profile: TenantTrainingProfile): string[] {
   const issues: string[] = [];
   if (profile.businessName.trim().length < 2) issues.push('businessName must contain at least 2 characters');
   if (profile.industry.trim().length < 2) issues.push('industry must contain at least 2 characters');
   if (!/^[a-z]{2}(?:-[A-Z]{2})?$/.test(profile.locale.trim())) issues.push('locale must resemble en or en-US');
   if (profile.website && !isSafePublicHttpsUrl(profile.website.trim())) issues.push('website must use public HTTPS');
-  if (profile.templateKey && !/^[a-z0-9][a-z0-9-]{1,79}$/.test(profile.templateKey)) issues.push('templateKey must use lowercase letters, numbers, and single hyphens');
+  if (profile.templateKey && !TEMPLATE_KEY.test(profile.templateKey)) issues.push('templateKey must use lowercase letters, numbers, and single hyphens');
   if (profile.templateVersion !== undefined && (!Number.isInteger(profile.templateVersion) || profile.templateVersion < 1)) issues.push('templateVersion must be a positive integer');
   return issues;
 }
@@ -90,8 +94,15 @@ export function resolveTenantTrainingProfile(businessName: string, config: unkno
     ? fields.industry.trim()
     : 'Business operations and customer service';
   const locale = typeof fields.locale === 'string' && /^[a-z]{2}(?:-[A-Z]{2})?$/.test(fields.locale) ? fields.locale : 'en-US';
-  const templateKey = businessName.trim().toLowerCase() === 'coffee story' ? 'coffee-story' : undefined;
-  return normalizeTrainingProfile({ businessName, industry, locale, website, templateKey, templateVersion: templateKey ? 1 : undefined });
+  // Every tenant gets a template key of its own, derived the same way. This
+  // used to name one shop outright -- so the first tenant reused its published
+  // template and every tenant after it silently regenerated from scratch.
+  // Guarded against the same shape validateTrainingProfile enforces, so a
+  // name that slugs to something too short cannot produce a profile that fails
+  // its own validator.
+  const derived = slugify(businessName, 80);
+  const templateKey = TEMPLATE_KEY.test(derived) ? derived : undefined;
+  return normalizeTrainingProfile({ businessName, industry, locale, website, templateKey });
 }
 
 export function validateTrainingManifest(manifest: TrainingManifest): string[] {

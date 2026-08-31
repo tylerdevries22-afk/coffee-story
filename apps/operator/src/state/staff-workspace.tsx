@@ -13,7 +13,7 @@ import {
   withBusinessIdentity,
   type AdminSettingsState,
 } from '@/features/admin/admin-settings';
-import { PICKUP_LOCATIONS, taxCentsFor , requestKey , projectFirstVariants } from '@platform/domain';
+import { resolvePickupLocations, taxCentsFor , requestKey , projectFirstVariants } from '@platform/domain';
 import { applyDemoBlockTime, applyDemoGuestNote } from '@/features/staff/dashboard';
 import { mobileApi } from '@/lib/mobile-api';
 import { useAppState } from '@/state/app-context';
@@ -58,10 +58,30 @@ const demoOrderableItems: OrderableItem[] = projectFirstVariants(MENU_ITEMS);
 
 export function StaffWorkspaceProvider({ children }: PropsWithChildren) {
   const { staffDetailPath } = useAppState();
-  const { isDemo } = useAuth();
+  const { isDemo, brandName, liveLocations } = useAuth();
   const [dashboard, setDashboard] = useState<StaffDashboard>(DEMO_STAFF);
   const [liveOrderableItems, setLiveOrderableItems] = useState<OrderableItem[]>([]);
-  const orderableItems = isDemo || !liveOrderableItems.length ? demoOrderableItems : liveOrderableItems;
+  // Demo only. The bundled catalogue is the launch shop's menu, and one
+  // listing serves every tenant (rule 7), so standing it in whenever the live
+  // read came back empty offered a second brand's staff 61 items that brand
+  // does not sell -- against slugs its own menu has never heard of. An empty
+  // list is the honest answer while the live catalogue has no schema behind
+  // it; the screens say so rather than substituting.
+  const orderableItems = isDemo ? demoOrderableItems : liveOrderableItems;
+
+  /**
+   * The shops this signed-in brand collects from.
+   *
+   * One listing serves every tenant (rule 7), so the pickup location is a
+   * runtime answer read from the location rows the staff context already
+   * loaded. It used to be a constant in the shared engine holding one brand's
+   * street address, which meant a staff order taken at any other shop was
+   * filed against an address in Aurora.
+   */
+  const pickupLocations = useMemo(
+    () => resolvePickupLocations({ identity: { name: brandName }, locations: liveLocations }),
+    [brandName, liveLocations],
+  );
   const business = useBusiness();
   const [adminSettings, setAdminSettings] = useState<AdminSettingsState>(DEFAULT_ADMIN_SETTINGS);
   const [settingsLoading, setSettingsLoading] = useState(false);
@@ -220,20 +240,23 @@ export function StaffWorkspaceProvider({ children }: PropsWithChildren) {
       }));
       return;
     }
+    // Fail before the order exists rather than after: a staff order needs a
+    // shop to be collected from, and there is nothing honest to substitute.
+    const [pickupLocation] = pickupLocations;
+    if (!pickupLocation) {
+      throw new Error('This shop has no location with a posted address yet. Add one in HQ first.');
+    }
     await mobileApi.staffAction({
       action: 'create_order',
       customerId: submission.customerId,
       itemSlug: submission.itemSlug,
       scheduledFor: submission.startsAt,
-      // The shop, from the one list that defines it. This carried a literal
-      // for a different business entirely -- another tenant's street address
-      // under this brand's name, left behind by an earlier product.
-      fulfillment: { mode: 'pickup', location: PICKUP_LOCATIONS[0]! },
+      fulfillment: { mode: 'pickup', location: pickupLocation },
       notes: submission.notes,
       idempotencyKey: requestKey('staff-order'),
     });
     await loadDashboard();
-  }, [orderableItems, isDemo, loadDashboard]);
+  }, [orderableItems, isDemo, loadDashboard, pickupLocations]);
 
   const blockStaffTime = useCallback(async (
     submission: Extract<AdminQuickActionSubmission, { kind: 'block-time' }>,

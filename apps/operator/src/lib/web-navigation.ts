@@ -1,7 +1,7 @@
 import { Linking } from 'react-native';
 
 import { currentBusiness } from '@/data/business';
-import { resolveWebsiteUrl } from '@/lib/website-url';
+import { resolveWebsiteUrl } from '@platform/domain';
 
 /**
  * Opens a path on the signed-in brand's public website.

@@ -36,6 +36,7 @@ import {
 } from '@platform/data';
 import { canTransition, type OrderRow, type OrderStatus } from '@platform/schema';
 
+import { MENU_ITEMS } from '@/data/catalog';
 import { initialDemoOrders, spawnDemoOrder } from '@/data/demo-orders';
 import { canCancelWithoutRefund, newOrderIds, type BoardOrder } from '@/features/operator/board';
 import { normalizeBoardOrderGuest, upsertBoardOrder } from '@/features/operator/live-board';
@@ -67,7 +68,10 @@ export type OperatorLocation = { id: string; name: string; timezone: string };
 
 /** Multi-location demo roster; a single-location brand just never shows the picker. */
 export const DEMO_LOCATIONS: readonly OperatorLocation[] = [
-  { id: 'loc-havana', name: 'Havana St', timezone: 'America/Denver' },
+  // Districts, not one tenant's street. The operator app is a single listing
+  // signed into by every brand, so demo copy naming a real address showed one
+  // franchisee's location to all the others.
+  { id: 'loc-uptown', name: 'Uptown', timezone: 'America/Denver' },
   { id: 'loc-downtown', name: 'Downtown', timezone: 'America/Denver' },
 ];
 const DEFAULT_DEMO_LOCATION: OperatorLocation = DEMO_LOCATIONS[0] ?? {
@@ -105,6 +109,18 @@ type OperatorState = {
   settings: OperatorSettings;
   updateSettings: (patch: Partial<OperatorSettings>) => void;
 
+  /**
+   * The menu this shop actually sells, for the 86 sheet.
+   *
+   * Read from the signed-in brand's own `menu_items` rather than the
+   * catalogue bundled in this binary. One listing serves every tenant
+   * (rule 7), so the bundled menu is the launch shop's -- a second brand's
+   * manager was shown 61 items they do not sell, and tapping one issued an
+   * update matching no row, which Postgres does not call an error, so the
+   * toggle looked like it worked and changed nothing.
+   */
+  menuItems: readonly { slug: string; name: string }[];
+
   /** Menu control: 86'd item slugs, ordering pause, and a hours note. */
   eightySixed: ReadonlySet<string>;
   toggleEightySix: (itemId: string) => void;
@@ -116,6 +132,9 @@ type OperatorState = {
   /** Orders whose queued change conflicted at reconcile time. */
   conflicts: readonly { orderId: string; message: string }[];
 };
+
+const DEMO_MENU_ITEMS: readonly { slug: string; name: string }[] = MENU_ITEMS
+  .map((item) => ({ slug: item.id, name: item.name }));
 
 const OperatorContext = createContext<OperatorState | null>(null);
 
@@ -144,6 +163,7 @@ export function OperatorProvider({ children }: PropsWithChildren) {
     printerEnabled: false,
   });
   const [conflicts, setConflicts] = useState<{ orderId: string; message: string }[]>([]);
+  const [liveMenuItems, setLiveMenuItems] = useState<readonly { slug: string; name: string }[]>([]);
   const [eightySixed, setEightySixed] = useState<ReadonlySet<string>>(new Set());
   const [orderingPaused, setOrderingPausedState] = useState(false);
   const [hoursOverride, setHoursOverride] = useState('');
@@ -338,14 +358,19 @@ export function OperatorProvider({ children }: PropsWithChildren) {
     let active = true;
     const database = supabase;
     const readMenu = () => {
+      // Every item, not only the 86'd ones: the sheet has to list what this
+      // shop sells before a manager can take one off, and one read answers
+      // both questions.
       void readWithRetry('operator menu availability', (signal) => abortRead(database
         .from('menu_items')
-        .select('slug, is_86d')
+        .select('slug, name, is_86d')
         .eq('brand_id', tenant.brand_id)
-        .eq('is_86d', true), signal)
-        .returns<{ slug: string; is_86d: boolean }[]>())
+        .order('sort_order', { ascending: true }), signal)
+        .returns<{ slug: string; name: string; is_86d: boolean }[]>())
         .then((rows) => {
-          if (active) setEightySixed(new Set((rows ?? []).map((item) => item.slug)));
+          if (!active) return;
+          setLiveMenuItems((rows ?? []).map((item) => ({ slug: item.slug, name: item.name })));
+          setEightySixed(new Set((rows ?? []).filter((item) => item.is_86d).map((item) => item.slug)));
         })
         .catch(() => undefined);
     };
@@ -607,6 +632,14 @@ export function OperatorProvider({ children }: PropsWithChildren) {
     }
   }, [live, location.id, locationReady, tenant]);
 
+  // Demo runs on the bundled catalogue because demo is that shop. Live shows
+  // what the brand's own menu says and nothing when it has not loaded, which
+  // is honest -- the alternative was another shop's items.
+  const menuItems = useMemo(
+    () => (live ? liveMenuItems : DEMO_MENU_ITEMS),
+    [live, liveMenuItems],
+  );
+
   const value = useMemo<OperatorState>(() => ({
     orders,
     unseenIds,
@@ -620,6 +653,7 @@ export function OperatorProvider({ children }: PropsWithChildren) {
     locationReady,
     settings,
     updateSettings,
+    menuItems,
     eightySixed,
     toggleEightySix,
     orderingPaused,
@@ -627,7 +661,7 @@ export function OperatorProvider({ children }: PropsWithChildren) {
     hoursOverride,
     setHoursOverride,
     conflicts,
-  }), [advance, cancel, conflicts, eightySixed, hoursOverride, location, locationReady, locations, markSeen, orders, orderingPaused, refund, setOrderingPaused, settings, toggleEightySix, unseenIds, updateSettings]);
+  }), [advance, cancel, conflicts, eightySixed, hoursOverride, location, locationReady, locations, markSeen, menuItems, orders, orderingPaused, refund, setOrderingPaused, settings, toggleEightySix, unseenIds, updateSettings]);
 
   return <OperatorContext.Provider value={value}>{children}</OperatorContext.Provider>;
 }

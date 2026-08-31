@@ -4,12 +4,11 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 
 import type { TenantClaims } from '@platform/schema';
 
-import { recoveryCodeFromUrl, recoveryRedirectUrl } from '@platform/domain';
+import { createRequestSequence, recoveryCodeFromUrl, recoveryRedirectUrl } from '@platform/domain';
 import { resolveBusiness, setCurrentBusiness } from '@/data/business';
 import { loadStaffContext, type StaffLocation } from '@/lib/live-portal';
 import { hasSupabaseConfig, supabase } from '@/lib/supabase';
 import { useDemo } from '@/state/demo-context';
-import { createRequestSequence } from '@/state/request-sequence';
 import type { AppRole, PortalBundle } from '@platform/domain';
 
 type AuthState = {

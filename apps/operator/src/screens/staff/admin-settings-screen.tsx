@@ -11,7 +11,6 @@ import {
   type KeyboardTypeOptions,
 } from 'react-native';
 
-import { AppIcon } from '@/components/icon';
 import { CollapsingScreen } from '@/components/collapsing-screen';
 import { Body, Button, Card, Eyebrow } from '@/components/ui';
 import {
@@ -27,7 +26,7 @@ import { mobileApi } from '@/lib/mobile-api';
 import { openWebPath } from '@/lib/web-navigation';
 import { workspaceTone } from '@/features/staff/workspace';
 import { useAuth } from '@/state/auth-context';
-import { tabState } from '@platform/ui';
+import { hairline, tabState, AppIcon } from '@platform/ui';
 import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 type AdminSettingsScreenProps = {
@@ -493,11 +492,11 @@ const createStyles = (tokens: BrandTokens) => StyleSheet.create({
   heading: { gap: tokens.spacing.sm, paddingTop: tokens.spacing.md },
   panelTitle: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 22 },
   panelDetail: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 14, lineHeight: 20 },
-  toggleRow: { minHeight: 76, flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.lg, paddingVertical: tokens.spacing.md, borderBottomWidth: 1, borderBottomColor: 'rgba(70,48,78,0.12)' },
+  toggleRow: { minHeight: 76, flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.lg, paddingVertical: tokens.spacing.md, borderBottomWidth: 1, borderBottomColor: hairline(tokens) },
   flex: { flex: 1 },
   rowTitle: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 16 },
   rowDetail: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 12, lineHeight: 18, marginTop: 3 },
-  dayRow: { gap: tokens.spacing.md, paddingVertical: tokens.spacing.lg, borderBottomWidth: 1, borderBottomColor: 'rgba(70,48,78,0.12)' },
+  dayRow: { gap: tokens.spacing.md, paddingVertical: tokens.spacing.lg, borderBottomWidth: 1, borderBottomColor: hairline(tokens) },
   dayHeading: { flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.lg },
   timeGrid: { flexDirection: 'row', gap: tokens.spacing.md },
   timeStepper: { flex: 1, gap: tokens.spacing.sm },
@@ -518,7 +517,7 @@ const createStyles = (tokens: BrandTokens) => StyleSheet.create({
   formFields: { gap: tokens.spacing.md, paddingBottom: tokens.spacing.md },
   viewOnSite: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44 },
   viewOnSiteLabel: { color: tokens.primary, fontFamily: tokens.fontBody, fontSize: 14 },
-  formRow: { gap: 2, paddingTop: tokens.spacing.md, borderTopWidth: 1, borderTopColor: 'rgba(70,48,78,0.12)' },
+  formRow: { gap: 2, paddingTop: tokens.spacing.md, borderTopWidth: 1, borderTopColor: hairline(tokens) },
   formTitle: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 15 },
   helper: { color: tokens.warning, fontFamily: tokens.fontBody, fontSize: 12, lineHeight: 18 },
   controlDisabled: { opacity: 0.55 },

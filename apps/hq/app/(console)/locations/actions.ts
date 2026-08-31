@@ -1,10 +1,12 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 
 import { loadDeviceSigningKey } from '@platform/engine';
 
 import { currentClaims } from '@/lib/auth';
+import { disconnectSquare } from '@/lib/square-admin';
 import type { DeviceActionState } from '@/lib/device-action-state';
 import { serverEnv, serviceDb } from '@/lib/api-auth';
 import {
@@ -95,4 +97,31 @@ export async function revokeDeviceAction(
   } catch (error) {
     return failure(error);
   }
+}
+
+/**
+ * Disconnect Square for one location.
+ *
+ * Answers on the same query-parameter channel the OAuth callback already
+ * redirects back on, so the page has one place that turns an outcome into a
+ * sentence (`squareConnectNotice`) instead of two. Nothing secret travels on
+ * it -- only which of three sentences to show.
+ */
+export async function disconnectSquareAction(formData: FormData): Promise<void> {
+  const env = serverEnv();
+  const claims = env ? await currentClaims() : null;
+  let outcome = 'failed';
+  if (env && claims) {
+    try {
+      outcome = (await disconnectSquare(serviceDb(env), claims, text(formData, 'locationId'))).outcome;
+    } catch {
+      // Refused, or not connected: both leave the connection exactly as it
+      // was, which is what "nothing was changed" means. An end state that
+      // changed something is returned rather than thrown.
+      outcome = 'failed';
+    }
+  }
+  revalidatePath('/locations');
+  // Outside the try: redirect signals by throwing.
+  redirect(`/locations?disconnect=${outcome}`);
 }

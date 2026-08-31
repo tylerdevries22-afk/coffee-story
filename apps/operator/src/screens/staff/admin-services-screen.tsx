@@ -2,73 +2,67 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { CollapsingScreen } from '@/components/collapsing-screen';
 import { Body, Card, SectionTitle } from '@/components/ui';
-import { formatMoney, sizeLabelFor, sizePriceCents } from '@platform/domain';
+import { formatMoney } from '@platform/domain';
 
-import { DEMO_ADD_ONS, MENU_ITEMS } from '@/data/catalog';
 import { workspaceTone } from '@/features/staff/workspace';
 import { useAuth } from '@/state/auth-context';
-import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
+import { useStaffWorkspace } from '@/state/staff-workspace';
+import { hairline, useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 /**
- * The item menu, read from the catalog the app actually ships.
+ * The item menu of whichever shop is signed in.
  *
- * What stood here was a generic placeholder fed by hand-written strings: it
- * claimed "9 Active / 4 Add-ons / $114 Average" when the studio sells 7
- * services and 3 add-ons, listed a five-minute aromatherapy that has never
- * existed, and offered an "Add item" button whose workflow discarded
- * whatever was typed into it. Numbers on an owner's screen have to come from
- * somewhere, so these are derived.
+ * Numbers on an owner's screen have to come from somewhere, so these are
+ * derived rather than written by hand. The source is the workspace's own
+ * catalogue: it used to be the menu bundled in this binary, which is the
+ * launch shop's, and one listing serves every tenant (rule 7) -- so a second
+ * brand's owner was shown another shop's 61 items, its prices, and a line
+ * calling them "the live figures the website publishes".
+ *
+ * Live accounts have no catalogue endpoint yet, so the honest answer there is
+ * an empty one, said plainly.
  */
 export function AdminServicesScreen({ onBack }: { onBack: () => void }) {
   const tokens = useBrandTokens();
   const styles = createStyles(tokens);
   const { role } = useAuth();
-  const sizes = MENU_ITEMS.flatMap((item) => item.sizes);
-  const averageCents = sizes.length > 0
-    ? Math.round(sizes.reduce((total, size) => total + sizePriceCents(size), 0) / sizes.length)
+  const { orderableItems } = useStaffWorkspace();
+  const averageCents = orderableItems.length > 0
+    ? Math.round(orderableItems.reduce((total, item) => total + item.priceCents, 0) / orderableItems.length)
     : 0;
 
   return (
     <CollapsingScreen title="Menu" eyebrow="Catalog" onBack={onBack} tone={workspaceTone(role)}>
-      <Body muted>Bookable sizes, pricing, durations, and enhancements.</Body>
+      <Body muted>What this shop sells, and what it charges.</Body>
 
       <View style={styles.metrics}>
-        <Metric label="Menu items" value={String(MENU_ITEMS.length)} />
-        <Metric label="Sizes" value={String(sizes.length)} />
-        <Metric label="Add-ons" value={String(DEMO_ADD_ONS.length)} />
+        <Metric label="Menu items" value={String(orderableItems.length)} />
         <Metric label="Average" value={`${formatMoney(averageCents)}`} />
       </View>
 
-      <SectionTitle>Sessions</SectionTitle>
-      {MENU_ITEMS.map((item) => (
-        <Card key={item.id} style={styles.card}>
+      <SectionTitle>Items</SectionTitle>
+      {orderableItems.length === 0 ? (
+        <Card style={styles.card}>
+          <Body muted>
+            This shop&rsquo;s catalog is not readable from the app yet. Menu and pricing live in
+            HQ, under Catalog.
+          </Body>
+        </Card>
+      ) : null}
+      {orderableItems.map((item) => (
+        <Card key={item.slug} style={styles.card}>
           <Text style={styles.name}>{item.name}</Text>
-          <Body muted>{item.description}</Body>
-          {item.sizes.map((size) => (
-            <View key={size.slug} style={styles.row}>
-              <Text style={styles.rowLabel}>{sizeLabelFor(size.slug)}</Text>
-              <Text style={styles.rowValue}>{formatMoney(sizePriceCents(size))}</Text>
-            </View>
-          ))}
+          {item.description ? <Body muted>{item.description}</Body> : null}
+          <View style={styles.row}>
+            <Text style={styles.rowLabel}>{item.ounces ? `${item.ounces} oz` : 'Each'}</Text>
+            <Text style={styles.rowValue}>{formatMoney(item.priceCents)}</Text>
+          </View>
         </Card>
       ))}
 
-      <SectionTitle>Enhancements</SectionTitle>
-      <Card style={styles.card}>
-        {DEMO_ADD_ONS.map((addOn) => (
-          <View key={addOn.slug} style={styles.row}>
-            <Text style={styles.rowLabel}>{addOn.name}</Text>
-            <Text style={styles.rowValue}>${(addOn.priceCents / 100).toFixed(0)}</Text>
-          </View>
-        ))}
-      </Card>
-
       {/* Said plainly rather than left as a button that does nothing, which is
           what the placeholder did. */}
-      <Body muted>
-        Editing the menu from the app is not built yet. These are the live figures the website
-        publishes and the app books against.
-      </Body>
+      <Body muted>Editing the menu from the app is not built yet. Change it in HQ.</Body>
     </CollapsingScreen>
   );
 }
@@ -110,7 +104,7 @@ const createStyles = (tokens: BrandTokens) => StyleSheet.create({
     justifyContent: 'space-between',
     minHeight: 44,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(70,48,78,0.12)',
+    borderTopColor: hairline(tokens),
   },
   rowLabel: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 15 },
   rowValue: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 16 },

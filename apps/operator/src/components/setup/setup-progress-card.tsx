@@ -1,8 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { AppIcon } from '@/components/icon';
 import { setupProgressPercent, type AnyRoleSetup } from '@/features/setup/setup';
-import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
+import { useTokens as useBrandTokens, type BrandTokens, AppIcon } from '@platform/ui';
 
 export function SetupProgressCard({
   setup,

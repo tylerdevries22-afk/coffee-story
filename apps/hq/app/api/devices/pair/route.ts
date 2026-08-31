@@ -3,6 +3,7 @@ import { DeviceError, loadDeviceSigningKey, redeemPairingCode } from '@platform/
 import {
   corsPreflight, jsonError, jsonWithCors, notConfigured, parseJsonBody, serverEnv, serviceDb,
 } from '../../../../lib/api-auth';
+import { clientIdentity, rateLimited } from '../../../../lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 export function OPTIONS() { return corsPreflight(); }
@@ -19,11 +20,20 @@ export function OPTIONS() { return corsPreflight(); }
  *
  * And the code is short-lived and single-use: 15 minutes, cleared as it is
  * redeemed. The residual risk is online brute force, which is a rate-limiting
- * problem rather than a cryptographic one -- see the note in the catch.
+ * problem rather than a cryptographic one, so the caller is now given a budget
+ * before the code is ever looked up -- see `lib/rate-limit` for what that
+ * counter can and cannot promise.
  */
 export async function POST(request: Request) {
   const env = serverEnv();
   if (!env) return notConfigured();
+
+  // Ahead of the body read, so a flood costs us a map lookup rather than a
+  // parse. A shop pairs a handful of tablets in a sitting; ten attempts a
+  // minute is generous for that and ruinous for guessing a code.
+  if (rateLimited(clientIdentity(request), 'devices/pair', Date.now(), 10)) {
+    return jsonError(429, 'rate_limited', 'Too many pairing attempts. Try again shortly.');
+  }
   const db = serviceDb(env);
 
   const body = await parseJsonBody<{ code?: unknown; tenantSlug?: unknown }>(request);

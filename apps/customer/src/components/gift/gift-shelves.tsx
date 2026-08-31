@@ -23,11 +23,9 @@ import {
   GIFT_QUANTITIES,
   type GiftDesign,
 } from '@/data/gift-designs';
-import { AppIcon, type AppIconName } from '@/components/icon';
 import { TENANT } from '@/tenant';
-import { disabledState, expandedState } from '@platform/ui';
+import { disabledState, expandedState, AppIcon, type AppIconName, useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 import type { PaymentMethod } from '@platform/domain';
-import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 /** Gift-card artwork is 3:2, matching the generated art. */
 const CARD_RATIO = 2 / 3;

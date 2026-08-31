@@ -6,7 +6,7 @@ import { Body, Card, SectionTitle } from '@/components/ui';
 import type { MenuItem } from '@/data/catalog';
 import { formatMoney, sizeLabel, sizePriceCents } from '@platform/domain';
 import { useCustomerCatalog } from '@/state/catalog-context';
-import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
+import { hairline, useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 /**
  * The full menu, as the website publishes it.
@@ -106,7 +106,7 @@ const createStyles = (tokens: BrandTokens) => StyleSheet.create({
     justifyContent: 'space-between',
     minHeight: 44,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(70,48,78,0.12)',
+    borderTopColor: hairline(tokens),
   },
   durationLabel: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 15 },
   durationPrice: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 16 },

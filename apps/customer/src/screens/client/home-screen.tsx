@@ -20,8 +20,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 
-import { AppIcon } from '@/components/icon';
-import { useTabBarClearance } from '@/components/navigation/tab-screen';
+import { useTabBarClearance, AppIcon } from '@platform/ui';
 import { Screen } from '@/components/ui';
 import type { MenuCategoryId, MenuItem } from '@/data/catalog';
 import { useAppState } from '@/state/app-context';
@@ -33,7 +32,6 @@ import { dropStatus, dropWindowLabel, weeklyDrops, type Drop } from '@/features/
 import { cutoutFeatureLineup, formatMoney, resolveProductMedia } from '@platform/domain';
 import { MenuImage } from '@/components/menu-image';
 import { SiriAssistant, type SiriCommand } from '@/components/siri/siri-assistant';
-import { useReducedMotion } from '@/hooks/use-reduced-motion';
 import { TENANT, tenantFeature } from '@/tenant';
 import { ProductCutout, productCutoutSource, type ProductCutoutSource } from '@/components/product-cutout';
 import { TENANT_PRODUCT_MEDIA } from '@/tenant/product-media';
@@ -65,7 +63,7 @@ import {
   shadowOpacityRange,
   shadowScaleRange,
 } from '@/features/glass-feature';
-import { disabledState, DropCountdown, useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
+import { DropCountdown, alpha, disabledState, type BrandTokens, useReducedMotion, useTokens as useBrandTokens } from '@platform/ui';
 
 import heroVideo from '../../../assets/hero/home-hero.mp4';
 import packagesMedia from '../../../assets/hero/stones.webp';
@@ -293,7 +291,7 @@ export function HomeScreen() {
                 </Animated.View>
                 <LinearGradient
                   pointerEvents="none"
-                  colors={['rgba(36,23,16,0.38)', 'rgba(36,23,16,0.02)', 'rgba(36,23,16,0.56)']}
+                  colors={[alpha(tokens.textPrimary, 0.38), alpha(tokens.textPrimary, 0.02), alpha(tokens.textPrimary, 0.56)]}
                   locations={[0, 0.42, 1]}
                   style={StyleSheet.absoluteFill}
                 />
@@ -332,7 +330,7 @@ export function HomeScreen() {
                 ) : null}
                 {slide === 'gifting' ? (
                   <View style={styles.storyContent}>
-                    <Text style={styles.storyEyebrow}>A blessing in every cup</Text>
+                    <Text style={styles.storyEyebrow}>{TENANT.business.tagline}</Text>
                     <Text style={styles.storyTitle}>Gift their next favorite cup.</Text>
                     <Text style={styles.storyBody}>Digital gift cards arrive beautifully and never expire.</Text>
                     <Pressable
@@ -364,7 +362,7 @@ export function HomeScreen() {
               the same header + staggered-row grammar as the rest of the page,
               so a second drop in the window slots in without a new layout. */}
           <SectionHeader
-            pill={dropWindowLabel(weekly.map((entry) => entry.drop))}
+            pill={dropWindowLabel(weekly.map((entry) => entry.drop), TENANT.location.timezone)}
             title="Weekly Drops"
             body="New and returning pours land each week. Order them before they're gone."
           />
@@ -895,7 +893,7 @@ const createStyles = (tokens: BrandTokens) => StyleSheet.create({
     borderRadius: tokens.radius.lg,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.78)',
-    backgroundColor: 'rgba(255,253,248,0.94)',
+    backgroundColor: alpha(tokens.surfaceElevated, 0.94),
     padding: tokens.spacing.lg,
   },
   packageHeadingRow: { minHeight: 54, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

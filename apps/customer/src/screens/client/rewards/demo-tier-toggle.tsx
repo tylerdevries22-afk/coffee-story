@@ -1,12 +1,12 @@
 import { Fragment } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
-import { AppIcon } from '@/components/icon';
 import { paletteForTier } from '@/components/rewards/glass-cup-palettes';
 import { hapticSelection } from './haptics';
 import { useRewardStyles } from './styles';
-import { REWARD_TIERS, type RewardTierName } from '@platform/domain';
-import { choiceState, useTokens as useBrandTokens } from '@platform/ui';
+import { type RewardTierName } from '@platform/domain';
+import { TENANT_REWARD_TIERS } from '@/tenant';
+import { choiceState, useTokens as useBrandTokens, AppIcon } from '@platform/ui';
 
 /**
  * Demo-only tier switch. Overriding the year's points is what swaps the tier:
@@ -29,7 +29,7 @@ export function DemoTierToggle({
   return (
     <View accessibilityLabel="Preview rewards tier" accessibilityRole="radiogroup" style={styles.demoTierBar}>
       <View style={styles.demoTierRow}>
-        {REWARD_TIERS.map((tier, index) => {
+        {TENANT_REWARD_TIERS.map((tier, index) => {
           const selected = tier.name === value;
           const palette = paletteForTier(tier.name, index);
           const percentage = tier.minimumAnnualPoints === 0
@@ -62,7 +62,7 @@ export function DemoTierToggle({
                 </Pressable>
                 <Text style={[styles.demoTierPercent, { color: selected ? palette.liquidMid : tokens.textMuted }]}>{percentage}%</Text>
               </View>
-              {index < REWARD_TIERS.length - 1 ? (
+              {index < TENANT_REWARD_TIERS.length - 1 ? (
                 <AppIcon name="chevron.right" size={13} tintColor={tokens.textMuted} style={styles.demoTierArrow} />
               ) : null}
             </Fragment>

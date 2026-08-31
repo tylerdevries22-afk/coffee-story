@@ -10,8 +10,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { useReducedMotion } from '@/hooks/use-reduced-motion';
-import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
+import { type BrandTokens, useReducedMotion, useTokens as useBrandTokens } from '@platform/ui';
 
 /** Past a quarter of the screen the push is considered committed to leaving. */
 const DISMISS_FRACTION = 0.25;

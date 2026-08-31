@@ -6,6 +6,8 @@
  * chosen at runtime, so the onboarding step materialises the choice.
  * `tenant.test.ts` fails the build if the copy drifts from the source tree.
  */
+import { REWARD_TIERS, resolveRewardTiers, type RewardTier } from '@platform/domain';
+
 import brandJson from './brand.json';
 
 export type TenantBusiness = {
@@ -40,6 +42,8 @@ type TenantFile = {
    * a Colorado default that lived in packages/domain.
    */
   tax?: { jurisdictions: { id: string; label: string; rate: number }[] };
+  /** The earning ladder. Absent or unparseable means the shipped generic one. */
+  loyalty?: { tiers?: unknown };
   location: {
     name: string;
     address: { street: string; city: string; region: string; postal: string };
@@ -67,3 +71,14 @@ export function tenantFeature(flag: keyof TenantFeatures): boolean {
  */
 export const TENANT_TAX_JURISDICTIONS: readonly { id: string; label: string; rate: number }[] =
   TENANT.tax?.jurisdictions ?? [];
+
+/**
+ * The tenant's loyalty ladder, for the rewards, checkout and gift surfaces.
+ *
+ * Falls back to the shipped generic rungs when the tenant has not written a
+ * ladder -- unlike tax, a guest with no tier is not a coherent screen, and the
+ * shipped rungs name no shop. The server is still the authority on what was
+ * actually earned; this is what the app draws while it waits.
+ */
+export const TENANT_REWARD_TIERS: readonly RewardTier[] =
+  resolveRewardTiers(brandJson) ?? REWARD_TIERS;

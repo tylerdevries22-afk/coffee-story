@@ -134,6 +134,16 @@ td.num, th.num { text-align: right; }
   color: var(--text);
   border: 1px solid var(--line);
 }
+/* Outlined, not filled: a destructive control should read as one without
+   competing with the page's primary action for attention. */
+.button.danger {
+  background: transparent;
+  color: var(--danger);
+  border: 1px solid color-mix(in srgb, var(--danger) 40%, transparent);
+}
+.button.danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+}
 .button:disabled { opacity: 0.4; cursor: default; }
 
 label.field { display: block; margin-bottom: 14px; font-size: 13px; color: var(--text-muted); }
@@ -154,13 +164,15 @@ label.field input, label.field select, label.field textarea {
 @media (max-width: 900px) { .grid-2 { grid-template-columns: 1fr; } }
 
 /* The HQ preview intentionally uses the kiosk's warm, high-contrast surface.
-   Coordinates come from @platform/domain rather than a second hand-tuned grid. */
+   Coordinates come from @platform/domain rather than a second hand-tuned grid.
+   Every colour here is the tenant's, hydrated by hqTheme; the fallbacks are the
+   platform default palette, for the moment before a brand config has loaded. */
 .kiosk-preview {
   overflow: hidden;
-  border: 1px solid #e4d3c3;
+  border: 1px solid var(--kiosk-line, #d9d2cb);
   border-radius: 16px;
-  background: #faf5ef;
-  color: #241710;
+  background: var(--kiosk-surface, #f7f6f4);
+  color: var(--kiosk-ink, #1c1b1a);
   font-family: var(--font, Inter, sans-serif);
 }
 .kiosk-preview-chrome {
@@ -169,14 +181,14 @@ label.field input, label.field select, label.field textarea {
   gap: 10px;
   min-height: 52px;
   padding: 12px 16px;
-  border-bottom: 1px solid #e4d3c3;
+  border-bottom: 1px solid var(--kiosk-line, #d9d2cb);
   font-size: 11px;
   white-space: nowrap;
 }
 .kiosk-preview-brand { font-family: var(--font-display, Georgia, serif); font-size: 16px; font-weight: 700; }
 .kiosk-preview-spacer { flex: 1; }
 .kiosk-preview-action {
-  border: 1px solid #8c7664;
+  border: 1px solid var(--kiosk-line-strong, #8a8582);
   border-radius: 999px;
   padding: 4px 7px;
   font-size: 9px;
@@ -190,8 +202,8 @@ label.field input, label.field select, label.field textarea {
   aspect-ratio: 1;
   overflow: hidden;
   border-radius: 50%;
-  background: #2e211a;
-  color: #faf5ef;
+  background: var(--kiosk-hero, #1c1b1a);
+  color: var(--kiosk-surface, #f7f6f4);
   display: grid;
   place-items: center;
   font-family: var(--font-display, Georgia, serif);
@@ -200,8 +212,8 @@ label.field input, label.field select, label.field textarea {
 }
 .kiosk-preview-image img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .kiosk-preview-label { display: block; max-width: 100%; margin: 7px auto 0; overflow-wrap: break-word; word-break: normal; font-size: clamp(8px, .9vw, 12px); font-weight: 700; line-height: 1.15; }
-.kiosk-preview-tile small { display: block; margin-top: 2px; color: #6b5b4e; font-size: clamp(8px, 1vw, 11px); line-height: 1.15; }
-.kiosk-preview-footer { padding: 0 18px 16px; color: #6b5b4e; font-size: 11px; }
+.kiosk-preview-tile small { display: block; margin-top: 2px; color: var(--kiosk-ink-muted, #5f5b57); font-size: clamp(8px, 1vw, 11px); line-height: 1.15; }
+.kiosk-preview-footer { padding: 0 18px 16px; color: var(--kiosk-ink-muted, #5f5b57); font-size: 11px; }
 .kiosk-sync-meta { margin-top: -18px; font-size: 12px; }
 
 .notice {

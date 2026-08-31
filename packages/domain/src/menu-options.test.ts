@@ -9,13 +9,13 @@ import {
   missingRequiredGroups,
   optionDeltaCents,
   optionFingerprint,
-  optionGroupsFor,
   pruneHiddenGroups,
   selectedChoices,
   toggleOptionChoice,
   visibleOptionGroups,
   type OptionGroup,
 } from './menu-options';
+import { optionGroupsFor } from './menu-options.fixture';
 
 function groupIds(groups: readonly OptionGroup[]): string[] {
   return groups.map((group) => group.id);
