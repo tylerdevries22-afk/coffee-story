@@ -1,6 +1,7 @@
 import Link from 'next/link';
 
 import type { AnalyticsDashboardModel } from '@/lib/analytics-dashboard';
+import { ConsoleState } from '@/components/console-state';
 
 type AnalyticsDashboardProps = {
   model: AnalyticsDashboardModel;
@@ -62,11 +63,11 @@ function DataTable({ table }: { table: AnalyticsDashboardModel['tables'][number]
         <span className="analytics-record-count">{table.rows.length} {table.rows.length === 1 ? 'row' : 'rows'}</span>
       </div>
       {table.rows.length === 0 ? (
-        <div className="analytics-empty">
-          <span aria-hidden="true">···</span>
-          <strong>Collecting the first complete window</strong>
-          <p>{table.emptyMessage}</p>
-        </div>
+        <ConsoleState
+          title="Collecting the first complete window"
+          description={table.emptyMessage}
+          kind="partial"
+        />
       ) : (
         <div className="analytics-table-scroll" tabIndex={0}>
           <table>
