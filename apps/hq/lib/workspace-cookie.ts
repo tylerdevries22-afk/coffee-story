@@ -27,3 +27,12 @@ export function workspaceCookieOptions(): Partial<ResponseCookie> {
     maxAge: 60 * 60 * 24 * 365,
   };
 }
+
+/** Expire a workspace cookie with the same scope used when it was created. */
+export function expiredWorkspaceCookieOptions(): Partial<ResponseCookie> {
+  return {
+    ...workspaceCookieOptions(),
+    expires: new Date(0),
+    maxAge: 0,
+  };
+}
