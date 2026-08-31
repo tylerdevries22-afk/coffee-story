@@ -13,7 +13,7 @@ import {
   DEMO_DROPS,
   DEMO_FEES,
   DEMO_KPIS,
-  DEMO_LOCATIONS,
+  DEMO_SESSION,
   DEMO_MENU,
   type CampaignSummary,
   type CustomerSummary,
@@ -50,8 +50,9 @@ import {
 import type { KioskMenuFacts } from '@platform/domain';
 
 import { serverClient } from './supabase-server';
-import { selectedLocationId } from './workspace-location';
+import { selectedLocationId, selectedOrgId } from './workspace-location';
 import { scopeRowsToLocation } from './location-scope';
+import { demoLocationsFor } from './demo-locations';
 
 function sevenDaysAgo(): string {
   const date = new Date();
@@ -135,7 +136,12 @@ export async function loadMenu(): Promise<MenuItemSummary[]> {
 
 export async function loadLocations(): Promise<LocationSummary[]> {
   const client = await serverClient();
-  if (!client) return DEMO_LOCATIONS;
+  if (!client) {
+    // Demo: the selected org's stores from the in-memory store, so a location
+    // added through the wizard shows up here for the rest of the session.
+    const orgId = (await selectedOrgId()) ?? DEMO_SESSION.brandId;
+    return demoLocationsFor(orgId);
+  }
   // `square_connection_id` is NOT selected: 0040 revokes it from
   // `authenticated` at column level, and this client is the signed-in user, so
   // naming it here makes the whole query fail with "permission denied for

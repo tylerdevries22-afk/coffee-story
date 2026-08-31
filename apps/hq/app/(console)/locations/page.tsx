@@ -1,7 +1,9 @@
+import Link from 'next/link';
+
 import { canManageLocation } from '@platform/schema';
 
 import { DevicePanel, type DevicePanelDevice } from '@/components/device-panel';
-import { currentClaims } from '@/lib/auth';
+import { currentClaims, currentSession, hasRole } from '@/lib/auth';
 import { loadDevices, loadLocations } from '@/lib/data';
 import { squareConnectNotice } from '@/lib/square-connect-notice';
 
@@ -13,15 +15,23 @@ export const dynamic = 'force-dynamic';
 
 
 type LocationsPageProps = {
-  searchParams: Promise<{ connected?: string; square?: string; disconnect?: string }>;
+  searchParams: Promise<{ connected?: string; square?: string; disconnect?: string; created?: string }>;
+};
+
+const CREATED_NOTICE: Record<string, { message: string; failed: boolean }> = {
+  '1': { message: 'Location created. Connect Square and pair its devices below.', failed: false },
+  denied: { message: 'Only a brand owner can add a location.', failed: true },
+  failed: { message: 'That location could not be created. Try again.', failed: true },
 };
 
 export default async function LocationsPage({ searchParams }: LocationsPageProps) {
-  const [locations, devices, claims, params] = await Promise.all([
-    loadLocations(), loadDevices(), currentClaims(), searchParams,
+  const [locations, devices, claims, session, params] = await Promise.all([
+    loadLocations(), loadDevices(), currentClaims(), currentSession(), searchParams,
   ]);
   // Square consent redirects back here, and it can come back refused.
   const notice = squareConnectNotice(params);
+  const createdNotice = params.created ? CREATED_NOTICE[params.created] ?? null : null;
+  const canAddLocation = hasRole(session, 'brand_owner');
   // Whether a control is drawn; never whether the write is allowed. The same
   // check runs again in lib/device-admin, against the same claims.
   const manages = (locationId: string) => claims !== null && canManageLocation(claims, locationId);
@@ -30,10 +40,18 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
   }));
   return (
     <>
-      <h1>Locations</h1>
-      <p className="subtitle">Each location connects its own Square account; tokens never leave the server.</p>
+      <div className="page-head">
+        <div>
+          <h1>Locations</h1>
+          <p className="subtitle">Each location connects its own Square account; tokens never leave the server.</p>
+        </div>
+        {canAddLocation ? <Link href="/locations/new" className="button">Add location</Link> : null}
+      </div>
       {notice ? (
         <div className={notice.failed ? 'notice danger' : 'notice'} role="status">{notice.message}</div>
+      ) : null}
+      {createdNotice ? (
+        <div className={createdNotice.failed ? 'notice danger' : 'notice'} role="status">{createdNotice.message}</div>
       ) : null}
       <div className="card">
         <table>
@@ -91,10 +109,6 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
         pairableLocations={locations.filter((location) => manages(location.id))
           .map((location) => ({ id: location.id, name: location.name }))}
       />
-      <div className="notice">
-        Add a location from Onboarding — it creates the row, seeds hours, and
-        walks Square connection in one pass.
-      </div>
     </>
   );
 }

@@ -13,6 +13,7 @@ import { slugify } from '@platform/domain';
 
 import type { SessionInfo } from './demo-data';
 import { isConfigured, serverClient } from './supabase-server';
+import { demoLocationsFor } from './demo-locations';
 import { TENANT_ORGS, tenantOrgById, type WorkspaceOrgKind } from './tenants';
 import { isWorkspaceCookieValue, LOCATION_COOKIE, ORG_COOKIE } from './workspace-cookie';
 
@@ -89,8 +90,9 @@ async function locationsForSelectedOrg(
   selected: { org: WorkspaceOrg },
 ): Promise<readonly WorkspaceLocation[]> {
   if (!isConfigured()) {
-    const registry = tenantOrgById(selected.org.id);
-    return (registry?.locations ?? []).map((location) => ({ id: location.id, name: location.name, city: location.city }));
+    // Same in-memory store the locations page reads, so a store added through
+    // the wizard is immediately selectable in the header.
+    return demoLocationsFor(selected.org.id).map((location) => ({ id: location.id, name: location.name, city: location.city }));
   }
   const client = await serverClient();
   if (!client) return [];

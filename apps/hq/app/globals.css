@@ -1219,6 +1219,39 @@ body {
   color: var(--text);
 }
 
+.page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-lg);
+}
+.page-head .subtitle { margin-bottom: 24px; }
+
+.location-form { display: flex; flex-direction: column; gap: 4px; }
+.location-form-row { display: flex; flex-wrap: wrap; gap: 0 18px; }
+.location-form-row .field { flex: 1 1 160px; }
+.location-form select,
+.location-form input {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font-size: 15px;
+}
+.location-form-days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 6px 0 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.location-form-days legend { padding: 0 4px; color: var(--text-muted); font-size: 13px; }
+.location-form-day { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; }
+.location-form-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 10px; }
+
 .workspace-switcher {
   display: flex;
   min-width: 0;

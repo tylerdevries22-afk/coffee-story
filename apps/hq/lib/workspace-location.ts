@@ -9,9 +9,16 @@ import 'server-only';
  */
 import { cookies } from 'next/headers';
 
-import { isWorkspaceCookieValue, LOCATION_COOKIE } from './workspace-cookie';
+import { isWorkspaceCookieValue, LOCATION_COOKIE, ORG_COOKIE } from './workspace-cookie';
 
 export async function selectedLocationId(): Promise<string | null> {
   const value = (await cookies()).get(LOCATION_COOKIE)?.value;
+  return isWorkspaceCookieValue(value) ? value : null;
+}
+
+/** The organization the operator has selected, or null to fall back to their
+ *  home org. Shape-checked only; callers that write re-authorize it. */
+export async function selectedOrgId(): Promise<string | null> {
+  const value = (await cookies()).get(ORG_COOKIE)?.value;
   return isWorkspaceCookieValue(value) ? value : null;
 }
