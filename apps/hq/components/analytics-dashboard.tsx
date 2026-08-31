@@ -4,6 +4,7 @@ import type { AnalyticsDashboardModel } from '@/lib/analytics-dashboard';
 
 type AnalyticsDashboardProps = {
   model: AnalyticsDashboardModel;
+  locationLabel: string;
 };
 
 function MetricCard({ metric }: { metric: AnalyticsDashboardModel['metrics'][number] }) {
@@ -93,7 +94,7 @@ function DataTable({ table }: { table: AnalyticsDashboardModel['tables'][number]
 }
 
 /** Shared, read-only analytics presentation for every contextual analytics view. */
-export function AnalyticsDashboard({ model }: AnalyticsDashboardProps) {
+export function AnalyticsDashboard({ model, locationLabel }: AnalyticsDashboardProps) {
   return (
     <div className="analytics-page">
       <header className="analytics-heading">
@@ -104,7 +105,7 @@ export function AnalyticsDashboard({ model }: AnalyticsDashboardProps) {
         </div>
         <div className="analytics-actions" aria-label="Report actions">
           <span className="analytics-filter-chip">Last 7 days</span>
-          <span className="analytics-filter-chip">All locations</span>
+          <span className="analytics-filter-chip">{locationLabel}</span>
           <Link className="button secondary" href="/analytics/export">Export CSV</Link>
         </div>
       </header>

@@ -46,6 +46,16 @@ function clean(value: string | undefined): string {
   return (value ?? '').trim();
 }
 
+function isIanaTimezone(value: string): boolean {
+  if (!TIMEZONE.test(value)) return false;
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: value }).format(0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Validate the form, or return the first thing an operator has to fix. On
  * success it returns the row-ready draft; the hours span is applied to every
@@ -57,12 +67,7 @@ export function parseLocationDraft(input: LocationInput): { ok: true; draft: Loc
   if (name.length > 120) return { ok: false, error: 'That location name is too long.' };
 
   const timezone = clean(input.timezone);
-  if (!TIMEZONE.test(timezone)) return { ok: false, error: 'Choose the location’s timezone.' };
-  try {
-    new Intl.DateTimeFormat('en-US', { timeZone: timezone }).format();
-  } catch {
-    return { ok: false, error: 'Choose a recognized IANA timezone.' };
-  }
+  if (!isIanaTimezone(timezone)) return { ok: false, error: 'Choose the location’s timezone.' };
 
   const open = clean(input.openTime);
   const close = clean(input.closeTime);

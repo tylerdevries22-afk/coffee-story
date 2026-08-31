@@ -34,6 +34,11 @@ test('a non-IANA timezone is rejected', () => {
   assert.equal(result.ok, false);
 });
 
+test('a timezone-shaped value missing from the IANA database is rejected', () => {
+  const result = parseLocationDraft({ ...valid, timezone: 'Mars/Olympus' });
+  assert.equal(result.ok, false);
+});
+
 test('a multi-segment IANA zone is accepted', () => {
   const result = parseLocationDraft({ ...valid, timezone: 'America/Argentina/Salta' });
   assert.ok(result.ok);
