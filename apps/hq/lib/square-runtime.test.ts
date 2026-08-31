@@ -17,6 +17,7 @@ type ConnectionRow = {
   access_token_encrypted: string;
   refresh_token_encrypted: string | null;
   expires_at: string | null;
+  updated_at: string | null;
 };
 
 type DbState = {
@@ -86,6 +87,7 @@ function connectionRow(over: Partial<ConnectionRow> = {}): ConnectionRow {
     access_token_encrypted: encryptToken('stored-access', key),
     refresh_token_encrypted: encryptToken('stored-refresh', key),
     expires_at: at(60 * DAY),
+    updated_at: at(-DAY),
     ...over,
   };
 }
@@ -141,8 +143,9 @@ describe('squareRuntimeFor', () => {
     assert.deepEqual(state.updateFilters?.slice(0, 2), [
       { location_id: LOCATION }, { brand_id: BRAND },
     ], 'the service-role write is tenant-scoped');
-    assert.equal(state.updateFilters?.[2]?.refresh_token_encrypted, state.connection?.refresh_token_encrypted,
-      'the write may only replace the authorization whose refresh token was traded');
+    assert.equal(state.updateFilters?.[2]?.access_token_encrypted, state.connection?.access_token_encrypted);
+    assert.equal(state.updateFilters?.[3]?.refresh_token_encrypted, state.connection?.refresh_token_encrypted,
+      'the write may only replace the exact authorization snapshot that was traded');
   });
 
   it('does not spend a renewed token when reconnect replaced the authorization mid-refresh', async () => {
@@ -181,6 +184,18 @@ describe('squareRuntimeFor', () => {
     const state: DbState = { connection: connectionRow({ expires_at: at(DAY) }), updates: [] };
     const runtime = await resolve(state);
     assert.equal(runtime?.locationAccessToken, 'stored-access');
+    assert.deepEqual(state.updates, [{ expires_at: state.connection?.expires_at }],
+      'the no-op write starts the shared retry cooldown');
+  });
+
+  it('does not hammer Square again during the renewal cooldown', async () => {
+    stubSquare({ ok: true, body: { access_token: 'renewed', expires_at: at(30 * DAY) } });
+    const state: DbState = {
+      connection: connectionRow({ expires_at: at(DAY), updated_at: at(-60_000) }), updates: [],
+    };
+    const runtime = await resolve(state);
+    assert.equal(runtime?.locationAccessToken, 'stored-access');
+    assert.equal(refreshCalls, 0);
     assert.equal(state.updates.length, 0);
   });
 

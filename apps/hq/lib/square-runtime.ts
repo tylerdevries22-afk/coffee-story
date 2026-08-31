@@ -15,9 +15,7 @@
  */
 import {
   decryptToken,
-  encryptToken,
   loadTokenKey,
-  refreshOAuthToken,
   squareConfigFromEnv,
   squareTokenState,
   resolveFeeConfig,
@@ -26,6 +24,8 @@ import {
   type SquareConfig,
 } from '@platform/engine';
 import type { SupabaseClient } from '@supabase/supabase-js';
+
+import { renewSquareConnection, squareRenewalBackoffActive } from './square-renewal';
 
 export type SquareRuntime = {
   square: SquareConfig;
@@ -40,6 +40,7 @@ type ConnectionRow = {
   access_token_encrypted: string;
   refresh_token_encrypted: string | null;
   expires_at: string | null;
+  updated_at: string | null;
 };
 
 type LocationRow = {
@@ -77,7 +78,7 @@ export async function squareRuntimeFor(
       .eq('brand_id', input.brandId)
       .maybeSingle<LocationRow>(),
     db.from('square_connections')
-      .select('square_location_id, access_token_encrypted, refresh_token_encrypted, expires_at')
+      .select('square_location_id, access_token_encrypted, refresh_token_encrypted, expires_at, updated_at')
       .eq('location_id', input.locationId)
       .eq('brand_id', input.brandId)
       .maybeSingle<ConnectionRow>(),
@@ -105,12 +106,20 @@ export async function squareRuntimeFor(
   // on a 401 nothing in the product explained. The first runtime resolution
   // after day seven renews the token (23 days remain); keeping this lazy
   // backstop means a stopped maintenance job cannot strand the next sale.
-  const state = squareTokenState(connection.expires_at, Date.now());
-  if (state !== 'fresh' && connection.refresh_token_encrypted) {
-    const renewal = await renewAccessToken(db, square, {
-      brandId: input.brandId,
-      locationId: input.locationId,
-      refreshTokenEncrypted: connection.refresh_token_encrypted,
+  const nowMs = Date.now();
+  const state = squareTokenState(connection.expires_at, nowMs);
+  if (
+    state !== 'fresh'
+    && connection.refresh_token_encrypted
+    && !squareRenewalBackoffActive(connection.updated_at, nowMs)
+  ) {
+    const renewal = await renewSquareConnection(db, square, {
+      brand_id: input.brandId,
+      location_id: input.locationId,
+      access_token_encrypted: connection.access_token_encrypted,
+      refresh_token_encrypted: connection.refresh_token_encrypted,
+      expires_at: connection.expires_at,
+      updated_at: connection.updated_at,
     });
     if (renewal.outcome === 'renewed') locationAccessToken = renewal.accessToken;
     // A failed compare-and-set means another request disconnected, reconnected,
@@ -132,59 +141,4 @@ export async function squareRuntimeFor(
     feeConfig: resolveFeeConfig(input.brand, data),
     locationTimezone: data.timezone ?? 'America/Denver',
   };
-}
-
-/**
- * Trades the stored refresh token for a new access token and persists both.
- *
- * Separates a failed call to Square from a stale database write. The former
- * can safely fall back to a still-valid access token. The latter means the
- * entire connection snapshot may have been replaced and must fail closed.
- */
-type RenewalResult =
-  | { outcome: 'renewed'; accessToken: string }
-  | { outcome: 'failed' }
-  | { outcome: 'stale' };
-
-async function renewAccessToken(
-  db: SupabaseClient,
-  square: SquareConfig,
-  input: { brandId: string; locationId: string; refreshTokenEncrypted: string },
-): Promise<RenewalResult> {
-  let accessToken: string;
-  let update: Record<string, string>;
-  try {
-    const key = loadTokenKey();
-    const tokens = await refreshOAuthToken(square, decryptToken(input.refreshTokenEncrypted, key));
-    if (!tokens.access_token) return { outcome: 'failed' };
-    accessToken = tokens.access_token;
-    update = {
-      access_token_encrypted: encryptToken(tokens.access_token, key),
-      ...(tokens.refresh_token ? { refresh_token_encrypted: encryptToken(tokens.refresh_token, key) } : {}),
-      expires_at: tokens.expires_at,
-    };
-  } catch {
-    return { outcome: 'failed' };
-  }
-
-  try {
-    // Only the connection whose refresh token we traded may receive the new
-    // credentials. A disconnect or reconnect can replace that authorization
-    // while Square is answering; writing by location alone would then splice
-    // an old merchant's token into the new connection. The selected row also
-    // distinguishes a real write from PostgREST's successful zero-row result.
-    const persisted = await db
-      .from('square_connections')
-      .update(update)
-      .eq('location_id', input.locationId)
-      .eq('brand_id', input.brandId)
-      .eq('refresh_token_encrypted', input.refreshTokenEncrypted)
-      .select('location_id')
-      .maybeSingle<{ location_id: string }>();
-    return !persisted.error && persisted.data?.location_id === input.locationId
-      ? { outcome: 'renewed', accessToken }
-      : { outcome: 'stale' };
-  } catch {
-    return { outcome: 'stale' };
-  }
 }

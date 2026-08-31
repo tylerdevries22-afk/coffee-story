@@ -4,9 +4,12 @@ import {
   deliverOperationPushBatch,
   dueCampaigns,
   dueDropTransitions,
+  loadTokenKey,
   liveTransport,
+  squareConfigFromEnv,
   type OperationPushResult,
   type OperationPushWork,
+  type SquareConfig,
 } from '@platform/engine';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { start } from 'workflow/api';
@@ -18,7 +21,10 @@ import {
 } from '../../../../lib/training-bootstrap';
 import { analyticsMaintenanceCutoffs } from '../../../../lib/analytics-maintenance';
 import { trainingProfileFingerprint } from '../../../../lib/training-fingerprint';
+import { renewDueSquareConnections, type SquareRenewalSummary } from '../../../../lib/square-renewal';
 import { bootstrapTenantTraining } from '../../../../workflows/tenant-training-bootstrap';
+
+export const maxDuration = 300;
 
 type TrainingBrandRow = { id: string; name: string; brand_config: unknown };
 type TrainingRunRow = { id: string; brand_id: string; profile_fingerprint: string; status: string; updated_at: string; retry_count: number; next_attempt_at: string | null };
@@ -168,6 +174,22 @@ export async function POST(request: Request): Promise<Response> {
   const db = serviceDb(env);
   const now = new Date();
 
+  let square: SquareConfig | null = null;
+  try {
+    square = squareConfigFromEnv();
+    loadTokenKey();
+  } catch {
+    // Square is optional for a tenant, but the cron response makes a missing
+    // server configuration observable without failing unrelated maintenance.
+    console.warn('Square token renewal skipped: server credentials are not configured.');
+  }
+  const emptySquareRenewals: SquareRenewalSummary = {
+    scanned: 0, renewed: 0, failed: 0, stale: 0,
+  };
+  const squareRenewals = square
+    ? { configured: true, ...await renewDueSquareConnections(db, square, now) }
+    : { configured: false, ...emptySquareRenewals };
+
   const drops = await db
     .from('drops')
     .select('id, status, starts_at, ends_at')
@@ -292,6 +314,7 @@ export async function POST(request: Request): Promise<Response> {
     drops: dropTransitions.length,
     campaigns: dueCampaignIds.length,
     trainingBootstraps,
+    square: squareRenewals,
     analytics: { rollups: rollups.data, retention: retention.data },
     operations: {
       maintenance: operations.data,
