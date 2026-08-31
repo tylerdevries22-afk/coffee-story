@@ -6,6 +6,7 @@ import { describe, it } from 'node:test';
 
 const migration = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'supabase', 'migrations',
   '20260828000000_tenant_operations.sql'), 'utf8');
+<<<<<<< ours
 const hardening = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'supabase', 'migrations',
   '20260828051242_harden_tenant_operations_runtime.sql'), 'utf8');
 const advisorHardening = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'supabase', 'migrations',
@@ -21,6 +22,8 @@ const competencyAward = readFileSync(join(dirname(fileURLToPath(import.meta.url)
 const readinessRepair = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'supabase', 'migrations',
   '20260828192003_repair_release_readiness_chain.sql'), 'utf8');
 const operationsSql = `${migration}\n${hardening}\n${advisorHardening}\n${releaseHardening}\n${reviewFixes}\n${volatilityFix}\n${competencyAward}\n${readinessRepair}`;
+=======
+>>>>>>> theirs
 
 describe('tenant operations migration', () => {
   it('keeps the platform schema industry-neutral', () => {
@@ -35,16 +38,23 @@ describe('tenant operations migration', () => {
   });
 
   it('does not grant clients mutation rights over occurrence history', () => {
+<<<<<<< ours
     assert.doesNotMatch(operationsSql,
       /grant\s+(?:(?:all|insert|update|delete)(?:\s*,\s*(?:all|insert|update|delete))*)\s+on\s+[^;]*operation_occurrence_events[^;]*to authenticated;/i);
     assert.match(hardening, /drop function public\.claim_operation_occurrence\(uuid\)/);
     assert.match(hardening,
       /grant execute on function public\.claim_operation_occurrence\(uuid, uuid\) to authenticated/);
+=======
+    const grants = migration.match(/grant[\s\S]*?to authenticated;/g)?.join('\n') ?? '';
+    assert.doesNotMatch(grants, /grant (?:insert|update|delete)[\s\S]*operation_occurrence_events/);
+    assert.match(migration, /grant execute on function public\.claim_operation_occurrence\(uuid\) to authenticated/);
+>>>>>>> theirs
   });
 
   it('makes materialization and escalation delivery idempotent', () => {
     assert.match(migration, /unique \(brand_id, materialization_key\)/);
     assert.match(migration, /unique \(occurrence_id, escalation_rule_id, recipient_id, channel\)/);
+<<<<<<< ours
     assert.match(releaseHardening, /queue_due_operation_escalations/);
     assert.match(releaseHardening, /status in \('pending', 'failed', 'sending'\)/);
   });
@@ -149,5 +159,7 @@ describe('tenant operations migration', () => {
       assert.match(advisorHardening, new RegExp(`create policy ${name}_manage_delete`));
     }
     assert.doesNotMatch(advisorHardening, /create policy \w+_manage on [^;]+ for all/i);
+=======
+>>>>>>> theirs
   });
 });

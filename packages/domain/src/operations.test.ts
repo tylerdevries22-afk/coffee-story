@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
+<<<<<<< ours
   OPERATION_STATUSES,
   canTransitionOperation,
   diffOperationTemplates,
@@ -425,5 +426,47 @@ describe('diffOperationTemplates', () => {
         .map((entry) => entry.field);
       assert.deepEqual(changed, [field], field);
     }
+=======
+  canTransitionOperation, dueEscalations, operationDisplayStatus, operationEligibility,
+  operationMetrics, validateOperationResponses,
+} from './operations';
+
+describe('tenant operations', () => {
+  it('keeps terminal evidence terminal', () => {
+    assert.equal(canTransitionOperation('completed', 'due'), false);
+    assert.equal(canTransitionOperation('overdue', 'completed'), true);
+  });
+
+  it('derives time status without overwriting a claim before the deadline', () => {
+    const item = { id: 'o', status: 'upcoming' as const,
+      scheduledFor: '2026-08-28T10:00:00Z', dueAt: '2026-08-28T10:30:00Z',
+      claimedBy: null, completedAt: null };
+    assert.equal(operationDisplayStatus(item, new Date('2026-08-28T10:10:00Z')), 'due');
+    assert.equal(operationDisplayStatus(item, new Date('2026-08-28T10:31:00Z')), 'overdue');
+  });
+
+  it('requires an allowed role and every current competency', () => {
+    const result = operationEligibility({ roleIds: ['floor'], competencyKeys: ['sanitation'] }, {
+      roleIds: ['floor'], competencyAwards: { sanitation: '2026-08-28T09:00:00Z' },
+    }, new Date('2026-08-28T10:00:00Z'));
+    assert.deepEqual(result, { eligible: false, missingRoles: [], missingCompetencies: ['sanitation'] });
+  });
+
+  it('validates the snapshotted checklist contract', () => {
+    assert.deepEqual(validateOperationResponses([
+      { key: 'floor', responseKind: 'pass_fail', required: true },
+      { key: 'note', responseKind: 'text', required: false },
+    ], { floor: true }), { valid: true, missing: [], invalid: [] });
+  });
+
+  it('deduplicates escalation rules and calculates operational metrics', () => {
+    assert.deepEqual(dueEscalations('2026-08-28T10:00:00Z', [
+      { id: 'staff', offsetMinutes: 0 }, { id: 'manager', offsetMinutes: 15 },
+    ], new Set(['staff']), new Date('2026-08-28T10:16:00Z')).map((rule) => rule.id), ['manager']);
+    assert.deepEqual(operationMetrics([{ id: 'o', status: 'completed',
+      scheduledFor: '2026-08-28T10:00:00Z', dueAt: '2026-08-28T10:30:00Z',
+      claimedBy: 'u', completedAt: '2026-08-28T10:20:00Z' }]),
+    { total: 1, completed: 1, overdue: 0, onTimeRate: 1 });
+>>>>>>> theirs
   });
 });

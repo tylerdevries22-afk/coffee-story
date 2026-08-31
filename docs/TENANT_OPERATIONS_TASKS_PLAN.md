@@ -84,7 +84,11 @@ This package is the correct home for pure, framework-free logic:
 - resolving brand templates plus full location overrides;
 - recurrence validation and time-zone-aware occurrence windows;
 - occurrence state (`upcoming`, `due`, `claimed`, `completed`, `overdue`,
+<<<<<<< ours
   `cancelled`);
+=======
+  `waived`, `cancelled`);
+>>>>>>> theirs
 - claim eligibility from workforce roles and training competencies;
 - checklist validation and completion readiness;
 - escalation thresholds and recipient selection inputs;
@@ -110,7 +114,11 @@ adapters that:
 
 - fetch the location's occurrence queue for a bounded window;
 - fetch a detail view with the resolved checklist snapshot;
+<<<<<<< ours
 - claim, complete, cancel, and report issues through typed RPC/API boundaries;
+=======
+- claim, complete, waive, and report issues through typed RPC/API boundaries;
+>>>>>>> theirs
 - subscribe to a payload-safe `operations_change_signals` table and reconcile;
 - expose manager history and report reads under RLS; and
 - always scope by both `brand_id` and `location_id` in application queries even
@@ -157,7 +165,11 @@ adding a bathroom tab:
    eligibility/training state, claim action, checklist responses, optional note,
    issue reporting, and final confirmation.
 3. **My work:** the signed-in worker's claimed and upcoming occurrences.
+<<<<<<< ours
 4. **Manager controls:** assign/reassign, cancel with reason, create an ad hoc
+=======
+4. **Manager controls:** assign/reassign, waive with reason, create an ad hoc
+>>>>>>> theirs
    task, and resolve a reported issue.
 5. **Offline posture:** cache occurrences and checklist snapshots; queue claim
    and completion intents with idempotency keys; reconcile conflicts visibly.
@@ -189,9 +201,15 @@ HQ needs an **Operations** workspace in its console navigation with:
 - live operations: due, claimed, overdue, issues, coverage gaps, and manager
   actions;
 - history/audit: occurrence timeline, checklist response snapshot, actor,
+<<<<<<< ours
   corrections, cancellations, and escalation deliveries;
 - reporting: on-time completion rate, overdue rate/duration, claim latency,
   issue rate, cancellation rate, and breakdowns by brand/location/template/shift;
+=======
+  corrections, waivers, and escalation deliveries;
+- reporting: on-time completion rate, overdue rate/duration, claim latency,
+  issue rate, waiver rate, and breakdowns by brand/location/template/shift;
+>>>>>>> theirs
 - retention settings; and
 - competency mapping into the existing Training editor.
 
@@ -247,7 +265,11 @@ that two tenants with identically named templates cannot see or mutate each
 other and that a tenant with operations disabled receives no rows or navigation.
 
 Emit tenant-scoped, non-sensitive analytics for occurrence generated, claimed,
+<<<<<<< ours
 completed, overdue, cancelled, issue reported/resolved, escalation attempted/sent,
+=======
+completed, overdue, waived, issue reported/resolved, escalation attempted/sent,
+>>>>>>> theirs
 and offline reconciliation failed. Never put free-text notes or checklist
 answers into analytics payloads. Update architecture, runbook, production setup,
 tenant onboarding, and training automation documentation when implementation
