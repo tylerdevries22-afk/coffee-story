@@ -176,12 +176,20 @@ function contentItems(rows: ItemRow[], versions: MediaVersionRow[]): ContentMenu
 async function loadOrCreateTenantMenu(
   client: SupabaseClient,
   brandId: string,
+  createIfMissing: boolean,
 ): Promise<MenuRow> {
   const read = () => client.from('menus').select('id, name, is_published, updated_at')
     .eq('brand_id', brandId).order('created_at').limit(1).maybeSingle<MenuRow>();
   const existing = await read();
   if (existing.error) throw new Error(`content menu: ${existing.error.message}`);
   if (existing.data) return existing.data;
+  // A platform operator may inspect another organization, but opening its
+  // catalog must remain a read. The home-tenant editor will initialize this
+  // row when its owner first opens it; a foreign empty tenant gets a valid,
+  // inert placeholder so all downstream reads simply return empty sets.
+  if (!createIfMissing) {
+    return { id: brandId, name: 'Menu', is_published: false, updated_at: '' };
+  }
 
   const menuId = randomUUID();
   let creationMessage = 'could not create the tenant menu';
@@ -223,7 +231,7 @@ export async function loadContentWorkspace(options: { includeDraft?: boolean; in
   if (brandResult.error) throw new Error(`content brand: ${brandResult.error.message}`);
   const profile = resolveTenantTrainingProfile(brandResult.data.name, brandResult.data.brand_config);
 
-  const menu = await loadOrCreateTenantMenu(client, brandId);
+  const menu = await loadOrCreateTenantMenu(client, brandId, brandId === session.brandId);
 
   const [categories, items, releases, runs, mediaVersions, catalog, publication, catalogResources, catalogRelations, catalogPlacements] = await Promise.all([
     client.from('menu_categories').select('id, title, tagline, slug, parent_id, image_url, audience, archived_at, sort_order')
