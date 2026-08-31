@@ -1,11 +1,10 @@
 'use client';
 
 /**
- * The franchise scope controls that frame the breadcrumb in the topbar: an
- * organization switcher pinned to the far left, then the page's breadcrumb
- * trail, then a location switcher for the selected org. They are exported
- * separately so the shell can place each one around the breadcrumb rather than
- * as one right-aligned cluster. Both are custom popovers rather than a native
+ * The franchise scope controls that frame the console: the organization
+ * switcher lives in the navigation rail, while the location switcher leads the
+ * topbar's compact page trail. They are exported separately so the shell can
+ * place each control in its owning region. Both are custom popovers rather than a native
  * <select> so each row can carry a badge and a checkmark, and each row is a
  * submit button posting to a server action -- selecting is a server-side,
  * re-authorized write, never client navigation.
@@ -38,6 +37,8 @@ type ScopeSwitcherProps = {
   readonly align?: 'start' | 'end';
   /** Extra class on the trigger so the shell can shape it (chip vs. pill). */
   readonly triggerClassName?: string;
+  /** Render the trigger as the rail's branded organization control. */
+  readonly showBrandMark?: boolean;
   /** Hidden fields posted alongside the choice (e.g. the owning org id). */
   readonly hidden?: Readonly<Record<string, string>>;
   /** Optional action row pinned under the options (e.g. "New organization"). */
@@ -54,7 +55,7 @@ function Check() {
   );
 }
 
-function ScopeSwitcher({ options, selectedId, fieldName, action, icon, ariaLabel, placeholder, align = 'end', triggerClassName, hidden, footer }: ScopeSwitcherProps) {
+function ScopeSwitcher({ options, selectedId, fieldName, action, icon, ariaLabel, placeholder, align = 'end', triggerClassName, showBrandMark = false, hidden, footer }: ScopeSwitcherProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
@@ -94,8 +95,15 @@ function ScopeSwitcher({ options, selectedId, fieldName, action, icon, ariaLabel
         aria-label={ariaLabel}
         onClick={() => { setOpen((value) => !value); setQuery(''); }}
       >
-        <Icon name={icon} size={15} className="scope-trigger-icon" />
-        <span className="scope-trigger-label">{selected?.label ?? placeholder}</span>
+        {showBrandMark ? (
+          <span className="scope-trigger-brand-glyph" aria-hidden="true">
+            {(selected?.label ?? placeholder).charAt(0).toUpperCase()}
+          </span>
+        ) : <Icon name={icon} size={15} className="scope-trigger-icon" />}
+        <span className={showBrandMark ? 'scope-trigger-copy' : undefined}>
+          <span className="scope-trigger-label">{selected?.label ?? placeholder}</span>
+          {showBrandMark ? <span className="scope-trigger-subtitle">HQ console</span> : null}
+        </span>
         <Icon name="chevron" size={14} className="scope-trigger-chevron" />
       </button>
       {open ? (
@@ -150,9 +158,11 @@ export type OrganizationSwitcherProps = {
   readonly selectOrganizationAction: (formData: FormData) => void;
   /** When set, the org menu shows a "New organization" row (platform admins). */
   readonly createOrgHref?: string;
+  /** Use the full branded trigger in the navigation rail. */
+  readonly rail?: boolean;
 };
 
-/** The org chip that leads the topbar, left of the breadcrumb trail. */
+/** The organization menu, shown as the branded rail control. */
 export function OrganizationSwitcher(props: OrganizationSwitcherProps) {
   if (props.organizations.length === 0) return null;
   const orgOptions: Option[] = props.organizations.map((org) => ({
@@ -170,7 +180,8 @@ export function OrganizationSwitcher(props: OrganizationSwitcherProps) {
       ariaLabel="Switch organization"
       placeholder="Select organization"
       align="start"
-      triggerClassName="scope-trigger-org"
+      triggerClassName={`scope-trigger-org${props.rail ? ' scope-trigger-rail' : ''}`}
+      showBrandMark={props.rail}
       footer={props.createOrgHref ? (
         <Link href={props.createOrgHref} className="scope-create" role="menuitem">
           <span className="scope-create-plus" aria-hidden="true">+</span> New organization

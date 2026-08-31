@@ -129,6 +129,7 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
           organizationId={scope.organizationId}
           selectOrganizationAction={selectOrganization}
           createOrgHref={canManagePlatform ? '/organizations/new' : undefined}
+          rail
         />
       ) : undefined}
       locationSwitcher={session && scope ? (

@@ -82,7 +82,7 @@ type ConsoleShellProps = {
 
 type ConsoleRailProps = Pick<
   ConsoleShellProps,
-  'brandName' | 'initials' | 'sections' | 'statusHref' | 'sessionFooter'
+  'brandName' | 'initials' | 'sections' | 'statusHref' | 'sessionFooter' | 'orgSwitcher'
 > & {
   readonly isOpen: boolean;
   readonly isHidden: boolean;
@@ -96,6 +96,7 @@ function ConsoleRail({
   sections,
   statusHref,
   sessionFooter,
+  orgSwitcher,
   isOpen,
   isHidden,
   onClose,
@@ -129,10 +130,12 @@ function ConsoleRail({
       onKeyDown={keepFocusInRail}
     >
       <header className="console-rail-header">
-        <Link href="/" className="console-brand" aria-label={`${brandName} home`} onClick={onClose}>
-          <span className="brand-glyph">{initials.charAt(0)}</span>
-          <span className="console-brand-copy"><strong>{brandName}</strong><small>HQ console</small></span>
-        </Link>
+        {orgSwitcher ?? (
+          <Link href="/" className="console-brand" aria-label={`${brandName} home`} onClick={onClose}>
+            <span className="brand-glyph">{initials.charAt(0)}</span>
+            <span className="console-brand-copy"><strong>{brandName}</strong><small>HQ console</small></span>
+          </Link>
+        )}
         <button
           ref={closeButtonRef}
           className="rail-close"
@@ -205,7 +208,6 @@ function ConsoleTopbar({
   onOpenNavigation,
   triggerButtonRef,
   dataMode,
-  orgSwitcher,
   locationSwitcher,
 }: {
   section: ConsoleSection;
@@ -215,7 +217,6 @@ function ConsoleTopbar({
   onOpenNavigation: () => void;
   triggerButtonRef: RefObject<HTMLButtonElement | null>;
   dataMode: 'hosted' | 'preview';
-  orgSwitcher?: ReactNode;
   locationSwitcher?: ReactNode;
 }) {
   return (
@@ -232,13 +233,12 @@ function ConsoleTopbar({
         >
           <Icon name="menu" size={18} />
         </button>
-        {orgSwitcher}
+        {locationSwitcher}
         <div className="breadcrumb" aria-label="Current page">
           <span className="breadcrumb-muted">{section.title}</span>
           <Icon name="chevron" size={15} />
           <strong>{pageTitle}</strong>
         </div>
-        {locationSwitcher}
       </div>
       <div className="topbar-actions">
         <span className={`sync-state ${dataMode}`}><span className="sync-dot" /> {dataMode === 'hosted' ? 'Supabase synced' : 'Local preview data'}</span>
@@ -323,6 +323,7 @@ export function ConsoleShell(props: ConsoleShellProps) {
         sections={props.sections}
         statusHref={props.statusHref}
         sessionFooter={props.sessionFooter}
+        orgSwitcher={props.orgSwitcher}
         isOpen={drawerOpen}
         isHidden={mobileNav && !drawerOpen}
         onClose={() => setNavigationOpen(false)}
@@ -345,7 +346,6 @@ export function ConsoleShell(props: ConsoleShellProps) {
           onOpenNavigation={() => setNavigationOpen(true)}
           triggerButtonRef={triggerButtonRef}
           dataMode={props.dataMode}
-          orgSwitcher={props.orgSwitcher}
           locationSwitcher={props.locationSwitcher}
         />
         <ContextRail section={activeSection} statusHref={props.statusHref} />

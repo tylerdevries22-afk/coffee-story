@@ -882,6 +882,11 @@ body {
   border-bottom: 1px solid var(--line);
 }
 
+.console-rail-header > .scope-switcher {
+  min-width: 0;
+  flex: 1;
+}
+
 .console-brand {
   display: flex;
   align-items: center;
@@ -1266,21 +1271,32 @@ body {
 
 .scope-switcher { position: relative; min-width: 0; }
 
-/* The org chip leads the topbar; the breadcrumb trail is nudged off it and the
-   location pill follows the trail, so the header reads org -> page -> location
-   left to right rather than one right-aligned cluster. */
-.topbar-context > .scope-switcher:first-of-type { margin-right: 2px; }
+/* The organization lives in the rail; the topbar starts with the location
+   scope, then the compact page trail. */
+.topbar-context > .scope-switcher { margin-right: 2px; }
 .topbar-context .breadcrumb { margin-left: 2px; }
-.topbar-context .breadcrumb + .scope-switcher { margin-left: 4px; }
 
-/* Org: a rounded-rectangle chip, tinted so the current tenant reads as the
-   anchor of the header. Location: a fully-rounded pill after the trail. */
+/* Org: a branded rail control. Location: a fully-rounded pill leading the
+   topbar so scope is clear before the page trail. */
 .scope-trigger-org {
   border-color: color-mix(in srgb, var(--accent) 34%, var(--line));
   background: color-mix(in srgb, var(--accent) 12%, var(--bg-raised));
 }
 .scope-trigger-org:hover { background: color-mix(in srgb, var(--accent) 18%, var(--bg-raised)); }
-.scope-trigger-location { border-radius: 999px; }
+.scope-trigger-rail {
+  width: 100%;
+  min-height: 42px;
+  justify-content: flex-start;
+  padding: 4px 9px 4px 5px;
+  border-radius: 9px;
+}
+.scope-trigger-location {
+  min-height: 36px;
+  padding-right: 12px;
+  padding-left: 12px;
+  border-radius: 999px;
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--line));
+}
 
 .scope-trigger {
   display: inline-flex;
@@ -1302,6 +1318,22 @@ body {
 .scope-trigger-icon { color: var(--accent); flex: none; }
 .scope-trigger-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .scope-trigger-chevron { color: var(--text-muted); flex: none; }
+.scope-trigger-brand-glyph {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--accent) 50%, var(--line));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 16%, var(--bg-raised));
+  color: var(--accent);
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+}
+.scope-trigger-copy { display: grid; min-width: 0; flex: 1; gap: 1px; text-align: left; }
+.scope-trigger-subtitle { color: var(--text-muted); font-size: 10px; font-weight: 500; }
 
 .scope-menu {
   position: absolute;
@@ -1503,6 +1535,15 @@ a:focus-visible {
   .main { padding-right: 26px; padding-left: 26px; }
   .topbar { padding-right: 22px; padding-left: 22px; }
   .console-context-scroll { padding-right: 22px; padding-left: 22px; }
+}
+
+@media (max-width: 900px) {
+  .topbar { gap: 10px; }
+  .topbar-context { gap: 8px; }
+  .topbar-context .breadcrumb { flex: 1; }
+  .breadcrumb-muted,
+  .breadcrumb > .nav-icon { display: none; }
+  .sync-state { display: none; }
 }
 
 @media (max-width: 760px) {
