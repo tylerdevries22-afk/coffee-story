@@ -81,7 +81,7 @@ export async function loadKpis(): Promise<KpiDay[]> {
     .gte('day', sevenDaysAgo())
     .order('day');
   const [metrics, names] = await Promise.all([
-    (locationId ? base.eq('location_id', locationId) : base.in('location_id', [...scope.locationIds]))
+    (scope.locationId ? base.eq('location_id', scope.locationId) : base.in('location_id', [...scope.locationIds]))
       .eq('brand_id', scope.orgId).returns<MetricsRow[]>(),
     locationNames(client, scope.orgId),
   ]);
@@ -290,7 +290,7 @@ export async function loadFees(): Promise<FeeRow[]> {
     .order('created_at', { ascending: false })
     .limit(5000);
   const [rows, names] = await Promise.all([
-    (locationId ? base.eq('location_id', locationId) : base.in('location_id', [...scope.locationIds])).returns<PlatformFeeRowLike[]>(),
+    (scope.locationId ? base.eq('location_id', scope.locationId) : base.in('location_id', [...scope.locationIds])).returns<PlatformFeeRowLike[]>(),
     locationNames(client, scope.orgId),
   ]);
   if (rows.error) throw new Error(`platform_fees: ${rows.error.message}`);

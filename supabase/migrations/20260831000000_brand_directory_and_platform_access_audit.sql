@@ -49,11 +49,35 @@ create index platform_access_brand_created_idx
 create unique index platform_access_action_correlation_uidx
   on public.platform_access_events (action, correlation_id);
 
--- Append-only: reuse the shared rejection trigger so a row can never be
--- rewritten or deleted, only inserted.
+-- Append-only, while still allowing PostgreSQL's ON DELETE SET NULL RI
+-- trigger to clear a nullable foreign key when an actor, brand, or location
+-- is removed. A direct client update runs at trigger depth 1 and is rejected;
+-- the nested RI update is accepted only when it changes one of those three
+-- nullable references to NULL and nothing else.
+create or replace function app.reject_platform_access_mutation() returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if TG_OP = 'UPDATE'
+     and pg_catalog.pg_trigger_depth() > 1
+     and (NEW.actor_id is null or OLD.actor_id is not distinct from NEW.actor_id)
+     and (NEW.brand_id is null or OLD.brand_id is not distinct from NEW.brand_id)
+     and (NEW.location_id is null or OLD.location_id is not distinct from NEW.location_id)
+     and OLD.action is not distinct from NEW.action
+     and OLD.correlation_id is not distinct from NEW.correlation_id
+     and OLD.metadata is not distinct from NEW.metadata
+     and OLD.created_at is not distinct from NEW.created_at
+  then
+    return NEW;
+  end if;
+  raise exception using errcode = '55000', message = 'record_is_append_only';
+end $$;
+revoke all on function app.reject_platform_access_mutation() from public, anon, authenticated;
+
 create trigger platform_access_immutable
 before update or delete on public.platform_access_events
-for each row execute function app.reject_record_mutation();
+for each row execute function app.reject_platform_access_mutation();
 
 alter table public.platform_access_events enable row level security;
 

@@ -10,6 +10,7 @@ import { currentSession, hasRole } from './auth';
 import { serverClient } from './supabase-server';
 import { selectedLocationId } from './workspace-location';
 import { scopeRowsToLocation } from './location-scope';
+import { liveScope } from './live-scope';
 
 export type OperationsTemplateSummary = {
   id: string; key: string; revision: number; title: string; locationId: string | null;
@@ -137,10 +138,13 @@ function scopeWorkspaceToLocation(workspace: OperationsWorkspace, locationId: st
 }
 
 export async function loadOperationsWorkspace(): Promise<OperationsWorkspace> {
-  const [session, client, locationId] = await Promise.all([currentSession(), serverClient(), selectedLocationId()]);
-  if (!client) return scopeWorkspaceToLocation(demoWorkspace(), locationId);
+  const [session, client, demoLocationId] = await Promise.all([currentSession(), serverClient(), selectedLocationId()]);
+  if (!client) return scopeWorkspaceToLocation(demoWorkspace(), demoLocationId);
   if (!session || !hasRole(session, 'location_manager')) return emptyWorkspace(false, false);
-  const brandId = session.brandId;
+  const scope = await liveScope(client);
+  if (!scope.orgId) return emptyWorkspace(false, hasRole(session, 'brand_owner'));
+  const brandId = scope.orgId;
+  const locationId = scope.locationId;
   const brand = await client.from('brands').select('operations').eq('id', brandId)
     .maybeSingle<{ operations: boolean }>();
   if (brand.error || !brand.data?.operations) return emptyWorkspace(false, hasRole(session, 'brand_owner'));
