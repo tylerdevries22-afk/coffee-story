@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AppIcon } from '@/components/icon';
 import { CALENDAR_ITEMS, CALENDAR_PEOPLE } from '@/data/calendar-demo';
 import { loadLiveCalendarItems } from '@/features/calendar/live';
 import { calendarCategoryForItem, calendarDateRail, calendarItemHref, type CalendarItem } from '@/features/calendar/presentation';
@@ -14,7 +13,7 @@ import { useAuth } from '@/state/auth-context';
 import { useBusiness } from '@/state/business';
 import { useOperations } from '@/state/operations-store';
 import { useOperator } from '@/state/operator-store';
-import { useAppTokens, useTokens as useBrandTokens, type AppTokens } from '@platform/ui';
+import { useAppTokens, useTokens as useBrandTokens, type AppTokens, AppIcon } from '@platform/ui';
 
 type CalendarMode = 'list' | 'day';
 type DayKey = string;

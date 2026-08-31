@@ -6,9 +6,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { operationDisplayStatus, validateOperationResponses } from '@platform/domain';
-import { useTokens, type BrandTokens } from '@platform/ui';
+import { useTokens, type BrandTokens, AppIcon } from '@platform/ui';
 
-import { AppIcon } from '@/components/icon';
 import { Body, Button, Card } from '@/components/ui';
 import { taskEligibilityMessage, taskIsActionable, type OperatorChecklistStep,
   type OperatorTaskOccurrence } from '@/features/operations/model';

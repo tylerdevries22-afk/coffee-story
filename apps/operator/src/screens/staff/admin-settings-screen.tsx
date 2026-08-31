@@ -11,7 +11,6 @@ import {
   type KeyboardTypeOptions,
 } from 'react-native';
 
-import { AppIcon } from '@/components/icon';
 import { CollapsingScreen } from '@/components/collapsing-screen';
 import { Body, Button, Card, Eyebrow } from '@/components/ui';
 import {
@@ -27,7 +26,7 @@ import { mobileApi } from '@/lib/mobile-api';
 import { openWebPath } from '@/lib/web-navigation';
 import { workspaceTone } from '@/features/staff/workspace';
 import { useAuth } from '@/state/auth-context';
-import { hairline, tabState } from '@platform/ui';
+import { hairline, tabState, AppIcon } from '@platform/ui';
 import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 type AdminSettingsScreenProps = {

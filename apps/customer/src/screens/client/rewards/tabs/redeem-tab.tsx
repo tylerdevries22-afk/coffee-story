@@ -9,13 +9,12 @@ import { nextRewardForBalance, rewardFillPercent, rewardIsLocked } from '@/featu
 import { tierForAnnualPoints } from '@platform/domain';
 import { TENANT_REWARD_TIERS } from '@/tenant';
 import type { RewardAccount, RewardCatalogItem } from '@platform/domain';
-import { AppIcon } from '@/components/icon';
 
 import { hapticSelection } from '../haptics';
 import { RewardMark } from '../reward-mark';
 import { useRewardStyles } from '../styles';
 import type { RewardDetail } from '../types';
-import { useTokens as useBrandTokens } from '@platform/ui';
+import { useTokens as useBrandTokens, AppIcon } from '@platform/ui';
 
 /**
  * Counts to `target` on the same clock and curve as the liquid pour, so the

@@ -1,8 +1,8 @@
 import { Image } from 'expo-image';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { AppIcon, type AppIconName } from '@platform/ui';
 
-import { AppIcon, type AppIconName } from '@/components/icon';
 
 type TrainingArtworkProps = {
   url?: string;

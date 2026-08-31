@@ -4,8 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Card } from '@/components/ui';
 import { deltaPercent, formatMoney, initials } from '@/features/staff/workspace';
 import type { PortalOrder } from '@platform/domain';
-import { AppIcon } from '@/components/icon';
-import { toggleState } from '@platform/ui';
+import { toggleState, AppIcon } from '@platform/ui';
 import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 /**

@@ -1,9 +1,8 @@
 import { Image } from 'expo-image';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { AppIcon } from '@/components/icon';
 import { useBusiness } from '@/state/business';
-import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
+import { useTokens as useBrandTokens, type BrandTokens, AppIcon } from '@platform/ui';
 
 type ProfileAvatarProps = {
   name: string;

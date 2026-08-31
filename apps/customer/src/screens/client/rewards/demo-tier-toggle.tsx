@@ -1,13 +1,12 @@
 import { Fragment } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
-import { AppIcon } from '@/components/icon';
 import { paletteForTier } from '@/components/rewards/glass-cup-palettes';
 import { hapticSelection } from './haptics';
 import { useRewardStyles } from './styles';
 import { type RewardTierName } from '@platform/domain';
 import { TENANT_REWARD_TIERS } from '@/tenant';
-import { choiceState, useTokens as useBrandTokens } from '@platform/ui';
+import { choiceState, useTokens as useBrandTokens, AppIcon } from '@platform/ui';
 
 /**
  * Demo-only tier switch. Overriding the year's points is what swaps the tier:

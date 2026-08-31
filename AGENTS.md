@@ -59,3 +59,25 @@ pin is ever lifted:
    Metro can resolve it, failing with "Unable to resolve module
    ./node_modules/expo-router/entry". Keeping the entry inside the server root
    avoids the escape entirely.
+
+## Platform extensions work inside a workspace package
+
+`packages/ui` publishes an `exports` map whose wildcard is `"./src/*":
+"./src/*.ts"`. That looked like it would defeat Metro's platform-extension
+resolution — a subpath naming one concrete `.ts` file cannot also mean
+`.web.tsx` — so a shared component with a native and a web renderer looked
+impossible to promote out of the apps.
+
+It resolves correctly. Metro applies `sourceExts`/platform extensions to the
+module the *importer* names, and the barrel (`"."` → `./src/index.ts`) re-exports
+`./app-icon`, a relative specifier Metro resolves itself. The `./src/*` wildcard
+is only involved when something addresses a deep path directly, which is why a
+`.tsx` module must be reached through `src/index.ts` rather than
+`@platform/ui/src/<name>`.
+
+Measured, not assumed. `packages/ui/src/app-icon.tsx` renders SF Symbols and
+`app-icon.web.tsx` never imports `expo-symbols`; exporting `apps/customer` gives
+a web bundle with zero occurrences of `SymbolView` or `expo-symbols` and an iOS
+Hermes bundle (`strings dist/**/*.hbc`) that has `SymbolView`. So a promoted
+package may carry a `.web` variant, and future promotions do not need to keep a
+platform split behind in the apps.

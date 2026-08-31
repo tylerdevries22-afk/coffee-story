@@ -3,7 +3,15 @@ import type Ionicons from '@expo/vector-icons/Ionicons';
 
 /**
  * The SF Symbol -> Ionicon translation table, shared by the native and web
- * icon renderers.
+ * icon renderers of every app.
+ *
+ * There were two of these, one per Expo app, and they had drifted: the
+ * operator's carried fourteen entries the customer's did not -- `flame`,
+ * `gift.fill`, `person.2.fill` and the rest. Nothing about a translation from
+ * an SF Symbol to an Ionicon is app-specific, so a symbol mapped in one app
+ * and not the other did not mean anything; it just rendered a neutral dot on
+ * Android and web in whichever app had missed it, silently, which is the
+ * failure this table exists to prevent. This is the union of the two.
  *
  * Both imports here are type-only, so this module pulls no font or native
  * module into any bundle that includes it.
@@ -44,6 +52,8 @@ export const IONICON: Record<string, keyof typeof Ionicons.glyphMap> = {
   'chevron.right': 'chevron-forward',
   'chevron.up': 'chevron-up',
   clock: 'time-outline',
+  // Ionicons has no separate history glyph; the clock reads the same either way.
+  'clock.arrow.circlepath': 'time-outline',
   creditcard: 'card-outline',
   'creditcard.fill': 'card',
   'cup.and.saucer': 'cafe-outline',
@@ -57,6 +67,7 @@ export const IONICON: Record<string, keyof typeof Ionicons.glyphMap> = {
   giftcard: 'gift',
   'rectangle.grid.2x2': 'grid-outline',
   'rectangle.grid.2x2.fill': 'grid',
+  heart: 'heart-outline',
   'heart.fill': 'heart',
   house: 'home-outline',
   'house.fill': 'home',

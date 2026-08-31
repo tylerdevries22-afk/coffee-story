@@ -19,7 +19,6 @@ import {
 } from 'react-native';
 
 import { CollapsingScreen } from '@/components/collapsing-screen';
-import { AppIcon } from '@/components/icon';
 import { ActionButton, StickyActionBar, useStickyBarClearance } from '@/components/order/order-chrome';
 import { Body } from '@/components/ui';
 import {
@@ -36,7 +35,7 @@ import {
 import { EMPTY_DELIVERY_ADDRESS, PICKUP_LOCATIONS } from '@/features/order/locations';
 import { pickupWindows, shopStatus } from '@/features/order/schedule';
 import { TENANT } from '@/tenant';
-import { choiceState } from '@platform/ui';
+import { choiceState, AppIcon } from '@platform/ui';
 import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 /** Enough windows to fill a scroll without pretending the shop is limitless. */

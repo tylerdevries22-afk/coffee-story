@@ -21,11 +21,10 @@ import {
 } from 'react-native';
 
 import { CollapsingPageHeader } from '@/components/collapsing-page-header';
-import { AppIcon } from '@/components/icon';
 import { MenuImage } from '@/components/menu-image';
 import { CategoryStrip } from '@/components/order/category-strip';
 import { CartPill, Ribbon } from '@/components/order/order-chrome';
-import { disabledState, useTabBarClearance } from '@platform/ui';
+import { disabledState, useTabBarClearance, AppIcon } from '@platform/ui';
 import type { MenuItem } from '@/data/catalog';
 import {
   fulfillmentDetail, fulfillmentLabel, describePickupWindow, menuPriceLabel,

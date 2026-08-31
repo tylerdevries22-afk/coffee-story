@@ -4,11 +4,10 @@ import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AppIcon } from '@/components/icon';
 import { TrainingArtwork } from '@/components/training-artwork';
 import { useTrainingRelease } from '@/features/training/use-training-release';
 import { platformApi } from '@/lib/api';
-import { useAppTokens, type AppTokens } from '@platform/ui';
+import { useAppTokens, type AppTokens, AppIcon } from '@platform/ui';
 import { scoreTrainingQuiz } from '@platform/domain';
 
 export function TrainingLessonScreen({ moduleSlug, lessonSlug }: { moduleSlug: string; lessonSlug: string }) {

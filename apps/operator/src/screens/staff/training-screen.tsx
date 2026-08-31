@@ -4,12 +4,11 @@ import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } fr
 import Svg, { Circle } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AppIcon } from '@/components/icon';
 import { TrainingArtwork } from '@/components/training-artwork';
 import { operatorLayout } from '@/lib/responsive-layout';
 import { useTrainingRelease } from '@/features/training/use-training-release';
 import { useBusiness } from '@/state/business';
-import { useAppTokens, type AppTokens } from '@platform/ui';
+import { useAppTokens, type AppTokens, AppIcon } from '@platform/ui';
 import { TRAINING_TRACK_ORDER, type TrainingTrackKey } from '@platform/domain';
 
 const TRACK_LABELS: Record<(typeof TRAINING_TRACK_ORDER)[number], string> = {

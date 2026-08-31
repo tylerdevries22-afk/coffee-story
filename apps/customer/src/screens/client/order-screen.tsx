@@ -17,7 +17,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
 import { CollapsingScreen } from '@/components/collapsing-screen';
-import { AppIcon } from '@/components/icon';
 import { PushFromRight } from '@/components/push-from-right';
 import { Body } from '@/components/ui';
 import type { MenuItem } from '@/data/catalog';
@@ -52,7 +51,7 @@ import {
 } from '@platform/api-client';
 import { subscribeToOrderStatus } from '@platform/data';
 import type { OrderStatus } from '@platform/schema';
-import { choiceState, disabledState, useReducedMotion } from '@platform/ui';
+import { choiceState, disabledState, useReducedMotion, AppIcon } from '@platform/ui';
 import { platformApi } from '@/lib/api';
 import { demoSyncClient } from '@/lib/demo-sync';
 import { liveOrderContext } from '@/lib/live-portal';

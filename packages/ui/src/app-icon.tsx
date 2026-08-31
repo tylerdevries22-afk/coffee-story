@@ -4,21 +4,25 @@ import { Platform, type StyleProp, type TextStyle, type ViewStyle } from 'react-
 
 import { IONICON, type AppIconName } from './icon-map';
 
-export type { AppIconName };
-
 /**
  * One icon for every platform (native build).
  *
  * iOS gets the real SF Symbol, which carries Apple's optical sizing and weight
- * matching and is what the app was designed around. Android has no SF Symbols,
- * so it falls back to the nearest Ionicon.
+ * matching and is what the apps were designed around. Android has no SF
+ * Symbols, so it falls back to the nearest Ionicon.
  *
- * Icons are addressed by their SF Symbol name throughout the app so the iOS
+ * Icons are addressed by their SF Symbol name throughout the apps so the iOS
  * build stays canonical; `icon-map.ts` is the translation layer.
  *
- * The web build uses `icon.web.tsx` instead, which never imports expo-symbols —
- * doing so drags a 940 KB Material Symbols font into a bundle that can never
- * render one.
+ * The web build uses `app-icon.web.tsx` instead, which never imports
+ * expo-symbols — doing so drags a 940 KB Material Symbols font into a bundle
+ * that can never render one. The two files are a Metro platform split, and it
+ * resolves through this package's `exports` map: a web export carries only the
+ * web variant and a Hermes bundle only the native one.
+ *
+ * This lived twice, byte-identical, in apps/customer and apps/operator (and
+ * so did the map, which had not stayed identical). Nothing in it is
+ * app-specific.
  */
 export type AppIconProps = {
   name: AppIconName;

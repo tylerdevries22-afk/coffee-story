@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AppIcon } from '@/components/icon';
 import { CALENDAR_ITEMS } from '@/data/calendar-demo';
 import { loadLiveCalendarItems } from '@/features/calendar/live';
 import { calendarCategoryForItem, calendarItemById, calendarProgressLabels, type CalendarItem } from '@/features/calendar/presentation';
@@ -12,7 +11,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/state/auth-context';
 import { useOperations } from '@/state/operations-store';
 import { useOperator } from '@/state/operator-store';
-import { useAppTokens, useTokens as useBrandTokens, type AppTokens } from '@platform/ui';
+import { useAppTokens, useTokens as useBrandTokens, type AppTokens, AppIcon } from '@platform/ui';
 
 export function CalendarDetailScreen({ itemId }: { itemId: string }) {
   const { isDemo, tenant } = useAuth();

@@ -1,14 +1,13 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { AppIcon } from '@/components/icon';
 import { TENANT } from '@/tenant';
 import { cashEntries } from '@/features/rewards/cash-entries';
 import { formatRewardDate } from '@/features/rewards/presentation';
 import type { RewardAccount, RewardEntry } from '@platform/domain';
 
 import { useRewardStyles } from '../styles';
-import { useTokens as useBrandTokens } from '@platform/ui';
+import { useTokens as useBrandTokens, AppIcon } from '@platform/ui';
 
 export function CashTab({
   account,

@@ -4,8 +4,6 @@ import type { StyleProp, TextStyle, ViewStyle } from 'react-native';
 
 import { IONICON, type AppIconName } from './icon-map';
 
-export type { AppIconName };
-
 /**
  * Web icon renderer.
  *

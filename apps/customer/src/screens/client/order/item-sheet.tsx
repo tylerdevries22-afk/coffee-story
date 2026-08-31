@@ -10,7 +10,6 @@ import * as Haptics from 'expo-haptics';
 import { useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { AppIcon } from '@/components/icon';
 import { MenuImage } from '@/components/menu-image';
 import { OptionGroupField, QuantityStepper, SizeSegmented } from '@/components/order/option-controls';
 import { ActionButton, useCoveringBottomInset } from '@/components/order/order-chrome';
@@ -25,7 +24,7 @@ import { MAX_LINE_QUANTITY, buildOrderLine, type OrderLine ,
   visibleOptionGroups,
   type OptionSelection,
 } from '@platform/domain';
-import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
+import { useTokens as useBrandTokens, type BrandTokens, AppIcon } from '@platform/ui';
 
 export function ItemSheet({
   item,

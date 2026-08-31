@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Animated, Pressable, Text, View, useWindowDimensions } from 'react-native';
 
-import { AppIcon } from '@/components/icon';
 import { GlassCup } from '@/components/rewards/glass-cup';
 import { annualPeriodYear, POINTS_LABEL, rewardProgress } from '@/features/rewards/presentation';
 import { nextTier, rewardMilestoneStates, tierForAnnualPoints } from '@platform/domain';
@@ -13,7 +12,7 @@ import { DemoTierToggle } from '../demo-tier-toggle';
 import { perkDescription } from '../sheets';
 import { useRewardStyles } from '../styles';
 import type { PerkDetail } from '../types';
-import { useTokens as useBrandTokens } from '@platform/ui';
+import { useTokens as useBrandTokens, AppIcon } from '@platform/ui';
 
 export function StatusTab({
   account,

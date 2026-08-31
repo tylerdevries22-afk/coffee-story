@@ -6,8 +6,7 @@ import { Body, Button, Card } from '@/components/ui';
 import { workspaceTone } from '@/features/staff/workspace';
 import { openWebPath } from '@/lib/web-navigation';
 import { useAuth } from '@/state/auth-context';
-import { AppIcon } from '@/components/icon';
-import { hairline, useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
+import { hairline, useTokens as useBrandTokens, type BrandTokens, AppIcon } from '@platform/ui';
 
 export function AdminProposalScreen({ onBack }: { onBack: () => void }) {
   const tokens = useBrandTokens();

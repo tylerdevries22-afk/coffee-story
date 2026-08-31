@@ -43,7 +43,6 @@ const DIVERGENT_BY_DESIGN = [
   // wrapper constrains wide admin surfaces while the customer shell remains
   // edge-to-edge for guest ordering.
   'components/collapsing-screen.tsx',
-  'components/icon-map.ts',
   // Each install prompt is dismissed independently; sharing this key would
   // let installing one persona suppress the other app's prompt.
   'components/install-prompt.web.tsx',

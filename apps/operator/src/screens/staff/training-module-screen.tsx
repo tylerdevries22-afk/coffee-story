@@ -2,10 +2,9 @@ import { router, type Href } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AppIcon } from '@/components/icon';
 import { TrainingArtwork } from '@/components/training-artwork';
 import { useTrainingRelease } from '@/features/training/use-training-release';
-import { useAppTokens, type AppTokens } from '@platform/ui';
+import { useAppTokens, type AppTokens, AppIcon } from '@platform/ui';
 
 export function TrainingModuleScreen({ moduleSlug }: { moduleSlug: string }) {
   const { colors, styles } = useTrainingModuleTheme();

@@ -5,10 +5,9 @@ import { Fragment } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { alpha, tabState } from '@platform/ui';
+import { alpha, tabState, AppIcon } from '@platform/ui';
 import { useAppState, type ClientTab, type StaffTab } from '@/state/app-context';
 import { CLIENT_TAB_LABELS, STAFF_TAB_LABELS } from '@/state/navigation-state';
-import { AppIcon } from '@/components/icon';
 import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 import { useOptionalOperations } from '@/state/operations-store';
 

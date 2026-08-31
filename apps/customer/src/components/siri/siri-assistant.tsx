@@ -11,8 +11,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { AppIcon } from '@/components/icon';
-import { type BrandTokens, useReducedMotion, useTokens as useBrandTokens } from '@platform/ui';
+import { type BrandTokens, useReducedMotion, useTokens as useBrandTokens, AppIcon } from '@platform/ui';
 
 export type SiriCommand = {
   key: string;

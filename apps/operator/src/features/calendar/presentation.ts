@@ -1,4 +1,3 @@
-import type { AppIconName } from '@/components/icon-map';
 import {
   CALENDAR_CORE_KINDS,
   resolveCalendarCategoryPresentation,
@@ -9,7 +8,7 @@ import {
   type CalendarIconKey,
   type CalendarTone,
 } from '@platform/domain';
-import type { BrandTokens } from '@platform/ui';
+import type { AppIconName, BrandTokens } from '@platform/ui';
 
 export type CalendarCategoryKind = CalendarCoreKind;
 

@@ -1,7 +1,6 @@
 import { createElement, useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, Share, Text, View } from 'react-native';
 
-import { AppIcon } from '@/components/icon';
 import { SheetModal } from '@/components/sheet-modal';
 import { Button } from '@/components/ui';
 import { POINTS_LABEL, demoReferralCode, referralShareUrl } from '@/features/rewards/presentation';
@@ -13,7 +12,7 @@ import { hapticError, hapticSuccess } from './haptics';
 import { RewardMark } from './reward-mark';
 import { useRewardStyles } from './styles';
 import type { PerkDetail, RewardDetail } from './types';
-import { useTokens as useBrandTokens } from '@platform/ui';
+import { useTokens as useBrandTokens, AppIcon } from '@platform/ui';
 
 /**
  * The Rewards tab's modal sheets: perk detail, reward detail, the referral

@@ -3,7 +3,6 @@ import { router, type Href } from 'expo-router';
 import { useMemo, useState, type ReactNode } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
-import { AppIcon, type AppIconName } from '@/components/icon';
 import { MoreSearchTakeover } from '@/components/more-search-takeover';
 import { PreviewRolePicker } from '@/components/preview-role-picker';
 import { ProfileAvatar } from '@/components/profile-avatar';
@@ -21,7 +20,7 @@ import { useAppState } from '@/state/app-context';
 import { useAuth } from '@/state/auth-context';
 import { useOperations } from '@/state/operations-store';
 import { buildStaffNotifications, type StaffDashboard } from '@platform/domain';
-import { useAppTokens, type AppTokens } from '@platform/ui';
+import { useAppTokens, type AppTokens, AppIcon, type AppIconName } from '@platform/ui';
 
 type HeaderSurface = 'profile' | null;
 

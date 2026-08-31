@@ -11,8 +11,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AppIcon } from '@/components/icon';
-import { type BrandTokens, useReducedMotion, useTokens as useBrandTokens } from '@platform/ui';
+import { type BrandTokens, useReducedMotion, useTokens as useBrandTokens, AppIcon } from '@platform/ui';
 
 const ENTER_MS = 260;
 
