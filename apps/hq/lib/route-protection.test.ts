@@ -25,9 +25,9 @@ const middleware = readFileSync(
 const ALLOWED_PUBLIC_PREFIXES = ["'/login'", "'/api/'", "'/status/'"];
 
 test('the public allowlist is exactly the reviewed set', () => {
-  const match = middleware.match(/const PUBLIC_PREFIXES = \[([^\]]*)\]/);
-  assert.ok(match, 'PUBLIC_PREFIXES must exist in middleware.ts');
-  const declared = match[1].split(',').map((entry) => entry.trim()).filter(Boolean);
+  const body = middleware.match(/const PUBLIC_PREFIXES = \[([^\]]*)\]/)?.[1];
+  if (typeof body !== 'string') throw new Error('PUBLIC_PREFIXES must exist in middleware.ts');
+  const declared = body.split(',').map((entry) => entry.trim()).filter(Boolean);
   assert.deepEqual(
     declared.sort(),
     [...ALLOWED_PUBLIC_PREFIXES].sort(),

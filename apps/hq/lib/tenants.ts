@@ -17,6 +17,7 @@
  */
 import coffeeStoryBrand from '../../../tenants/coffee-story/brand.json';
 import demoRoasteryBrand from '../../../tenants/demo-roastery/brand.json';
+import stillpointBrand from '../../../tenants/stillpoint-builders/brand.json';
 
 import { DEMO_LOCATIONS, DEMO_SESSION } from './demo-data';
 
@@ -40,25 +41,6 @@ export type TenantOrg = {
   readonly locations: readonly TenantLocation[];
 };
 
-// The operator that runs the platform. It carries the franchise palette rather
-// than any tenant's, so selecting it reads as "the whole book of business".
-const STILLPOINT_BRAND = {
-  tokens: {
-    primary: '#161B22',
-    secondary: '#22303C',
-    surface: '#F4F6F8',
-    surfaceElevated: '#FFFFFF',
-    accent: '#4C7DA6',
-    textPrimary: '#12181F',
-    textMuted: '#5A6B7A',
-    success: '#3E6B4F',
-    warning: '#9A5B24',
-    danger: '#A04038',
-    fontDisplay: 'Fraunces',
-    fontBody: 'Inter',
-  },
-};
-
 const STILLPOINT_LOCATIONS: readonly TenantLocation[] = [
   { id: 'sp-hq', name: 'Head office', city: 'Grand Rapids, MI' },
   { id: 'sp-north', name: 'North region', city: 'Traverse City, MI' },
@@ -80,7 +62,7 @@ export const TENANT_ORGS: readonly TenantOrg[] = [
     slug: 'stillpoint-builders',
     name: 'Stillpoint Builders',
     kind: 'operator',
-    brandConfig: STILLPOINT_BRAND,
+    brandConfig: stillpointBrand,
     locations: STILLPOINT_LOCATIONS,
   },
   {

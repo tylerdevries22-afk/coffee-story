@@ -1,0 +1,62 @@
+{
+  "$docs": {
+    "status": "Operator/franchise demo tenant. Stillpoint Builders is the platform operator shown in the HQ organization switcher -- a construction franchise, deliberately not a coffee shop, so the switcher demonstrates the framework is industry-neutral. Palette is a neutral steel/slate franchise identity derived from its own construction brand, not any other product's look (docs/DO-NOT-RESEMBLE.md)."
+  },
+  "identity": {
+    "slug": "stillpoint-builders",
+    "name": "Stillpoint Builders",
+    "bundleId": "com.stillpointbuilders.app",
+    "scheme": "stillpoint",
+    "kioskBundleId": "com.stillpointbuilders.kiosk",
+    "kioskScheme": "stillpoint-kiosk",
+    "easProjectId": "",
+    "kioskEasProjectId": ""
+  },
+  "tokens": {
+    "primary": "#161B22",
+    "secondary": "#22303C",
+    "surface": "#F4F6F8",
+    "surfaceElevated": "#FFFFFF",
+    "accent": "#4C7DA6",
+    "textPrimary": "#12181F",
+    "textMuted": "#5A6B7A",
+    "success": "#3E6B4F",
+    "warning": "#9A5B24",
+    "danger": "#A04038",
+    "radius": {
+      "sm": 8,
+      "md": 14,
+      "lg": 22,
+      "pill": 999
+    },
+    "spacing": {
+      "xs": 4,
+      "sm": 8,
+      "md": 12,
+      "lg": 16,
+      "xl": 24,
+      "xxl": 32
+    },
+    "fontDisplay": "Fraunces",
+    "fontBody": "Inter",
+    "motion": {
+      "fast": 120,
+      "base": 220,
+      "slow": 360
+    }
+  },
+  "copy": {
+    "appName": "Stillpoint Builders",
+    "orderCta": "Start a project",
+    "memberFallback": "Client"
+  },
+  "features": {
+    "drops": false,
+    "catering": false,
+    "delivery": false,
+    "multi_location": true,
+    "sms": false,
+    "stored_value": false,
+    "referrals": false
+  }
+}
