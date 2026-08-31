@@ -838,6 +838,13 @@ body {
   background: var(--bg);
 }
 
+/* The tenant-access fallback is the shell's only single child and should not
+   be constrained to the icon-rail column. */
+.shell > .main:only-child {
+  grid-column: 1 / -1;
+  grid-row: 1 / -1;
+}
+
 .skip-link {
   position: fixed;
   z-index: 100;
