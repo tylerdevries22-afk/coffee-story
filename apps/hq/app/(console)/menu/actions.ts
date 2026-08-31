@@ -20,8 +20,8 @@ import { parseMenuCsv } from '@platform/schema';
 
 import { currentSession, hasRole } from '@/lib/auth';
 import { isConfigured, serverClient } from '@/lib/supabase-server';
-import { selectedOrgId } from '@/lib/workspace-location';
-import { authorizeOrganization } from '@/lib/workspace-scope';
+import { selectedOrganizationId } from '@/lib/workspace-scope';
+import { mayMutateSelectedOrganization } from '@/lib/workspace-mutation';
 
 function fail(message: string): never {
   redirect(`/menu/import?error=${encodeURIComponent(message)}`);
@@ -44,13 +44,15 @@ export async function importMenuAction(formData: FormData): Promise<void> {
     fail(`This import has ${rows.length} rows; a single menu import is limited to ${MAX_MENU_ROWS}. Split it into smaller files.`);
   }
 
+  const brandId = await selectedOrganizationId(session);
+  if (!mayMutateSelectedOrganization(session.brandId, brandId)) {
+    fail('Cross-organization menu imports require the audited support workflow.');
+  }
+
   if (!isConfigured()) {
     // Demo: nothing to write, but the parse is real -- report what would land.
     redirect(`/menu?imported=${rows.length}&preview=1`);
   }
-
-  const cookieOrg = await selectedOrgId();
-  const brandId = (cookieOrg ? await authorizeOrganization(session, cookieOrg) : null) ?? session.brandId;
 
   const client = await serverClient();
   if (!client) fail('This deployment is not connected to Supabase.');

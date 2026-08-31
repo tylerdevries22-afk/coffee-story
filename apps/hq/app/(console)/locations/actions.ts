@@ -12,6 +12,7 @@ import { serverEnv, serviceDb } from '@/lib/api-auth';
 import { isConfigured, serverClient } from '@/lib/supabase-server';
 import { parseLocationDraft } from '@/lib/location-input';
 import { locationCreationAllowed } from '@/lib/location-capacity';
+import { locationCreationContinuation } from '@/lib/location-onboarding';
 import { addDemoLocation } from '@/lib/demo-locations';
 import { selectedOrgId } from '@/lib/workspace-location';
 import { authorizeOrganization } from '@/lib/workspace-scope';
@@ -165,11 +166,14 @@ export async function createLocationAction(formData: FormData): Promise<void> {
   if (insert.error) redirect(`/locations/new?error=${encodeURIComponent('Could not create the location.')}`);
   revalidatePath('/locations');
   revalidatePath('/', 'layout');
-  // Operational chain: hand a new store straight to Square consent so it can
-  // take payment, unless the operator opted out. The connect route re-authorizes
-  // the location, so this adds no trust assumption.
-  if (formData.get('connectSquare') === 'on' && orgId === session.brandId) redirect(`/api/square/connect?location_id=${insert.data.id}`);
-  redirect('/locations?created=1');
+  const continuation = locationCreationContinuation({
+    locationId: insert.data.id,
+    homeOrganizationId: session.brandId,
+    selectedOrganizationId: orgId,
+    connectSquare: formData.get('connectSquare') === 'on',
+  });
+  if (continuation.kind === 'connect') redirect(continuation.href);
+  redirect(`/locations?created=${continuation.notice}`);
 }
 
 /**
