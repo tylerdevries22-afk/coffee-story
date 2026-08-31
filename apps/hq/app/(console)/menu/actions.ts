@@ -17,10 +17,10 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
 import { parseMenuCsv } from '@platform/schema';
-import { slugify } from '@platform/domain';
 
 import { currentSession, hasRole } from '@/lib/auth';
 import { isConfigured, serverClient } from '@/lib/supabase-server';
+import { planImportCategories } from '@/lib/menu-import-categories';
 import { selectedOrganizationId } from '@/lib/workspace-scope';
 import { mayMutateSelectedOrganization } from '@/lib/workspace-mutation';
 
@@ -69,16 +69,20 @@ export async function importMenuAction(formData: FormData): Promise<void> {
   // Categories first: items carry a NOT NULL category_id, so every category the
   // rows name has to exist before the items reference it.
   const categoryTitles = [...new Set(rows.map((row) => row.category))];
-  const categoryRows = categoryTitles.map((title, index) => ({
-    brand_id: brandId, menu_id: menuId, slug: slugify(title, 64) || `category-${index}`, title, sort_order: index,
-  }));
-  const categories = await client
-    .from('menu_categories')
-    .upsert(categoryRows, { onConflict: 'menu_id,title' })
-    .select('id,title')
-    .returns<{ id: string; title: string }[]>();
+  const existing = await client.from('menu_categories').select('id,title,slug')
+    .eq('menu_id', menuId).returns<{ id: string; title: string; slug: string }[]>();
+  if (existing.error) fail('Could not read the menu categories.');
+  const planned = planImportCategories(categoryTitles, existing.data ?? []);
+  const categories = planned.length > 0
+    ? await client.from('menu_categories').insert(planned.map((category) => ({
+      brand_id: brandId, menu_id: menuId, slug: category.slug,
+      title: category.title, sort_order: category.sortOrder,
+    }))).select('id,title').returns<{ id: string; title: string }[]>()
+    : { data: [], error: null };
   if (categories.error) fail('Could not create the menu categories.');
-  const categoryId = new Map((categories.data ?? []).map((row) => [row.title, row.id]));
+  const categoryId = new Map(
+    [...(existing.data ?? []), ...(categories.data ?? [])].map((row) => [row.title, row.id]),
+  );
 
   const itemRows = rows.map((row, index) => ({
     brand_id: brandId, menu_id: menuId, category_id: categoryId.get(row.category),
