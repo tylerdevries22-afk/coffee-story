@@ -1,11 +1,10 @@
 import Link from 'next/link';
 
-import { canManageLocation } from '@platform/schema';
-
 import { DevicePanel, type DevicePanelDevice } from '@/components/device-panel';
 import { currentClaims, currentSession, hasRole } from '@/lib/auth';
 import { loadDevices, loadLocations, loadMultiLocationEnabled } from '@/lib/data';
 import { squareConnectNotice } from '@/lib/square-connect-notice';
+import { mayManageWorkspaceLocation } from '@/lib/workspace-location-access';
 import { selectedOrganizationId } from '@/lib/workspace-scope';
 
 import { disconnectSquareAction } from './actions';
@@ -38,13 +37,13 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
   const notice = squareConnectNotice(params);
   const createdNotice = params.created ? CREATED_NOTICE[params.created] ?? null : null;
   const selectedBrandId = session ? await selectedOrganizationId(session) : null;
-  const selectedHomeBrand = selectedBrandId === session?.brandId;
   // An owner may add a store only when the brand is licensed for more than one.
   const canAddLocation = hasRole(session, 'brand_owner') && (multiLocation || locations.length === 0);
   // Whether a control is drawn; never whether the write is allowed. The same
   // check runs again in lib/device-admin, against the same claims.
-  const manages = (locationId: string) => selectedHomeBrand
-    && claims !== null && canManageLocation(claims, locationId);
+  const manages = (locationId: string) => mayManageWorkspaceLocation(
+    selectedBrandId, claims, locationId,
+  );
   const panelDevices: DevicePanelDevice[] = devices.map((device) => ({
     ...device, manageable: manages(device.locationId),
   }));
@@ -88,18 +87,16 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
                     : <span className="pill success">Taking orders</span>}
                 </td>
                 <td className="num">
-                  {location.squareConnected ? (
+                  {!manages(location.id) ? null : location.squareConnected ? (
                     // Drawn only for a manager of this shop, and checked again
                     // in lib/square-admin against the same claims. A shop that
                     // changes hands, or a merchant account that is compromised,
                     // needs its token revoked from here -- the runbook's manual
                     // procedure named an engine function nobody could call.
-                    manages(location.id) ? (
-                      <form action={disconnectSquareAction}>
-                        <input type="hidden" name="locationId" value={location.id} />
-                        <button type="submit" className="button danger">Disconnect Square</button>
-                      </form>
-                    ) : null
+                    <form action={disconnectSquareAction}>
+                      <input type="hidden" name="locationId" value={location.id} />
+                      <button type="submit" className="button danger">Disconnect Square</button>
+                    </form>
                   ) : (
                     // Phase 7's engine serves this route: it redirects into
                     // Square's OAuth consent and stores the tokens encrypted.
