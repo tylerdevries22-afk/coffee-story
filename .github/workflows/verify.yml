@@ -237,6 +237,22 @@ jobs:
           for secret_value in "$SUPABASE_PUBLISHABLE_KEY" "$SUPABASE_SERVICE_ROLE_KEY" "$SUPABASE_DB_URL"; do
             echo "::add-mask::$secret_value"
           done
+
+          # ACTIVE_HEALTHY can arrive before the managed Storage service has
+          # installed its schema. Repository migrations create buckets and RLS
+          # policies, but must never create or modify Supabase-owned tables.
+          storage_ready=false
+          for _attempt in $(seq 1 30); do
+            storage_relation=$(timeout 5s psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -Atqc \
+              "select pg_catalog.to_regclass('storage.buckets')" 2>/dev/null || true)
+            if [ "$storage_relation" = storage.buckets ]; then
+              storage_ready=true
+              break
+            fi
+            sleep 5
+          done
+          [ "$storage_ready" = true ] \
+            || { echo '::error::Hosted Supabase Storage schema did not become ready.'; exit 1; }
           {
             echo "SUPABASE_URL=$SUPABASE_URL"
             echo "SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY"
@@ -255,7 +271,7 @@ jobs:
                 echo "::error::Supabase command failed after $maximum attempts."
                 return 1
               fi
-              echo "::warning::Supabase branch connection was interrupted; retrying attempt $((attempt + 1))/$maximum."
+              echo "::warning::Supabase command failed; retrying attempt $((attempt + 1))/$maximum."
               sleep $((attempt * 5))
               attempt=$((attempt + 1))
             done
