@@ -4,7 +4,7 @@ import { canManageLocation } from '@platform/schema';
 
 import { DevicePanel, type DevicePanelDevice } from '@/components/device-panel';
 import { currentClaims, currentSession, hasRole } from '@/lib/auth';
-import { loadDevices, loadLocations } from '@/lib/data';
+import { loadDevices, loadLocations, loadMultiLocationEnabled } from '@/lib/data';
 import { squareConnectNotice } from '@/lib/square-connect-notice';
 
 import { disconnectSquareAction } from './actions';
@@ -25,13 +25,14 @@ const CREATED_NOTICE: Record<string, { message: string; failed: boolean }> = {
 };
 
 export default async function LocationsPage({ searchParams }: LocationsPageProps) {
-  const [locations, devices, claims, session, params] = await Promise.all([
-    loadLocations(), loadDevices(), currentClaims(), currentSession(), searchParams,
+  const [locations, devices, claims, session, multiLocation, params] = await Promise.all([
+    loadLocations(), loadDevices(), currentClaims(), currentSession(), loadMultiLocationEnabled(), searchParams,
   ]);
   // Square consent redirects back here, and it can come back refused.
   const notice = squareConnectNotice(params);
   const createdNotice = params.created ? CREATED_NOTICE[params.created] ?? null : null;
-  const canAddLocation = hasRole(session, 'brand_owner');
+  // An owner may add a store only when the brand is licensed for more than one.
+  const canAddLocation = hasRole(session, 'brand_owner') && multiLocation;
   // Whether a control is drawn; never whether the write is allowed. The same
   // check runs again in lib/device-admin, against the same claims.
   const manages = (locationId: string) => claims !== null && canManageLocation(claims, locationId);

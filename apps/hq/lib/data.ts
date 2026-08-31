@@ -134,6 +134,21 @@ export async function loadMenu(): Promise<MenuItemSummary[]> {
   );
 }
 
+/**
+ * Whether the selected brand may run more than one location. Gates the
+ * "add location" affordance: a single-location brand has the flag off, so the
+ * console does not invite a second store it is not licensed for. Demo brands
+ * default to enabled so the wizard is reachable with no database.
+ */
+export async function loadMultiLocationEnabled(): Promise<boolean> {
+  const client = await serverClient();
+  if (!client) return true;
+  const orgId = (await selectedOrgId()) ?? DEMO_SESSION.brandId;
+  const row = await client.from('brands').select('multi_location').eq('id', orgId)
+    .maybeSingle<{ multi_location: boolean }>();
+  return row.error ? false : row.data?.multi_location === true;
+}
+
 export async function loadLocations(): Promise<LocationSummary[]> {
   const client = await serverClient();
   if (!client) {

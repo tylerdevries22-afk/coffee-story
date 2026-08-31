@@ -162,6 +162,10 @@ export async function createLocationAction(formData: FormData): Promise<void> {
   if (insert.error) redirect(`/locations/new?error=${encodeURIComponent('Could not create the location.')}`);
   revalidatePath('/locations');
   revalidatePath('/', 'layout');
+  // Operational chain: hand a new store straight to Square consent so it can
+  // take payment, unless the operator opted out. The connect route re-authorizes
+  // the location, so this adds no trust assumption.
+  if (formData.get('connectSquare') === 'on') redirect(`/api/square/connect?location_id=${insert.data.id}`);
   redirect('/locations?created=1');
 }
 

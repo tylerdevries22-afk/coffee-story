@@ -88,6 +88,10 @@ export default async function NewLocationPage({ searchParams }: NewLocationPageP
               <input name="closeTime" type="time" defaultValue="20:00" required />
             </label>
           </div>
+          <label className="location-form-check">
+            <input type="checkbox" name="connectSquare" defaultChecked />
+            Continue to Square connection after creating
+          </label>
           <div className="location-form-actions">
             <Link href="/locations" className="button secondary">Cancel</Link>
             <button type="submit" className="button">Create location</button>
