@@ -1219,6 +1219,174 @@ body {
   color: var(--text);
 }
 
+.page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-lg);
+}
+.page-head .subtitle { margin-bottom: 24px; }
+
+.location-form { display: flex; flex-direction: column; gap: 4px; }
+.location-form-row { display: flex; flex-wrap: wrap; gap: 0 18px; }
+.location-form-row .field { flex: 1 1 160px; }
+.location-form select,
+.location-form input {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font-size: 15px;
+}
+.location-form-days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 6px 0 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.location-form-days legend { padding: 0 4px; color: var(--text-muted); font-size: 13px; }
+.location-form-day { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; }
+.location-form-check { display: flex; align-items: center; gap: 8px; margin: 8px 0; font-size: 14px; color: var(--text-muted); }
+.menu-csv-input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
+  font-size: 13px;
+  resize: vertical;
+}
+.location-form-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 10px; }
+
+.scope-switcher { position: relative; min-width: 0; }
+
+/* The org chip leads the topbar; the breadcrumb trail is nudged off it and the
+   location pill follows the trail, so the header reads org -> page -> location
+   left to right rather than one right-aligned cluster. */
+.topbar-context > .scope-switcher:first-of-type { margin-right: 2px; }
+.topbar-context .breadcrumb { margin-left: 2px; }
+.topbar-context .breadcrumb + .scope-switcher { margin-left: 4px; }
+
+/* Org: a rounded-rectangle chip, tinted so the current tenant reads as the
+   anchor of the header. Location: a fully-rounded pill after the trail. */
+.scope-trigger-org {
+  border-color: color-mix(in srgb, var(--accent) 34%, var(--line));
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-raised));
+}
+.scope-trigger-org:hover { background: color-mix(in srgb, var(--accent) 18%, var(--bg-raised)); }
+.scope-trigger-location { border-radius: 999px; }
+
+.scope-trigger {
+  display: inline-flex;
+  align-items: center;
+  max-width: 220px;
+  min-width: 0;
+  gap: 7px;
+  padding: 6px 9px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--bg-raised);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.scope-trigger:hover { background: var(--bg-hover); }
+.scope-trigger:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.scope-trigger-icon { color: var(--accent); flex: none; }
+.scope-trigger-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.scope-trigger-chevron { color: var(--text-muted); flex: none; }
+
+.scope-menu {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 6px);
+  width: 264px;
+  max-width: min(264px, calc(100vw - 32px));
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg-raised);
+  box-shadow: 0 18px 40px color-mix(in srgb, #000 44%, transparent);
+}
+.scope-menu.align-end { right: 0; left: auto; }
+.scope-menu.align-start { left: 0; right: auto; }
+
+.scope-search {
+  width: 100%;
+  margin-bottom: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font-size: 13px;
+}
+.scope-search:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.scope-menu-scroll { max-height: 320px; overflow-y: auto; }
+.scope-menu form { margin: 0; }
+
+.scope-option {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.scope-option:hover { background: var(--bg-hover); }
+.scope-option:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.scope-option.selected { color: var(--text); }
+.scope-option-copy { display: flex; min-width: 0; flex-direction: column; flex: 1 1 auto; gap: 1px; }
+.scope-option-label { overflow: hidden; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.scope-option-hint { color: var(--text-muted); font-size: 11px; }
+.scope-badge {
+  flex: none;
+  padding: 2px 7px;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  border-radius: 999px;
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.scope-check { color: var(--accent); flex: none; }
+.scope-empty { margin: 0; padding: 12px 10px; color: var(--text-muted); font-size: 12px; }
+
+.scope-menu-footer { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); }
+.scope-create {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+}
+.scope-create:hover { background: var(--bg-hover); }
+.scope-create-plus { font-size: 15px; line-height: 1; }
+
+@media (max-width: 720px) {
+  .scope-trigger-label { max-width: 96px; }
+  /* Narrow: keep the org chip and breadcrumb; drop the location pill. */
+  .topbar-context .scope-switcher:has(.scope-trigger-location) { display: none; }
+}
+
 .main {
   width: 100%;
   max-width: 1440px;

@@ -13,7 +13,7 @@ import {
   DEMO_DROPS,
   DEMO_FEES,
   DEMO_KPIS,
-  DEMO_LOCATIONS,
+  DEMO_SESSION,
   DEMO_MENU,
   type CampaignSummary,
   type CustomerSummary,
@@ -50,6 +50,9 @@ import {
 import type { KioskMenuFacts } from '@platform/domain';
 
 import { serverClient } from './supabase-server';
+import { selectedLocationId, selectedOrgId } from './workspace-location';
+import { scopeRowsToLocation } from './location-scope';
+import { demoLocationsFor } from './demo-locations';
 
 function sevenDaysAgo(): string {
   const date = new Date();
@@ -66,15 +69,18 @@ async function locationNames(): Promise<ReadonlyMap<string, string>> {
 }
 
 export async function loadKpis(): Promise<KpiDay[]> {
+  const locationId = await selectedLocationId();
   const client = await serverClient();
-  if (!client) return DEMO_KPIS;
+  if (!client) return scopeRowsToLocation(DEMO_KPIS, locationId);
+  // The header location scopes the query itself when set, so the database
+  // returns only that store's days rather than filtering after the read.
+  const base = client
+    .from('location_daily_metrics')
+    .select('location_id, day, orders_count, revenue_cents, aov_cents, in_app_share, loyalty_redemption_rate, revenue_by_channel')
+    .gte('day', sevenDaysAgo())
+    .order('day');
   const [metrics, names] = await Promise.all([
-    client
-      .from('location_daily_metrics')
-      .select('location_id, day, orders_count, revenue_cents, aov_cents, in_app_share, loyalty_redemption_rate, revenue_by_channel')
-      .gte('day', sevenDaysAgo())
-      .order('day')
-      .returns<MetricsRow[]>(),
+    (locationId ? base.eq('location_id', locationId) : base).returns<MetricsRow[]>(),
     locationNames(),
   ]);
   if (metrics.error) throw new Error(`location_daily_metrics: ${metrics.error.message}`);
@@ -128,9 +134,29 @@ export async function loadMenu(): Promise<MenuItemSummary[]> {
   );
 }
 
+/**
+ * Whether the selected brand may run more than one location. Gates the
+ * "add location" affordance: a single-location brand has the flag off, so the
+ * console does not invite a second store it is not licensed for. Demo brands
+ * default to enabled so the wizard is reachable with no database.
+ */
+export async function loadMultiLocationEnabled(): Promise<boolean> {
+  const client = await serverClient();
+  if (!client) return true;
+  const orgId = (await selectedOrgId()) ?? DEMO_SESSION.brandId;
+  const row = await client.from('brands').select('multi_location').eq('id', orgId)
+    .maybeSingle<{ multi_location: boolean }>();
+  return row.error ? false : row.data?.multi_location === true;
+}
+
 export async function loadLocations(): Promise<LocationSummary[]> {
   const client = await serverClient();
-  if (!client) return DEMO_LOCATIONS;
+  if (!client) {
+    // Demo: the selected org's stores from the in-memory store, so a location
+    // added through the wizard shows up here for the rest of the session.
+    const orgId = (await selectedOrgId()) ?? DEMO_SESSION.brandId;
+    return demoLocationsFor(orgId);
+  }
   // `square_connection_id` is NOT selected: 0040 revokes it from
   // `authenticated` at column level, and this client is the signed-in user, so
   // naming it here makes the whole query fail with "permission denied for
@@ -226,15 +252,16 @@ export async function loadCustomers(): Promise<CustomerSummary[]> {
 }
 
 export async function loadFees(): Promise<FeeRow[]> {
+  const locationId = await selectedLocationId();
   const client = await serverClient();
-  if (!client) return DEMO_FEES;
+  if (!client) return scopeRowsToLocation(DEMO_FEES, locationId);
+  const base = client
+    .from('platform_fees')
+    .select('location_id, gross_cents, fee_cents, created_at')
+    .order('created_at', { ascending: false })
+    .limit(5000);
   const [rows, names] = await Promise.all([
-    client
-      .from('platform_fees')
-      .select('location_id, gross_cents, fee_cents, created_at')
-      .order('created_at', { ascending: false })
-      .limit(5000)
-      .returns<PlatformFeeRowLike[]>(),
+    (locationId ? base.eq('location_id', locationId) : base).returns<PlatformFeeRowLike[]>(),
     locationNames(),
   ]);
   if (rows.error) throw new Error(`platform_fees: ${rows.error.message}`);
