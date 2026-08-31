@@ -43,6 +43,8 @@ export type SquareRenewalSummary = {
 
 type SquareAccessTokenRetirement = {
   id: string;
+  brand_id: string;
+  location_id: string;
   access_token_encrypted: string;
   retire_after: string;
 };
@@ -64,12 +66,14 @@ export type SquareAccessTokenRetirementSummary = {
  */
 export async function queueSquareAccessTokenRetirement(
   db: SupabaseClient,
-  input: { accessTokenEncrypted: string; nowMs?: number },
+  input: { brandId: string; locationId: string; accessTokenEncrypted: string; nowMs?: number },
 ): Promise<boolean> {
   try {
     const queued = await db
       .from('square_access_token_retirements')
       .insert({
+        brand_id: input.brandId,
+        location_id: input.locationId,
         access_token_encrypted: input.accessTokenEncrypted,
         retire_after: new Date((input.nowMs ?? Date.now()) + SQUARE_ACCESS_TOKEN_RETIREMENT_GRACE_MS).toISOString(),
       })
@@ -93,6 +97,8 @@ async function claimSquareAccessTokenRetirement(
       .from('square_access_token_retirements')
       .update({ retire_after: new Date(nowMs + SQUARE_RENEWAL_RETRY_MS).toISOString() })
       .eq('id', row.id)
+      .eq('brand_id', row.brand_id)
+      .eq('location_id', row.location_id)
       .eq('access_token_encrypted', row.access_token_encrypted)
       .eq('retire_after', row.retire_after)
       .select('id')
@@ -124,6 +130,8 @@ async function retireSquareAccessToken(
       .from('square_access_token_retirements')
       .delete()
       .eq('id', row.id)
+      .eq('brand_id', row.brand_id)
+      .eq('location_id', row.location_id)
       .eq('access_token_encrypted', row.access_token_encrypted)
       .select('id')
       .maybeSingle<{ id: string }>();
@@ -143,7 +151,7 @@ export async function retireDueSquareAccessTokens(
   try {
     due = await db
       .from('square_access_token_retirements')
-      .select('id, access_token_encrypted, retire_after')
+      .select('id, brand_id, location_id, access_token_encrypted, retire_after')
       .lte('retire_after', now.toISOString())
       .order('retire_after', { ascending: true })
       .limit(SQUARE_ACCESS_TOKEN_RETIREMENT_BATCH_SIZE)
@@ -289,6 +297,8 @@ export async function renewSquareConnection(
         cleanupFailed: accessToken === previousAccessToken
           ? false
           : !await queueSquareAccessTokenRetirement(db, {
+            brandId: input.brand_id,
+            locationId: input.location_id,
             accessTokenEncrypted: input.access_token_encrypted,
             nowMs,
           }),

@@ -4,11 +4,14 @@
 -- Square 401. Keep the old ciphertext in this service-only queue for one cron
 -- interval, then revoke it from the authenticated maintenance job.
 --
--- No foreign key points at a location or connection deliberately: an owner can
--- disconnect a location while an older token awaits retirement. Cascading this
--- row would lose the last copy of that credential and leave it live at Square.
+-- Tenant identifiers remain on every row, but deliberately have no foreign
+-- keys: an owner can disconnect or delete a location while an older token
+-- awaits retirement. Cascading this row would lose the last copy of that
+-- credential and leave it live at Square.
 create table public.square_access_token_retirements (
   id uuid primary key default gen_random_uuid(),
+  brand_id uuid not null,
+  location_id uuid not null,
   access_token_encrypted text not null unique,
   retire_after timestamptz not null,
   created_at timestamptz not null default now()

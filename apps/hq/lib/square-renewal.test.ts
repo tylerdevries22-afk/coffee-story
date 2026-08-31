@@ -122,7 +122,13 @@ function renewalDb(
 }
 
 function retirementDb(
-  rows: Array<{ id: string; access_token_encrypted: string; retire_after: string }>,
+  rows: Array<{
+    id: string;
+    brand_id: string;
+    location_id: string;
+    access_token_encrypted: string;
+    retire_after: string;
+  }>,
   writes: UpdateRecord[],
 ): SupabaseClient {
   const query = {
@@ -199,6 +205,8 @@ describe('Square token renewal', () => {
     assert.deepEqual(revoked, ['renewed-access'], 'only the unpersisted new token is safe to revoke immediately');
     assert.equal(retirementWrites[0]?.access_token_encrypted, first.access_token_encrypted,
       'the old credential stays usable briefly for an in-flight checkout or refund');
+    assert.equal(retirementWrites[0]?.brand_id, BRAND);
+    assert.equal(retirementWrites[0]?.location_id, first.location_id);
   });
 
   it('claims the exact snapshot before calling Square', async () => {
@@ -278,7 +286,8 @@ describe('Square token renewal', () => {
     }) as typeof globalThis.fetch;
     const writes: UpdateRecord[] = [];
     const summary = await retireDueSquareAccessTokens(retirementDb([{
-      id: 'retirement', access_token_encrypted: old,
+      id: 'retirement', brand_id: BRAND, location_id: '22222222-2222-4222-8222-222222222222',
+      access_token_encrypted: old,
       retire_after: new Date(NOW.getTime() - 1).toISOString(),
     }], writes), square, NOW);
     assert.deepEqual(summary, { scanned: 1, retired: 1, failed: 0, stale: 0, scanFailed: false });

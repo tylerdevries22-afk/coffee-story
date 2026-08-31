@@ -156,6 +156,8 @@ export async function replaceSquareConnection(
 
   if (previousAccessToken && previousAccessToken !== input.tokens.access_token) {
     previousRetirementFailed = !await queueSquareAccessTokenRetirement(db, {
+      brandId: input.brandId,
+      locationId: input.locationId,
       accessTokenEncrypted: input.previousConnection!.access_token_encrypted,
     });
   }

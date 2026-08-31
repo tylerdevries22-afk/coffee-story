@@ -295,6 +295,8 @@ describe('replaceSquareConnection', () => {
     assert.equal(decryptToken(String(writes[0]?.access_token_encrypted), loadTokenKey()), 'new-access');
     assert.equal(decryptToken(String(writes[0]?.refresh_token_encrypted), loadTokenKey()), 'new-refresh');
     assert.equal(writes[1]?.access_token_encrypted, previous.access_token_encrypted);
+    assert.equal(writes[1]?.brand_id, BRAND);
+    assert.equal(writes[1]?.location_id, LOCATION);
     assert.ok(typeof writes[1]?.retire_after === 'string');
   });
 

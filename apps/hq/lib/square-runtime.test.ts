@@ -177,6 +177,8 @@ describe('squareRuntimeFor', () => {
       'overlapping workers may only claim the exact version they read');
     assert.equal(state.retirementWrites?.[0]?.access_token_encrypted, state.connection?.access_token_encrypted,
       'the previous runtime is queued instead of revoked while a payment may still be using it');
+    assert.equal(state.retirementWrites?.[0]?.brand_id, BRAND);
+    assert.equal(state.retirementWrites?.[0]?.location_id, LOCATION);
   });
 
   it('does not spend a renewed token when reconnect replaced the authorization mid-refresh', async () => {
