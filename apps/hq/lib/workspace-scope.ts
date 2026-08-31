@@ -11,11 +11,9 @@ import { cookies } from 'next/headers';
 
 import { slugify } from '@platform/domain';
 
-import { hasRole } from './auth';
-import { loadLocations } from './data';
 import type { SessionInfo } from './demo-data';
 import { isConfigured, serverClient } from './supabase-server';
-import { TENANT_ORGS, tenantOrgById, type TenantLocation, type WorkspaceOrgKind } from './tenants';
+import { TENANT_ORGS, tenantOrgById, type WorkspaceOrgKind } from './tenants';
 import { isWorkspaceCookieValue, LOCATION_COOKIE, ORG_COOKIE } from './workspace-cookie';
 
 export type WorkspaceOrg = {
@@ -37,58 +35,73 @@ export type WorkspaceScope = {
   readonly brandName: string;
 };
 
-type BrandRow = { id: string; slug: string | null; name: string };
+type BrandRow = { id: string; slug: string | null; name: string; brand_config: unknown };
+type LocationRow = { id: string; name: string; address: { city?: string } | null };
 
 /**
  * The organizations this session may switch between, as full tenant records
  * (config + locations) so callers can theme and scope without a second read.
  *
- * Demo/unconfigured: the whole tenant registry. Configured: a platform_admin
- * sees every brand row RLS returns; anyone else sees only their home brand,
- * because a role name cannot widen the set of tenants they may read.
+ * Demo/unconfigured: the whole tenant registry. Configured: one `brands` read
+ * whose RLS does the role work for us -- `brands_select` returns every brand to
+ * a platform_admin and only the home brand to anyone else, so the same query
+ * yields the operator's whole book of business or a single franchisee's org
+ * without a role branch here. `brand_config` rides along for theming the
+ * selected org, franchisee or not.
  */
 async function authorizedOrgs(session: SessionInfo): Promise<readonly {
   org: WorkspaceOrg;
   brandConfig: unknown;
-  locations: readonly TenantLocation[];
 }[]> {
   if (!isConfigured()) {
     return TENANT_ORGS.map((org) => ({
       org: { id: org.id, name: org.name, kind: org.kind },
       brandConfig: org.brandConfig,
-      locations: org.locations,
     }));
   }
   const home = {
     org: { id: session.brandId, name: session.brandName, kind: 'brand' as const },
     brandConfig: null as unknown,
-    locations: [] as readonly TenantLocation[],
   };
-  if (!hasRole(session, 'platform_admin')) return [home];
   const client = await serverClient();
   if (!client) return [home];
-  const rows = await client.from('brands').select('id, slug, name').order('name').returns<BrandRow[]>();
+  const rows = await client
+    .from('brands')
+    .select('id, slug, name, brand_config')
+    .order('name')
+    .returns<BrandRow[]>();
   if (rows.error || !rows.data?.length) return [home];
   return rows.data.map((row) => ({
     org: { id: row.id, name: row.name, kind: 'brand' as WorkspaceOrgKind },
-    brandConfig: null,
-    locations: [],
+    brandConfig: row.brand_config ?? null,
   }));
 }
 
-/** Locations for the selected org, RLS-scoped. Only the session's home brand is
- *  readable under RLS, so other brands surface no locations until impersonated
- *  through the platform API -- the switcher never leaks another tenant's rows. */
+/**
+ * Locations for the selected org. Demo: the registry's own list. Configured: a
+ * lean read filtered to the authorized org's id -- `locations_select` is
+ * `using(true)`, so a platform_admin who selected a franchisee reads that
+ * org's stores, while a brand_owner only ever reaches an org id that is their
+ * own (authorizedOrgs never returns another). The org authorization gate, not
+ * this query, is what keeps a tenant out of a neighbour's stores.
+ */
 async function locationsForSelectedOrg(
-  session: SessionInfo,
-  selected: { org: WorkspaceOrg; locations: readonly TenantLocation[] },
+  selected: { org: WorkspaceOrg },
 ): Promise<readonly WorkspaceLocation[]> {
   if (!isConfigured()) {
-    return selected.locations.map((location) => ({ id: location.id, name: location.name, city: location.city }));
+    const registry = tenantOrgById(selected.org.id);
+    return (registry?.locations ?? []).map((location) => ({ id: location.id, name: location.name, city: location.city }));
   }
-  if (selected.org.id !== session.brandId) return [];
-  const rows = await loadLocations();
-  return rows.map((row) => ({ id: row.id, name: row.name, city: row.city }));
+  const client = await serverClient();
+  if (!client) return [];
+  const rows = await client
+    .from('locations')
+    .select('id, name, address')
+    .eq('brand_id', selected.org.id)
+    .order('name')
+    .returns<LocationRow[]>();
+  if (rows.error) return [];
+  return (rows.data ?? []).map((row) => ({ id: row.id, name: row.name, city: row.address?.city ?? '' }));
 }
 
 export async function readWorkspaceScope(session: SessionInfo): Promise<WorkspaceScope> {
@@ -108,7 +121,7 @@ export async function readWorkspaceScope(session: SessionInfo): Promise<Workspac
     return { organizations: [], locations: [], organizationId: null, locationId: null, brandConfig: null, brandName: session.brandName };
   }
 
-  const locations = await locationsForSelectedOrg(session, selected);
+  const locations = await locationsForSelectedOrg(selected);
   const locationCookie = store.get(LOCATION_COOKIE)?.value;
   const locationId = isWorkspaceCookieValue(locationCookie)
     && locations.some((location) => location.id === locationCookie)
@@ -138,7 +151,7 @@ export async function authorizeLocation(session: SessionInfo, orgId: string, loc
   const orgs = await authorizedOrgs(session);
   const selected = orgs.find((entry) => entry.org.id === orgId);
   if (!selected) return null;
-  const locations = await locationsForSelectedOrg(session, selected);
+  const locations = await locationsForSelectedOrg(selected);
   return locations.some((location) => location.id === locationId) ? locationId : null;
 }
 

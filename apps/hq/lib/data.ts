@@ -50,6 +50,8 @@ import {
 import type { KioskMenuFacts } from '@platform/domain';
 
 import { serverClient } from './supabase-server';
+import { selectedLocationId } from './workspace-location';
+import { scopeRowsToLocation } from './location-scope';
 
 function sevenDaysAgo(): string {
   const date = new Date();
@@ -66,15 +68,18 @@ async function locationNames(): Promise<ReadonlyMap<string, string>> {
 }
 
 export async function loadKpis(): Promise<KpiDay[]> {
+  const locationId = await selectedLocationId();
   const client = await serverClient();
-  if (!client) return DEMO_KPIS;
+  if (!client) return scopeRowsToLocation(DEMO_KPIS, locationId);
+  // The header location scopes the query itself when set, so the database
+  // returns only that store's days rather than filtering after the read.
+  const base = client
+    .from('location_daily_metrics')
+    .select('location_id, day, orders_count, revenue_cents, aov_cents, in_app_share, loyalty_redemption_rate, revenue_by_channel')
+    .gte('day', sevenDaysAgo())
+    .order('day');
   const [metrics, names] = await Promise.all([
-    client
-      .from('location_daily_metrics')
-      .select('location_id, day, orders_count, revenue_cents, aov_cents, in_app_share, loyalty_redemption_rate, revenue_by_channel')
-      .gte('day', sevenDaysAgo())
-      .order('day')
-      .returns<MetricsRow[]>(),
+    (locationId ? base.eq('location_id', locationId) : base).returns<MetricsRow[]>(),
     locationNames(),
   ]);
   if (metrics.error) throw new Error(`location_daily_metrics: ${metrics.error.message}`);
@@ -226,15 +231,16 @@ export async function loadCustomers(): Promise<CustomerSummary[]> {
 }
 
 export async function loadFees(): Promise<FeeRow[]> {
+  const locationId = await selectedLocationId();
   const client = await serverClient();
-  if (!client) return DEMO_FEES;
+  if (!client) return scopeRowsToLocation(DEMO_FEES, locationId);
+  const base = client
+    .from('platform_fees')
+    .select('location_id, gross_cents, fee_cents, created_at')
+    .order('created_at', { ascending: false })
+    .limit(5000);
   const [rows, names] = await Promise.all([
-    client
-      .from('platform_fees')
-      .select('location_id, gross_cents, fee_cents, created_at')
-      .order('created_at', { ascending: false })
-      .limit(5000)
-      .returns<PlatformFeeRowLike[]>(),
+    (locationId ? base.eq('location_id', locationId) : base).returns<PlatformFeeRowLike[]>(),
     locationNames(),
   ]);
   if (rows.error) throw new Error(`platform_fees: ${rows.error.message}`);
