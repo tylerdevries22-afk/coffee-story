@@ -1,9 +1,19 @@
 import type { Metadata } from 'next';
 import type { CSSProperties, ReactNode } from 'react';
 
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { hqTheme } from '@/lib/theme';
 
 import './globals.css';
+import './styles/console-core.css';
+import './styles/console-navigation.css';
+import './styles/console-command.css';
+import './styles/console-responsive.css';
+import './styles/dashboard.css';
+import './styles/dashboard-responsive.css';
+import './styles/catalog.css';
+import './styles/analytics.css';
+import './styles/analytics-responsive.css';
 
 export const metadata: Metadata = {
   title: 'HQ',
@@ -18,7 +28,9 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <body style={hqTheme(null) as CSSProperties}>{children}</body>
+      <body style={hqTheme(null) as CSSProperties}>
+        <TooltipProvider delayDuration={180}>{children}</TooltipProvider>
+      </body>
     </html>
   );
 }

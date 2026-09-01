@@ -1,5 +1,6 @@
 'use client';
 
+import { motion, useReducedMotion } from 'framer-motion';
 import { useMemo } from 'react';
 
 import { contentCounts, type ContentWorkspaceData } from '@/lib/content-model';
@@ -8,7 +9,12 @@ import { MenuContentEditor } from './menu-content-editor';
 
 
 export function ContentWorkspace({ initial }: { initial: ContentWorkspaceData }) {
+  const reduceMotion = useReducedMotion();
   const counts = useMemo(() => contentCounts(initial), [initial]);
+  const thumbnailCount = initial.items.filter((item) => item.imageUrl).length;
+  const trainingLinks = initial.training.manifest.modules.reduce((total, module) => (
+    total + module.lessons.reduce((lessonTotal, lesson) => lessonTotal + (lesson.menuItemSlugs?.length ?? 0), 0)
+  ), 0);
   return (
     <div className="content-workspace">
       <div className="content-heading-row">
@@ -17,14 +23,19 @@ export function ContentWorkspace({ initial }: { initial: ContentWorkspaceData })
           <h1>Catalog</h1>
           <p className="subtitle">Organize offerings in one reusable hierarchy and connect their media, procedures, knowledge, skills, and training.</p>
         </div>
-        <div className="content-release-state">Release v{initial.menu.publishedVersion ?? '—'}</div>
+        <div className="content-release-state">
+          <span className={`status-dot ${initial.menu.isPublished ? 'published' : 'draft'}`} />
+          {initial.menu.isPublished ? 'Live' : 'Draft'} · release v{initial.menu.publishedVersion ?? '—'}
+        </div>
       </div>
 
       <div className="content-summary-grid" aria-label="Content summary">
-        <SummaryCard icon="menu" label="Published offerings" value={counts.listedItems} detail={`${initial.categories.length} folders`} />
-        <SummaryCard icon="image" label="Managed media" value={counts.media} detail="Catalog thumbnails" />
+        <SummaryCard index={0} reduceMotion={reduceMotion} icon="menu" label="Published offerings" value={counts.listedItems} detail={`${initial.items.length} total · ${initial.categories.length} folders`} />
+        <SummaryCard index={1} reduceMotion={reduceMotion} icon="image" label="Thumbnail coverage" value={`${thumbnailCount}/${initial.items.length}`} detail={`${initial.items.length - thumbnailCount} missing`} />
+        <SummaryCard index={2} reduceMotion={reduceMotion} icon="book" label="Content graph" value={initial.catalogRelations.length} detail={`${initial.catalogResources.length} reusable resources`} />
+        <SummaryCard index={3} reduceMotion={reduceMotion} icon="spark" label="Training links" value={trainingLinks} detail={`${counts.lessons} lessons in release`} />
       </div>
-      <section aria-label="Catalog hierarchy and media">
+      <section aria-label="Catalog studio">
         <MenuContentEditor
           initialMenu={initial.menu}
           initialCategories={initial.categories}
@@ -32,18 +43,31 @@ export function ContentWorkspace({ initial }: { initial: ContentWorkspaceData })
           initialResources={initial.catalogResources}
           initialRelations={initial.catalogRelations}
           initialPlacements={initial.catalogPlacements}
+          training={initial.training.manifest}
         />
       </section>
     </div>
   );
 }
 
-function SummaryCard({ icon, label, value, detail }: { icon: IconKind; label: string; value: number; detail: string }) {
+function SummaryCard({ icon, label, value, detail, index, reduceMotion }: {
+  icon: IconKind;
+  label: string;
+  value: number | string;
+  detail: string;
+  index: number;
+  reduceMotion: boolean | null;
+}) {
   return (
-    <div className="content-summary-card">
+    <motion.div
+      className="content-summary-card"
+      initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: reduceMotion ? 0 : 0.3, delay: reduceMotion ? 0 : index * 0.045, ease: [0.16, 1, 0.3, 1] }}
+    >
       <span className="content-icon-frame"><ContentIcon kind={icon} /></span>
       <div><span>{label}</span><strong>{value}</strong><small>{detail}</small></div>
-    </div>
+    </motion.div>
   );
 }
 

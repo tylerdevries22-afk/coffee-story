@@ -1,5 +1,6 @@
 import { AnalyticsDashboard } from '@/components/analytics-dashboard';
 import { buildAnalyticsDashboard, type AnalyticsViewKey } from '@/lib/analytics-dashboard';
+import { analyticsReportOf } from '@/lib/analytics-report';
 import { loadAnalyticsRollups } from '@/lib/analytics-rollups';
 import { loadCampaigns, loadCustomers, loadDrops, loadKpis } from '@/lib/data';
 import { selectedLocationLabel } from '@/lib/workspace-location';
@@ -21,7 +22,8 @@ export async function AnalyticsRoute({ view }: AnalyticsRouteProps) {
     ]);
 
     const model = buildAnalyticsDashboard(view, { kpis, drops, campaigns, customers, telemetry });
-    return <AnalyticsDashboard model={model} locationLabel={locationLabel} />;
+    const report = analyticsReportOf(view, kpis, telemetry);
+    return <AnalyticsDashboard model={model} report={report} locationLabel={locationLabel} />;
   } catch {
     return (
       <section className="analytics-load-error" role="alert">

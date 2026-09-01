@@ -23,19 +23,18 @@ export function DemoLiveActivity() {
   if (!snapshot) return null;
   const latest = snapshot.orders.at(-1);
   return (
-    <div className="card" aria-live="polite">
-      <h2>Live five-surface demo</h2>
-      <div className="kpi-row">
-        <div className="kpi-card">
-          <div className="label">Shared orders</div>
-          <div className="value">{snapshot.orders.length}</div>
-        </div>
-        <div className="kpi-card">
-          <div className="label">Latest ticket</div>
-          <div className="value">{latest?.shortCode ?? '—'}</div>
-          <div className="hint">{latest ? `${latest.guestName || 'Guest'} · ${latest.status.replace('_', ' ')}` : 'Place an order from Customer or Kiosk'}</div>
+    <section className="hq-panel hq-live-activity" aria-live="polite">
+      <header className="hq-panel-header">
+        <div><p className="hq-eyebrow">Preview runtime</p><h2>Five-surface order sync</h2></div>
+        <span className="hq-status-badge"><span />Polling</span>
+      </header>
+      <div className="hq-live-activity-grid">
+        <div><span>Shared orders</span><strong>{snapshot.orders.length}</strong></div>
+        <div>
+          <span>Latest ticket</span><strong>{latest?.shortCode ?? '—'}</strong>
+          <small>{latest ? `${latest.guestName || 'Guest'} · ${latest.status.replace('_', ' ')}` : 'Place an order from Customer or Kiosk'}</small>
         </div>
       </div>
-    </div>
+    </section>
   );
 }

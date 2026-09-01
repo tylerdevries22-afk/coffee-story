@@ -1,0 +1,34 @@
+.hq-command-layer { position: fixed; z-index: 90; inset: 0; display: grid; place-items: start center; padding: min(14vh, 7.5rem) 1rem 1.5rem; }
+.hq-command-backdrop { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: color-mix(in srgb, var(--hq-rail) 38%, transparent); cursor: default; }
+
+.hq-command-dialog {
+  position: relative;
+  width: min(40rem, 100%);
+  max-height: min(42.5rem, 76vh);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: .7rem;
+  background: var(--bg-raised);
+  box-shadow: 0 1.5rem 5rem color-mix(in srgb, var(--text) 8%, transparent);
+}
+
+.hq-command-search { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; min-height: 3.9rem; align-items: center; gap: .75rem; padding: 0 .9rem 0 1.1rem; border-bottom: 1px solid var(--line); color: var(--text-muted); }
+.hq-command-search input { width: 100%; min-height: 2.75rem; border: 0; border-radius: 0; background: transparent; color: var(--text); font-size: 1rem; outline: 0; }
+.hq-command-search input::-webkit-search-cancel-button { display: none; }
+.hq-command-results { max-height: calc(min(42.5rem, 76vh) - 3.9rem); overflow-y: auto; padding: .9rem; }
+.hq-command-summary { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0 .5rem .65rem; }
+.hq-command-summary h2 { margin: 0; font-size: .8rem; }
+.hq-command-summary span { color: var(--text-muted); font-size: .7rem; }
+.hq-command-group + .hq-command-group { margin-top: .85rem; }
+.hq-command-group h3 { margin: 0; padding: .42rem .5rem; color: var(--text-muted); font-size: .62rem; letter-spacing: .09em; text-transform: uppercase; }
+.hq-command-group a { display: grid; grid-template-columns: 1.4rem minmax(0, 1fr) 1.1rem; min-height: 2.85rem; align-items: center; gap: .65rem; padding: 0 .65rem; border-radius: .45rem; color: var(--text-muted); font-size: .8rem; }
+.hq-command-group a:hover,
+.hq-command-group a[aria-current='page'] { background: var(--bg-hover); color: var(--text); }
+.hq-command-group a > .nav-icon:last-child { transform: rotate(-90deg); }
+.hq-command-empty { display: grid; min-height: 11.25rem; place-items: center; align-content: center; text-align: center; }
+.hq-command-empty strong { font-size: .88rem; }
+.hq-command-empty p { max-width: 40ch; margin: .3rem 0 0; color: var(--text-muted); font-size: .75rem; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .hq-command-group a { transition: color 150ms ease, background-color 150ms ease; }
+}

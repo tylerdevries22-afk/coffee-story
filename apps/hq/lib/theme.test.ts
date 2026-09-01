@@ -4,12 +4,19 @@ import { test } from 'node:test';
 import { hqTheme } from './theme';
 
 test('HQ variables resolve through the shared tenant token contract', () => {
-  const variables = hqTheme({ tokens: { primary: '#123456', accent: '#654321', radius: { md: 20 } } });
-  assert.equal(variables['--bg'], '#123456');
+  const variables = hqTheme({ tokens: {
+    primary: '#123456', surface: '#F7F6F3', textPrimary: '#201A17',
+    accent: '#654321', radius: { md: 20 },
+  } });
+  assert.equal(variables['--bg'], '#F7F6F3');
+  assert.equal(variables['--text'], '#201A17');
+  assert.equal(variables['--action'], '#123456');
   assert.equal(variables['--accent'], '#654321');
+  assert.equal(variables['--hq-rail'], '#201A17');
+  assert.equal(variables['--hq-rail-foreground'], '#FFFFFF');
   assert.equal(variables['--radius'], '20px');
-  assert.equal(variables['--primary'], '#654321');
-  assert.equal(variables['--background'], '#123456');
+  assert.equal(variables['--primary'], '#123456');
+  assert.equal(variables['--background'], '#F7F6F3');
   assert.match(variables['--bg-hover'] ?? '', /#123456/);
 });
 

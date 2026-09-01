@@ -1,112 +1,86 @@
+import { DashboardActionCenter, type DashboardAction } from '@/components/dashboard-action-center';
+import { DashboardChannelMix } from '@/components/dashboard-channel-mix';
+import { DashboardHeader } from '@/components/dashboard-header';
+import { DashboardLocationTable } from '@/components/dashboard-location-table';
+import { DashboardMetrics, type DashboardMetric } from '@/components/dashboard-metrics';
+import { currentSession, hasRole } from '@/lib/auth';
 import { loadDrops, loadKpis } from '@/lib/data';
-import { formatMoney, formatShare, rollupByLocation, rollupKpis } from '@/lib/kpi';
+import { buildChannelMix, coverageDays, formatKpiRange } from '@/lib/dashboard-overview';
 import { demoSyncRuntimeEnabled } from '@/lib/demo-sync-http';
-import { DemoLiveActivity } from './demo-live-activity';
+import { formatMoney, formatShare, rollupByLocation, rollupKpis } from '@/lib/kpi';
 import { selectedLocationLabel } from '@/lib/workspace-location';
-// The console is live data behind a session: never prerender a fixture
-// snapshot at build time and serve it as if it were today's numbers.
+
+import { DemoLiveActivity } from './demo-live-activity';
+
 export const dynamic = 'force-dynamic';
 
-
 export default async function DashboardPage() {
-  const [kpis, drops, locationLabel] = await Promise.all([
-    loadKpis(), loadDrops(), selectedLocationLabel(),
+  const [kpis, drops, locationLabel, session] = await Promise.all([
+    loadKpis(), loadDrops(), selectedLocationLabel(), currentSession(),
   ]);
   const totals = rollupKpis(kpis);
   const byLocation = rollupByLocation(kpis);
+  const reportingDays = coverageDays(kpis);
+  const canManageLocation = hasRole(session, 'location_manager');
+  const canManageBrand = hasRole(session, 'brand_owner');
   const liveDrop = drops.find((drop) => drop.status === 'live');
+  const metrics: DashboardMetric[] = [
+    {
+      label: 'Revenue', value: formatMoney(totals.revenueCents), icon: 'analytics',
+      detail: byLocation.length === 0
+        ? 'Awaiting location reporting'
+        : `${byLocation.length} ${byLocation.length === 1 ? 'location' : 'locations'} reporting`,
+    },
+    {
+      label: 'Orders', value: totals.ordersCount.toLocaleString('en-US'), icon: 'drop',
+      detail: reportingDays === 0
+        ? 'Awaiting completed orders'
+        : `${Math.round(totals.ordersCount / reportingDays).toLocaleString('en-US')} per reporting day`,
+    },
+    {
+      label: 'Average order', value: formatMoney(totals.aovCents), icon: 'menu',
+      detail: 'Blended across every order channel',
+    },
+    {
+      label: 'Owned-channel share', value: formatShare(totals.inAppShare), icon: 'campaign',
+      detail: `${formatShare(totals.loyaltyRedemptionRate)} of orders redeem loyalty`,
+    },
+  ];
+  const actions: DashboardAction[] = [
+    { href: '/locations', label: 'Review locations', description: 'Square, ordering, and device readiness', icon: 'locations' },
+    {
+      href: canManageBrand ? '/catalog' : '/menu',
+      label: canManageBrand ? 'Manage catalog' : 'Review menu',
+      description: 'Products, pricing, images, and availability',
+      icon: 'menu',
+    },
+    ...(canManageLocation ? [{
+      href: '/operations', label: 'Open live operations',
+      description: 'Active work, issues, and shift ownership', icon: 'wall' as const,
+    }] : []),
+    ...(canManageLocation ? [{
+      href: '/analytics', label: 'Explore analytics',
+      description: 'Commerce, growth, training, and reliability', icon: 'analytics' as const,
+    }] : []),
+  ];
+  const primaryAction = canManageLocation
+    ? { href: '/operations', label: 'Open live operations', icon: 'wall' as const }
+    : { href: '/locations', label: 'Review locations', icon: 'locations' as const };
+
   return (
-    <>
-      <h1>This week</h1>
-      <p className="subtitle">{locationLabel} · last 7 days</p>
-
+    <div className="hq-dashboard">
+      <DashboardHeader
+        locationLabel={locationLabel}
+        rangeLabel={formatKpiRange(kpis)}
+        action={primaryAction}
+      />
+      <DashboardMetrics metrics={metrics} />
       {demoSyncRuntimeEnabled() ? <DemoLiveActivity /> : null}
-
-      <div className="kpi-row">
-        <div className="kpi-card">
-          <div className="label">Revenue</div>
-          <div className="value">{formatMoney(totals.revenueCents)}</div>
-        </div>
-        <div className="kpi-card">
-          <div className="label">Orders</div>
-          <div className="value">{totals.ordersCount.toLocaleString('en-US')}</div>
-        </div>
-        <div className="kpi-card">
-          <div className="label">In-app share</div>
-          <div className="value">{formatShare(totals.inAppShare)}</div>
-          <div className="hint">of revenue through your own channels</div>
-        </div>
-        <div className="kpi-card">
-          <div className="label">Average order</div>
-          <div className="value">{formatMoney(totals.aovCents)}</div>
-        </div>
-        <div className="kpi-card">
-          <div className="label">Loyalty redemption</div>
-          <div className="value">{formatShare(totals.loyaltyRedemptionRate)}</div>
-          <div className="hint">orders redeeming points</div>
-        </div>
+      <div className="hq-dashboard-grid">
+        <DashboardChannelMix channels={buildChannelMix(totals.channelRevenueCents)} />
+        <DashboardActionCenter actions={actions} liveDrop={liveDrop} />
       </div>
-
-      <div className="card">
-        <h2>Revenue by order channel</h2>
-        <div className="kpi-row">
-          <div className="kpi-card"><div className="label">App</div><div className="value">{formatMoney(totals.channelRevenueCents.app)}</div></div>
-          <div className="kpi-card"><div className="label">Web</div><div className="value">{formatMoney(totals.channelRevenueCents.web)}</div></div>
-          <div className="kpi-card"><div className="label">Kiosk</div><div className="value">{formatMoney(totals.channelRevenueCents.kiosk)}</div></div>
-          <div className="kpi-card"><div className="label">POS</div><div className="value">{formatMoney(totals.channelRevenueCents.pos)}</div></div>
-        </div>
-      </div>
-
-      {liveDrop ? (
-        <div className="card">
-          <h2>Live drop — {liveDrop.title}</h2>
-          <table>
-            <thead>
-              <tr><th>Item</th><th>Ends</th><th className="num">Orders</th><th className="num">Revenue</th></tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>{liveDrop.itemName}</td>
-                <td>{new Date(liveDrop.endsAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</td>
-                <td className="num">{liveDrop.ordersCount.toLocaleString('en-US')}</td>
-                <td className="num">{formatMoney(liveDrop.revenueCents)}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      ) : null}
-
-      <div className="card">
-        <h2>By location</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>Location</th>
-              <th className="num">Revenue</th>
-              <th className="num">Orders</th>
-              <th className="num">AOV</th>
-              <th className="num">In-app</th>
-              <th className="num">Kiosk</th>
-              <th className="num">POS</th>
-              <th className="num">Loyalty</th>
-            </tr>
-          </thead>
-          <tbody>
-            {byLocation.map((row) => (
-              <tr key={row.locationId}>
-                <td>{row.locationName}</td>
-                <td className="num">{formatMoney(row.revenueCents)}</td>
-                <td className="num">{row.ordersCount.toLocaleString('en-US')}</td>
-                <td className="num">{formatMoney(row.aovCents)}</td>
-                <td className="num">{formatShare(row.inAppShare)}</td>
-                <td className="num">{formatMoney(row.channelRevenueCents.kiosk)}</td>
-                <td className="num">{formatMoney(row.channelRevenueCents.pos)}</td>
-                <td className="num">{formatShare(row.loyaltyRedemptionRate)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </>
+      <DashboardLocationTable rows={byLocation} />
+    </div>
   );
 }

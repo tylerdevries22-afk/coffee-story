@@ -1,0 +1,45 @@
+@media (max-width: 75rem) {
+  .analytics-page { padding: 1.25rem; }
+  .analytics-overview-grid { grid-template-columns: minmax(0, 1.5fr) minmax(17rem, .8fr); }
+  .analytics-chart-tooltip { transform: translate(-65%, -90%); }
+}
+
+@media (max-width: 62rem) {
+  .analytics-report-header { align-items: flex-start; flex-direction: column; }
+  .analytics-report-actions { width: 100%; justify-content: flex-start; flex-wrap: wrap; }
+  .analytics-overview-grid { grid-template-columns: 1fr; }
+  .analytics-chart-wrap { min-height: 17rem; }
+  .analytics-chart-wrap svg { min-height: 15rem; }
+  .analytics-signal-list { margin-top: 1rem; }
+}
+
+@media (max-width: 42rem) {
+  .hq-main:has(.analytics-page) { min-height: calc(100dvh - 3.5rem); }
+  .analytics-page { min-height: calc(100dvh - 3.5rem); padding: 1rem; }
+  .analytics-report-actions { display: grid; grid-template-columns: 1fr 1fr; }
+  .analytics-scope-chip,
+  .analytics-date-chip { min-height: 2.75rem; justify-content: center; }
+  .analytics-export-button { min-height: 2.75rem; grid-column: 1 / -1; justify-content: center; }
+  .analytics-card-heading { align-items: flex-start; }
+  .analytics-card-heading > span { max-width: 9rem; text-align: right; }
+  .analytics-trend-summary strong { font-size: 1.35rem; }
+  .analytics-chart-wrap { min-height: 14rem; padding-inline: .25rem; }
+  .analytics-chart-wrap svg { min-height: 12rem; }
+  .analytics-chart-labels span:nth-child(even) { display: none; }
+  .analytics-chart-tooltip { width: 9rem; transform: translate(-60%, -92%); }
+  .analytics-signal-totals { gap: .65rem; }
+  .analytics-signal-totals strong { font-size: 1rem; }
+  .analytics-results-heading { align-items: flex-start; flex-direction: column; }
+  .analytics-results-toolbar { align-items: stretch; flex-direction: column; }
+  .analytics-table-tabs button,
+  .analytics-table-search { min-height: 2.75rem; }
+  .analytics-table-search { width: 100%; }
+  .analytics-row-toggle { width: 2.75rem; height: 2.75rem; }
+  .analytics-result-detail td { padding-left: 1rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .analytics-chart-point,
+  .analytics-expand-all > i > span,
+  .analytics-row-toggle .nav-icon { transition: none; }
+}

@@ -124,6 +124,7 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
       initials={initials}
       statusHref={`/status/${statusSlug}`}
       dataMode={isConfigured() ? 'hosted' : 'preview'}
+      quickCreate={canManageBrand ? { href: '/locations/new', label: 'Add location' } : undefined}
       orgSwitcher={session && scope ? (
         <OrganizationSwitcher
           organizations={scope.organizations}
