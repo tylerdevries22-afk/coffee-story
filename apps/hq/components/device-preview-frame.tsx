@@ -1,6 +1,6 @@
 'use client';
 
-import { motion, useReducedMotion } from 'framer-motion';
+import { useReducedMotion } from 'framer-motion';
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import type { AppPreviewFrame } from '@/lib/app-previews';
@@ -57,6 +57,7 @@ export function DevicePreviewFrame({ frame, height, loading = 'lazy', orientatio
   const viewportHeight = portrait ? width : height;
   const outerWidth = viewportWidth / art.screenWidth;
   const outerHeight = viewportHeight / art.screenHeight;
+  const transform = `translate3d(${fitted.left}px, ${fitted.top}px, 0) scale(${fitted.scale})`;
 
   useLayoutEffect(() => {
     const stage = stageRef.current;
@@ -70,13 +71,9 @@ export function DevicePreviewFrame({ frame, height, loading = 'lazy', orientatio
 
   return (
     <div className="apps-device-stage" ref={stageRef}>
-      <motion.div
-        animate={{ scale: fitted.scale, x: fitted.left, y: fitted.top }}
+      <div
         className={`apps-device apps-device--${frame}${portrait ? ' apps-device--portrait' : ''}`}
-        initial={false}
-        layout="position"
-        style={{ height: outerHeight, width: outerWidth }}
-        transition={reducedMotion ? { duration: 0 } : { damping: 34, mass: .72, stiffness: 460, type: 'spring' }}
+        style={{ height: outerHeight, transform, transformOrigin: 'top left', transition: reducedMotion ? 'none' : 'transform 260ms cubic-bezier(.16, 1, .3, 1)', width: outerWidth }}
       >
         <div
           className="apps-device-viewport"
@@ -85,7 +82,7 @@ export function DevicePreviewFrame({ frame, height, loading = 'lazy', orientatio
           <iframe allow="fullscreen" height={viewportHeight} loading={loading} referrerPolicy="no-referrer" sandbox="allow-forms allow-popups allow-same-origin allow-scripts" src={src} title={title} width={viewportWidth} />
         </div>
         {baseArt.asset ? <img alt="" aria-hidden="true" className="apps-device-artwork" draggable={false} src={baseArt.asset} style={portrait ? { height: outerWidth, transform: `translateX(${outerWidth}px) rotate(90deg)`, transformOrigin: 'top left', width: outerHeight } : undefined} /> : null}
-      </motion.div>
+      </div>
     </div>
   );
 }

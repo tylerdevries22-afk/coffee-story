@@ -6,30 +6,29 @@ import { useRef } from 'react';
 import type { CSSProperties, KeyboardEvent, PointerEvent } from 'react';
 
 import type { AppPreview } from '@/lib/app-previews';
+import type { DragSample, MotionPoint } from '@/lib/app-wall-physics';
 
 import type { AppPreviewTile } from './apps-preview-layout';
 import { DevicePreviewFrame } from './device-preview-frame';
 import { Icon } from './icon';
 
-type Offset = { readonly x: number; readonly y: number };
 type ResizePointer = { readonly id: number; readonly x: number; readonly y: number };
-const CARD_SPRING = { damping: 36, mass: .78, restDelta: .001, stiffness: 480, type: 'spring' as const };
+const CARD_SPRING = { damping: 31, mass: .82, restDelta: .001, restSpeed: .01, stiffness: 365, type: 'spring' as const };
 type TileProps = {
   readonly canvas: { readonly height: number; readonly width: number };
-  readonly compact: boolean;
   readonly moving: boolean;
   readonly portrait: boolean;
   readonly preview: AppPreview;
   readonly resizing: boolean;
   readonly rotatable: boolean;
   readonly tile: AppPreviewTile;
-  readonly onDragEnd: () => void;
-  readonly onDragMove: (offset: Offset) => void;
+  readonly onDragEnd: (sample: DragSample) => void;
+  readonly onDragMove: (sample: DragSample) => void;
   readonly onDragStart: () => void;
   readonly onKeyMove: (event: KeyboardEvent<HTMLButtonElement>) => void;
   readonly onResizeBy: (amount: number) => void;
   readonly onResizeEnd: () => void;
-  readonly onResizeMove: (offset: Offset) => void;
+  readonly onResizeMove: (offset: MotionPoint) => void;
   readonly onResizeStart: () => void;
   readonly onRotate: () => void;
 };
@@ -39,7 +38,7 @@ function frameAspect(frame: AppPreview['frame']) {
 }
 
 /** The preview itself follows the pointer; adjacent tiles use spring settling from the board layout. */
-export function AppsPreviewTile({ canvas, compact, moving, portrait, preview, resizing, rotatable, tile, onDragEnd, onDragMove, onDragStart, onKeyMove, onResizeBy, onResizeEnd, onResizeMove, onResizeStart, onRotate }: TileProps) {
+export function AppsPreviewTile({ canvas, moving, portrait, preview, resizing, rotatable, tile, onDragEnd, onDragMove, onDragStart, onKeyMove, onResizeBy, onResizeEnd, onResizeMove, onResizeStart, onRotate }: TileProps) {
   const dragControls = useDragControls();
   const reducedMotion = useReducedMotion();
   const resizeRef = useRef<ResizePointer | null>(null);
@@ -48,12 +47,12 @@ export function AppsPreviewTile({ canvas, compact, moving, portrait, preview, re
   const tileWidth = tile.width * cellWidth;
   const maxX = Math.max(0, canvas.width - tileWidth);
   const maxY = Math.max(0, canvas.height - tileWidth / frameAspect(preview.frame));
-  const position = compact ? { x: 0, y: 0 } : { x: tile.x * cellWidth, y: tile.y * cellHeight };
+  const position = { x: tile.x * cellWidth, y: tile.y * cellHeight };
   const startMove = (event: PointerEvent<HTMLButtonElement>) => {
-    if (event.button === 0 && !compact) dragControls.start(event);
+    if (event.button === 0) dragControls.start(event, { snapToCursor: false });
   };
   const startResize = (event: PointerEvent<HTMLButtonElement>) => {
-    if (event.button !== 0 || compact) return;
+    if (event.button !== 0) return;
     event.preventDefault(); event.stopPropagation();
     resizeRef.current = { id: event.pointerId, x: event.clientX, y: event.clientY };
     event.currentTarget.setPointerCapture(event.pointerId); onResizeStart();
@@ -79,16 +78,16 @@ export function AppsPreviewTile({ canvas, compact, moving, portrait, preview, re
       className={`apps-preview-card apps-preview-card--${preview.frame}`}
       data-dragging={moving || undefined}
       data-resizing={resizing || undefined}
-      drag={!compact}
+      drag
       dragConstraints={{ bottom: maxY, left: 0, right: maxX, top: 0 }}
       dragControls={dragControls}
-      dragElastic={reducedMotion ? 0 : .08}
+      dragElastic={reducedMotion ? 0 : .16}
       dragListener={false}
       dragMomentum={false}
       initial={false}
       key={tile.key}
-      onDrag={(_, info) => onDragMove(info.offset)}
-      onDragEnd={onDragEnd}
+      onDrag={(_, info) => onDragMove({ offset: info.offset, velocity: info.velocity })}
+      onDragEnd={(_, info) => onDragEnd({ offset: info.offset, velocity: info.velocity })}
       onDragStart={onDragStart}
       style={{ '--canvas-width': tile.width } as CSSProperties}
       transition={reducedMotion ? { duration: 0 } : CARD_SPRING}

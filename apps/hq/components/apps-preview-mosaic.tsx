@@ -4,13 +4,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent, PointerEvent } from 'react';
 
 import type { AppPreview, AppPreviewKey } from '@/lib/app-previews';
+import { projectDragRelease, type DragSample, type MotionPoint } from '@/lib/app-wall-physics';
+import { useReducedMotion } from 'framer-motion';
 
 import { aspectOf, CANVAS_COLUMNS, CANVAS_ROWS, INITIAL_LAYOUT, reflowTiles, type AppPreviewTile } from './apps-preview-layout';
 import { AppsPreviewTile } from './apps-preview-tile';
 
 type SyncState = 'checking' | 'live' | 'offline' | 'hosted';
 type CanvasMetrics = { readonly height: number; readonly width: number };
-type Offset = { readonly x: number; readonly y: number };
 type CanvasBounds = CanvasMetrics & { readonly left: number; readonly top: number };
 type Interaction = { readonly kind: 'move' | 'resize'; readonly origin: AppPreviewTile };
 const ROTATABLE_APPS = new Set<AppPreviewKey>(['kiosk', 'operator', 'display']);
@@ -23,7 +24,7 @@ function initialTiles(previews: readonly AppPreview[]): AppPreviewTile[] {
   return previews.map(({ key }) => INITIAL_LAYOUT[key]);
 }
 
-function candidateAtOffset(interaction: Interaction, offset: Offset, canvas: CanvasMetrics, settle: boolean) {
+function candidateAtOffset(interaction: Interaction, offset: MotionPoint, canvas: CanvasMetrics, settle: boolean) {
   const { origin } = interaction;
   const horizontal = offset.x / (canvas.width / CANVAS_COLUMNS);
   const vertical = offset.y / (canvas.height / CANVAS_ROWS);
@@ -42,18 +43,18 @@ export function AppsPreviewMosaic({ previews }: { readonly previews: readonly Ap
   const interactionRef = useRef<Interaction | null>(null);
   const interactionFrameRef = useRef<number | null>(null);
   const gridFrameRef = useRef<number | null>(null);
-  const latestOffsetRef = useRef<Offset>({ x: 0, y: 0 });
-  const gridPointRef = useRef<Offset>({ x: 0, y: 0 });
+  const latestSampleRef = useRef<DragSample>({ offset: { x: 0, y: 0 }, velocity: { x: 0, y: 0 } });
+  const gridPointRef = useRef<MotionPoint>({ x: 0, y: 0 });
   const gridBoundsRef = useRef<CanvasBounds | null>(null);
   const glowRadiusRef = useRef(0);
   const interactionChangedRef = useRef(false);
   const [canvas, setCanvas] = useState<CanvasMetrics>({ height: 0, width: 0 });
-  const [compact, setCompact] = useState(false);
   const [interaction, setInteraction] = useState<Interaction | null>(null);
   const [sync, setSync] = useState<SyncState>('checking');
   const [tiles, setTiles] = useState<AppPreviewTile[]>(() => initialTiles(previews));
   const [notice, setNotice] = useState('Live previews are ready.');
   const [portrait, setPortrait] = useState<ReadonlySet<AppPreviewKey>>(() => new Set());
+  const reducedMotion = useReducedMotion();
   const byKey = useMemo(() => new Map(previews.map((preview) => [preview.key, preview])), [previews]);
 
   useEffect(() => {
@@ -66,10 +67,8 @@ export function AppsPreviewMosaic({ previews }: { readonly previews: readonly Ap
       setCanvas({ height: bounds.height, width: bounds.width });
     };
     const observer = new ResizeObserver(measure);
-    const media = window.matchMedia('(max-width: 62rem)');
-    const updateCompact = () => setCompact(media.matches);
-    observer.observe(target); media.addEventListener('change', updateCompact); measure(); updateCompact();
-    return () => { observer.disconnect(); media.removeEventListener('change', updateCompact); };
+    observer.observe(target); measure();
+    return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
@@ -80,7 +79,7 @@ export function AppsPreviewMosaic({ previews }: { readonly previews: readonly Ap
         const controller = new AbortController();
         const timeout = window.setTimeout(() => controller.abort(), 3_000);
         try {
-          const response = await fetch('http://localhost:3300/api/demo-sync/orders', { cache: 'no-store', signal: controller.signal });
+          const response = await fetch('/api/demo-sync/orders', { cache: 'no-store', signal: controller.signal });
           if (response.ok && Array.isArray((await response.json() as { orders?: unknown }).orders)) { if (!cancelled) setSync('live'); return; }
         } catch { /* A bounded retry keeps the preview responsive when the broker is starting. */ }
         finally { window.clearTimeout(timeout); }
@@ -102,7 +101,7 @@ export function AppsPreviewMosaic({ previews }: { readonly previews: readonly Ap
     return next;
   }), []);
 
-  const applyInteraction = useCallback((offset: Offset, settle: boolean) => {
+  const applyInteraction = useCallback((offset: MotionPoint, settle: boolean) => {
     const active = interactionRef.current;
     if (!active || !canvas.width || !canvas.height) return;
     update(active.origin.key, candidateAtOffset(active, offset, canvas, settle));
@@ -110,22 +109,24 @@ export function AppsPreviewMosaic({ previews }: { readonly previews: readonly Ap
 
   const startInteraction = (tile: AppPreviewTile, kind: Interaction['kind']) => {
     const next = { kind, origin: tile } as Interaction;
-    interactionRef.current = next; latestOffsetRef.current = { x: 0, y: 0 }; interactionChangedRef.current = false;
+    interactionRef.current = next; latestSampleRef.current = { offset: { x: 0, y: 0 }, velocity: { x: 0, y: 0 } }; interactionChangedRef.current = false;
     setInteraction(next);
     setNotice(kind === 'move' ? `Moving ${byKey.get(tile.key)?.label ?? 'app'}. Devices yield as you pass them.` : `Resizing ${byKey.get(tile.key)?.label ?? 'app'}. The surrounding layout is responding.`);
   };
 
-  const moveInteraction = (offset: Offset) => {
-    latestOffsetRef.current = offset;
+  const moveInteraction = (sample: DragSample) => {
+    latestSampleRef.current = sample;
     if (interactionFrameRef.current !== null) return;
-    interactionFrameRef.current = window.requestAnimationFrame(() => { interactionFrameRef.current = null; applyInteraction(latestOffsetRef.current, false); });
+    interactionFrameRef.current = window.requestAnimationFrame(() => { interactionFrameRef.current = null; applyInteraction(latestSampleRef.current.offset, false); });
   };
 
-  const endInteraction = () => {
+  const endInteraction = (sample?: DragSample) => {
     const active = interactionRef.current;
     if (!active) return;
+    if (sample) latestSampleRef.current = sample;
     if (interactionFrameRef.current !== null) { window.cancelAnimationFrame(interactionFrameRef.current); interactionFrameRef.current = null; }
-    applyInteraction(latestOffsetRef.current, true);
+    const release = active.kind === 'move' ? projectDragRelease(latestSampleRef.current, canvas, reducedMotion ?? false) : latestSampleRef.current.offset;
+    applyInteraction(release, true);
     interactionRef.current = null; setInteraction(null);
     const label = byKey.get(active.origin.key)?.label ?? 'App';
     const verb = active.kind === 'move' ? 'placed' : 'resized';
@@ -151,6 +152,11 @@ export function AppsPreviewMosaic({ previews }: { readonly previews: readonly Ap
     setNotice(`${byKey.get(key)?.label ?? 'App'} orientation changed.`);
   };
 
+  const refreshGridBounds = () => {
+    const bounds = canvasRef.current?.getBoundingClientRect();
+    if (bounds) gridBoundsRef.current = { height: bounds.height, left: bounds.left, top: bounds.top, width: bounds.width };
+  };
+
   const updateGridPointer = (event: PointerEvent<HTMLOListElement>) => {
     const bounds = gridBoundsRef.current;
     if (!bounds) return;
@@ -166,14 +172,14 @@ export function AppsPreviewMosaic({ previews }: { readonly previews: readonly Ap
   };
 
   const status = sync === 'live' ? 'Order broker live · pickup display synchronized' : sync === 'checking' ? 'Verifying local order broker…' : sync === 'hosted' ? 'Hosted surfaces use their configured data plane' : 'Order broker unavailable';
-  return <section className="apps-preview-canvas-shell" aria-label="Production app simulator">
+  return <section className="apps-preview-canvas-shell" aria-label="Production app simulator" onScroll={refreshGridBounds}>
     <div className="apps-preview-canvas-toolbar"><p aria-live="polite" data-state={sync}>{status}</p><div><button onClick={() => { setTiles(initialTiles(previews)); setNotice('Layout reset.'); }} type="button">Reset</button></div></div>
     <p className="apps-preview-instructions" id="apps-preview-instructions" aria-live="polite">{notice} Drag the handle below a device, or drag its two-arrow corner grip to resize.</p>
-    <ol className="apps-preview-grid" data-compact={compact || undefined} data-editing="true" onPointerLeave={() => { if (gridOverlayRef.current) gridOverlayRef.current.style.opacity = '0'; }} onPointerMove={updateGridPointer} ref={canvasRef}>
+    <ol className="apps-preview-grid" data-editing="true" onPointerLeave={() => { if (gridOverlayRef.current) gridOverlayRef.current.style.opacity = '0'; }} onPointerMove={updateGridPointer} ref={canvasRef}>
       <li aria-hidden="true" className="apps-preview-grid-spotlight" ref={gridOverlayRef}><span className="apps-preview-grid-glow" ref={glowRef} /></li>
       {tiles.map((tile) => {
         const preview = byKey.get(tile.key); if (!preview) return null;
-        return <AppsPreviewTile canvas={canvas} compact={compact} key={tile.key} moving={interaction?.kind === 'move' && interaction.origin.key === tile.key} onDragEnd={endInteraction} onDragMove={moveInteraction} onDragStart={() => startInteraction(tile, 'move')} onKeyMove={(event) => keyboardMove(event, tile)} onResizeBy={(amount) => resizeBy(tile.key, amount)} onResizeEnd={endInteraction} onResizeMove={moveInteraction} onResizeStart={() => startInteraction(tile, 'resize')} onRotate={() => rotate(tile.key)} portrait={portrait.has(tile.key)} preview={preview} resizing={interaction?.kind === 'resize' && interaction.origin.key === tile.key} rotatable={ROTATABLE_APPS.has(tile.key)} tile={tile} />;
+        return <AppsPreviewTile canvas={canvas} key={tile.key} moving={interaction?.kind === 'move' && interaction.origin.key === tile.key} onDragEnd={endInteraction} onDragMove={moveInteraction} onDragStart={() => startInteraction(tile, 'move')} onKeyMove={(event) => keyboardMove(event, tile)} onResizeBy={(amount) => resizeBy(tile.key, amount)} onResizeEnd={endInteraction} onResizeMove={(offset) => moveInteraction({ offset, velocity: { x: 0, y: 0 } })} onResizeStart={() => startInteraction(tile, 'resize')} onRotate={() => rotate(tile.key)} portrait={portrait.has(tile.key)} preview={preview} resizing={interaction?.kind === 'resize' && interaction.origin.key === tile.key} rotatable={ROTATABLE_APPS.has(tile.key)} tile={tile} />;
       })}
     </ol>
   </section>;
