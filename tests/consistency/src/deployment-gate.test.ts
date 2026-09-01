@@ -19,7 +19,10 @@ describe('hosted database promotion gate', () => {
     assert.match(migrationRunner, /const latestVersion = local\.at\(-1\)\?\.version/);
     assert.match(migrationRunner, /Release readiness must match the newest local migration version/);
     assert.match(deploy, /deploy-hq:[\s\S]*?needs: migrate-database/);
-    assert.match(deploy, /publish-native:[\s\S]*?needs: migrate-database/);
+    assert.match(deploy, /publish-native:[\s\S]*?needs: \[migrate-database, deploy-hq\]/);
+    assert.match(deploy, /publish-native:[\s\S]*?inputs\.publish_native && inputs\.deploy_web && inputs\.environment == 'production'/);
+    assert.match(deploy, /EXPO_TOKEN: \$\{\{ secrets\.EXPO_TOKEN \|\| secrets\.EXPO_GO_COFFEE \}\}/);
+    assert.match(deploy, /API_URL: \$\{\{ needs\.deploy-hq\.outputs\.url \}\}/);
   });
 
   it('bootstraps through the passwordless Management API promotion path', () => {
