@@ -1,5 +1,6 @@
 import Link from 'next/link';
 
+import { DevicePreviewFrame } from '@/components/device-preview-frame';
 import { loadLocations } from '@/lib/data';
 import { wallTargetFor } from '@/lib/wall';
 
@@ -32,7 +33,7 @@ export default async function PickupDisplayPage({ searchParams }: DisplayPagePro
   const target = wallTargetFor(selected.id);
   const source = target.source === 'display' ? 'Live display' : target.source === 'hq' ? 'HQ live preview' : 'Preview wall';
   return (
-    <div className="apps-page apps-surface apps-surface--wall">
+    <div className="apps-page apps-surface apps-surface--tv">
       <nav className="apps-breadcrumb" aria-label="Breadcrumb"><Link href="/apps">Apps wall</Link><span aria-hidden="true">/</span><span>Pickup display</span></nav>
       <header className="apps-page-header apps-surface-header">
         <div><p className="apps-eyebrow">Wall display · {source}</p><h1>Queue</h1><p>Live pickup queue for {selected.name}. It uses the same tenant data as the in-store screen.</p></div>
@@ -46,7 +47,7 @@ export default async function PickupDisplayPage({ searchParams }: DisplayPagePro
         </nav>
       ) : null}
       <section className="apps-surface-frame" aria-label={`${selected.name} pickup display`}>
-        <iframe className="apps-preview-iframe" src={target.url} title={`${selected.name} live pickup display`} loading="eager" allow="fullscreen" referrerPolicy="no-referrer" sandbox="allow-same-origin allow-scripts" />
+        <DevicePreviewFrame frame="tv" height={1080} src={target.url} title={`${selected.name} live pickup display`} width={1920} />
       </section>
     </div>
   );

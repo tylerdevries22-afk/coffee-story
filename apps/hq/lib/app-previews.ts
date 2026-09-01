@@ -1,10 +1,10 @@
 import type { IconName } from '@/components/icon';
 
-export const APP_PREVIEW_KEYS = ['customer', 'operator', 'kiosk', 'display'] as const;
+export const APP_PREVIEW_KEYS = ['hq', 'customer', 'operator', 'kiosk', 'display'] as const;
 
 export type AppPreviewKey = (typeof APP_PREVIEW_KEYS)[number];
 export type AppPreviewSource = 'configured' | 'local' | 'unavailable';
-export type AppPreviewFrame = 'phone' | 'tablet' | 'wall';
+export type AppPreviewFrame = 'phone' | 'tablet' | 'computer' | 'tv';
 export type AppPreviewEnvironment = Readonly<Record<string, string | undefined>>;
 
 export type AppPreview = {
@@ -15,6 +15,7 @@ export type AppPreview = {
   readonly icon: IconName;
   readonly device: string;
   readonly frame: AppPreviewFrame;
+  readonly viewport: Readonly<{ width: number; height: number }>;
   readonly environmentKey: string;
   readonly source: AppPreviewSource;
   readonly url: string | null;
@@ -25,28 +26,34 @@ type AppPreviewDefinition = Omit<AppPreview, 'source' | 'url'> & {
 };
 
 const APP_PREVIEWS = {
+  hq: {
+    key: 'hq', label: 'HQ console', href: '/apps/hq', icon: 'activity',
+    description: 'Back-office operations, planning, and team workflows.',
+    device: 'iMac desktop', frame: 'computer', viewport: { width: 1440, height: 810 }, environmentKey: 'NEXT_PUBLIC_HQ_URL',
+    localUrl: 'http://localhost:3300/',
+  },
   customer: {
     key: 'customer', label: 'Customer', href: '/apps/customer', icon: 'users',
     description: 'Guest ordering, rewards, order status, and account journeys.',
-    device: 'Phone', frame: 'phone', environmentKey: 'NEXT_PUBLIC_CUSTOMER_URL',
+    device: 'iPhone', frame: 'phone', viewport: { width: 390, height: 844 }, environmentKey: 'NEXT_PUBLIC_CUSTOMER_URL',
     localUrl: 'http://localhost:4170/',
   },
   operator: {
     key: 'operator', label: 'Operator', href: '/apps/operator', icon: 'activity',
     description: 'Barista workflow for accepting, preparing, and handing off orders.',
-    device: 'Tablet', frame: 'tablet', environmentKey: 'NEXT_PUBLIC_OPERATOR_URL',
+    device: 'iPad Pro landscape', frame: 'tablet', viewport: { width: 1180, height: 884 }, environmentKey: 'NEXT_PUBLIC_OPERATOR_URL',
     localUrl: 'http://localhost:4191/',
   },
   kiosk: {
     key: 'kiosk', label: 'Kiosk / POS', href: '/apps/kiosk', icon: 'kiosk',
     description: 'Self-service menu, checkout, and in-store order capture.',
-    device: 'iPad landscape', frame: 'tablet', environmentKey: 'NEXT_PUBLIC_KIOSK_URL',
+    device: 'iPad Pro landscape', frame: 'tablet', viewport: { width: 1180, height: 884 }, environmentKey: 'NEXT_PUBLIC_KIOSK_URL',
     localUrl: 'http://localhost:4180/',
   },
   display: {
     key: 'display', label: 'Pickup display', href: '/apps/display', icon: 'wall',
     description: 'The location-scoped queue guests see when their order is ready.',
-    device: 'Wall display', frame: 'wall', environmentKey: 'NEXT_PUBLIC_DISPLAY_URL',
+    device: 'TV display', frame: 'tv', viewport: { width: 1920, height: 1080 }, environmentKey: 'NEXT_PUBLIC_DISPLAY_URL',
     localUrl: 'http://localhost:3200/board/demo',
   },
 } satisfies Record<AppPreviewKey, AppPreviewDefinition>;
@@ -73,7 +80,8 @@ export function appPreviewFor(
 ): AppPreview {
   const definition = APP_PREVIEWS[key];
   const configured = safePreviewUrl(environment[definition.environmentKey]);
-  const local = environment.NODE_ENV === 'production' ? null : definition.localUrl;
+  const localPreview = environment.COFFEE_STORY_LOCAL_PREVIEWS === '1';
+  const local = environment.NODE_ENV === 'production' && !localPreview ? null : definition.localUrl;
   const url = configured ?? local;
   return {
     ...definition,

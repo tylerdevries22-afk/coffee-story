@@ -35,6 +35,7 @@ type Surface = {
   path: string;
   width: number;
   height: number;
+  frame: 'tv' | 'desktop' | 'tablet' | 'phone';
   span: number;
 };
 
@@ -55,6 +56,7 @@ const BROWSER_BLOCKED_PORTS = new Set([
   1720, 1723, 2049, 3659, 4045, 4190, 5060, 5061, 6000, 6566, 6665, 6666,
   6667, 6668, 6669, 6697, 10080,
 ]);
+const FRAME_TYPES = new Set<Surface['frame']>(['tv', 'desktop', 'tablet', 'phone']);
 
 const wallOnly = process.argv.slice(2).some((a) => a === '--wall' || a === '--wall-only');
 
@@ -83,6 +85,9 @@ function assertPortsAgree(surfaces: Surface[], configs: LaunchConfig[]): void {
   const problems: string[] = [];
 
   for (const surface of surfaces) {
+    if (!FRAME_TYPES.has(surface.frame)) {
+      problems.push(`${surface.name}: unsupported frame "${surface.frame}"`);
+    }
     if (BROWSER_BLOCKED_PORTS.has(surface.port)) {
       problems.push(`${surface.name}: port ${surface.port} is blocked by browsers`);
     }
@@ -170,9 +175,10 @@ async function main(): Promise<void> {
     );
   }
 
-  // Published as wall.html + wall-surfaces.json so the names cannot collide
-  // with a route the customer app exports.
+  // Published as separate static assets so no names collide with customer routes.
   copyFileSync(join(WALL_DIR, 'index.html'), join(HOST_DIST, 'wall.html'));
+  copyFileSync(join(WALL_DIR, 'wall.css'), join(HOST_DIST, 'wall.css'));
+  copyFileSync(join(WALL_DIR, 'wall.js'), join(HOST_DIST, 'wall.js'));
   copyFileSync(join(WALL_DIR, 'surfaces.json'), join(HOST_DIST, 'wall-surfaces.json'));
 
   const host = surfaces.find((s) => s.launch.startsWith(HOST_APP));

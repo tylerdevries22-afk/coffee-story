@@ -9,6 +9,7 @@
       "path": "/board/demo",
       "width": 1920,
       "height": 1080,
+      "frame": "tv",
       "span": 3
     },
     {
@@ -19,6 +20,7 @@
       "path": "/",
       "width": 1440,
       "height": 900,
+      "frame": "desktop",
       "span": 3
     },
     {
@@ -29,6 +31,7 @@
       "path": "/",
       "width": 1180,
       "height": 820,
+      "frame": "tablet",
       "span": 2
     },
     {
@@ -39,6 +42,7 @@
       "path": "/",
       "width": 1180,
       "height": 820,
+      "frame": "tablet",
       "span": 2
     },
     {
@@ -49,6 +53,7 @@
       "path": "/",
       "width": 390,
       "height": 844,
+      "frame": "phone",
       "span": 2
     }
   ]

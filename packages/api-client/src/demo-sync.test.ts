@@ -89,4 +89,21 @@ describe('createDemoSyncClient', () => {
     assert.equal(new Headers(calls[2]?.init.headers).get('x-demo-sync-channel'), 'kiosk');
     assert.ok(new Headers(calls[2]?.init.headers).get('idempotency-key'));
   });
+
+  it('preserves the display-safe projection when an older preview lacks /board', async () => {
+    let requests = 0;
+    globalThis.fetch = async () => {
+      requests += 1;
+      if (requests === 1) return Response.json({ error: { code: 'not_found', message: 'Not found.' } }, { status: 404 });
+      return Response.json({ sessionId: 'session-1', revision: 2, orders: [{
+        id: 'order-1', channel: 'kiosk', dailyNumber: 51, fulfillmentType: 'pickup', guestName: 'Ada', status: 'ready', updatedAt: '2026-09-01T00:00:00.000Z',
+      }] });
+    };
+    const client = createDemoSyncClient('http://localhost:3300/api/demo-sync', 'pos');
+    assert.ok(client);
+    assert.deepEqual(await client.board(), [{
+      id: 'order-1', channel: 'kiosk', dailyNumber: 51, fulfillmentType: 'pickup', guestName: 'Ada', status: 'ready', updatedAt: '2026-09-01T00:00:00.000Z',
+    }]);
+    assert.equal(requests, 2);
+  });
 });

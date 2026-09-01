@@ -8,7 +8,7 @@ import type {
   PlaceOrderRequest,
   PlaceOrderResponse,
 } from './contract';
-import { throwForResponse } from './errors';
+import { ApiError, throwForResponse } from './errors';
 import { fetchWithRetry } from './http';
 import { newIdempotencyKey } from './idempotency';
 
@@ -79,6 +79,19 @@ export function createDemoSyncClient(value: unknown, channel: OrderChannel): Dem
     return (await response.json()) as T;
   };
 
+  const board = async (): Promise<DemoSyncBoardTicket[]> => {
+    try {
+      return await request<DemoSyncBoardTicket[]>('/board', { method: 'GET', headers: { accept: 'application/json' } });
+    } catch (error) {
+      // Older running preview servers may not have compiled the display-safe
+      // projection yet. Retain the display-safe projection in this client rather than
+      // letting the wall silently abandon the shared order plane.
+      if (!(error instanceof ApiError) || error.status !== 404) throw error;
+      const snapshot = await request<DemoSyncSnapshot>('/orders', { method: 'GET', headers: { accept: 'application/json' } });
+      return snapshot.orders.map(({ channel, dailyNumber, fulfillmentType, guestName, id, status, updatedAt }) => ({ channel, dailyNumber, fulfillmentType, guestName, id, status, updatedAt }));
+    }
+  };
+
   return {
     placeOrder: (input, idempotencyKey) => request<PlaceOrderResponse>('/orders', {
       method: 'POST',
@@ -89,10 +102,7 @@ export function createDemoSyncClient(value: unknown, channel: OrderChannel): Dem
       },
       body: JSON.stringify(input),
     }),
-    board: () => request<DemoSyncBoardTicket[]>('/board', {
-      method: 'GET',
-      headers: { accept: 'application/json' },
-    }),
+    board,
     orders: () => request<DemoSyncSnapshot>('/orders', {
       method: 'GET',
       headers: { accept: 'application/json' },

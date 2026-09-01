@@ -1,6 +1,6 @@
 'use server';
 
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { start } from 'workflow/api';
@@ -24,6 +24,7 @@ import {
   type MenuItemDraft,
 } from '@/lib/content-model';
 import { serverEnv, serviceDb } from '@/lib/api-auth';
+import { recordStorageAsset, safeOriginalFilename, sourceForContentUpload } from '@/lib/storage-library';
 import { serverClient } from '@/lib/supabase-server';
 import {
   normalizeTrainingProfile,
@@ -583,6 +584,29 @@ export async function uploadContentImage(
   const path = `${context.brandId}/${safeScope}/${safeEntity}/${randomUUID()}.${extension}`;
   if (!await uploadVersionedImage(context, bucket, path, body, file.type)) {
     return { ok: false, error: 'The image could not be uploaded. Try a smaller file.' };
+  }
+  const source = sourceForContentUpload(scope, entityKey);
+  const recorded = await recordStorageAsset(context.privileged, {
+    assetKind: family === 'training' ? 'training_media' : 'menu_image',
+    brandId: context.brandId,
+    byteSize: body.byteLength,
+    checksumSha256: createHash('sha256').update(body).digest('hex'),
+    createdBy: context.brandUserId,
+    metadata: { source: 'content_upload' },
+    mimeType: file.type,
+    objectPath: path,
+    originalFilename: safeOriginalFilename(file.name, extension),
+    sourceKey: source.sourceKey,
+    sourceType: source.sourceType,
+  });
+  if (!recorded) {
+    const remove = () => context.privileged.storage.from(bucket).remove([path]);
+    const firstRemoval = await remove();
+    if (firstRemoval.error) await remove();
+    console.error('storage asset registration failed after content upload', {
+      severity: 'error', bucket, family, sourceType: source.sourceType,
+    });
+    return { ok: false, error: 'The image could not be recorded. Please try the upload again.' };
   }
   const publicUrl = context.privileged.storage.from(bucket).getPublicUrl(path).data.publicUrl;
   return { ok: true, persisted: true, url: publicUrl };

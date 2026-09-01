@@ -22,7 +22,7 @@ function hqOrigin(): string {
 function displayContentSecurityPolicy(): string {
   const development = process.env.NODE_ENV !== 'production';
   const ancestors = development
-    ? "'self' http://localhost:4170 http://127.0.0.1:4170 http://localhost:3300 http://127.0.0.1:3300"
+    ? "'self' http://localhost:4170 http://127.0.0.1:4170 http://localhost:3300 http://127.0.0.1:3300 http://localhost:3400 http://127.0.0.1:3400"
     : `'self' ${hqOrigin()}`;
   // Next's dev runtime evaluates its own chunks with `eval`, so the shipped
   // policy killed `main-app.js` before React could hydrate: the board rendered

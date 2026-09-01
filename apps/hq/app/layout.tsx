@@ -13,6 +13,7 @@ import './styles/dashboard.css';
 import './styles/dashboard-responsive.css';
 import './styles/apps.css';
 import './styles/catalog.css';
+import './styles/storage.css';
 import './styles/analytics.css';
 import './styles/analytics-responsive.css';
 

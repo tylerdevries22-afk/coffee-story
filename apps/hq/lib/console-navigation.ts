@@ -133,6 +133,9 @@ function contentSection(access: ConsoleNavigationAccess): ConsoleSection {
       ...(access.canManageBrand
         ? [{ href: '/kiosk', label: 'Kiosk', icon: 'kiosk' as const }]
         : []),
+      ...(access.canManageBrand
+        ? [{ href: '/storage', label: 'Storage', icon: 'folder' as const }]
+        : []),
       ...(access.canManageTraining
         ? [{ href: '/training', label: 'Training', icon: 'training' as const }]
         : []),

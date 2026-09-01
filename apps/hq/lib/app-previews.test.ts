@@ -8,6 +8,7 @@ describe('appPreviewFor', () => {
     const previews = appPreviewsFor({ NODE_ENV: 'development' });
 
     assert.deepEqual(previews.map((preview) => [preview.key, preview.url, preview.source]), [
+      ['hq', 'http://localhost:3300/', 'local'],
       ['customer', 'http://localhost:4170/', 'local'],
       ['operator', 'http://localhost:4191/', 'local'],
       ['kiosk', 'http://localhost:4180/', 'local'],
@@ -23,6 +24,12 @@ describe('appPreviewFor', () => {
 
     assert.equal(preview.url, 'https://customer.example.com/app');
     assert.equal(preview.source, 'configured');
+  });
+
+  it('allows a deliberate local production preview wall', () => {
+    const previews = appPreviewsFor({ COFFEE_STORY_LOCAL_PREVIEWS: '1', NODE_ENV: 'production' });
+
+    assert.deepEqual(previews.map((preview) => preview.source), ['local', 'local', 'local', 'local', 'local']);
   });
 
   it('fails closed for untrusted or malformed configured URLs', () => {

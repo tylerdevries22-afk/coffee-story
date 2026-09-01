@@ -19,9 +19,9 @@ export function securityHeaders(options: {
       key: 'Content-Security-Policy',
       // Keep the dev wall's parent explicit. A wildcard port is valid CSP but
       // is rejected by a few embedded WebViews, which makes the wall report
-      // healthy surfaces as "refused to connect". Port 3300 is included for
-      // the HQ route when the wall itself is embedded inside the console.
-      value: "frame-ancestors 'self' http://localhost:4170 http://127.0.0.1:4170 http://localhost:3300 http://127.0.0.1:3300",
+      // healthy surfaces as "refused to connect". The two local HQ ports
+      // support the regular development server and the isolated preview wall.
+      value: "frame-ancestors 'self' http://localhost:4170 http://127.0.0.1:4170 http://localhost:3300 http://127.0.0.1:3300 http://localhost:3400 http://127.0.0.1:3400",
     }]
     : [
       { key: 'X-Frame-Options', value: 'DENY' },

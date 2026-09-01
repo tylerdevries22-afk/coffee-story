@@ -20,9 +20,9 @@ const workspaceRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
  */
 const config: NextConfig = {
   outputFileTracingRoot: workspaceRoot,
-  // Keep a running preview isolated from a concurrent production build. Both
-  // commands otherwise mutate `.next` and can briefly serve missing chunks.
-  distDir: process.env.NODE_ENV === 'development' ? '.next-dev' : '.next',
+  // Keep a running preview isolated from another HQ process or a production
+  // build. Shared output can serve stale routes or missing chunks.
+  distDir: process.env.NEXT_DIST_DIR ?? (process.env.NODE_ENV === 'development' ? '.next-dev' : '.next'),
   // Workspace packages ship TypeScript source; Next compiles them in place.
   transpilePackages: ['@platform/schema', '@platform/domain', '@platform/engine', '@platform/api-client'],
   // The workflow runtime loads its queue adapter by provider name. Keeping
@@ -54,7 +54,16 @@ const config: NextConfig = {
       }),
     },
     {
-      source: '/((?!api/|wall/preview/).*)',
+      // The dashboard is a first-party device on the apps wall. It remains
+      // unavailable to every other origin, but can render inside that wall.
+      source: '/',
+      headers: securityHeaders({
+        developmentFrames: process.env.NODE_ENV !== 'production',
+        frameAncestors: ["'self'"],
+      }),
+    },
+    {
+      source: '/((?!api/|wall/preview/|$).*)',
       headers: securityHeaders({ developmentFrames: process.env.NODE_ENV !== 'production' }),
     },
   ],

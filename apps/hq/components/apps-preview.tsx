@@ -2,7 +2,9 @@ import Link from 'next/link';
 
 import type { AppPreview } from '@/lib/app-previews';
 
+import { DevicePreviewFrame } from './device-preview-frame';
 import { Icon } from './icon';
+import { AppsPreviewMosaic } from './apps-preview-mosaic';
 
 type PreviewProps = { readonly preview: AppPreview };
 
@@ -12,7 +14,7 @@ const SOURCE_LABEL: Readonly<Record<AppPreview['source'], string>> = {
   unavailable: 'Preview not configured',
 };
 
-function PreviewFrame({ preview, eager = false }: PreviewProps & { readonly eager?: boolean }) {
+function PreviewFrame({ preview }: PreviewProps) {
   if (!preview.url) {
     return (
       <div className="apps-preview-unavailable" role="status">
@@ -22,37 +24,13 @@ function PreviewFrame({ preview, eager = false }: PreviewProps & { readonly eage
     );
   }
   return (
-    <iframe
-      className="apps-preview-iframe"
+    <DevicePreviewFrame
+      frame={preview.frame}
+      height={preview.viewport.height}
       src={preview.url}
       title={`${preview.label} app preview`}
-      loading={eager ? 'eager' : 'lazy'}
-      allow="fullscreen"
-      referrerPolicy="no-referrer"
-      sandbox="allow-forms allow-popups allow-same-origin allow-scripts"
+      width={preview.viewport.width}
     />
-  );
-}
-
-function PreviewCard({ preview }: PreviewProps) {
-  return (
-    <li className={`apps-preview-card apps-preview-card--${preview.frame}`}>
-      <article>
-        <header className="apps-preview-card-header">
-          <span className="apps-preview-icon" aria-hidden="true"><Icon name={preview.icon} size={19} /></span>
-          <span className="apps-preview-card-copy">
-            <strong>{preview.label}</strong>
-            <small>{preview.device} · {SOURCE_LABEL[preview.source]}</small>
-          </span>
-          <Link className="apps-preview-open" href={preview.href} aria-label={`Open ${preview.label} app`}>
-            <Icon name="external" size={16} />
-          </Link>
-        </header>
-        <p className="apps-preview-description">{preview.description}</p>
-        <div className="apps-preview-stage"><PreviewFrame preview={preview} /></div>
-        <Link className="apps-preview-link" href={preview.href}>Open {preview.label}</Link>
-      </article>
-    </li>
   );
 }
 
@@ -67,9 +45,7 @@ export function AppsPreviewWall({ previews }: { readonly previews: readonly AppP
           <p>Open a surface below, or use the Apps navigation to switch directly between customer, operator, kiosk, and pickup queue workflows.</p>
         </div>
       </header>
-      <ol className="apps-preview-grid" aria-label="Application previews">
-        {previews.map((preview) => <PreviewCard key={preview.key} preview={preview} />)}
-      </ol>
+      <AppsPreviewMosaic previews={previews} />
     </div>
   );
 }
@@ -88,7 +64,7 @@ export function AppSurfacePreview({ preview }: PreviewProps) {
         {preview.url ? <a className="apps-external-link" href={preview.url} target="_blank" rel="noopener noreferrer">Open in new tab <Icon name="external" size={16} /></a> : null}
       </header>
       <section className="apps-surface-frame" aria-label={`${preview.label} application`}>
-        <PreviewFrame preview={preview} eager />
+        <PreviewFrame preview={preview} />
       </section>
     </div>
   );

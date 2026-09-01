@@ -17,6 +17,7 @@ describe('securityHeaders', () => {
     const headers = securityHeaders({ developmentFrames: true });
     assert.equal(headers.some((row) => row.key === 'X-Frame-Options'), false);
     assert.match(headers.find((row) => row.key === 'Content-Security-Policy')?.value ?? '', /localhost:3300/);
+    assert.match(headers.find((row) => row.key === 'Content-Security-Policy')?.value ?? '', /127\.0\.0\.1:3400/);
   });
 
   it('allows only explicitly trusted parents for an embeddable surface', () => {

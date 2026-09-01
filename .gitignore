@@ -55,6 +55,7 @@ logs/
 # Next.js
 .next/
 .next-dev/
+.next-preview/
 next-env.d.ts
 
 # Local package-manager cache
@@ -75,4 +76,10 @@ __pycache__/
 # branch. `.claude/` itself stays tracked: launch.json, settings.json, hooks
 # and skills are real project config.
 **/.claude/session-notes.md
+.claude/.proven-config-version
+.claude/proven-config.json
+.claude-flow/
+.codex/
+.tmp/
 apps/*/.claude/
+apps/hq/.next-wall*/
