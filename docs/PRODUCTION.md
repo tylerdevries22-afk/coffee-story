@@ -130,6 +130,11 @@ Server (Vercel project for `apps/hq` — never in any app bundle):
 - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (console sign-in)
 - `NEXT_PUBLIC_DISPLAY_URL` (optional single-location pickup display origin;
   the tenant-safe HQ preview is used when this is unset)
+- `NEXT_PUBLIC_CUSTOMER_URL`, `NEXT_PUBLIC_OPERATOR_URL`,
+  `NEXT_PUBLIC_KIOSK_URL`, and `NEXT_PUBLIC_DISPLAY_URL` (public HTTPS URLs
+  shown in the HQ Apps wall; the production release workflow supplies the
+  canonical surface origins automatically. For a manual HQ deployment, set
+  them explicitly and never include tokens.)
 - `NEXT_PUBLIC_WALL_URL` (optional hosted five-surface wall URL; local preview
   uses `http://localhost:4170/wall` when this is unset in development)
 - `OPENAI_API_KEY`, `OPENAI_RESEARCH_MODEL` (required for autonomous tenant

@@ -6,7 +6,8 @@ import { FALLBACK_SECTION, pageTitleFor } from './console-shell-config';
 describe('pageTitleFor', () => {
   it('uses the most specific label for known and nested utility routes', () => {
     assert.equal(pageTitleFor('/analytics/commerce', FALLBACK_SECTION), 'Commerce analytics');
-    assert.equal(pageTitleFor('/wall/preview/union-station', FALLBACK_SECTION), 'Live wall');
+    assert.equal(pageTitleFor('/apps/customer', FALLBACK_SECTION), 'Customer app');
+    assert.equal(pageTitleFor('/wall/preview/union-station', FALLBACK_SECTION), 'Pickup display');
     assert.equal(pageTitleFor('/status/coffee-story', FALLBACK_SECTION), 'System status');
   });
 

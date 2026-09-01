@@ -270,6 +270,15 @@ jobs:
           add_public NEXT_PUBLIC_SUPABASE_URL "$SUPABASE_URL"
           add_public NEXT_PUBLIC_SUPABASE_ANON_KEY "$SUPABASE_PUBLISHABLE_KEY"
           add_public NEXT_PUBLIC_HQ_URL "https://${project}.vercel.app"
+          # The production console's Apps wall may embed only these canonical,
+          # public surface origins. Preview HQ deployments intentionally leave
+          # them unset so they never point at a production device or guest app.
+          if [ "$DEPLOY_ENVIRONMENT" = production ]; then
+            add_public NEXT_PUBLIC_CUSTOMER_URL "https://${PROJECT_PREFIX}-customer.vercel.app"
+            add_public NEXT_PUBLIC_OPERATOR_URL "https://${PROJECT_PREFIX}-operator.vercel.app"
+            add_public NEXT_PUBLIC_KIOSK_URL "https://${PROJECT_PREFIX}-kiosk.vercel.app"
+            add_public NEXT_PUBLIC_DISPLAY_URL "https://${PROJECT_PREFIX}-display.vercel.app"
+          fi
           add_secret SUPABASE_SERVICE_ROLE_KEY "$SUPABASE_SERVICE_ROLE_KEY"
           # Required for issuing and validating kiosk/display device tokens.
           # Keep this optional so a web-only deployment can still fail closed

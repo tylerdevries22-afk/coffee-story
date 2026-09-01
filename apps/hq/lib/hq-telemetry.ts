@@ -17,6 +17,11 @@ const HQ_SCREENS: Readonly<Record<string, string>> = {
   '/analytics/operations': 'analytics_operations',
   '/analytics/reliability': 'analytics_reliability',
   '/analytics/training': 'analytics_training',
+  '/apps': 'apps_wall',
+  '/apps/customer': 'app_customer',
+  '/apps/display': 'app_pickup_display',
+  '/apps/kiosk': 'app_kiosk',
+  '/apps/operator': 'app_operator',
   '/brand': 'brand',
   '/campaigns': 'campaigns',
   '/content': 'content',
@@ -34,7 +39,7 @@ const HQ_SCREENS: Readonly<Record<string, string>> = {
   '/menu': 'menu',
   '/onboarding': 'onboarding',
   '/training': 'training',
-  '/wall': 'live_wall',
+  '/wall': 'app_pickup_display',
 };
 
 type HqTelemetryInput = Readonly<{

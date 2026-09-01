@@ -38,7 +38,11 @@ describe('consoleSectionsFor', () => {
     assert.deepEqual(destinations, [
       '/',
       '/locations',
-      '/wall',
+      '/apps',
+      '/apps/customer',
+      '/apps/operator',
+      '/apps/kiosk',
+      '/apps/display',
       '/catalog',
       '/menu/import',
       '/kiosk',
@@ -75,7 +79,11 @@ describe('consoleSectionsFor', () => {
     assert.deepEqual(destinationsFor(STAFF_ACCESS), [
       '/',
       '/locations',
-      '/wall',
+      '/apps',
+      '/apps/customer',
+      '/apps/operator',
+      '/apps/kiosk',
+      '/apps/display',
       '/menu',
       '/drops',
       '/campaigns',
@@ -101,7 +109,8 @@ describe('consoleSectionsFor', () => {
         assert.equal(consoleSectionForPath(sections, item.href)?.key, section.key);
       }
     }
-    assert.equal(consoleSectionForPath(sections, '/wall/preview/store-1')?.key, 'dashboard');
+    assert.equal(consoleSectionForPath(sections, '/apps/customer/orders')?.key, 'apps');
+    assert.equal(consoleSectionForPath(sections, '/wall/preview/store-1'), undefined);
     assert.equal(consoleSectionForPath(sections, '/not-a-console-tab'), undefined);
   });
 

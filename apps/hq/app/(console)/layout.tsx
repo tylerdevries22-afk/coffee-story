@@ -48,7 +48,7 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
       </div>
     );
   }
-  // The tenant-safe wall preview is embedded by the /wall console page. It
+  // The tenant-safe wall preview is embedded by the /apps/display console page. It
   // lives in this route group so it can reuse the session-bound data layer,
   // but must not inherit the sidebar or console chrome inside the iframe.
   if (pathname.startsWith('/wall/preview/')) return children;

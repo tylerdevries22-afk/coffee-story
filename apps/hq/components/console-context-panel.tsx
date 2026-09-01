@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { Fragment } from 'react';
 
 import { Button } from '@/components/ui/button';
-import { pathMatchesHref } from '@/lib/navigation-path';
+import { bestMatchingHref } from '@/lib/navigation-path';
 
 import { Icon } from './icon';
 import { NavLink } from './nav-link';
@@ -70,6 +70,7 @@ export function ConsoleContextPanel(props: ContextPanelProps) {
         <div className="hq-section-list">
           {props.sections.map((navSection) => {
             const active = navSection.key === props.section.key;
+            const activeHref = bestMatchingHref(pathname, navSection.items.map((item) => item.href));
             return (
               <section className={`hq-section${active ? ' active' : ''}`} key={navSection.key}>
                 <Link className="hq-section-root" href={navSection.home}>
@@ -86,7 +87,7 @@ export function ConsoleContextPanel(props: ContextPanelProps) {
                         key={item.href}
                         href={item.href}
                         className="hq-context-link"
-                        active={pathMatchesHref(pathname, item.href)}
+                        active={item.href === activeHref}
                       >
                         {item.label}
                       </NavLink>

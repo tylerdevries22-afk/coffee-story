@@ -118,7 +118,7 @@ export default async function OnboardingPage({ searchParams }: { searchParams: S
           <h1>Demo to live</h1>
           <p className="subtitle">Create an industry stack once, then guide each client through verified access, hosted provisioning, content release, and launch.</p>
         </div>
-        <Link className="button factory-button" href="/wall">
+        <Link className="button factory-button" href="/apps/display">
           <Icon name="wall" size={17} /> Open live wall
         </Link>
       </header>

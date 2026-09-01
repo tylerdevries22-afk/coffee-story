@@ -27,6 +27,13 @@ describe('bestMatchingHref', () => {
     );
   });
 
+  it('keeps an Apps child selected instead of its Wall overview parent', () => {
+    assert.equal(
+      bestMatchingHref('/apps/customer/orders', ['/apps', '/apps/customer', '/apps/operator']),
+      '/apps/customer',
+    );
+  });
+
   it('returns undefined when no destination owns the pathname', () => {
     assert.equal(bestMatchingHref('/customers', ['/analytics', '/integrations']), undefined);
   });

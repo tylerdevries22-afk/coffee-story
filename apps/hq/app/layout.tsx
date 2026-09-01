@@ -11,6 +11,7 @@ import './styles/console-command.css';
 import './styles/console-responsive.css';
 import './styles/dashboard.css';
 import './styles/dashboard-responsive.css';
+import './styles/apps.css';
 import './styles/catalog.css';
 import './styles/analytics.css';
 import './styles/analytics-responsive.css';

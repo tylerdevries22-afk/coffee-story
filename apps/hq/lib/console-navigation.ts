@@ -34,7 +34,20 @@ const DASHBOARD_SECTION = {
   items: [
     { href: '/', label: 'Overview', icon: 'dashboard' },
     { href: '/locations', label: 'Locations', icon: 'locations' },
-    { href: '/wall', label: 'Live wall', icon: 'wall' },
+  ],
+} satisfies ConsoleSection;
+
+const APPS_SECTION = {
+  key: 'apps',
+  title: 'Apps',
+  icon: 'panel',
+  home: '/apps',
+  items: [
+    { href: '/apps', label: 'Wall', icon: 'wall' },
+    { href: '/apps/customer', label: 'Customer', icon: 'users' },
+    { href: '/apps/operator', label: 'Operator', icon: 'activity' },
+    { href: '/apps/kiosk', label: 'Kiosk / POS', icon: 'kiosk' },
+    { href: '/apps/display', label: 'Pickup display', icon: 'wall' },
   ],
 } satisfies ConsoleSection;
 
@@ -155,6 +168,7 @@ function settingsSection(access: ConsoleNavigationAccess): ConsoleSection {
 export function consoleSectionsFor(access: ConsoleNavigationAccess): ConsoleSection[] {
   return [
     DASHBOARD_SECTION,
+    APPS_SECTION,
     contentSection(access),
     DROPS_SECTION,
     CAMPAIGNS_SECTION,
