@@ -47,6 +47,8 @@ on:
         required: false
       EXPO_TOKEN:
         required: false
+      EXPO_GO_COFFEE:
+        required: false
       EXPO_PUBLIC_API_URL:
         required: false
       EXPO_PUBLIC_ALLOWED_API_HOST:
@@ -461,8 +463,8 @@ jobs:
 
   publish-native:
     name: Publish native OTA updates
-    needs: migrate-database
-    if: inputs.publish_native && inputs.environment == 'production'
+    needs: [migrate-database, deploy-hq]
+    if: inputs.publish_native && inputs.deploy_web && inputs.environment == 'production'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -492,40 +494,49 @@ jobs:
             echo "SUPABASE_URL=https://${SUPABASE_PROJECT_REF}.supabase.co"
             echo "SUPABASE_PUBLISHABLE_KEY=$publishable"
           } >> "$GITHUB_ENV"
-      - name: Require EAS credentials and production API configuration
+      - name: Require EAS credentials and a verified HQ deployment
         env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-          API_URL: ${{ secrets.EXPO_PUBLIC_API_URL }}
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN || secrets.EXPO_GO_COFFEE }}
+          API_URL: ${{ needs.deploy-hq.outputs.url }}
         run: |
           test -n "$EXPO_TOKEN" || { echo '::error::Set EXPO_TOKEN.'; exit 1; }
-          test -n "$API_URL" || { echo '::error::Set EXPO_PUBLIC_API_URL to the deployed HQ URL.'; exit 1; }
+          test -n "$API_URL" || { echo '::error::The verified HQ deployment did not return a URL.'; exit 1; }
       - name: Publish customer update
         working-directory: apps/customer
         env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-          EXPO_PUBLIC_API_URL: ${{ secrets.EXPO_PUBLIC_API_URL }}
-          EXPO_PUBLIC_ALLOWED_API_HOST: ${{ secrets.EXPO_PUBLIC_ALLOWED_API_HOST }}
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN || secrets.EXPO_GO_COFFEE }}
+          API_URL: ${{ needs.deploy-hq.outputs.url }}
         run: |
+          api_host="${API_URL#https://}"
+          api_host="${api_host%%/*}"
           EXPO_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
           EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
+          EXPO_PUBLIC_API_URL="$API_URL" \
+          EXPO_PUBLIC_ALLOWED_API_HOST="$api_host" \
             npx --yes eas-cli@21.4.0 update --channel production --environment production --platform all --non-interactive
       - name: Publish operator update
         working-directory: apps/operator
         env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-          EXPO_PUBLIC_API_URL: ${{ secrets.EXPO_PUBLIC_API_URL }}
-          EXPO_PUBLIC_ALLOWED_API_HOST: ${{ secrets.EXPO_PUBLIC_ALLOWED_API_HOST }}
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN || secrets.EXPO_GO_COFFEE }}
+          API_URL: ${{ needs.deploy-hq.outputs.url }}
         run: |
+          api_host="${API_URL#https://}"
+          api_host="${api_host%%/*}"
           EXPO_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
           EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
-            npx --yes eas-cli@21.4.0 update --channel production --platform all --non-interactive
+          EXPO_PUBLIC_API_URL="$API_URL" \
+          EXPO_PUBLIC_ALLOWED_API_HOST="$api_host" \
+            npx --yes eas-cli@21.4.0 update --channel production --environment production --platform all --non-interactive
       - name: Publish kiosk update
         working-directory: apps/kiosk
         env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-          EXPO_PUBLIC_API_URL: ${{ secrets.EXPO_PUBLIC_API_URL }}
-          EXPO_PUBLIC_ALLOWED_API_HOST: ${{ secrets.EXPO_PUBLIC_ALLOWED_API_HOST }}
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN || secrets.EXPO_GO_COFFEE }}
+          API_URL: ${{ needs.deploy-hq.outputs.url }}
         run: |
+          api_host="${API_URL#https://}"
+          api_host="${api_host%%/*}"
           EXPO_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
           EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
-            npx --yes eas-cli@21.4.0 update --channel production --platform all --non-interactive
+          EXPO_PUBLIC_API_URL="$API_URL" \
+          EXPO_PUBLIC_ALLOWED_API_HOST="$api_host" \
+            npx --yes eas-cli@21.4.0 update --channel production --environment production --platform all --non-interactive

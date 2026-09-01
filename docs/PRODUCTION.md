@@ -51,11 +51,11 @@ but a static token stops resolving twelve hours after the deploy.) Add
 The workflow fails fast for the required values and skips optional
 integrations rather than deploying a partially configured secret.
 
-For the optional native OTA job, add `EXPO_TOKEN`,
-`EXPO_PUBLIC_API_URL` (the deployed HQ URL), and
-`EXPO_PUBLIC_ALLOWED_API_HOST` (the same URL's hostname). Public Supabase
-values are also passed from the two Supabase secrets. EAS update channels are
-runtime-compatible with the pinned Expo SDK 54 clients; a new native runtime
+For the optional native OTA job, add `EXPO_TOKEN` (or the existing
+`EXPO_GO_COFFEE` token). The workflow takes the API URL and allowed hostname
+from the exact verified HQ deployment; public Supabase values come from the
+two Supabase secrets. EAS update channels are runtime-compatible with the
+pinned Expo SDK 54 clients; a new native runtime
 still requires an EAS build and store review.
 
 ## 2. The platform API (`apps/hq/app/api/*`)
