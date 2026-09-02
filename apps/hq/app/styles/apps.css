@@ -48,7 +48,8 @@
 .apps-device-viewport iframe { display: block; border: 0; background: #fff; }
 .apps-device-artwork { position: absolute; z-index: 1; inset: 0; display: block; width: 100%; height: 100%; pointer-events: none; filter: drop-shadow(0 14px 18px rgb(0 0 0 / .34)); }
 .apps-device--portrait .apps-device-artwork { inset: auto; }
-.apps-device--tv { border: max(3px, .012em) solid #0d0d0d; border-radius: .55em; background: #050505; box-shadow: 0 8px 18px rgb(0 0 0 / .18); }
+/* The television has no artwork: its bezel is drawn, and a bezel is always near-black regardless of tenant. */
+.apps-device--tv { border: max(3px, .012em) solid color-mix(in srgb, #000 94%, var(--text)); border-radius: .55em; background: color-mix(in srgb, #000 97%, var(--text)); box-shadow: 0 8px 18px rgb(0 0 0 / .18); }
 .apps-preview-unavailable { display: grid; width: 100%; height: 100%; place-items: center; color: var(--text-muted); font-size: .78rem; }
 .apps-preview-card-footer { position: absolute; right: 0; bottom: 0; left: 0; display: flex; height: var(--device-footer); align-items: flex-end; justify-content: center; }
 .apps-layout-grip { position: relative; display: inline-grid; width: 2.75rem; min-height: 2.25rem; place-items: center; padding: 0; border: 0; background: transparent; color: var(--text-muted); cursor: grab; opacity: .32; touch-action: none; transition: color 120ms ease-out, opacity 120ms ease-out, transform 260ms cubic-bezier(.16, 1, .3, 1); }
