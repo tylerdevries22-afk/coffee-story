@@ -10,5 +10,14 @@
     "folder": "Category",
     "offering": "Menu item",
     "resource": "Recipe"
-  }
+  },
+  "recommendedModules": [
+    "commerce-catalog",
+    "commerce-ordering",
+    "commerce-payments",
+    "growth-loyalty",
+    "workforce-operations",
+    "workforce-training",
+    "local-printing"
+  ]
 }

@@ -1,4 +1,10 @@
 {
+  "$docs": {
+    "schemaVersion": "Version of this blueprint's contract; packages/module-kit's parseIndustryBlueprint rejects a blueprint it cannot validate.",
+    "key": "Stable industry slug, matching this folder's name; onboarding intake references it.",
+    "vocabulary": "Labels for the shared domain nouns (catalog/folder/offering/resource). A blueprint changes labels only, never behavior; extra labels are allowed.",
+    "recommendedModules": "Optional. Module keys a tenant of this industry is seeded with at onboarding -- recommendations, not hard-coded UI behavior. The always-on core (tenancy, RBAC, configuration, offline core) is implicit and never listed. Each key must match ^[a-z0-9]+(-[a-z0-9]+)*$ with no repeats; keys become the registry keys under packages/modules/*."
+  },
   "schemaVersion": 1,
   "key": "your-industry",
   "name": "Your industry",
