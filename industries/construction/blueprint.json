@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "key": "construction",
+  "name": "Construction",
+  "templateVersion": 1,
+  "locale": "en-US",
+  "supabaseRegion": "us-west-1",
+  "vocabulary": {
+    "catalog": "Service catalog",
+    "folder": "Service group",
+    "offering": "Service",
+    "resource": "Procedure"
+  },
+  "recommendedModules": [
+    "construction-projects",
+    "workforce-training"
+  ]
+}
