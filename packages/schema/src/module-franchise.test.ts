@@ -127,3 +127,34 @@ describe('module franchise foundations database boundary', () => {
       /revoke all on function public\.platform_release_readiness\(\)[\s\S]+?from public, anon, authenticated;[\s\S]+?grant execute on function public\.platform_release_readiness\(\)[\s\S]+?to service_role;/);
   });
 });
+
+describe('foreign key covering-index repair', () => {
+  const repairFile = readdirSync(migrationsDir)
+    .find((name) => /^\d{14}_franchise_device_wall_fk_indexes\.sql$/.test(name));
+  assert.ok(repairFile, 'the FK covering-index repair migration exists');
+  const repair = readFileSync(join(migrationsDir, repairFile), 'utf8');
+
+  it('covers every key the hosted gate can name', () => {
+    for (const index of [
+      'delegated_access_grants_brand_id_idx',
+      'device_stream_sessions_viewer_id_idx',
+      'device_installations_installed_by_idx',
+      'device_installations_paired_brand_location_idx',
+      'module_installation_events_installation_idx',
+      'franchise_memberships_user_id_idx',
+      'site_module_overrides_brand_module_idx',
+    ]) {
+      assert.match(repair, new RegExp(`create index if not exists ${index}`),
+        `repair adds ${index}`);
+    }
+  });
+
+  it('extends the readiness chain and pins the spot assertions', () => {
+    assert.match(repair,
+      /rename to platform_release_readiness_20260902083817;/);
+    assert.match(repair,
+      /app\.platform_release_readiness_20260902083817\(\) <> '20260902083817'[\s\S]+?return '\d{14}'/);
+    assert.match(repair,
+      /revoke all on function public\.platform_release_readiness\(\)[\s\S]+?to service_role;/);
+  });
+});
