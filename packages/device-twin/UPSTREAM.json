@@ -1,0 +1,11 @@
+{
+  "name": "PhoneTwin Studio",
+  "repository": "https://github.com/tylerdevries22-afk/PhoneTwin-Studio",
+  "commit": "58258369417599e5c3c603700dafad24db3bc28e",
+  "license": "MIT",
+  "imported": [
+    "public/models/iphone15-pro-max.glb",
+    "web/src/scene/createPhoneModel.js",
+    "web/src/scene/iphone15ProMaxSpec.mjs"
+  ]
+}

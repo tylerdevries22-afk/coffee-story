@@ -18,7 +18,7 @@ export function OPTIONS() { return corsPreflight(); }
  * redeemed, revoked. Distinguishing them would turn this into an oracle an
  * unauthenticated caller could use to learn which codes exist.
  *
- * And the code is short-lived and single-use: 15 minutes, cleared as it is
+ * And the code is short-lived and single-use: 10 minutes, cleared as it is
  * redeemed. The residual risk is online brute force, which is a rate-limiting
  * problem rather than a cryptographic one, so the caller is now given a budget
  * before the code is ever looked up -- see `lib/rate-limit` for what that

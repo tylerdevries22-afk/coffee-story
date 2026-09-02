@@ -41,6 +41,14 @@ export const SPRING = {
   settle: { damping: 22, stiffness: 220 },
   /** A thing appearing with a little life -- a slot filling, a badge bumping. */
   pop: { damping: 12, stiffness: 320 },
+  /**
+   * A quarter turn. Slightly underdamped (zeta about 0.67) so a rotating
+   * frame passes its mark by a few degrees and comes back, which is what makes
+   * it read as a physical object turning rather than a value being set.
+   * `pop` would ring; `settle` is tuned for a short return, not a 90 degree
+   * excursion.
+   */
+  turn: { damping: 19, stiffness: 200 },
 } as const;
 
 /**

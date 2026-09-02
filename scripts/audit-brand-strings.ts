@@ -129,6 +129,7 @@ const ALLOWED = new Map<string, string>([
   ['apps/operator/src/data/business.ts', 'the documented demo fallback; the file itself says reading it in a screen is a bug'],
   ['apps/operator/src/data/catalog.ts', 'as apps/operator/src/data/business.ts'],
   ['apps/operator/src/data/demo.ts', 'as apps/operator/src/data/business.ts'],
+  ['apps/hq/lib/device-wall-policy.ts', 'the per-tenant device-wall manifest registry: tenants/*/modules/device-wall.json ships with the console until module installations move to the database (modular plan phase 2)'],
 ]);
 
 type Violation = { file: string; line: number; needle: Needle; text: string };

@@ -1,112 +1,52 @@
 'use client';
 
-import Link from 'next/link';
-import { motion, useDragControls, useReducedMotion } from 'framer-motion';
+import { motion, useTransform, type MotionStyle } from 'framer-motion';
 import { useRef } from 'react';
-import type { CSSProperties, KeyboardEvent, PointerEvent } from 'react';
 
-import type { AppPreview } from '@/lib/app-previews';
-import type { DragSample, MotionPoint } from '@/lib/app-wall-physics';
+import type { AppPreviewTile } from '@/lib/app-wall-geometry';
+import type { Phase } from '@/lib/app-wall-sim';
 
-import type { AppPreviewTile } from './apps-preview-layout';
+import { WallChipRail, type WallChipRailProps } from './apps-preview-chips';
 import { DevicePreviewFrame } from './device-preview-frame';
-import { Icon } from './icon';
+import type { TileMotion } from './use-wall-simulation';
 
-type ResizePointer = { readonly id: number; readonly x: number; readonly y: number };
-const CARD_SPRING = { damping: 31, mass: .82, restDelta: .001, restSpeed: .01, stiffness: 365, type: 'spring' as const };
-type TileProps = {
-  readonly canvas: { readonly height: number; readonly width: number };
-  readonly moving: boolean;
-  readonly portrait: boolean;
-  readonly preview: AppPreview;
-  readonly resizing: boolean;
-  readonly rotatable: boolean;
+type TileProps = Omit<WallChipRailProps, 'portrait' | 'rotateDisabled'> & {
+  readonly motion: TileMotion;
+  readonly phase: Phase;
+  readonly ready: boolean;
+  readonly reducedMotion: boolean;
   readonly tile: AppPreviewTile;
-  readonly onDragEnd: (sample: DragSample) => void;
-  readonly onDragMove: (sample: DragSample) => void;
-  readonly onDragStart: () => void;
-  readonly onKeyMove: (event: KeyboardEvent<HTMLButtonElement>) => void;
-  readonly onResizeBy: (amount: number) => void;
-  readonly onResizeEnd: () => void;
-  readonly onResizeMove: (offset: MotionPoint) => void;
-  readonly onResizeStart: () => void;
-  readonly onRotate: () => void;
 };
 
-function frameAspect(frame: AppPreview['frame']) {
-  return frame === 'phone' ? .501 : frame === 'tv' ? 1.72 : frame === 'computer' ? 1.242 : 1.386;
-}
+const sum = ([rest, kinetic]: number[]) => (rest ?? 0) + (kinetic ?? 0);
 
-/** The preview itself follows the pointer; adjacent tiles use spring settling from the board layout. */
-export function AppsPreviewTile({ canvas, moving, portrait, preview, resizing, rotatable, tile, onDragEnd, onDragMove, onDragStart, onKeyMove, onResizeBy, onResizeEnd, onResizeMove, onResizeStart, onRotate }: TileProps) {
-  const dragControls = useDragControls();
-  const reducedMotion = useReducedMotion();
-  const resizeRef = useRef<ResizePointer | null>(null);
-  const cellWidth = canvas.width / 60;
-  const cellHeight = canvas.height / 48;
-  const tileWidth = tile.width * cellWidth;
-  const maxX = Math.max(0, canvas.width - tileWidth);
-  const maxY = Math.max(0, canvas.height - tileWidth / frameAspect(preview.frame));
-  const position = { x: tile.x * cellWidth, y: tile.y * cellHeight };
-  const startMove = (event: PointerEvent<HTMLButtonElement>) => {
-    if (event.button === 0) dragControls.start(event, { snapToCursor: false });
-  };
-  const startResize = (event: PointerEvent<HTMLButtonElement>) => {
-    if (event.button !== 0) return;
-    event.preventDefault(); event.stopPropagation();
-    resizeRef.current = { id: event.pointerId, x: event.clientX, y: event.clientY };
-    event.currentTarget.setPointerCapture(event.pointerId); onResizeStart();
-  };
-  const moveResize = (event: PointerEvent<HTMLButtonElement>) => {
-    const pointer = resizeRef.current;
-    if (!pointer || pointer.id !== event.pointerId) return;
-    onResizeMove({ x: event.clientX - pointer.x, y: event.clientY - pointer.y });
-  };
-  const endResize = (event: PointerEvent<HTMLButtonElement>) => {
-    if (resizeRef.current?.id !== event.pointerId) return;
-    resizeRef.current = null; onResizeEnd();
-  };
-  const resizeWithKeys = (event: KeyboardEvent<HTMLButtonElement>) => {
-    const amount = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -1 : 0;
-    if (!amount) return;
-    event.preventDefault(); onResizeBy(amount);
-  };
-
+/**
+ * One frame on the wall. Position is rest plus kinetic offset, both motion
+ * values written by the simulation, so no frame of a drag, coast or turn
+ * passes through React; React only sees phase and orientation changes.
+ */
+export function AppsPreviewTile({ motion: values, phase, preview, ready, reducedMotion, tile, ...chips }: TileProps) {
+  const anchorRef = useRef<HTMLElement>(null);
+  const x = useTransform([values.restX, values.kinX], sum);
+  const y = useTransform([values.restY, values.kinY], sum);
+  const captionId = `apps-wall-caption-${tile.key}`;
+  const busy = phase === 'dragging' || phase === 'resizing' || phase === 'coasting';
   return (
     <motion.li
-      animate={moving ? undefined : position}
-      className={`apps-preview-card apps-preview-card--${preview.frame}`}
-      data-dragging={moving || undefined}
-      data-resizing={resizing || undefined}
-      drag
-      dragConstraints={{ bottom: maxY, left: 0, right: maxX, top: 0 }}
-      dragControls={dragControls}
-      dragElastic={reducedMotion ? 0 : .16}
-      dragListener={false}
-      dragMomentum={false}
-      initial={false}
-      key={tile.key}
-      onDrag={(_, info) => onDragMove({ offset: info.offset, velocity: info.velocity })}
-      onDragEnd={(_, info) => onDragEnd({ offset: info.offset, velocity: info.velocity })}
-      onDragStart={onDragStart}
-      style={{ '--canvas-width': tile.width } as CSSProperties}
-      transition={reducedMotion ? { duration: 0 } : CARD_SPRING}
+      aria-labelledby={captionId}
+      className="apps-preview-card"
+      data-orientation={tile.orientation}
+      data-phase={phase}
+      data-ready={ready || undefined}
+      data-rotatable={chips.rotatable}
+      style={{ x, y, '--tile-w': values.width, '--tile-h': values.height } as unknown as MotionStyle}
     >
-      <article>
-        <header className="apps-preview-card-header">
-          <span className="apps-preview-card-copy"><strong>{preview.label}</strong><small>{preview.device}</small></span>
-          <span className="apps-preview-card-actions">
-            {rotatable ? <button aria-label={`Rotate ${preview.label} to ${portrait ? 'landscape' : 'portrait'}`} className="apps-preview-icon-button" onClick={onRotate} type="button"><Icon name="rotate" size={16} /></button> : null}
-            <Link aria-label={`Edit ${preview.label}`} className="apps-preview-icon-button" href={preview.href}><Icon name="edit" size={16} /></Link>
-          </span>
-        </header>
+      <article className="apps-wall-frame" ref={anchorRef}>
         <div className="apps-preview-stage">
-          <DevicePreviewFrame frame={preview.frame} height={preview.viewport.height} loading="eager" orientation={portrait ? 'portrait' : 'landscape'} src={preview.url ?? 'about:blank'} title={`${preview.label} production preview`} width={preview.viewport.width} />
-          <button aria-describedby="apps-preview-instructions" aria-keyshortcuts="ArrowDown ArrowLeft ArrowRight ArrowUp" aria-label={`Resize ${preview.label}`} className="apps-preview-resize" onKeyDown={resizeWithKeys} onPointerCancel={endResize} onPointerDown={startResize} onPointerMove={moveResize} onPointerUp={endResize} type="button"><Icon name="resize" size={16} /></button>
+          <DevicePreviewFrame anchorRef={anchorRef} frame={preview.frame} height={preview.viewport.height} loading="eager" reducedMotion={reducedMotion} src={preview.url ?? 'about:blank'} title={`${preview.label} production preview`} turn={values.turn} width={preview.viewport.width} />
+          <WallChipRail {...chips} portrait={tile.orientation === 'portrait'} preview={preview} rotateDisabled={busy} />
         </div>
-        <footer className="apps-preview-card-footer">
-          <button aria-describedby="apps-preview-instructions" aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown" aria-label={`Move ${preview.label}`} className="apps-layout-grip" onKeyDown={onKeyMove} onPointerDown={startMove} type="button"><Icon name="drag" size={16} /></button>
-        </footer>
+        <p className="apps-wall-caption" id={captionId}><strong>{preview.label}</strong><small>{preview.device}</small></p>
       </article>
     </motion.li>
   );
