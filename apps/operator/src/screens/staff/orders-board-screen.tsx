@@ -597,7 +597,7 @@ function SettingsSheet({ visible, onClose }: { visible: boolean; onClose: () => 
       />
       <SettingToggle
         label="Ticket printer"
-        detail="Print a ticket when an order starts (needs a paired printer)"
+        detail="Print locally when an order starts (iOS AirPrint)"
         value={operator.settings.printerEnabled}
         onToggle={() => operator.updateSettings({ printerEnabled: !operator.settings.printerEnabled })}
       />
