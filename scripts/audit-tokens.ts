@@ -85,6 +85,7 @@ const ALLOWED = new Map<string, string>([
   ['apps/customer/src/components/rewards/glass-cup-palettes.ts', 'decorative liquid inside the glass vessel; documented in the file as deliberately outside the token set'],
   ['packages/domain/src/training-artwork.ts', 'generates art written to immutable, content-addressed Storage keys, so it cannot vary by tenant'],
   ['apps/display/app/layout.tsx', 'browser chrome themeColor for a board that is always letterboxed black'],
+  ['apps/operator/src/features/operator/order-receipt.ts', 'a printed receipt stylesheet: near-black ink on white paper is the physical print medium every tenant shares, not brand theming -- a LAN printer cannot receive a tenant palette'],
 ]);
 
 type Violation = { file: string; line: number; text: string };
