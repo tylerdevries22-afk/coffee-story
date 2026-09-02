@@ -185,3 +185,25 @@ describe('franchise policy advisor fixes', () => {
       /app\.platform_release_readiness_20260902124238\(\) <> '20260902124238'[\s\S]+?return '\d{14}'/);
   });
 });
+
+describe('readiness regex repair', () => {
+  const repairFile = readdirSync(migrationsDir)
+    .find((name) => /^\d{14}_readiness_regex_repair\.sql$/.test(name));
+  assert.ok(repairFile, 'the readiness regex repair migration exists');
+  const repair = readFileSync(join(migrationsDir, repairFile), 'utf8');
+
+  it('keeps the archived head callable with a balanced regex', () => {
+    assert.match(repair, /rename to platform_release_readiness_20260902144208;/);
+    assert.ok(repair.includes("qual ~* '\\(\\s*select\\s+auth\\.uid\\(\\)'"),
+      'the archived head keeps the corrected, balanced pattern');
+    assert.ok(!repair.includes("qual ~* '\\(\\s*select\\s+auth\\.uid\\(\\))'"),
+      'the unbalanced trailing-paren form never returns');
+  });
+
+  it('extends the chain over the repaired link', () => {
+    assert.match(repair,
+      /app\.platform_release_readiness_20260902144208\(\) <> '20260902144208'[\s\S]+?return '\d{14}'/);
+    assert.match(repair,
+      /revoke all on function public\.platform_release_readiness\(\)[\s\S]+?to service_role;/);
+  });
+});
