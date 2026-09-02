@@ -36,9 +36,6 @@ export async function createDeviceEnrollment(
     }
     throw error;
   }
-  if (input.appTarget === 'operator') {
-    throw new DeviceWallServiceError(409, 'automatic_registration', 'Operator registers after authenticated startup.');
-  }
   const brandId = brandFor(auth, input.brandId);
   const [location, brand] = await Promise.all([
     db.from('locations').select('id').eq('id', input.locationId).eq('brand_id', brandId).maybeSingle<{ id: string }>(),
@@ -84,4 +81,74 @@ export async function createDeviceEnrollment(
     throw new DeviceWallServiceError(400, 'enrollment_failed', 'The enrollment could not be created.');
   }
   return { installationId: invite.deviceId, code: invite.code, expiresAt: invite.expiresAt };
+}
+
+type InstallationForPairing = {
+  id: string;
+  location_id: string;
+  label: string;
+  app_target: 'operator' | 'pickup_queue' | 'kiosk_pos';
+  form_factor: 'phone' | 'tablet' | 'tv';
+  paired_device_id: string | null;
+  archived_at: string | null;
+  revoked_at: string | null;
+};
+
+/** Creates a new one-time credential for a currently unpaired wall installation. */
+export async function createInstallationPairing(
+  db: SupabaseClient,
+  auth: AuthedRequest,
+  input: { installationId: string; brandId: string | null },
+) {
+  if (!auth.claims.role || !mayCreateEnrollment(auth.claims.role)) {
+    throw new DeviceWallServiceError(403, 'forbidden', 'Only an owner can connect a device.');
+  }
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input.installationId)) {
+    throw new DeviceWallServiceError(400, 'invalid_installation', 'The device is invalid.');
+  }
+  const brandId = brandFor(auth, input.brandId);
+  const [found, brand] = await Promise.all([
+    db.from('device_installations')
+      .select('id, location_id, label, app_target, form_factor, paired_device_id, archived_at, revoked_at')
+      .eq('id', input.installationId).eq('brand_id', brandId).maybeSingle<InstallationForPairing>(),
+    db.from('brands').select('slug').eq('id', brandId).maybeSingle<{ slug: string }>(),
+  ]);
+  if (found.error || brand.error) {
+    throw new DeviceWallServiceError(400, 'enrollment_failed', 'The device could not be checked.');
+  }
+  const installation = found.data;
+  if (!installation || !brand.data || installation.archived_at || installation.revoked_at) {
+    throw new DeviceWallServiceError(404, 'installation_unavailable', 'That device is unavailable.');
+  }
+  if (installation.paired_device_id) {
+    throw new DeviceWallServiceError(409, 'already_connected', 'This device already has a protected connection.');
+  }
+  const policy = deviceWallPolicyFor(brand.data.slug);
+  if (!policy.enabled || !policy.appTargets.includes(installation.app_target)
+      || !policy.formFactors.includes(installation.form_factor)) {
+    throw new DeviceWallServiceError(403, 'module_disabled', 'That device type is not enabled for this tenant.');
+  }
+  const key = loadDeviceSigningKey();
+  const invite = await issuePairingCode({ db, key }, {
+    brandId, locationId: installation.location_id,
+    role: pairedDeviceRole(installation.app_target), label: installation.label,
+  });
+  const linked = await db.from('device_installations').update({ paired_device_id: invite.deviceId })
+    .eq('id', installation.id).eq('brand_id', brandId).is('paired_device_id', null).select('id').maybeSingle();
+  if (linked.error || !linked.data) {
+    await revokeDevice({ db, key }, { brandId, deviceId: invite.deviceId });
+    throw new DeviceWallServiceError(409, 'already_connected', 'This device is already being connected.');
+  }
+  const enrolled = await db.from('device_wall_enrollment_codes').insert({
+    installation_id: installation.id, paired_device_id: invite.deviceId, brand_id: brandId,
+    location_id: installation.location_id, code_hash: hashPairingCode(invite.code, key),
+    created_by: auth.userId, expires_at: invite.expiresAt,
+  });
+  if (enrolled.error) {
+    await db.from('device_installations').update({ paired_device_id: null }).eq('id', installation.id)
+      .eq('brand_id', brandId).eq('paired_device_id', invite.deviceId);
+    await revokeDevice({ db, key }, { brandId, deviceId: invite.deviceId });
+    throw new DeviceWallServiceError(400, 'enrollment_failed', 'The connection could not be created.');
+  }
+  return { code: invite.code, expiresAt: invite.expiresAt, installationId: installation.id };
 }
