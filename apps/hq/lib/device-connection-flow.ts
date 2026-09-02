@@ -47,5 +47,5 @@ export function deviceConnectionFlow(
   const unavailable = policy.rollout === 'registration_only'
     ? 'Screen viewing is staged until the owner beta rollout.'
     : 'This installation is missing the required screen-sharing capabilities.';
-  return { action: 'diagnose', actionLabel: 'Run connection check', heading: installation.connectionState === 'offline' ? 'Waiting for device reconnect' : 'Connection readiness', description: unavailable, guidance: 'A safe check verifies heartbeat, identity, and runtime compatibility without accessing the camera, microphone, clipboard, files, or screen.', streamEligible: false };
+  return { action: 'diagnose', actionLabel: 'Run connection check', heading: 'Connection readiness', description: unavailable, guidance: 'A safe check verifies heartbeat, identity, and runtime compatibility without accessing the camera, microphone, clipboard, files, or screen.', streamEligible: false };
 }
