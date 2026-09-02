@@ -9,7 +9,8 @@
  *
  * What runs depends on what is configured -- each step says what it did or
  * why it skipped, and the exit code is honest:
- *   1. Validate tenants/<slug>/brand.json and menu.csv.
+ *   1. Validate tenants/<slug>/brand.json and menu.csv (and modules.json when
+ *      the tenant ships one).
  *   2. With SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY: upsert brand (fees,
  *      rule-5 flags, brand_config), location, and the menu.
  *   3. With assets/logo.svg: generate icon/splash/adaptive art (sharp) into
@@ -34,6 +35,8 @@ import {
 } from '@platform/schema';
 import { APP_COLOR_KEYS } from '@platform/ui/app-tokens';
 import { isRegisteredFont } from '@platform/ui/font-registry';
+
+import { modulesManifestProblems } from './onboard-modules-manifest.js';
 
 const DATABASE_TIMEOUT_MS = 10_000;
 
@@ -413,6 +416,7 @@ async function run() {
       problems.push('operations.json must contain valid JSON.');
     }
   }
+  problems.push(...modulesManifestProblems(tenantDir));
   const menuPath = join(tenantDir, 'menu.csv');
   const menu = existsSync(menuPath) ? parseMenuCsv(readFileSync(menuPath, 'utf8')) : { rows: [], errors: [] };
   problems.push(...menu.errors.map((error) => `menu.csv: ${error}`));

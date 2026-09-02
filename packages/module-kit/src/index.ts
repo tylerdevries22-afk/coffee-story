@@ -6,6 +6,10 @@ export {
 export { compareSemVer, parseSemVer, satisfiesRange, type SemVer } from './semver';
 export { dependencySatisfied, parseModuleDefinition, type ManifestResult } from './manifest';
 export { parseIndustryBlueprint, type BlueprintResult, type IndustryBlueprint } from './blueprint';
+export {
+  parseTenantModulesManifest,
+  type TenantModuleInstall, type TenantModulesManifest, type TenantModulesResult,
+} from './modules-manifest';
 export { resolveModules, type ResolutionError, type ResolutionResult } from './resolve';
 export {
   ACTIVATION_CHECK_IDS, canTransition, evaluateActivation, parseActivationState,
