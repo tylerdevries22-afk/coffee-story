@@ -31,3 +31,20 @@ test('the kiosk preview takes its surface from the tenant, not from one shop', (
   assert.match(theirs['--kiosk-line'] ?? '', /#F0F4FA/);
   assert.notEqual(mine['--kiosk-line'], theirs['--kiosk-line']);
 });
+
+test('motion durations and curves are exposed as CSS variables', () => {
+  const variables = hqTheme({ tokens: { motion: { fast: 100, base: 200, slow: 300 } } });
+  assert.equal(variables['--motion-fast'], '100ms');
+  assert.equal(variables['--motion-base'], '200ms');
+  assert.equal(variables['--motion-slow'], '300ms');
+  assert.match(variables['--ease-enter'] ?? '', /^cubic-bezier\(0\.16, 1, 0\.3, 1\)$/);
+  assert.match(variables['--ease-land'] ?? '', /^cubic-bezier\(/);
+  assert.equal(variables['--radius-sm'], '8px');
+  assert.equal(variables['--type-xs'], '12px');
+});
+
+test('wall tap target is at least 44px under default tokens', () => {
+  const variables = hqTheme(null);
+  assert.ok(Number.parseFloat(variables['--wall-tap-target'] ?? '0') >= 44);
+  assert.ok(Number.parseFloat(variables['--wall-chip-min'] ?? '0') < Number.parseFloat(variables['--wall-chip-max'] ?? '0'));
+});

@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "moduleId": "device-wall",
+  "enabled": false,
+  "rollout": "disabled",
+  "appTargets": ["operator", "pickup_queue", "kiosk_pos"],
+  "formFactors": ["phone", "tablet", "tv"],
+  "limits": {
+    "maxConcurrentStreams": 4,
+    "maxViewersPerDevice": 1
+  },
+  "connection": {
+    "heartbeatIntervalSeconds": 30,
+    "degradedAfterSeconds": 75,
+    "offlineAfterSeconds": 180
+  },
+  "retention": {
+    "archiveAfterDays": 30,
+    "auditDays": 365
+  },
+  "visuals": {
+    "phoneModel": "iphone15-pro-max",
+    "finish": "natural-titanium",
+    "tabletStyle": "studio",
+    "tvStyle": "studio"
+  }
+}

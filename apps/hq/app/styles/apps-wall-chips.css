@@ -1,0 +1,47 @@
+/*
+ * Frame-anchored controls. Every chip positions from the --device-* variables
+ * the device frame publishes each frame, so chips and silhouette cannot
+ * disagree during a rotate or resize. The visual chip scales with the frame
+ * between two token-derived sizes; the ::after hit box never drops below the
+ * tap target, so a small frame stays easy to grab.
+ */
+.apps-wall-chip { --wall-chip-size: clamp(var(--wall-chip-min), calc(var(--device-width, 0px) * .09), var(--wall-chip-max)); position: absolute; z-index: 5; display: inline-grid; width: var(--wall-chip-size); height: var(--wall-chip-size); flex: none; place-items: center; padding: 0; border: 0; border-radius: var(--radius-sm); background: transparent; color: color-mix(in srgb, var(--text) 74%, var(--bg-raised)); cursor: pointer; opacity: 0; scale: .9; transition: opacity var(--motion-fast) var(--ease-exit), scale var(--motion-base) var(--ease-enter), color var(--motion-fast) var(--ease-exit); }
+.apps-wall-chip::after { position: absolute; top: 50%; left: 50%; width: max(100%, var(--wall-tap-target)); height: max(100%, var(--wall-tap-target)); content: ''; translate: -50% -50%; }
+.apps-wall-chip svg { width: 55%; height: 55%; }
+.apps-wall-chip:hover, .apps-wall-chip:focus-visible { color: var(--action); outline: none; }
+.apps-wall-chip:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.apps-wall-chip:active { scale: .94; transition-duration: var(--motion-fast); }
+
+.apps-wall-chip--grip { left: calc(var(--device-left, 0px) + var(--device-width, 0px) / 2); top: var(--device-top, 0px); width: calc(var(--wall-chip-size) * 2); border-radius: var(--radius-pill); cursor: grab; touch-action: none; translate: -50% -50%; }
+.apps-preview-card[data-phase='dragging'] .apps-wall-chip--grip, .apps-preview-card[data-phase='coasting'] .apps-wall-chip--grip { cursor: grabbing; }
+/* Rotate and edit stack on the right edge, vertically centred, clear of the corner handles. */
+.apps-wall-chip--rotate { left: calc(var(--device-left, 0px) + var(--device-width, 0px)); top: calc(var(--device-top, 0px) + var(--device-height, 0px) / 2 - var(--wall-chip-size) * 1.08); translate: -50% 0; }
+.apps-wall-chip--edit { left: calc(var(--device-left, 0px) + var(--device-width, 0px)); top: calc(var(--device-top, 0px) + var(--device-height, 0px) / 2 + var(--wall-chip-size) * .08); translate: -50% 0; }
+.apps-preview-card[data-rotatable='false'] .apps-wall-chip--edit { top: calc(var(--device-top, 0px) + var(--device-height, 0px) / 2 - var(--wall-chip-size) * .5); }
+/* Every corner resizes; the handle sits on the corner and the opposite corner stays put. */
+.apps-wall-chip--resize { --wall-resize-target: max(3.75rem, var(--wall-tap-target)); touch-action: none; opacity: .82; scale: 1; translate: -50% -50%; }
+.apps-wall-chip--resize::after { width: max(100%, var(--wall-resize-target)); height: max(100%, var(--wall-resize-target)); }
+.apps-wall-chip--resize svg { width: 46%; height: 46%; stroke-width: 1.35; }
+.apps-wall-chip--nw { left: var(--device-left, 0px); top: var(--device-top, 0px); cursor: nwse-resize; }
+.apps-wall-chip--ne { left: calc(var(--device-left, 0px) + var(--device-width, 0px)); top: var(--device-top, 0px); cursor: nesw-resize; }
+.apps-wall-chip--sw { left: var(--device-left, 0px); top: calc(var(--device-top, 0px) + var(--device-height, 0px)); cursor: nesw-resize; }
+.apps-wall-chip--se { left: calc(var(--device-left, 0px) + var(--device-width, 0px)); top: calc(var(--device-top, 0px) + var(--device-height, 0px)); cursor: nwse-resize; }
+.apps-wall-chip--ne svg, .apps-wall-chip--sw svg { transform: rotate(90deg); }
+.apps-wall-chip--ne:hover svg, .apps-wall-chip--sw:hover svg, .apps-wall-chip--ne:focus-visible svg, .apps-wall-chip--sw:focus-visible svg { transform: rotate(90deg) scale(1.08); }
+.apps-wall-chip--resize svg { transition: transform var(--motion-base) var(--ease-enter); }
+.apps-wall-chip--resize:hover svg, .apps-wall-chip--resize:focus-visible svg { transform: scale(1.08); }
+.apps-wall-chip[aria-disabled='true'] { cursor: default; opacity: .4; }
+
+/* Primary controls reveal on intent; corner resize arrows remain visible. */
+.apps-preview-card:hover .apps-wall-chip, .apps-preview-card:focus-within .apps-wall-chip, .apps-preview-card:not([data-phase='idle']) .apps-wall-chip { opacity: 1; scale: 1; }
+.apps-preview-card[data-phase='resizing'] .apps-wall-chip--resize { color: var(--action); scale: 1.04; }
+@media (hover: none) { .apps-wall-chip { opacity: .72; scale: 1; } }
+
+/* The stacked wall keeps its chips in a row beneath each frame. */
+.apps-wall-chip--static { --wall-chip-size: var(--wall-chip-max); position: static; opacity: 1; scale: 1; translate: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .apps-wall-chip, .apps-wall-chip--resize svg { transition: none; scale: 1; }
+  .apps-wall-chip { opacity: .72; }
+  .apps-wall-chip--resize { opacity: .82; }
+}

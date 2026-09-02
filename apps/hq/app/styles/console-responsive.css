@@ -17,6 +17,9 @@
   .hq-shell.compact {
     --hq-navigation-width: min(88vw, 20rem);
     --hq-topbar-height: 4rem;
+    --hq-shell-inset: 0rem;
+    --hq-main-pad-top: 1.5rem;
+    --hq-main-pad-bottom: 3.25rem;
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: var(--hq-topbar-height) minmax(calc(100dvh - var(--hq-topbar-height)), auto);
     min-height: 100dvh;
@@ -78,7 +81,7 @@
 
   .hq-main {
     min-height: calc(100dvh - var(--hq-topbar-height));
-    padding: 1.5rem 1rem 3.25rem;
+    padding: var(--hq-main-pad-top) 1rem var(--hq-main-pad-bottom);
   }
 
   .hq-rail-scrim {
@@ -99,7 +102,7 @@
 @media (max-width: 26.25rem) {
   .hq-topbar .scope-trigger { max-width: 9rem; }
   .hq-topbar .scope-trigger-org::before { display: none; }
-  .hq-main { padding-top: 1.25rem; }
+  .hq-shell { --hq-main-pad-top: 1.25rem; }
   .hq-command-dialog { max-height: 82vh; }
 }
 

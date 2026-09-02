@@ -1,4 +1,7 @@
+import { EASING } from '@platform/ui/motion';
 import { resolveTokens } from '@platform/ui/tokens';
+
+import { cubicBezierVar } from './app-wall-motion';
 
 /** CSS variables for the console's light, tenant-aware expression of the shared token contract. */
 export function hqTheme(brandConfig: unknown): Record<string, string> {
@@ -62,6 +65,27 @@ export function hqTheme(brandConfig: unknown): Record<string, string> {
     '--kiosk-line': `color-mix(in srgb, ${tokens.accent} 28%, ${tokens.surface})`,
     '--kiosk-line-strong': `color-mix(in srgb, ${tokens.textMuted} 74%, ${tokens.surface})`,
     '--radius': `${tokens.radius.md}px`,
+    '--radius-sm': `${tokens.radius.sm}px`,
+    '--radius-pill': `${tokens.radius.pill}px`,
+    '--type-xs': `${tokens.type.xs}px`,
+    '--type-sm': `${tokens.type.sm}px`,
+    '--type-md': `${tokens.type.md}px`,
+    // Motion is furniture (docs/DESIGN.md): the durations are tenant tokens,
+    // the curves are the platform's. Exposing both as variables is what lets
+    // a stylesheet animate without spelling out a millisecond.
+    '--motion-fast': `${tokens.motion.fast}ms`,
+    '--motion-base': `${tokens.motion.base}ms`,
+    '--motion-slow': `${tokens.motion.slow}ms`,
+    '--ease-enter': cubicBezierVar(EASING.enter),
+    '--ease-exit': cubicBezierVar(EASING.exit),
+    '--ease-move': cubicBezierVar(EASING.move),
+    '--ease-land': cubicBezierVar(EASING.land),
+    // Wall controls are derived from the spacing scale rather than declared,
+    // so a tenant with a looser scale gets proportionally larger chips. The
+    // tap target is the accessibility floor a visual chip may sit inside.
+    '--wall-chip-min': `${tokens.spacing.xl + tokens.spacing.xs}px`,
+    '--wall-chip-max': `${tokens.spacing.xxl + tokens.spacing.sm}px`,
+    '--wall-tap-target': `${tokens.spacing.xxl + tokens.spacing.md}px`,
     '--space-xs': `${tokens.spacing.xs}px`,
     '--space-sm': `${tokens.spacing.sm}px`,
     '--space-md': `${tokens.spacing.md}px`,

@@ -8,7 +8,7 @@ describe('appPreviewFor', () => {
     const previews = appPreviewsFor({ NODE_ENV: 'development' });
 
     assert.deepEqual(previews.map((preview) => [preview.key, preview.url, preview.source]), [
-      ['hq', 'http://localhost:3300/', 'local'],
+      ['hq', '/', 'local'],
       ['customer', 'http://localhost:4170/', 'local'],
       ['operator', 'http://localhost:4191/', 'local'],
       ['kiosk', 'http://localhost:4180/', 'local'],
