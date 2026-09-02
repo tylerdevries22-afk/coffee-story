@@ -69,4 +69,11 @@ describe('SPRING', () => {
     assert.ok(SPRING.press.stiffness > SPRING.settle.stiffness);
     assert.ok(SPRING.press.stiffness > SPRING.pop.stiffness);
   });
+
+  it('turn is slightly underdamped, never bouncy', () => {
+    // zeta = c / (2 * sqrt(k * m)); below 0.6 a frame would visibly ring,
+    // above 0.75 the overshoot that sells the turn disappears.
+    const zeta = SPRING.turn.damping / (2 * Math.sqrt(SPRING.turn.stiffness));
+    assert.ok(zeta >= .6 && zeta <= .75, `zeta ${zeta}`);
+  });
 });

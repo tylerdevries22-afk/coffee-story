@@ -261,7 +261,7 @@ export type DeviceToken = {
 };
 
 /** How long a code is good for. Long enough to walk to the tablet. */
-export const PAIRING_TTL_MINUTES = 15;
+export const PAIRING_TTL_MINUTES = 10;
 
 export async function issuePairingCode(
   deps: DeviceDeps,

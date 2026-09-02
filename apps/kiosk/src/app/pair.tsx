@@ -61,7 +61,7 @@ export default function PairScreen() {
     <View testID="kiosk-full-screen-stage" style={[styles.root, { backgroundColor: tokens.surface }]}>
       <StepHeading
         title="Set up this kiosk"
-        hint="Enter the pairing code from the console. It is good for fifteen minutes."
+        hint="Enter the pairing code from the console. It is good for ten minutes."
       />
 
       <Text

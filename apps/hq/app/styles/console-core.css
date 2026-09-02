@@ -3,6 +3,10 @@
 .hq-shell {
   --hq-navigation-width: clamp(17.75rem, 19vw, 20.5rem);
   --hq-topbar-height: 4.5rem;
+  /* Exposed so a full-height page can subtract exactly what the shell and main padding take. */
+  --hq-shell-inset: calc(.75rem + 2px);
+  --hq-main-pad-top: 1.75rem;
+  --hq-main-pad-bottom: 4.5rem;
   display: grid;
   grid-template-columns: var(--hq-navigation-width) minmax(0, 1fr);
   grid-template-rows: var(--hq-topbar-height) minmax(calc(100dvh - 5.25rem), auto);
@@ -137,9 +141,9 @@
   width: 100%;
   max-width: 100rem;
   min-width: 0;
-  min-height: calc(100dvh - var(--hq-topbar-height) - .75rem);
+  min-height: calc(100dvh - var(--hq-topbar-height) - var(--hq-shell-inset));
   margin: 0 auto;
-  padding: 1.75rem 2rem 4.5rem;
+  padding: var(--hq-main-pad-top) 2rem var(--hq-main-pad-bottom);
 }
 
 .hq-main > h1:first-child { margin-top: .125rem; }

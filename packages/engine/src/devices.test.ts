@@ -694,8 +694,8 @@ describe('issuePairingCode', () => {
     assert.equal(state.inserted?.paired_at, undefined, 'an unredeemed code is not a paired device');
     // Both halves stated, so a change to either the constant or the arithmetic
     // has to be deliberate rather than agreeing with itself.
-    assert.equal(PAIRING_TTL_MINUTES, 15);
-    assert.equal(invite.expiresAt, new Date(NOW + 15 * 60_000).toISOString());
+    assert.equal(PAIRING_TTL_MINUTES, 10);
+    assert.equal(invite.expiresAt, new Date(NOW + 10 * 60_000).toISOString());
   });
 });
 

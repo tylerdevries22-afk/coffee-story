@@ -23,6 +23,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppErrorBoundary } from '@/components/app-error-boundary';
 import { Button } from '@/components/ui';
 import { InstallPrompt } from '@/components/install-prompt';
+import { OperatorDevicePresence } from '@/features/device-wall/operator-presence';
 import { brandCache } from '@/lib/brand-cache';
 import { useOperationNotificationObserver } from '@/features/operations/push';
 import { AppStateProvider } from '@/state/app-context';
@@ -122,6 +123,7 @@ function BrandedShell({ children }: PropsWithChildren) {
   return (
     <ThemeProvider brandConfig={brandConfig} storage={brandCache}>
       <OperatorTelemetry />
+      <OperatorDevicePresence />
       {children}
     </ThemeProvider>
   );

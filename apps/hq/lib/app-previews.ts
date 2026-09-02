@@ -73,6 +73,11 @@ function safePreviewUrl(value: string | undefined): string | null {
   }
 }
 
+/** The device silhouette an app previews in, without resolving its URL. */
+export function frameOfKey(key: AppPreviewKey): AppPreviewFrame {
+  return APP_PREVIEWS[key].frame;
+}
+
 /** Resolves a public, frame-safe application URL without accepting an open redirect. */
 export function appPreviewFor(
   key: AppPreviewKey,
