@@ -11,6 +11,7 @@ export {
   type TenantModuleInstall, type TenantModulesManifest, type TenantModulesResult,
 } from './modules-manifest';
 export { resolveModules, type ResolutionError, type ResolutionResult } from './resolve';
+export { LEGACY_FLAG_MODULE_MAP, MODULE_REGISTRY, legacyFlagInstallations } from './registry';
 export {
   ACTIVATION_CHECK_IDS, canTransition, evaluateActivation, parseActivationState,
   transitionActivation,
