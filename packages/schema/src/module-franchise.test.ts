@@ -158,3 +158,30 @@ describe('foreign key covering-index repair', () => {
       /revoke all on function public\.platform_release_readiness\(\)[\s\S]+?to service_role;/);
   });
 });
+
+describe('franchise policy advisor fixes', () => {
+  const fixFile = readdirSync(migrationsDir)
+    .find((name) => /^\d{14}_franchise_policy_advisor_fixes\.sql$/.test(name));
+  assert.ok(fixFile, 'the advisor-fix migration exists');
+  const fix = readFileSync(join(migrationsDir, fixFile), 'utf8');
+
+  it('hoists every bare auth.uid() the advisor named into an init plan', () => {
+    for (const policy of [
+      'franchise_networks_select',
+      'franchise_memberships_select',
+      'franchise_network_brands_select',
+      'delegated_access_grants_select',
+    ]) {
+      assert.match(fix, new RegExp(`drop policy ${policy}`), `drops ${policy}`);
+      assert.match(fix, new RegExp(`create policy ${policy}[\\s\\S]+?\\(select auth\\.uid\\(\\)\\)`),
+        `recreates ${policy} with the hoisted subselect`);
+    }
+  });
+
+  it('drops the duplicate locations index and extends the readiness chain', () => {
+    assert.match(fix, /drop index if exists public\.locations_id_brand_device_wall_idx;/);
+    assert.match(fix, /rename to platform_release_readiness_20260902124238;/);
+    assert.match(fix,
+      /app\.platform_release_readiness_20260902124238\(\) <> '20260902124238'[\s\S]+?return '\d{14}'/);
+  });
+});
