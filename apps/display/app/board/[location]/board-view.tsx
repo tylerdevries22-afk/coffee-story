@@ -23,6 +23,7 @@ const STALE_AFTER_MS = 90_000;
 const RECONCILE_MS = 60_000;
 const DEMO_SYNC_RECONCILE_MS = 1_000;
 const TICKET_READ_TIMEOUT_MS = 5_000;
+const PRESENCE_INTERVAL_MS = 30_000;
 
 export type BoardViewProps = {
   initialTickets: BoardTicketRow[];
@@ -106,6 +107,18 @@ export function BoardView({ initialTickets, config, copy, live, degraded, demoSy
   useEffect(() => {
     return startSerializedPolling(reconcile, demoSynced ? DEMO_SYNC_RECONCILE_MS : RECONCILE_MS);
   }, [demoSynced, reconcile]);
+
+  useEffect(() => {
+    if (!live) return undefined;
+    const heartbeat = () => {
+      void fetch(`${window.location.pathname}/presence`, {
+        method: 'POST', cache: 'no-store', keepalive: true,
+      }).catch(() => undefined);
+    };
+    heartbeat();
+    const id = setInterval(heartbeat, PRESENCE_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [live]);
 
   const queue = useMemo(() => boardQueue(tickets, config), [tickets, config]);
 

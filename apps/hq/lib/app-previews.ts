@@ -30,7 +30,8 @@ const APP_PREVIEWS = {
     key: 'hq', label: 'HQ console', href: '/apps/hq', icon: 'activity',
     description: 'Back-office operations, planning, and team workflows.',
     device: 'iMac desktop', frame: 'computer', viewport: { width: 1440, height: 810 }, environmentKey: 'NEXT_PUBLIC_HQ_URL',
-    localUrl: 'http://localhost:3300/',
+    // Relative avoids a `localhost` / `127.0.0.1` frame-ancestor mismatch.
+    localUrl: '/',
   },
   customer: {
     key: 'customer', label: 'Customer', href: '/apps/customer', icon: 'users',
@@ -71,6 +72,11 @@ function safePreviewUrl(value: string | undefined): string | null {
   } catch {
     return null;
   }
+}
+
+/** The device silhouette an app previews in, without resolving its URL. */
+export function frameOfKey(key: AppPreviewKey): AppPreviewFrame {
+  return APP_PREVIEWS[key].frame;
 }
 
 /** Resolves a public, frame-safe application URL without accepting an open redirect. */

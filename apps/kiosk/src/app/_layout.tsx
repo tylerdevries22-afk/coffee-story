@@ -15,6 +15,7 @@ import { menuFactsFrom } from '@platform/domain';
 
 import { IdleNotice } from '@/components/idle-notice';
 import { KioskTelemetry } from '@/components/kiosk-telemetry';
+import { KioskDevicePresence } from '@/features/device-wall/kiosk-presence';
 import { MenuProvider, useKioskMenu } from '@/data/menu-store';
 import { DeviceProvider, useDevice } from '@/state/device';
 import { BuilderProvider } from '@/state/builder';
@@ -106,6 +107,7 @@ function KioskSurface() {
   return (
     <KioskSessionProvider timing={flow.idle} idleResets={posture.idleResets}>
       <KioskTelemetry />
+      <KioskDevicePresence />
       {/* Innermost, because they are the hot state: every tap on a size, an
           option or a pack choice writes to the builder, and the cart and the
           chrome must not re-render with it. */}

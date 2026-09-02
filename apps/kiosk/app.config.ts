@@ -52,6 +52,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     supportsTablet: true,
     requireFullScreen: true,
     config: { usesNonExemptEncryption: false },
+    infoPlist: {
+      NSFaceIDUsageDescription: "Protect this kiosk's non-exportable device identity.",
+    },
   },
   android: {
     package: brand.identity.kioskBundleId,
@@ -62,10 +65,25 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       monochromeImage: './assets/images/android-icon-monochrome.png',
     },
     predictiveBackGestureEnabled: false,
+    permissions: [
+      'android.permission.FOREGROUND_SERVICE',
+      'android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION',
+    ],
+    blockedPermissions: [
+      'android.permission.CAMERA',
+      'android.permission.RECORD_AUDIO',
+      'android.permission.READ_EXTERNAL_STORAGE',
+      'android.permission.WRITE_EXTERNAL_STORAGE',
+      'android.permission.READ_MEDIA_AUDIO',
+      'android.permission.READ_MEDIA_IMAGES',
+      'android.permission.READ_MEDIA_VIDEO',
+    ],
   },
   web: { output: 'static', favicon: './assets/images/favicon.png' },
   plugins: [
     'expo-router',
+    '../../packages/device-twin/with-media-projection.cjs',
+    'expo-secure-store',
     [
       'expo-splash-screen',
       {

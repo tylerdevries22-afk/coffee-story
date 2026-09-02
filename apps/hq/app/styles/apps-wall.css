@@ -1,0 +1,67 @@
+/*
+ * The wall fills the viewport: its height is what the shell leaves after the
+ * top bar, the shell inset and the main padding, so the canvas never asks the
+ * page to scroll. Below --wall-canvas-floor the page scrolls instead; at that
+ * height a wall of five frames would not be legible anyway.
+ */
+.hq-main:has(> .apps-wall-page) { --hq-main-pad-top: .5rem; --hq-main-pad-bottom: .75rem; padding-right: .75rem; padding-left: .75rem; }
+.apps-wall-page { --wall-canvas-floor: 22rem; grid-template-rows: minmax(0, 1fr); height: calc(100dvh - var(--hq-topbar-height) - var(--hq-shell-inset) - var(--hq-main-pad-top) - var(--hq-main-pad-bottom)); min-height: var(--wall-canvas-floor); gap: 0; }
+.apps-wall-page:has(.apps-wall-live-view) { height: auto; min-height: 0; }
+.apps-wall-live-view { display: grid; min-width: 0; gap: var(--space-lg); }
+.apps-wall-live-view > .apps-preview-canvas-shell { min-height: var(--wall-canvas-floor); }
+.apps-wall-page .apps-preview-canvas-shell { grid-template-rows: minmax(0, 1fr); }
+.apps-wall-viewport { position: relative; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+
+/* Wall or table, one at a time: the tab row is fixed and the panel takes the rest (as a grid, so the view inside inherits a definite height rather than collapsing to its content), and the canvas height never depends on what the other view would have been. */
+.apps-view-switch { display: grid; grid-template-rows: auto minmax(0, 1fr); min-height: 0; gap: var(--space-xs); }
+.apps-view-controlbar { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: var(--space-md); }
+.apps-view-panel { display: grid; grid-template-rows: minmax(0, 1fr); min-height: 0; }
+.apps-view-switch[data-view='table'] .apps-view-panel { overflow-y: auto; }
+.apps-view-panel:focus-visible { outline: 2px solid var(--ring); outline-offset: 4px; }
+.apps-view-tabs { display: inline-flex; justify-self: start; padding: .2rem; border: 1px solid var(--line); border-radius: var(--radius-pill); background: var(--bg-raised); gap: .2rem; }
+.apps-view-tab { display: inline-flex; min-height: 2.45rem; align-items: center; gap: var(--space-xs); padding: 0 var(--space-md); border: 0; border-radius: var(--radius-pill); background: transparent; color: var(--text-muted); cursor: pointer; font-family: inherit; font-size: var(--type-xs); font-weight: 700; transition: background var(--motion-fast) var(--ease-exit), color var(--motion-fast) var(--ease-exit); }
+.apps-view-tab svg { width: 1em; height: 1em; }
+.apps-view-tab:hover { color: var(--text); }
+.apps-view-tab[aria-selected='true'] { background: var(--action); color: var(--action-foreground); }
+.apps-wall-reset { min-height: 2.45rem; padding: 0 var(--space-md); border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--bg-raised); color: var(--text-muted); cursor: pointer; font: inherit; font-size: var(--type-xs); font-weight: 750; transition: border-color var(--motion-fast) var(--ease-exit), color var(--motion-fast) var(--ease-exit); }
+.apps-wall-reset:hover, .apps-wall-reset:focus-visible { border-color: var(--action); color: var(--action); }
+@media (prefers-reduced-motion: reduce) { .apps-view-tab { transition: none; } }
+/* Sixty square cells across; rows follow the canvas, so a cell is one sixtieth of the container width on both axes. */
+.apps-preview-grid { --wall-cell: calc(100cqw / 60); --wall-grid-major: calc(var(--wall-cell) * 4); --wall-grid-line: color-mix(in srgb, var(--accent) 18%, var(--bg-raised)); position: absolute; inset: 0; isolation: isolate; container-type: inline-size; margin: 0; padding: 0; overflow: hidden; border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--line)); border-radius: var(--radius-sm); list-style: none; background-color: var(--bg-raised); background-image: linear-gradient(90deg, var(--wall-grid-line) 1px, transparent 1px), linear-gradient(var(--wall-grid-line) 1px, transparent 1px); background-position: -1px -1px; background-size: var(--wall-grid-major) var(--wall-grid-major); }
+.apps-preview-grid[data-mode='fitted'] { inset: 0 auto auto 0; width: 100%; min-height: 100%; }
+.apps-preview-grid[data-mode='stacked'] { position: static; width: 100%; }
+
+/* Tiles are sized in cells by two motion values; the transform carries position, so a tile never triggers layout on its neighbours. */
+.apps-preview-card { position: absolute; z-index: 1; top: 0; left: 0; width: calc(var(--tile-w) * var(--wall-cell)); min-width: 0; outline: none; opacity: 0; will-change: transform; }
+.apps-preview-card[data-ready] { opacity: 1; transition: opacity var(--motion-base) var(--ease-enter); }
+.apps-preview-card:hover, .apps-preview-card:focus-within { z-index: 4; }
+.apps-preview-card:not([data-phase='idle']) { z-index: 8; }
+.apps-preview-card[data-phase='dragging'], .apps-preview-card[data-phase='coasting'] { cursor: grabbing; }
+.apps-wall-frame { position: relative; min-width: 0; }
+.apps-preview-stage { position: relative; height: calc(var(--tile-h) * var(--wall-cell)); min-width: 0; }
+.apps-preview-card[data-phase='dragging'] .apps-device-stage, .apps-preview-card[data-phase='coasting'] .apps-device-stage { filter: drop-shadow(0 .9rem 1.1rem rgb(0 0 0 / .12)); }
+.apps-preview-card .apps-device-stage { transition: filter var(--motion-fast) var(--ease-exit); }
+/* An iframe would swallow the pointer mid-gesture; nothing embedded may receive it until the wall is idle. */
+.apps-preview-card:not([data-phase='idle']) .apps-device-viewport iframe { pointer-events: none; }
+.apps-device-viewport { transition: none; }
+
+/* The caption sits in the rows the collision footprint reserves beneath the silhouette, scaled with the frame, and starts below the corner handle so a revealed chip never covers its first letters. */
+.apps-wall-caption { --wall-chip-size: clamp(var(--wall-chip-min), calc(var(--device-width, 0px) * .09), var(--wall-chip-max)); --wall-caption-offset: min(var(--wall-chip-size) / 2, var(--wall-cell, 1rem) * .7); position: absolute; left: var(--device-left, 0px); top: calc(var(--device-top, 0px) + var(--device-height, 100%) + var(--wall-caption-offset)); display: flex; width: var(--device-width, 100%); height: calc(var(--wall-cell, 1rem) * 2 - var(--wall-caption-offset)); min-width: 0; align-items: center; gap: var(--space-xs); margin: 0; overflow: hidden; font-size: min(clamp(var(--type-xs), calc(var(--device-width, 0px) * .045), var(--type-md)), calc(var(--wall-cell, 1rem) * 1.15)); line-height: 1.2; white-space: nowrap; }
+.apps-wall-caption strong { overflow: hidden; font-family: var(--font-display); font-weight: 700; letter-spacing: -.02em; text-overflow: ellipsis; }
+.apps-wall-caption small { min-width: 0; overflow: hidden; color: var(--text-muted); font-size: .82em; text-overflow: ellipsis; }
+
+/* Narrow windows: one reading-order column of static frames. */
+.apps-preview-stack { display: grid; margin: 0; padding: 0; gap: var(--space-xl); list-style: none; }
+.apps-preview-stack-card { position: relative; display: grid; gap: var(--space-sm); }
+.apps-preview-stack-stage { position: relative; width: 100%; }
+.apps-preview-stack-stage[data-frame='computer'] { aspect-ratio: 1.242; }
+.apps-preview-stack-stage[data-frame='tv'] { aspect-ratio: 1.72; }
+.apps-preview-stack-stage[data-frame='tablet'] { aspect-ratio: 1.386; }
+.apps-preview-stack-stage[data-frame='phone'] { aspect-ratio: .501; max-width: 18rem; margin: 0 auto; }
+.apps-preview-stack-card[data-orientation='portrait'] .apps-preview-stack-stage[data-frame='tv'] { aspect-ratio: calc(1 / 1.72); max-width: 18rem; margin: 0 auto; }
+.apps-preview-stack-card[data-orientation='portrait'] .apps-preview-stack-stage[data-frame='tablet'] { aspect-ratio: calc(1 / 1.386); max-width: 20rem; margin: 0 auto; }
+.apps-wall-caption--stack { position: static; width: auto; height: auto; font-size: var(--type-sm); }
+.apps-preview-stack-actions { display: flex; gap: var(--space-sm); }
+
+@media (max-width: 47.5rem) { .hq-main:has(> .apps-wall-page) { --hq-main-pad-top: .4rem; --hq-main-pad-bottom: .5rem; padding-right: .5rem; padding-left: .5rem; } .apps-view-controlbar { gap: var(--space-sm); } .apps-view-tab { min-height: var(--wall-tap-target); } .apps-wall-reset { min-height: var(--wall-tap-target); } }
+@media (prefers-reduced-motion: reduce) { .apps-view-tab, .apps-wall-reset { transition: none; } .apps-preview-card[data-ready], .apps-preview-card .apps-device-stage { transition: none; } }

@@ -1,10 +1,11 @@
 import Link from 'next/link';
 
 import type { AppPreview } from '@/lib/app-previews';
+import type { DeviceWallView } from '@/lib/device-wall-data';
 
 import { DevicePreviewFrame } from './device-preview-frame';
 import { Icon } from './icon';
-import { AppsPreviewMosaic } from './apps-preview-mosaic';
+import { DeviceWallModule } from './device-wall/device-wall-module';
 
 type PreviewProps = { readonly preview: AppPreview };
 
@@ -35,17 +36,10 @@ function PreviewFrame({ preview }: PreviewProps) {
 }
 
 /** The Apps root: a navigable overview of every operational application. */
-export function AppsPreviewWall({ previews }: { readonly previews: readonly AppPreview[] }) {
+export function AppsPreviewWall({ deviceWall, previews }: { readonly deviceWall: DeviceWallView; readonly previews: readonly AppPreview[] }) {
   return (
-    <div className="apps-page">
-      <header className="apps-page-header">
-        <div>
-          <p className="apps-eyebrow">Apps</p>
-          <h1>Wall</h1>
-          <p>Open a surface below, or use the Apps navigation to switch directly between customer, operator, kiosk, and pickup queue workflows.</p>
-        </div>
-      </header>
-      <AppsPreviewMosaic previews={previews} />
+    <div className="apps-page apps-wall-page">
+      <DeviceWallModule previews={previews} view={deviceWall} />
     </div>
   );
 }
