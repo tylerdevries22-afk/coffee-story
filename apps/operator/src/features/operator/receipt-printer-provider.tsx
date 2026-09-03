@@ -1,42 +1,23 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useRef, useState, type PropsWithChildren } from 'react';
-import { Alert, Platform } from 'react-native';
+import { Platform } from 'react-native';
 
 import { orderReceiptHtml } from './order-receipt';
 import {
-  enqueuePrintJob, loadPrintOutbox, nextPrintJob, recordPrintAttempt,
-  MAX_PRINT_ATTEMPTS, recordPrintSuccess, savePrintOutbox, type PrintOutbox,
+  RETRY_DELAY_MS, showPrinterFailure, warnPrintFailure, withTimeout,
+} from './print-feedback';
+import {
+  candidatePrintJob, enqueuePrintJob, nextPrintJob, printJobFits, recordPrintAttempt,
+  MAX_PRINT_ATTEMPTS, recordPrintSuccess, type PrintOutbox, type PrintScope,
 } from './print-outbox';
+import { loadPrintOutbox, purgeLegacyPrintOutbox, savePrintOutbox } from './print-outbox-storage';
+import { printSecureStorage } from './print-secure-store';
 import {
   EMPTY_PRINTER_PREFERENCES, loadPrinterPreferences, savePrinterPreferences,
   type PrinterPreferences,
 } from './printer-preferences';
+import { useAuth } from '@/state/auth-context';
 import { useOperator } from '@/state/operator-store';
-
-const PRINT_TIMEOUT_MS = 15_000;
-const RETRY_DELAY_MS = 2_000;
-
-class PrintTimeoutError extends Error {
-  override name = 'PrintTimeoutError';
-}
-
-function warnPrintFailure(message: string, context: Record<string, unknown>): void {
-  console.warn(message, context);
-}
-
-function showPrinterFailure(message: string): void {
-  Alert.alert('Ticket printer needs attention', message);
-}
-
-function withTimeout<T>(operation: Promise<T>): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | null = null;
-  const timeout = new Promise<never>((_resolve, reject) => {
-    timer = setTimeout(() => reject(new PrintTimeoutError('The printer did not respond.')), PRINT_TIMEOUT_MS);
-  });
-  return Promise.race([operation, timeout]).finally(() => {
-    if (timer) clearTimeout(timer);
-  });
-}
 
 /**
  * Turns the board's printer toggle into a real local, durable print path.
@@ -45,6 +26,11 @@ function withTimeout<T>(operation: Promise<T>): Promise<T> {
  */
 export function ReceiptPrinterProvider({ children }: PropsWithChildren) {
   const { location, orders, settings, updateSettings } = useOperator();
+  const { tenant } = useAuth();
+  // Demo has no tenant claim and its orders are fixtures, not guests. Naming
+  // it keeps the demo queue out of whichever brand signs in next.
+  const brandId = tenant?.brand_id ?? 'demo';
+  const scope: PrintScope = { brandId, locationId: location.id };
   const [hydratedLocation, setHydratedLocation] = useState<string | null>(null);
   const preferences = useRef<PrinterPreferences>(EMPTY_PRINTER_PREFERENCES);
   const outbox = useRef<PrintOutbox>({ jobs: [], printedIds: [] });
@@ -56,8 +42,9 @@ export function ReceiptPrinterProvider({ children }: PropsWithChildren) {
   const drainLatest = useRef<() => void>(() => undefined);
   activeLocation.current = location.id;
 
-  const persist = useCallback((locationId: string, snapshot: PrintOutbox) => {
-    const write = persistence.current.then(() => savePrintOutbox(AsyncStorage, locationId, snapshot));
+  const persist = useCallback((target: PrintScope, snapshot: PrintOutbox) => {
+    const write = persistence.current.then(() =>
+      savePrintOutbox(AsyncStorage, printSecureStorage, target, snapshot));
     persistence.current = write;
     return write;
   }, []);
@@ -70,7 +57,7 @@ export function ReceiptPrinterProvider({ children }: PropsWithChildren) {
     draining.current = true;
     outbox.current = recordPrintAttempt(outbox.current, job.id);
     const attempt = outbox.current.jobs.find((candidate) => candidate.id === job.id)?.attempts ?? 1;
-    const attemptPersisted = await persist(location.id, outbox.current);
+    const attemptPersisted = await persist({ brandId, locationId: location.id }, outbox.current);
     if (!attemptPersisted) {
       warnPrintFailure('Local receipt print paused because its durable queue could not be saved.', {
         orderId: job.order.id,
@@ -91,7 +78,7 @@ export function ReceiptPrinterProvider({ children }: PropsWithChildren) {
       }));
       if (activeLocation.current !== location.id) return;
       outbox.current = recordPrintSuccess(outbox.current, job.id);
-      await persist(location.id, outbox.current);
+      await persist({ brandId, locationId: location.id }, outbox.current);
     } catch (error) {
       warnPrintFailure('Local receipt print failed.', {
         attempt,
@@ -107,16 +94,19 @@ export function ReceiptPrinterProvider({ children }: PropsWithChildren) {
         retryTimer.current = setTimeout(() => drainLatest.current(), RETRY_DELAY_MS);
       }
     }
-  }, [hydratedLocation, location.id, persist]);
+  }, [brandId, hydratedLocation, location.id, persist]);
   drainLatest.current = () => void drain();
 
   useEffect(() => {
     let active = true;
     setHydratedLocation(null);
     priorStatuses.current = new Map(orders.map((order) => [order.id, order.status]));
+    // The v1 plaintext queue is the disclosure being fixed, so it goes on the
+    // first launch that can see it rather than waiting for a sign-out.
+    void purgeLegacyPrintOutbox(AsyncStorage, location.id);
     Promise.all([
       loadPrinterPreferences(AsyncStorage, location.id),
-      loadPrintOutbox(AsyncStorage, location.id),
+      loadPrintOutbox(AsyncStorage, printSecureStorage, { brandId, locationId: location.id }),
     ]).then(([storedPreferences, storedOutbox]) => {
       if (!active) return;
       preferences.current = storedPreferences;
@@ -128,9 +118,10 @@ export function ReceiptPrinterProvider({ children }: PropsWithChildren) {
       active = false;
       if (retryTimer.current) clearTimeout(retryTimer.current);
     };
-    // The location is the storage boundary; order changes are handled below.
+    // The tenant and location together are the storage boundary; order changes
+    // are handled below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.id]);
+  }, [brandId, location.id]);
 
   useEffect(() => {
     if (hydratedLocation !== location.id) return;
@@ -174,19 +165,23 @@ export function ReceiptPrinterProvider({ children }: PropsWithChildren) {
         && previous !== 'in_progress'
         && order.status === 'in_progress'
       ) {
-        const queued = enqueuePrintJob(outbox.current, {
-          locationId: location.id,
-          locationName: location.name,
-          order,
-          queuedAt: new Date().toISOString(),
-        });
-        if (queued !== outbox.current) changed = true;
-        outbox.current = queued;
+        const input = { locationName: location.name, order, queuedAt: new Date().toISOString() };
+        // SecureStore holds a bounded item, so an implausibly large ticket is
+        // named to staff rather than dropped into a queue that would then fail
+        // every later save. Nothing silently disappears.
+        if (!printJobFits(candidatePrintJob(scope, input))) {
+          warnPrintFailure('Receipt exceeded the encrypted queue item limit.', { orderId: order.id });
+          showPrinterFailure(`Order ${order.shortCode} is too large to queue. Print it manually.`);
+        } else {
+          const queued = enqueuePrintJob(outbox.current, scope, input);
+          if (queued !== outbox.current) changed = true;
+          outbox.current = queued;
+        }
       }
       priorStatuses.current.set(order.id, order.status);
     }
     if (changed) {
-      void persist(location.id, outbox.current).then((saved) => {
+      void persist(scope, outbox.current).then((saved) => {
         if (saved) void drain();
         else warnPrintFailure('Receipt was not printed because its durable queue could not be saved.', {
           locationId: location.id,
@@ -194,7 +189,10 @@ export function ReceiptPrinterProvider({ children }: PropsWithChildren) {
         if (!saved) showPrinterFailure('The ticket queue could not be saved. Keep this order on screen and print it manually.');
       });
     }
-  }, [drain, hydratedLocation, location.id, location.name, orders, persist]);
+    // `scope` is rebuilt each render from brandId and location.id, both of
+    // which are already dependencies.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [brandId, drain, hydratedLocation, location.id, location.name, orders, persist]);
 
   return children;
 }
