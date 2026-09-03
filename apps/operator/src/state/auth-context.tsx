@@ -1,4 +1,5 @@
 import type { Session, User } from '@supabase/supabase-js';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type PropsWithChildren } from 'react';
 
@@ -6,6 +7,8 @@ import type { TenantClaims } from '@platform/schema';
 
 import { createRequestSequence, recoveryCodeFromUrl, recoveryRedirectUrl } from '@platform/domain';
 import { resolveBusiness, setCurrentBusiness } from '@/data/business';
+import { wipePrintOutboxes } from '@/features/operator/print-outbox-storage';
+import { printSecureStorage } from '@/features/operator/print-secure-store';
 import { loadStaffContext, type StaffLocation } from '@/lib/live-portal';
 import { hasSupabaseConfig, supabase } from '@/lib/supabase';
 import { useDemo } from '@/state/demo-context';
@@ -202,6 +205,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   const signOut = useCallback(async () => {
     if (!supabase) throw new Error('Supabase is not configured.');
+    // Queued tickets carry the guest's name and their whole order, and this is
+    // a shared tablet. They go before the session does, so a sign-out that
+    // fails on the network still leaves nothing behind for the next person.
+    await wipePrintOutboxes(AsyncStorage, printSecureStorage);
     const { error: signOutError } = await supabase.auth.signOut();
     if (signOutError) throw new Error(signOutError.message);
   }, []);
