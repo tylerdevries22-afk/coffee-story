@@ -9,7 +9,7 @@ import { alpha, tabState, AppIcon } from '@platform/ui';
 import { useAppState, type ClientTab, type StaffTab } from '@/state/app-context';
 import { CLIENT_TAB_LABELS, STAFF_TAB_LABELS } from '@/state/navigation-state';
 import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
-import { useOptionalOperations } from '@/state/operations-store';
+import { useOperations } from '@/state/operations-store';
 
 /** SF Symbol names, plus the one mark the app draws itself. */
 type NavIcon =
@@ -48,11 +48,15 @@ export function BottomNav({
   const styles = createStyles(tokens);
   const insets = useSafeAreaInsets();
   const { clientTab, staffTab, setClientTab, setStaffTab } = useAppState();
-  const operations = useOptionalOperations();
-  const dueTaskCount = operations?.occurrences.filter((task) => (
+  // This bar renders for tenants with no operations installation, so it used to
+  // reach for the nullable hook. `useOperations()` is the nullable hook now --
+  // it answers the disabled board when no provider is mounted -- and an empty
+  // badge falls out of an empty list rather than out of an optional chain.
+  const operations = useOperations();
+  const dueTaskCount = operations.occurrences.filter((task) => (
     !['completed', 'missed', 'cancelled'].includes(task.status)
     && Date.parse(task.scheduledFor) <= operations.now.getTime()
-  )).length ?? 0;
+  )).length;
   const items = staff ? STAFF_ITEMS : CLIENT_ITEMS;
   const active = staff ? staffTab : clientTab;
 

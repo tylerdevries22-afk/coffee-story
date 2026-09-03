@@ -15,7 +15,8 @@ import {
 import { GET as getOperationQueue } from '../../../apps/hq/app/api/operations/queue/route.ts';
 
 import {
-  createSignedInUser, seedBrand, serviceClient, skipUnlessConfigured, sql, stack, userClient,
+  activateModule, createSignedInUser, seedBrand, serviceClient, skipUnlessConfigured, sql,
+  stack, userClient,
 } from './stack.ts';
 
 // The handlers run in-process and read their deployment configuration when a
@@ -185,6 +186,29 @@ async function expectRpcError(
   assert.match(result.error.message, expected);
 }
 
+/**
+ * Move a brand's installation to another state through the guarded writer,
+ * reading the revision back first rather than counting transitions: the
+ * optimistic-concurrency check rejects a stale expectation, and hard-coding
+ * the count makes the test fail on the day a fixture gains one more step.
+ */
+async function moveInstallation(
+  brandId: string,
+  moduleKey: string,
+  toState: string,
+): Promise<void> {
+  const current = await sql<{ id: string; config_revision: number }>(
+    `select id, config_revision from public.module_installations
+      where brand_id = $1 and module_key = $2`,
+    [brandId, moduleKey],
+  );
+  const installation = current.rows[0]!;
+  await sql(
+    `select app.set_module_installation_state($1, $2, $3, null::jsonb, $4, null::uuid, $5)`,
+    [installation.id, brandId, toState, installation.config_revision, randomUUID()],
+  );
+}
+
 async function visibleOccurrenceIds(
   member: Member,
   occurrenceIds: readonly string[],
@@ -218,10 +242,13 @@ describe('tenant operations against real Supabase', { skip: skipUnlessConfigured
     const primary = await seedBrand(`operations-primary-${runKey}`);
     const foreign = await seedBrand(`operations-foreign-${runKey}`);
     const disabled = await seedBrand(`operations-disabled-${runKey}`);
-    await sql(`update public.brands set operations = true where id in ($1, $2)`, [
-      primary.brandId, foreign.brandId,
-    ]);
-    await sql(`update public.brands set operations = false where id = $1`, [disabled.brandId]);
+    // Capability is an active installation as of 20260903220000, not a column.
+    // The `disabled` tenant is disabled by having no installation at all --
+    // which is what a real tenant that never installed the module looks like,
+    // and a stronger fixture than the `operations = false` update this
+    // replaced: that one still left a row saying something about operations.
+    await activateModule(primary.brandId, 'workforce-operations');
+    await activateModule(foreign.brandId, 'workforce-operations');
     const secondLocation = await sql<{ id: string }>(
       `insert into public.locations (brand_id, name, timezone)
        values ($1, 'Second', 'UTC') returning id`,
@@ -366,6 +393,43 @@ describe('tenant operations against real Supabase', { skip: skipUnlessConfigured
       target_occurrence: fixture.visibleDisabledOccurrenceId,
       target_action_id: randomUUID(),
     }), /operation_occurrence_not_accessible/);
+  });
+
+  /**
+   * The drift 20260903220000 closes, stated as a test because no assertion
+   * against the old model could state it. brands.operations had two values, so
+   * a tenant whose installation was suspended -- for non-payment, for a config
+   * validation that failed -- kept every operations grant it had ever been
+   * given. Capability is the installation now: leaving 'active' revokes the
+   * board, and coming back restores it, with no policy touched either way.
+   *
+   * Uses the foreign tenant rather than the primary one so the rest of the
+   * suite's fixture is never mid-transition, and restores it in `finally` so a
+   * failed assertion does not disable a tenant for every test after it.
+   */
+  it('revokes and restores operations as the installation leaves and re-enters active', async () => {
+    const occurrenceIds = [fixture.visibleForeignOccurrenceId];
+    await moveInstallation(fixture.foreign.brandId, 'workforce-operations', 'suspended');
+    try {
+      assert.deepEqual(
+        await visibleOccurrenceIds(fixture.foreignMember, occurrenceIds), [],
+        'a suspended installation reads as no operations capability',
+      );
+      await expectRpcError(fixture.foreignMember.client.rpc('claim_operation_occurrence', {
+        target_occurrence: fixture.visibleForeignOccurrenceId,
+        target_action_id: randomUUID(),
+      }), /operation_occurrence_not_accessible/);
+    } finally {
+      // suspended -> error -> validating -> active is the only legal way back.
+      for (const state of ['error', 'validating', 'active']) {
+        await moveInstallation(fixture.foreign.brandId, 'workforce-operations', state);
+      }
+    }
+    assert.deepEqual(
+      await visibleOccurrenceIds(fixture.foreignMember, occurrenceIds),
+      [fixture.visibleForeignOccurrenceId],
+      'reactivating the installation restores the board',
+    );
   });
 
   it('serves queue eligibility, notifications, and device lifecycle through the HQ API', async () => {

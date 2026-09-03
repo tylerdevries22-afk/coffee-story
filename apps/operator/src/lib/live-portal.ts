@@ -48,6 +48,36 @@ export function tenantClaimsFromSession(session: Session): TenantClaims | null {
   }
 }
 
+/** The one read that decides whether this app shows a shift board. */
+export type ModuleInstallationReader = (brandId: string) => Promise<{
+  data: { module_key: string }[] | null;
+  error: unknown;
+}>;
+
+/**
+ * Whether this brand runs operations, asked of `module_installations`.
+ *
+ * It used to be `brands.operations`, a boolean nothing else in the platform
+ * agreed with -- a suspended installation left every grant in place. Migration
+ * 20260903220000 made an active `workforce-operations` installation the
+ * database's answer, and this is the app asking the same question the same way.
+ *
+ * Failure denies, and the failure is not raised. The two cases are different
+ * on purpose: a brand that has not installed the module and a brand whose
+ * capability read failed both get a staff app with no shift board, because
+ * neither is a brand that may run operations -- but only the first is normal,
+ * and throwing here would take the orders board down with it over a module the
+ * account may not even use.
+ */
+export async function operationsInstalled(
+  read: ModuleInstallationReader,
+  brandId: string,
+): Promise<boolean> {
+  const { data, error } = await read(brandId);
+  if (error || !data) return false;
+  return data.length > 0;
+}
+
 export async function loadStaffContext(
   client: SupabaseClient,
   session: Session,
@@ -59,9 +89,9 @@ export async function loadStaffContext(
 
   const brand = await client
     .from('brands')
-    .select('id, name, brand_config, operations')
+    .select('id, name, brand_config')
     .eq('id', claims.brand_id)
-    .single<{ id: string; name: string; brand_config: unknown; operations: boolean }>();
+    .single<{ id: string; name: string; brand_config: unknown }>();
   if (brand.error) throw new Error(`The shop could not be loaded: ${brand.error.message}`);
 
   const membership = await client.from('brand_users').select('id')
@@ -78,6 +108,17 @@ export async function loadStaffContext(
     : locationsQuery
   ).returns<StaffLocation[]>();
   if (locations.error) throw new Error(`Locations could not be loaded: ${locations.error.message}`);
+
+  const operationsEnabled = await operationsInstalled(
+    async (brandId) => client
+      .from('module_installations')
+      .select('module_key')
+      .eq('brand_id', brandId)
+      .eq('module_key', 'workforce-operations')
+      .eq('state', 'active')
+      .returns<{ module_key: string }[]>(),
+    claims.brand_id,
+  );
 
   const metadata = session.user.user_metadata as { full_name?: string } | null;
   const bundle: PortalBundle = {
@@ -108,7 +149,7 @@ export async function loadStaffContext(
     bundle,
     claims,
     brandName: brand.data.name,
-    operationsEnabled: brand.data.operations,
+    operationsEnabled,
     brandUserId: membership.data.id,
     brandConfig: brand.data.brand_config,
     locations: locations.data ?? [],
