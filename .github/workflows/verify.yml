@@ -505,7 +505,7 @@ jobs:
           latest=$(ls supabase/migrations/*.sql | tail -1 | xargs basename)
           expected="${latest%%_*}"
           actual=$(psql "$SUPABASE_TEST_DB_URL" -v ON_ERROR_STOP=1 -Atqc \
-            'select app.platform_release_readiness()')
+            'select public.platform_release_readiness()')
           echo "newest migration: $latest (expects $expected)"
           echo "registry reports: ${actual:-<empty>}"
           test "$actual" = "$expected" || {
