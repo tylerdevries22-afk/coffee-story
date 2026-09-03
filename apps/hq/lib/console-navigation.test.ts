@@ -68,6 +68,7 @@ describe('consoleSectionsFor', () => {
       '/analytics/training',
       '/analytics/growth',
       '/analytics/reliability',
+      '/network',
       '/integrations',
       '/integrations/connected',
       '/integrations/activity',

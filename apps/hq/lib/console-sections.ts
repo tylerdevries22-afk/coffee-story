@@ -79,6 +79,12 @@ export function analyticsSection(access: ConsoleNavigationAccess): ConsoleSectio
       { href: '/analytics/training', label: 'Training', icon: 'training' },
       { href: '/analytics/growth', label: 'Growth', icon: 'campaign' },
       { href: '/analytics/reliability', label: 'Reliability', icon: 'activity' },
+      // Reporting, so it belongs in this section, but not under /analytics: the
+      // rest of that family is this tenant's own telemetry, and this one crosses
+      // brands on a network standing the console cannot see. The page shows an
+      // empty state to anyone the database refuses, which is why it needs no
+      // access flag of its own.
+      { href: '/network', label: 'Network', icon: 'brand' },
     ],
   };
 }
