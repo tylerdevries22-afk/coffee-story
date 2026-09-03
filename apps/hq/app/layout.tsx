@@ -20,6 +20,7 @@ import './styles/catalog.css';
 import './styles/storage.css';
 import './styles/analytics.css';
 import './styles/analytics-responsive.css';
+import './styles/status.css';
 
 export const metadata: Metadata = {
   title: 'HQ',

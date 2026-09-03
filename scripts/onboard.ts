@@ -15,9 +15,16 @@
  *      rule-5 flags, brand_config), location, and the menu.
  *   3. With assets/logo.svg: generate icon/splash/adaptive art (sharp) into
  *      tenants/<slug>/app-store/generated/.
- *   4. Emit the app-store listing draft and screenshots checklist.
+ *   4. Emit the app-store listing draft and screenshots checklist, for a
+ *      tenant that ships a menu -- the draft is a guest ordering app's copy.
  *   5. With --apply: refresh the generated customer and kiosk tenant bundles
  *      so both binaries ship this tenant (drift tests pin every copy).
+ *
+ * Two shapes it deliberately accepts. `--tenant _template` validates the
+ * scaffold every tenant is copied from and stops after step 1, so the folder
+ * everyone inherits is checked by the same gate. And `location` is optional:
+ * a tenant with no menu and no operations config trades from no counter, so
+ * steps 2 and 4 narrow rather than fail.
  */
 import { createHash } from 'node:crypto';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs';
@@ -300,8 +307,10 @@ type BrandFile = {
   };
   copy: Record<string, string>;
   features: Record<string, boolean>;
-  fees: { feeBps: number; feeBpsTier2: number; tierThresholdCents: number };
-  business: Record<string, string>;
+  /** The platform take. Absent leaves the brands row on its column defaults. */
+  fees?: { feeBps: number; feeBpsTier2: number; tierThresholdCents: number };
+  /** Legal name, contact details and the gift-code prefix. Absent = no storefront. */
+  business?: Record<string, string>;
   /** Sales-tax authorities the order API charges. Absent = no tax. */
   tax?: { jurisdictions: { id: string; label: string; rate: number }[] };
   /** What points buy, served by /api/loyalty/redeem. */
@@ -318,7 +327,11 @@ type BrandFile = {
    * below cannot silently omit it.
    */
   kiosk?: Record<string, unknown>;
-  location: {
+  /**
+   * The place this tenant trades from. Optional, because not every tenant has
+   * one: see the location rule in the validation step below.
+   */
+  location?: {
     name: string;
     address: Record<string, string>;
     timezone: string;
@@ -343,6 +356,16 @@ function argValue(flag: string): string | null {
 }
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const TENANT_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+/**
+ * A leading underscore marks platform scaffolding rather than a tenant, and
+ * `tenants/_template` is the only one: the documented shape every tenant is
+ * copied from. It used to be the one folder this script could not open, so the
+ * folder whose correctness all the others inherit was also the only one never
+ * validated. It now validates like a tenant and stops there -- no brand row, no
+ * generated art, no bundle -- because scaffolding has no identity to seed.
+ */
+const SCAFFOLD_SLUG = /^_[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const slug = argValue('--tenant');
 const ownerFlagProvided = process.argv.includes('--owner-user-id');
 const ownerUserId = argValue('--owner-user-id');
@@ -353,8 +376,13 @@ const requireDatabase = process.argv.includes('--require-db');
 // guarantees one source image and one uploaded immutable object per menu row.
 const imageLessSchemaFixture = process.argv.includes('--allow-imageless-schema-fixture')
   && slug === 'demo-roastery';
-if (!slug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
+const scaffold = slug !== null && SCAFFOLD_SLUG.test(slug);
+if (!slug || !(TENANT_SLUG.test(slug) || scaffold)) {
   console.error('Usage: pnpm onboard --tenant <slug> [--apply] [--owner-user-id <uuid>]');
+  process.exit(1);
+}
+if (scaffold && (apply || requireDatabase || ownerFlagProvided)) {
+  console.error(`tenants/${slug} is platform scaffolding: it validates, but it has no identity to seed or apply.`);
   process.exit(1);
 }
 if (ownerFlagProvided && (!ownerUserId || !UUID_PATTERN.test(ownerUserId))) {
@@ -373,7 +401,16 @@ async function run() {
   // 1. Validate ------------------------------------------------------------
   const brand = JSON.parse(readFileSync(brandPath, 'utf8')) as BrandFile;
   const problems: string[] = [];
-  if (brand.identity?.slug !== slug) problems.push(`identity.slug is "${brand.identity?.slug}", folder is "${slug}".`);
+  if (scaffold) {
+    // The template's identity is a placeholder to be replaced on copy, so it is
+    // checked for shape; requiring it to equal "_template" would put a name in
+    // the file that no tenant may ever keep.
+    if (!TENANT_SLUG.test(brand.identity?.slug ?? '')) {
+      problems.push('identity.slug must be a lower-case placeholder slug.');
+    }
+  } else if (brand.identity?.slug !== slug) {
+    problems.push(`identity.slug is "${brand.identity?.slug}", folder is "${slug}".`);
+  }
   if (!brand.identity?.bundleId?.includes('.')) problems.push('identity.bundleId must be reverse-DNS.');
   if (!brand.identity?.kioskBundleId?.includes('.')) problems.push('identity.kioskBundleId must be reverse-DNS.');
   if (!/^[a-z][a-z0-9+.-]*$/.test(brand.identity?.kioskScheme ?? '')) {
@@ -385,7 +422,22 @@ async function run() {
     problems.push('identity.kioskEasProjectId must be empty or a valid EAS project UUID.');
   }
   if (!brand.identity?.name) problems.push('identity.name is required.');
-  if (!brand.location?.timezone?.includes('/')) problems.push('location.timezone must be an IANA zone.');
+  // A location is what a storefront tenant *is*: the menu is served from it,
+  // the operations schedules run in its timezone, and a brand owner's grant is
+  // scoped to it. A tenant that sells nothing across a counter has no such
+  // place to describe -- a construction franchise runs projects, not a shop
+  // floor -- so the block is optional, and its absence narrows what onboarding
+  // may do rather than failing the tenant. It stays required wherever
+  // something downstream would otherwise have nothing to point at.
+  const menuPath = join(tenantDir, 'menu.csv');
+  const operationsPath = join(tenantDir, 'operations.json');
+  if (brand.location === undefined) {
+    if (existsSync(menuPath) || existsSync(operationsPath)) {
+      problems.push('location is required: a tenant with a menu.csv or an operations.json is served from one.');
+    }
+  } else if (!brand.location.timezone?.includes('/')) {
+    problems.push('location.timezone must be an IANA zone.');
+  }
   for (const jurisdiction of brand.tax?.jurisdictions ?? []) {
     if (!jurisdiction.id || !jurisdiction.label
       || typeof jurisdiction.rate !== 'number' || jurisdiction.rate < 0 || jurisdiction.rate >= 1) {
@@ -399,7 +451,6 @@ async function run() {
       break;
     }
   }
-  const operationsPath = join(tenantDir, 'operations.json');
   let operationsConfig: TenantOperationsConfig | null = null;
   if (brand.features.operations && !existsSync(operationsPath)) {
     problems.push('features.operations requires an operations.json tenant artifact.');
@@ -417,7 +468,6 @@ async function run() {
     }
   }
   problems.push(...modulesManifestProblems(tenantDir));
-  const menuPath = join(tenantDir, 'menu.csv');
   const menu = existsSync(menuPath) ? parseMenuCsv(readFileSync(menuPath, 'utf8')) : { rows: [], errors: [] };
   problems.push(...menu.errors.map((error) => `menu.csv: ${error}`));
   // Option groups per item slug, in the JSONB shape the engine's
@@ -455,6 +505,10 @@ async function run() {
     process.exit(1);
   }
   console.log(`1. validated brand.json${menu.rows.length ? ` and menu.csv (${menu.rows.length} items)` : ' (no menu.csv)'}`);
+  if (scaffold) {
+    console.log(`tenants/${slug} is the shape tenants are copied from, so validation is where it stops.`);
+    return;
+  }
 
   // 2. Database ------------------------------------------------------------
   const supabaseUrl = process.env.SUPABASE_URL;
@@ -474,9 +528,14 @@ async function run() {
         {
           slug,
           name: brand.identity.name,
-          fee_bps: brand.fees.feeBps,
-          fee_bps_tier2: brand.fees.feeBpsTier2,
-          tier_threshold_cents: brand.fees.tierThresholdCents,
+          // Omitted rather than defaulted in TypeScript: the brands columns
+          // carry the platform's own defaults, and writing a guessed take here
+          // would overwrite a rate someone set deliberately.
+          ...(brand.fees ? {
+            fee_bps: brand.fees.feeBps,
+            fee_bps_tier2: brand.fees.feeBpsTier2,
+            tier_threshold_cents: brand.fees.tierThresholdCents,
+          } : {}),
           ...brand.features,
           brand_config: {
             // The server needs the app's own scheme to tell this tenant's
@@ -485,7 +544,7 @@ async function run() {
             identity: { slug: brand.identity.slug, scheme: brand.identity.scheme },
             tokens: brand.tokens,
             copy: brand.copy,
-            business: brand.business,
+            ...(brand.business ? { business: brand.business } : {}),
             ...(brand.tax ? { tax: brand.tax } : {}),
             ...(brand.kiosk ? { kiosk: brand.kiosk } : {}),
             ...(brand.loyalty ? { loyalty: brand.loyalty } : {}),
@@ -501,19 +560,23 @@ async function run() {
       .single();
     if (brandError) throw brandError;
 
-    const { data: location, error: locationError } = await db
-      .from('locations')
-      .upsert({
-        brand_id: brandRow.id,
-        name: brand.location.name,
-        address: brand.location.address,
-        hours: brand.location.hours,
-        timezone: brand.location.timezone,
-      }, { onConflict: 'brand_id,name' })
-      .select('id')
-      .single();
-    if (locationError) throw locationError;
-    const locationId = location.id;
+    const locationConfig = brand.location;
+    let locationId: string | null = null;
+    if (locationConfig) {
+      const { data: location, error: locationError } = await db
+        .from('locations')
+        .upsert({
+          brand_id: brandRow.id,
+          name: locationConfig.name,
+          address: locationConfig.address,
+          hours: locationConfig.hours,
+          timezone: locationConfig.timezone,
+        }, { onConflict: 'brand_id,name' })
+        .select('id')
+        .single();
+      if (locationError) throw locationError;
+      locationId = location.id;
+    }
 
     if (ownerUserId) {
       const { error: ownerError } = await db.from('brand_users').upsert(
@@ -521,15 +584,18 @@ async function run() {
           user_id: ownerUserId,
           brand_id: brandRow.id,
           role: 'brand_owner',
-          location_ids: [locationId],
+          location_ids: locationId ? [locationId] : [],
         },
         { onConflict: 'user_id,brand_id' },
       );
       if (ownerError) throw ownerError;
     }
 
-    if (operationsConfig) {
-      await seedTenantOperations(db, brandRow.id, locationId, brand.location.timezone, operationsConfig);
+    // Validation already refuses an operations.json without a location, since
+    // every schedule runs in one location's timezone. The guard is how the
+    // types are told that, not a case this reaches.
+    if (operationsConfig && locationConfig && locationId) {
+      await seedTenantOperations(db, brandRow.id, locationId, locationConfig.timezone, operationsConfig);
       console.log(`   operations: ${operationsConfig.templates.length} templates, ${operationsConfig.schedules.length} schedules synced`);
     }
 
@@ -608,7 +674,8 @@ async function run() {
       }
     }
     const ownerSummary = ownerUserId ? ` + owner ${ownerUserId} assigned` : '';
-    console.log(`2. database: brand + location ${locationId} + ${menu.rows.length} menu items upserted${ownerSummary}`);
+    const locationSummary = locationId ? `location ${locationId}` : 'no location (none declared)';
+    console.log(`2. database: brand + ${locationSummary} + ${menu.rows.length} menu items upserted${ownerSummary}`);
   } else {
     console.log('2. database: skipped (set SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY to seed rows)');
   }
@@ -649,58 +716,12 @@ async function run() {
   }
 
   // 4. Listing material ----------------------------------------------------
-  const appStoreDir = join(tenantDir, 'app-store');
-  mkdirSync(appStoreDir, { recursive: true });
-  const pointsName = brand.copy.pointsName ?? 'Points';
-  const privacyPolicyUrl = tenantPrivacyPolicyUrl(brand.business.website);
-  writeFileSync(join(appStoreDir, 'listing.md'), `# ${brand.identity.name} — App Store listing draft
-
-**Subtitle (30 chars):** Order ahead. Earn ${pointsName}.
-
-**Promotional text:** ${brand.copy.orderCta ?? 'Start an order'} from your phone — skip the line,
-earn ${pointsName} on every purchase, and catch every limited drop before it's gone.
-
-**Description:**
-
-${brand.identity.name} in your pocket. Order ahead for pickup, customize every
-drink exactly how you take it, and pay in seconds. Earn ${pointsName} on every
-order and trade them for the drinks you love. Limited drops land first in the
-app — with a countdown, so you never miss one.
-
-- Order ahead, skip the line
-- ${pointsName} rewards on every purchase
-- Limited drops with live countdowns
-- Gift cards you can send in a minute
-${(brand.features.catering ? '- Catering requests for your events\n' : '')}
-**Keywords:** coffee,order ahead,rewards,pickup,${slug}
-
-**Category:** Food & Drink
-
-**Support URL:** ${brand.business.website ?? ''}
-
-**Privacy policy URL:** ${privacyPolicyUrl}
-
-Fill in the marketing URL before submission. Publish a counsel-reviewed copy
-of docs/legal/privacy-policy.md at the privacy policy URL above.
-`);
-  writeFileSync(join(appStoreDir, 'screenshots-checklist.md'), `# Screenshots checklist — ${brand.identity.name}
-
-Capture on the 6.9" and 6.5" iPhone simulators (and 13" iPad if the operator
-listing shares assets). Light mode, demo data, full status bar.
-
-- [ ] Home with the live drop hero and countdown
-- [ ] Menu, one category open, an 86'd item visible
-- [ ] Item sheet with size + options and the price moving on the button
-- [ ] Bag with two lines and the earn banner
-- [ ] Checkout with the tax breakdown and ${pointsName} redemption on
-- [ ] Order tracking on "Being made"
-- [ ] Rewards screen with the meter partly filled
-- [ ] Gift card send flow, first screen
-
-Rules: no competitor's name or artwork anywhere in frame; only this brand's
-own colors, type, and photography (docs/DO-NOT-RESEMBLE.md).
-`);
-  console.log(`4. listing: listing.md + screenshots-checklist.md -> tenants/${slug}/app-store/`);
+  const business = brand.business;
+  if (menu.rows.length > 0 && business) {
+    writeAppStoreListing(brand, business);
+  } else {
+    console.log(`4. listing: skipped (the draft describes a guest ordering app; tenants/${slug} ships no menu)`);
+  }
 
   // 5. Apply to the bundled copies ------------------------------------------
   //
@@ -732,6 +753,69 @@ own colors, type, and photography (docs/DO-NOT-RESEMBLE.md).
   } else {
     console.log(`6. cut-outs: not applied (pass --apply)`);
   }
+}
+
+/**
+ * The App Store draft and its screenshots checklist.
+ *
+ * Every line of it describes a guest ordering app -- order ahead, points,
+ * drops, a bag. That is a claim about the product, so it is written only for a
+ * tenant that actually ships one; a tenant with no menu would otherwise get a
+ * store listing for a counter it does not have.
+ */
+function writeAppStoreListing(brand: BrandFile, business: Record<string, string>): void {
+  const appStoreDir = join(tenantDir, 'app-store');
+  mkdirSync(appStoreDir, { recursive: true });
+  const pointsName = brand.copy.pointsName ?? 'Points';
+  const privacyPolicyUrl = tenantPrivacyPolicyUrl(business.website);
+  writeFileSync(join(appStoreDir, 'listing.md'), `# ${brand.identity.name} — App Store listing draft
+
+**Subtitle (30 chars):** Order ahead. Earn ${pointsName}.
+
+**Promotional text:** ${brand.copy.orderCta ?? 'Start an order'} from your phone — skip the line,
+earn ${pointsName} on every purchase, and catch every limited drop before it's gone.
+
+**Description:**
+
+${brand.identity.name} in your pocket. Order ahead for pickup, customize every
+drink exactly how you take it, and pay in seconds. Earn ${pointsName} on every
+order and trade them for the drinks you love. Limited drops land first in the
+app — with a countdown, so you never miss one.
+
+- Order ahead, skip the line
+- ${pointsName} rewards on every purchase
+- Limited drops with live countdowns
+- Gift cards you can send in a minute
+${(brand.features.catering ? '- Catering requests for your events\n' : '')}
+**Keywords:** coffee,order ahead,rewards,pickup,${slug}
+
+**Category:** Food & Drink
+
+**Support URL:** ${business.website ?? ''}
+
+**Privacy policy URL:** ${privacyPolicyUrl}
+
+Fill in the marketing URL before submission. Publish a counsel-reviewed copy
+of docs/legal/privacy-policy.md at the privacy policy URL above.
+`);
+  writeFileSync(join(appStoreDir, 'screenshots-checklist.md'), `# Screenshots checklist — ${brand.identity.name}
+
+Capture on the 6.9" and 6.5" iPhone simulators (and 13" iPad if the operator
+listing shares assets). Light mode, demo data, full status bar.
+
+- [ ] Home with the live drop hero and countdown
+- [ ] Menu, one category open, an 86'd item visible
+- [ ] Item sheet with size + options and the price moving on the button
+- [ ] Bag with two lines and the earn banner
+- [ ] Checkout with the tax breakdown and ${pointsName} redemption on
+- [ ] Order tracking on "Being made"
+- [ ] Rewards screen with the meter partly filled
+- [ ] Gift card send flow, first screen
+
+Rules: no competitor's name or artwork anywhere in frame; only this brand's
+own colors, type, and photography (docs/DO-NOT-RESEMBLE.md).
+`);
+  console.log(`4. listing: listing.md + screenshots-checklist.md -> tenants/${slug}/app-store/`);
 }
 
 const HEX = /^#[0-9a-fA-F]{6}$/;

@@ -345,6 +345,6 @@ revoke all on function app.capture_training_media_versions() from public;
 -- No assertion of its own: the three functions are already asserted by the
 -- links that introduced them, and no signature changed.
 select app.register_release(
-  '20260903095329',
+  '20260903180000',
   'training manifest readers accept the schema 3 tracks key alongside modules'
 );

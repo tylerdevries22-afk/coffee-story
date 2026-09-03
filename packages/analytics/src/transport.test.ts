@@ -2,16 +2,12 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { track, type AnalyticsEventContext } from './analytics';
-import {
-  createAnalyticsId,
-  createAnalyticsSurfaceObserver,
-  createAnalyticsTransport,
-  createSessionHash,
-  screenKeyFor,
-  tenantIdHintFromJwt,
-} from './transport';
+import { createSessionHash } from './identity';
+import { parseStoredQueue, serializeQueue, type AnalyticsQueueStore, type QueuedEvent } from './queue-store';
+import { createAnalyticsTransport } from './transport';
 
 const BRAND_ID = 'e627d6c2-6cb9-4368-8543-abd02a5afb7c';
+const ENDPOINT = 'https://hq.example.com/api/analytics/events';
 
 function context(sessionHash = createSessionHash(() => 0.2)): AnalyticsEventContext {
   return {
@@ -34,30 +30,27 @@ function event(index: number) {
   return value;
 }
 
-test('createAnalyticsId creates a UUIDv4', () => {
-  assert.match(createAnalyticsId(() => 0.25), /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
-});
-
-test('createSessionHash creates a bounded versioned pseudonymous value', () => {
-  assert.match(createSessionHash(() => 0.5), /^h1_[A-Za-z0-9_-]{32}$/);
-});
-
-test('screenKeyFor returns only allowlisted values', () => {
-  const routes = { '/client/home': 'home' };
-  assert.equal(screenKeyFor('/client/home?source=email', routes), 'home');
-  assert.equal(screenKeyFor('/drops/private-campaign-name', routes), 'unknown');
-});
-
-test('tenantIdHintFromJwt reads only a valid hook-minted tenant hint', () => {
-  const payload = Buffer.from(JSON.stringify({ app_metadata: { brand_id: BRAND_ID } })).toString('base64url');
-  assert.equal(tenantIdHintFromJwt(`header.${payload}.signature`), BRAND_ID);
-  assert.equal(tenantIdHintFromJwt('header.invalid.signature'), null);
-});
+/**
+ * A store backed by one string, which is what a file is once the atomicity in
+ * queue-store.ts has done its job. Killing the transport and building a new one
+ * over the same disk is exactly an app restart.
+ */
+function memoryStore(): AnalyticsQueueStore & { disk: () => string | null; writes: () => number } {
+  let contents: string | null = null;
+  let writes = 0;
+  return Object.freeze({
+    load: async (): Promise<readonly QueuedEvent[]> => parseStoredQueue(contents),
+    save: async (queue: readonly QueuedEvent[]) => { writes += 1; contents = serializeQueue(queue); },
+    clear: async () => { contents = null; },
+    disk: () => contents,
+    writes: () => writes,
+  });
+}
 
 test('transport batches at 50 and sends bearer plus idempotency', async () => {
   const calls: { body: string; headers: Headers }[] = [];
   const transport = createAnalyticsTransport({
-    endpoint: 'https://hq.example.com/api/analytics/events',
+    endpoint: ENDPOINT,
     getAccessToken: async () => 'access-token',
     createId: () => '10000000-0000-4000-8000-000000000001',
     flushDelayMs: 60_000,
@@ -80,7 +73,7 @@ test('transport retries once with the same idempotency key', async () => {
   let calls = 0;
   const keys: string[] = [];
   const transport = createAnalyticsTransport({
-    endpoint: 'https://hq.example.com/api/analytics/events',
+    endpoint: ENDPOINT,
     getAccessToken: async () => 'access-token',
     createId: () => '10000000-0000-4000-8000-000000000002',
     sleep: async () => undefined,
@@ -121,7 +114,7 @@ test('transport retains offline events, expires stale events, and bounds its que
 
 test('transport drops a rejected batch so later events are not blocked', async () => {
   const transport = createAnalyticsTransport({
-    endpoint: 'https://hq.example.com/api/analytics/events',
+    endpoint: ENDPOINT,
     getAccessToken: async () => 'access-token',
     createId: () => '10000000-0000-4000-8000-000000000003',
     flushDelayMs: 60_000,
@@ -140,33 +133,176 @@ test('transport rejects insecure non-loopback endpoints', () => {
   }), /HTTPS/);
 });
 
-test('surface observer emits a session once, deduplicates screens, and rotates identities', () => {
-  const events: { eventName: string; properties: unknown }[] = [];
-  const observer = createAnalyticsSurfaceObserver({
-    enqueue: (value) => { events.push({ eventName: value.eventName, properties: value.properties }); },
-  }, {
-    createId: (() => {
-      let id = 0;
-      return () => `40000000-0000-4000-8000-${String(++id).padStart(12, '0')}`;
-    })(),
-    createSessionHash: () => 'h1_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
-    now: () => new Date('2026-08-27T18:00:00.000Z'),
-  });
-  const observation = {
-    context: {
-      brandId: BRAND_ID,
-      surface: 'customer' as const,
-      appVersion: '1.0.0',
-      consent: { essential: true as const, behavioral: true, source: 'user' as const, updatedAt: '2026-08-27T18:00:00.000Z' },
-    },
-    screenKey: 'home',
-    sessionIdentity: 'user-1:allowed',
+/** The defect this store exists for: a kill used to take every buffered event with it. */
+test('transport restores its queue after the process dies', async () => {
+  const store = memoryStore();
+  const options = {
+    endpoint: ENDPOINT,
+    getAccessToken: async () => null,
+    flushDelayMs: 60_000,
+    store,
   };
-  assert.equal(observer.observe(observation), 2);
-  assert.equal(observer.observe(observation), 0);
-  assert.equal(observer.observe({ ...observation, screenKey: 'orders' }), 1);
-  assert.equal(observer.observe({ ...observation, sessionIdentity: 'user-2:allowed' }), 2);
-  assert.deepEqual(events.map((value) => value.eventName), [
-    'session.started', 'screen.viewed', 'screen.viewed', 'session.started', 'screen.viewed',
-  ]);
+  const before = createAnalyticsTransport(options);
+  before.enqueue(event(1));
+  before.enqueue(event(2));
+  await before.settled();
+  // No dispose: the process was killed, which is the case that used to lose
+  // everything. Nothing gets a chance to flush or tidy up.
+
+  const after = createAnalyticsTransport(options);
+  await after.settled();
+  assert.equal(after.queuedCount(), 2);
+  after.dispose();
+});
+
+/**
+ * The narrow window the persist chain waits on hydration for: an event
+ * arriving before the stored queue is read back used to write a snapshot
+ * without the restored events, so a kill right then lost them.
+ */
+test('an event enqueued before hydration lands never overwrites the stored queue', async () => {
+  const store = memoryStore();
+  const options = {
+    endpoint: ENDPOINT,
+    getAccessToken: async () => null,
+    flushDelayMs: 60_000,
+    store,
+  };
+  const before = createAnalyticsTransport(options);
+  before.enqueue(event(1));
+  await before.settled();
+
+  const after = createAnalyticsTransport({
+    ...options,
+    // Reading the queue back is slow enough that the enqueue below happens
+    // first, which is the ordering a real file read produces on launch.
+    store: { ...store, load: async () => {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      return store.load();
+    } },
+  });
+  after.enqueue(event(2));
+  await after.settled();
+  assert.deepEqual(parseStoredQueue(store.disk()).map((item) => item.event.clientEventId),
+    [event(1).clientEventId, event(2).clientEventId]);
+  after.dispose();
+});
+
+test('a restored queue keeps FIFO order in front of events queued since launch', async () => {
+  const store = memoryStore();
+  const sent: string[] = [];
+  const options = {
+    endpoint: ENDPOINT,
+    getAccessToken: async () => 'access-token',
+    createId: () => '10000000-0000-4000-8000-000000000004',
+    flushDelayMs: 60_000,
+    store,
+  };
+  const before = createAnalyticsTransport({ ...options, getAccessToken: async () => null });
+  before.enqueue(event(1));
+  await before.settled();
+
+  const after = createAnalyticsTransport({
+    ...options,
+    fetcher: async (_input, init) => {
+      const body = JSON.parse(String(init?.body)) as { events: { clientEventId: string }[] };
+      sent.push(...body.events.map((value) => value.clientEventId));
+      return new Response(null, { status: 202 });
+    },
+  });
+  after.enqueue(event(2));
+  await after.flush();
+  assert.deepEqual(sent, [event(1).clientEventId, event(2).clientEventId]);
+  after.dispose();
+});
+
+test('the stored queue shrinks as events are accepted', async () => {
+  const store = memoryStore();
+  const transport = createAnalyticsTransport({
+    endpoint: ENDPOINT,
+    getAccessToken: async () => 'access-token',
+    createId: () => '10000000-0000-4000-8000-000000000005',
+    flushDelayMs: 60_000,
+    fetcher: async () => new Response(null, { status: 202 }),
+    store,
+  });
+  transport.enqueue(event(1));
+  await transport.settled();
+  assert.equal(parseStoredQueue(store.disk()).length, 1);
+  await transport.flush();
+  await transport.settled();
+  assert.deepEqual(parseStoredQueue(store.disk()), []);
+  transport.dispose();
+});
+
+/** Persistence changes what survives a restart, never how much is retained. */
+test('persistence keeps the existing bounds and eviction order', async () => {
+  let now = 1_000;
+  const store = memoryStore();
+  const options = {
+    endpoint: 'http://localhost:3300/api/analytics/events',
+    getAccessToken: async () => null,
+    now: () => now,
+    maxAgeMs: 100,
+    maxQueueSize: 2,
+    flushDelayMs: 60_000,
+    store,
+  };
+  const before = createAnalyticsTransport(options);
+  before.enqueue(event(1));
+  before.enqueue(event(2));
+  before.enqueue(event(3));
+  await before.settled();
+  // The oldest was evicted before the write, so it is not on disk either.
+  assert.deepEqual(parseStoredQueue(store.disk()).map((item) => item.event.clientEventId),
+    [event(2).clientEventId, event(3).clientEventId]);
+
+  now = 1_101;
+  const after = createAnalyticsTransport(options);
+  await after.settled();
+  // Restored events are still subject to the 24-hour rule; these are stale.
+  assert.equal(after.queuedCount(), 0);
+  after.dispose();
+});
+
+test('dispose leaves the stored queue for the next launch, purge erases it', async () => {
+  const store = memoryStore();
+  const options = {
+    endpoint: ENDPOINT,
+    getAccessToken: async () => null,
+    flushDelayMs: 60_000,
+    store,
+  };
+  const first = createAnalyticsTransport(options);
+  first.enqueue(event(1));
+  await first.settled();
+  first.dispose();
+  assert.equal(parseStoredQueue(store.disk()).length, 1);
+
+  const second = createAnalyticsTransport(options);
+  await second.purge();
+  assert.equal(second.queuedCount(), 0);
+  assert.equal(store.disk(), null);
+  second.dispose();
+});
+
+test('a store that cannot be read or written never breaks the transport', async () => {
+  const broken: AnalyticsQueueStore = Object.freeze({
+    load: async () => { throw new Error('unreadable'); },
+    save: async () => { throw new Error('unwritable'); },
+    clear: async () => { throw new Error('unremovable'); },
+  });
+  const transport = createAnalyticsTransport({
+    endpoint: ENDPOINT,
+    getAccessToken: async () => 'access-token',
+    createId: () => '10000000-0000-4000-8000-000000000006',
+    flushDelayMs: 60_000,
+    fetcher: async () => new Response(null, { status: 202 }),
+    store: broken,
+  });
+  transport.enqueue(event(1));
+  await transport.settled();
+  assert.equal((await transport.flush()).status, 'accepted');
+  await transport.purge();
+  transport.dispose();
 });

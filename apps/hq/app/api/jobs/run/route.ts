@@ -20,6 +20,7 @@ import {
   resolveTenantTrainingProfile,
 } from '../../../../lib/training-bootstrap';
 import { analyticsMaintenanceCutoffs } from '../../../../lib/analytics-maintenance';
+import { delegatedGrantRetentionCutoff } from '../../../../lib/delegated-grant-maintenance';
 import { trainingProfileFingerprint } from '../../../../lib/training-fingerprint';
 import {
   renewDueSquareConnections,
@@ -336,6 +337,14 @@ export async function POST(request: Request): Promise<Response> {
   });
   if (operationsRetention.error) throw operationsRetention.error;
 
+  // Delegated access grants end on their own clock, so the same tick stamps the
+  // ones that have run out and drops the ones past retention. Without it a
+  // grant is only ever ended by hand, and nothing has ever ended one.
+  const delegatedGrants = await db.rpc('prune_delegated_access_grants', {
+    ended_before: delegatedGrantRetentionCutoff(now),
+  });
+  if (delegatedGrants.error) throw delegatedGrants.error;
+
   return Response.json({
     ok: true,
     drops: dropTransitions.length,
@@ -343,6 +352,7 @@ export async function POST(request: Request): Promise<Response> {
     trainingBootstraps,
     square: { ...squareRenewals, retirements: squareRetirements },
     analytics: { rollups: rollups.data, retention: retention.data },
+    delegatedGrants: delegatedGrants.data,
     operations: {
       maintenance: operations.data,
       escalations: operationEscalations.data,
