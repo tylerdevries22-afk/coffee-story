@@ -14,7 +14,7 @@ export type CompetencyGrantPlan = {
 
 export type PersistedTrainingAttempt = {
   release_id: string;
-  module_slug: string;
+  track_slug: string;
   lesson_slug: string;
   answers: number[];
 };
@@ -51,7 +51,7 @@ export function matchesTrainingAttempt(
   incoming: PersistedTrainingAttempt,
 ): boolean {
   return persisted.release_id === incoming.release_id
-    && persisted.module_slug === incoming.module_slug
+    && persisted.track_slug === incoming.track_slug
     && persisted.lesson_slug === incoming.lesson_slug
     && persisted.answers.length === incoming.answers.length
     && persisted.answers.every((answer, index) => answer === incoming.answers[index]);

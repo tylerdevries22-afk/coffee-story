@@ -6864,12 +6864,12 @@ export type Database = {
           expires_at: string | null
           id: string
           lesson_slug: string | null
-          module_slug: string | null
           release_id: string | null
           revocation_reason: string
           revoked_action_id: string | null
           revoked_at: string | null
           revoked_by: string | null
+          track_slug: string | null
           verification_reason: string
         }
         Insert: {
@@ -6883,12 +6883,12 @@ export type Database = {
           expires_at?: string | null
           id?: string
           lesson_slug?: string | null
-          module_slug?: string | null
           release_id?: string | null
           revocation_reason?: string
           revoked_action_id?: string | null
           revoked_at?: string | null
           revoked_by?: string | null
+          track_slug?: string | null
           verification_reason?: string
         }
         Update: {
@@ -6902,12 +6902,12 @@ export type Database = {
           expires_at?: string | null
           id?: string
           lesson_slug?: string | null
-          module_slug?: string | null
           release_id?: string | null
           revocation_reason?: string
           revoked_action_id?: string | null
           revoked_at?: string | null
           revoked_by?: string | null
+          track_slug?: string | null
           verification_reason?: string
         }
         Relationships: [
@@ -6964,10 +6964,10 @@ export type Database = {
           created_at: string
           id: string
           lesson_slug: string
-          module_slug: string
           release_id: string
           score: number | null
           status: string
+          track_slug: string
           updated_at: string
         }
         Insert: {
@@ -6978,10 +6978,10 @@ export type Database = {
           created_at?: string
           id?: string
           lesson_slug: string
-          module_slug: string
           release_id: string
           score?: number | null
           status?: string
+          track_slug: string
           updated_at?: string
         }
         Update: {
@@ -6992,10 +6992,10 @@ export type Database = {
           created_at?: string
           id?: string
           lesson_slug?: string
-          module_slug?: string
           release_id?: string
           score?: number | null
           status?: string
+          track_slug?: string
           updated_at?: string
         }
         Relationships: [
@@ -7030,10 +7030,10 @@ export type Database = {
           created_at: string
           id: string
           lesson_slug: string
-          module_slug: string
           passed: boolean
           release_id: string
           score: number
+          track_slug: string
         }
         Insert: {
           answers: Json
@@ -7042,10 +7042,10 @@ export type Database = {
           created_at?: string
           id: string
           lesson_slug: string
-          module_slug: string
           passed: boolean
           release_id: string
           score: number
+          track_slug: string
         }
         Update: {
           answers?: Json
@@ -7054,10 +7054,10 @@ export type Database = {
           created_at?: string
           id?: string
           lesson_slug?: string
-          module_slug?: string
           passed?: boolean
           release_id?: string
           score?: number
+          track_slug?: string
         }
         Relationships: [
           {
@@ -7632,10 +7632,10 @@ export type Database = {
           target_competency_key: string
           target_expires_at: string
           target_lesson_slug: string
-          target_module_slug: string
           target_reason: string
           target_release: string
           target_source: string
+          target_track_slug: string
         }
         Returns: {
           action_id: string | null
@@ -7648,12 +7648,12 @@ export type Database = {
           expires_at: string | null
           id: string
           lesson_slug: string | null
-          module_slug: string | null
           release_id: string | null
           revocation_reason: string
           revoked_action_id: string | null
           revoked_at: string | null
           revoked_by: string | null
+          track_slug: string | null
           verification_reason: string
         }
         SetofOptions: {

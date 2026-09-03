@@ -42,7 +42,7 @@ describe('competencyAwardActionId', () => {
 describe('matchesTrainingAttempt', () => {
   const attempt = {
     release_id: 'release-a',
-    module_slug: 'safety',
+    track_slug: 'safety',
     lesson_slug: 'equipment-safety',
     answers: [1, 0],
   };
@@ -50,7 +50,7 @@ describe('matchesTrainingAttempt', () => {
   it('accepts only an exact replay of the original lesson attempt', () => {
     assert.equal(matchesTrainingAttempt(attempt, { ...attempt, answers: [...attempt.answers] }), true);
     assert.equal(matchesTrainingAttempt(attempt, { ...attempt, release_id: 'release-b' }), false);
-    assert.equal(matchesTrainingAttempt(attempt, { ...attempt, module_slug: 'operations' }), false);
+    assert.equal(matchesTrainingAttempt(attempt, { ...attempt, track_slug: 'operations' }), false);
     assert.equal(matchesTrainingAttempt(attempt, { ...attempt, lesson_slug: 'opening' }), false);
     assert.equal(matchesTrainingAttempt(attempt, { ...attempt, answers: [0, 1] }), false);
   });
