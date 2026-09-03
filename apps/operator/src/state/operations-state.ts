@@ -14,7 +14,7 @@ import type {
   OperatorTaskIssue,
   OperatorTaskOccurrence,
 } from '@/features/operations/model';
-import type { OperationIntentIssue } from '@/features/operations/offline-intents';
+import type { OperationIntentIssue } from '@platform/offline';
 
 export type OperationConflict = {
   actionId: string;
