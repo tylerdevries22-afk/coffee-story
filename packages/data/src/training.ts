@@ -1,19 +1,15 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { normalizeTrainingManifest, type TrainingManifest } from '@platform/domain';
+import { liftTrainingManifest, type TrainingManifest } from '@platform/domain';
 
 import { readWithRetry } from './read-retry';
 
 export type PublishedTrainingRelease = { id: string; manifest: TrainingManifest };
 
 function parseManifest(value: unknown): TrainingManifest {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('The published training release is invalid.');
-  const candidate = value as Partial<TrainingManifest>;
-  if ((candidate.schemaVersion !== 1 && candidate.schemaVersion !== 2)
-      || !candidate.tenant || !Array.isArray(candidate.sources) || !Array.isArray(candidate.modules)) {
-    throw new Error('The published training release is invalid.');
-  }
-  return normalizeTrainingManifest(candidate as TrainingManifest);
+  const manifest = liftTrainingManifest(value);
+  if (!manifest) throw new Error('The published training release is invalid.');
+  return manifest;
 }
 
 /** Loads the one published release visible to a tenant's staff JWT. */

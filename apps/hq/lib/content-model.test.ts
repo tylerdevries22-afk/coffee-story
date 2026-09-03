@@ -4,7 +4,7 @@ import { describe, it } from 'node:test';
 import {
   contentCounts,
   isMenuItemDraft,
-  isTrainingDraftPayload,
+  parseTrainingDraftPayload,
   imageExtensionFor,
   restoreTrainingAnswers,
   slugFromLabel,
@@ -90,8 +90,8 @@ describe('HQ content contracts', () => {
 
   it('allows incomplete drafts while bounding their shape', () => {
     const manifest = starterTrainingManifest(PROFILE);
-    assert.equal(isTrainingDraftPayload(manifest), true);
-    assert.equal(isTrainingDraftPayload({ schemaVersion: 1, tenant: {}, sources: [], modules: [{}] }), false);
+    assert.notEqual(parseTrainingDraftPayload(manifest), null);
+    assert.equal(parseTrainingDraftPayload({ schemaVersion: 1, tenant: {}, sources: [], modules: [{}] }), null);
     assert.deepEqual(validateTrainingDraft(manifest), []);
     manifest.modules[0]!.slug = 'Bad Slug';
     assert.match(validateTrainingDraft(manifest)[0] ?? '', /valid slug/);

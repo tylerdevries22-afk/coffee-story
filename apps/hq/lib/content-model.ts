@@ -3,7 +3,7 @@ import type {
   TrainingAnswerKey,
   TrainingManifest,
 } from './training-bootstrap';
-import { normalizeTrainingManifest, slugify, TRAINING_TRACK_ORDER, type TrainingTrackKey } from '@platform/domain';
+import { liftTrainingManifest, normalizeTrainingManifest, slugify, TRAINING_TRACK_ORDER, type TrainingTrackKey } from '@platform/domain';
 
 export type ContentMenuSize = {
   slug: string;
@@ -193,20 +193,31 @@ export function isMenuItemDraft(value: unknown): value is MenuItemDraft {
     && typeof value.sortOrder === 'number';
 }
 
-export function isTrainingDraftPayload(value: unknown): value is TrainingManifest {
-  if (!isRecord(value) || (value.schemaVersion !== 1 && value.schemaVersion !== 2) || !isRecord(value.tenant)
-      || !Array.isArray(value.sources) || !Array.isArray(value.modules)) return false;
+/**
+ * Validates a draft arriving from the browser and hands back the canonical
+ * manifest. It is not a type guard because the payload may be an older schema
+ * spelling than the one the rest of HQ works in, and the caller must edit what
+ * came back rather than the shape that was posted.
+ */
+export function parseTrainingDraftPayload(value: unknown): TrainingManifest | null {
+  if (!isRecord(value) || !isRecord(value.tenant) || !Array.isArray(value.sources)) return null;
   const tenant = value.tenant;
-  if (typeof tenant.businessName !== 'string' || typeof tenant.industry !== 'string' || typeof tenant.locale !== 'string') return false;
+  if (typeof tenant.businessName !== 'string' || typeof tenant.industry !== 'string' || typeof tenant.locale !== 'string') return null;
   const sourcesValid = value.sources.every((source) => isRecord(source)
     && ['title', 'url', 'publisher', 'accessedAt'].every((key) => typeof source[key] === 'string'));
-  return sourcesValid && value.modules.every((module) => isRecord(module)
-    && typeof module.slug === 'string' && typeof module.title === 'string' && typeof module.summary === 'string'
-    && (module.trackKey === undefined || ['knowledge', 'skills', 'service', 'safety', 'operations', 'custom'].includes(module.trackKey as string))
-    && (module.sortOrder === undefined || typeof module.sortOrder === 'number')
-    && isRecord(module.icon) && typeof module.icon.symbol === 'string' && typeof module.icon.prompt === 'string'
-    && (module.icon.url === undefined || typeof module.icon.url === 'string')
-    && Array.isArray(module.lessons) && module.lessons.every((lesson) => isLessonPayload(lesson)));
+  const nodes = value.schemaVersion === 3 ? value.tracks : value.modules;
+  if (!sourcesValid || !Array.isArray(nodes) || !nodes.every(isTrackPayload)) return null;
+  return liftTrainingManifest(value);
+}
+
+function isTrackPayload(value: unknown): boolean {
+  return isRecord(value)
+    && typeof value.slug === 'string' && typeof value.title === 'string' && typeof value.summary === 'string'
+    && (value.trackKey === undefined || ['knowledge', 'skills', 'service', 'safety', 'operations', 'custom'].includes(value.trackKey as string))
+    && (value.sortOrder === undefined || typeof value.sortOrder === 'number')
+    && isRecord(value.icon) && typeof value.icon.symbol === 'string' && typeof value.icon.prompt === 'string'
+    && (value.icon.url === undefined || typeof value.icon.url === 'string')
+    && Array.isArray(value.lessons) && value.lessons.every((lesson) => isLessonPayload(lesson));
 }
 
 function isLessonPayload(value: unknown): boolean {
@@ -315,7 +326,7 @@ export function restoreTrainingAnswers(
 
 export function validateTrainingDraft(manifest: TrainingManifest): string[] {
   const issues: string[] = [];
-  if (manifest.schemaVersion !== 1 && manifest.schemaVersion !== 2) issues.push('Training schema version must be 1 or 2.');
+  if (![1, 2, 3].includes(manifest.schemaVersion)) issues.push('Training schema version must be 1, 2, or 3.');
   const normalized = normalizeTrainingManifest(manifest);
   if (normalized.modules.length > 16) issues.push('Training can contain no more than 16 modules.');
   if (manifest.sources.length > 12) issues.push('Training can contain no more than 12 sources.');
