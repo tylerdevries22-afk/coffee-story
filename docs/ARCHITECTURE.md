@@ -102,9 +102,10 @@ double-send).
 
 ## Vocabulary
 
-"Module" names two unrelated things here, and one string belongs to both
-sides, so a reviewer cannot tell from the word alone which is meant. Say
-which in full.
+"Module" used to name two unrelated things here, and one string belonged to
+both sides. It now names one, and this section records what the other became
+so a reviewer reading an older commit, migration, or stored release can follow
+it.
 
 - **Capability module** — a unit of platform functionality a tenant can have
   or not have. `ModuleDefinition` in `packages/module-kit/src/registry.ts`;
@@ -112,21 +113,59 @@ which in full.
   `workforce-operations`, `local-printing` and their siblings. A tenant
   declares its installs in `tenants/<slug>/modules.json`; the runtime set is
   `module_installations`, one row per brand and key. Capability modules gate
-  routes, jobs, APIs, and navigation.
-- **Training module** — a group of lessons inside training *content*:
-  `TrainingModule` in `packages/domain/src/training.ts`, addressed by `slug`
-  and grouped by `trackKey`, whose values are `TRAINING_TRACK_ORDER`
-  (`knowledge`, `skills`, `service`, `safety`, `operations`). Content is not a
-  capability: all of it belongs to the one `workforce-training` capability
-  module. Step 3 of `MODULAR-OFFLINE-FRANCHISE-PLAN.md` renames this to a
-  track precisely to end the collision, so prefer "training track" in new
-  prose even while the type is still called `TrainingModule`.
+  routes, jobs, APIs, and navigation. This is the only thing "module" means.
+- **Training track** — a group of lessons inside training *content*:
+  `TrainingTrack` in `packages/domain/src/training.ts`. A track is addressed
+  by `slug` and nothing else. A slug in `TRAINING_TRACK_ORDER` (`knowledge`,
+  `skills`, `service`, `safety`, `operations`) is a core track, present in
+  every release because `normalizeTrainingManifest` adds an empty shell for
+  any that is missing; every other slug is a track the tenant wrote, and it
+  sorts after the five. Content is not a capability: all of it belongs to the
+  one `workforce-training` capability module.
 - **`'training_module'` / `'training_lesson'`** — neither of the above. These
   are string literals in the schema: `entity_type` in the content-media and
   catalog tables, and resource kinds in a catalog template's manifest. They
   say which kind of content row a media version or catalog resource points at.
+  They are deliberately unrenamed: they are shared with the catalog tables and
+  pinned by a CHECK constraint, so they move on their own schedule.
 
-The overlap that bites: `operations` is a training track key and
+The overlap that bites: `operations` is a training track slug and
 `workforce-operations` is a capability module key. Nothing connects them — a
 tenant can install `workforce-operations` and publish no operations training,
-or publish that training with the module absent.
+or publish that training with the capability module absent.
+
+### What the training rename changed, and what it cost
+
+A track carried a second key, `trackKey`, beside its slug. Seeded content set
+the two to the same value, but the HQ editor let an author give a track a
+descriptive slug and file it under a core `trackKey`, or mark it `'custom'`.
+The two vocabularies then disagreed, and code had to guess: the editor's rail
+matched `trackKey === key || slug === key`, and the operator's track list did
+the same and then listed anything without a `trackKey` a second time under
+"Additional training".
+
+Only the slug was ever an identity. `training_lesson_progress.track_slug`,
+`training_quiz_attempts.track_slug`, `training_competency_awards.track_slug`,
+the answer key, the operator URL segment, the media-history `entity_key`, and
+the `slug` match inside `award_operation_competency` all key on it; nothing
+persisted keyed on `trackKey`. So `trackKey` was deleted rather than renamed,
+and `'custom'` — which was never a member of `TRAINING_TRACK_ORDER` — became a
+question you ask about a slug instead of a value you store:
+`isCoreTrainingTrack(slug)`.
+
+The cost is real and worth stating. An author can no longer file a
+descriptively-slugged track under a core track's heading; a track with a slug
+outside the core five is a tenant track, sorts after them, and gets no core
+artwork. And a release published under schema 1, whose `trackKey` had been
+*inferred* from the title, keeps its slug and therefore moves out of whatever
+core track that inference had put it in — its lessons, progress rows, and
+awards are untouched, but it appears under "Additional training" beside an
+empty core shell. Nothing in this repository produces a manifest where the two
+disagree, so no seeded or template content is affected.
+
+The manifest itself is schema 3: the array is `tracks`, not `modules`. Every
+reader goes through `liftTrainingManifest`, which accepts 1, 2, and 3, because
+a published release is immutable and one is live per tenant. The three
+server-side readers — `publish_manual_training_release`,
+`award_operation_competency`, and `app.capture_training_media_versions` —
+accept both spellings for the same reason.

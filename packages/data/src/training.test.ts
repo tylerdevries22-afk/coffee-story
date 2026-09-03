@@ -40,13 +40,13 @@ const legacyManifest = {
 };
 
 describe('published training release data', () => {
-  it('reads the published relation and normalizes legacy modules', async () => {
+  it('reads the published relation and lifts a legacy release to schema 3', async () => {
     const { client, calls } = releaseClient(legacyManifest);
     const release = await fetchPublishedTrainingRelease(client, 'brand-1');
     assert.equal(calls[0], 'training_releases');
     assert.equal(release?.id, 'release-1');
-    assert.equal(release?.manifest.schemaVersion, 2);
-    assert.equal(release?.manifest.modules.find((module) => module.slug === 'skills')?.trackKey, 'skills');
+    assert.equal(release?.manifest.schemaVersion, 3);
+    assert.equal(release?.manifest.tracks.find((track) => track.slug === 'skills')?.title, 'Skills');
   });
 
   it('returns null when no published release exists', async () => {

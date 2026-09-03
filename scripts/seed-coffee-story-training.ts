@@ -3,12 +3,12 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import sharp from 'sharp';
 
 import {
+  liftTrainingManifest,
   TRAINING_TRACK_ORDER,
   trainingTrackArtworkSvg,
   withTrainingArtwork,
-  type CoreTrainingTrackKey,
   type TrainingArtworkUrls,
-  type TrainingManifest,
+  type TrainingTrackKey,
 } from '../packages/domain/src';
 import { cafeTrainingManifest } from '../packages/domain/src/training-baseline';
 import {
@@ -37,17 +37,17 @@ async function resilientFetch(input: RequestInfo | URL, init?: RequestInit): Pro
   throw lastError instanceof Error ? lastError : new Error('Supabase request failed');
 }
 
-async function moduleArtworkBytes(trackKey: CoreTrainingTrackKey): Promise<Buffer> {
+async function trackArtworkBytes(trackKey: TrainingTrackKey): Promise<Buffer> {
   return sharp(Buffer.from(trainingTrackArtworkSvg(trackKey))).webp({ quality: 92 }).toBuffer();
 }
 
-async function syncModuleArtwork(
+async function syncTrackArtwork(
   db: SupabaseClient,
   publicUrl: string,
   brandId: string,
 ): Promise<TrainingArtworkUrls> {
   const entries = await Promise.all(TRAINING_TRACK_ORDER.map(async (trackKey) => {
-    const bytes = await moduleArtworkBytes(trackKey);
+    const bytes = await trackArtworkBytes(trackKey);
     const checksum = createHash('sha256').update(bytes).digest('hex');
     const directory = `${brandId}/training-module/${trackKey}`;
     const filename = `${checksum}.webp`;
@@ -72,11 +72,13 @@ async function syncModuleArtwork(
 }
 
 function releaseHasArtwork(manifest: unknown, urls: TrainingArtworkUrls): boolean {
-  if (!manifest || typeof manifest !== 'object') return false;
-  const candidate = manifest as Partial<TrainingManifest>;
-  if (candidate.schemaVersion !== 2 || !Array.isArray(candidate.modules)) return false;
-  return TRAINING_TRACK_ORDER.every((trackKey) => candidate.modules?.some((module) =>
-    (module.trackKey === trackKey || module.slug === trackKey) && module.icon?.url === urls[trackKey]));
+  // Lifted rather than shape-checked: a release seeded before schema 3 still
+  // has the right artwork, and reseeding it would retire a live release for
+  // nothing.
+  const lifted = liftTrainingManifest(manifest);
+  if (!lifted) return false;
+  return TRAINING_TRACK_ORDER.every((slug) => lifted.tracks.some((track) =>
+    track.slug === slug && track.icon.url === urls[slug]));
 }
 
 async function main(): Promise<void> {
@@ -100,7 +102,7 @@ async function main(): Promise<void> {
     templateVersion: 2,
     products: ['Espresso', 'Tea', 'Pastries'],
   });
-  const artworkUrls = await syncModuleArtwork(db, url, brand.data.id);
+  const artworkUrls = await syncTrackArtwork(db, url, brand.data.id);
   const manifest = withTrainingArtwork(cafeTrainingManifest(profile), artworkUrls);
   const issues = validateTrainingManifest(manifest);
   if (issues.length > 0) throw new Error(`Baseline curriculum is invalid: ${issues.join('; ')}`);
@@ -115,8 +117,7 @@ async function main(): Promise<void> {
   // Keep the reusable franchise template present even when a prior v2 release
   // means the tenant itself needs no new release row.
   const existing = await db.from('training_releases').select('id, manifest').eq('brand_id', brand.data.id).eq('status', 'published').maybeSingle<{ id: string; manifest: unknown }>();
-  const existingManifest = existing.data?.manifest as { schemaVersion?: number } | undefined;
-  if (!existing.error && releaseHasArtwork(existingManifest, artworkUrls)) {
+  if (!existing.error && releaseHasArtwork(existing.data?.manifest, artworkUrls)) {
     process.stdout.write(JSON.stringify({ status: 'already_seeded', releaseId: existing.data?.id, templateId: template.data.id }) + '\n');
     return;
   }

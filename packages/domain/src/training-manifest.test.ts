@@ -13,7 +13,8 @@ describe('training manifest lift', () => {
       schemaVersion: 2, generatedAt: '', tenant: TENANT, sources: [], modules: [SAFETY],
     });
     assert.ok(manifest);
-    assert.equal(manifest.modules.filter((module) => module.slug === 'safety').length, 1);
+    assert.equal(manifest.schemaVersion, 3);
+    assert.equal(manifest.tracks.filter((track) => track.slug === 'safety').length, 1);
   });
 
   it('reads a schema 3 release that spells the array tracks', () => {
@@ -23,8 +24,23 @@ describe('training manifest lift', () => {
       schemaVersion: 3, generatedAt: '', tenant: TENANT, sources: [], tracks: [SAFETY],
     });
     assert.ok(manifest);
-    assert.equal(manifest.modules.filter((module) => module.slug === 'safety').length, 1);
-    assert.equal(manifest.modules.length, TRAINING_TRACK_ORDER.length);
+    assert.equal(manifest.tracks.filter((track) => track.slug === 'safety').length, 1);
+    assert.equal(manifest.tracks.length, TRAINING_TRACK_ORDER.length);
+  });
+
+  it('drops the retired trackKey and files a legacy node under its slug', () => {
+    // A pre-3 node could carry a slug and a trackKey that disagreed. Only the
+    // slug is an identity anywhere that persists, so the slug is what survives.
+    const manifest = liftTrainingManifest({
+      schemaVersion: 2,
+      generatedAt: '',
+      tenant: TENANT,
+      sources: [],
+      modules: [{ ...SAFETY, slug: 'latte-art', title: 'Latte art', trackKey: 'skills' }],
+    });
+    assert.ok(manifest);
+    assert.deepEqual(manifest.tracks.map((track) => track.slug), [...TRAINING_TRACK_ORDER, 'latte-art']);
+    assert.equal('trackKey' in manifest.tracks[5]!, false);
   });
 
   it('rejects a release whose array is missing, misspelled, or the wrong version', () => {

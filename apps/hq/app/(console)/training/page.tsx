@@ -31,8 +31,8 @@ export default async function TrainingPage() {
       </div>
       <div className="content-summary-grid" aria-label="Training summary">
         <div className="content-summary-card"><span className="content-icon-frame"><span aria-hidden="true">5</span></span><div><span>Core tracks</span><strong>5</strong><small>Knowledge through Operations</small></div></div>
-        <div className="content-summary-card"><span className="content-icon-frame"><span aria-hidden="true">{data.training.manifest.modules.length}</span></span><div><span>Modules</span><strong>{data.training.manifest.modules.length}</strong><small>Core plus custom</small></div></div>
-        <div className="content-summary-card"><span className="content-icon-frame"><span aria-hidden="true">{data.training.manifest.modules.reduce((count, module) => count + module.lessons.length, 0)}</span></span><div><span>Lessons</span><strong>{data.training.manifest.modules.reduce((count, module) => count + module.lessons.length, 0)}</strong><small>Versioned with release</small></div></div>
+        <div className="content-summary-card"><span className="content-icon-frame"><span aria-hidden="true">{data.training.manifest.tracks.length}</span></span><div><span>Tracks</span><strong>{data.training.manifest.tracks.length}</strong><small>Core plus tenant</small></div></div>
+        <div className="content-summary-card"><span className="content-icon-frame"><span aria-hidden="true">{data.training.manifest.tracks.reduce((count, track) => count + track.lessons.length, 0)}</span></span><div><span>Lessons</span><strong>{data.training.manifest.tracks.reduce((count, track) => count + track.lessons.length, 0)}</strong><small>Versioned with release</small></div></div>
       </div>
       <TrainingContentEditor
         initialRelease={data.training}
