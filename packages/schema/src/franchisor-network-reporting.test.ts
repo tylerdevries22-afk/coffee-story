@@ -74,10 +74,12 @@ describe('franchisor network reporting boundary', () => {
     }
   });
 
-  it('registers itself as the newest release with a zero-argument assertion', () => {
+  it('registers its own release with a zero-argument assertion', () => {
     const stamp = migrationFile.slice(0, 14);
-    assert.equal(migrationNames.at(-1), migrationFile,
-      'this migration sorts last, so its stamp is the release the gate expects');
+    // Deliberately not "this migration sorts last": that was true the day it
+    // was written and false the moment anything landed after it. Whether the
+    // NEWEST migration registers itself is one invariant for the whole tree,
+    // and surfaces.test.ts already asserts it there.
     assert.match(migration, new RegExp(
       `select app\\.register_release\\(\\s*'${stamp}',`),
       'the registered stamp matches the filename');
