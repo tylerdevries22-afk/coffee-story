@@ -74,10 +74,14 @@ describe('franchisor network reporting boundary', () => {
     }
   });
 
-  it('registers itself as the newest release with a zero-argument assertion', () => {
+  it('registers a release with a zero-argument assertion', () => {
     const stamp = migrationFile.slice(0, 14);
-    assert.equal(migrationNames.at(-1), migrationFile,
-      'this migration sorts last, so its stamp is the release the gate expects');
+    // This migration was the newest when it landed and asserted so. That claim
+    // belongs to whichever migration currently sorts last -- it moves with the
+    // head rather than being re-stated here -- so what stays is the part that
+    // is about this migration: the stamp it registers, and the shape of the
+    // assertion it registers with.
+    assert.ok(migrationNames.includes(migrationFile));
     assert.match(migration, new RegExp(
       `select app\\.register_release\\(\\s*'${stamp}',`),
       'the registered stamp matches the filename');
