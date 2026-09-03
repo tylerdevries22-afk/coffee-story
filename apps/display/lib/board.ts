@@ -147,13 +147,12 @@ async function loadBrandBits(db: SupabaseClient, locationId: string): Promise<Br
     .maybeSingle<{ name: string; brand_id: string }>());
   if (!location) return null;
 
-  // brand_storefront, not brands: the table also carries the platform's fee
-  // terms, which stay claim-gated (0015). A wall screen has no business
-  // holding a query that could ever return them.
+  // brand_storefront_lookup, not brands: the table also carries the platform's
+  // fee terms, which stay claim-gated (0015). A wall screen has no business
+  // holding a query that could ever return them. The lookup is narrowed to the
+  // one brand by argument, so it cannot enumerate the platform (0903005237).
   const brand = await readWithRetry('display brand', (signal) => abortRead(db
-    .from('brand_storefront')
-    .select('brand_config')
-    .eq('id', location.brand_id), signal)
+    .rpc('brand_storefront_lookup', { p_brand_id: location.brand_id }), signal)
     .maybeSingle<{ brand_config: unknown }>());
   return { name: location.name, config: brand?.brand_config ?? {} };
 }

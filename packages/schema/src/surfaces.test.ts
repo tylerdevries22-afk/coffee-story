@@ -235,8 +235,14 @@ describe('the lobby kiosk read', () => {
     // this surface is a tablet bolted to a counter in a public room.
     const ALLOWED = new Set([
       'menus', 'menu_categories', 'menu_items', 'menu_item_options',
-      'drops', 'locations', 'brand_storefront', 'devices',
+      'drops', 'locations', 'brand_storefront_lookup', 'devices',
     ]);
+
+    // `.from` and `.rpc` alike: 0903005237 moved the storefront read behind an
+    // RPC to narrow it, and a guard that only followed `.from` would have
+    // stopped seeing the very read it exists to police. Not a global regex --
+    // matchAll consumes lastIndex on a shared /g literal.
+    const RELATION_READ = () => /\.(?:from|rpc)\('([a-z_]+)'/g;
     const kioskSrc = join(MIGRATIONS, '..', '..', 'apps', 'kiosk', 'src');
     const files: string[] = [];
     const walk = (dir: string) => {
@@ -248,7 +254,7 @@ describe('the lobby kiosk read', () => {
     };
     walk(kioskSrc);
     for (const file of files) {
-      for (const [, relation] of readFileSync(file, 'utf8').matchAll(/\.from\('([a-z_]+)'\)/g)) {
+      for (const [, relation] of readFileSync(file, 'utf8').matchAll(RELATION_READ())) {
         assert.ok(ALLOWED.has(relation ?? ''),
           `${file} reads '${relation}'. A kiosk is a public tablet: it may read `
           + 'the storefront and its own device row, and nothing carrying a '
@@ -283,7 +289,7 @@ describe('the lobby kiosk read', () => {
       if (!/\.ts$/.test(entry) || /\.test\.ts$/.test(entry)) continue;
       const source = readFileSync(join(dataSrc, entry), 'utf8');
       const relations = new Set(
-        [...source.matchAll(/\.from\('([a-z_]+)'\)/g)].map(([, name]) => name ?? ''),
+        [...source.matchAll(RELATION_READ())].map(([, name]) => name ?? ''),
       );
       for (const [, name] of source.matchAll(/export\s+(?:async\s+)?function\s+(\w+)/g)) {
         if (name) relationsByExport.set(name, relations);

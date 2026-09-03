@@ -72,9 +72,14 @@ export type CampaignStatus = 'draft' | 'scheduled' | 'sending' | 'sent' | 'cance
 export type Json = string | number | boolean | null | { [key: string]: Json } | Json[];
 
 /**
- * The world-readable brand_storefront view (0015): everything a guest's app
- * needs to boot — identity, feature flags, brand_config tokens/copy — and
- * none of the platform's fee terms, which stay claim-gated on brands.
+ * What brand_storefront_lookup returns (0015, narrowed 0903005237):
+ * everything a guest's app needs to boot — identity, feature flags,
+ * brand_config tokens/copy — and none of the platform's fee terms, which stay
+ * claim-gated on brands.
+ *
+ * `operations` is deliberately absent. It was declared here but never
+ * projected by the view, so every read of it returned undefined behind a type
+ * that promised a boolean; it is a staff capability with no storefront use.
  */
 export type BrandStorefrontRow = {
   id: string;
@@ -84,7 +89,6 @@ export type BrandStorefrontRow = {
   catering: boolean;
   delivery: boolean;
   multi_location: boolean;
-  operations: boolean;
   sms: boolean;
   stored_value: boolean;
   referrals: boolean;
