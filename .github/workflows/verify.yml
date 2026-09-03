@@ -305,6 +305,11 @@ jobs:
           export SUPABASE_TEST_ANON_KEY="$SUPABASE_PUBLISHABLE_KEY"
           export SUPABASE_TEST_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY"
           export SUPABASE_TEST_DB_URL="$SUPABASE_DB_URL"
+          # Without this the suites skip on a missing variable and report
+          # `tests 0 / pass 0 / fail 0`, which is indistinguishable from a
+          # pass. This is the one job where that would be a lie, so a missing
+          # stack fails at import instead.
+          export REQUIRE_DATABASE_TESTS=1
           pnpm --filter @platform/integration-tests test
 
       - name: Install the Playwright browser
@@ -344,6 +349,9 @@ jobs:
           export E2E_OPERATOR_DIR="$GITHUB_WORKSPACE/apps/operator/dist-e2e"
           export E2E_HQ_DIR="$GITHUB_WORKSPACE/apps/hq"
           export E2E_SHOT_DIR="$GITHUB_WORKSPACE/e2e-shots"
+          # Same reason as the integration step: a skipped E2E suite reports
+          # zero tests and reads as green.
+          export REQUIRE_DATABASE_TESTS=1
           # Kept as well as printed: the Actions log API only ever returns the
           # END of a job, so a test failure in the middle is invisible to
           # anything reading it programmatically -- and the driver's dump of

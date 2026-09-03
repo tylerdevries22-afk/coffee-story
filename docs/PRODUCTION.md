@@ -272,9 +272,30 @@ in Expo, never in this repository, never in `packages/data`.
 - `GET /api/health` answers `{ ok: true, version }`; authenticated
   `GET /api/health?deep=1` also performs a bounded, retried database read.
 - CI's `hosted-integration` job provisions a disposable Supabase branch, runs
-  the full RLS/state-machine/route suite, and deletes the branch on every PR.
-- The same gate builds all five surfaces and runs the live E2E loop (customer
-  orders → operator advances → HQ reports) against that hosted branch.
+  the full RLS/state-machine/route suite, builds all five surfaces, runs the
+  live E2E loop (customer orders → operator advances → HQ reports) against
+  that branch, and deletes the branch afterwards — including after failure or
+  cancellation.
+- **It does not run on a pull request**, by design: `verify.yml` gates it to
+  `github.event_name != 'pull_request'` so that branch code never executes
+  with the project-creation token. It runs on push to `main` and on manual
+  dispatch. Read what that means before trusting a green pull request: no
+  pull request in this repository has ever executed a migration, an RLS
+  policy, the claims hook, or a browser journey. Branch protection on `main`
+  and `dev` requires only `verify` and `audit`, because those are the only
+  jobs that can run on a pull request at all.
+- The same asymmetry is visible locally. `pnpm verify` reports
+  `@platform/integration-tests` and `@platform/e2e-tests` as `tests 0 / pass 0
+  / fail 0` unless `SUPABASE_TEST_*` is set — a skip that reads exactly like a
+  pass. If you need those suites to have run, set the variables and check the
+  counts, do not read the exit code.
+- Static checks exist for the classes this asymmetry has actually let through.
+  `packages/schema/src/function-replacement.test.ts` catches a
+  `create or replace function` that changes a parameter name, the
+  out-parameter list, or the return type — all of which PostgreSQL rejects at
+  apply time (42P13) and none of which any database-free check would
+  otherwise see. Prefer adding to that file over assuming CI will catch a
+  database-shaped defect.
 
 ## 7. Known gaps that remain true
 

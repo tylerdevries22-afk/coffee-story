@@ -70,6 +70,33 @@ export const skipUnlessConfigured = stackConfigured
   ? false
   : 'no hosted Supabase test branch (set SUPABASE_TEST_*; CI provisions one automatically)';
 
+/**
+ * Turn a silent skip into a failure where a skip would be a lie.
+ *
+ * `describe(..., { skip })` reports the suite as skipped but never registers
+ * the tests inside it, so an unconfigured run prints `tests 0 / pass 0 /
+ * fail 0` -- indistinguishable from a suite that ran and passed, and easy to
+ * read as green in a long `pnpm verify` log. That is correct for a developer
+ * without a database and dangerous anywhere the suites are the whole point.
+ *
+ * So the caller declares which it is. Set REQUIRE_DATABASE_TESTS=1 and a
+ * missing stack fails loudly at import instead of skipping quietly; leave it
+ * unset and the suites skip as before. CI's hosted-integration job sets it,
+ * which is what makes "the RLS suite ran" a fact rather than an assumption.
+ */
+if (process.env.REQUIRE_DATABASE_TESTS === '1' && !stackConfigured) {
+  const missing = Object.entries({
+    SUPABASE_TEST_URL: stack.url,
+    SUPABASE_TEST_ANON_KEY: stack.anonKey,
+    SUPABASE_TEST_SERVICE_ROLE_KEY: stack.serviceRoleKey,
+    SUPABASE_TEST_DB_URL: stack.dbUrl,
+  }).filter(([, value]) => !value).map(([name]) => name);
+  throw new Error(
+    `REQUIRE_DATABASE_TESTS=1 but the test stack is not configured; missing ${missing.join(', ')}. `
+    + 'These suites would have reported zero tests and looked green.',
+  );
+}
+
 export function serviceClient(): SupabaseClient {
   return createClient(stack.url, stack.serviceRoleKey, supabaseOptions);
 }

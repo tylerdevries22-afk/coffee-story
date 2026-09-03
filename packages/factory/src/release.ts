@@ -33,6 +33,41 @@ function record(value: unknown): Record<string, unknown> | null {
     : null;
 }
 
+/**
+ * The EAS project ids a tenant actually needs, given the surfaces it ships.
+ *
+ * A tenant that enables no customer app has no customer EAS project and never
+ * will, so demanding one blocks it from ever releasing -- which is what
+ * happened to the construction tenant, whose modules serve only `operator` and
+ * `hq`. The check is per surface rather than universal.
+ *
+ * `surfaces` must be derived from the module registry, never from the tenant's
+ * own declaration of which surfaces it serves: a tenant that could shrink its
+ * surface list could shrink its way out of its own release gate.
+ *
+ * Fail-closed is the caller's job. When the surface set cannot be determined,
+ * pass all of them and both ids stay required.
+ */
+export function easProjectIssues(identity: unknown, surfaces: Iterable<string>): string[] {
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  const shipped = new Set(surfaces);
+  const fields = [
+    { surface: 'customer', key: 'easProjectId', label: 'customer' },
+    { surface: 'kiosk', key: 'kioskEasProjectId', label: 'kiosk' },
+  ] as const;
+  const block = record(identity);
+  const issues: string[] = [];
+  for (const field of fields) {
+    if (!shipped.has(field.surface)) continue;
+    const value = block?.[field.key];
+    if (typeof value !== 'string' || !uuid.test(value)) {
+      issues.push(`brand.json identity.${field.key} must be the tenant ${field.label} `
+        + `EAS project UUID, because this tenant ships the ${field.surface} surface.`);
+    }
+  }
+  return issues;
+}
+
 export function releaseManifestIssues(
   value: unknown,
   expectedTenant: string,

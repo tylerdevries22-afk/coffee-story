@@ -65,6 +65,28 @@ export const skipUnlessConfigured = stackConfigured
   ? false
   : 'no E2E stack (CI builds against a hosted Supabase branch; set SUPABASE_TEST_* and E2E_*_DIR to run manually)';
 
+/**
+ * Same contract as the integration stack: a skip is honest for a developer
+ * without a stack and a lie anywhere the suite is the point. Set
+ * REQUIRE_DATABASE_TESTS=1 and a missing stack fails at import rather than
+ * reporting zero tests and reading as green.
+ */
+if (process.env.REQUIRE_DATABASE_TESTS === '1' && !stackConfigured) {
+  const missing = Object.entries({
+    SUPABASE_TEST_URL: stack.url,
+    SUPABASE_TEST_ANON_KEY: stack.anonKey,
+    SUPABASE_TEST_SERVICE_ROLE_KEY: stack.serviceRoleKey,
+    SUPABASE_TEST_DB_URL: stack.dbUrl,
+    E2E_CUSTOMER_DIR: stack.customerDir,
+    E2E_OPERATOR_DIR: stack.operatorDir,
+    E2E_HQ_DIR: stack.hqDir,
+  }).filter(([, value]) => !value).map(([name]) => name);
+  throw new Error(
+    `REQUIRE_DATABASE_TESTS=1 but the E2E stack is not configured; missing ${missing.join(', ')}. `
+    + 'This suite would have reported zero tests and looked green.',
+  );
+}
+
 export function serviceClient(): SupabaseClient {
   return createClient(stack.url, stack.serviceRoleKey, supabaseOptions);
 }
