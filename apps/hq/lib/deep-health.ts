@@ -16,7 +16,7 @@ export type HealthFetch = (input: string, init: RequestInit) => Promise<Response
  * Equality, not a floor: `migrate-database` runs before `deploy-hq`, so the
  * database is never behind the code it is asked to serve.
  */
-export const REQUIRED_DATABASE_RELEASE = '20260903005237';
+export const REQUIRED_DATABASE_RELEASE = '20260903020255';
 
 /** One bounded retry against the database REST edge used by every API route. */
 export async function databaseHealthy(
