@@ -69,7 +69,11 @@ export type OperationIntentQueue = {
   records: readonly OperationIntentRecord[];
 };
 
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+// Exported only so the queue module beside this one can reuse the exact same
+// pattern; deliberately absent from the package barrel.
+export const INTENT_UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 const ISSUE_SEVERITIES: readonly OperationIssueSeverity[] = ['low', 'normal', 'high', 'urgent'];
 
 function record(value: unknown): Record<string, unknown> | null {
@@ -81,7 +85,7 @@ function record(value: unknown): Record<string, unknown> | null {
 function validBase(value: Record<string, unknown>): boolean {
   return value.version === OPERATION_INTENT_VERSION
     && [value.actionId, value.brandId, value.locationId, value.occurrenceId]
-      .every((id) => typeof id === 'string' && UUID_PATTERN.test(id))
+      .every((id) => typeof id === 'string' && INTENT_UUID_PATTERN.test(id))
     && typeof value.createdAt === 'string'
     && Number.isFinite(Date.parse(value.createdAt));
 }
@@ -115,7 +119,7 @@ export function isOperationIntent(value: unknown): value is OperationIntent {
   if (candidate.kind === 'claim') return true;
   if (candidate.kind === 'complete') {
     return (candidate.claimActionId === null
-      || (typeof candidate.claimActionId === 'string' && UUID_PATTERN.test(candidate.claimActionId)))
+      || (typeof candidate.claimActionId === 'string' && INTENT_UUID_PATTERN.test(candidate.claimActionId)))
       && validResponses(candidate.responses) && typeof candidate.note === 'string'
       && Array.isArray(candidate.issues) && candidate.issues.every(validIssue);
   }
@@ -128,89 +132,4 @@ export function isOperationIntent(value: unknown): value is OperationIntent {
   if (candidate.kind === 'release') return true;
   return candidate.kind === 'cancel'
     && typeof candidate.reason === 'string' && candidate.reason.trim().length > 0;
-}
-
-/** Confirms one action while preserving later work that depended on its claim. */
-export function confirmOperationIntent(
-  queue: OperationIntentQueue,
-  actionId: string,
-): OperationIntentQueue {
-  const target = queue.records.find((entry) => entry.intent.actionId === actionId);
-  if (!target) return queue;
-  const records = queue.records.flatMap<OperationIntentRecord>((entry) => {
-    if (entry.intent.actionId === actionId) return [];
-    if (target.intent.kind === 'claim' && entry.intent.kind === 'complete'
-      && entry.intent.claimActionId === actionId) {
-      return [{ ...entry, intent: { ...entry.intent, claimActionId: null } }];
-    }
-    return [entry];
-  });
-  return { ...queue, records };
-}
-
-export function createOperationIntentQueue(brandId: string, locationId: string): OperationIntentQueue {
-  if (!UUID_PATTERN.test(brandId) || !UUID_PATTERN.test(locationId)) {
-    throw new RangeError('Operation intent scope requires UUID brand and location ids.');
-  }
-  return { brandId, locationId, records: [] };
-}
-
-function assertQueueScope(queue: OperationIntentQueue, intent: OperationIntent): void {
-  if (intent.brandId !== queue.brandId || intent.locationId !== queue.locationId) {
-    throw new RangeError('Operation intent does not belong to this tenant and location queue.');
-  }
-}
-
-function validClaimDependency(queue: OperationIntentQueue, intent: CompleteOperationIntent): boolean {
-  if (intent.claimActionId === null) return true;
-  const dependency = queue.records.find((entry) => entry.intent.actionId === intent.claimActionId);
-  return dependency?.status === 'pending'
-    && dependency.intent.kind === 'claim'
-    && dependency.intent.occurrenceId === intent.occurrenceId;
-}
-
-/** Deduplicates retries by caller-supplied action id and appends accepted work FIFO. */
-export function enqueueOperationIntent(
-  queue: OperationIntentQueue,
-  intent: OperationIntent,
-): OperationIntentQueue {
-  if (!isOperationIntent(intent)) throw new RangeError('Operation intent is malformed.');
-  assertQueueScope(queue, intent);
-  if (queue.records.some((entry) => entry.intent.actionId === intent.actionId)) return queue;
-  if (intent.kind === 'complete' && !validClaimDependency(queue, intent)) {
-    throw new RangeError('A dependent completion requires its pending claim first.');
-  }
-  return { ...queue, records: [...queue.records, { status: 'pending', intent }] };
-}
-
-/** Retains a permanent rejection as operator-visible audit state. */
-export function recordPermanentIntentConflict(
-  queue: OperationIntentQueue,
-  actionId: string,
-  conflict: PermanentOperationIntentConflict,
-): OperationIntentQueue {
-  if (!conflict.code.trim() || !conflict.message.trim()
-    || !Number.isFinite(Date.parse(conflict.recordedAt))) {
-    throw new RangeError('Permanent conflict metadata is invalid.');
-  }
-  const target = queue.records.find((entry) => entry.intent.actionId === actionId);
-  if (!target || target.status === 'conflict') return queue;
-  const dependsOnTarget = (entry: OperationIntentRecord) => target.intent.kind === 'claim'
-    && entry.intent.kind === 'complete' && entry.intent.claimActionId === actionId;
-  return {
-    ...queue,
-    records: queue.records.map((entry) => entry === target || dependsOnTarget(entry)
-      ? { status: 'conflict', intent: entry.intent, conflict }
-      : entry),
-  };
-}
-
-/** Removes one action and completions that directly depend on its claim. */
-export function removeOperationIntent(
-  queue: OperationIntentQueue,
-  actionId: string,
-): OperationIntentQueue {
-  const records = queue.records.filter((entry) => entry.intent.actionId !== actionId
-    && !(entry.intent.kind === 'complete' && entry.intent.claimActionId === actionId));
-  return records.length === queue.records.length ? queue : { ...queue, records };
 }

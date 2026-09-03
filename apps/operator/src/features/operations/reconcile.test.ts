@@ -7,7 +7,7 @@ import {
   OPERATION_INTENT_VERSION,
   createOperationIntentQueue,
   enqueueOperationIntent,
-} from './offline-intents';
+} from '@platform/offline';
 import { drainOperationIntents, operationIntentFailure } from './reconcile';
 
 const BRAND_ID = '30000000-0000-4000-8000-000000000001';

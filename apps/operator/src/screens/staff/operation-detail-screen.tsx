@@ -6,15 +6,15 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { operationDisplayStatus, validateOperationResponses } from '@platform/domain';
+import type {
+  OperationIntentIssue,
+  OperationIntentResponse,
+} from '@platform/offline';
 import { useTokens, type BrandTokens, AppIcon } from '@platform/ui';
 
 import { Body, Button, Card } from '@/components/ui';
 import { taskEligibilityMessage, taskIsActionable, type OperatorChecklistStep,
   type OperatorTaskOccurrence } from '@/features/operations/model';
-import type {
-  OperationIntentIssue,
-  OperationIntentResponse,
-} from '@/features/operations/offline-intents';
 import { useAuth } from '@/state/auth-context';
 import { useOperations } from '@/state/operations-store';
 

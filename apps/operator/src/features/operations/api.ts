@@ -5,8 +5,8 @@ import {
   resolveApiUrl,
   throwForResponse,
 } from '@platform/api-client';
+import type { OperationIntent, OperationIntentIssue } from '@platform/offline';
 
-import type { OperationIntent, OperationIntentIssue } from './offline-intents';
 import { operationNotificationReadBus, operationNotificationBatches } from './notification-reads';
 import {
   parseOperatorNotifications,

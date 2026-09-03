@@ -106,7 +106,7 @@ async function avatarBytes(uri: string): Promise<SkData | null> {
     // The demo avatar is copied into the document directory as a file:// URI.
     // expo-file-system's File API moved between the two SDKs this source tree
     // compiles against, so the read is probed rather than named statically —
-    // the same pattern portal-store uses for the moveSync rename.
+    // the same pattern `@platform/expo-storage` uses for the moveSync rename.
     const { File } = await import('expo-file-system');
     const file = new File(uri);
     const read = (file as Partial<{ arrayBuffer(): Promise<ArrayBuffer> }>).arrayBuffer;
