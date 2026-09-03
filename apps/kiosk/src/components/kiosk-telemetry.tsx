@@ -1,6 +1,7 @@
 import {
   createAnalyticsSurfaceObserver, createAnalyticsTransport, screenKeyFor,
 } from '@platform/analytics';
+import { analyticsQueueStore } from '@platform/expo-storage';
 import Constants from 'expo-constants';
 import { usePathname } from 'expo-router';
 import { useEffect, useMemo, useRef } from 'react';
@@ -41,13 +42,20 @@ export function KioskTelemetry() {
         ? new URL('/api/analytics/events', process.env.EXPO_PUBLIC_API_URL).toString() : null;
     } catch { return null; }
   }, []);
+  // Brand-keyed so a tablet re-paired to a second tenant starts clean. Without
+  // a store the queue is lost on every app kill, which on a counter tablet that
+  // is force-quit at close is most of a day's journeys.
+  const store = useMemo(
+    () => device.brandId ? analyticsQueueStore(device.brandId) : undefined,
+    [device.brandId],
+  );
   const transport = useMemo(() => {
     try {
       return endpoint ? createAnalyticsTransport({
-        endpoint, getAccessToken: async () => device.accessToken,
+        endpoint, getAccessToken: async () => device.accessToken, store,
       }) : null;
     } catch { return null; }
-  }, [device.accessToken, endpoint]);
+  }, [device.accessToken, endpoint, store]);
   const observer = useMemo(
     () => transport ? createAnalyticsSurfaceObserver(transport) : null,
     [transport],

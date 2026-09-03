@@ -7,7 +7,7 @@ import { usePathname } from 'expo-router';
 import { useEffect, useMemo, useRef } from 'react';
 import { AppState } from 'react-native';
 
-import { analyticsQueueStore } from '@/state/analytics-queue-store';
+import { analyticsQueueStore } from '@platform/expo-storage';
 import { useAuth } from '@/state/auth-context';
 
 const SCREENS: Readonly<Record<string, string>> = {
