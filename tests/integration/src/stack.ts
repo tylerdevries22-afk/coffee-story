@@ -70,6 +70,33 @@ export const skipUnlessConfigured = stackConfigured
   ? false
   : 'no hosted Supabase test branch (set SUPABASE_TEST_*; CI provisions one automatically)';
 
+/**
+ * Turn a silent skip into a failure where a skip would be a lie.
+ *
+ * `describe(..., { skip })` reports the suite as skipped but never registers
+ * the tests inside it, so an unconfigured run prints `tests 0 / pass 0 /
+ * fail 0` -- indistinguishable from a suite that ran and passed, and easy to
+ * read as green in a long `pnpm verify` log. That is correct for a developer
+ * without a database and dangerous anywhere the suites are the whole point.
+ *
+ * So the caller declares which it is. Set REQUIRE_DATABASE_TESTS=1 and a
+ * missing stack fails loudly at import instead of skipping quietly; leave it
+ * unset and the suites skip as before. CI's hosted-integration job sets it,
+ * which is what makes "the RLS suite ran" a fact rather than an assumption.
+ */
+if (process.env.REQUIRE_DATABASE_TESTS === '1' && !stackConfigured) {
+  const missing = Object.entries({
+    SUPABASE_TEST_URL: stack.url,
+    SUPABASE_TEST_ANON_KEY: stack.anonKey,
+    SUPABASE_TEST_SERVICE_ROLE_KEY: stack.serviceRoleKey,
+    SUPABASE_TEST_DB_URL: stack.dbUrl,
+  }).filter(([, value]) => !value).map(([name]) => name);
+  throw new Error(
+    `REQUIRE_DATABASE_TESTS=1 but the test stack is not configured; missing ${missing.join(', ')}. `
+    + 'These suites would have reported zero tests and looked green.',
+  );
+}
+
 export function serviceClient(): SupabaseClient {
   return createClient(stack.url, stack.serviceRoleKey, supabaseOptions);
 }
@@ -152,6 +179,46 @@ export async function createSignedInUser(options: {
  * `before` hooks, and cascading the brand away would pull the location out
  * from under them.
  */
+/**
+ * Install a module and take it live, draft -> validating -> active.
+ *
+ * The only route in. 20260903170000 revoked insert and update on
+ * public.module_installations and put a row trigger behind the revoke, so a
+ * fixture cannot write the table directly even on the owner connection this
+ * helper uses -- which is the point: an installation that skipped the
+ * lifecycle would also skip module_installation_events, and a capability
+ * granted with no audit row is not the state any tenant is ever really in.
+ *
+ * Lives here rather than in one suite because operations capability is now an
+ * installation (20260903220000), so seeding it is no longer a column update
+ * any suite can do inline.
+ */
+export async function activateModule(
+  brandId: string,
+  moduleKey: string,
+  /**
+   * Null is a legitimate actor: `installed_by` and the event's `actor` are
+   * both nullable, and a fixture that seeds capability before it seeds people
+   * has nobody honest to name. It also keeps the event trail clear of an
+   * `on delete restrict` reference to a user the suite may delete.
+   */
+  actor: string | null = null,
+  version = '1.0.0',
+): Promise<string> {
+  const created = await sql<{ create_module_installation: string }>(
+    `select app.create_module_installation($1, $2, $3, null::jsonb, $4, $5)`,
+    [brandId, moduleKey, version, actor, randomUUID()],
+  );
+  const installationId = created.rows[0]!.create_module_installation;
+  for (const [state, revision] of [['validating', 1], ['active', 2]] as const) {
+    await sql(
+      `select app.set_module_installation_state($1, $2, $3, null::jsonb, $4, $5, $6)`,
+      [installationId, brandId, state, revision, actor, randomUUID()],
+    );
+  }
+  return installationId;
+}
+
 export async function seedBrand(slug: string): Promise<{ brandId: string; locationId: string }> {
   const client = databaseClient();
   await client.connect();
@@ -174,6 +241,17 @@ export async function seedBrand(slug: string): Promise<{ brandId: string; locati
     // Dependent rows, most-dependent first. One transaction and connection
     // keeps hosted preview branches fast and prevents pool exhaustion.
     for (const table of [
+      // Installations decide capability now, so a reseeded brand has to lose
+      // the ones a previous run activated -- otherwise a fixture that means to
+      // be operations-disabled inherits an active module and passes for the
+      // wrong reason. Events go first; `session_replication_role = replica`
+      // above is what lets them, and it is the same bypass the release-history
+      // clear already relies on.
+      // site_module_overrides cascades off (brand_id, module_key) and the
+      // events off the installation id, and neither cascade fires while
+      // replication is 'replica' -- so both are named explicitly rather than
+      // left to a trigger that is switched off.
+      'site_module_overrides', 'module_installation_events', 'module_installations',
       'operation_operator_notifications', 'operation_staff_devices',
       'operation_action_receipts', 'operation_notification_outbox',
       'operation_issues', 'operation_step_responses', 'operation_occurrence_events',

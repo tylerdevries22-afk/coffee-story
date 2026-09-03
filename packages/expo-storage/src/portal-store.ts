@@ -1,22 +1,29 @@
+import type { PortalTextStore } from '@platform/offline';
+
 import {
-  APP_MODE_STORAGE_KEY,
   DEMO_PORTAL_FILE_NAME,
   DEMO_PORTAL_TEMP_FILE_NAME,
-  LEGACY_PORTAL_STORAGE_KEY,
-} from './demo-storage-keys';
+  type PortalStoreKeys,
+} from './portal-store-keys';
 
 /**
- * Native persistence for the demo portal.
+ * Native persistence for the demo portal, shared by the customer and operator
+ * apps, which carried byte-identical copies of this file.
  *
- * Split out from `demo-storage.ts` so the web build can substitute
- * `portal-store.web.ts`: expo-file-system and expo-secure-store have no web
- * implementation, and the browser demo would otherwise start from scratch on
- * every reload.
+ * The parsers and the load/save orchestration live in `@platform/offline`
+ * because HQ and the pickup display import that package; this module owns the
+ * only thing that is native -- the file and secure-store handles -- which is
+ * the same split `analytics-queue-store.ts` beside it makes.
+ *
+ * `portal-store.web.ts` substitutes for this file on web: expo-file-system and
+ * expo-secure-store have no web implementation, and the browser demo would
+ * otherwise start from scratch on every reload. Metro resolves that variant
+ * through this package's barrel -- see the platform-extension note in
+ * `AGENTS.md`.
  *
  * Native modules stay behind dynamic `await import()` so `node:test` never
  * evaluates them when it exercises the pure parsers.
  */
-
 async function portalFiles() {
   const { File, Paths } = await import('expo-file-system');
   return {
@@ -25,17 +32,7 @@ async function portalFiles() {
   };
 }
 
-export async function readAppMode(): Promise<string | null> {
-  const SecureStore = await import('expo-secure-store');
-  return SecureStore.getItemAsync(APP_MODE_STORAGE_KEY);
-}
-
-export async function writeAppMode(mode: string): Promise<void> {
-  const SecureStore = await import('expo-secure-store');
-  await SecureStore.setItemAsync(APP_MODE_STORAGE_KEY, mode);
-}
-
-export async function readPortalText(): Promise<string | null> {
+async function readPortalText(): Promise<string | null> {
   const { target, temp } = await portalFiles();
   if (target.exists) {
     try {
@@ -66,7 +63,7 @@ export async function readPortalText(): Promise<string | null> {
  */
 type AtomicMove = { moveSync(destination: unknown, options: { overwrite: boolean }): void };
 
-export async function writePortalText(json: string): Promise<void> {
+async function writePortalText(json: string): Promise<void> {
   const { target, temp } = await portalFiles();
   // Write-then-rename. Deleting the live portal before the replacement is
   // durable turns any mid-write failure (disk pressure, protected-data class,
@@ -91,12 +88,25 @@ export async function writePortalText(json: string): Promise<void> {
   await temp.move(target);
 }
 
-export async function readLegacyPortalText(): Promise<string | null> {
-  const SecureStore = await import('expo-secure-store');
-  return SecureStore.getItemAsync(LEGACY_PORTAL_STORAGE_KEY);
-}
-
-export async function clearLegacyPortal(): Promise<void> {
-  const SecureStore = await import('expo-secure-store');
-  await SecureStore.deleteItemAsync(LEGACY_PORTAL_STORAGE_KEY);
+export function portalStore(keys: PortalStoreKeys): PortalTextStore {
+  return Object.freeze({
+    readAppMode: async () => {
+      const SecureStore = await import('expo-secure-store');
+      return SecureStore.getItemAsync(keys.appModeKey);
+    },
+    writeAppMode: async (mode: string) => {
+      const SecureStore = await import('expo-secure-store');
+      await SecureStore.setItemAsync(keys.appModeKey, mode);
+    },
+    readPortalText,
+    writePortalText,
+    readLegacyPortalText: async () => {
+      const SecureStore = await import('expo-secure-store');
+      return SecureStore.getItemAsync(keys.legacyPortalKey);
+    },
+    clearLegacyPortal: async () => {
+      const SecureStore = await import('expo-secure-store');
+      await SecureStore.deleteItemAsync(keys.legacyPortalKey);
+    },
+  });
 }

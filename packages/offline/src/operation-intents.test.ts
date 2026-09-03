@@ -8,7 +8,7 @@ import {
   enqueueOperationIntent,
   isOperationIntent,
   recordPermanentIntentConflict,
-} from './offline-intents';
+} from './index';
 
 const BRAND_ID = '10000000-0000-4000-8000-000000000001';
 const LOCATION_ID = '10000000-0000-4000-8000-000000000002';

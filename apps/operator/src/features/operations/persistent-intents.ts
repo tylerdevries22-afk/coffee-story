@@ -6,7 +6,7 @@ import {
   type OperationIntentQueue,
   type OperationIntentRecord,
   type PermanentOperationIntentConflict,
-} from './offline-intents';
+} from '@platform/offline';
 
 /** Compatible with the subset of AsyncStorage used for the ordered index. */
 export type OperationIntentIndexStorage = {

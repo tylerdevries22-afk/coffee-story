@@ -96,7 +96,23 @@ end $$;
 -- `module` stays the name of the manifest node it iterates. The manifest key
 -- is `modules` until a later phase renames it, and an alias that disagreed
 -- with the JSON it reads would be the harder thing to follow.
-create or replace function public.award_operation_competency(
+--
+-- Dropped and recreated rather than replaced. CREATE OR REPLACE FUNCTION
+-- refuses to rename an input parameter -- `cannot change name of input
+-- parameter` (42P13) -- even though the parameter name is no part of the
+-- function's identity. Renaming target_module_slug to target_track_slug is
+-- therefore a drop and a create, in this transaction, so no window exists
+-- where the awards path is missing. The drop is deliberately not CASCADE: a
+-- plpgsql body that calls this function records no catalog dependency, so
+-- nothing legitimate should block it, and anything that does block it is a
+-- dependency worth failing the migration over. Dropping discards the ACL,
+-- which is why the grants restated at the foot of this file are load-bearing
+-- here and not merely documentation.
+drop function if exists public.award_operation_competency(
+  uuid, text, uuid, text, text, timestamptz, uuid, text, text
+);
+
+create function public.award_operation_competency(
   target_brand_user uuid,
   target_competency_key text,
   target_action_id uuid,
@@ -223,10 +239,10 @@ begin
   return issued_award;
 end $$;
 
--- CREATE OR REPLACE keeps the existing ACL, so these restate what
--- 20260828163000 already granted. Restated anyway: the grant is the reason a
--- browser role cannot mint itself a competency, and it should be readable in
--- the migration that last touched the function.
+-- Required, not decorative. The drop above discarded the ACL that
+-- 20260828163000 established, so without these two statements the function
+-- would come back with only its default grants and a browser role could mint
+-- itself a competency.
 revoke all on function public.award_operation_competency(
   uuid, text, uuid, text, text, timestamptz, uuid, text, text
 ) from public, anon, authenticated;
