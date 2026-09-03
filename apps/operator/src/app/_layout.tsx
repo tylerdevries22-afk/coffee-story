@@ -26,6 +26,7 @@ import { InstallPrompt } from '@/components/install-prompt';
 import { OperatorDevicePresence } from '@/features/device-wall/operator-presence';
 import { brandCache } from '@/lib/brand-cache';
 import { useOperationNotificationObserver } from '@/features/operations/push';
+import { analyticsQueueStore } from '@/state/analytics-queue-store';
 import { AppStateProvider } from '@/state/app-context';
 import { AuthProvider, useAuth } from '@/state/auth-context';
 import { DemoProvider, useDemo } from '@/state/demo-context';
@@ -180,14 +181,16 @@ function OperatorTelemetry() {
     try { return new URL('/api/analytics/events', baseUrl).toString(); }
     catch { return null; }
   }, []);
+  // Brand-keyed so a tablet that signs into a second tenant starts clean.
+  const store = useMemo(() => brandId ? analyticsQueueStore(brandId) : undefined, [brandId]);
   const transport = useMemo(() => {
     if (!endpoint) return null;
     try {
-      return createAnalyticsTransport({ endpoint, getAccessToken: async () => accessToken });
+      return createAnalyticsTransport({ endpoint, getAccessToken: async () => accessToken, store });
     } catch {
       return null;
     }
-  }, [accessToken, endpoint]);
+  }, [accessToken, endpoint, store]);
   const observer = useMemo(() => transport ? createAnalyticsSurfaceObserver(transport) : null, [transport]);
 
   useEffect(() => () => transport?.dispose(), [transport]);
