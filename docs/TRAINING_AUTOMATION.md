@@ -58,10 +58,12 @@ remain unavailable. Each lesson cites its published sources. A release is
 published only after structural and URL-safety gates plus an independent
 claim, safety, media, rights-note, and quiz review pass.
 
-Manifest v2 always includes the five core tracks in this order: Knowledge,
-Skills, Service, Safety, Operations. A tenant may add `custom` modules after
-those tracks. Existing v1 releases are normalized on read and become v2 the
-next time HQ saves them.
+Manifest v3 always includes the five core tracks in this order: knowledge,
+skills, service, safety, operations. A track is addressed by its slug and
+nothing else; a tenant may add tracks of its own, and any slug outside those
+five sorts after them. Releases stored as v1 or v2 spell the array `modules`
+rather than `tracks` and may carry a retired per-track `trackKey`; they are
+lifted on read and become v3 the next time HQ saves them.
 
 The existing `/api/jobs/run` Vercel cron checks tenant training profiles every
 five minutes. It starts at most two durable bootstraps per tick when a tenant
@@ -81,8 +83,10 @@ the automation does not download executable or tenant-controlled UI assets.
 
 ## HQ authoring and media history
 
-Tenant owners use HQ → Training to edit all five core tracks and custom modules,
-lesson copy, image/video references, sources, quizzes, and answer explanations.
+Tenant owners use HQ → Training to edit all five core tracks and any tracks of
+their own, lesson copy, image/video references, sources, quizzes, and answer
+explanations. A core track's slug is fixed in the editor: renaming it would
+orphan the progress rows and competency awards already filed under it.
 Draft answer keys remain server-only; publication atomically retires the prior
 release and exposes only the answer-free manifest to operator apps.
 
@@ -91,8 +95,10 @@ The Coffee Story baseline can be seeded with `pnpm
 training:seed-coffee-story`; other tenants inherit the same track structure and
 overlay their products, services, compliance topics, voice, and media.
 
-Uploaded module and lesson artwork is stored under tenant-prefixed, immutable
-keys in `training-media`. Publishing or updating a draft records every module
+Uploaded track and lesson artwork is stored under tenant-prefixed, immutable
+keys in `training-media`. Publishing or updating a draft records every track
 icon and lesson media URL in `content_media_versions`, keyed by the portable
-module/lesson slug and release metadata. External HTTPS videos remain links and
+track/lesson slug and release metadata. The ledger's `entity_type` values stay
+`training_module` and `training_lesson`: those are schema literals shared with
+the catalog tables, not the manifest's vocabulary. External HTTPS videos remain links and
 carry a rights note; they are never copied into Storage without tenant rights.

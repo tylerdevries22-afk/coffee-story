@@ -8,10 +8,11 @@
  * the resolver. Definitions are plain data: parseModuleDefinition stays the
  * only gate between authored data and resolution.
  *
- * Everything here is a *capability* module. A `TrainingModule` in
- * `@platform/domain` is unrelated content that lives inside the single
- * `workforce-training` capability; `docs/ARCHITECTURE.md` ("Vocabulary")
- * separates the two, and the `'operations'` string that belongs to both.
+ * Everything here is a *capability* module, and it is now the only thing the
+ * word names: `@platform/domain` calls its lesson groups training *tracks*.
+ * `docs/ARCHITECTURE.md` ("Vocabulary") records what still overlaps -- the
+ * `'operations'` string, which is a training track slug and half of the
+ * unrelated `workforce-operations` capability key.
  */
 import type { ModuleDefinition } from './types';
 

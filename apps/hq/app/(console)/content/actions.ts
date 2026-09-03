@@ -629,7 +629,7 @@ export async function saveTrainingDraft(
   const menuSlugs = await context.privileged.from('menu_items').select('slug').eq('brand_id', context.brandId).returns<{ slug: string }[]>();
   if (menuSlugs.error) return { ok: false, error: 'The tenant menu could not be checked for training links.' };
   const knownMenuSlugs = new Set((menuSlugs.data ?? []).map((item) => item.slug));
-  const missingMenuLinks = draft.modules.flatMap((module) => module.lessons.flatMap((lesson) => (lesson.menuItemSlugs ?? []).filter((slug) => !knownMenuSlugs.has(slug)).map((slug) => `${module.slug}/${lesson.slug}: ${slug}`)));
+  const missingMenuLinks = draft.tracks.flatMap((track) => track.lessons.flatMap((lesson) => (lesson.menuItemSlugs ?? []).filter((slug) => !knownMenuSlugs.has(slug)).map((slug) => `${track.slug}/${lesson.slug}: ${slug}`)));
   if (missingMenuLinks.length > 0) return { ok: false, error: `Training links reference missing menu items: ${missingMenuLinks.slice(0, 5).join(', ')}` };
   const prepared = prepareTrainingRelease(draft);
   const existing = await context.privileged.from('training_releases')
@@ -696,7 +696,7 @@ export async function publishTrainingDraft(
   const menuSlugs = await context.privileged.from('menu_items').select('slug').eq('brand_id', context.brandId).returns<{ slug: string }[]>();
   if (menuSlugs.error) return { ok: false, error: 'The tenant menu could not be checked for training links.' };
   const knownMenuSlugs = new Set((menuSlugs.data ?? []).map((item) => item.slug));
-  const missingMenuLinks = authoring.modules.flatMap((module) => module.lessons.flatMap((lesson) => (lesson.menuItemSlugs ?? []).filter((slug) => !knownMenuSlugs.has(slug)).map((slug) => `${module.slug}/${lesson.slug}: ${slug}`)));
+  const missingMenuLinks = authoring.tracks.flatMap((track) => track.lessons.flatMap((lesson) => (lesson.menuItemSlugs ?? []).filter((slug) => !knownMenuSlugs.has(slug)).map((slug) => `${track.slug}/${lesson.slug}: ${slug}`)));
   if (missingMenuLinks.length > 0) return { ok: false, error: `Publishing is blocked by missing menu links: ${missingMenuLinks.slice(0, 5).join(', ')}` };
   const published = await context.privileged.rpc('publish_manual_training_release', {
     target_brand: context.brandId,
@@ -716,12 +716,12 @@ function restoreAnswersForPublish(
 ): TrainingManifest {
   return {
     ...manifest,
-    modules: manifest.modules.map((module) => ({
-      ...module,
-      lessons: module.lessons.map((lesson) => ({
+    tracks: manifest.tracks.map((track) => ({
+      ...track,
+      lessons: track.lessons.map((lesson) => ({
         ...lesson,
         quiz: lesson.quiz.map((question, index) => ({
-          ...question, correctChoice: answerKey[module.slug]?.[lesson.slug]?.[index],
+          ...question, correctChoice: answerKey[track.slug]?.[lesson.slug]?.[index],
         })),
       })),
     })),

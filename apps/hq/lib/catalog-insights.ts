@@ -16,8 +16,8 @@ export type CatalogResourceLink = {
 };
 
 export type CatalogTrainingLink = {
-  moduleSlug: string;
-  moduleTitle: string;
+  trackSlug: string;
+  trackTitle: string;
   lessonSlug: string;
   lessonTitle: string;
   objective: string;
@@ -99,14 +99,14 @@ export function buildCatalogAssociationIndex(
     const path = catalogPath(categories, placement.parentId);
     if (!associations.aliases.includes(path)) associations.aliases.push(path);
   }
-  for (const module of training.modules) {
-    for (const lesson of module.lessons) {
+  for (const track of training.tracks) {
+    for (const lesson of track.lessons) {
       for (const itemSlug of lesson.menuItemSlugs ?? []) {
         const itemId = itemIdBySlug.get(itemSlug);
         const associations = itemId ? index.get(itemId) : undefined;
         if (!associations) continue;
         associations.training.push({
-          moduleSlug: module.slug, moduleTitle: module.title,
+          trackSlug: track.slug, trackTitle: track.title,
           lessonSlug: lesson.slug, lessonTitle: lesson.title,
           objective: lesson.objective, estimatedMinutes: lesson.estimatedMinutes,
         });

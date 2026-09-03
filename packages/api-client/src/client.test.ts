@@ -114,7 +114,7 @@ describe('submitTrainingQuiz', () => {
     try {
       const client = createApiClient({ ...config, getAccessToken: async () => 'staff-token' });
       await client.submitTrainingQuiz({
-        releaseId: 'release-1', moduleSlug: 'coffee-foundations',
+        releaseId: 'release-1', trackSlug: 'coffee-foundations',
         lessonSlug: 'espresso-basics', answers: [1, 0],
       }, attemptId);
     } finally {
@@ -122,7 +122,7 @@ describe('submitTrainingQuiz', () => {
     }
     assert.equal(observed.key, attemptId);
     assert.deepEqual(observed.body, {
-      releaseId: 'release-1', moduleSlug: 'coffee-foundations',
+      releaseId: 'release-1', trackSlug: 'coffee-foundations',
       lessonSlug: 'espresso-basics', answers: [1, 0], attemptId,
     });
   });

@@ -60,11 +60,11 @@ describe('training bootstrap contracts', () => {
 
   it('accepts a complete, sourced curriculum manifest', () => {
     const manifest: TrainingManifest = {
-      schemaVersion: 1,
+      schemaVersion: 3,
       generatedAt: '2026-08-24T00:00:00.000Z',
       tenant: normalizeTrainingProfile(PROFILE),
       sources: ['one', 'two', 'three', 'video'].map((value) => ({ title: value, publisher: value, url: `https://example.com/${value}`, accessedAt: '2026-08-24' })),
-      modules: ['knowledge', 'skills'].map((slug) => ({
+      tracks: ['knowledge', 'skills', 'service', 'safety', 'operations'].map((slug) => ({
         slug, title: slug, summary: slug, icon: { symbol: 'book', prompt: 'simple icon' },
         lessons: [{
           slug: 'basics', title: 'Basics', objective: 'Learn basics', content: 'Safe operating guidance with enough specific instructional detail to support a production-ready lesson for every assigned operator.', estimatedMinutes: 5,
@@ -78,9 +78,9 @@ describe('training bootstrap contracts', () => {
   });
 
   it('reports curriculum quality-gate failures', () => {
-    const manifest: TrainingManifest = { schemaVersion: 1, generatedAt: '', tenant: normalizeTrainingProfile(PROFILE), sources: [], modules: [] };
+    const manifest: TrainingManifest = { schemaVersion: 3, generatedAt: '', tenant: normalizeTrainingProfile(PROFILE), sources: [], tracks: [] };
     assert.deepEqual(validateTrainingManifest(manifest), [
-      'at least 3 research sources are required', 'at least 2 training modules are required',
+      'at least 3 research sources are required', 'all five core training tracks are required',
     ]);
   });
 
@@ -92,11 +92,11 @@ describe('training bootstrap contracts', () => {
 
   it('removes answer keys from the staff manifest while preserving server answers', () => {
     const manifest = {
-      schemaVersion: 1 as const, generatedAt: '', tenant: normalizeTrainingProfile(PROFILE), sources: [],
-      modules: [{ slug: 'knowledge', title: 'Knowledge', summary: '', icon: { symbol: 'book', prompt: 'book' }, lessons: [{ slug: 'basics', title: 'Basics', objective: '', content: '', estimatedMinutes: 1, sourceUrls: [], media: [], quiz: [{ prompt: 'Q', choices: ['A', 'B'], correctChoice: 1, explanation: 'B' }] }] }],
+      schemaVersion: 3 as const, generatedAt: '', tenant: normalizeTrainingProfile(PROFILE), sources: [],
+      tracks: [{ slug: 'knowledge', title: 'Knowledge', summary: '', icon: { symbol: 'book', prompt: 'book' }, lessons: [{ slug: 'basics', title: 'Basics', objective: '', content: '', estimatedMinutes: 1, sourceUrls: [], media: [], quiz: [{ prompt: 'Q', choices: ['A', 'B'], correctChoice: 1, explanation: 'B' }] }] }],
     };
     const prepared = prepareTrainingRelease(manifest);
-    assert.equal('correctChoice' in prepared.publicManifest.modules[0]!.lessons[0]!.quiz[0]!, false);
+    assert.equal('correctChoice' in prepared.publicManifest.tracks[0]!.lessons[0]!.quiz[0]!, false);
     assert.deepEqual(prepared.answerKey, { knowledge: { basics: [1] } });
   });
 
@@ -106,20 +106,20 @@ describe('training bootstrap contracts', () => {
       sourceUrls: [], media: [], quiz: [],
     });
     const template: TrainingManifest = {
-      schemaVersion: 2, generatedAt: '', tenant: normalizeTrainingProfile(PROFILE), sources: [],
-      modules: [{
-        slug: 'knowledge', trackKey: 'knowledge', sortOrder: 0, title: 'Template knowledge', summary: 'Template',
+      schemaVersion: 3, generatedAt: '', tenant: normalizeTrainingProfile(PROFILE), sources: [],
+      tracks: [{
+        slug: 'knowledge', sortOrder: 0, title: 'Template knowledge', summary: 'Template',
         icon: { symbol: 'book', prompt: 'book' }, lessons: [lesson('baseline', 'Baseline'), lesson('shared', 'Template shared')],
       }],
     };
     const merged = mergeTrainingTemplate(template, {
       sources: [],
-      modules: [{
-        slug: 'knowledge-research', trackKey: 'knowledge', sortOrder: 0, title: 'Research knowledge', summary: 'Research',
+      tracks: [{
+        slug: 'knowledge', sortOrder: 0, title: 'Research knowledge', summary: 'Research',
         icon: { symbol: 'book', prompt: 'book' }, lessons: [lesson('shared', 'Researched shared'), lesson('overlay', 'Overlay')],
       }],
     }, normalizeTrainingProfile(PROFILE));
-    const knowledge = merged.modules.find((module) => module.trackKey === 'knowledge');
+    const knowledge = merged.tracks.find((track) => track.slug === 'knowledge');
     assert.deepEqual(knowledge?.lessons.map((item) => item.slug), ['shared', 'overlay', 'baseline']);
     assert.equal(knowledge?.lessons[0]?.title, 'Researched shared');
   });

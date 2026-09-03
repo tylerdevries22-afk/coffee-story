@@ -72,34 +72,34 @@ describe('HQ content contracts', () => {
 
   it('restores private answers into the owner authoring copy only', () => {
     const manifest = starterTrainingManifest(PROFILE);
-    manifest.modules[0]!.lessons = [{
+    manifest.tracks[0]!.lessons = [{
       slug: 'coffee-basics', title: 'Coffee basics', objective: 'Recognize the core menu',
       content: 'A'.repeat(90), estimatedMinutes: 5, sourceUrls: [], media: [],
       quiz: [{ prompt: 'Which?', choices: ['A', 'B'], explanation: 'A is taught.' }],
     }];
     const restored = restoreTrainingAnswers(manifest, { knowledge: { 'coffee-basics': [0] } });
-    assert.equal(restored.modules[0]!.lessons[0]!.quiz[0]!.correctChoice, 0);
-    assert.equal(manifest.modules[0]!.lessons[0]!.quiz[0]!.correctChoice, undefined);
+    assert.equal(restored.tracks[0]!.lessons[0]!.quiz[0]!.correctChoice, 0);
+    assert.equal(manifest.tracks[0]!.lessons[0]!.quiz[0]!.correctChoice, undefined);
   });
 
   it('starts every empty tenant with all transferable core tracks', () => {
     const manifest = starterTrainingManifest(PROFILE);
-    assert.deepEqual(manifest.modules.map((module) => module.slug), ['knowledge', 'skills', 'service', 'safety', 'operations']);
+    assert.deepEqual(manifest.tracks.map((track) => track.slug), ['knowledge', 'skills', 'service', 'safety', 'operations']);
     assert.equal(manifest.tenant.businessName, 'Coffee Story');
   });
 
   it('allows incomplete drafts while bounding their shape', () => {
     const manifest = starterTrainingManifest(PROFILE);
     assert.notEqual(parseTrainingDraftPayload(manifest), null);
-    assert.equal(parseTrainingDraftPayload({ schemaVersion: 1, tenant: {}, sources: [], modules: [{}] }), null);
+    assert.equal(parseTrainingDraftPayload({ schemaVersion: 3, tenant: {}, sources: [], tracks: [{}] }), null);
     assert.deepEqual(validateTrainingDraft(manifest), []);
-    manifest.modules[0]!.slug = 'Bad Slug';
+    manifest.tracks[0]!.slug = 'Bad Slug';
     assert.match(validateTrainingDraft(manifest)[0] ?? '', /valid slug/);
   });
 
   it('counts all managed media and lessons', () => {
     const manifest = starterTrainingManifest(PROFILE);
-    manifest.modules[0]!.lessons = [{
+    manifest.tracks[0]!.lessons = [{
       slug: 'one', title: 'One', objective: 'One', content: 'A'.repeat(90), estimatedMinutes: 3,
       sourceUrls: [], quiz: [], media: [{ kind: 'video', url: 'https://example.com/v', title: 'Video', rightsNote: 'Publisher hosted resource' }],
     }];

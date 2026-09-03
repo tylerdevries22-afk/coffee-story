@@ -1,17 +1,28 @@
 /**
- * Training content: tracks, modules, lessons, quizzes, and the release
- * manifest that publishes them.
- *
- * "Module" here is a group of lessons, never a capability module from
+ * Training content: tracks, lessons, quizzes, and the release manifest that
+ * publishes them. Nothing here is a capability module from
  * `@platform/module-kit` -- all of this content belongs to the single
- * `workforce-training` capability. The distinction matters because the two
- * vocabularies share a string: `'operations'` is a track key below and also
- * half of the `workforce-operations` module key, and the two are unrelated.
- * `docs/ARCHITECTURE.md` ("Vocabulary") pins both down.
+ * `workforce-training` capability, and the word "module" is no longer used
+ * for any of it. `docs/ARCHITECTURE.md` ("Vocabulary") pins that down; the
+ * one string the two sides still share is `'operations'`, a track slug below
+ * and half of the unrelated `workforce-operations` capability key.
+ *
+ * A track's `slug` is its whole identity. It is what `track_slug` stores in
+ * training_lesson_progress, training_quiz_attempts and
+ * training_competency_awards, what keys the answer key, what the operator URL
+ * carries, and what `award_operation_competency` matches the manifest on. A
+ * track used to carry a second `trackKey` beside it for grouping; the two
+ * disagreed for anything HQ authored, nothing that persists ever read the
+ * second one, and it is gone.
  */
 export const TRAINING_TRACK_ORDER = ['knowledge', 'skills', 'service', 'safety', 'operations'] as const;
 
-export type TrainingTrackKey = (typeof TRAINING_TRACK_ORDER)[number] | 'custom';
+/** The five tracks every tenant gets. Any other slug is a tenant's own track. */
+export type TrainingTrackKey = (typeof TRAINING_TRACK_ORDER)[number];
+
+export function isCoreTrainingTrack(slug: string): slug is TrainingTrackKey {
+  return (TRAINING_TRACK_ORDER as readonly string[]).includes(slug);
+}
 
 export type TenantTrainingProfile = {
   businessName: string;
@@ -55,9 +66,8 @@ export type TrainingLesson = {
   competencyValidityDays?: number;
 };
 
-export type TrainingModule = {
+export type TrainingTrack = {
   slug: string;
-  trackKey?: TrainingTrackKey;
   sortOrder?: number;
   title: string;
   summary: string;
@@ -77,44 +87,40 @@ export type TrainingManifest = {
   generatedAt: string;
   tenant: TenantTrainingProfile;
   sources: TrainingSource[];
-  modules: TrainingModule[];
+  tracks: TrainingTrack[];
 };
 
-/** Stable ordering shared by HQ and every operator build. */
-export function trainingTrackIndex(trackKey: TrainingTrackKey | undefined): number {
-  const index = trackKey ? TRAINING_TRACK_ORDER.indexOf(trackKey as (typeof TRAINING_TRACK_ORDER)[number]) : -1;
+/** Stable ordering shared by HQ and every operator build; custom tracks last. */
+export function trainingTrackIndex(slug: string): number {
+  const index = TRAINING_TRACK_ORDER.indexOf(slug as TrainingTrackKey);
   return index >= 0 ? index : TRAINING_TRACK_ORDER.length;
 }
 
 /**
- * Upgrades the original release contract without rewriting historical rows.
- * v1 modules are inferred from their portable slug/title and remain valid for
- * reads while HQ saves the next draft as v2.
+ * Fills in what a stored release is allowed to leave out and guarantees the
+ * five core tracks exist, so every surface can render the same rail without
+ * checking for holes. Portable slugs are never rewritten: a slug is the key
+ * a member's progress rows and competency awards are already filed under.
  */
 export function normalizeTrainingManifest(manifest: TrainingManifest): TrainingManifest {
-  const modules = [...manifest.modules]
-    .map((module, index) => {
-      const inferred = module.trackKey ?? inferTrainingTrackKey(module.slug, module.title);
-      return { ...module, trackKey: inferred, sortOrder: module.sortOrder ?? index };
-    });
-  const existingTracks = new Set(modules.map((module) => module.trackKey));
-  TRAINING_TRACK_ORDER.forEach((trackKey, index) => {
-    if (existingTracks.has(trackKey)) return;
-    modules.push({
-      slug: trackKey,
-      trackKey,
+  const tracks = manifest.tracks.map((track, index) => ({ ...track, sortOrder: track.sortOrder ?? index }));
+  const present = new Set(tracks.map((track) => track.slug));
+  TRAINING_TRACK_ORDER.forEach((slug, index) => {
+    if (present.has(slug)) return;
+    tracks.push({
+      slug,
       sortOrder: index,
-      title: trackKey.charAt(0).toUpperCase() + trackKey.slice(1),
-      summary: `No ${trackKey} lessons have been published yet.`,
-      icon: { symbol: trackKey, prompt: `Simple monochrome ${trackKey} line icon` },
+      title: slug.charAt(0).toUpperCase() + slug.slice(1),
+      summary: `No ${slug} lessons have been published yet.`,
+      icon: { symbol: slug, prompt: `Simple monochrome ${slug} line icon` },
       lessons: [],
     });
   });
-  modules.sort((left, right) => {
-    const trackOrder = trainingTrackIndex(left.trackKey) - trainingTrackIndex(right.trackKey);
+  tracks.sort((left, right) => {
+    const trackOrder = trainingTrackIndex(left.slug) - trainingTrackIndex(right.slug);
     return trackOrder || (left.sortOrder ?? 0) - (right.sortOrder ?? 0);
   });
-  return { ...manifest, schemaVersion: 2, modules };
+  return { ...manifest, schemaVersion: 3, tracks };
 }
 
 /** Scores a completed quiz without exposing answer keys in a published release. */
@@ -126,14 +132,4 @@ export function scoreTrainingQuiz(
   const correct = questions.reduce((total, question, index) => total + (answers[index] === question.correctChoice ? 1 : 0), 0);
   const score = Math.round((correct / questions.length) * 100);
   return { score, passed: score >= 80 };
-}
-
-function inferTrainingTrackKey(slug: string, title: string): TrainingTrackKey {
-  const value = `${slug} ${title}`.toLowerCase();
-  if (value.includes('skill')) return 'skills';
-  if (value.includes('service')) return 'service';
-  if (value.includes('safety')) return 'safety';
-  if (value.includes('operation')) return 'operations';
-  if (value.includes('knowledge')) return 'knowledge';
-  return 'custom';
 }

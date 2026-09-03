@@ -649,12 +649,12 @@ label.field input, label.field select, label.field textarea {
 
 .training-nav-list { padding: 8px; }
 .training-nav-secondary { padding: 8px; margin-top: auto; border-top: 1px solid var(--line); }
-.training-module-mark { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; flex: 0 0 30px; border: 1px solid var(--line); border-radius: 6px; color: var(--accent); font-size: 12px; font-weight: 700; }
+.training-row-mark { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; flex: 0 0 30px; border: 1px solid var(--line); border-radius: 6px; color: var(--accent); font-size: 12px; font-weight: 700; }
 .training-nav-secondary .content-icon { width: 18px; height: 18px; color: var(--accent); }
-.training-module-editor,
+.training-track-editor,
 .training-sources-editor,
 .automation-editor { padding-top: 24px; }
-.training-module-fields { padding-bottom: 10px; }
+.training-track-fields { padding-bottom: 10px; }
 .training-lessons-heading { margin-top: 12px; padding: 18px 0 12px; border-top: 1px solid var(--line); }
 .training-lessons-heading h3,
 .training-block-heading h3,

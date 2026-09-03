@@ -59,8 +59,8 @@ export function CatalogAssociationPanel(props: CatalogAssociationPanelProps) {
           {associations.training.length > 0 ? (
             <div className="catalog-associated-list">
               {associations.training.map((lesson) => (
-                <article key={`${lesson.moduleSlug}/${lesson.lessonSlug}`}>
-                  <span>{lesson.moduleTitle}</span>
+                <article key={`${lesson.trackSlug}/${lesson.lessonSlug}`}>
+                  <span>{lesson.trackTitle}</span>
                   <strong>{lesson.lessonTitle}</strong>
                   <p>{lesson.objective}</p>
                   <small>{lesson.estimatedMinutes} min · linked by offering slug</small>
