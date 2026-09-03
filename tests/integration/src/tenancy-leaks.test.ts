@@ -29,15 +29,25 @@ describe('what a brand claim is worth', { skip: skipUnlessConfigured }, () => {
 
     // The storefront is what a guest is supposed to read, and it still works.
     const storefront = await asOutsider
-      .from('brand_storefront')
-      .select('*')
-      .eq('id', brandId)
+      .rpc('brand_storefront_lookup', { p_brand_id: brandId })
       .maybeSingle<Record<string, unknown>>();
     assert.equal(storefront.error, null);
     assert.ok(storefront.data, 'a guest can still bootstrap the storefront');
     for (const column of ['fee_bps', 'fee_bps_tier2', 'tier_threshold_cents']) {
       assert.equal(column in storefront.data, false, `${column} is not on the storefront`);
     }
+
+    // ...and it reaches exactly the brand it names. The old view was a definer
+    // with no predicate, so any tenant's publishable key listed every brand on
+    // the platform; the narrowing is the boundary, not the client-side filter.
+    await seedBrand('terms-bystander');
+    const everything = await asOutsider.rpc('brand_storefront_lookup', {});
+    assert.equal(everything.error, null);
+    assert.deepEqual(everything.data, [], 'naming no brand returns no brand');
+
+    const enumerated = await asOutsider.from('brand_storefront').select('*');
+    assert.notEqual(enumerated.error, null,
+      'the unnarrowed storefront view is gone, not merely filtered');
   });
 
   it('lets the brand’s own staff read its terms', async () => {
