@@ -17,16 +17,28 @@ const manifest: CatalogManifest = {
 function clientForCatalog() {
   const removed: unknown[] = [];
   const channel = { on() { return channel; }, subscribe(callback?: (status: string) => void) { callback?.('SUBSCRIBED'); return channel; } };
+  const release = {
+    id: 'release-1', brand_id: 'brand-1', version: 2, status: 'published', manifest,
+    created_at: '2026-08-27T00:00:00.000Z', published_at: '2026-08-27T00:00:00.000Z',
+  };
+  const resolving = (rows: unknown[]) => {
+    const builder = {
+      select() { return builder; }, eq() { return builder; }, limit() { return builder; }, abortSignal() { return builder; }, returns() { return builder; },
+      maybeSingle() { return { then(resolve: (value: { data: unknown; error: null }) => void) { resolve({ data: rows[0] ?? null, error: null }); } }; },
+      then(resolve: (value: { data: unknown[]; error: null }) => void) { resolve({ data: rows, error: null }); },
+    };
+    return builder;
+  };
   const client = {
     from(table: string) {
-      const rows = table === 'catalog_publications'
+      return resolving(table === 'catalog_publications'
         ? [{ release_id: 'release-1', version: 2, published_at: '2026-08-27T00:00:00.000Z' }]
-        : [{ id: 'release-1', brand_id: 'brand-1', version: 2, status: 'published', manifest, created_at: '2026-08-27T00:00:00.000Z', published_at: '2026-08-27T00:00:00.000Z' }];
-      const builder = {
-        select() { return builder; }, eq() { return builder; }, limit() { return builder; }, abortSignal() { return builder; }, returns() { return builder; },
-        then(resolve: (value: { data: unknown[]; error: null }) => void) { resolve({ data: rows, error: null }); },
-      };
-      return builder;
+        : [{ release_id: 'release-1', brand_id: 'brand-1', manifest }]);
+    },
+    // The guest read is an RPC, not a table: the anon grant on catalog_releases
+    // returned every brand's manifest and 0903230000 took it back.
+    rpc(name: string, args: { p_brand_id: string }) {
+      return resolving(name === 'published_catalog_lookup' && args.p_brand_id === 'brand-1' ? [release] : []);
     },
     channel() { return channel; },
     removeChannel(value: unknown) { removed.push(value); return Promise.resolve('ok'); },

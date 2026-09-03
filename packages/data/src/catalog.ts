@@ -23,35 +23,61 @@ type PublicationRow = { release_id: string; version: number; published_at: strin
 
 const CATALOG_CACHE = new Map<string, CatalogRelease>();
 
-async function loadPublishedCatalog(
+function releaseOf(row: ReleaseRow): CatalogRelease {
+  if (validateCatalogManifest(row.manifest).length > 0) throw new Error('Published catalog failed validation.');
+  return {
+    id: row.id, brandId: row.brand_id, version: row.version, status: row.status,
+    manifest: row.manifest, createdAt: row.created_at, publishedAt: row.published_at,
+  };
+}
+
+/**
+ * The guest read. Goes through the lookup rather than `catalog_releases`
+ * because the table's anon grant returned every brand's published manifest to
+ * any holder of the publishable key (0903230000); the argument is the
+ * boundary, and naming no brand returns nothing.
+ */
+async function loadPublicCatalog(
   client: SupabaseClient,
   brandId: string,
-  audience: CatalogAudience = 'public',
+): Promise<CatalogRelease | null> {
+  const row = await readWithRetry('fetchPublishedCatalog', (signal) => client
+    .rpc('published_catalog_lookup', { p_brand_id: brandId })
+    .abortSignal(signal).maybeSingle<ReleaseRow>());
+  return row ? releaseOf(row) : null;
+}
+
+/** The staff read: the same release, projected for a brand's own people. */
+async function loadStaffCatalog(
+  client: SupabaseClient,
+  brandId: string,
 ): Promise<CatalogRelease | null> {
   const publications = await readWithRetry('fetchCatalogPublication', (signal) => client
     .from('catalog_publications').select('release_id, version, published_at')
     .eq('brand_id', brandId).limit(1).abortSignal(signal).returns<PublicationRow[]>());
   const publication = publications?.[0];
   if (!publication) return null;
-  const table = audience === 'public' ? 'catalog_releases' : 'catalog_release_private';
   const rows = await readWithRetry('fetchPublishedCatalog', (signal) => client
-    .from(table).select(audience === 'public'
-      ? 'id, brand_id, version, status, manifest, created_at, published_at'
-      : 'release_id, brand_id, manifest')
-    .eq(audience === 'public' ? 'id' : 'release_id', publication.release_id)
+    .from('catalog_release_private').select('release_id, brand_id, manifest')
+    .eq('release_id', publication.release_id)
     .limit(1).abortSignal(signal).returns<Record<string, unknown>[]>());
   const raw = rows?.[0];
   if (!raw) return null;
-  const row: ReleaseRow = audience === 'public' ? raw as ReleaseRow : {
+  return releaseOf({
     id: String(raw.release_id), brand_id: String(raw.brand_id), version: publication.version,
     status: 'published', manifest: raw.manifest as CatalogManifest,
     created_at: publication.published_at, published_at: publication.published_at,
-  };
-  if (validateCatalogManifest(row.manifest).length > 0) throw new Error('Published catalog failed validation.');
-  return {
-    id: row.id, brandId: row.brand_id, version: row.version, status: row.status,
-    manifest: row.manifest, createdAt: row.created_at, publishedAt: row.published_at,
-  };
+  });
+}
+
+async function loadPublishedCatalog(
+  client: SupabaseClient,
+  brandId: string,
+  audience: CatalogAudience = 'public',
+): Promise<CatalogRelease | null> {
+  return audience === 'public'
+    ? loadPublicCatalog(client, brandId)
+    : loadStaffCatalog(client, brandId);
 }
 
 export async function fetchPublishedCatalog(
