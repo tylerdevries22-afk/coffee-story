@@ -7,6 +7,7 @@ import { fetchBrandConfig, subscribeToBrandConfig } from './brand';
 
 function clientFor(config: unknown) {
   const removed: unknown[] = [];
+  const rpcCalls: { name: string; args: unknown }[] = [];
   const channel = {
     on() { return channel; },
     subscribe(callback?: (status: string) => void) { callback?.('SUBSCRIBED'); return channel; },
@@ -19,16 +20,24 @@ function clientFor(config: unknown) {
   };
   const client = {
     from() { return builder; },
+    rpc(name: string, args: unknown) { rpcCalls.push({ name, args }); return builder; },
     channel() { return channel; },
     removeChannel(value: unknown) { removed.push(value); return Promise.resolve('ok'); },
   } as unknown as SupabaseClient;
-  return { client, removed, channel };
+  return { client, removed, channel, rpcCalls };
 }
 
 describe('brand kiosk configuration data', () => {
-  it('reads through the public storefront view', async () => {
-    const { client } = clientFor({ kiosk: { entry: { prompt: 'Pick a cup' } } });
+  it('reads through the narrowed storefront lookup', async () => {
+    const { client, rpcCalls } = clientFor({ kiosk: { entry: { prompt: 'Pick a cup' } } });
     assert.deepEqual(await fetchBrandConfig(client, 'brand-1'), { kiosk: { entry: { prompt: 'Pick a cup' } } });
+
+    // The brand must be named in the call, not filtered out of a full table:
+    // the unnarrowed view this replaced returned every brand on the platform
+    // to anon (0903005237).
+    assert.deepEqual(rpcCalls, [
+      { name: 'brand_storefront_lookup', args: { p_brand_id: 'brand-1' } },
+    ]);
   });
 
   it('coalesces signal reconnects and removes the channel on cleanup', async () => {
