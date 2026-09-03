@@ -504,9 +504,24 @@ jobs:
           command -v psql >/dev/null || { echo '::error::psql is not on PATH.'; exit 1; }
           latest=$(ls supabase/migrations/*.sql | tail -1 | xargs basename)
           expected="${latest%%_*}"
-          actual=$(psql "$SUPABASE_TEST_DB_URL" -v ON_ERROR_STOP=1 -Atqc \
-            'select public.platform_release_readiness()')
           echo "newest migration: $latest (expects $expected)"
+
+          # `set -e` plus a failing command substitution aborts the step before
+          # any of the diagnostics below can print, which is how three runs of
+          # this step failed while saying nothing about why. Capture instead of
+          # aborting: platform_release_readiness() executes every registered
+          # assertion, so when it raises, the exception text names the assertion
+          # that failed -- which is the only thing worth knowing here.
+          if ! actual=$(psql "$SUPABASE_TEST_DB_URL" -v ON_ERROR_STOP=1 -Atqc \
+            'select public.platform_release_readiness()' 2>readiness.err); then
+            echo '::error::The readiness query itself failed. PostgreSQL said:'
+            sed 's/^/  /' readiness.err
+            echo '--- registered assertions, in the order the head runs them ---'
+            psql "$SUPABASE_TEST_DB_URL" -Atqc \
+              'select release || '"'"' -> '"'"' || coalesce(assertion::text, '"'"'(none)'"'"') from app.release_assertions order by release' \
+              || echo '  (could not list app.release_assertions)'
+            exit 1
+          fi
           echo "registry reports: ${actual:-<empty>}"
           test "$actual" = "$expected" || {
             echo "::error::Release readiness is ${actual:-<empty>} but the newest migration is $expected."

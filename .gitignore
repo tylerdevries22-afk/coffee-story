@@ -89,3 +89,4 @@ agentdb.rvf
 agentdb.rvf.lock
 ruvector.db
 stack.env
+readiness.err
