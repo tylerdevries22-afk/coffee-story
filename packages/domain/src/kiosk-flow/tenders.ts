@@ -67,9 +67,19 @@ export function wireTendersFor(flow: KioskFlow): readonly OrderTenderType[] {
 /**
  * The tenders on offer, intersected with what the platform has enabled.
  *
- * `card` always survives: a kiosk that cannot take a card is not a kiosk, and a
- * config that lists nothing usable falls back to it rather than to a payment
- * screen with no buttons.
+ * `features.stored_value` now arrives from the tenant's bundled module
+ * manifest rather than from a `brand.json` boolean (apps/kiosk/src/tenant/
+ * capabilities.ts), which changes where the answer comes from and nothing
+ * about what this does with it.
+ *
+ * `card` always survives, and this path is therefore deliberately NOT
+ * fail-closed. Everything else here denies on absence -- a balance tender the
+ * tenant has not installed is dropped -- but a kiosk that cannot take a card
+ * is not a kiosk, and denying the last settleable tender turns a config
+ * mistake or a revoked module into a payment screen with no buttons and a
+ * queue of guests who cannot pay. The safe failure for a tender list is the
+ * one that still settles an order; refusing money is not the conservative
+ * option at a counter.
  */
 export function readTenders(
   value: unknown,

@@ -7,9 +7,19 @@ export { compareSemVer, parseSemVer, satisfiesRange, type SemVer } from './semve
 export { dependencySatisfied, parseModuleDefinition, type ManifestResult } from './manifest';
 export { parseIndustryBlueprint, type BlueprintResult, type IndustryBlueprint } from './blueprint';
 export {
-  parseTenantModulesManifest,
+  installedModuleKeys, parseTenantModulesManifest,
   type TenantModuleInstall, type TenantModulesManifest, type TenantModulesResult,
 } from './modules-manifest';
+export {
+  CUSTOMER_FACING_MODULE_KEYS, STOREFRONT_CAPABILITIES, STOREFRONT_CAPABILITY_MODULE,
+  storefrontCapabilitiesOf,
+  type StorefrontCapabilities, type StorefrontCapability,
+} from './storefront-capabilities';
+export {
+  revalidateStorefrontCapabilities,
+  type CapabilityCache, type CapabilityRevalidation, type CapabilitySnapshot,
+  type RevalidationInput,
+} from './capability-revalidation';
 export { resolveModules, type ResolutionError, type ResolutionResult } from './resolve';
 export { LEGACY_FLAG_MODULE_MAP, MODULE_REGISTRY, legacyFlagInstallations } from './registry';
 export {

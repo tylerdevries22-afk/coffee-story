@@ -1,3 +1,4 @@
+import { selectedConsoleCapabilities } from '@/lib/console-capability';
 import { loadDrops } from '@/lib/data';
 import { formatMoney } from '@/lib/kpi';
 // The console is live data behind a session: never prerender a fixture
@@ -14,6 +15,17 @@ const STATUS_PILL: Record<string, string> = {
 };
 
 export default async function DropsPage() {
+  // The rail already hides this section for a brand without growth-drops; a
+  // hidden link is not a closed door, and this route is still typeable.
+  const capabilities = await selectedConsoleCapabilities();
+  if (!capabilities.drops) {
+    return (
+      <>
+        <h1>Drops</h1>
+        <div className="notice">This brand does not have the drops module installed.</div>
+      </>
+    );
+  }
   const drops = await loadDrops();
   return (
     <>

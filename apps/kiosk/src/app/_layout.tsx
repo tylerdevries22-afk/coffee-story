@@ -10,6 +10,7 @@ import { DEFAULT_TOKENS, PreviewSwitcher, ThemeProvider } from '@platform/ui';
 import { initMobileMonitoring } from '@platform/monitoring';
 
 import TENANT_BRAND_CONFIG from '@/tenant/brand.json';
+import { kioskCapability } from '@/tenant/capabilities';
 
 import { menuFactsFrom } from '@platform/domain';
 
@@ -22,10 +23,16 @@ import { BuilderProvider } from '@/state/builder';
 import { FlowProvider, useFlow } from '@/state/flow';
 import { GuestProvider } from '@/state/guest';
 import { KioskSessionProvider } from '@/state/session';
+import { revalidateTenantCapabilities } from '@/lib/capability-check';
 
 const SPLASH_GROUND = TENANT_BRAND_CONFIG.tokens?.surface ?? DEFAULT_TOKENS.surface;
 
 void initMobileMonitoring();
+
+// Unawaited on purpose: the bundled module manifest has already decided what
+// this boot offers, so the check only refreshes the offline snapshot and
+// surfaces drift. A kiosk behind a dead router still takes orders.
+void revalidateTenantCapabilities();
 
 export default function KioskLayout() {
   const [loaded] = useFonts({
@@ -92,7 +99,7 @@ function FlowGate() {
       <FlowProvider
         brandConfig={kioskConfig}
         menu={facts}
-        storedValue={TENANT_BRAND_CONFIG.features?.stored_value === true}
+        storedValue={kioskCapability('stored_value')}
       >
         <KioskSurface />
       </FlowProvider>

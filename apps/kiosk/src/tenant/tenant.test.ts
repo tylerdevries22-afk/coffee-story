@@ -7,7 +7,10 @@ import { EMPTY_MENU_FACTS, resolveKioskFlow } from '@platform/domain';
 import type { ConfigContext } from 'expo/config';
 
 import kioskConfig, { kioskEasConfig } from '../../app.config';
+import { STOREFRONT_CAPABILITY_MODULE } from '@platform/module-kit';
+
 import TENANT from './brand.json';
+import { TENANT_MODULE_KEYS, kioskCapability } from './capabilities';
 
 /**
  * The kiosk bundles its own copy of the brand file for the same reason the
@@ -22,6 +25,24 @@ describe('bundled tenant config', () => {
     );
     const bundled = JSON.parse(readFileSync(join(__dirname, 'brand.json'), 'utf8'));
     assert.deepEqual(bundled, source, 'run `pnpm onboard --tenant <slug> --apply` to refresh the bundled copies');
+  });
+
+  it('bundles the same tenant modules.json, which is what capability resolves from', () => {
+    // The manifest is the BOOT source for the flow's stored-value gate. A
+    // stale copy offers a gift-card tender the tenant no longer installs, or
+    // withholds one it does, with no network read that would correct either.
+    const source = JSON.parse(
+      readFileSync(join(__dirname, `../../../../tenants/${TENANT.identity.slug}/modules.json`), 'utf8'),
+    );
+    const bundled = JSON.parse(readFileSync(join(__dirname, 'modules.json'), 'utf8'));
+    assert.deepEqual(bundled, source, 'run `pnpm onboard --tenant <slug> --apply` to refresh the bundled copies');
+  });
+
+  it('gates stored value on the module, not on the brand.json flag', () => {
+    assert.equal(
+      kioskCapability('stored_value'),
+      TENANT_MODULE_KEYS.includes(STOREFRONT_CAPABILITY_MODULE.stored_value),
+    );
   });
 
   it('bundles the same generated tenant menu as the customer app', () => {

@@ -1,5 +1,19 @@
 import type { IconName } from '@/components/icon';
 
+// The catalog itself lives in console-sections; this file owns only the rule
+// that decides which of it a given access set may see.
+import {
+  APPS_SECTION,
+  CAMPAIGNS_SECTION,
+  CUSTOMERS_SECTION,
+  DASHBOARD_SECTION,
+  DROPS_SECTION,
+  INTEGRATIONS_SECTION,
+  OPERATIONS_SECTION,
+  analyticsSection,
+  contentSection,
+  settingsSection,
+} from './console-sections';
 import { pathMatchesHref } from './navigation-path';
 
 export type ConsoleNavItem = {
@@ -24,154 +38,11 @@ export type ConsoleNavigationAccess = {
   readonly canViewAnalytics: boolean;
   readonly canViewIntegrations: boolean;
   readonly canManageOperations: boolean;
+  /** `growth-drops` is installed for the selected brand. */
+  readonly canManageDrops: boolean;
+  /** The selected brand holds any growth module; see lib/capabilities. */
+  readonly canManageCampaigns: boolean;
 };
-
-const DASHBOARD_SECTION = {
-  key: 'dashboard',
-  title: 'Dashboard',
-  icon: 'dashboard',
-  home: '/',
-  items: [
-    { href: '/', label: 'Overview', icon: 'dashboard' },
-    { href: '/locations', label: 'Locations', icon: 'locations' },
-  ],
-} satisfies ConsoleSection;
-
-const APPS_SECTION = {
-  key: 'apps',
-  title: 'Apps',
-  icon: 'panel',
-  home: '/apps',
-  items: [
-    { href: '/apps', label: 'Wall', icon: 'wall' },
-    { href: '/apps/customer', label: 'Customer', icon: 'users' },
-    { href: '/apps/operator', label: 'Operator', icon: 'activity' },
-    { href: '/apps/kiosk', label: 'Kiosk / POS', icon: 'kiosk' },
-    { href: '/apps/display', label: 'Pickup display', icon: 'wall' },
-  ],
-} satisfies ConsoleSection;
-
-const DROPS_SECTION = {
-  key: 'drops',
-  title: 'Drops',
-  icon: 'drop',
-  home: '/drops',
-  items: [{ href: '/drops', label: 'Overview', icon: 'drop' }],
-} satisfies ConsoleSection;
-
-const CAMPAIGNS_SECTION = {
-  key: 'campaigns',
-  title: 'Campaigns',
-  icon: 'campaign',
-  home: '/campaigns',
-  items: [{ href: '/campaigns', label: 'Overview', icon: 'campaign' }],
-} satisfies ConsoleSection;
-
-const CUSTOMERS_SECTION = {
-  key: 'customers',
-  title: 'Customers',
-  icon: 'users',
-  home: '/customers',
-  items: [{ href: '/customers', label: 'Directory', icon: 'users' }],
-} satisfies ConsoleSection;
-
-const ANALYTICS_SECTION = {
-  key: 'analytics',
-  title: 'Analytics',
-  icon: 'analytics',
-  home: '/analytics',
-  items: [
-    { href: '/analytics', label: 'Overview', icon: 'dashboard' },
-    { href: '/analytics/apps', label: 'Apps', icon: 'kiosk' },
-    { href: '/analytics/commerce', label: 'Commerce', icon: 'drop' },
-    { href: '/analytics/operations', label: 'Operations', icon: 'locations' },
-    { href: '/analytics/training', label: 'Training', icon: 'training' },
-    { href: '/analytics/growth', label: 'Growth', icon: 'campaign' },
-    { href: '/analytics/reliability', label: 'Reliability', icon: 'activity' },
-    // Reporting, so it belongs in this section, but not under /analytics: the
-    // rest of that family is this tenant's own telemetry, and this one crosses
-    // brands on a network standing the console cannot see. The page shows an
-    // empty state to anyone the database refuses, which is why it needs no
-    // access flag of its own.
-    { href: '/network', label: 'Network', icon: 'brand' },
-  ],
-} satisfies ConsoleSection;
-
-const INTEGRATIONS_SECTION = {
-  key: 'integrations',
-  title: 'Integrations',
-  icon: 'integrations',
-  home: '/integrations',
-  items: [
-    { href: '/integrations', label: 'Catalog', icon: 'integrations' },
-    { href: '/integrations/connected', label: 'Connected', icon: 'activity' },
-    { href: '/integrations/activity', label: 'Activity', icon: 'analytics' },
-    { href: '/integrations/health', label: 'Health', icon: 'help' },
-  ],
-} satisfies ConsoleSection;
-
-const OPERATIONS_SECTION = {
-  key: 'operations',
-  title: 'Operations',
-  icon: 'locations',
-  home: '/operations',
-  items: [
-    { href: '/operations', label: 'Live board', icon: 'wall' },
-    { href: '/operations/templates', label: 'Templates', icon: 'menu' },
-    { href: '/operations/schedules', label: 'Schedules', icon: 'locations' },
-    { href: '/operations/history', label: 'History', icon: 'activity' },
-    { href: '/operations/reporting', label: 'Reporting', icon: 'analytics' },
-    { href: '/operations/retention', label: 'Retention', icon: 'settings' },
-  ],
-} satisfies ConsoleSection;
-
-function contentSection(access: ConsoleNavigationAccess): ConsoleSection {
-  return {
-    key: 'content',
-    title: 'Content',
-    icon: 'menu',
-    home: access.menuHref,
-    items: [
-      { href: access.menuHref, label: access.menuHref === '/catalog' ? 'Catalog' : 'Menu', icon: 'menu' },
-      ...(access.canManageBrand
-        ? [{ href: '/menu/import', label: 'Import CSV', icon: 'menu' as const }]
-        : []),
-      ...(access.canManageBrand
-        ? [{ href: '/kiosk', label: 'Kiosk', icon: 'kiosk' as const }]
-        : []),
-      ...(access.canManageBrand
-        ? [{ href: '/storage', label: 'Storage', icon: 'folder' as const }]
-        : []),
-      ...(access.canManageTraining
-        ? [{ href: '/training', label: 'Training', icon: 'training' as const }]
-        : []),
-    ],
-  };
-}
-
-function settingsSection(access: ConsoleNavigationAccess): ConsoleSection {
-  const items: ConsoleNavItem[] = [
-    ...(access.canManageBrand
-      ? [{ href: '/brand', label: 'Brand config', icon: 'brand' as const }]
-      : []),
-    ...(access.canManageBrand
-      ? [{ href: '/staff', label: 'Staff access', icon: 'users' as const }]
-      : []),
-    ...(access.canManagePlatform
-      ? [{ href: '/fees', label: 'Platform fees', icon: 'settings' as const }]
-      : []),
-    ...(access.canManagePlatform
-      ? [{ href: '/onboarding', label: 'Onboarding', icon: 'onboarding' as const }]
-      : []),
-  ];
-  return {
-    key: 'settings',
-    title: 'Settings',
-    icon: 'settings',
-    home: items[0]?.href ?? '/brand',
-    items,
-  };
-}
 
 /** Returns every console destination available to the current role, grouped once. */
 export function consoleSectionsFor(access: ConsoleNavigationAccess): ConsoleSection[] {
@@ -179,11 +50,11 @@ export function consoleSectionsFor(access: ConsoleNavigationAccess): ConsoleSect
     DASHBOARD_SECTION,
     APPS_SECTION,
     contentSection(access),
-    DROPS_SECTION,
-    CAMPAIGNS_SECTION,
+    ...(access.canManageDrops ? [DROPS_SECTION] : []),
+    ...(access.canManageCampaigns ? [CAMPAIGNS_SECTION] : []),
     CUSTOMERS_SECTION,
     ...(access.canManageOperations ? [OPERATIONS_SECTION] : []),
-    ...(access.canViewAnalytics ? [ANALYTICS_SECTION] : []),
+    ...(access.canViewAnalytics ? [analyticsSection(access)] : []),
     ...(access.canViewIntegrations ? [INTEGRATIONS_SECTION] : []),
     settingsSection(access),
   ].filter((section) => section.items.length > 0);

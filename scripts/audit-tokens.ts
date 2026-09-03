@@ -75,7 +75,7 @@ const ALLOWED = new Map<string, string>([
   ['packages/ui/src/tokens.ts', 'the default palette itself: the thing tenants override'],
   ['packages/ui/src/app-tokens.ts', 'derives the legacy palette from tokens; the Siri gradient is platform identity, not tenant brand'],
   ['apps/hq/lib/brand-config.ts', 'the default brand a new tenant starts from before they pick anything'],
-  ['apps/hq/components/brand-config-editor.tsx', 'the editor whose subject is colour; literals are neutral fallbacks for invalid tenant input'],
+  ['apps/hq/components/tier-badge-preview.tsx', 'the preview whose subject is colour; literals are neutral fallbacks for invalid tenant input'],
   ['packages/integrations/src/catalog.ts', "other companies' official marks -- Square, Stripe, Slack -- which are theirs, not ours to theme"],
   ['apps/display/lib/demo-board.ts', 'a fixture brand, playing the part of tenant data'],
   ['apps/customer/app.config.ts', 'Expo build-time splash: reads brand.tokens first, literal only as the last resort'],

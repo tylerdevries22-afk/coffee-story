@@ -1,6 +1,17 @@
 import type { OperatorTaskOccurrence } from './model';
 
 export const DEMO_OPERATIONS_BRAND_ID = '20000000-0000-4000-8000-000000000001';
+
+/**
+ * What demo mode resolves the operations capability to.
+ *
+ * Named rather than inlined as `isDemo ||` so the two cases stay apart: this
+ * is a fixture that makes the shift board reviewable with no database, and it
+ * is never consulted by a signed-in session. A live session that has not been
+ * told the module is installed -- including one whose staff-context load
+ * failed -- resolves false.
+ */
+export const DEMO_OPERATIONS_ENABLED = true;
 const DEMO_LOCATION_IDS: Readonly<Record<string, string>> = {
   'loc-uptown': '20000000-0000-4000-8000-000000000002',
   'loc-downtown': '20000000-0000-4000-8000-000000000003',

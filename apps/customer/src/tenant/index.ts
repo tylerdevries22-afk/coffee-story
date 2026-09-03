@@ -7,8 +7,14 @@
  * `tenant.test.ts` fails the build if the copy drifts from the source tree.
  */
 import { REWARD_TIERS, resolveRewardTiers, type RewardTier } from '@platform/domain';
+import {
+  installedModuleKeys,
+  storefrontCapabilitiesOf,
+  type StorefrontCapability,
+} from '@platform/module-kit';
 
 import brandJson from './brand.json';
+import modulesJson from './modules.json';
 
 export type TenantBusiness = {
   legalName: string;
@@ -57,8 +63,35 @@ export const TENANT = brandJson as unknown as TenantFile;
 /** The whole file, in the shape ThemeProvider hydrates from. */
 export const TENANT_BRAND_CONFIG: unknown = brandJson;
 
-export function tenantFeature(flag: keyof TenantFeatures): boolean {
-  return Boolean(TENANT.features?.[flag]);
+/**
+ * The modules installed for this tenant, from the bundled manifest.
+ *
+ * Bundled and not fetched, deliberately. This app is offline-first: a cold
+ * boot in a basement with no signal has to resolve capability from something,
+ * and resolving it from the network means resolving it to nothing -- which
+ * renders an app with no drops, no catering and no gift balance. The manifest
+ * is refreshed by `pnpm onboard --apply` and pinned to the tenant folder by
+ * tenant.test.ts, so it moves when the tenant moves.
+ *
+ * `public.brand_storefront_capabilities` is the server's answer to the same
+ * question and is used as a revalidation and drift check (lib/capability-check)
+ * rather than as the boot source. Nothing here authorizes a write: every write
+ * behind these flags is re-authorized server side under RLS.
+ */
+export const TENANT_MODULE_KEYS: readonly string[] = installedModuleKeys(modulesJson);
+
+const TENANT_CAPABILITIES = storefrontCapabilitiesOf(TENANT_MODULE_KEYS);
+
+/**
+ * Whether this tenant runs a storefront capability.
+ *
+ * Narrower than `TenantFeatures` on purpose: `multi_location` and `sms` are a
+ * capacity setting and an integration setting on the brands row, not
+ * capabilities, so they have no module to resolve against and no screen
+ * branches on them.
+ */
+export function tenantFeature(flag: StorefrontCapability): boolean {
+  return TENANT_CAPABILITIES[flag];
 }
 
 /**
