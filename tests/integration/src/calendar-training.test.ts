@@ -96,7 +96,7 @@ describe('calendar and training tenancy', { skip: skipUnlessConfigured }, () => 
     for (let attempt = 5; attempt >= 1; attempt -= 1) {
       await sql(
         `insert into public.training_quiz_attempts
-           (id, brand_id, release_id, brand_user_id, module_slug, lesson_slug,
+           (id, brand_id, release_id, brand_user_id, track_slug, lesson_slug,
             answers, score, passed, created_at)
          values ($1, $2, $3, $4, 'core', 'lesson', '[]', 0, false,
            now() - ($5::text || ' seconds')::interval)`,
@@ -106,7 +106,7 @@ describe('calendar and training tenancy', { skip: skipUnlessConfigured }, () => 
     await assert.rejects(
       sql(
         `insert into public.training_quiz_attempts
-           (id, brand_id, release_id, brand_user_id, module_slug, lesson_slug,
+           (id, brand_id, release_id, brand_user_id, track_slug, lesson_slug,
             answers, score, passed)
          values ($1, $2, $3, $4, 'core', 'lesson', '[]', 0, false)`,
         [randomUUID(), tenant.brandId, release.rows[0]!.id, staff.brandUserId],
@@ -166,7 +166,7 @@ describe('calendar and training tenancy', { skip: skipUnlessConfigured }, () => 
     );
     await sql(
       `insert into public.training_lesson_progress
-         (brand_id, release_id, brand_user_id, module_slug, lesson_slug, status,
+         (brand_id, release_id, brand_user_id, track_slug, lesson_slug, status,
           score, attempt_count, completed_at)
        values ($1, $2, $3, 'safety', 'equipment-safety', 'completed', 100, 1, now())`,
       [tenant.brandId, release.rows[0]!.id, staff.brandUserId],
@@ -182,7 +182,7 @@ describe('calendar and training tenancy', { skip: skipUnlessConfigured }, () => 
       target_reason: '',
       target_expires_at: expiresAt,
       target_release: release.rows[0]!.id,
-      target_module_slug: 'safety',
+      target_track_slug: 'safety',
       target_lesson_slug: 'equipment-safety',
     };
     const first = await serviceClient().rpc('award_operation_competency', args);
