@@ -99,3 +99,34 @@ encrypted at rest besides.
 windows, with the missed-window case going straight to `ended`) and claims
 due campaigns (`scheduled → sending`, claim-first so a racing tick cannot
 double-send).
+
+## Vocabulary
+
+"Module" names two unrelated things here, and one string belongs to both
+sides, so a reviewer cannot tell from the word alone which is meant. Say
+which in full.
+
+- **Capability module** — a unit of platform functionality a tenant can have
+  or not have. `ModuleDefinition` in `packages/module-kit/src/registry.ts`;
+  that registry is the complete list. Keys are `commerce-catalog`,
+  `workforce-operations`, `local-printing` and their siblings. A tenant
+  declares its installs in `tenants/<slug>/modules.json`; the runtime set is
+  `module_installations`, one row per brand and key. Capability modules gate
+  routes, jobs, APIs, and navigation.
+- **Training module** — a group of lessons inside training *content*:
+  `TrainingModule` in `packages/domain/src/training.ts`, addressed by `slug`
+  and grouped by `trackKey`, whose values are `TRAINING_TRACK_ORDER`
+  (`knowledge`, `skills`, `service`, `safety`, `operations`). Content is not a
+  capability: all of it belongs to the one `workforce-training` capability
+  module. Step 3 of `MODULAR-OFFLINE-FRANCHISE-PLAN.md` renames this to a
+  track precisely to end the collision, so prefer "training track" in new
+  prose even while the type is still called `TrainingModule`.
+- **`'training_module'` / `'training_lesson'`** — neither of the above. These
+  are string literals in the schema: `entity_type` in the content-media and
+  catalog tables, and resource kinds in a catalog template's manifest. They
+  say which kind of content row a media version or catalog resource points at.
+
+The overlap that bites: `operations` is a training track key and
+`workforce-operations` is a capability module key. Nothing connects them — a
+tenant can install `workforce-operations` and publish no operations training,
+or publish that training with the module absent.
