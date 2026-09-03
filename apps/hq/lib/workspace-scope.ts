@@ -8,6 +8,7 @@ import 'server-only';
  * not an authority. RLS remains the enforcement boundary for the data itself.
  */
 import { cookies } from 'next/headers';
+import { cache } from 'react';
 
 import { slugify } from '@platform/domain';
 
@@ -52,8 +53,18 @@ type LocationRow = { id: string; name: string; address: { city?: string } | null
  * yields the operator's whole book of business or a single franchisee's org
  * without a role branch here. `brand_config` rides along for theming the
  * selected org, franchisee or not.
+ *
+ * Memoized per request, for the same reason currentSession is. Four exported
+ * functions in this file call it -- readWorkspaceScope, selectedOrganizationId,
+ * authorizeOrganization, authorizeLocation -- and selectedOrganizationId alone
+ * has call sites in nineteen files, so a single console render asked for the
+ * whole brand list several times over. The query is unbounded by design (a
+ * platform_admin legitimately sees every brand) and carries brand_config, which
+ * the platform caps at 16 KB per brand, so the repeats are the expensive kind.
+ * cache() is request-scoped, which is the right lifetime: a switcher that
+ * cached across requests would keep showing an org after access was revoked.
  */
-async function authorizedOrgs(session: SessionInfo): Promise<readonly {
+const authorizedOrgs = cache(async function authorizedOrgs(session: SessionInfo): Promise<readonly {
   org: WorkspaceOrg;
   brandConfig: unknown;
 }[]> {
@@ -79,7 +90,7 @@ async function authorizedOrgs(session: SessionInfo): Promise<readonly {
     org: { id: row.id, name: row.name, kind: 'brand' as WorkspaceOrgKind },
     brandConfig: row.brand_config ?? null,
   }));
-}
+});
 
 /**
  * Locations for the selected org. Demo: the registry's own list. Configured: a

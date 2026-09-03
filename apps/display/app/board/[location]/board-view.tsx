@@ -24,6 +24,9 @@ const RECONCILE_MS = 60_000;
 const DEMO_SYNC_RECONCILE_MS = 1_000;
 const TICKET_READ_TIMEOUT_MS = 5_000;
 const PRESENCE_INTERVAL_MS = 30_000;
+// Comfortably inside the interval, so a hung beat is abandoned before the next
+// one is due and the queue cannot grow.
+const PRESENCE_TIMEOUT_MS = 10_000;
 
 export type BoardViewProps = {
   initialTickets: BoardTicketRow[];
@@ -110,10 +113,17 @@ export function BoardView({ initialTickets, config, copy, live, degraded, demoSy
 
   useEffect(() => {
     if (!live) return undefined;
+    // Bounded, unlike every other outbound call's helper: a wall screen sits on
+    // a shop network that fails by hanging rather than refusing, and an unbounded
+    // heartbeat on a setInterval accumulates pending requests for as long as the
+    // outage lasts. One deadline, no retry -- the next tick is the retry, and a
+    // presence beat that missed its window is worthless by the time it lands.
     const heartbeat = () => {
+      const abort = new AbortController();
+      const deadline = setTimeout(() => abort.abort(), PRESENCE_TIMEOUT_MS);
       void fetch(`${window.location.pathname}/presence`, {
-        method: 'POST', cache: 'no-store', keepalive: true,
-      }).catch(() => undefined);
+        method: 'POST', cache: 'no-store', keepalive: true, signal: abort.signal,
+      }).catch(() => undefined).finally(() => clearTimeout(deadline));
     };
     heartbeat();
     const id = setInterval(heartbeat, PRESENCE_INTERVAL_MS);

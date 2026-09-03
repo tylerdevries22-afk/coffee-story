@@ -74,14 +74,21 @@ describe('franchisor network reporting boundary', () => {
     }
   });
 
-  it('registers a release with a zero-argument assertion', () => {
+  /**
+   * This used to also assert that the migration sorted last. That was true for
+   * exactly as long as it was the newest one, and it began failing the moment
+   * 20260903220000 landed -- on a change that has nothing to do with franchise
+   * reporting. Whether the newest migration registers its own release is a
+   * property of whichever migration is newest, so it belongs to the test that
+   * derives that dynamically (surfaces.test.ts) and to deep-health.test.ts,
+   * which pins REQUIRED_DATABASE_RELEASE to it. What is left here is what is
+   * actually this migration's own business: it registers its own stamp, and
+   * the assertion it registers is one the frozen head can call.
+   */
+  it('registers its own stamp with a zero-argument assertion', () => {
     const stamp = migrationFile.slice(0, 14);
-    // This migration was the newest when it landed and asserted so. That claim
-    // belongs to whichever migration currently sorts last -- it moves with the
-    // head rather than being re-stated here -- so what stays is the part that
-    // is about this migration: the stamp it registers, and the shape of the
-    // assertion it registers with.
-    assert.ok(migrationNames.includes(migrationFile));
+    assert.ok(migrationNames.includes(migrationFile),
+      'the migration this test describes is still in the tree');
     assert.match(migration, new RegExp(
       `select app\\.register_release\\(\\s*'${stamp}',`),
       'the registered stamp matches the filename');
