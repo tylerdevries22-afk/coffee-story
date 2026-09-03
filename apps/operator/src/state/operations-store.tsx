@@ -55,39 +55,16 @@ import {
   type OperatorTaskOccurrence,
 } from '@/features/operations/model';
 import { supabase } from '@/lib/supabase';
+import {
+  DISABLED_OPERATIONS,
+  type OperationConflict,
+  type OperationsState,
+} from '@/state/operations-state';
 import { useAuth } from '@/state/auth-context';
 import { useOperator } from '@/state/operator-store';
 
 const LIVE_REFRESH_MS = 60_000;
 const CLOCK_REFRESH_MS = 30_000;
-
-export type OperationConflict = {
-  actionId: string;
-  occurrenceId: string;
-  message: string;
-};
-
-type OperationsState = {
-  enabled: boolean;
-  occurrences: readonly OperatorTaskOccurrence[];
-  issues: readonly OperatorTaskIssue[];
-  notifications: readonly OperatorNotification[];
-  unreadCount: number;
-  pendingCount: number;
-  conflicts: readonly OperationConflict[];
-  loading: boolean;
-  error: string | null;
-  now: Date;
-  refresh: () => Promise<void>;
-  claim: (occurrenceId: string) => Promise<void>;
-  release: (occurrenceId: string) => Promise<void>;
-  complete: (occurrenceId: string, draft: CompletionDraft) => Promise<void>;
-  reportIssue: (
-    occurrenceId: string,
-    issue: OperationIntentIssue,
-  ) => Promise<void>;
-  discardConflict: (actionId: string) => Promise<void>;
-};
 
 const OperationsContext = createContext<OperationsState | null>(null);
 
@@ -393,12 +370,15 @@ export function OperationsProvider({ children }: PropsWithChildren) {
   return <OperationsContext.Provider value={value}>{children}</OperationsContext.Provider>;
 }
 
+/**
+ * No provider means the tenant has no `workforce-operations` installation, so
+ * the answer is the denied one rather than a thrown error. See
+ * DISABLED_OPERATIONS for why a crash was the wrong failure mode once the
+ * staff layout started gating the mount on capability.
+ *
+ * `useOptionalOperations` used to exist for callers that wanted to tolerate a
+ * missing provider. Every caller wants that now, so it is the only behaviour.
+ */
 export function useOperations(): OperationsState {
-  const context = useContext(OperationsContext);
-  if (!context) throw new Error('useOperations requires OperationsProvider');
-  return context;
-}
-
-export function useOptionalOperations(): OperationsState | null {
-  return useContext(OperationsContext);
+  return useContext(OperationsContext) ?? DISABLED_OPERATIONS;
 }

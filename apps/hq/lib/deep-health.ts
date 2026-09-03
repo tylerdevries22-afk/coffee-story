@@ -27,7 +27,7 @@ const DEFAULT_READ_PATH = 'brands?select=id&limit=1';
  * Equality, not a floor: `migrate-database` runs before `deploy-hq`, so the
  * database is never behind the code it is asked to serve.
  */
-export const REQUIRED_DATABASE_RELEASE = '20260903210000';
+export const REQUIRED_DATABASE_RELEASE = '20260903220000';
 
 function authHeaders(credentials: HealthCredentials): Record<string, string> {
   return { apikey: credentials.key, authorization: `Bearer ${credentials.key}` };
