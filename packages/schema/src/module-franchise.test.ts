@@ -246,3 +246,75 @@ describe('delegated grant expiry and sweep', () => {
       /select app\.register_release\(\s*'\d{14}',[\s\S]+?'app\.assert_delegated_grant_expiry\(\)'::regprocedure/);
   });
 });
+
+describe('module installations as the authorization root', () => {
+  const rootFile = readdirSync(migrationsDir)
+    .find((name) => /^\d{14}_module_installation_authorization_root\.sql$/.test(name));
+  assert.ok(rootFile, 'the authorization-root migration exists');
+  const root = readFileSync(join(migrationsDir, rootFile), 'utf8');
+
+  it('leaves the service role a read and nothing else', () => {
+    assert.match(root,
+      /revoke insert, update, delete, truncate on public\.module_installations from service_role;/,
+      'truncate goes with the DML: it is a write that skips row triggers');
+    assert.doesNotMatch(root, /grant (insert|update|delete)[^;]*on public\.module_installations/);
+  });
+
+  it('rejects any write that did not come through a guarded writer', () => {
+    assert.match(root,
+      /create or replace function app\.reject_unguarded_module_installation_write\(\) returns trigger[\s\S]+?set search_path = ''/);
+    assert.match(root, /errcode = '55000', message = 'module_installation_guarded_writer_only'/);
+    assert.match(root,
+      /create trigger module_installations_guarded_writes\s+before insert or update on public\.module_installations/);
+    // Unlike the events guard, this one admits no trigger depth: nothing
+    // cascades into this table, so depth would only be a way in.
+    assert.doesNotMatch(root,
+      /reject_unguarded_module_installation_write[\s\S]+?pg_trigger_depth/);
+  });
+
+  it('gives the closed path an insert, since the lifecycle writer has none', () => {
+    assert.match(root,
+      /create or replace function app\.create_module_installation\([\s\S]+?security definer\s+set search_path = ''/);
+    // `state` is not a parameter: an installation cannot be born active.
+    assert.doesNotMatch(root, /create or replace function app\.create_module_installation\([\s\S]+?p_state/);
+    assert.match(root,
+      /revoke all on function app\.create_module_installation\([\s\S]+?to service_role;/);
+    for (const writer of ['create_module_installation', 'set_module_installation_state']) {
+      assert.match(root,
+        new RegExp(`app\\.${writer}\\([\\s\\S]+?set_config\\('app\\.module_installation_writer', 'guarded', true\\)`),
+        `${writer} raises the latch the guard checks`);
+    }
+  });
+
+  it('constrains module_key to a registry the build keeps honest', () => {
+    assert.match(root, /create table app\.module_registry/);
+    assert.match(root,
+      /add constraint module_installations_module_key_in_registry\s+foreign key \(module_key\) references app\.module_registry \(module_key\)/);
+    assert.match(root, /revoke all on table app\.module_registry from public, anon, authenticated, service_role;/,
+      'the surfaces column decides an anon disclosure, so no client may write it');
+  });
+
+  it('adds the two indexes the existing FK coverage never provided', () => {
+    assert.match(root,
+      /create index if not exists module_installations_active_module_idx\s+on public\.module_installations \(module_key, state\) where state = 'active';/);
+    assert.match(root,
+      /create index if not exists module_installation_events_brand_created_idx\s+on public\.module_installation_events \(brand_id, created_at desc\);/);
+  });
+
+  it('stops publishing brand_config.features and strips what was written', () => {
+    assert.match(root, /update public\.brands\s+set brand_config = brand_config - 'features'/);
+    assert.match(root, /brand\.stored_value, brand\.referrals, brand\.brand_config - 'features'/,
+      'the storefront must stop republishing what the strip removed');
+    // The narrowing 20260903005237 added has to survive being reproduced here.
+    assert.match(root,
+      /where \(p_slug is not null and brand\.slug = p_slug\)\s+or \(p_brand_id is not null and brand\.id = p_brand_id\)\s+limit 1/);
+  });
+
+  it('registers its release with an assertion rather than renaming the head', () => {
+    assert.doesNotMatch(root, /create or replace function public\.platform_release_readiness\b/);
+    assert.match(root,
+      /select app\.register_release\(\s*'\d{14}',[\s\S]+?'app\.assert_module_installation_authority\(\)'::regprocedure/);
+    assert.match(root, /has_table_privilege\('service_role', 'public\.module_installations', 'INSERT'\)/,
+      'the assertion states the boundary, not just the trigger');
+  });
+});
