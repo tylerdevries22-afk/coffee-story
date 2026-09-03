@@ -1,5 +1,5 @@
 {
-  "name": "@platform/expo-storage",
+  "name": "@platform/offline",
   "version": "0.1.0",
   "private": true,
   "main": "src/index.ts",
@@ -14,8 +14,7 @@
     "verify": "pnpm lint && pnpm typecheck && pnpm test"
   },
   "dependencies": {
-    "@platform/analytics": "workspace:*",
-    "@platform/offline": "workspace:*"
+    "@platform/domain": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "~24.6.2",

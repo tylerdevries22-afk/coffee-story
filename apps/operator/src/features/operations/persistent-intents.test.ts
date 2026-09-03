@@ -10,7 +10,7 @@ import {
   type ClaimOperationIntent,
   type CompleteOperationIntent,
   type OperationIntentQueue,
-} from './offline-intents';
+} from '@platform/offline';
 import {
   loadOperationIntents,
   removeStoredOperationIntent,

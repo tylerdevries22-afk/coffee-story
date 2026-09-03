@@ -5,7 +5,7 @@ import {
   recordPermanentIntentConflict,
   type OperationIntent,
   type OperationIntentQueue,
-} from './offline-intents';
+} from '@platform/offline';
 
 export type OperationIntentSubmitResult =
   | { outcome: 'confirmed' }

@@ -5,7 +5,8 @@ import type { PrintSecureStorage } from './print-outbox-storage';
  *
  * expo-secure-store has no web implementation, and `node:test` must never
  * evaluate a native module to reach the queue model beside it -- the same
- * reason `portal-store.ts` keeps its imports dynamic.
+ * reason `portalStore` in `@platform/expo-storage` keeps its imports
+ * dynamic.
  *
  * A platform without a keychain therefore fails the read or the write, which
  * the storage layer turns into an empty queue or a `false` save. There is

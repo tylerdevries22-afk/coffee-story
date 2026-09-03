@@ -16,6 +16,16 @@ import {
 } from 'react';
 
 import { newIdempotencyKey } from '@platform/api-client';
+import {
+  OPERATION_INTENT_VERSION,
+  createOperationIntentQueue,
+  enqueueOperationIntent,
+  removeOperationIntent,
+  type OperationIntent,
+  type OperationIntentQueue,
+  type OperationIntentIssue,
+  type OperationIssueSeverity,
+} from '@platform/offline';
 
 import {
   type CompletionDraft,
@@ -28,16 +38,6 @@ import {
   demoOperationLocationId,
   demoOperationOccurrences,
 } from '@/features/operations/demo';
-import {
-  OPERATION_INTENT_VERSION,
-  createOperationIntentQueue,
-  enqueueOperationIntent,
-  removeOperationIntent,
-  type OperationIntent,
-  type OperationIntentQueue,
-  type OperationIntentIssue,
-  type OperationIssueSeverity,
-} from '@/features/operations/offline-intents';
 import {
   loadOperationIntents,
   saveOperationIntents,

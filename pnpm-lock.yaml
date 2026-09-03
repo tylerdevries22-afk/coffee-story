@@ -86,6 +86,9 @@ importers:
       '@platform/monitoring':
         specifier: workspace:*
         version: link:../../packages/monitoring
+      '@platform/offline':
+        specifier: workspace:*
+        version: link:../../packages/offline
       '@platform/schema':
         specifier: workspace:*
         version: link:../../packages/schema
@@ -579,6 +582,9 @@ importers:
       '@platform/monitoring':
         specifier: workspace:*
         version: link:../../packages/monitoring
+      '@platform/offline':
+        specifier: workspace:*
+        version: link:../../packages/offline
       '@platform/schema':
         specifier: workspace:*
         version: link:../../packages/schema
@@ -845,6 +851,9 @@ importers:
       '@platform/analytics':
         specifier: workspace:*
         version: link:../analytics
+      '@platform/offline':
+        specifier: workspace:*
+        version: link:../offline
     devDependencies:
       '@types/node':
         specifier: ~24.6.2
@@ -904,6 +913,22 @@ importers:
       expo-constants:
         specifier: ~18.0.14
         version: 18.0.14(expo@54.0.37)(react-native@0.81.5(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0))
+
+  packages/offline:
+    dependencies:
+      '@platform/domain':
+        specifier: workspace:*
+        version: link:../domain
+    devDependencies:
+      '@types/node':
+        specifier: ~24.6.2
+        version: 24.6.2
+      tsx:
+        specifier: ^4.20.6
+        version: 4.23.12
+      typescript:
+        specifier: ~5.9.2
+        version: 5.9.3
 
   packages/schema:
     dependencies:

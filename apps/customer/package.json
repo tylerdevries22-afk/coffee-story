@@ -13,6 +13,7 @@
     "@platform/expo-storage": "workspace:*",
     "@platform/module-kit": "workspace:*",
     "@platform/monitoring": "workspace:*",
+    "@platform/offline": "workspace:*",
     "@platform/schema": "workspace:*",
     "@platform/ui": "workspace:*",
     "@sentry/react-native": "^8.23.0",

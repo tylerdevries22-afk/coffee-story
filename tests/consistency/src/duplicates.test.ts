@@ -156,7 +156,11 @@ describe('customer/operator duplicated-module drift guard', () => {
     );
   });
 
+  // The bound moves down as promotion retires this guard, and only down: it
+  // exists to catch a walker that silently finds nothing after a path change,
+  // not to freeze the count. Promoting the demo portal's persistence to
+  // @platform/offline and @platform/expo-storage took three shared paths out.
   it('still guards a meaningful shared surface (sanity check the walker)', () => {
-    assert.ok(shared.length > 50, `expected many shared paths, found ${shared.length}`);
+    assert.ok(shared.length > 40, `expected many shared paths, found ${shared.length}`);
   });
 });
