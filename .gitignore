@@ -83,3 +83,8 @@ __pycache__/
 .tmp/
 apps/*/.claude/
 apps/hq/.next-wall*/
+
+# Ruflo Core local state (guidance bundle + vector index)
+agentdb.rvf
+agentdb.rvf.lock
+ruvector.db
