@@ -1,11 +1,13 @@
 import { createAnalyticsQueueStore, type AnalyticsQueueStore } from '@platform/analytics';
 
 /**
- * On-device backing for the analytics queue.
+ * On-device backing for the analytics queue, shared by the three Expo apps.
  *
  * `@platform/analytics` carries no runtime dependencies -- HQ and the pickup
  * display import it too -- so it owns the write-then-rename algorithm and this
- * module owns the only thing that is native: the file handles.
+ * package owns the only thing that is native: the file handles. That split is
+ * why this cannot simply live in `@platform/analytics`, and why this package
+ * exists rather than a third copy under `apps/kiosk`.
  *
  * expo-file-system stays behind a dynamic `await import()` for the same reason
  * `portal-store.ts` does: `node:test` must never evaluate a native module while
