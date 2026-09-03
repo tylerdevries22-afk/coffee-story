@@ -3,7 +3,7 @@
   "private": true,
   "packageManager": "pnpm@10.33.0",
   "scripts": {
-    "lint": "pnpm -r --workspace-concurrency=1 lint",
+    "lint": "pnpm -r --workspace-concurrency=1 lint && eslint scripts --max-warnings=0",
     "typecheck": "pnpm -r --workspace-concurrency=1 typecheck && tsc -p scripts",
     "test": "pnpm -r --workspace-concurrency=1 test",
     "verify": "pnpm audit:tokens && pnpm audit:brand && pnpm lint && tsc -p scripts && pnpm -r --workspace-concurrency=1 verify",
