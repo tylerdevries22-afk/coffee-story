@@ -4,11 +4,11 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, it } from 'node:test';
 
+import { findReplacementConflicts } from './function-replacement.js';
 import {
-  findReplacementConflicts,
   parseFunctionDefinitions,
   type FunctionDefinition,
-} from './function-replacement.js';
+} from './sql-function-parser.js';
 
 /**
  * The migration defect no pull request can currently catch.
