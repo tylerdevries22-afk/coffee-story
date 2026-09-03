@@ -303,26 +303,6 @@ in Expo, never in this repository, never in `packages/data`.
   analytics page, in the CSV export and in the weekly owner email is a
   placeholder, not a measurement, and it will stay 0.0000 until order-level
   redemption is built. Do not quote it to a brand owner.
-- **The rewards ladder the guest app shows is not the rate the engine pays.**
-  `apps/customer/src/features/rewards/rules.ts` advertises 10/11/12/13 points
-  per dollar across the four tiers, and the bag screen renders that number
-  against the guest's real lifetime points. `recordLoyaltyEarn` always credits
-  the flat `DEFAULT_EARN_RATE_PER_DOLLAR` of 10, so a "Coffee Legend" shown
-  260 points on a $20 order is credited 200. Whether the fix is to honour the
-  ladder in the engine or to stop advertising it is the owner's call: it
-  changes what the brand owes its regulars. Until then the app over-promises.
-- **The rewards ladder is the last thing in the guest app that is not
-  tenant-derived.** `brand.json` carries `loyalty.rewards` (the redemption
-  catalog) but no tiers, so the four tier names, thresholds, rates, blurbs and
-  perks are compiled into `features/rewards/rules.ts`. Onboarding a brand that
-  wants a different ladder needs a code change today, which is the one thing
-  `tenants/<slug>/` exists to prevent. The fix is a promotion, not an edit:
-  that file is byte-identical in both Expo apps, so changing it in place fails
-  the drift guard by design. Everything downstream is already ready for it --
-  every function takes the ladder as a parameter, `RewardTierName` is free text
-  rather than a union, and `paletteForTier` falls back by ladder position (then
-  by a stable name hash) so a renamed tier still gets a deliberate, distinct
-  glass. Only the data source is missing.
 - **Historical note: `tests/e2e` "full loop" previously failed intermittently.**
   It times out on `waitText('Order placed')` after Place Order, with the
   customer back on the Pickup Options step, no failed API calls and no console

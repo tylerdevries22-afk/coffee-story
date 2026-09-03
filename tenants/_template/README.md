@@ -15,6 +15,14 @@ Copy this folder to `tenants/<slug>/` to onboard a brand. The full file list:
   `singleItemSlug` used to derive its savings claim. `eligibleItemSlugs` is the
   complete authored set the guest may put inside; live 86/drop state can only
   narrow that set, never add unrelated menu items
+- `modules.json` — the capability modules installed for this tenant: key, pinned
+  version, the artifact each reads its configuration from, and the app surfaces
+  each may appear on. `parseTenantModulesManifest` validates the shape and
+  reports every problem at once, so review it as a whole
+- `modules/<module-key>/` — one folder per installed module, holding only that
+  module's configuration; `device-wall.json` still sits flat beside them
+  because the HQ console imports it directly until installations move into the
+  database
 - `assets/` — the brand's own artwork:
   - `logo.svg` (preferred) or `logo.png` — the master onboarding generates
     icons and splash art from

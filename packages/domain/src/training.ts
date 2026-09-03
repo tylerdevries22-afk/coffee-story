@@ -1,3 +1,14 @@
+/**
+ * Training content: tracks, modules, lessons, quizzes, and the release
+ * manifest that publishes them.
+ *
+ * "Module" here is a group of lessons, never a capability module from
+ * `@platform/module-kit` -- all of this content belongs to the single
+ * `workforce-training` capability. The distinction matters because the two
+ * vocabularies share a string: `'operations'` is a track key below and also
+ * half of the `workforce-operations` module key, and the two are unrelated.
+ * `docs/ARCHITECTURE.md` ("Vocabulary") pins both down.
+ */
 export const TRAINING_TRACK_ORDER = ['knowledge', 'skills', 'service', 'safety', 'operations'] as const;
 
 export type TrainingTrackKey = (typeof TRAINING_TRACK_ORDER)[number] | 'custom';

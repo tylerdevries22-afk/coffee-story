@@ -7,6 +7,11 @@
  * backfill migration and the dual-read window speak the same vocabulary as
  * the resolver. Definitions are plain data: parseModuleDefinition stays the
  * only gate between authored data and resolution.
+ *
+ * Everything here is a *capability* module. A `TrainingModule` in
+ * `@platform/domain` is unrelated content that lives inside the single
+ * `workforce-training` capability; `docs/ARCHITECTURE.md` ("Vocabulary")
+ * separates the two, and the `'operations'` string that belongs to both.
  */
 import type { ModuleDefinition } from './types';
 

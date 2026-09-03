@@ -1,0 +1,23 @@
+{
+  "$docs": {
+    "$self": "Configuration for the commerce-catalog install declared in ../../modules.json. modules.json owns whether the module is on, at which version, and on which surfaces; this file owns only how the catalog behaves once it is on, so a tenant can be re-pointed without editing the manifest.",
+    "schemaVersion": "Version of this artifact's contract, not the module version.",
+    "moduleId": "The registry key this artifact configures; it must match the modules.json entry that names this path.",
+    "sources": "Tenant-root files onboarding seeds the catalog from. Paths are relative to tenants/<slug>/ because the module owns the meaning of the files, not their location.",
+    "folderLevels": "How deep the category tree may nest. A flat menu sets both to 0; the coffee-shop blueprint allows up to 5.",
+    "resourceKinds": "Which kinds of catalog resource this tenant authors. Narrowing the list hides the rest from HQ rather than deleting anything, so an over-broad default is safe to tighten later."
+  },
+  "schemaVersion": 1,
+  "moduleId": "commerce-catalog",
+  "sources": {
+    "offerings": "menu.csv",
+    "folders": "menu-categories.json",
+    "modifierGroups": "modifiers.json",
+    "packs": "packs.json"
+  },
+  "folderLevels": {
+    "minimum": 0,
+    "maximum": 5
+  },
+  "resourceKinds": ["material", "specification", "procedure", "recipe"]
+}
