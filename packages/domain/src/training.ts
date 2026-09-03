@@ -65,8 +65,15 @@ export type TrainingModule = {
   lessons: TrainingLesson[];
 };
 
+/**
+ * Only a stored release ever carries an older version. `liftTrainingManifest`
+ * is the one reader that accepts every one of them, and it hands the rest of
+ * the codebase a single current shape.
+ */
+export type TrainingSchemaVersion = 1 | 2 | 3;
+
 export type TrainingManifest = {
-  schemaVersion: 1 | 2;
+  schemaVersion: TrainingSchemaVersion;
   generatedAt: string;
   tenant: TenantTrainingProfile;
   sources: TrainingSource[];

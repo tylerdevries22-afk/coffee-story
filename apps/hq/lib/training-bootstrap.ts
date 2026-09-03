@@ -108,7 +108,7 @@ export function resolveTenantTrainingProfile(businessName: string, config: unkno
 export function validateTrainingManifest(manifest: TrainingManifest): string[] {
   const issues: string[] = [];
   const normalized = normalizeTrainingManifest(manifest);
-  if (manifest.schemaVersion !== 1 && manifest.schemaVersion !== 2) issues.push('training schema version must be 1 or 2');
+  if (![1, 2, 3].includes(manifest.schemaVersion)) issues.push('training schema version must be 1, 2, or 3');
   if (manifest.sources.length < 3) issues.push('at least 3 research sources are required');
   if (manifest.sources.length > 12) issues.push('no more than 12 research sources are allowed');
   if (manifest.modules.length < (manifest.schemaVersion === 2 ? TRAINING_TRACK_ORDER.length : 2)) issues.push(manifest.schemaVersion === 2 ? 'all five core training tracks are required' : 'at least 2 training modules are required');

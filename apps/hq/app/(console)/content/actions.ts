@@ -5,14 +5,14 @@ import { createHash, randomUUID } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { start } from 'workflow/api';
 import { revalidatePath } from 'next/cache';
-import { normalizeTrainingManifest } from '@platform/domain';
+import { liftTrainingManifest } from '@platform/domain';
 
 import { currentSession, hasRole } from '@/lib/auth';
 import {
   validateMenuItemDraft,
   validateTrainingDraft,
   isMenuItemDraft,
-  isTrainingDraftPayload,
+  parseTrainingDraftPayload,
   imageExtensionFor,
   slugFromLabel,
   type ContentCategory,
@@ -616,9 +616,9 @@ export async function saveTrainingDraft(
   input: unknown,
   expectedUpdatedAt: string | null,
 ): Promise<Failure | { ok: true; releaseId: string; version: number; updatedAt: string; persisted: boolean }> {
-  if (!isTrainingDraftPayload(input)) return { ok: false, error: 'The training draft payload is invalid.' };
-  const manifest: TrainingManifest = input;
-  const draft = { ...normalizeTrainingManifest(manifest), generatedAt: new Date().toISOString() };
+  const manifest = parseTrainingDraftPayload(input);
+  if (!manifest) return { ok: false, error: 'The training draft payload is invalid.' };
+  const draft = { ...manifest, generatedAt: new Date().toISOString() };
   const issues = validateTrainingDraft(draft);
   if (issues.length > 0) return { ok: false, error: issues.join(' ') };
   const context = await managerContext('content.training.save');
@@ -688,7 +688,9 @@ export async function publishTrainingDraft(
   if (expectedUpdatedAt && expectedUpdatedAt !== release.data.updated_at) {
     return { ok: false, error: 'This training draft changed in another session. Reload before publishing.' };
   }
-  const authoring = normalizeTrainingManifest(restoreAnswersForPublish(release.data.manifest, release.data.answer_key));
+  const stored = liftTrainingManifest(release.data.manifest);
+  if (!stored) return { ok: false, error: 'The saved training draft is unreadable. Reload and save it again.' };
+  const authoring = restoreAnswersForPublish(stored, release.data.answer_key);
   const issues = validateTrainingManifest(authoring);
   if (issues.length > 0) return { ok: false, error: `Publishing is blocked: ${issues.join('; ')}` };
   const menuSlugs = await context.privileged.from('menu_items').select('slug').eq('brand_id', context.brandId).returns<{ slug: string }[]>();
