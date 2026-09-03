@@ -30,7 +30,7 @@ describe('catalog insights', () => {
 
   it('collects graph, alias, and training associations without inventing data', () => {
     const training = starterTrainingManifest({ businessName: 'Coffee Story', industry: 'Coffee', locale: 'en-US' });
-    training.modules[0]!.lessons = [{
+    training.tracks[0]!.lessons = [{
       slug: 'menu', title: 'Menu fluency', objective: 'Explain espresso', content: 'Explain espresso safely.',
       estimatedMinutes: 6, sourceUrls: [], menuItemSlugs: ['espresso'], media: [], quiz: [],
     }];

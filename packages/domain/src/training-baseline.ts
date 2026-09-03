@@ -2,7 +2,7 @@ import type {
   TenantTrainingProfile,
   TrainingLesson,
   TrainingManifest,
-  TrainingModule,
+  TrainingTrack,
   TrainingTrackKey,
 } from './training';
 import { slugify } from './slug';
@@ -124,16 +124,15 @@ export function cafeTrainingManifest(profile: TenantTrainingProfile): TrainingMa
   // misconfiguration the lesson body should not paper over with a fake name.
   const businessName = profile.businessName.trim() || 'shop';
   const tenant = { ...profile, templateKey: profile.templateKey ?? slugify(businessName) };
-  const modules: TrainingModule[] = TRACKS.map((track, sortOrder) => ({
+  const tracks: TrainingTrack[] = TRACKS.map((track, sortOrder) => ({
     slug: track.key,
-    trackKey: track.key,
     sortOrder,
     title: track.title,
     summary: track.summary,
     icon: { symbol: track.symbol, prompt: `Simple monochrome ${track.title.toLowerCase()} line icon` },
     lessons: track.lessons.map((seed) => lesson(seed, businessName)),
   }));
-  return { schemaVersion: 2, generatedAt: new Date().toISOString(), tenant, sources: [...SOURCES], modules };
+  return { schemaVersion: 3, generatedAt: new Date().toISOString(), tenant, sources: [...SOURCES], tracks };
 }
 
 export const trainingTemplateTrackKeys = TRACKS.map((track) => track.key);

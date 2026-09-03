@@ -23,14 +23,14 @@ describe('trainingTrackArtworkSvg', () => {
 });
 
 describe('withTrainingArtwork', () => {
-  it('adds one URL to every core module and leaves custom modules unchanged', () => {
+  it('adds one URL to every core track and leaves a tenant track unchanged', () => {
     const manifest = cafeTrainingManifest({ businessName: 'Coffee Story', industry: 'Coffee', locale: 'en-US' });
-    manifest.modules.push({ slug: 'local', trackKey: 'custom', title: 'Local', summary: '', icon: { symbol: 'pin', prompt: 'pin' }, lessons: [] });
+    manifest.tracks.push({ slug: 'local', title: 'Local', summary: '', icon: { symbol: 'pin', prompt: 'pin' }, lessons: [] });
     const urls = Object.fromEntries(TRAINING_TRACK_ORDER.map((track) => [track, `https://media.example/${track}.webp`])) as TrainingArtworkUrls;
     const result = withTrainingArtwork(manifest, urls);
 
-    assert.deepEqual(result.modules.slice(0, 5).map((module) => module.icon.url), Object.values(urls));
-    assert.equal(result.modules[5]?.icon.url, undefined);
-    assert.equal(manifest.modules[0]?.icon.url, undefined);
+    assert.deepEqual(result.tracks.slice(0, 5).map((track) => track.icon.url), Object.values(urls));
+    assert.equal(result.tracks[5]?.icon.url, undefined);
+    assert.equal(manifest.tracks[0]?.icon.url, undefined);
   });
 });
