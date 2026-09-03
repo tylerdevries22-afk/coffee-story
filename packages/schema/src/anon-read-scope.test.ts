@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '../../..');
 const migrationsDir = join(root, 'supabase/migrations');
-const migrationNames = readdirSync(migrationsDir).sort();
+const migrationNames = readdirSync(migrationsDir).filter((n) => n.endsWith('.sql')).sort();
 const migrationFile = migrationNames
   .find((name) => /^\d{14}_scope_anon_catalog_and_signal_reads\.sql$/.test(name));
 assert.ok(migrationFile, 'the anon read scoping migration exists');
@@ -100,13 +100,22 @@ describe('the anonymous read is scoped to the row a client already names', () =>
       'the migration registers its own release with its own assertion');
   });
 
-  it('agrees with the release the health probe demands', () => {
-    const deepHealth = readFileSync(join(root, 'apps/hq/lib/deep-health.ts'), 'utf8');
+  /**
+   * Deliberately not "this migration is the newest" or "deep health requires
+   * this stamp". Both were true the day this was written and false the moment
+   * anything landed after it, and that mistake has now been made three times
+   * in this migration chain -- each time failing a test that names one feature
+   * on a change that has nothing to do with it. Whether the newest migration
+   * registers itself, and whether REQUIRED_DATABASE_RELEASE equals it, are
+   * properties of whichever migration currently sorts last: surfaces.test.ts
+   * derives that dynamically and deep-health.test.ts pins it. What is this
+   * migration's own business is that it registers its own stamp, which the
+   * assertion above already checks.
+   */
+  it('registers the stamp in its own filename', () => {
     const stamp = migrationFile.slice(0, 14);
-    assert.match(deepHealth, new RegExp(`REQUIRED_DATABASE_RELEASE = '${stamp}'`),
-      'deep health must require the release this migration registers');
-    assert.equal(stamp, migrationNames[migrationNames.length - 1]?.slice(0, 14),
-      'and this migration must be the newest one');
+    assert.match(migration, new RegExp(`select app\\.register_release\\(\\s*'${stamp}',`),
+      'the registered stamp matches the filename');
   });
 
   it('says nothing about kiosk_receipts, which 0042 dropped', () => {
