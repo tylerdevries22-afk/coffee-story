@@ -87,6 +87,8 @@ describe('franchisor network reporting boundary', () => {
    */
   it('registers its own stamp with a zero-argument assertion', () => {
     const stamp = migrationFile.slice(0, 14);
+    assert.ok(migrationNames.includes(migrationFile),
+      'the migration this test describes is still in the tree');
     assert.match(migration, new RegExp(
       `select app\\.register_release\\(\\s*'${stamp}',`),
       'the registered stamp matches the filename');

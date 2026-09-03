@@ -132,3 +132,45 @@ consistent with the read sweep above.
 - No probe was run as `anon`, only as `authenticated`.
 - The seeded brands carried a small number of rows; this measures whether a
   boundary holds, not how it behaves under production data volume.
+
+## The anonymous read sweep (20260903230000)
+
+The gap named above — "no probe was run as `anon`" — was closed by reading the
+net grant picture out of the migration set rather than off a database. 0014
+set `alter default privileges in schema public grant select on tables to anon`
+and nothing since revoked it broadly, so the working assumption is that `anon`
+holds SELECT on every table in `public` and RLS is the only gate. Four tables
+paired that grant with a policy that admits anyone:
+
+| relation | policy | net effect for `anon` | resolution |
+| --- | --- | --- | --- |
+| `catalog_releases` | `status = 'published' or is_brand_owner(...)` | every brand's published `manifest`, plus `created_by` | grant removed; guest read moved to `public.published_catalog_lookup(uuid)` |
+| `catalog_publications` | `using (true)` | every brand's publish history | narrowed to `brand_id` |
+| `brand_config_signals` | `using (true)` | every brand's configuration cadence | narrowed to `brand_id` |
+| `location_setting_signals` | `using (true)` | every location, and the brand owning it | narrowed to `location_id` |
+
+The two other relations granted to `anon` in the audit list were already
+closed: `board_tickets` gates itself on `app.can_read_board()`, which no
+claimless caller satisfies, and `kiosk_receipts` was dropped by 0042.
+
+Three of the four are in `supabase_realtime`, so a blanket revoke would have
+taken live configuration updates off every deployed kiosk, customer app and
+pickup display without an error anywhere. Realtime checks visibility by
+primary key, refuses a subscription filtering on a column the role cannot
+read, and omits from the payload every column the role has no privilege on —
+so the primary key, which the client filters on and already knew, is the whole
+requirement. Column grants, not policies, are what that argument reduces to.
+
+### Residual
+
+`anon` can still count the rows in the three signal tables and read their
+opaque keys. That residual is bounded by `public.locations`, whose
+`locations_select` is `using (true)` by the deliberate decision recorded in
+0040 — a shop's name and address are storefront data — and which therefore
+already publishes the same brand and location identifiers, under names, to any
+holder of the publishable key. **`public.locations` is now the platform's
+widest anonymous enumeration surface**, and narrowing the signal keys is only
+worth doing after it moves behind a lookup. That is a change to roughly
+twenty-nine call sites across `apps/hq`, `apps/operator`, `apps/customer`,
+`apps/kiosk`, `apps/display`, `packages/data` and `packages/engine`, only
+three of which are anonymous, and it deserves its own pass.
