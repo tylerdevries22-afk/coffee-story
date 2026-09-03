@@ -476,6 +476,24 @@ jobs:
           } >> "$GITHUB_ENV"
           echo "API $SUPABASE_TEST_URL"
 
+      # Seed through the real provisioning path, exactly as hosted-integration
+      # does, and for the same reason: platform_release_readiness() executes
+      # every registered assertion, and the frozen 26-link chain among them
+      # asserts backfill parity between a brand's legacy flags and its module
+      # installations. On an empty database those assertions have nothing to
+      # check; the first run of this job asserted readiness against a database
+      # with no tenant in it and failed there rather than on anything real.
+      #
+      # It also means a pull request now exercises onboarding, which is the
+      # provisioning path every future franchisee goes through and had no
+      # coverage outside the hosted job.
+      - name: Seed through the production onboarding path
+        run: |
+          set -euo pipefail
+          export SUPABASE_URL="$SUPABASE_TEST_URL"
+          export SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_TEST_SERVICE_ROLE_KEY"
+          pnpm onboard --tenant coffee-story --require-db
+
       # Same comparison hosted-integration makes on main: the newest migration
       # filename must equal what the release registry reports, or the chain and
       # the health probe disagree. Both sides are printed either way, so a
