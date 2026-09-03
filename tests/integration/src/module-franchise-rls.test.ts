@@ -2,9 +2,37 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { after, before, describe, it } from 'node:test';
 
-import { asPrincipal, createSignedInUser, seedBrand, serviceClient, skipUnlessConfigured, sql } from './stack.ts';
+import {
+  anonClient, asPrincipal, createSignedInUser, seedBrand, serviceClient,
+  skipUnlessConfigured, sql,
+} from './stack.ts';
 
 type Session = Awaited<ReturnType<typeof createSignedInUser>>;
+
+/** Draft an installation through the guarded writers, the only path there is. */
+async function install(
+  brandId: string, moduleKey: string, version: string, actor: string,
+): Promise<string> {
+  const created = await sql<{ create_module_installation: string }>(
+    `select app.create_module_installation($1, $2, $3, null::jsonb, $4, $5)`,
+    [brandId, moduleKey, version, actor, randomUUID()],
+  );
+  return created.rows[0]!.create_module_installation;
+}
+
+/** draft -> validating -> active, which is the shortest legal route. */
+async function activate(
+  brandId: string, moduleKey: string, version: string, actor: string,
+): Promise<string> {
+  const installationId = await install(brandId, moduleKey, version, actor);
+  for (const [state, revision] of [['validating', 1], ['active', 2]] as const) {
+    await sql(
+      `select app.set_module_installation_state($1, $2, $3, null::jsonb, $4, $5, $6)`,
+      [installationId, brandId, state, revision, actor, randomUUID()],
+    );
+  }
+  return installationId;
+}
 
 /**
  * Phase 1b's promise: franchise surfaces are read-only to clients, network
@@ -55,11 +83,12 @@ describe('module franchise RLS', { skip: skipUnlessConfigured }, () => {
        values ($1, $2, $3), ($1, $4, $3)`,
       [networkId, brandA, franchisor.userId, brandB],
     );
-    await sql(
-      `insert into public.module_installations (brand_id, module_key, version, state, installed_by)
-       values ($1, 'loyalty', '1.0.0', 'active', $3), ($2, 'loyalty', '1.2.0', 'active', $3)`,
-      [brandA, brandB, franchisor.userId],
-    );
+    // 20260903170000 closed the direct write path: the only way to an active
+    // installation is create (draft) then two guarded transitions, which is
+    // also what the fixtures should have been exercising all along.
+    for (const [brandId, version] of [[brandA, '1.0.0'], [brandB, '1.2.0']] as const) {
+      await activate(brandId, 'growth-loyalty', version, franchisor.userId);
+    }
     // Brand B volume inside and outside the 30-day window, so the KPI
     // assertions can tell a real aggregate from an unfiltered dump.
     await sql(
@@ -151,27 +180,26 @@ describe('module franchise RLS', { skip: skipUnlessConfigured }, () => {
   });
 
   it('keeps module installation events append-only', async () => {
-    const installation = (await sql<{ id: string }>(
-      `insert into public.module_installations (brand_id, module_key, version)
-       values ($1, 'kds', '0.9.0') returning id`, [brandA])).rows[0]!;
+    const installationId = await install(brandA, 'workforce-training', '0.9.0', franchisor.userId);
     // The guarded writer is the only way in: draft -> validating, revision
     // 1 -> 2, with the event recorded in the same transaction.
     const written = await sql<{ set_module_installation_state: number }>(
       `select app.set_module_installation_state($1, $2, 'validating', null::jsonb, 1, $3, $4)`,
-      [installation.id, brandA, franchisor.userId, randomUUID()]);
+      [installationId, brandA, franchisor.userId, randomUUID()]);
     assert.equal(written.rows[0]!.set_module_installation_state, 2);
     const event = (await sql<{ id: number }>(
-      `select id from public.module_installation_events where installation_id = $1`,
-      [installation.id])).rows[0]!;
+      `select id from public.module_installation_events
+        where installation_id = $1 and event = 'state.transition'`,
+      [installationId])).rows[0]!;
     assert.ok(event, 'the transition recorded its event');
 
     const visible = await asPrincipal(
       staffClaims(franchisor.userId, brandA),
-      `select id from public.module_installation_events where installation_id = $1`, [installation.id]);
-    assert.equal(visible.rows.length, 1, 'brand staff read their own event trail');
+      `select id from public.module_installation_events where installation_id = $1`, [installationId]);
+    assert.equal(visible.rows.length, 2, 'brand staff read their own event trail');
     const hidden = await asPrincipal(
       staffClaims(randomUUID(), brandB),
-      `select id from public.module_installation_events where installation_id = $1`, [installation.id]);
+      `select id from public.module_installation_events where installation_id = $1`, [installationId]);
     assert.equal(hidden.rows.length, 0, 'another tenant does not');
 
     await assert.rejects(
@@ -180,5 +208,84 @@ describe('module franchise RLS', { skip: skipUnlessConfigured }, () => {
     await assert.rejects(
       sql(`delete from public.module_installation_events where id = $1`, [event.id]),
       /module_installation_event_append_only/);
+  });
+});
+
+/**
+ * Phase 2.6a's promise: module_installations can carry authorization. The
+ * table is writable only through the guarded writers, its keys are governed by
+ * the registry, and a logged-out reader resolves capability without reaching
+ * any of the operational detail the row also holds.
+ */
+describe('module installations as the authorization root', { skip: skipUnlessConfigured }, () => {
+  let brandId = '';
+  let slug = '';
+  let actor: Session;
+
+  before(async () => {
+    slug = `modauth-${randomUUID().slice(0, 8)}`;
+    brandId = (await seedBrand(slug)).brandId;
+    actor = await createSignedInUser({});
+    await activate(brandId, 'growth-drops', '1.0.0', actor.userId);
+    // Kiosk-facing but not customer-facing: the projection must withhold it.
+    await activate(brandId, 'device-wall', '1.0.0', actor.userId);
+    // Active but staff-only, and the module the legacy `operations` flag maps
+    // to -- a flag the storefront already refuses to publish.
+    await activate(brandId, 'workforce-operations', '1.0.0', actor.userId);
+  });
+
+  after(async () => {
+    await sql(`delete from public.module_installations where brand_id = $1`, [brandId]);
+  });
+
+  it('refuses a direct write even from a connection that owns the table', async () => {
+    await assert.rejects(
+      sql(`insert into public.module_installations (brand_id, module_key, version, state)
+           values ($1, 'commerce-catalog', '1.0.0', 'active')`, [brandId]),
+      /module_installation_guarded_writer_only/,
+      'an insert that skips the writer skips the audit trail');
+    await assert.rejects(
+      sql(`update public.module_installations set state = 'active' where brand_id = $1`, [brandId]),
+      /module_installation_guarded_writer_only/,
+      'so does an update that skips the revision check');
+  });
+
+  it('refuses a module key no registry entry governs', async () => {
+    await assert.rejects(
+      sql(`select app.create_module_installation($1, 'commerce-teleport', '1.0.0', null::jsonb, null::uuid, $2)`,
+        [brandId, randomUUID()]),
+      /module_installations_module_key_in_registry|violates foreign key/,
+      'an ungoverned key would be an ungoverned permission set');
+  });
+
+  it('projects only active, customer-facing keys to an anonymous reader', async () => {
+    const anon = anonClient();
+    const projected = await anon.rpc('brand_storefront_capabilities', { p_slug: slug });
+    assert.equal(projected.error, null);
+    const rows = (projected.data ?? []) as { slug: string; module_key: string }[];
+    assert.deepEqual(rows.map((row) => row.module_key).sort(), ['growth-drops'],
+      'staff-only and kiosk-only modules stay unpublished');
+    assert.deepEqual([...new Set(Object.keys(rows[0] ?? {}))].sort(), ['module_key', 'slug'],
+      'no config, state, installer or timestamp rides along');
+  });
+
+  it('returns nothing to a reader that names no brand, and reads no row directly', async () => {
+    const anon = anonClient();
+    const unnamed = await anon.rpc('brand_storefront_capabilities', {});
+    assert.equal(unnamed.error, null);
+    assert.deepEqual(unnamed.data, [], 'a caller that forgets to narrow fails closed');
+    const direct = await anon.from('module_installations').select('id');
+    assert.ok(direct.error || (direct.data ?? []).length === 0,
+      'the table itself stays unreadable to anon');
+  });
+
+  it('no longer publishes the stale brand_config.features blob', async () => {
+    const anon = anonClient();
+    const storefront = await anon
+      .rpc('brand_storefront_lookup', { p_slug: slug })
+      .maybeSingle<{ brand_config: Record<string, unknown> | null }>();
+    assert.equal(storefront.error, null);
+    assert.equal('features' in (storefront.data?.brand_config ?? {}), false,
+      'the flag object that gates nothing must not outlive its editor');
   });
 });
