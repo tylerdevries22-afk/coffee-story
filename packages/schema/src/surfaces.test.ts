@@ -387,19 +387,34 @@ describe('atomic order commit', () => {
     assert.match(readiness, /security invoker/);
     assert.match(readiness, /language plpgsql stable/,
       'the read-only release contract remains callable through GET');
-    const chain = readinessChain();
-    const current = chain.at(-1) ?? '';
-    const previous = chain.at(-2) ?? '';
-    assert.ok(current && previous, 'the readiness chain needs at least two links');
     // verify.yml derives the expected readiness from the newest migration
-    // filename, so a migration that does not extend the chain fails the gate
-    // closed against a version nothing returns. Assert that here, where the
-    // failure names the cause, rather than in CI where it names a mismatch.
-    assert.equal(current, migrationNames().at(-1)?.split('_')[0],
-      'the newest migration must extend the readiness chain');
-    assert.match(readiness, new RegExp(
-      `app\\.platform_release_readiness_${previous}\\(\\) <> '${previous}'`),
-    'each link asserts the one before it, so a skipped migration cannot pass');
+    // filename, so a migration that does not advance the release fails the
+    // gate closed against a version nothing returns. Assert that here, where
+    // the failure names the cause, rather than in CI where it names a
+    // mismatch.
+    //
+    // 20260903020255 replaced the nested rename chain with a registry: the
+    // head loops app.release_assertions and returns the newest release, so
+    // advancing the release now means registering it rather than renaming the
+    // head aside. The frozen chain is one registered row.
+    const newest = migrationNames().at(-1)?.split('_')[0] ?? '';
+    assert.ok(newest, 'there is a newest migration');
+    const newestSql = readFileSync(
+      join(MIGRATIONS, migrationNames().at(-1) ?? ''), 'utf8');
+    assert.match(newestSql, new RegExp(`register_release\\(\\s*'${newest}'`),
+      'the newest migration must register its own release, or '
+      + 'platform_release_readiness() returns a version behind the schema');
+    assert.match(readiness, /from app\.release_assertions/,
+      'the head reads the registry rather than a nested chain');
+    assert.match(readiness, /max\(release\)/,
+      'the head reports the newest registered release');
+    // ...and the chain stays frozen. Re-creating the head reintroduces the
+    // rename ceremony this replaced, and worse, a head that does not loop the
+    // registry silently stops running every assertion registered after it.
+    const chain = readinessChain();
+    assert.deepEqual(chain.filter((release) => release > '20260903020255'), [],
+      'the readiness chain is frozen at 20260903020255: register an assertion '
+      + 'with app.register_release instead of creating a new head');
     for (const contract of [
       /procedure\.proname = 'commit_order'/,
       /procedure\.pronargs = 18/,
@@ -417,7 +432,12 @@ describe('atomic order commit', () => {
       /tablename = 'operations_change_signals'/,
     ]) assert.match(releaseSql, contract);
     assert.match(releaseSql, /operation_queue_eligibility/);
-    assert.match(readiness, new RegExp(`return '${current}'`));
+    // The head no longer hard-codes its own release: it reports whatever the
+    // registry says is newest, so a migration that registers itself advances
+    // the gate without editing this function at all.
+    assert.doesNotMatch(readiness, /return '[0-9]{14}'/,
+      'the head reads its release from the registry, not a literal');
+    assert.match(readiness, /return newest;/);
     assert.match(releaseSql,
       /revoke all on function public\.platform_release_readiness\(\)[\s\S]*?to service_role;/);
   });
