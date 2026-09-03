@@ -82,7 +82,7 @@ export async function POST(request: Request): Promise<Response> {
     .eq('brand_id', auth.claims.brand_id)
     .eq('release_id', body.releaseId)
     .eq('brand_user_id', member.data.id)
-    .eq('module_slug', body.moduleSlug)
+    .eq('track_slug', body.moduleSlug)
     .eq('lesson_slug', body.lessonSlug)
     .order('created_at', { ascending: false })
     .limit(5)
@@ -102,7 +102,7 @@ export async function POST(request: Request): Promise<Response> {
     brand_id: auth.claims.brand_id,
     release_id: body.releaseId,
     brand_user_id: member.data.id,
-    module_slug: body.moduleSlug,
+    track_slug: body.moduleSlug,
     lesson_slug: body.lessonSlug,
     answers: body.answers,
     score: score.score,
@@ -119,12 +119,12 @@ export async function POST(request: Request): Promise<Response> {
   const idempotent = attempt.error?.code === '23505';
   if (idempotent) {
     const prior = await db.from('training_quiz_attempts')
-      .select('release_id, module_slug, lesson_slug, answers, score, passed')
+      .select('release_id, track_slug, lesson_slug, answers, score, passed')
       .eq('id', body.attemptId).eq('brand_id', auth.claims.brand_id)
       .eq('brand_user_id', member.data.id)
       .maybeSingle<{
         release_id: string;
-        module_slug: string;
+        track_slug: string;
         lesson_slug: string;
         answers: number[];
         score: number;
@@ -132,27 +132,27 @@ export async function POST(request: Request): Promise<Response> {
       }>();
     if (!prior.data || !matchesTrainingAttempt(prior.data, {
       release_id: body.releaseId,
-      module_slug: body.moduleSlug,
+      track_slug: body.moduleSlug,
       lesson_slug: body.lessonSlug,
       answers: body.answers,
     })) return jsonError(409, 'attempt_conflict', 'That attempt id is already in use.');
     effectiveScore = { score: prior.data.score, passed: prior.data.passed };
   }
 
-  const previous = await db.from('training_lesson_progress').select('attempt_count, status, score').eq('brand_id', auth.claims.brand_id).eq('release_id', body.releaseId).eq('brand_user_id', member.data.id).eq('module_slug', body.moduleSlug).eq('lesson_slug', body.lessonSlug).maybeSingle<{ attempt_count: number; status: string; score: number | null }>();
+  const previous = await db.from('training_lesson_progress').select('attempt_count, status, score').eq('brand_id', auth.claims.brand_id).eq('release_id', body.releaseId).eq('brand_user_id', member.data.id).eq('track_slug', body.moduleSlug).eq('lesson_slug', body.lessonSlug).maybeSingle<{ attempt_count: number; status: string; score: number | null }>();
   if (previous.error) return jsonError(500, 'progress_lookup_failed', 'Could not load lesson progress.');
   const completed = previous.data?.status === 'completed' || effectiveScore.passed;
   const progress = await db.from('training_lesson_progress').upsert({
     brand_id: auth.claims.brand_id,
     release_id: body.releaseId,
     brand_user_id: member.data.id,
-    module_slug: body.moduleSlug,
+    track_slug: body.moduleSlug,
     lesson_slug: body.lessonSlug,
     status: completed ? 'completed' : 'in_progress',
     score: Math.max(previous.data?.score ?? 0, effectiveScore.score),
     attempt_count: (previous.data?.attempt_count ?? 0) + (previous.data && idempotent ? 0 : 1),
     completed_at: completed ? new Date().toISOString() : null,
-  }, { onConflict: 'brand_id,release_id,brand_user_id,module_slug,lesson_slug' });
+  }, { onConflict: 'brand_id,release_id,brand_user_id,track_slug,lesson_slug' });
   if (progress.error) return jsonError(500, 'progress_save_failed', 'Could not save lesson progress.');
   const awardedCompetencyKeys: string[] = [];
   if (effectiveScore.passed && grantPlan) {
@@ -165,7 +165,7 @@ export async function POST(request: Request): Promise<Response> {
         target_reason: '',
         target_expires_at: grantPlan.expiresAt,
         target_release: body.releaseId,
-        target_module_slug: body.moduleSlug,
+        target_track_slug: body.moduleSlug,
         target_lesson_slug: body.lessonSlug,
       });
       if (award.error) {
