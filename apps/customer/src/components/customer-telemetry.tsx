@@ -7,6 +7,7 @@ import { usePathname } from 'expo-router';
 import { useEffect, useMemo, useRef } from 'react';
 import { AppState } from 'react-native';
 
+import { analyticsQueueStore } from '@/state/analytics-queue-store';
 import { useAuth } from '@/state/auth-context';
 
 const SCREENS: Readonly<Record<string, string>> = {
@@ -44,12 +45,14 @@ export function CustomerTelemetry() {
         ? new URL('/api/analytics/events', process.env.EXPO_PUBLIC_API_URL).toString() : null;
     } catch { return null; }
   }, []);
+  // Brand-keyed so a device that signs into a second tenant starts clean.
+  const store = useMemo(() => brandId ? analyticsQueueStore(brandId) : undefined, [brandId]);
   const transport = useMemo(() => {
     try {
       return endpoint
-        ? createAnalyticsTransport({ endpoint, getAccessToken: async () => accessToken }) : null;
+        ? createAnalyticsTransport({ endpoint, getAccessToken: async () => accessToken, store }) : null;
     } catch { return null; }
-  }, [accessToken, endpoint]);
+  }, [accessToken, endpoint, store]);
   const observer = useMemo(
     () => transport ? createAnalyticsSurfaceObserver(transport) : null,
     [transport],

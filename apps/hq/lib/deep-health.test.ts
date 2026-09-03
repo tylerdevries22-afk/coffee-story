@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, it } from 'node:test';
 
-import { databaseHealthy, REQUIRED_DATABASE_RELEASE } from './deep-health';
+import { databaseHealthy, databaseReadable, REQUIRED_DATABASE_RELEASE } from './deep-health';
 
 const env = { url: 'https://database.example.test', serviceRoleKey: 'service-key' };
 
@@ -85,6 +85,57 @@ describe('databaseHealthy', () => {
       throw new Error('offline');
     }, 50);
     assert.equal(healthy, false);
+    assert.equal(calls, 2);
+  });
+});
+
+describe('databaseReadable', () => {
+  const publishable = { url: 'https://database.example.test', key: 'publishable-key' };
+
+  /**
+   * The point of the split: a public page must be able to report a real
+   * dependency without holding the service-role key, and without asking for
+   * `platform_release_readiness`, which is revoked from anon.
+   */
+  it('reads the named resource with the caller\'s own key and asks for nothing else', async () => {
+    const paths: string[] = [];
+    const readable = await databaseReadable(publishable, 'board_tickets?select=order_number&limit=1', async (input, init) => {
+      paths.push(input);
+      assert.ok(init.signal);
+      assert.equal((init.headers as Record<string, string>).apikey, 'publishable-key');
+      return new Response('[]');
+    }, 50);
+    assert.equal(readable, true);
+    assert.deepEqual(paths, ['https://database.example.test/rest/v1/board_tickets?select=order_number&limit=1']);
+  });
+
+  /**
+   * RLS returning no rows to an anonymous reader is the boundary working. A
+   * probe that treated an empty result as an outage would light the status
+   * page red on a perfectly healthy platform.
+   */
+  it('treats an empty RLS-filtered result as a healthy edge', async () => {
+    assert.equal(await databaseReadable(publishable, 'board_tickets?select=order_number&limit=1',
+      async () => Response.json([]), 50), true);
+  });
+
+  it('retries once and then fails closed on a refusal', async () => {
+    let calls = 0;
+    const readable = await databaseReadable(publishable, 'brands?select=id&limit=1', async () => {
+      calls += 1;
+      return new Response('forbidden', { status: 403 });
+    }, 50);
+    assert.equal(readable, false);
+    assert.equal(calls, 2);
+  });
+
+  it('retries once and then fails closed on a thrown request', async () => {
+    let calls = 0;
+    const readable = await databaseReadable(publishable, 'brands?select=id&limit=1', async () => {
+      calls += 1;
+      throw new Error('offline');
+    }, 50);
+    assert.equal(readable, false);
     assert.equal(calls, 2);
   });
 });
