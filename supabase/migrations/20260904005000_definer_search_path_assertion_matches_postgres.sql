@@ -72,8 +72,13 @@ end $$;
 revoke all on function app.assert_anon_disclosure_closed() from public, anon, authenticated;
 grant execute on function app.assert_anon_disclosure_closed() to service_role;
 
+-- Registered with no assertion of its own on purpose. 20260903210000 already
+-- registers `app.assert_anon_disclosure_closed()`, and the head runs every
+-- registered row, so naming it again here would evaluate the same catalog
+-- facts twice on every call -- and `apps/hq/lib/deep-health.ts` calls the head
+-- on every deep-health probe. The row still has to exist for the head to
+-- report this release as the newest one.
 select app.register_release(
   '20260904005000',
-  'the anon-disclosure assertion matches how PostgreSQL serializes an empty search_path',
-  'app.assert_anon_disclosure_closed()'::regprocedure
+  'the anon-disclosure assertion matches how PostgreSQL serializes an empty search_path'
 );
