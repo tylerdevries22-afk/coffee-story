@@ -13,7 +13,6 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(ROOT, 'docs', 'captures');
-const base = process.env.DISPLAY_URL ?? 'http://localhost:3200';
 const locationId = process.env.BOARD_LOCATION ?? 'loc-downtown';
 
 const kiosk = process.env.KIOSK_URL ?? 'http://localhost:4180';
