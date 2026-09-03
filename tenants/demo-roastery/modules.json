@@ -1,0 +1,46 @@
+{
+  "$docs": {
+    "$self": "Derived from brand.json `features`. drops, catering, stored_value and referrals are true and map through LEGACY_FLAG_MODULE_MAP (packages/module-kit/src/registry.ts) to the modules that replace them. delivery is false, so commerce-delivery is absent. This tenant has no `operations` key at all, which reads the same as false: workforce-operations is not installed and there is no operations.json to configure it. multi_location is true but deliberately unmapped -- running two sites is a capacity setting on the brands row, not a capability -- so it adds nothing here.",
+    "dependencies": "commerce-catalog and commerce-ordering are not flags; they are named because every module above depends on them, so the manifest lists what is installed rather than only what was switched on."
+  },
+  "schemaVersion": 1,
+  "modules": [
+    {
+      "key": "commerce-catalog",
+      "version": "1.0.0",
+      "config": "modules/commerce-catalog/config.json",
+      "surfaces": ["customer", "kiosk", "operator", "hq"],
+      "enabled": true
+    },
+    {
+      "key": "commerce-ordering",
+      "version": "1.0.0",
+      "surfaces": ["customer", "kiosk", "operator", "display", "hq"],
+      "enabled": true
+    },
+    {
+      "key": "commerce-catering",
+      "version": "1.0.0",
+      "surfaces": ["customer", "operator", "hq"],
+      "enabled": true
+    },
+    {
+      "key": "growth-drops",
+      "version": "1.0.0",
+      "surfaces": ["customer", "kiosk", "operator", "hq"],
+      "enabled": true
+    },
+    {
+      "key": "growth-stored-value",
+      "version": "1.0.0",
+      "surfaces": ["customer", "kiosk", "operator", "hq"],
+      "enabled": true
+    },
+    {
+      "key": "growth-referrals",
+      "version": "1.0.0",
+      "surfaces": ["customer", "hq"],
+      "enabled": true
+    }
+  ]
+}

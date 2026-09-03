@@ -1,0 +1,16 @@
+{
+  "$docs": {
+    "$self": "Stillpoint Builders is a construction franchise, not a shop. Every legacy commerce and growth flag in brand.json `features` is false, so LEGACY_FLAG_MODULE_MAP (packages/module-kit/src/registry.ts) contributes nothing: no catalog, no ordering, no drops, no stored value. multi_location is true and deliberately unmapped -- it is a capacity setting on the brands row, not a capability -- so it adds no module either.",
+    "construction-projects": "What this tenant actually runs, and the module the construction blueprint (industries/construction/blueprint.json) recommends first. It has no dependencies and reaches only the staff surfaces, which is why a tenant with no location, no menu and no commerce shape still resolves.",
+    "workforce-training": "The blueprint's other recommendation. Left out on purpose: a recommendation is not an entitlement, and nothing in brand.json or on disk says this tenant runs training yet."
+  },
+  "schemaVersion": 1,
+  "modules": [
+    {
+      "key": "construction-projects",
+      "version": "1.0.0",
+      "surfaces": ["operator", "hq"],
+      "enabled": true
+    }
+  ]
+}

@@ -207,3 +207,42 @@ describe('readiness regex repair', () => {
       /revoke all on function public\.platform_release_readiness\(\)[\s\S]+?to service_role;/);
   });
 });
+
+describe('delegated grant expiry and sweep', () => {
+  const sweepFile = readdirSync(migrationsDir)
+    .find((name) => /^\d{14}_delegated_grant_expiry_and_sweep\.sql$/.test(name));
+  assert.ok(sweepFile, 'the delegated grant expiry migration exists');
+  const sweep = readFileSync(join(migrationsDir, sweepFile), 'utf8');
+  const policy = /create policy delegated_access_grants_select[\s\S]+?;/.exec(sweep)?.[0] ?? '';
+
+  it('stops a revoked or expired grantee reading its own grant row', () => {
+    assert.match(policy, /grantee_user_id = \(select auth\.uid\(\)\)/,
+      'the init-plan hoist 20260902144208 exists for must survive');
+    assert.match(policy, /revoked_at is null/);
+    assert.match(policy, /expires_at > now\(\)/);
+  });
+
+  it('leaves the granting brand its whole history', () => {
+    // The predicates belong to the grantee branch alone: a brand that revoked a
+    // grant must still be able to see that it did.
+    assert.match(policy, /or app\.is_brand_owner\(brand_id\)/);
+    assert.equal(policy.match(/revoked_at is null/g)?.length, 1);
+  });
+
+  it('bounds row lifetime with a service-only sweeper', () => {
+    assert.match(sweep,
+      /create or replace function public\.prune_delegated_access_grants\(ended_before timestamptz\)[\s\S]+?set search_path = ''/);
+    assert.match(sweep, /delegated_grant_retention_cutoff_too_recent/,
+      'a cutoff inside the live window is refused');
+    assert.match(sweep, /set revoked_at = expires_at/,
+      'an expired grant is stamped at the moment it stopped authorizing');
+    assert.match(sweep,
+      /revoke all on function public\.prune_delegated_access_grants\(timestamptz\)[\s\S]+?to service_role;/);
+  });
+
+  it('registers its release rather than extending the frozen chain', () => {
+    assert.doesNotMatch(sweep, /create or replace function public\.platform_release_readiness\b/);
+    assert.match(sweep,
+      /select app\.register_release\(\s*'\d{14}',[\s\S]+?'app\.assert_delegated_grant_expiry\(\)'::regprocedure/);
+  });
+});

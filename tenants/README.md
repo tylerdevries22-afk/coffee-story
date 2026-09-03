@@ -31,6 +31,7 @@ requires the shared menu media contract and refreshes:
 | Input | Owns |
 | --- | --- |
 | `brand.json` | per-app identities/EAS projects, tokens, copy, features, business rules, location |
+| `modules.json` | installed capability modules, pinned versions, each module's configuration artifact, and the surfaces it may appear on |
 | `menu.csv` | item identity, category title, description, price, sizes |
 | `menu-categories.json` | stable category ids, order, display taglines |
 | `modifiers.json` | item option groups and price deltas |
@@ -39,6 +40,16 @@ requires the shared menu media contract and refreshes:
 | `assets/products/` | optional transparent shelf cut-outs |
 | `assets/hero/`, `gift/`, `rewards/` | customer campaign artwork |
 | `assets/logo.svg` or `logo.png` | generated icon, splash, adaptive, and web art |
+
+`pnpm onboard --tenant _template` validates the template itself and stops
+there: scaffolding has no identity to seed, so `--apply`, `--require-db` and
+`--owner-user-id` are refused for it. That is how the folder every tenant is
+copied from stays correct.
+
+`location` is required of a tenant that trades from one — anything shipping a
+`menu.csv` or an `operations.json`. A tenant with neither (a construction
+franchise runs projects, not a counter) may omit the block; onboarding then
+seeds no location row and writes no App Store draft, rather than failing.
 
 The customer app is one tenant per build. The operator app is one neutral
 listing and receives its brand after staff sign-in. Never copy one tenant's
