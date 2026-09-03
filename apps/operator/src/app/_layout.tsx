@@ -26,7 +26,7 @@ import { InstallPrompt } from '@/components/install-prompt';
 import { OperatorDevicePresence } from '@/features/device-wall/operator-presence';
 import { brandCache } from '@/lib/brand-cache';
 import { useOperationNotificationObserver } from '@/features/operations/push';
-import { analyticsQueueStore } from '@/state/analytics-queue-store';
+import { analyticsQueueStore } from '@platform/expo-storage';
 import { AppStateProvider } from '@/state/app-context';
 import { AuthProvider, useAuth } from '@/state/auth-context';
 import { DemoProvider, useDemo } from '@/state/demo-context';

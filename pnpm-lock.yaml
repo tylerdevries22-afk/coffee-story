@@ -77,6 +77,9 @@ importers:
       '@platform/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@platform/expo-storage':
+        specifier: workspace:*
+        version: link:../../packages/expo-storage
       '@platform/module-kit':
         specifier: workspace:*
         version: link:../../packages/module-kit
@@ -410,6 +413,9 @@ importers:
       '@platform/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@platform/expo-storage':
+        specifier: workspace:*
+        version: link:../../packages/expo-storage
       '@platform/module-kit':
         specifier: workspace:*
         version: link:../../packages/module-kit
@@ -567,6 +573,9 @@ importers:
       '@platform/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@platform/expo-storage':
+        specifier: workspace:*
+        version: link:../../packages/expo-storage
       '@platform/monitoring':
         specifier: workspace:*
         version: link:../../packages/monitoring
@@ -830,6 +839,22 @@ importers:
       '@supabase/supabase-js':
         specifier: ^2.111.0
         version: 2.112.3(@opentelemetry/api@1.9.1)
+
+  packages/expo-storage:
+    dependencies:
+      '@platform/analytics':
+        specifier: workspace:*
+        version: link:../analytics
+    devDependencies:
+      '@types/node':
+        specifier: ~24.6.2
+        version: 24.6.2
+      tsx:
+        specifier: ^4.20.6
+        version: 4.23.12
+      typescript:
+        specifier: ~5.9.2
+        version: 5.9.3
 
   packages/factory:
     dependencies:
