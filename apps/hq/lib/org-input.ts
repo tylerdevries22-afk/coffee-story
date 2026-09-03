@@ -5,9 +5,11 @@
  * a slug derived from it. It gets NO tokens, NO copy, NO business contact --
  * the theme resolver supplies neutral defaults when `brand_config.tokens` is
  * absent, so a new tenant looks like the platform's own neutral surface until
- * its owner brands it, never like Coffee Story or any other tenant. Industry
- * is left open (multi_location on so stores can be added; every other feature
- * off) so the same flow onboards a builder, a bakery, or a barbershop.
+ * its owner brands it, never like Coffee Story or any other tenant. It also
+ * gets NO capabilities: what an organization may run comes from
+ * `module_installations`, installed deliberately per tenant, so the same flow
+ * onboards a builder, a bakery, or a barbershop with nothing switched on that
+ * nobody asked for.
  *
  * Pure and asset-free so it is unit-tested and shared by the demo and the live
  * write.
@@ -17,21 +19,10 @@ import { slugify } from '@platform/domain';
 export type OrgDraft = {
   readonly slug: string;
   readonly name: string;
-  /** brand_config JSONB: identity + feature flags only, no tokens/copy. */
+  /** brand_config JSONB: identity only, no tokens, copy, or capability blob. */
   readonly brandConfig: {
     identity: { slug: string; name: string };
-    features: Record<string, boolean>;
   };
-};
-
-const BLANK_FEATURES: Record<string, boolean> = {
-  drops: false,
-  catering: false,
-  delivery: false,
-  multi_location: true,
-  sms: false,
-  stored_value: false,
-  referrals: false,
 };
 
 export function parseOrgDraft(input: { name?: string }): { ok: true; draft: OrgDraft } | { ok: false; error: string } {
@@ -46,7 +37,7 @@ export function parseOrgDraft(input: { name?: string }): { ok: true; draft: OrgD
     draft: {
       slug,
       name,
-      brandConfig: { identity: { slug, name }, features: { ...BLANK_FEATURES } },
+      brandConfig: { identity: { slug, name } },
     },
   };
 }

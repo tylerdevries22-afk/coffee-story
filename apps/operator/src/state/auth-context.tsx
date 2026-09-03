@@ -9,6 +9,7 @@ import { createRequestSequence, recoveryCodeFromUrl, recoveryRedirectUrl } from 
 import { resolveBusiness, setCurrentBusiness } from '@/data/business';
 import { wipePrintOutboxes } from '@/features/operator/print-outbox-storage';
 import { printSecureStorage } from '@/features/operator/print-secure-store';
+import { DEMO_OPERATIONS_ENABLED } from '@/features/operations/demo';
 import { loadStaffContext, type StaffLocation } from '@/lib/live-portal';
 import { hasSupabaseConfig, supabase } from '@/lib/supabase';
 import { useDemo } from '@/state/demo-context';
@@ -228,7 +229,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
     tenant: isDemo ? null : tenant,
     liveLocations: isDemo ? [] : liveLocations,
     brandName: isDemo ? null : brandName,
-    operationsEnabled: isDemo || operationsEnabled,
+    // Demo DEFAULTS the capability; it does not replace the check. `isDemo ||
+    // operationsEnabled` read as "demo, or else ask", which is the same
+    // sentence a fail-open gate is written in: any future path that set
+    // isDemo without meaning "fixtures only" would have granted operations
+    // outright. `operationsEnabled` itself initialises false and is reset to
+    // false on every load failure, so the live branch stays fail-closed.
+    operationsEnabled: isDemo ? DEMO_OPERATIONS_ENABLED : operationsEnabled,
     brandUserId: isDemo ? 'demo-member' : brandUserId,
     brandConfig: isDemo ? null : brandConfig,
     isLoading: demo.isHydrating || (!isDemo && (

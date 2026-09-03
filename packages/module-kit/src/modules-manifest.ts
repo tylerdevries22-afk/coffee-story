@@ -143,3 +143,22 @@ export function parseTenantModulesManifest(raw: unknown): TenantModulesResult {
   if (issues.length > 0) return { kind: 'invalid', issues };
   return { kind: 'ok', manifest: { schemaVersion: schemaVersion as number, modules } };
 }
+
+/**
+ * The enabled module keys of a bundled manifest, for a guest app resolving its
+ * own capability at boot.
+ *
+ * An unparseable manifest resolves to nothing rather than to a default set.
+ * This is build-time data: onboarding validates it and a drift test pins the
+ * bundled copy to the tenant folder, so an invalid one is a build defect that
+ * never reaches a device. At runtime there is no more truthful fallback than
+ * "this binary does not know", and inventing one is how a tenant ends up with
+ * another tenant's capabilities.
+ */
+export function installedModuleKeys(raw: unknown): readonly string[] {
+  const result = parseTenantModulesManifest(raw);
+  if (result.kind !== 'ok') return [];
+  return result.manifest.modules
+    .filter((install) => install.enabled)
+    .map((install) => install.key);
+}

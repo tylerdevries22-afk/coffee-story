@@ -12,6 +12,7 @@
     "@platform/device-wall": "workspace:*",
     "@platform/device-twin": "workspace:*",
     "@platform/domain": "workspace:*",
+    "@platform/module-kit": "workspace:*",
     "@platform/monitoring": "workspace:*",
     "@platform/schema": "workspace:*",
     "@platform/ui": "workspace:*",

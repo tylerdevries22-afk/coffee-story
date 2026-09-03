@@ -19,6 +19,7 @@ import { CustomerTelemetry } from '@/components/customer-telemetry';
 import { Button } from '@/components/ui';
 import { InstallPrompt } from '@/components/install-prompt';
 import { brandCache } from '@/lib/brand-cache';
+import { revalidateTenantCapabilities } from '@/lib/capability-check';
 import { AppStateProvider } from '@/state/app-context';
 import { AuthProvider } from '@/state/auth-context';
 import { CustomerCatalogProvider } from '@/state/catalog-context';
@@ -36,6 +37,11 @@ import {
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 void initMobileMonitoring();
+
+// At module scope and unawaited on purpose: what this binary may show is
+// already decided by the bundled module manifest, so the check exists to
+// refresh the offline snapshot and to surface drift, never to hold a frame.
+void revalidateTenantCapabilities();
 
 export default function RootLayout() {
   const [loaded, fontError] = useFonts({ Inter_400Regular, Inter_600SemiBold, Inter_700Bold, Fraunces_700Bold });

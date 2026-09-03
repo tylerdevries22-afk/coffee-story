@@ -77,6 +77,9 @@ importers:
       '@platform/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@platform/module-kit':
+        specifier: workspace:*
+        version: link:../../packages/module-kit
       '@platform/monitoring':
         specifier: workspace:*
         version: link:../../packages/monitoring
@@ -407,6 +410,9 @@ importers:
       '@platform/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@platform/module-kit':
+        specifier: workspace:*
+        version: link:../../packages/module-kit
       '@platform/monitoring':
         specifier: workspace:*
         version: link:../../packages/monitoring

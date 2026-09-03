@@ -4,6 +4,8 @@
  * console runs on the demo session so the whole surface is reviewable with
  * zero infrastructure. Role checks are the same code either way.
  */
+import { cache } from 'react';
+
 import { parseTenantClaims, type BrandRole, type TenantClaims } from '@platform/schema';
 
 import { DEMO_SESSION, type SessionInfo } from './demo-data';
@@ -15,8 +17,15 @@ export function isConfigured(): boolean {
     && Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 }
 
-/** Server-side: the current session, or the demo one when unconfigured. */
-export async function currentSession(): Promise<SessionInfo | null> {
+/**
+ * Server-side: the current session, or the demo one when unconfigured.
+ *
+ * Memoized per request. Every gated read asks who is signed in, and answering
+ * costs a GoTrue `getUser` plus a `getSession` -- two round trips that used to
+ * be repeated by the layout, the nav, and each of the ~46 console pages within
+ * a single render.
+ */
+export const currentSession = cache(async function currentSession(): Promise<SessionInfo | null> {
   if (!isConfigured()) return DEMO_SESSION;
   // Reuse the request-bound client so authentication and page reads share the
   // same cookie handling, ten-second deadline, and bounded safe-read retry.
@@ -43,7 +52,7 @@ export async function currentSession(): Promise<SessionInfo | null> {
     brandId: claims.brand_id,
     brandName: brandNameFromMetadata(metadata) ?? 'Your brand',
   };
-}
+});
 
 /**
  * The signed-in user's full tenancy claims.
@@ -56,8 +65,11 @@ export async function currentSession(): Promise<SessionInfo | null> {
  * Null when unconfigured: there is no demo fallback, because every caller of
  * this mutates real hardware and a fixture claim would authorize nothing
  * truthfully.
+ *
+ * Memoized per request for the same reason currentSession is, and reading the
+ * same two round trips.
  */
-export async function currentClaims(): Promise<TenantClaims | null> {
+export const currentClaims = cache(async function currentClaims(): Promise<TenantClaims | null> {
   if (!isConfigured()) return null;
   const { serverClient } = await import('./supabase-server');
   const client = await serverClient();
@@ -71,7 +83,7 @@ export async function currentClaims(): Promise<TenantClaims | null> {
   const accessToken = sessionData.session?.access_token;
   if (!accessToken) return null;
   return parseTenantClaims(tokenAppMetadata(accessToken));
-}
+});
 
 const ROLE_RANK: Record<BrandRole, number> = {
   staff: 0,

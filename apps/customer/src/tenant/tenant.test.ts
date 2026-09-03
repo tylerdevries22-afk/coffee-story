@@ -3,7 +3,12 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
 
-import { TENANT } from './index';
+import {
+  STOREFRONT_CAPABILITIES,
+  STOREFRONT_CAPABILITY_MODULE,
+} from '@platform/module-kit';
+
+import { TENANT, TENANT_MODULE_KEYS, tenantFeature } from './index';
 
 describe('bundled tenant config', () => {
   it('matches tenants/<slug>/brand.json exactly', () => {
@@ -14,6 +19,29 @@ describe('bundled tenant config', () => {
     );
     const bundled = JSON.parse(readFileSync(join(__dirname, 'brand.json'), 'utf8'));
     assert.deepEqual(bundled, source);
+  });
+
+  it('bundles the same tenant modules.json, which is what capability resolves from', () => {
+    // The manifest is the BOOT source for tenantFeature. A stale copy is a
+    // binary offering a capability its tenant no longer installs, or hiding
+    // one it does -- with no network read that would correct either.
+    const source = JSON.parse(
+      readFileSync(join(__dirname, `../../../../tenants/${TENANT.identity.slug}/modules.json`), 'utf8'),
+    );
+    const bundled = JSON.parse(readFileSync(join(__dirname, 'modules.json'), 'utf8'));
+    assert.deepEqual(bundled, source);
+  });
+
+  it('resolves every storefront capability from the manifest, not from brand.json', () => {
+    // brand.json still carries a `features` block for onboarding's own use;
+    // nothing on this path reads it any more.
+    for (const capability of STOREFRONT_CAPABILITIES) {
+      assert.equal(
+        tenantFeature(capability),
+        TENANT_MODULE_KEYS.includes(STOREFRONT_CAPABILITY_MODULE[capability]),
+        `${capability} does not follow its module`,
+      );
+    }
   });
 
   it('carries everything the app dereferences', () => {

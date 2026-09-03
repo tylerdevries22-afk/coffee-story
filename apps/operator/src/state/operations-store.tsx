@@ -368,7 +368,10 @@ export function OperationsProvider({ children }: PropsWithChildren) {
   const unreadCount = notifications.filter((notification) => notification.readAt === null).length;
   const pendingCount = queue?.records.filter((record) => record.status === 'pending').length ?? 0;
   const value = useMemo<OperationsState>(() => ({
-    enabled: isDemo || operationsEnabled,
+    // `operationsEnabled` has already resolved the demo case (auth-context);
+    // re-adding `isDemo ||` here would restore the fail-open sentence one
+    // layer down, where it would survive any fix made to the other.
+    enabled: operationsEnabled,
     occurrences: visibleOccurrences,
     issues,
     notifications,
@@ -384,7 +387,7 @@ export function OperationsProvider({ children }: PropsWithChildren) {
     complete,
     reportIssue,
     discardConflict,
-  }), [claim, complete, conflicts, error, isDemo, issues, loading, notifications, now, operationsEnabled,
+  }), [claim, complete, conflicts, error, issues, loading, notifications, now, operationsEnabled,
     pendingCount, refresh, release, reportIssue, discardConflict, unreadCount, visibleOccurrences]);
 
   return <OperationsContext.Provider value={value}>{children}</OperationsContext.Provider>;

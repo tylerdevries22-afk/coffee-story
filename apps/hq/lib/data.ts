@@ -49,6 +49,7 @@ import {
 } from './live-mappers';
 import type { KioskMenuFacts } from '@platform/domain';
 
+import { DEMO_MULTI_LOCATION } from './capabilities';
 import { serverClient } from './supabase-server';
 import { selectedLocationId, selectedOrgId } from './workspace-location';
 import { scopeRowsToLocation } from './location-scope';
@@ -144,14 +145,22 @@ export async function loadMenu(): Promise<MenuItemSummary[]> {
 }
 
 /**
- * Whether the selected brand may run more than one location. Gates the
- * "add location" affordance: a single-location brand has the flag off, so the
- * console does not invite a second store it is not licensed for. Demo brands
- * default to enabled so the wizard is reachable with no database.
+ * Whether the selected brand may run more than one location.
+ *
+ * Gates the "add location" affordance, which is a WRITE capability -- so the
+ * two cases are kept apart the way lib/capabilities keeps them apart. No
+ * client is demo/fixture mode and resolves to the demo answer; a configured
+ * deployment that asked and did not get an answer grants nothing. This used to
+ * return a bare `true` for both, which meant a production deployment that lost
+ * its Supabase env handed every brand owner unlimited location creation.
+ *
+ * Not a module: LEGACY_FLAG_MODULE_MAP deliberately leaves `multi_location`
+ * unmapped, because how many sites a tenant runs is a capacity setting on the
+ * brands row rather than a capability, so this still reads the column.
  */
 export async function loadMultiLocationEnabled(): Promise<boolean> {
   const client = await serverClient();
-  if (!client) return true;
+  if (!client) return DEMO_MULTI_LOCATION;
   const scope = await liveScope(client);
   if (!scope.orgId) return false;
   const orgId = scope.orgId;

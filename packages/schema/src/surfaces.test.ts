@@ -236,6 +236,12 @@ describe('the lobby kiosk read', () => {
     const ALLOWED = new Set([
       'menus', 'menu_categories', 'menu_items', 'menu_item_options',
       'drops', 'locations', 'brand_storefront_lookup', 'devices',
+      // The anonymous capability projection (20260903170000). Two columns,
+      // (slug, module_key), for the ACTIVE customer-facing installations of
+      // the one brand named -- no config, no state, no installed_by, no
+      // timestamp, and nothing about a module a kiosk-only surface runs. It is
+      // narrower than brand_storefront_lookup, which is already on this list.
+      'brand_storefront_capabilities',
     ]);
 
     // `.from` and `.rpc` alike: 0903005237 moved the storefront read behind an
