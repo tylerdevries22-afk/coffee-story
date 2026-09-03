@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "moduleId": "commerce-catalog",
+  "sources": {
+    "offerings": "menu.csv",
+    "folders": "menu-categories.json",
+    "modifierGroups": "modifiers.json",
+    "packs": "packs.json"
+  },
+  "folderLevels": {
+    "minimum": 0,
+    "maximum": 5
+  },
+  "resourceKinds": ["recipe"]
+}

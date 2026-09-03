@@ -7970,6 +7970,10 @@ export type Database = {
         }
         Returns: Json
       }
+      prune_delegated_access_grants: {
+        Args: { ended_before: string }
+        Returns: Json
+      }
       publish_manual_training_release: {
         Args: {
           expected_updated_at: string

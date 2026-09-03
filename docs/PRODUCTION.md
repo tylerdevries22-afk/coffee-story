@@ -20,7 +20,7 @@ Supabase directly under RLS; every trusted write goes through the API.
 | Operator app | `apps/operator` (Expo) | EAS update/build, plus Vercel web (`coffee-story-operator`) |
 | Kiosk app | `apps/kiosk` (Expo) | EAS update/build, plus Vercel web (`coffee-story-kiosk`) |
 | Pickup display | `apps/display` (Next.js) | Vercel (`coffee-story-display`), paired to a display device |
-| Scheduled jobs | `/api/jobs/run` | Vercel Cron (`apps/hq/vercel.json`, every 5 min); drop/campaign transitions, training bootstrap, analytics rollups, and retention |
+| Scheduled jobs | `/api/jobs/run` | Vercel Cron (`apps/hq/vercel.json`, every 5 min); drop/campaign transitions, training bootstrap, analytics rollups, retention, and delegated-grant expiry |
 
 Nothing deploys on an unreviewed merge. CI verifies; an owner starts
 `.github/workflows/deploy-hosted.yml` from GitHub Actions when a release is

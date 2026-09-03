@@ -1,0 +1,66 @@
+{
+  "$docs": {
+    "$self": "Derived from brand.json `features`. Every flag that is true maps through LEGACY_FLAG_MODULE_MAP (packages/module-kit/src/registry.ts) to the module that replaces it: drops, catering, delivery, stored_value, referrals and operations. multi_location and sms are deliberately unmapped -- they are capacity and integration settings on the brands row, not capabilities -- so no module appears for them here.",
+    "dependencies": "commerce-catalog and commerce-ordering are not flags. They are named because every commerce and growth module above depends on them, and resolveModules would pull them in regardless; listing them keeps the manifest an honest account of what is installed rather than a list of what was switched on.",
+    "device-wall": "Installed because modules/device-wall.json is authored for this tenant with `enabled: true`; the HQ console already reads that artifact directly."
+  },
+  "schemaVersion": 1,
+  "modules": [
+    {
+      "key": "commerce-catalog",
+      "version": "1.0.0",
+      "config": "modules/commerce-catalog/config.json",
+      "surfaces": ["customer", "kiosk", "operator", "hq"],
+      "enabled": true
+    },
+    {
+      "key": "commerce-ordering",
+      "version": "1.0.0",
+      "surfaces": ["customer", "kiosk", "operator", "display", "hq"],
+      "enabled": true
+    },
+    {
+      "key": "commerce-catering",
+      "version": "1.0.0",
+      "surfaces": ["customer", "operator", "hq"],
+      "enabled": true
+    },
+    {
+      "key": "commerce-delivery",
+      "version": "1.0.0",
+      "surfaces": ["customer", "operator", "hq"],
+      "enabled": true
+    },
+    {
+      "key": "growth-drops",
+      "version": "1.0.0",
+      "surfaces": ["customer", "kiosk", "operator", "hq"],
+      "enabled": true
+    },
+    {
+      "key": "growth-stored-value",
+      "version": "1.0.0",
+      "surfaces": ["customer", "kiosk", "operator", "hq"],
+      "enabled": true
+    },
+    {
+      "key": "growth-referrals",
+      "version": "1.0.0",
+      "surfaces": ["customer", "hq"],
+      "enabled": true
+    },
+    {
+      "key": "workforce-operations",
+      "version": "1.0.0",
+      "surfaces": ["operator", "hq"],
+      "enabled": true
+    },
+    {
+      "key": "device-wall",
+      "version": "1.0.0",
+      "config": "modules/device-wall.json",
+      "surfaces": ["operator", "kiosk", "display"],
+      "enabled": true
+    }
+  ]
+}
