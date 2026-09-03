@@ -3,21 +3,18 @@ import {
   createOrder,
   createSquareCheckoutLink,
   OrderError,
-  parseTaxJurisdictions,
-  type CreateOrderLine,
-  type OrderTenderType,
 } from '@platform/engine';
 
-import { parseGuestLabel, resolveOrderChannel } from '@platform/domain';
+import { resolveOrderChannel } from '@platform/domain';
 import { canPlaceOrders } from '@platform/engine';
 
-import { squareRuntimeFor, type BrandFeeRow } from '../../../lib/square-runtime';
-import { isTenantRedirect, tenantSchemeOf } from '../../../lib/tenant-redirect';
+import { orderErrorResponse, placeOrderResponseOf } from '../../../lib/order-outcome';
+import { validateOrderRequest } from '../../../lib/order-request';
+import { resolveOrderTender } from '../../../lib/order-tender';
 
 import {
   authenticateAny,
   corsPreflight,
-  idempotencyKeyOf,
   jsonError,
   jsonWithCors,
   notConfigured,
@@ -38,57 +35,11 @@ import {
  * webhook, not the browser's return trip, is what marks it paid).
  * square_card needs a native card SDK and waits for store builds; external is
  * POS-side bookkeeping, never a client request.
+ *
+ * Split by concern, in the order the handler runs them: the body guards live
+ * in lib/order-request, the brand read behind tender and tax in
+ * lib/order-tender, and the response and error statuses in lib/order-outcome.
  */
-
-const FULFILLMENT_TYPES = new Set(['pickup', 'curbside', 'catering', 'delivery']);
-const LIVE_TENDERS = new Set<OrderTenderType>(['pay_at_pickup', 'square_link']);
-
-function badLine(line: unknown): boolean {
-  const candidate = line as Partial<CreateOrderLine>;
-  return (
-    typeof candidate?.itemSlug !== 'string'
-    || candidate.itemSlug.length === 0
-    || candidate.itemSlug.length > 100
-    || typeof candidate.quantity !== 'number'
-    || (candidate.sizeSlug !== undefined && candidate.sizeSlug !== null && typeof candidate.sizeSlug !== 'string')
-    || (candidate.modifierSlugs !== undefined
-      && (!Array.isArray(candidate.modifierSlugs)
-        || candidate.modifierSlugs.length > 50
-        || candidate.modifierSlugs.some((slug) => typeof slug !== 'string')))
-    || (candidate.note !== undefined && (typeof candidate.note !== 'string' || candidate.note.length > 200))
-    || badPackContents(candidate.packContents)
-  );
-}
-
-function badPackContents(contents: CreateOrderLine['packContents']): boolean {
-  if (contents === undefined) return false;
-  if (!Array.isArray(contents) || contents.length < 1 || contents.length > 100) return true;
-  const slugs = new Set<string>();
-  for (const content of contents) {
-    if (!content || typeof content.itemSlug !== 'string' || content.itemSlug.length < 1
-      || content.itemSlug.length > 100 || !Number.isInteger(content.quantity)
-      || content.quantity < 1 || content.quantity > 100 || slugs.has(content.itemSlug)) return true;
-    slugs.add(content.itemSlug);
-  }
-  return false;
-}
-
-const ERROR_STATUS: Record<OrderError['code'], number> = {
-  invalid_request: 400,
-  quantity_invalid: 400,
-  size_required: 400,
-  size_unknown: 400,
-  modifier_unknown: 400,
-  modifier_invalid: 400,
-  catalog_invalid: 500,
-  location_unknown: 404,
-  ordering_paused: 409,
-  idempotency_conflict: 409,
-  price_changed: 409,
-  item_unavailable: 409,
-  refund_unavailable: 409,
-  cancel_unavailable: 409,
-};
 
 export async function POST(request: Request): Promise<Response> {
   const env = serverEnv();
@@ -110,103 +61,13 @@ export async function POST(request: Request): Promise<Response> {
   const body = await parseJsonBody<PlaceOrderRequest>(request);
   if (body instanceof Response) return body;
 
-  if (typeof body.locationId !== 'string' || body.locationId.length === 0) {
-    return jsonError(400, 'invalid_request', 'locationId is required.');
-  }
-  // A kiosk misconfigured to another store would otherwise book orders at the
-  // wrong location with no error at all. Refuse loudly rather than override:
-  // silently rewriting the location would hide a mis-paired tablet for weeks.
-  if (caller.kind === 'device' && body.locationId !== caller.device.location_id) {
-    return jsonError(403, 'location_mismatch', 'This device is paired to a different location.');
-  }
-  if (!FULFILLMENT_TYPES.has(body.fulfillmentType)) {
-    return jsonError(400, 'invalid_request', 'fulfillmentType must be pickup, curbside, catering or delivery.');
-  }
-  if (!Array.isArray(body.lines) || body.lines.length === 0 || body.lines.some(badLine)) {
-    return jsonError(400, 'invalid_request', 'lines must name menu items by slug with a quantity.');
-  }
-  if (typeof body.tipCents !== 'number') {
-    return jsonError(400, 'invalid_request', 'tipCents is required (integer cents; 0 for no tip).');
-  }
-  if ((body.loyaltyRedeemPoints ?? 0) !== 0) {
-    return jsonError(400, 'loyalty_redeem_unsupported',
-      'Point redemption on an order is not live yet; redeem rewards via /api/loyalty/redeem.');
-  }
-  if (body.scheduledFor !== undefined && body.scheduledFor !== null && typeof body.scheduledFor !== 'string') {
-    return jsonError(400, 'invalid_request', 'scheduledFor must be an ISO timestamp or null.');
-  }
-  if (body.note !== undefined && typeof body.note !== 'string') {
-    return jsonError(400, 'invalid_request', 'note must be a string.');
-  }
-  if (body.maximumTotalCents !== undefined
-    && (!Number.isInteger(body.maximumTotalCents) || body.maximumTotalCents < 0)) {
-    return jsonError(400, 'invalid_request', 'maximumTotalCents must be non-negative integer cents.');
-  }
-  // Enforced here rather than trusted from the client: `board_tickets` is
-  // granted to `anon` and the pickup display hangs where a whole room reads it,
-  // so this column is a broadcast channel and the server is the only thing
-  // standing in front of it.
-  const parsedGuestLabel = parseGuestLabel(body.guestLabel);
-  if (parsedGuestLabel.kind === 'rejected') {
-    return jsonError(400, 'invalid_request',
-      parsedGuestLabel.reason === 'too-long'
-        ? 'guestLabel must be 24 characters or fewer.'
-        : 'guestLabel may only contain letters, numbers, spaces and simple punctuation.');
-  }
-  const guestLabel = parsedGuestLabel.kind === 'ok' ? parsedGuestLabel.label : null;
-  const clientKey = idempotencyKeyOf(request);
-  if (clientKey === false) {
-    return jsonError(400, 'invalid_request', 'Idempotency-Key must be a UUID.');
-  }
-  if (clientKey === null) {
-    return jsonError(428, 'idempotency_key_required', 'Idempotency-Key is required for order placement.');
-  }
-  if (body.tenderType === 'square_card') {
-    return jsonError(503, 'tender_unavailable', 'In-app card payment needs a store build; use square_link or pay_at_pickup.');
-  }
-  if (!LIVE_TENDERS.has(body.tenderType)) {
-    return jsonError(400, 'invalid_request', 'tenderType must be pay_at_pickup or square_link.');
-  }
+  const validated = validateOrderRequest(request, body, caller);
+  if (validated instanceof Response) return validated;
+  const { guestLabel, clientKey } = validated;
 
-  const brand = await db
-    .from('brands')
-    .select('id, brand_config, fee_bps, fee_bps_tier2, tier_threshold_cents')
-    .eq('id', callerBrandId)
-    .single<{ id: string; brand_config: unknown } & BrandFeeRow>();
-  if (brand.error) return jsonError(500, 'internal', 'Could not load the brand.');
-
-  // Checked before the order is written: a card order with nowhere to pay is
-  // a row the guest can never settle and the board must never show.
-  let square = null;
-  if (body.tenderType === 'square_link') {
-    try {
-      square = await squareRuntimeFor(db, {
-        brandId: callerBrandId,
-        locationId: body.locationId,
-        brand: brand.data,
-      });
-    } catch {
-      return jsonError(500, 'internal', 'Could not read this location’s payment connection.');
-    }
-    if (!square) {
-      return jsonError(503, 'tender_unavailable', 'Card payments are not connected for this location yet; order with pay_at_pickup.');
-    }
-    // Square appends the transaction ids to whatever URL it is given, on a
-    // page wearing the brand's name, so the destination must be this
-    // tenant's own app. Fail closed: a brand that declares no scheme takes
-    // no redirect.
-    if (body.redirectUrl !== undefined
-      && !isTenantRedirect(body.redirectUrl, tenantSchemeOf(brand.data.brand_config))) {
-      return jsonError(400, 'invalid_request', 'redirectUrl must be this app’s own deep link.');
-    }
-  }
-
-  let taxJurisdictions;
-  try {
-    taxJurisdictions = parseTaxJurisdictions(brand.data.brand_config);
-  } catch (error) {
-    return jsonError(500, 'config_invalid', error instanceof Error ? error.message : 'Bad tax config.');
-  }
+  const tender = await resolveOrderTender(db, { brandId: callerBrandId, body });
+  if (tender instanceof Response) return tender;
+  const { square, taxJurisdictions } = tender;
 
   // A device has no auth user behind it, so it has no customer and no actor.
   // `orders.customer_id` is nullable (0005) and the loyalty earn already
@@ -241,15 +102,7 @@ export async function POST(request: Request): Promise<Response> {
       clientKey,
       taxJurisdictions,
     });
-    const response: PlaceOrderResponse = {
-      orderId: result.orderId,
-      status: result.status as PlaceOrderResponse['status'],
-      subtotalCents: result.subtotalCents,
-      taxCents: result.taxCents,
-      tipCents: result.tipCents,
-      totalCents: result.totalCents,
-      dailyNumber: result.dailyNumber,
-    };
+    const response: PlaceOrderResponse = placeOrderResponseOf(result);
 
     if (square) {
       // The order exists and is priced; this only mints the page to pay on.
@@ -268,7 +121,7 @@ export async function POST(request: Request): Promise<Response> {
     return jsonWithCors(response, result.replayed ? 200 : 201);
   } catch (error) {
     if (error instanceof OrderError) {
-      return jsonError(ERROR_STATUS[error.code], error.code, error.message);
+      return orderErrorResponse(error);
     }
     throw error;
   }
