@@ -10,14 +10,14 @@ import { platformApi } from '@/lib/api';
 import { useAppTokens, type AppTokens, AppIcon } from '@platform/ui';
 import { scoreTrainingQuiz } from '@platform/domain';
 
-export function TrainingLessonScreen({ moduleSlug, lessonSlug }: { moduleSlug: string; lessonSlug: string }) {
+export function TrainingLessonScreen({ trackSlug, lessonSlug }: { trackSlug: string; lessonSlug: string }) {
   const { colors, styles } = useTrainingLessonTheme();
   const { release, loading, error, isDemo } = useTrainingRelease();
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [result, setResult] = useState<{ score: number; passed: boolean } | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const module = release?.manifest.modules.find((candidate) => candidate.slug === moduleSlug);
-  const lesson = module?.lessons.find((candidate) => candidate.slug === lessonSlug);
+  const track = release?.manifest.tracks.find((candidate) => candidate.slug === trackSlug);
+  const lesson = track?.lessons.find((candidate) => candidate.slug === lessonSlug);
   const answerList = useMemo(() => lesson?.quiz.map((_, index) => answers[index] ?? -1) ?? [], [answers, lesson]);
   if (loading) return <LessonMessage text="Loading lesson…" />;
   if (error || !release || !lesson) return <LessonMessage text={error ?? 'This lesson is unavailable.'} />;
@@ -29,7 +29,7 @@ export function TrainingLessonScreen({ moduleSlug, lessonSlug }: { moduleSlug: s
       const scored = isDemo
         ? scoreTrainingQuiz(lesson.quiz, answerList)
         : platformApi
-          ? await platformApi.submitTrainingQuiz({ releaseId: release.id, moduleSlug, lessonSlug, answers: answerList })
+          ? await platformApi.submitTrainingQuiz({ releaseId: release.id, trackSlug, lessonSlug, answers: answerList })
           : { score: 0, passed: false };
       setResult(scored);
     } catch {
@@ -41,7 +41,7 @@ export function TrainingLessonScreen({ moduleSlug, lessonSlug }: { moduleSlug: s
 
   return (
     <SafeAreaView edges={['top']} style={styles.safe}>
-      <View style={styles.header}><Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => router.back()} style={styles.back}><AppIcon name="chevron.left" size={22} tintColor={colors.ink900} /></Pressable><Text numberOfLines={1} style={styles.headerTitle}>{module?.title ?? 'Training'}</Text><View style={styles.back} /></View>
+      <View style={styles.header}><Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => router.back()} style={styles.back}><AppIcon name="chevron.left" size={22} tintColor={colors.ink900} /></Pressable><Text numberOfLines={1} style={styles.headerTitle}>{track?.title ?? 'Training'}</Text><View style={styles.back} /></View>
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.eyebrow}>{lesson.estimatedMinutes} MINUTE LESSON</Text><Text style={styles.title}>{lesson.title}</Text><Text style={styles.objective}>{lesson.objective}</Text>
         <View style={styles.card}><Text style={styles.body}>{lesson.content}</Text></View>

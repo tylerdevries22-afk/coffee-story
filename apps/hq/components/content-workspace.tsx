@@ -12,8 +12,8 @@ export function ContentWorkspace({ initial }: { initial: ContentWorkspaceData })
   const reduceMotion = useReducedMotion();
   const counts = useMemo(() => contentCounts(initial), [initial]);
   const thumbnailCount = initial.items.filter((item) => item.imageUrl).length;
-  const trainingLinks = initial.training.manifest.modules.reduce((total, module) => (
-    total + module.lessons.reduce((lessonTotal, lesson) => lessonTotal + (lesson.menuItemSlugs?.length ?? 0), 0)
+  const trainingLinks = initial.training.manifest.tracks.reduce((total, track) => (
+    total + track.lessons.reduce((lessonTotal, lesson) => lessonTotal + (lesson.menuItemSlugs?.length ?? 0), 0)
   ), 0);
   return (
     <div className="content-workspace">

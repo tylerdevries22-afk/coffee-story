@@ -143,7 +143,8 @@ export type HealthResponse = {
 
 export type SubmitTrainingQuizRequest = {
   releaseId: string;
-  moduleSlug: string;
+  /** The track's portable slug -- the same value the progress rows key on. */
+  trackSlug: string;
   lessonSlug: string;
   answers: number[];
 };
