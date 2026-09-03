@@ -7671,6 +7671,13 @@ export type Database = {
         Args: { target_now?: string }
         Returns: Json
       }
+      brand_storefront_capabilities: {
+        Args: { p_slug?: string }
+        Returns: {
+          module_key: string
+          slug: string
+        }[]
+      }
       cancel_operation_occurrence: {
         Args: {
           target_action_id: string

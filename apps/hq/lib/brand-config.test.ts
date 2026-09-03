@@ -8,15 +8,12 @@ describe('brandEditorStateOf', () => {
     const state = brandEditorStateOf({
       tokens: { primary: '#123456', accent: 'red' },
       copy: { appName: ' North Star ', pointsName: '' },
-      features: { drops: true, sms: 'yes' },
       board: { tiers: [{ slug: 'local', label: 'Local', minLifetimePoints: 900, tone: 'accent', color: '#ABCDEF', icon: '◆' }] },
     });
     assert.equal(state.tokens.primary, '#123456');
     assert.equal(state.tokens.accent, '#4A5568');
     assert.equal(state.appName, 'North Star');
     assert.equal(state.pointsName, 'Points');
-    assert.equal(state.flags.drops, true);
-    assert.equal(state.flags.sms, false);
     assert.deepEqual(state.tiers, [{ slug: 'local', label: 'Local', minLifetimePoints: 900, tone: 'accent', color: '#ABCDEF', icon: '◆' }]);
   });
 
@@ -38,10 +35,18 @@ describe('brandEditorStateOf', () => {
 });
 
 describe('brandSettingsPatch', () => {
-  it('writes only the four config sections the editor owns', () => {
+  it('writes only the three config sections the editor owns', () => {
     const patch = brandSettingsPatch({ appName: 'A', pointsName: 'Stars' });
-    assert.deepEqual(Object.keys(patch).sort(), ['board', 'copy', 'features', 'tokens']);
+    assert.deepEqual(Object.keys(patch).sort(), ['board', 'copy', 'tokens']);
     assert.equal('kiosk' in patch, false);
     assert.equal('tax' in patch, false);
+  });
+
+  it('never sends a features section, which both writers now reject', () => {
+    // The section and the allow-lists that admit it were removed together
+    // (20260903184500). A patch that still carried it would fail every save
+    // rather than quietly writing a blob nothing reads.
+    const patch = brandSettingsPatch({ features: { drops: true }, appName: 'A' });
+    assert.equal('features' in patch, false);
   });
 });

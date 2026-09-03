@@ -7,6 +7,7 @@
 import { createServerClient } from '@supabase/ssr';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
+import { cache } from 'react';
 
 import { fetchWithRetry } from '@platform/api-client';
 
@@ -17,8 +18,18 @@ export function isConfigured(): boolean {
     && Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 }
 
-/** Null when the deployment carries no Supabase env — pages fall back to fixtures. */
-export async function serverClient(): Promise<SupabaseClient | null> {
+/**
+ * Null when the deployment carries no Supabase env — pages fall back to
+ * fixtures.
+ *
+ * Memoized per request. A console render used to construct one client per
+ * caller — the layout, the session, and every page-level loader — each reading
+ * the cookie store and installing its own fetch wrapper, for a client that is
+ * identical every time within one request. `cache` is request-scoped, so a
+ * server action still gets its own client and can still write refreshed
+ * cookies through it.
+ */
+export const serverClient = cache(async function serverClient(): Promise<SupabaseClient | null> {
   if (!isConfigured()) return null;
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -43,4 +54,4 @@ export async function serverClient(): Promise<SupabaseClient | null> {
       },
     },
   );
-}
+});

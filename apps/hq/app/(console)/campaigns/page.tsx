@@ -1,3 +1,4 @@
+import { selectedConsoleCapabilities } from '@/lib/console-capability';
 import { loadCampaigns } from '@/lib/data';
 // The console is live data behind a session: never prerender a fixture
 // snapshot at build time and serve it as if it were today's numbers.
@@ -5,6 +6,17 @@ export const dynamic = 'force-dynamic';
 
 
 export default async function CampaignsPage() {
+  // Same reason as /drops: the rail gate and the route gate are two different
+  // gates, and only one of them is reached by pasting a URL.
+  const capabilities = await selectedConsoleCapabilities();
+  if (!capabilities.growth) {
+    return (
+      <>
+        <h1>Campaigns</h1>
+        <div className="notice">This brand has no growth module installed to campaign for.</div>
+      </>
+    );
+  }
   const campaigns = await loadCampaigns();
   return (
     <>

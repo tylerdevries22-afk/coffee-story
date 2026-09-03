@@ -9,12 +9,12 @@ import { useMemo, useState } from 'react';
 
 import { saveBrandConfig } from '@/app/(console)/brand/actions';
 import {
-  BRAND_FLAGS,
   EDITABLE_TOKEN_KEYS,
   brandEditorStateOf,
   isBrandHex,
   type EditableTier,
 } from '@/lib/brand-config';
+import { TierBadgePreview } from '@/components/tier-badge-preview';
 
 /**
  * The status ladder, as the in-store order board draws it.
@@ -36,7 +36,6 @@ export function BrandConfigEditor({
   const [tokens, setTokens] = useState(initialState.tokens);
   const [appName, setAppName] = useState(initialState.appName);
   const [pointsName, setPointsName] = useState(initialState.pointsName);
-  const [flags, setFlags] = useState(initialState.flags);
   const [tiers, setTiers] = useState<EditableTier[]>(initialState.tiers);
   const [updatedAt, setUpdatedAt] = useState(initialUpdatedAt);
   const [pending, setPending] = useState(false);
@@ -58,7 +57,6 @@ export function BrandConfigEditor({
       const result = await saveBrandConfig({
         tokens,
         copy: { appName, pointsName },
-        features: flags,
         board: { tiers },
       }, updatedAt);
       setMessage(result.ok ? 'Saved. Apps receive these settings on their next config read.' : result.error);
@@ -90,20 +88,6 @@ export function BrandConfigEditor({
           <h2>Copy</h2>
           <label className="field">App name<input value={appName} onChange={(event) => setAppName(event.target.value)} /></label>
           <label className="field">Points name<input value={pointsName} onChange={(event) => setPointsName(event.target.value)} /></label>
-        </div>
-        <div className="card">
-          <h2>Feature flags</h2>
-          {BRAND_FLAGS.map((flag) => (
-            <label className="field" key={flag} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <input
-                type="checkbox"
-                style={{ width: 'auto' }}
-                checked={Boolean(flags[flag])}
-                onChange={() => setFlags((current) => ({ ...current, [flag]: !current[flag] }))}
-              />
-              {flag}
-            </label>
-          ))}
         </div>
         <div className="card">
           <h2>Status badges</h2>
@@ -178,11 +162,6 @@ export function BrandConfigEditor({
               ● Ends in 4h 12m
             </div>
           </div>
-          {flags.drops ? null : (
-            <div style={{ color: applied.textMuted, fontSize: 12, marginBottom: 8 }}>
-              (drops off: the hero shows house favorites instead)
-            </div>
-          )}
           <div style={{
             background: applied.primary, color: applied.surfaceElevated, borderRadius: 999,
             padding: '14px 20px', textAlign: 'center', fontWeight: 700, fontFamily: 'var(--font)',
@@ -192,42 +171,5 @@ export function BrandConfigEditor({
         </div>
       </div>
     </div>
-  );
-}
-
-/**
- * The badge exactly as apps/display draws it.
- *
- * Same wash, same border weight, same mark-in-front order — deliberately a
- * duplicate of the CSS rather than an import, because that stylesheet is a
- * wall screen's and this is a desk console's, and coupling them would mean a
- * board tweak silently restyling the admin. What must not drift is the
- * *rule* (26% wash, 42% border, ink type, mark leads), and that is stated in
- * both places and checked by apps/display's own tests.
- */
-function TierBadgePreview({
-  tier,
-  surface = '#FFFFFF',
-  ink = '#241710',
-}: {
-  tier: EditableTier;
-  surface?: string;
-  ink?: string;
-}) {
-  const color = isBrandHex(tier.color) ? tier.color : '#57534E';
-  return (
-    <span
-      className="tier-badge"
-      style={{
-        background: `color-mix(in srgb, ${color} 26%, ${surface})`,
-        borderColor: `color-mix(in srgb, ${color} 42%, transparent)`,
-        color: ink,
-      }}
-    >
-      <i aria-hidden="true" style={{ color: `color-mix(in srgb, ${color} 78%, ${ink})` }}>
-        {tier.icon || '✦'}
-      </i>
-      {tier.label}
-    </span>
   );
 }

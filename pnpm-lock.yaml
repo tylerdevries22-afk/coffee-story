@@ -80,6 +80,9 @@ importers:
       '@platform/expo-storage':
         specifier: workspace:*
         version: link:../../packages/expo-storage
+      '@platform/module-kit':
+        specifier: workspace:*
+        version: link:../../packages/module-kit
       '@platform/monitoring':
         specifier: workspace:*
         version: link:../../packages/monitoring
@@ -413,6 +416,9 @@ importers:
       '@platform/expo-storage':
         specifier: workspace:*
         version: link:../../packages/expo-storage
+      '@platform/module-kit':
+        specifier: workspace:*
+        version: link:../../packages/module-kit
       '@platform/monitoring':
         specifier: workspace:*
         version: link:../../packages/monitoring

@@ -13,7 +13,7 @@ export default async function BrandPage() {
   return (
     <>
       <h1>Brand config</h1>
-      <p className="subtitle">Tokens, flags, and copy — hydrated into both apps on their next launch. The preview is live.</p>
+      <p className="subtitle">Tokens, copy, and status badges — hydrated into both apps on their next launch. The preview is live. What this brand may <em>run</em> is decided by its installed modules, not here.</p>
       <BrandConfigEditor initialConfig={config} updatedAt={updatedAt} />
     </>
   );

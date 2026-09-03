@@ -11,6 +11,7 @@
     "@platform/data": "workspace:*",
     "@platform/domain": "workspace:*",
     "@platform/expo-storage": "workspace:*",
+    "@platform/module-kit": "workspace:*",
     "@platform/monitoring": "workspace:*",
     "@platform/schema": "workspace:*",
     "@platform/ui": "workspace:*",

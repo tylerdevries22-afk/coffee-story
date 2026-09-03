@@ -15,6 +15,8 @@ const STAFF_ACCESS: ConsoleNavigationAccess = {
   canViewAnalytics: false,
   canViewIntegrations: false,
   canManageOperations: false,
+  canManageDrops: false,
+  canManageCampaigns: false,
 };
 
 const FULL_ACCESS: ConsoleNavigationAccess = {
@@ -25,6 +27,8 @@ const FULL_ACCESS: ConsoleNavigationAccess = {
   canViewAnalytics: true,
   canViewIntegrations: true,
   canManageOperations: true,
+  canManageDrops: true,
+  canManageCampaigns: true,
 };
 
 function destinationsFor(access: ConsoleNavigationAccess): string[] {
@@ -86,10 +90,34 @@ describe('consoleSectionsFor', () => {
       '/apps/kiosk',
       '/apps/display',
       '/menu',
-      '/drops',
-      '/campaigns',
       '/customers',
     ]);
+  });
+
+  it('hides the module sections a brand has not installed', () => {
+    // The gate that did not exist: drops and campaigns rendered for every
+    // tenant, so a brand that runs neither was invited into both.
+    const installed = destinationsFor({ ...STAFF_ACCESS, canManageDrops: true, canManageCampaigns: true });
+    assert.ok(installed.includes('/drops'));
+    assert.ok(installed.includes('/campaigns'));
+
+    const uninstalled = destinationsFor(STAFF_ACCESS);
+    assert.equal(uninstalled.includes('/drops'), false);
+    assert.equal(uninstalled.includes('/campaigns'), false);
+  });
+
+  it('reports on operations only where operations is installed', () => {
+    // /analytics/operations sat under canViewAnalytics alone, so it survived
+    // the very check that hides the section it reports on.
+    const analyticsOnly = destinationsFor({ ...STAFF_ACCESS, canViewAnalytics: true });
+    assert.ok(analyticsOnly.includes('/analytics'));
+    assert.equal(analyticsOnly.includes('/analytics/operations'), false);
+    assert.equal(analyticsOnly.includes('/operations'), false);
+
+    const withOperations = destinationsFor({
+      ...STAFF_ACCESS, canViewAnalytics: true, canManageOperations: true,
+    });
+    assert.ok(withOperations.includes('/analytics/operations'));
   });
 
   it('places every destination in a unique section with a valid section home', () => {

@@ -11,14 +11,16 @@ test('a name becomes a slug and a blank-slate brand config', () => {
   assert.deepEqual(result.draft.brandConfig.identity, { slug: 'harbor-bakery', name: 'Harbor Bakery' });
 });
 
-test('a blank-slate org carries no tokens and no copy', () => {
+test('a blank-slate org carries no tokens, no copy, and no capability blob', () => {
   const result = parseOrgDraft({ name: 'Harbor Bakery' });
   assert.ok(result.ok);
   // Neutral defaults come from the theme resolver, never baked in here.
   assert.equal('tokens' in result.draft.brandConfig, false);
   assert.equal('copy' in result.draft.brandConfig, false);
-  assert.equal(result.draft.brandConfig.features.multi_location, true);
-  assert.equal(result.draft.brandConfig.features.drops, false);
+  // What a new organization may run is decided by installing modules, not by
+  // a blob the settings writers no longer accept.
+  assert.equal('features' in result.draft.brandConfig, false);
+  assert.deepEqual(Object.keys(result.draft.brandConfig), ['identity']);
 });
 
 test('an empty name is rejected', () => {

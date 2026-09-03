@@ -733,8 +733,20 @@ async function run() {
     join(process.cwd(), 'apps', 'customer', 'src', 'tenant', 'brand.json'),
     join(process.cwd(), 'apps', 'kiosk', 'src', 'tenant', 'brand.json'),
   ];
+  // modules.json travels with brand.json, and for the same reason: it is what
+  // the two guest apps resolve capability from at boot, so a tenant switch
+  // that moved the brand and left the module manifest behind would ship one
+  // tenant's identity with another tenant's capabilities.
+  const BUNDLED_MODULE_COPIES = [
+    join(process.cwd(), 'apps', 'customer', 'src', 'tenant', 'modules.json'),
+    join(process.cwd(), 'apps', 'kiosk', 'src', 'tenant', 'modules.json'),
+  ];
+  const modulesPath = join(tenantDir, 'modules.json');
   if (apply) {
     for (const destination of BUNDLED_COPIES) copyFileSync(brandPath, destination);
+    if (existsSync(modulesPath)) {
+      for (const destination of BUNDLED_MODULE_COPIES) copyFileSync(modulesPath, destination);
+    }
     applyAppBundles(tenantDir, brand, compiled.menu);
     console.log(`5. applied: apps/customer and apps/kiosk now bundle ${slug} (build with TENANT=${slug})`);
   } else {

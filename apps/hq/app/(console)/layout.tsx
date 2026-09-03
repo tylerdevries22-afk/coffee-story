@@ -3,11 +3,12 @@ import { headers } from 'next/headers';
 import { after } from 'next/server';
 
 import { currentSession, hasRole } from '@/lib/auth';
-import { isConfigured } from '@/lib/supabase-server';
+import { activeModuleKeys, consoleCapabilitiesOf } from '@/lib/capabilities';
+import { brandConfigFor } from '@/lib/brand-scope';
+import { isConfigured, serverClient } from '@/lib/supabase-server';
 import { Icon } from '@/components/icon';
 import { ConsoleShell } from '@/components/console-shell';
 import { consoleSectionsFor } from '@/lib/console-navigation';
-import { serverClient } from '@/lib/supabase-server';
 import { hqTheme } from '@/lib/theme';
 import { recordHqScreen } from '@/lib/hq-telemetry';
 import { readWorkspaceScope, orgSlug } from '@/lib/workspace-scope';
@@ -54,11 +55,11 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
   if (pathname.startsWith('/wall/preview/')) return children;
   const scope = session ? await readWorkspaceScope(session) : null;
   const selectedBrandId = scope?.organizationId ?? session?.brandId ?? null;
-  const brand = client && selectedBrandId
-    ? await client.from('brands').select('brand_config, operations').eq('id', selectedBrandId)
-      .maybeSingle<{ brand_config: unknown; operations: boolean }>()
-    : null;
-  const brandConfig = brand && !brand.error ? brand.data?.brand_config : null;
+  const [brandConfig, moduleKeys] = await Promise.all([
+    brandConfigFor(selectedBrandId),
+    activeModuleKeys(selectedBrandId),
+  ]);
+  const capabilities = consoleCapabilitiesOf(moduleKeys);
   if (client && session && pathname && !pathname.startsWith('/wall/preview/')) {
     const [sessionData, authenticatedUser] = await Promise.all([
       client.auth.getSession(),
@@ -106,7 +107,6 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
   const canManagePlatform = hasRole(session, 'platform_admin');
   const canManageBrand = hasRole(session, 'brand_owner');
   const canViewManagement = hasRole(session, 'location_manager');
-  const operationsEnabled = client ? brand?.data?.operations === true : true;
   const consoleSections = consoleSectionsFor({
     menuHref,
     canManageTraining,
@@ -114,7 +114,12 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
     canManageBrand,
     canViewAnalytics: canViewManagement,
     canViewIntegrations: canViewManagement,
-    canManageOperations: canViewManagement && operationsEnabled,
+    // Role AND capability, in that order: a manager of a brand that has not
+    // installed the module manages nothing, and a brand that has installed it
+    // still does not hand the rail to a barista.
+    canManageOperations: canViewManagement && capabilities.operations,
+    canManageDrops: capabilities.drops,
+    canManageCampaigns: capabilities.growth,
   });
   return (
     <ConsoleShell

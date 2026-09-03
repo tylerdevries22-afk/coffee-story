@@ -1,13 +1,13 @@
-export const BRAND_FLAGS = [
-  'drops',
-  'catering',
-  'delivery',
-  'multi_location',
-  'sms',
-  'stored_value',
-  'referrals',
-] as const;
-
+/**
+ * The brand-settings editor: tokens, copy, and the status ladder.
+ *
+ * It used to own a seventh section -- a row of feature-flag checkboxes writing
+ * `brand_config.features`. Nothing on the platform read that blob: every
+ * runtime capability decision now comes from `module_installations`, and a
+ * checkbox that persists a value no reader consults is worse than no control
+ * at all, because it looks like it switched something on. Both settings
+ * writers reject the section outright as of 20260903184500.
+ */
 export const EDITABLE_TOKEN_KEYS = [
   'primary',
   'surface',
@@ -30,7 +30,6 @@ export type BrandEditorState = {
   tokens: EditableTokens;
   appName: string;
   pointsName: string;
-  flags: Record<(typeof BRAND_FLAGS)[number], boolean>;
   tiers: EditableTier[];
 };
 
@@ -74,7 +73,6 @@ export function brandEditorStateOf(config: unknown): BrandEditorState {
   const root = objectOf(config);
   const storedTokens = objectOf(root.tokens);
   const storedCopy = objectOf(root.copy);
-  const storedFlags = objectOf(root.features);
   const board = objectOf(root.board);
   const tokens = { ...DEFAULT_TOKENS };
   for (const key of EDITABLE_TOKEN_KEYS) {
@@ -108,7 +106,6 @@ export function brandEditorStateOf(config: unknown): BrandEditorState {
     tokens,
     appName: shortText(storedCopy.appName, 'Your Brand', 80),
     pointsName: shortText(storedCopy.pointsName, 'Points', 40),
-    flags: Object.fromEntries(BRAND_FLAGS.map((flag) => [flag, storedFlags[flag] === true])) as BrandEditorState['flags'],
     tiers: tiers.length > 0 ? tiers : DEFAULT_TIERS.map((tier) => ({ ...tier })),
   };
 }
@@ -119,7 +116,6 @@ export function brandSettingsPatch(draft: unknown): Record<string, unknown> {
   return {
     tokens: state.tokens,
     copy: { appName: state.appName, pointsName: state.pointsName },
-    features: state.flags,
     board: { tiers: state.tiers },
   };
 }
