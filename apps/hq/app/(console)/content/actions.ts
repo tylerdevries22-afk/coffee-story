@@ -5,14 +5,14 @@ import { createHash, randomUUID } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { start } from 'workflow/api';
 import { revalidatePath } from 'next/cache';
-import { normalizeTrainingManifest } from '@platform/domain';
+import { liftTrainingManifest } from '@platform/domain';
 
 import { currentSession, hasRole } from '@/lib/auth';
 import {
   validateMenuItemDraft,
   validateTrainingDraft,
   isMenuItemDraft,
-  isTrainingDraftPayload,
+  parseTrainingDraftPayload,
   imageExtensionFor,
   slugFromLabel,
   type ContentCategory,
@@ -616,9 +616,9 @@ export async function saveTrainingDraft(
   input: unknown,
   expectedUpdatedAt: string | null,
 ): Promise<Failure | { ok: true; releaseId: string; version: number; updatedAt: string; persisted: boolean }> {
-  if (!isTrainingDraftPayload(input)) return { ok: false, error: 'The training draft payload is invalid.' };
-  const manifest: TrainingManifest = input;
-  const draft = { ...normalizeTrainingManifest(manifest), generatedAt: new Date().toISOString() };
+  const manifest = parseTrainingDraftPayload(input);
+  if (!manifest) return { ok: false, error: 'The training draft payload is invalid.' };
+  const draft = { ...manifest, generatedAt: new Date().toISOString() };
   const issues = validateTrainingDraft(draft);
   if (issues.length > 0) return { ok: false, error: issues.join(' ') };
   const context = await managerContext('content.training.save');
@@ -629,7 +629,7 @@ export async function saveTrainingDraft(
   const menuSlugs = await context.privileged.from('menu_items').select('slug').eq('brand_id', context.brandId).returns<{ slug: string }[]>();
   if (menuSlugs.error) return { ok: false, error: 'The tenant menu could not be checked for training links.' };
   const knownMenuSlugs = new Set((menuSlugs.data ?? []).map((item) => item.slug));
-  const missingMenuLinks = draft.modules.flatMap((module) => module.lessons.flatMap((lesson) => (lesson.menuItemSlugs ?? []).filter((slug) => !knownMenuSlugs.has(slug)).map((slug) => `${module.slug}/${lesson.slug}: ${slug}`)));
+  const missingMenuLinks = draft.tracks.flatMap((track) => track.lessons.flatMap((lesson) => (lesson.menuItemSlugs ?? []).filter((slug) => !knownMenuSlugs.has(slug)).map((slug) => `${track.slug}/${lesson.slug}: ${slug}`)));
   if (missingMenuLinks.length > 0) return { ok: false, error: `Training links reference missing menu items: ${missingMenuLinks.slice(0, 5).join(', ')}` };
   const prepared = prepareTrainingRelease(draft);
   const existing = await context.privileged.from('training_releases')
@@ -688,13 +688,15 @@ export async function publishTrainingDraft(
   if (expectedUpdatedAt && expectedUpdatedAt !== release.data.updated_at) {
     return { ok: false, error: 'This training draft changed in another session. Reload before publishing.' };
   }
-  const authoring = normalizeTrainingManifest(restoreAnswersForPublish(release.data.manifest, release.data.answer_key));
+  const stored = liftTrainingManifest(release.data.manifest);
+  if (!stored) return { ok: false, error: 'The saved training draft is unreadable. Reload and save it again.' };
+  const authoring = restoreAnswersForPublish(stored, release.data.answer_key);
   const issues = validateTrainingManifest(authoring);
   if (issues.length > 0) return { ok: false, error: `Publishing is blocked: ${issues.join('; ')}` };
   const menuSlugs = await context.privileged.from('menu_items').select('slug').eq('brand_id', context.brandId).returns<{ slug: string }[]>();
   if (menuSlugs.error) return { ok: false, error: 'The tenant menu could not be checked for training links.' };
   const knownMenuSlugs = new Set((menuSlugs.data ?? []).map((item) => item.slug));
-  const missingMenuLinks = authoring.modules.flatMap((module) => module.lessons.flatMap((lesson) => (lesson.menuItemSlugs ?? []).filter((slug) => !knownMenuSlugs.has(slug)).map((slug) => `${module.slug}/${lesson.slug}: ${slug}`)));
+  const missingMenuLinks = authoring.tracks.flatMap((track) => track.lessons.flatMap((lesson) => (lesson.menuItemSlugs ?? []).filter((slug) => !knownMenuSlugs.has(slug)).map((slug) => `${track.slug}/${lesson.slug}: ${slug}`)));
   if (missingMenuLinks.length > 0) return { ok: false, error: `Publishing is blocked by missing menu links: ${missingMenuLinks.slice(0, 5).join(', ')}` };
   const published = await context.privileged.rpc('publish_manual_training_release', {
     target_brand: context.brandId,
@@ -714,12 +716,12 @@ function restoreAnswersForPublish(
 ): TrainingManifest {
   return {
     ...manifest,
-    modules: manifest.modules.map((module) => ({
-      ...module,
-      lessons: module.lessons.map((lesson) => ({
+    tracks: manifest.tracks.map((track) => ({
+      ...track,
+      lessons: track.lessons.map((lesson) => ({
         ...lesson,
         quiz: lesson.quiz.map((question, index) => ({
-          ...question, correctChoice: answerKey[module.slug]?.[lesson.slug]?.[index],
+          ...question, correctChoice: answerKey[track.slug]?.[lesson.slug]?.[index],
         })),
       })),
     })),

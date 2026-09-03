@@ -6,21 +6,21 @@ import { TrainingArtwork } from '@/components/training-artwork';
 import { useTrainingRelease } from '@/features/training/use-training-release';
 import { useAppTokens, type AppTokens, AppIcon } from '@platform/ui';
 
-export function TrainingModuleScreen({ moduleSlug }: { moduleSlug: string }) {
-  const { colors, styles } = useTrainingModuleTheme();
+export function TrainingTrackScreen({ trackSlug }: { trackSlug: string }) {
+  const { colors, styles } = useTrainingTrackTheme();
   const { release, loading, error } = useTrainingRelease();
-  const module = release?.manifest.modules.find((candidate) => candidate.slug === moduleSlug);
-  if (loading) return <TrainingMessage text="Loading module…" />;
-  if (error || !release || !module) return <TrainingMessage text={error ?? 'This training module is unavailable.'} />;
+  const track = release?.manifest.tracks.find((candidate) => candidate.slug === trackSlug);
+  if (loading) return <TrainingMessage text="Loading track…" />;
+  if (error || !release || !track) return <TrainingMessage text={error ?? 'This training track is unavailable.'} />;
   return (
     <SafeAreaView edges={['top']} style={styles.safe}>
       <Header title="Training" />
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.hero}><View style={styles.heroIcon}><TrainingArtwork url={module.icon.url} alt={`${module.title} module artwork`} fallback="book.closed" size={58} radius={16} tintColor={colors.brand700} backgroundColor={colors.brand100} /></View><Text style={styles.title}>{module.title}</Text><Text style={styles.summary}>{module.summary}</Text></View>
+        <View style={styles.hero}><View style={styles.heroIcon}><TrainingArtwork url={track.icon.url} alt={`${track.title} track artwork`} fallback="book.closed" size={58} radius={16} tintColor={colors.brand700} backgroundColor={colors.brand100} /></View><Text style={styles.title}>{track.title}</Text><Text style={styles.summary}>{track.summary}</Text></View>
         <Text style={styles.sectionTitle}>Lessons</Text>
-        {module.lessons.length === 0 ? <View style={styles.empty}><AppIcon name="book.closed" size={24} tintColor={colors.ink400} /><Text style={styles.meta}>This track has no lessons published yet.</Text></View> : null}
-        {module.lessons.map((lesson, index) => (
-          <Pressable key={lesson.slug} accessibilityRole="button" onPress={() => router.push(`/staff/training/${encodeURIComponent(module.slug)}/${encodeURIComponent(lesson.slug)}` as Href)} style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
+        {track.lessons.length === 0 ? <View style={styles.empty}><AppIcon name="book.closed" size={24} tintColor={colors.ink400} /><Text style={styles.meta}>This track has no lessons published yet.</Text></View> : null}
+        {track.lessons.map((lesson, index) => (
+          <Pressable key={lesson.slug} accessibilityRole="button" onPress={() => router.push(`/staff/training/${encodeURIComponent(track.slug)}/${encodeURIComponent(lesson.slug)}` as Href)} style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
             <View style={styles.number}><Text style={styles.numberText}>{index + 1}</Text></View>
             <View style={styles.copy}><Text style={styles.cardTitle}>{lesson.title}</Text><Text style={styles.meta}>{lesson.estimatedMinutes} min · {lesson.quiz.length} questions</Text></View>
             <AppIcon name="chevron.right" size={16} tintColor={colors.ink400} />
@@ -32,16 +32,16 @@ export function TrainingModuleScreen({ moduleSlug }: { moduleSlug: string }) {
 }
 
 function Header({ title }: { title: string }) {
-  const { colors, styles } = useTrainingModuleTheme();
+  const { colors, styles } = useTrainingTrackTheme();
   return <View style={styles.header}><Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => router.back()} style={styles.back}><AppIcon name="chevron.left" size={22} tintColor={colors.ink900} /></Pressable><Text style={styles.headerTitle}>{title}</Text><View style={styles.back} /></View>;
 }
 
 function TrainingMessage({ text }: { text: string }) {
-  const { colors, styles } = useTrainingModuleTheme();
+  const { colors, styles } = useTrainingTrackTheme();
   return <SafeAreaView style={styles.message}><AppIcon name="book.closed" size={28} tintColor={colors.ink400} /><Text style={styles.summary}>{text}</Text><Pressable onPress={() => router.back()} style={styles.messageButton}><Text style={styles.messageButtonText}>Go back</Text></Pressable></SafeAreaView>;
 }
 
-function useTrainingModuleTheme() {
+function useTrainingTrackTheme() {
   const appTokens = useAppTokens();
   return { colors: appTokens.colors, styles: createStyles(appTokens) };
 }

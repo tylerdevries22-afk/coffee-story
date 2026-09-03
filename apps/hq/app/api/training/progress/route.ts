@@ -1,4 +1,4 @@
-import type { TrainingManifest } from '@platform/domain';
+import { liftTrainingManifest } from '@platform/domain';
 
 import {
   authenticate,
@@ -22,7 +22,7 @@ import {
 type ProgressBody = {
   attemptId?: string;
   releaseId?: string;
-  moduleSlug?: string;
+  trackSlug?: string;
   lessonSlug?: string;
   answers?: number[];
 };
@@ -44,22 +44,19 @@ export async function POST(request: Request): Promise<Response> {
   const body = await parseJsonBody<ProgressBody>(request);
   if (body instanceof Response) return body;
   if (!body.attemptId || !UUID.test(body.attemptId) || !body.releaseId || !UUID.test(body.releaseId)
-    || !body.moduleSlug || !SLUG.test(body.moduleSlug) || !body.lessonSlug || !SLUG.test(body.lessonSlug)
+    || !body.trackSlug || !SLUG.test(body.trackSlug) || !body.lessonSlug || !SLUG.test(body.lessonSlug)
     || !Array.isArray(body.answers) || body.answers.some((answer) => !Number.isInteger(answer) || answer < 0)) {
     return jsonError(400, 'invalid_attempt', 'The quiz attempt is incomplete or invalid.');
   }
   const release = await db.from('training_releases').select('manifest, answer_key').eq('id', body.releaseId).eq('brand_id', auth.claims.brand_id).eq('status', 'published').maybeSingle<{ manifest: unknown; answer_key: unknown }>();
   if (release.error) return jsonError(500, 'training_lookup_failed', 'Could not load the training release.');
-  const rawManifest = release.data?.manifest;
-  if (!rawManifest || typeof rawManifest !== 'object' || !Array.isArray((rawManifest as Partial<TrainingManifest>).modules)) {
-    return jsonError(500, 'invalid_release', 'The published training release is invalid.');
-  }
-  const manifest = rawManifest as TrainingManifest;
-  const module = manifest.modules.find((candidate) => candidate.slug === body.moduleSlug);
-  const lesson = module?.lessons.find((candidate) => candidate.slug === body.lessonSlug);
+  const manifest = liftTrainingManifest(release.data?.manifest);
+  if (!manifest) return jsonError(500, 'invalid_release', 'The published training release is invalid.');
+  const track = manifest.tracks.find((candidate) => candidate.slug === body.trackSlug);
+  const lesson = track?.lessons.find((candidate) => candidate.slug === body.lessonSlug);
   if (!lesson) return jsonError(404, 'lesson_not_found', 'That lesson is not in the published tenant release.');
   const answerKey = release.data?.answer_key as TrainingAnswerKey | undefined;
-  const correctChoices = answerKey?.[body.moduleSlug]?.[body.lessonSlug];
+  const correctChoices = answerKey?.[body.trackSlug]?.[body.lessonSlug];
   if (!correctChoices || correctChoices.length !== lesson.quiz.length || correctChoices.some((choice) => !Number.isInteger(choice))) {
     return jsonError(500, 'invalid_answer_key', 'The published lesson answer key is invalid.');
   }
@@ -82,7 +79,7 @@ export async function POST(request: Request): Promise<Response> {
     .eq('brand_id', auth.claims.brand_id)
     .eq('release_id', body.releaseId)
     .eq('brand_user_id', member.data.id)
-    .eq('track_slug', body.moduleSlug)
+    .eq('track_slug', body.trackSlug)
     .eq('lesson_slug', body.lessonSlug)
     .order('created_at', { ascending: false })
     .limit(5)
@@ -102,7 +99,7 @@ export async function POST(request: Request): Promise<Response> {
     brand_id: auth.claims.brand_id,
     release_id: body.releaseId,
     brand_user_id: member.data.id,
-    track_slug: body.moduleSlug,
+    track_slug: body.trackSlug,
     lesson_slug: body.lessonSlug,
     answers: body.answers,
     score: score.score,
@@ -132,21 +129,21 @@ export async function POST(request: Request): Promise<Response> {
       }>();
     if (!prior.data || !matchesTrainingAttempt(prior.data, {
       release_id: body.releaseId,
-      track_slug: body.moduleSlug,
+      track_slug: body.trackSlug,
       lesson_slug: body.lessonSlug,
       answers: body.answers,
     })) return jsonError(409, 'attempt_conflict', 'That attempt id is already in use.');
     effectiveScore = { score: prior.data.score, passed: prior.data.passed };
   }
 
-  const previous = await db.from('training_lesson_progress').select('attempt_count, status, score').eq('brand_id', auth.claims.brand_id).eq('release_id', body.releaseId).eq('brand_user_id', member.data.id).eq('track_slug', body.moduleSlug).eq('lesson_slug', body.lessonSlug).maybeSingle<{ attempt_count: number; status: string; score: number | null }>();
+  const previous = await db.from('training_lesson_progress').select('attempt_count, status, score').eq('brand_id', auth.claims.brand_id).eq('release_id', body.releaseId).eq('brand_user_id', member.data.id).eq('track_slug', body.trackSlug).eq('lesson_slug', body.lessonSlug).maybeSingle<{ attempt_count: number; status: string; score: number | null }>();
   if (previous.error) return jsonError(500, 'progress_lookup_failed', 'Could not load lesson progress.');
   const completed = previous.data?.status === 'completed' || effectiveScore.passed;
   const progress = await db.from('training_lesson_progress').upsert({
     brand_id: auth.claims.brand_id,
     release_id: body.releaseId,
     brand_user_id: member.data.id,
-    track_slug: body.moduleSlug,
+    track_slug: body.trackSlug,
     lesson_slug: body.lessonSlug,
     status: completed ? 'completed' : 'in_progress',
     score: Math.max(previous.data?.score ?? 0, effectiveScore.score),
@@ -165,7 +162,7 @@ export async function POST(request: Request): Promise<Response> {
         target_reason: '',
         target_expires_at: grantPlan.expiresAt,
         target_release: body.releaseId,
-        target_track_slug: body.moduleSlug,
+        target_track_slug: body.trackSlug,
         target_lesson_slug: body.lessonSlug,
       });
       if (award.error) {

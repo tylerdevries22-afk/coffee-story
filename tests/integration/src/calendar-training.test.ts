@@ -160,7 +160,7 @@ describe('calendar and training tenancy', { skip: skipUnlessConfigured }, () => 
       `insert into public.training_releases
          (brand_id, bootstrap_run_id, version, status, manifest, answer_key, published_at)
        values ($1, $2, 1, 'published',
-         '{"modules":[{"slug":"safety","lessons":[{"slug":"equipment-safety","grantsCompetencyKeys":["equipment-safety","electrical-safety"]}]}]}',
+         '{"tracks":[{"slug":"safety","lessons":[{"slug":"equipment-safety","grantsCompetencyKeys":["equipment-safety","electrical-safety"]}]}]}',
          '{}', now()) returning id`,
       [tenant.brandId, runId],
     );
@@ -281,15 +281,9 @@ describe('calendar and training tenancy', { skip: skipUnlessConfigured }, () => 
       [tenant.brandId, runId],
     );
     const manifest = {
-      schemaVersion: 2,
+      schemaVersion: 3,
       sources: [{}, {}, {}],
-      modules: [
-        { slug: 'knowledge', trackKey: 'knowledge' },
-        { slug: 'skills', trackKey: 'skills' },
-        { slug: 'service', trackKey: 'service' },
-        { slug: 'safety', trackKey: 'safety' },
-        { slug: 'operations', trackKey: 'operations' },
-      ],
+      tracks: ['knowledge', 'skills', 'service', 'safety', 'operations'].map((slug) => ({ slug })),
     };
     const draft = await sql<{ id: string; updated_at: string }>(
       `insert into public.training_releases
@@ -376,6 +370,8 @@ describe('calendar and training tenancy', { skip: skipUnlessConfigured }, () => 
          (brand_id, version, status, manifest, answer_key, created_by, updated_by)
        values ($1, 1, 'draft', $2, '{}', $3, $3)`,
       [tenant.brandId, JSON.stringify({
+        // Deliberately the pre-3 spelling: the media-history trigger still has
+        // to record a release that was drafted before the rename.
         modules: [{
           slug: 'knowledge', icon: { url: 'https://assets.example/knowledge.webp' },
           lessons: [{ slug: 'coffee', media: [{ kind: 'video', title: 'Coffee', url: 'https://assets.example/coffee.mp4' }] }],

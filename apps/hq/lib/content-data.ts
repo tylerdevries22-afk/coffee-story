@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { cafeTrainingManifest, normalizeTrainingManifest, parseOptionGroups, parseSizes } from '@platform/domain';
+import { cafeTrainingManifest, liftTrainingManifest, parseOptionGroups, parseSizes } from '@platform/domain';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { TrainingAnswerKey, TrainingManifest } from './training-bootstrap';
@@ -121,13 +121,7 @@ const DEMO_WORKSPACE: ContentWorkspaceData = {
 };
 
 function asManifest(value: unknown, profile: ContentWorkspaceData['trainingProfile']): TrainingManifest {
-  if (!value || typeof value !== 'object') return starterTrainingManifest(profile);
-  const candidate = value as Partial<TrainingManifest>;
-  return candidate.schemaVersion === 1 && Array.isArray(candidate.sources) && Array.isArray(candidate.modules)
-    ? normalizeTrainingManifest(candidate as TrainingManifest)
-    : candidate.schemaVersion === 2 && Array.isArray(candidate.sources) && Array.isArray(candidate.modules)
-      ? normalizeTrainingManifest(candidate as TrainingManifest)
-    : starterTrainingManifest(profile);
+  return liftTrainingManifest(value) ?? starterTrainingManifest(profile);
 }
 
 function contentItems(rows: ItemRow[], versions: MediaVersionRow[]): ContentMenuItem[] {
