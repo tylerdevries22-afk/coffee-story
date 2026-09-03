@@ -1,7 +1,44 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { releaseManifestIssues } from '../packages/factory/src/release';
+import { easProjectIssues, releaseManifestIssues } from '../packages/factory/src/release';
+import { parseTenantModulesManifest } from '../packages/module-kit/src/modules-manifest';
+import { MODULE_REGISTRY } from '../packages/module-kit/src/registry';
+
+/**
+ * Which app surfaces this tenant ships, from the registry rather than from the
+ * tenant's own manifest.
+ *
+ * modules.json names the surfaces each install serves, and onboarding already
+ * rejects a manifest claiming a surface the module does not serve -- but it
+ * cannot reject one that claims FEWER, and a tenant that could under-declare
+ * could skip the EAS check for a surface it really ships. So the manifest is
+ * read only for which modules are enabled; the surfaces come from the registry
+ * entry for each of those keys.
+ *
+ * Every failure path returns all five surfaces, so a missing, unreadable or
+ * invalid manifest requires every EAS id rather than none.
+ */
+const ALL_SURFACES = MODULE_REGISTRY.flatMap((definition) => definition.surfaces);
+
+function shippedSurfaces(directory: string): readonly string[] {
+  const path = join(directory, 'modules.json');
+  if (!existsSync(path)) return ALL_SURFACES;
+  let raw: unknown;
+  try {
+    raw = JSON.parse(readFileSync(path, 'utf8'));
+  } catch {
+    return ALL_SURFACES;
+  }
+  const parsed = parseTenantModulesManifest(raw);
+  if (parsed.kind !== 'ok') return ALL_SURFACES;
+  const enabled = new Set(
+    parsed.manifest.modules.filter((install) => install.enabled).map((install) => install.key),
+  );
+  return MODULE_REGISTRY
+    .filter((definition) => enabled.has(definition.key))
+    .flatMap((definition) => definition.surfaces);
+}
 
 const index = process.argv.indexOf('--tenant');
 const tenant = index >= 0 ? process.argv[index + 1] : undefined;
@@ -26,16 +63,8 @@ if (existsSync(manifestPath)) {
 }
 if (existsSync(brandPath)) {
   try {
-    const brand = JSON.parse(readFileSync(brandPath, 'utf8')) as {
-      identity?: { easProjectId?: unknown; kioskEasProjectId?: unknown };
-    };
-    const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    if (typeof brand.identity?.easProjectId !== 'string' || !uuid.test(brand.identity.easProjectId)) {
-      issues.push('brand.json identity.easProjectId must be the tenant customer EAS project UUID.');
-    }
-    if (typeof brand.identity?.kioskEasProjectId !== 'string' || !uuid.test(brand.identity.kioskEasProjectId)) {
-      issues.push('brand.json identity.kioskEasProjectId must be the tenant kiosk EAS project UUID.');
-    }
+    const brand = JSON.parse(readFileSync(brandPath, 'utf8')) as { identity?: unknown };
+    issues.push(...easProjectIssues(brand.identity, shippedSurfaces(tenantDirectory)));
   } catch {
     issues.push('brand.json must contain valid JSON.');
   }
