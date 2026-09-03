@@ -289,6 +289,9 @@ importers:
       '@platform/integrations':
         specifier: workspace:*
         version: link:../../packages/integrations
+      '@platform/module-kit':
+        specifier: workspace:*
+        version: link:../../packages/module-kit
       '@platform/schema':
         specifier: workspace:*
         version: link:../../packages/schema
@@ -561,6 +564,9 @@ importers:
       '@platform/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@platform/module-kit':
+        specifier: workspace:*
+        version: link:../../packages/module-kit
       '@platform/monitoring':
         specifier: workspace:*
         version: link:../../packages/monitoring

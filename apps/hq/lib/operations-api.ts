@@ -12,6 +12,7 @@ import {
   serviceDb,
   type AuthedRequest,
 } from './api-auth';
+import { resolveTenantCapabilities } from './capabilities';
 import { rateLimited } from './rate-limit';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -129,6 +130,8 @@ export async function operationsRequestContext(
   const feature = await service.from('brands').select('operations')
     .eq('id', auth.claims.brand_id).maybeSingle<{ operations: boolean }>();
   if (feature.error) return jsonError(503, 'operations_unavailable', 'Operations are temporarily unavailable.');
+  // Dual-read: logs flag/module drift and fails open; the flag below still gates.
+  await resolveTenantCapabilities(service, auth.claims.brand_id);
   if (!feature.data?.operations) {
     return jsonError(404, 'operations_disabled', 'Operations are not enabled for this tenant.');
   }

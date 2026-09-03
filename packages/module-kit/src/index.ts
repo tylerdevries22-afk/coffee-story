@@ -13,6 +13,11 @@ export {
 export { resolveModules, type ResolutionError, type ResolutionResult } from './resolve';
 export { LEGACY_FLAG_MODULE_MAP, MODULE_REGISTRY, legacyFlagInstallations } from './registry';
 export {
+  activeModuleKeys, capabilityDrift, flagModuleKeys,
+  type CapabilityDriftDirection, type CapabilityDriftRecord,
+  type LegacyFlagRecord, type ModuleInstallationRow,
+} from './drift';
+export {
   ACTIVATION_CHECK_IDS, canTransition, evaluateActivation, parseActivationState,
   transitionActivation,
   type ActivationCheck, type ActivationCheckId, type ActivationEvaluation, type TransitionResult,

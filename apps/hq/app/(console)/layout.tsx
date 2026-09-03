@@ -3,6 +3,7 @@ import { headers } from 'next/headers';
 import { after } from 'next/server';
 
 import { currentSession, hasRole } from '@/lib/auth';
+import { resolveTenantCapabilities } from '@/lib/capabilities';
 import { isConfigured } from '@/lib/supabase-server';
 import { Icon } from '@/components/icon';
 import { ConsoleShell } from '@/components/console-shell';
@@ -59,6 +60,13 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
       .maybeSingle<{ brand_config: unknown; operations: boolean }>()
     : null;
   const brandConfig = brand && !brand.error ? brand.data?.brand_config : null;
+  // Dual-read telemetry, post-render like the screen track below: drift is
+  // logged, never gated on -- `operations` at the rail stays authoritative.
+  if (client && selectedBrandId) {
+    after(async () => {
+      await resolveTenantCapabilities(client, selectedBrandId);
+    });
+  }
   if (client && session && pathname && !pathname.startsWith('/wall/preview/')) {
     const [sessionData, authenticatedUser] = await Promise.all([
       client.auth.getSession(),

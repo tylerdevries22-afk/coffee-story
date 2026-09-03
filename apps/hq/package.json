@@ -20,6 +20,7 @@
     "@platform/engine": "workspace:*",
     "@platform/factory": "workspace:*",
     "@platform/integrations": "workspace:*",
+    "@platform/module-kit": "workspace:*",
     "@platform/schema": "workspace:*",
     "@platform/ui": "workspace:*",
     "@platform/web-config": "workspace:*",

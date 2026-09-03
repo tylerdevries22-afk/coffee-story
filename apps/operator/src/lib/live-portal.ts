@@ -4,6 +4,7 @@
  * the access token from brand_users, this module reads them back, and every
  * board query the store makes is scoped by those claims under RLS.
  */
+import { capabilityDrift, type ModuleInstallationRow } from '@platform/module-kit';
 import { parseTenantClaims, type TenantClaims } from '@platform/schema';
 import type { Session, SupabaseClient } from '@supabase/supabase-js';
 
@@ -30,6 +31,54 @@ export type StaffLocation = {
   address: { street?: string; city?: string; region?: string; postal?: string } | null;
   timezone: string | null;
 };
+
+/** The legacy flag columns the dual-read window compares installations against. */
+type LegacyFlagColumns = {
+  drops: boolean;
+  catering: boolean;
+  delivery: boolean;
+  stored_value: boolean;
+  referrals: boolean;
+  operations: boolean;
+};
+
+/**
+ * Phase 2.4 dual-read: reports where module_installations disagrees with the
+ * legacy flags. The flags still gate; this only logs. Staff tokens satisfy
+ * module_installations_select (app.is_brand_staff), and any failure here --
+ * including a resolver throw -- must never break the staff load.
+ */
+async function logCapabilityDrift(
+  client: SupabaseClient,
+  brandId: string,
+  flags: LegacyFlagColumns,
+): Promise<void> {
+  try {
+    const installations = await client
+      .from('module_installations')
+      .select('module_key, version, state, config_revision')
+      .eq('brand_id', brandId)
+      .returns<ModuleInstallationRow[]>();
+    if (installations.error) {
+      console.warn(JSON.stringify({
+        event: 'capability_drift_error', brandId,
+        reason: installations.error.message, at: new Date().toISOString(),
+      }));
+      return;
+    }
+    const drift = capabilityDrift(installations.data ?? [], flags);
+    if (drift.length === 0) return;
+    console.warn(JSON.stringify({
+      event: 'capability_drift', brandId, drift, at: new Date().toISOString(),
+    }));
+  } catch (error) {
+    console.warn(JSON.stringify({
+      event: 'capability_drift_error', brandId,
+      reason: error instanceof Error ? error.message : String(error),
+      at: new Date().toISOString(),
+    }));
+  }
+}
 
 /** The hook-minted tenancy claims ride in the token payload, not in the
  * stored user record — decode the token itself. */
@@ -59,10 +108,12 @@ export async function loadStaffContext(
 
   const brand = await client
     .from('brands')
-    .select('id, name, brand_config, operations')
+    .select('id, name, brand_config, drops, catering, delivery, stored_value, referrals, operations')
     .eq('id', claims.brand_id)
-    .single<{ id: string; name: string; brand_config: unknown; operations: boolean }>();
+    .single<{ id: string; name: string; brand_config: unknown } & LegacyFlagColumns>();
   if (brand.error) throw new Error(`The shop could not be loaded: ${brand.error.message}`);
+
+  await logCapabilityDrift(client, claims.brand_id, brand.data);
 
   const membership = await client.from('brand_users').select('id')
     .eq('brand_id', claims.brand_id).eq('user_id', session.user.id).single<{ id: string }>();
