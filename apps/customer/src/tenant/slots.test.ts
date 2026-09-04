@@ -42,7 +42,13 @@ describe('applied tenant slots', () => {
     // The invariant this layout exists for. Metro cannot require a path it
     // computes at runtime, but a barrel that names every path as a literal is
     // fully static -- which is what lets N tenants coexist in one tree.
-    assert.match(BARREL, /APPLIED_TENANT_SLUGS: readonly string\[\] = \[/);
+    // The exported literal itself, not just its declaration: emptying the list
+    // while leaving the imports in place is a barrel that compiles, boots, and
+    // reports no applied tenant.
+    const declared = /APPLIED_TENANT_SLUGS: readonly string\[\] = \[([^\]]*)\]/.exec(BARREL);
+    assert.ok(declared, 'the barrel exports no APPLIED_TENANT_SLUGS literal');
+    const listed = [...(declared[1] ?? '').matchAll(/'([a-z0-9-]+)'/g)].map((match) => match[1]);
+    assert.deepEqual(listed, [...APPLIED_TENANT_SLUGS], 'APPLIED_TENANT_SLUGS disagrees with applied.json');
     for (const slug of APPLIED_TENANT_SLUGS) {
       assert.match(BARREL, new RegExp(`from './${slug}/brand\\.json'`), `the barrel omits ${slug}`);
       assert.match(BARREL, new RegExp(`'${slug}': \\{`), `SLOTS omits ${slug}`);
