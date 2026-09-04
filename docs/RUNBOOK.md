@@ -22,9 +22,17 @@ onboard --tenant <slug>` against the project. Enable the Custom Access Token
 hook (`app.custom_access_token`) before creating staff sessions.
 
 **Customer app:** `pnpm onboard --tenant <slug> --apply`, then from
-`apps/customer`: `TENANT=<slug> npx eas-cli build --platform ios --profile
-production`. Publish only when the owner requests it; CI verifies but does not
-deploy.
+`apps/customer`: `EXPO_PUBLIC_TENANT=<slug> npx eas-cli build --platform ios
+--profile production`. The kiosk is the same command from `apps/kiosk`.
+
+`EXPO_PUBLIC_TENANT` and not the old `TENANT`: only `EXPO_PUBLIC_*` is inlined
+into the bundle, so `TENANT=` set the Expo config's identity while the bundle
+kept whichever tenant was applied -- a correctly signed binary with the wrong
+shop's menu. `TENANT=` is now refused with the correction to use. With one
+tenant applied the variable may be omitted; with several, both the config and
+the bundle throw and name the applied slugs rather than guessing.
+
+Publish only when the owner requests it; CI verifies but does not deploy.
 
 **Operator app:** built once, not per tenant, from `apps/operator`; its EAS
 project and `com.devries.platform.operator` identity are linked. Use the

@@ -81,8 +81,14 @@ sits below centre and its saucer matters more than the ceiling), resizes to
   nothing: it neither matches the house look nor stays honest to the original.
 
 The tenant folder is the source. `pnpm onboard --tenant <slug> --apply` copies
-the normalised assets into both per-brand customer and kiosk bundles and
-generates an identical static Metro image map for each app.
+the normalised assets into `apps/<app>/assets/menu/<slug>/` for both guest apps
+and generates an identical static Metro image map for each at
+`apps/<app>/src/tenants/<slug>/menu-media.generated.ts`.
+
+Keyed by slug because two tenants can name the same item -- `cortado` is on two
+shipped menus -- so one flat directory was a byte collision between brands. Every
+applied tenant keeps its own photographs, and the drift tests compare each one to
+its own tenant folder.
 
 For a live tenant, onboarding also uploads those exact WebP bytes to the public
 `menu-images` bucket at
