@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { after, before, describe, it } from 'node:test';
 
-import { asPrincipal, createSignedInUser, seedBrand, skipUnlessConfigured, sql } from './stack.ts';
+import {
+  asPrincipal, asPrincipalSequence, createSignedInUser, seedBrand, skipUnlessConfigured, sql,
+} from './stack.ts';
 
 type Session = Awaited<ReturnType<typeof createSignedInUser>>;
 
@@ -16,7 +18,8 @@ type Session = Awaited<ReturnType<typeof createSignedInUser>>;
  * out. So the assertions that matter most here are the refusals, and the
  * revocation returning true once and false the second time.
  *
- * `asPrincipal` rolls its transaction back, so every case is stated as one
+ * `asPrincipal` rolls its transaction back and runs one statement, so most
+ * cases are stated as one
  * statement whose RESULT is the assertion. Where the effect of a write has to
  * be observed, the fixture seeds the prior state through `sql` and the writer's
  * own return value reports what it did.
@@ -123,21 +126,31 @@ describe('franchise network write path', { skip: skipUnlessConfigured }, () => {
 
   it('creates a network and enrols its creator as franchisor_admin', async () => {
     const slug = `fnwrite-ok-${randomUUID().slice(0, 6)}`;
-    // The CTE is referenced by the outer subquery, so the network exists
-    // before the membership is read -- the one ordering a single statement
-    // does guarantee, and the only way to observe both halves of a write
-    // asPrincipal will roll back.
-    const ok = await asPrincipal<{ id: string; role: string | null }>(
+    // Two statements in one transaction, not a CTE. PostgreSQL takes one
+    // snapshot per statement, so a data-modifying CTE's effects are invisible
+    // to a sibling subquery in the same statement -- the earlier CTE form here
+    // asserted `null` against a function that was in fact writing the row.
+    // Read-committed gives each statement a fresh snapshot, so the second one
+    // sees the first's uncommitted write, and the rollback still cleans up.
+    const [created, membership] = await asPrincipalSequence<{ id: string; role: string | null }>(
       { sub: operator.userId },
-      `with created as (select public.create_franchise_network($1, $2) as id)
-       select created.id,
-         (select membership.role from public.franchise_memberships membership
-           where membership.network_id = created.id and membership.user_id = $3) as role
-       from created`,
-      ['Write path new network', slug, operator.userId],
+      [
+        { text: `select public.create_franchise_network($1, $2) as id`,
+          params: ['Write path new network', slug] },
+        // Keyed on the slug, which is known before the call: the statements are
+        // handed over as a batch, so the second cannot reference the first's
+        // returned id. The slug is unique and randomised per run.
+        { text: `select membership.role
+                   from public.franchise_memberships membership
+                   join public.franchise_networks network
+                     on network.id = membership.network_id
+                  where network.slug = $1 and membership.user_id = $2`,
+          params: [slug, operator.userId] },
+      ],
     );
-    assert.match(ok.rows[0]!.id, /^[0-9a-f-]{36}$/);
-    assert.equal(ok.rows[0]!.role, 'franchisor_admin',
+    const createdId = created!.rows[0]!.id;
+    assert.match(createdId, /^[0-9a-f-]{36}$/);
+    assert.equal(membership!.rows[0]?.role, 'franchisor_admin',
       'a network nobody administers is a network nobody can read');
 
     await refused(

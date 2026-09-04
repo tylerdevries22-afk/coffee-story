@@ -35,6 +35,19 @@ describe('franchisor network reporting', { skip: skipUnlessConfigured }, () => {
     );
   }
 
+  /**
+   * A timestamp, not a SQL expression.
+   *
+   * These are bound parameters, so `now() + interval '10 days'` arrives as a
+   * *string value* and PostgreSQL rejects it with `invalid input syntax for
+   * type timestamp with time zone`. Three cases here passed SQL text and
+   * failed on their first real run against a database. The parameter binding
+   * is right and stays -- the value has to be computed on this side.
+   */
+  function daysFromNow(days: number): string {
+    return new Date(Date.now() + days * 86_400_000).toISOString();
+  }
+
   async function grant(
     session: Session, expiresAt: string, revokedAt: string | null,
   ): Promise<void> {
@@ -127,17 +140,17 @@ describe('franchisor network reporting', { skip: skipUnlessConfigured }, () => {
   });
 
   it('refuses an expired grant', async () => {
-    await grant(expiredDelegate, 'now() - interval \'1 day\'', null);
+    await grant(expiredDelegate, daysFromNow(-1), null);
     await refused(expiredDelegate, 'a grant that ran out authorizes nothing');
   });
 
   it('refuses a revoked grant that has not yet expired', async () => {
-    await grant(revokedDelegate, 'now() + interval \'10 days\'', 'now()');
+    await grant(revokedDelegate, daysFromNow(10), new Date().toISOString());
     await refused(revokedDelegate, 'revocation ends the relationship immediately');
   });
 
   it('limits a live grant to the brands it names', async () => {
-    await grant(liveDelegate, 'now() + interval \'10 days\'', null);
+    await grant(liveDelegate, daysFromNow(10), null);
     const rows = await kpis(liveDelegate);
     assert.deepEqual(rows.rows.map((row) => row.brand_id), [brandB],
       'a grant covers its brand, not the network');
