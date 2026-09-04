@@ -56,4 +56,31 @@ describe('selectTenantSlot', () => {
   it('sorts applied slugs so messages and tests read the same order', () => {
     assert.deepEqual(appliedTenantSlugs({ 'brand-b': B, 'brand-a': A }), ['brand-a', 'brand-b']);
   });
+
+  it('refuses a prototype-chain key instead of resolving one', () => {
+    // `slots['constructor']` walks the prototype chain to `Object`, which is
+    // truthy, so a bare index accepted it and returned a slot whose slug was
+    // undefined -- a build that did not fail loudly, which is the whole point.
+    for (const hostile of ['__proto__', 'constructor', 'toString', 'valueOf', 'hasOwnProperty']) {
+      assert.throws(
+        () => selectTenantSlot({ app: 'customer', slots: { 'brand-a': A }, requested: hostile }),
+        /is not applied to apps\/customer/,
+        hostile,
+      );
+    }
+  });
+
+  it('refuses a slug onboarding would never have written', () => {
+    for (const malformed of ['Brand-A', 'brand_a', '../brand-a', 'brand a', '-brand', 'brand-']) {
+      assert.throws(
+        () => selectTenantSlot({ app: 'customer', slots: { 'brand-a': A }, requested: malformed }),
+        /is not applied/,
+        malformed,
+      );
+    }
+  });
+
+  it('never reports an inherited property as applied', () => {
+    assert.deepEqual(appliedTenantSlugs({ 'brand-a': A }), ['brand-a']);
+  });
 });

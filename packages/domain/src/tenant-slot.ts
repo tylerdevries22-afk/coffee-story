@@ -15,6 +15,18 @@
  * rather than resolving to whichever slug sorted first.
  */
 
+/**
+ * The shape a tenant slug is allowed to have, matching what onboarding accepts.
+ *
+ * Checked at selection and not only at onboarding, because the value arrives
+ * from the environment. A slug is a key into a plain object, so `constructor`
+ * and `__proto__` resolve up the prototype chain to something truthy: without
+ * this, `EXPO_PUBLIC_TENANT=constructor` passed the "is it applied" check and
+ * yielded a slot whose slug was `undefined` -- a build that did not fail loudly,
+ * which is the one outcome this module exists to make impossible.
+ */
+const TENANT_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
 /** The minimum a slot must carry to be selectable: the slug it was applied as. */
 export type TenantSlotIdentity = { readonly slug: string };
 
@@ -29,7 +41,8 @@ export type TenantSlotSelection<Slot extends TenantSlotIdentity> = {
 
 /** The applied slugs, sorted, as the error messages and tests want them. */
 export function appliedTenantSlugs(slots: Readonly<Record<string, unknown>>): readonly string[] {
-  return Object.keys(slots).sort();
+  // Own enumerable keys only, so an inherited property can never read as applied.
+  return Object.keys(slots).filter((slug) => Object.hasOwn(slots, slug)).sort();
 }
 
 /**
@@ -54,7 +67,10 @@ export function selectTenantSlot<Slot extends TenantSlotIdentity>(
   }
 
   if (requested !== '') {
-    const slot = slots[requested];
+    // `Object.hasOwn` and not a truthiness test: see TENANT_SLUG above.
+    const slot = TENANT_SLUG.test(requested) && Object.hasOwn(slots, requested)
+      ? slots[requested]
+      : undefined;
     if (!slot) {
       throw new Error(
         `EXPO_PUBLIC_TENANT="${requested}" is not applied to apps/${app}. ` +
@@ -67,7 +83,7 @@ export function selectTenantSlot<Slot extends TenantSlotIdentity>(
 
   const only = applied[0];
   if (applied.length === 1 && only !== undefined) {
-    const slot = slots[only];
+    const slot = Object.hasOwn(slots, only) ? slots[only] : undefined;
     if (slot) return slot;
   }
 

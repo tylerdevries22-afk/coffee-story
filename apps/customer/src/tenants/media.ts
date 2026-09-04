@@ -24,7 +24,9 @@ const MEDIA: Readonly<Record<string, TenantMediaSlot>> = {
   },
 };
 
-const selected = MEDIA[TENANT_SLUG];
+// Object.hasOwn and not a bare index: a slug is a key into a plain object, so
+// an inherited property name would otherwise read as a bundled tenant.
+const selected = Object.hasOwn(MEDIA, TENANT_SLUG) ? MEDIA[TENANT_SLUG] : undefined;
 if (!selected) {
   throw new Error(`apps/customer has no bundled media for "${TENANT_SLUG}". Re-run \`pnpm onboard --tenant ${TENANT_SLUG} --apply\`.`);
 }
