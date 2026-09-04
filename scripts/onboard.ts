@@ -44,6 +44,7 @@ import { APP_COLOR_KEYS } from '@platform/ui/app-tokens';
 import { isRegisteredFont } from '@platform/ui/font-registry';
 
 import { modulesManifestProblems } from './onboard-modules-manifest.js';
+import { installTenantModules } from './onboard-module-installs.js';
 
 const DATABASE_TIMEOUT_MS = 10_000;
 
@@ -559,6 +560,9 @@ async function run() {
       .select('id')
       .single();
     if (brandError) throw brandError;
+
+    const installedModules = await installTenantModules(db, brandRow.id, brand.features);
+    if (installedModules.length > 0) console.log(`   modules: ${installedModules.join(', ')}`);
 
     const locationConfig = brand.location;
     let locationId: string | null = null;
