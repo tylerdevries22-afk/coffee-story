@@ -9,7 +9,7 @@
  *
  * The directory split does more work than any assertion could. Masters live in
  * `tenants/<slug>/assets/products/` and the seated results in
- * `apps/customer/assets/products/`, neither of which the photograph
+ * `apps/customer/assets/products/<slug>/`, neither of which the photograph
  * normaliser's readdir filter can see. A cut-out that wandered into
  * `assets/menu/` would be centre-cropped square, measured against a
  * café-interior grade band and re-encoded without its alpha -- and would still

@@ -501,6 +501,10 @@ jobs:
         run: |
           test -n "$EXPO_TOKEN" || { echo '::error::Set EXPO_TOKEN.'; exit 1; }
           test -n "$API_URL" || { echo '::error::The verified HQ deployment did not return a URL.'; exit 1; }
+      # EXPO_PUBLIC_TENANT names which applied tenant this bundle is for.
+      # apps/customer/src/tenants/ holds one directory per applied tenant, and the
+      # bundle throws rather than guessing when several are applied -- publishing
+      # one shop's menu under another shop's name is the failure it prevents.
       - name: Publish customer update
         working-directory: apps/customer
         env:
@@ -509,6 +513,7 @@ jobs:
         run: |
           api_host="${API_URL#https://}"
           api_host="${api_host%%/*}"
+          EXPO_PUBLIC_TENANT="$TENANT" \
           EXPO_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
           EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
           EXPO_PUBLIC_API_URL="$API_URL" \
@@ -527,6 +532,10 @@ jobs:
           EXPO_PUBLIC_API_URL="$API_URL" \
           EXPO_PUBLIC_ALLOWED_API_HOST="$api_host" \
             npx --yes eas-cli@21.4.0 update --channel production --environment production --platform all --non-interactive
+      # EXPO_PUBLIC_TENANT names which applied tenant this bundle is for.
+      # apps/kiosk/src/tenants/ holds one directory per applied tenant, and the
+      # bundle throws rather than guessing when several are applied -- publishing
+      # one shop's menu under another shop's name is the failure it prevents.
       - name: Publish kiosk update
         working-directory: apps/kiosk
         env:
@@ -535,6 +544,7 @@ jobs:
         run: |
           api_host="${API_URL#https://}"
           api_host="${api_host%%/*}"
+          EXPO_PUBLIC_TENANT="$TENANT" \
           EXPO_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
           EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
           EXPO_PUBLIC_API_URL="$API_URL" \
