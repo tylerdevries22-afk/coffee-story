@@ -513,7 +513,10 @@ async function run() {
   // Requiring every franchisee to re-supply them blocked applying a second
   // tenant for no runtime reason, so they warn rather than fail.
   const shellGaps: string[] = [];
-  if (apply) validateCustomerShellAssets(tenantDir, shellGaps);
+  if (apply) {
+    validateGuestAppTenant(brand, problems);
+    validateCustomerShellAssets(tenantDir, shellGaps);
+  }
   if (problems.length > 0) {
     console.error(`tenants/${slug} does not validate:`);
     for (const problem of problems) console.error(`  - ${problem}`);
@@ -1037,6 +1040,48 @@ function validateMenuAssets(dir: string, menu: BundledTenantMenu, problems: stri
   }
   for (const item of actual) {
     if (!expected.has(item)) problems.push(`assets/menu/${item}.webp has no row in menu.csv.`);
+  }
+}
+
+/**
+ * What a tenant must carry before it may be applied to a guest binary.
+ *
+ * The guest apps dereference these without a fallback -- `catalog.ts` throws on
+ * a menu item with no photograph, and `data/business.ts` reads
+ * `business.monogram` and `location.timezone` straight off the brand file -- so
+ * a tenant missing them produces a binary that crashes on its first screen
+ * rather than one that renders a gap.
+ *
+ * Not every tenant is a guest-app tenant, and that is the point of checking
+ * here rather than in step 1: `stillpoint-builders` is a construction franchise
+ * that exists to be an operator/HQ organization, ships no menu, no location and
+ * no storefront, and is perfectly valid as a tenant. It simply must not be
+ * applied to the customer or kiosk apps, and until now the only thing stopping
+ * it was the customer shell's *artwork* check -- accidental protection that
+ * disappeared the moment that check became a warning.
+ */
+function validateGuestAppTenant(brand: BrandFile, problems: string[]): void {
+  const identity = brand.identity;
+  if (!identity?.name) problems.push('identity.name is required to apply a tenant to a guest app.');
+  if (!identity?.bundleId?.includes('.')) problems.push('identity.bundleId must be a reverse-DNS id.');
+  if (!identity?.kioskBundleId?.includes('.')) problems.push('identity.kioskBundleId must be a reverse-DNS id.');
+  if (!identity?.scheme) problems.push('identity.scheme is required to apply a tenant to a guest app.');
+  if (!identity?.kioskScheme) problems.push('identity.kioskScheme is required to apply a tenant to a guest app.');
+  const monogram = brand.business?.monogram;
+  if (typeof monogram !== 'string' || monogram.length < 1 || monogram.length > 3) {
+    problems.push('business.monogram (1-3 characters) is required: the guest apps render it before the theme mounts.');
+  }
+  if (!brand.location?.timezone?.includes('/')) {
+    problems.push('location.timezone (an IANA zone) is required: every pickup time the guest app prints is in it.');
+  }
+  if (typeof brand.features?.drops !== 'boolean') {
+    problems.push('features.drops must be a boolean: the guest apps read the flag block directly.');
+  }
+  if (problems.length > 0) {
+    problems.push(
+      'A tenant with no storefront is still a valid tenant -- it just cannot be a customer or kiosk build. '
+      + 'Drop --apply to validate and seed it without writing a guest-app slot.',
+    );
   }
 }
 
