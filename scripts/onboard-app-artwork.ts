@@ -20,7 +20,7 @@
  * here exists because the previous version crashed or deleted files on a tenant
  * that ships no photography (`demo-roastery`, deliberately).
  */
-import { copyFileSync, existsSync, mkdirSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, lstatSync, mkdirSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
@@ -111,8 +111,11 @@ function copyArtwork(generated: string, appRoot: string, mappings: readonly (rea
  * the bundle for every tenant.
  */
 function syncIllustrations(from: string, to: string, extensions: readonly string[]): number {
+  // lstat, not stat: copyFileSync follows symlinks, and a tenant asset folder
+  // is not a place a link should be able to reach out of.
   const sources = existsSync(from)
-    ? readdirSync(from).filter((file) => extensions.some((extension) => file.endsWith(extension)))
+    ? readdirSync(from).filter((file) => extensions.some((extension) => file.endsWith(extension))
+        && lstatSync(join(from, file)).isFile())
     : [];
   if (sources.length === 0) return 0;
   mkdirSync(to, { recursive: true });

@@ -25,7 +25,14 @@
  * yielded a slot whose slug was `undefined` -- a build that did not fail loudly,
  * which is the one outcome this module exists to make impossible.
  */
-const TENANT_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+import { isPlatformSlug } from '@platform/schema';
+
+/**
+ * The slug contract lives in `@platform/schema`, which menu.csv already
+ * enforced it with. Re-exported here so a guest app reads it from the module
+ * that selects a tenant, without a second copy of the pattern existing.
+ */
+export { isPlatformSlug as isTenantSlug } from '@platform/schema';
 
 /** The minimum a slot must carry to be selectable: the slug it was applied as. */
 export type TenantSlotIdentity = { readonly slug: string };
@@ -67,8 +74,8 @@ export function selectTenantSlot<Slot extends TenantSlotIdentity>(
   }
 
   if (requested !== '') {
-    // `Object.hasOwn` and not a truthiness test: see TENANT_SLUG above.
-    const slot = TENANT_SLUG.test(requested) && Object.hasOwn(slots, requested)
+    // `Object.hasOwn` and not a truthiness test: see the module comment above.
+    const slot = isPlatformSlug(requested) && Object.hasOwn(slots, requested)
       ? slots[requested]
       : undefined;
     if (!slot) {

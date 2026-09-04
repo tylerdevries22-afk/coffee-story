@@ -15,6 +15,8 @@
 import { readdirSync, existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { isPlatformSlug } from '@platform/schema';
+
 export type GuestApp = 'customer' | 'kiosk';
 
 /** Both guest binaries. The operator app is tenant-by-login and has no slot. */
@@ -39,10 +41,23 @@ export function slotsDirectory(root: string, app: GuestApp): string {
 export function appliedSlugs(root: string, app: GuestApp): readonly string[] {
   const directory = slotsDirectory(root, app);
   if (!existsSync(directory)) return [];
-  return readdirSync(directory, { withFileTypes: true })
+  const slugs = readdirSync(directory, { withFileTypes: true })
     .filter((entry) => entry.isDirectory() && existsSync(join(directory, entry.name, 'brand.json')))
     .map((entry) => entry.name)
     .sort();
+  // Every slug here is interpolated into generated TypeScript and into
+  // applied.json, which app.config.ts joins into a path. A directory name is
+  // not a validated value just because onboarding usually writes it, so the
+  // generator refuses rather than emitting whatever the tree happens to hold.
+  for (const slug of slugs) {
+    if (!isPlatformSlug(slug)) {
+      throw new Error(
+        `apps/${app}/src/tenants/${slug} is not a kebab-case tenant slug. `
+        + 'Remove or rename it; the generated barrel names each slug literally.',
+      );
+    }
+  }
+  return slugs;
 }
 
 /** `coffee-story` -> `CoffeeStory`, for a generated identifier. */

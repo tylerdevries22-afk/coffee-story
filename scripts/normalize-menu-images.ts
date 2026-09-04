@@ -32,6 +32,8 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { writeContactSheet } from './menu-contact-sheet.js';
+
 import {
   MENU_IMAGE_SPEC,
   isNoop,
@@ -47,6 +49,12 @@ function argValue(flag: string): string | null {
 }
 
 const tenantSlug = argValue('--tenant') ?? 'coffee-story';
+// Joined into a filesystem path below for reads and writes. onboard.ts
+// validates the identical flag; this script must not be the soft way in.
+if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(tenantSlug)) {
+  console.error(`--tenant "${tenantSlug}" is not a kebab-case tenant slug.`);
+  process.exit(1);
+}
 const TENANT_DIR = join(process.cwd(), 'tenants', tenantSlug);
 const MENU_DIR = join(TENANT_DIR, 'assets', 'menu');
 const MANIFEST = join(MENU_DIR, '.normalized.json');
@@ -81,12 +89,6 @@ type ManifestEntry = {
 
 const sha = (buffer: Buffer | Uint8Array) => createHash('sha256').update(buffer).digest('hex');
 const round = (n: number, places = 3) => Number(n.toFixed(places));
-const escapeXml = (value: string) => value
-  .replaceAll('&', '&amp;')
-  .replaceAll('<', '&lt;')
-  .replaceAll('>', '&gt;')
-  .replaceAll('"', '&quot;')
-  .replaceAll("'", '&apos;');
 
 /**
  * Whole-frame measurement, matching what `menuImageCorrection` expects.
@@ -125,52 +127,6 @@ async function measure(image: import('sharp').Sharp): Promise<MenuImageMeasureme
   };
 }
 
-/**
- * Redraw the checked-in contact sheet. It is the review artefact for framing --
- * `--check` can tell you a photo is correctly exposed, but only a person
- * looking at all 61 together can tell you one of them is a picture of a wall.
- */
-async function writeContactSheet(sharp: (typeof import('sharp'))['default'], names: string[]) {
-  const { cell, columns, label, pad, header } = SHEET;
-  const rows = Math.ceil(names.length / columns);
-  const width = columns * (cell + pad) + pad;
-  const height = header + rows * (cell + label + pad) + pad;
-
-  const composites: import('sharp').OverlayOptions[] = [];
-  for (const [index, name] of names.entries()) {
-    const column = index % columns;
-    const row = Math.floor(index / columns);
-    const left = pad + column * (cell + pad);
-    const top = header + row * (cell + label + pad);
-    composites.push({
-      input: await sharp(join(MENU_DIR, `${name}.webp`)).resize(cell, cell).png().toBuffer(),
-      left,
-      top,
-    });
-    composites.push({
-      input: Buffer.from(
-        `<svg width="${cell}" height="${label}">` +
-        `<text x="0" y="11" font-family="monospace" font-size="9" fill="#57483B">${escapeXml(name)}</text></svg>`,
-      ),
-      left,
-      top: top + cell,
-    });
-  }
-  composites.push({
-    input: Buffer.from(
-      `<svg width="${width}" height="${header}">` +
-      `<text x="${pad}" y="22" font-family="sans-serif" font-size="16" fill="#241710">` +
-      `${escapeXml(brand.identity?.name ?? tenantSlug)} — menu image library (${names.length} items, ${MENU_IMAGE_SPEC.edge}px square)</text></svg>`,
-    ),
-    left: 0,
-    top: 0,
-  });
-
-  await sharp({ create: { width, height, channels: 3, background: '#FAF5EF' } })
-    .composite(composites)
-    .png()
-    .toFile(CONTACT_SHEET);
-}
 
 async function run() {
   const sharp = (await import('sharp')).default;
@@ -277,7 +233,9 @@ async function run() {
   }
 
   writeFileSync(MANIFEST, `${JSON.stringify(manifest, null, 2)}\n`);
-  await writeContactSheet(sharp, files.map((f) => f.replace(/\.webp$/, '')));
+  await writeContactSheet(sharp, files.map((f) => f.replace(/\.webp$/, '')), {
+    menuDir: MENU_DIR, contactSheet: CONTACT_SHEET, brandName: brand.identity?.name ?? tenantSlug, tenantSlug, layout: SHEET,
+  });
   console.log(
     `Normalised ${files.length - skipped} image(s) to ${edge}x${edge}` +
     `${graded.length > 0 ? `, graded ${graded.length}: ${graded.join(', ')}` : ''}` +

@@ -34,7 +34,11 @@ function resolveAppliedTenant(appDirectory: string, app: string): string {
   const manifest: { slugs?: string[] } = JSON.parse(
     readFileSync(join(appDirectory, 'src', 'tenants', 'applied.json'), 'utf8'),
   );
-  const applied = [...(manifest.slugs ?? [])].sort();
+  // Shape-checked, not just membership-checked: these entries are joined into
+  // a filesystem path below, and a hand-edited `..` would read out of the slot
+  // directory entirely. Kebab-case cannot contain a dot or a slash.
+  const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+  const applied = [...(manifest.slugs ?? [])].filter((slug) => slugPattern.test(slug)).sort();
   const runtime = process.env.EXPO_PUBLIC_TENANT?.trim() ?? '';
   const legacy = process.env.TENANT?.trim() ?? '';
   if (legacy !== '' && legacy !== runtime) {
@@ -47,7 +51,7 @@ function resolveAppliedTenant(appDirectory: string, app: string): string {
     throw new Error(`apps/${app} has no tenant applied. Run \`pnpm onboard --tenant <slug> --apply\`.`);
   }
   if (runtime !== '') {
-    if (!applied.includes(runtime)) {
+    if (!slugPattern.test(runtime) || !applied.includes(runtime)) {
       throw new Error(
         `EXPO_PUBLIC_TENANT="${runtime}" is not applied to apps/${app}. Applied: ${applied.join(', ')}. `
         + `Run \`pnpm onboard --tenant ${runtime} --apply\` first.`,

@@ -424,7 +424,12 @@ jobs:
             add_public EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY "$SUPABASE_PUBLISHABLE_KEY"
             add_public EXPO_PUBLIC_API_URL "$api_url"
             add_public EXPO_PUBLIC_ALLOWED_API_HOST "$api_host"
-            add_public TENANT "$TENANT"
+            # EXPO_PUBLIC_TENANT, not TENANT: only EXPO_PUBLIC_* is inlined into
+            # the bundle, so TENANT alone moved the Expo config's identity while
+            # the bundle kept whichever tenant was applied. app.config.ts now
+            # refuses that combination outright, which would have failed every
+            # subsequent Vercel build of these two guest surfaces.
+            add_public EXPO_PUBLIC_TENANT "$TENANT"
             if [ "$DEPLOY_ENVIRONMENT" = preview ]; then
               add_public EXPO_PUBLIC_PREVIEW_DIRECTORY "$PREVIEW_DIRECTORY"
             fi

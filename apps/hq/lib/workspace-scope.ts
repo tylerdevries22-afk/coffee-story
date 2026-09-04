@@ -145,7 +145,14 @@ export async function readWorkspaceScope(session: SessionInfo): Promise<Workspac
     ? locationCookie
     : null;
 
-  const registry = demoOrgById(selected.org.id);
+  // Demo-only, like every other read of this registry in this file. Left
+  // ungated, a configured deployment whose `brands.brand_config` came back null
+  // would theme its console from a bundled fixture -- one of the tenant
+  // brand.json files statically imported by ./tenants -- which is another
+  // tenant's configuration. Not reachable today, because the registry is keyed
+  // by slugs and one fixture UUID that no real brand row carries; it becomes a
+  // cross-tenant leak the moment an id collides.
+  const registry = isConfigured() ? null : demoOrgById(selected.org.id);
   return {
     organizations: orgs.map((entry) => entry.org),
     locations,

@@ -17,8 +17,10 @@
  * by native build config, and one binary carries exactly one of each -- see
  * scripts/onboard-app-artwork.ts.
  */
-import { copyFileSync, existsSync, mkdirSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, lstatSync, mkdirSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+
+import { isPlatformSlug } from '@platform/schema';
 
 import {
   appliedSlugs,
@@ -28,6 +30,26 @@ import {
   slotsDirectory,
   type GuestApp,
 } from './onboard-tenant-barrel.js';
+
+/**
+ * Refuses a name that must not reach generated source or a filesystem path.
+ *
+ * Menu item slugs arrive validated; product cut-outs do not -- their names are
+ * read straight off disk, deliberately tolerating extras, and land in two
+ * interpolations inside `product-media.generated.ts`. `barista's pick.webp` is
+ * a legal filename that would corrupt the module it is written into, and a
+ * franchisee photography drop is where such a name comes from. Checked at the
+ * point of use, because the generator is what turns a filename into code.
+ */
+function assertSlug(value: string, what: string): string {
+  if (!isPlatformSlug(value)) {
+    throw new Error(
+      `${what} "${value}" is not kebab-case. Rename it to lowercase letters, digits and single hyphens `
+      + 'before applying; it is written into generated TypeScript and into an asset path.',
+    );
+  }
+  return value;
+}
 
 /** An empty manifest resolves to no capabilities, which is what "none declared" means. */
 const NO_MODULES = `${JSON.stringify({ modules: [] }, null, 2)}\n`;
@@ -41,8 +63,12 @@ const NO_MODULES = `${JSON.stringify({ modules: [] }, null, 2)}\n`;
  */
 function syncAssets(from: string, to: string, extensions: readonly string[]): number {
   mkdirSync(to, { recursive: true });
+  // `isFile()` via lstat, not stat: `copyFileSync` follows symlinks, so a link
+  // named `x.webp` in a tenant folder would copy arbitrary host content into a
+  // shipped bundle. A tenant asset is a real file or it is not synced.
   const sources = existsSync(from)
-    ? readdirSync(from).filter((file) => extensions.some((extension) => file.endsWith(extension)))
+    ? readdirSync(from).filter((file) => extensions.some((extension) => file.endsWith(extension))
+        && lstatSync(join(from, file)).isFile())
     : [];
   const wanted = new Set(sources);
   for (const file of readdirSync(to)) {
@@ -63,6 +89,7 @@ function cutoutIdentifier(itemSlug: string): string {
 }
 
 function renderMenuMedia(slug: string, itemSlugs: readonly string[]): string {
+  for (const item of itemSlugs) assertSlug(item, 'menu item');
   const imports = itemSlugs.map(
     (item) => `import ${menuIdentifier(item)} from '../../../assets/menu/${slug}/${item}.webp';`,
   );
@@ -75,6 +102,7 @@ ${entries.join('\n')}${entries.length > 0 ? '\n' : ''}};
 }
 
 function renderProductMedia(slug: string, cutoutSlugs: readonly string[]): string {
+  for (const item of cutoutSlugs) assertSlug(item, 'product cut-out');
   const imports = cutoutSlugs.map(
     (item) => `import ${cutoutIdentifier(item)} from '../../../assets/products/${slug}/${item}.webp';`,
   );
@@ -128,6 +156,7 @@ export type TenantSlotResult = {
  */
 export function applyTenantSlot(application: TenantSlotApplication): TenantSlotResult {
   const { root, slug, tenantDir, menuJson, itemSlugs } = application;
+  assertSlug(slug, 'tenant slug');
   const brandPath = join(tenantDir, 'brand.json');
   const modulesPath = join(tenantDir, 'modules.json');
   const cutouts = webpSlugs(join(tenantDir, 'assets', 'products'));
