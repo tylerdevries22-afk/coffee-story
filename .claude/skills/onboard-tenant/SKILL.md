@@ -35,10 +35,16 @@ and confirmation that they can complete Square OAuth for each location.
 5. **Run `pnpm onboard --tenant <slug>`.** With `SUPABASE_URL` +
    `SUPABASE_SERVICE_ROLE_KEY` set it seeds brand, location, and menu rows;
    it always generates icons/splash and the app-store listing draft. Add
-   `--apply` only when this tenant is the next binary to build.
-6. **Square.** From the HQ console → Locations → Connect Square for each
+   `--apply` for every tenant you intend to build. It is additive: it writes
+   `apps/<app>/src/tenants/<slug>/` and regenerates the barrel, so applying this
+   tenant leaves every previously applied one intact. (It used to overwrite one
+   shared file, which is why this step once said to apply sparingly.)
+6. **Build it.** `EXPO_PUBLIC_TENANT=<slug>` from `apps/customer` or
+   `apps/kiosk` names which applied tenant the binary is for. With several
+   applied it is required, and omitting it throws rather than picking one.
+7. **Square.** From the HQ console → Locations → Connect Square for each
    location; verify the connection shows Connected before any test order.
-7. **Verify.** Run the `audit-originality` skill on the themed app before any
+8. **Verify.** Run the `audit-originality` skill on the themed app before any
    listing material leaves the building.
 
 Idempotent: re-run onboarding freely after edits.
