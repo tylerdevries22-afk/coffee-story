@@ -8,14 +8,20 @@
   },
   "framework": null,
   "installCommand": "pnpm install --frozen-lockfile",
-  "buildCommand": "pnpm --filter @platform/customer exec expo export --platform web --output-dir dist-web",
+  "buildCommand": "EXPO_PUBLIC_TENANT=\"${EXPO_PUBLIC_TENANT:-$TENANT}\" pnpm --filter @platform/customer exec expo export --platform web --output-dir dist-web",
   "outputDirectory": "dist-web",
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        }
       ]
     }
   ]
