@@ -2,10 +2,8 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { after, before, describe, it } from 'node:test';
 
-import {
-  anonClient, asPrincipal, createSignedInUser, seedBrand, serviceClient,
-  skipUnlessConfigured, sql,
-} from './stack.ts';
+import { asPrincipal } from './principal.ts';
+import { anonClient, createSignedInUser, seedBrand, serviceClient, skipUnlessConfigured, sql } from './stack.ts';
 
 type Session = Awaited<ReturnType<typeof createSignedInUser>>;
 

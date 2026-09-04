@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { before, after, describe, it } from 'node:test';
 
-import { asPrincipal, createSignedInUser, seedBrand, skipUnlessConfigured, sql } from './stack.ts';
+import { asPrincipal } from './principal.ts';
+import { createSignedInUser, seedBrand, skipUnlessConfigured, sql } from './stack.ts';
 
 type Session = Awaited<ReturnType<typeof createSignedInUser>>;
 type Kpi = { brand_id: string; brand_name: string; orders_30d: string; gross_cents_30d: string };
