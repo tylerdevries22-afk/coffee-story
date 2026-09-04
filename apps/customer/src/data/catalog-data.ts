@@ -5,7 +5,7 @@
  */
 import type { OptionGroup } from '@platform/domain';
 
-import menuJson from '@/tenant/menu.json';
+import { TENANT_MENU } from '@/tenant/menu';
 
 export type MenuCategoryId = string;
 export type CatalogSize = { slug: string; ounces?: number; priceCents: number };
@@ -24,7 +24,7 @@ type BundledMenu = {
   items: CatalogItemData[];
 };
 
-const bundled = menuJson as unknown as BundledMenu;
+const bundled = TENANT_MENU as BundledMenu;
 
 export const MENU_CATEGORY_META = bundled.categories;
 export const CATALOG_ITEMS: readonly CatalogItemData[] = bundled.items;

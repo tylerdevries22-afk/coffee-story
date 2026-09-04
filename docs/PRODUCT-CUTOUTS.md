@@ -146,7 +146,7 @@ the sheet exists for.
 1. Drop RGBA masters in `tenants/<slug>/assets/products/<item-slug>.png`.
 2. `pnpm normalize-product-cutouts --tenant <slug>`.
 3. `pnpm onboard --tenant <slug> --apply` — copies the seated `.webp`s into the
-   app and regenerates `apps/customer/src/tenant/product-media.ts`, the static
+   app and regenerates `apps/customer/src/tenants/<slug>/product-media.generated.ts`, the static
    import map. Metro cannot require a path chosen at runtime, so onboarding
    materialises the choice, exactly as it already does for `brand.json`.
 

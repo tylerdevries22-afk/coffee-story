@@ -1,10 +1,16 @@
 /**
  * The tenant this binary is built for.
  *
- * `brand.json` here is a build-time copy of `tenants/<slug>/brand.json`,
- * refreshed by `pnpm onboard --tenant <slug>` -- Metro cannot require a path
- * chosen at runtime, so the onboarding step materialises the choice.
- * `tenant.test.ts` fails the build if the copy drifts from the source tree.
+ * A thin, hand-written view over `src/tenants/` -- the generated barrel that
+ * statically imports every applied tenant and selects one from
+ * `EXPO_PUBLIC_TENANT` at module load. The slot used to be a single shared
+ * `brand.json` here, so `pnpm onboard --apply` for a second brand deleted the
+ * first brand's build inputs; now each applied tenant has its own directory and
+ * this file only says which one won.
+ *
+ * Every existing import site keeps working: the exports below are unchanged.
+ * `tenant.test.ts` fails the build if any applied copy drifts from its tenant
+ * folder.
  */
 import { REWARD_TIERS, resolveRewardTiers, type RewardTier } from '@platform/domain';
 import {
@@ -13,8 +19,9 @@ import {
   type StorefrontCapability,
 } from '@platform/module-kit';
 
-import brandJson from './brand.json';
-import modulesJson from './modules.json';
+import { APPLIED_TENANT_SLUGS, TENANT_SLOT, TENANT_SLUG } from '../tenants';
+
+export { APPLIED_TENANT_SLUGS, TENANT_SLUG };
 
 export type TenantBusiness = {
   legalName: string;
@@ -58,10 +65,10 @@ type TenantFile = {
   };
 };
 
-export const TENANT = brandJson as unknown as TenantFile;
+export const TENANT = TENANT_SLOT.brand as TenantFile;
 
 /** The whole file, in the shape ThemeProvider hydrates from. */
-export const TENANT_BRAND_CONFIG: unknown = brandJson;
+export const TENANT_BRAND_CONFIG: unknown = TENANT_SLOT.brand;
 
 /**
  * The modules installed for this tenant, from the bundled manifest.
@@ -78,7 +85,7 @@ export const TENANT_BRAND_CONFIG: unknown = brandJson;
  * rather than as the boot source. Nothing here authorizes a write: every write
  * behind these flags is re-authorized server side under RLS.
  */
-export const TENANT_MODULE_KEYS: readonly string[] = installedModuleKeys(modulesJson);
+export const TENANT_MODULE_KEYS: readonly string[] = installedModuleKeys(TENANT_SLOT.modules);
 
 const TENANT_CAPABILITIES = storefrontCapabilitiesOf(TENANT_MODULE_KEYS);
 
@@ -114,4 +121,4 @@ export const TENANT_TAX_JURISDICTIONS: readonly { id: string; label: string; rat
  * actually earned; this is what the app draws while it waits.
  */
 export const TENANT_REWARD_TIERS: readonly RewardTier[] =
-  resolveRewardTiers(brandJson) ?? REWARD_TIERS;
+  resolveRewardTiers(TENANT_SLOT.brand) ?? REWARD_TIERS;

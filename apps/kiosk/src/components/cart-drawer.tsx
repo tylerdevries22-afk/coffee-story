@@ -19,7 +19,7 @@ import { checkoutEntryStep } from '@/features/cart-drawer';
 import * as haptics from '@/lib/haptics';
 import { useFlow } from '@/state/flow';
 import { useKioskSession } from '@/state/session';
-import TENANT from '@/tenant/brand.json';
+import { TENANT } from '@/tenant';
 import { TENANT_TAX } from '@/tenant/tax';
 
 const FOCUSABLE_SELECTOR = [

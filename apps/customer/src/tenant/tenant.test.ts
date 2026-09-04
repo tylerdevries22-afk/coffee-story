@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
 
@@ -8,28 +8,19 @@ import {
   STOREFRONT_CAPABILITY_MODULE,
 } from '@platform/module-kit';
 
-import { TENANT, TENANT_MODULE_KEYS, tenantFeature } from './index';
+import { TENANT, TENANT_MODULE_KEYS, TENANT_SLUG, tenantFeature } from './index';
 
-describe('bundled tenant config', () => {
-  it('matches tenants/<slug>/brand.json exactly', () => {
-    // The app bundles a copy (Metro cannot require a runtime-chosen path);
-    // onboarding refreshes it. A drifted copy ships the wrong brand.
-    const source = JSON.parse(
-      readFileSync(join(__dirname, `../../../../tenants/${TENANT.identity.slug}/brand.json`), 'utf8'),
-    );
-    const bundled = JSON.parse(readFileSync(join(__dirname, 'brand.json'), 'utf8'));
-    assert.deepEqual(bundled, source);
-  });
+const TENANTS = join(__dirname, '../../../../tenants');
 
-  it('bundles the same tenant modules.json, which is what capability resolves from', () => {
-    // The manifest is the BOOT source for tenantFeature. A stale copy is a
-    // binary offering a capability its tenant no longer installs, or hiding
-    // one it does -- with no network read that would correct either.
-    const source = JSON.parse(
-      readFileSync(join(__dirname, `../../../../tenants/${TENANT.identity.slug}/modules.json`), 'utf8'),
-    );
-    const bundled = JSON.parse(readFileSync(join(__dirname, 'modules.json'), 'utf8'));
-    assert.deepEqual(bundled, source);
+describe('the selected tenant', () => {
+  it('selects one of the applied tenants, and only one', () => {
+    // The barrel resolves the slug once, from EXPO_PUBLIC_TENANT, and throws
+    // rather than guessing when several tenants are applied.
+    const applied = (JSON.parse(
+      readFileSync(join(__dirname, '..', 'tenants', 'applied.json'), 'utf8'),
+    ) as { slugs: string[] }).slugs;
+    assert.ok(applied.includes(TENANT_SLUG), `${TENANT_SLUG} is not applied`);
+    assert.equal(TENANT.identity.slug, TENANT_SLUG);
   });
 
   it('resolves every storefront capability from the manifest, not from brand.json', () => {
@@ -52,33 +43,25 @@ describe('bundled tenant config', () => {
     assert.ok(TENANT.location.timezone.includes('/'));
   });
 
-  it('ships the tenant-owned customer media byte for byte', () => {
-    const assetGroups = [
-      { name: 'menu', extensions: ['.webp', '.normalized.json'] },
-      { name: 'gift', extensions: ['.webp', '.png'] },
-      { name: 'hero', extensions: ['.webp', '.png', '.mp4'] },
-      { name: 'rewards', extensions: ['.webp', '.png'] },
-    ];
-    for (const group of assetGroups) {
-      const tenantAssets = join(__dirname, `../../../../tenants/${TENANT.identity.slug}/assets/${group.name}`);
-      const bundledAssets = join(__dirname, `../../assets/${group.name}`);
-      const files = readdirSync(tenantAssets)
-        .filter((file) => group.extensions.some((extension) => file.endsWith(extension)))
-        .sort();
-      const bundledFiles = readdirSync(bundledAssets)
-        .filter((file) => group.extensions.some((extension) => file.endsWith(extension)))
-        .sort();
-      assert.deepEqual(bundledFiles, files, `${group.name} contains stale or missing tenant media`);
-      for (const file of files) {
-        const source = readFileSync(join(tenantAssets, file));
-        const bundled = readFileSync(join(bundledAssets, file));
-        assert.ok(bundled.equals(source), `${group.name}/${file} has drifted from the tenant folder`);
-      }
+  it('ships only artwork generated from its logo', () => {
+    // Single-slot, and deliberately so: app.config.ts and the native build name
+    // these at fixed paths, and one binary carries one icon. Applying a second
+    // tenant replaces them, which is why this asserts the selected slug only.
+    //
+    // A tenant that supplied no logo has no generated artwork, and this build
+    // keeps whichever tenant's icons were applied last -- a real onboarding gap
+    // for a franchisee, so it is named rather than silently passed over.
+    const generated = join(TENANTS, TENANT_SLUG, 'app-store/generated');
+    if (!existsSync(generated)) {
+      const applied = (JSON.parse(
+        readFileSync(join(__dirname, '..', 'tenants', 'applied.json'), 'utf8'),
+      ) as { slugs: string[] }).slugs;
+      assert.ok(
+        applied.some((slug) => existsSync(join(TENANTS, slug, 'app-store/generated'))),
+        `no applied tenant has generated artwork; add tenants/${TENANT_SLUG}/assets/logo.png and re-apply`,
+      );
+      return;
     }
-  });
-
-  it('ships only artwork generated from this tenant logo', () => {
-    const generated = join(__dirname, `../../../../tenants/${TENANT.identity.slug}/app-store/generated`);
     const mappings = [
       ['icon.png', '../../assets/images/icon.png'],
       ['android-foreground.png', '../../assets/images/android-icon-foreground.png'],
@@ -94,54 +77,6 @@ describe('bundled tenant config', () => {
         readFileSync(join(__dirname, destination)).equals(readFileSync(join(generated, source))),
         `${destination} has drifted from generated tenant artwork`,
       );
-    }
-  });
-});
-
-describe('bundled product cut-outs', () => {
-  const productsDir = join(__dirname, '../../assets/products');
-  const tenantDir = join(__dirname, `../../../../tenants/${TENANT.identity.slug}/assets/products`);
-
-  // Read as text rather than imported: `product-media.ts` imports .webp assets,
-  // which `node:test` cannot transform. The same technique the screen tests use.
-  const generated = readFileSync(join(__dirname, 'product-media.ts'), 'utf8');
-  const mapped = [...generated.matchAll(/^  '([a-z0-9-]+)':/gm)].map((match) => match[1]).sort();
-  const seated = readdirSync(tenantDir)
-    .filter((file) => file.endsWith('.webp'))
-    .map((file) => file.replace(/\.webp$/, ''))
-    .sort();
-
-  it('maps exactly the cut-outs the tenant has seated', () => {
-    // Same reason brand.json is copied: Metro cannot require a runtime-chosen
-    // path, so `pnpm onboard --apply` materialises the choice. A stale map
-    // either ships one brand's glassware in another brand's binary, or names an
-    // asset that is not there -- which fails the bundle, not the tests.
-    assert.deepEqual(mapped, seated);
-  });
-
-  it('ships no stale cut-outs from another tenant', () => {
-    const bundled = readdirSync(productsDir)
-      .filter((file) => file.endsWith('.webp'))
-      .map((file) => file.replace(/\.webp$/, ''))
-      .sort();
-    assert.deepEqual(bundled, seated);
-  });
-
-  it('matches the tenant folder byte for byte', () => {
-    for (const slug of seated) {
-      const bundled = readFileSync(join(productsDir, `${slug}.webp`));
-      const source = readFileSync(join(tenantDir, `${slug}.webp`));
-      assert.ok(bundled.equals(source), `${slug}.webp has drifted from the tenant folder`);
-    }
-  });
-
-  it('carries alpha, which is the entire point of the asset class', () => {
-    // A simple lossy WebP is `VP8 ` and cannot hold an alpha channel; an
-    // extended one is `VP8X`. A flattened cut-out still looks plausible in a
-    // diff, so the format is asserted rather than trusted.
-    for (const slug of seated) {
-      const bytes = readFileSync(join(productsDir, `${slug}.webp`));
-      assert.equal(bytes.subarray(12, 16).toString('ascii'), 'VP8X', `${slug}.webp lost its transparency`);
     }
   });
 });

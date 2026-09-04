@@ -18,9 +18,9 @@ import {
   type StorefrontCapability,
 } from '@platform/module-kit';
 
-import modulesJson from './modules.json';
+import { TENANT_MODULES } from './index';
 
-export const TENANT_MODULE_KEYS: readonly string[] = installedModuleKeys(modulesJson);
+export const TENANT_MODULE_KEYS: readonly string[] = installedModuleKeys(TENANT_MODULES);
 
 const TENANT_CAPABILITIES = storefrontCapabilitiesOf(TENANT_MODULE_KEYS);
 

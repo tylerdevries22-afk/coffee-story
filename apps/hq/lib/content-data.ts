@@ -18,7 +18,7 @@ import { serverClient } from './supabase-server';
 import { resolveTenantTrainingProfile } from './training-bootstrap';
 import { selectedOrganizationId } from './workspace-scope';
 
-import demoMenuJson from '../../customer/src/tenant/menu.json';
+import demoMenuJson from '../../customer/src/tenants/coffee-story/menu.json';
 
 type BrandRow = { id: string; name: string; brand_config: unknown };
 type MenuRow = { id: string; name: string; is_published: boolean; updated_at: string };

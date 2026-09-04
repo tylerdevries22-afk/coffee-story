@@ -9,6 +9,6 @@
  */
 import { taxJurisdictionsFromBrandConfig, type TaxJurisdiction } from '@platform/domain';
 
-import TENANT from './brand.json';
+import { TENANT_BRAND_CONFIG } from './index';
 
-export const TENANT_TAX: readonly TaxJurisdiction[] = taxJurisdictionsFromBrandConfig(TENANT);
+export const TENANT_TAX: readonly TaxJurisdiction[] = taxJurisdictionsFromBrandConfig(TENANT_BRAND_CONFIG);

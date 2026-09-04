@@ -5,7 +5,7 @@ import type { KioskEntryNode } from '@platform/domain';
 import { StepHeading } from '@/components/chrome/step-heading';
 import { Constellation } from '@/components/circle/constellation';
 import { useFlow } from '@/state/flow';
-import TENANT from '@/tenant/brand.json';
+import { TENANT } from '@/tenant';
 
 /**
  * A bounded catalog-folder step. Nested groups reuse this screen, so the

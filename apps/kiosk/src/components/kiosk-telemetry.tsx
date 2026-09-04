@@ -9,7 +9,7 @@ import { AppState } from 'react-native';
 
 import { useDevice } from '@/state/device';
 import { useKioskSession } from '@/state/session';
-import TENANT from '@/tenant/brand.json';
+import { TENANT } from '@/tenant';
 
 const SCREENS: Readonly<Record<string, string>> = {
   '/': 'entry', '/pair': 'device_pairing', '/bag': 'bag',

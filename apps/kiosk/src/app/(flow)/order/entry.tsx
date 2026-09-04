@@ -7,7 +7,7 @@ import { StepHeading } from '@/components/chrome/step-heading';
 import { Constellation } from '@/components/circle/constellation';
 import { useKioskMenu } from '@/data/menu-store';
 import { useFlow } from '@/state/flow';
-import TENANT from '@/tenant/brand.json';
+import { TENANT } from '@/tenant';
 
 /**
  * The first screen, and the one that is entirely the tenant's.

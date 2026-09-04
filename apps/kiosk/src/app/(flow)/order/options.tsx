@@ -11,7 +11,7 @@ import { KioskMenuImage } from '@/components/menu-image';
 import * as haptics from '@/lib/haptics';
 import { useBuilder } from '@/state/builder';
 import { useFlow } from '@/state/flow';
-import TENANT from '@/tenant/brand.json';
+import { TENANT } from '@/tenant';
 
 /**
  * Size and options for one drink.

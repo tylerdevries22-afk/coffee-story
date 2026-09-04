@@ -8,8 +8,8 @@ describe('demoMenuImagePaths', () => {
     const rootPaths = demoMenuImagePaths('/workspace', 'espresso');
     const appPaths = demoMenuImagePaths('/workspace/apps/hq', 'espresso');
 
-    assert.ok(rootPaths.includes('/workspace/apps/customer/assets/menu/espresso.webp'));
-    assert.ok(appPaths.includes('/workspace/apps/customer/assets/menu/espresso.webp'));
+    assert.ok(rootPaths.includes('/workspace/apps/customer/assets/menu/coffee-story/espresso.webp'));
+    assert.ok(appPaths.includes('/workspace/apps/customer/assets/menu/coffee-story/espresso.webp'));
   });
 
   it('rejects path traversal and malformed slugs', () => {

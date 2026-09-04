@@ -27,7 +27,7 @@
  * steps 2 and 4 narrow rather than fail.
  */
 import { createHash } from 'node:crypto';
-import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -43,7 +43,9 @@ import {
 import { APP_COLOR_KEYS } from '@platform/ui/app-tokens';
 import { isRegisteredFont } from '@platform/ui/font-registry';
 
+import { applyAppArtwork } from './onboard-app-artwork.js';
 import { modulesManifestProblems } from './onboard-modules-manifest.js';
+import { applyTenantSlot, describeApplied } from './onboard-tenant-slots.js';
 
 const DATABASE_TIMEOUT_MS = 10_000;
 
@@ -390,6 +392,13 @@ if (ownerFlagProvided && (!ownerUserId || !UUID_PATTERN.test(ownerUserId))) {
   process.exit(1);
 }
 
+/**
+ * Narrowed once, here, so `run()` can pass it where a string is required.
+ *
+ * The guards above exit on a missing or malformed slug, but that narrowing does
+ * not reach into a function body.
+ */
+const tenantSlug: string = slug;
 const tenantDir = join(process.cwd(), 'tenants', slug);
 const brandPath = join(tenantDir, 'brand.json');
 if (!existsSync(brandPath)) {
@@ -498,13 +507,20 @@ async function run() {
   if (apply || (requireDatabase && !imageLessSchemaFixture)) {
     validateMenuAssets(tenantDir, compiled.menu, problems);
   }
-  if (apply) validateCustomerShellAssets(tenantDir, problems);
+  // The customer shell's illustration set and the icon source are single-slot
+  // platform art (scripts/onboard-app-artwork.ts): one binary carries one of
+  // each, and a tenant that ships none inherits whatever is already applied.
+  // Requiring every franchisee to re-supply them blocked applying a second
+  // tenant for no runtime reason, so they warn rather than fail.
+  const shellGaps: string[] = [];
+  if (apply) validateCustomerShellAssets(tenantDir, shellGaps);
   if (problems.length > 0) {
     console.error(`tenants/${slug} does not validate:`);
     for (const problem of problems) console.error(`  - ${problem}`);
     process.exit(1);
   }
   console.log(`1. validated brand.json${menu.rows.length ? ` and menu.csv (${menu.rows.length} items)` : ' (no menu.csv)'}`);
+  for (const gap of shellGaps) console.warn(`   warning: ${gap} This build keeps the artwork already applied.`);
   if (scaffold) {
     console.log(`tenants/${slug} is the shape tenants are copied from, so validation is where it stops.`);
     return;
@@ -723,47 +739,40 @@ async function run() {
     console.log(`4. listing: skipped (the draft describes a guest ordering app; tenants/${slug} ships no menu)`);
   }
 
-  // 5. Apply to the bundled copies ------------------------------------------
+  // 5. Apply this tenant's slot -----------------------------------------
   //
-  // Two apps bundle the brand file because Metro cannot require a
-  // runtime-chosen path. The kiosk's copy was hand-maintained and unwritten by
-  // anything, so it silently fell a key behind the moment `board` was added.
-  // Both are refreshed here and both are pinned by a drift test.
-  const BUNDLED_COPIES = [
-    join(process.cwd(), 'apps', 'customer', 'src', 'tenant', 'brand.json'),
-    join(process.cwd(), 'apps', 'kiosk', 'src', 'tenant', 'brand.json'),
-  ];
-  // modules.json travels with brand.json, and for the same reason: it is what
-  // the two guest apps resolve capability from at boot, so a tenant switch
-  // that moved the brand and left the module manifest behind would ship one
-  // tenant's identity with another tenant's capabilities.
-  const BUNDLED_MODULE_COPIES = [
-    join(process.cwd(), 'apps', 'customer', 'src', 'tenant', 'modules.json'),
-    join(process.cwd(), 'apps', 'kiosk', 'src', 'tenant', 'modules.json'),
-  ];
-  const modulesPath = join(tenantDir, 'modules.json');
+  // Additive. Every guest-app artifact that can be per-slug is written under
+  // `apps/<app>/src/tenants/<slug>/` and named by a generated barrel, so
+  // applying brand B leaves brand A's build inputs in the tree and A's
+  // released binary stays reproducible from a commit. Metro's constraint is
+  // satisfied because every path in the barrel is a literal; see
+  // scripts/onboard-tenant-slots.ts.
   if (apply) {
-    for (const destination of BUNDLED_COPIES) copyFileSync(brandPath, destination);
-    if (existsSync(modulesPath)) {
-      for (const destination of BUNDLED_MODULE_COPIES) copyFileSync(modulesPath, destination);
-    }
-    applyAppBundles(tenantDir, brand, compiled.menu);
-    console.log(`5. applied: apps/customer and apps/kiosk now bundle ${slug} (build with TENANT=${slug})`);
+    const slot = applyTenantSlot({
+      root: process.cwd(),
+      slug: tenantSlug,
+      tenantDir,
+      menuJson: `${JSON.stringify(compiled.menu, null, 2)}\n`,
+      itemSlugs: compiled.menu.items.map((item) => item.id),
+    });
+    console.log(`5. applied: ${slot.menuAssets} menu photographs, ${slot.cutouts.length} cut-outs`);
+    console.log(`   tenants now bundled -- ${describeApplied(process.cwd())}`);
+    console.log(`   build this one with EXPO_PUBLIC_TENANT=${slug}`);
   } else {
-    console.log(`5. not applied: pass --apply to point apps/customer and apps/kiosk at this tenant`);
+    console.log('5. not applied: pass --apply to add this tenant to the guest apps\' tenant slots');
   }
 
-  // 6. Product cut-outs ------------------------------------------------------
+  // 6. Single-slot artwork ---------------------------------------------------
   //
-  // Copied in and codegened rather than resolved at runtime, for the reason
-  // this script already handles brand.json the same way: Metro cannot require a
-  // path chosen at runtime, so onboarding materialises the choice. Without the
-  // generated import map, dropping files in the tenant folder gives Metro
-  // nothing to bundle.
+  // Icons, splash, favicon, the web manifest and the gift/hero/rewards
+  // illustrations are named at fixed paths by app.config.ts and by hand-written
+  // module maps, so one binary carries exactly one set. Applying a second
+  // tenant replaces them; see scripts/onboard-app-artwork.ts for why that is
+  // the honest boundary rather than a gap.
   if (apply) {
-    console.log(`6. cut-outs: ${applyProductCutouts(tenantDir)}`);
+    console.log(`6. artwork: ${applyAppArtwork(process.cwd(), tenantSlug, tenantDir, brand)}`);
   } else {
-    console.log(`6. cut-outs: not applied (pass --apply)`);
+    console.log('6. artwork: not applied (pass --apply)');
   }
 }
 
@@ -1046,182 +1055,6 @@ function validateCustomerShellAssets(dir: string, problems: string[]): void {
   if (!existsSync(join(dir, 'assets', 'logo.svg')) && !existsSync(join(dir, 'assets', 'logo.png'))) {
     problems.push('assets/logo.svg or assets/logo.png is required to apply a tenant.');
   }
-}
-
-function syncDirectory(from: string, to: string, extensions: readonly string[]): number {
-  mkdirSync(to, { recursive: true });
-  const sources = existsSync(from)
-    ? readdirSync(from).filter((file) => extensions.some((extension) => file.endsWith(extension)))
-    : [];
-  const sourceSet = new Set(sources);
-  for (const file of readdirSync(to)) {
-    if (extensions.some((extension) => file.endsWith(extension)) && !sourceSet.has(file)) unlinkSync(join(to, file));
-  }
-  for (const file of sources) copyFileSync(join(from, file), join(to, file));
-  return sources.length;
-}
-
-function mediaIdentifier(slug: string): string {
-  return `menu${slug.split('-').map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`).join('')}`;
-}
-
-function renderMenuMedia(slugs: readonly string[]): string {
-  const imports = slugs.map((slug) => `import ${mediaIdentifier(slug)} from '../../assets/menu/${slug}.webp';`);
-  const entries = slugs.map((slug) => `  '${slug}': ${mediaIdentifier(slug)},`);
-  return `/** GENERATED by \`pnpm onboard --tenant <slug> --apply\`. */
-${imports.join('\n')}
-
-export const TENANT_MENU_MEDIA: Readonly<Record<string, number>> = {
-${entries.join('\n')}
-};
-`;
-}
-
-function writeWebManifest(brand: BrandFile, target: string): void {
-  const pointsName = brand.copy.pointsName ?? 'Points';
-  const manifest = {
-    name: brand.identity.name,
-    short_name: brand.identity.name,
-    description: `Order ahead, send a gift card, and earn ${pointsName} at ${brand.identity.name}.`,
-    start_url: '/', display: 'standalone', background_color: brand.tokens.surface,
-    theme_color: brand.tokens.primary,
-    icons: [{ src: '/icon.png', sizes: '1024x1024', type: 'image/png' }],
-  };
-  writeFileSync(target, `${JSON.stringify(manifest, null, 2)}\n`);
-}
-
-function applyAppBundles(dir: string, brand: BrandFile, menu: BundledTenantMenu): void {
-  const root = join(process.cwd(), 'apps', 'customer');
-  const kioskRoot = join(process.cwd(), 'apps', 'kiosk');
-  const tenantTarget = join(root, 'src', 'tenant');
-  const kioskTenantTarget = join(kioskRoot, 'src', 'tenant');
-  const menuJson = `${JSON.stringify(menu, null, 2)}\n`;
-  const menuMedia = renderMenuMedia(menu.items.map((item) => item.id));
-  writeFileSync(join(tenantTarget, 'menu.json'), menuJson);
-  writeFileSync(join(kioskTenantTarget, 'menu.json'), menuJson);
-  writeFileSync(join(tenantTarget, 'menu-media.ts'), menuMedia);
-  writeFileSync(join(kioskTenantTarget, 'menu-media.ts'), menuMedia);
-  const assets = join(dir, 'assets');
-  syncDirectory(join(assets, 'menu'), join(root, 'assets', 'menu'), ['.webp', '.normalized.json']);
-  syncDirectory(join(assets, 'menu'), join(kioskRoot, 'assets', 'menu'), ['.webp', '.normalized.json']);
-  syncDirectory(join(assets, 'gift'), join(root, 'assets', 'gift'), ['.webp', '.png']);
-  syncDirectory(join(assets, 'hero'), join(root, 'assets', 'hero'), ['.webp', '.png', '.mp4']);
-  syncDirectory(join(assets, 'rewards'), join(root, 'assets', 'rewards'), ['.webp', '.png']);
-  const generated = join(dir, 'app-store', 'generated');
-  copyFileSync(join(generated, 'splash-logo.png'), join(root, 'assets', 'brand', 'logo.png'));
-  copyFileSync(join(generated, 'icon.png'), join(root, 'assets', 'images', 'icon.png'));
-  copyFileSync(join(generated, 'android-foreground.png'), join(root, 'assets', 'images', 'android-icon-foreground.png'));
-  copyFileSync(join(generated, 'android-background.png'), join(root, 'assets', 'images', 'android-icon-background.png'));
-  copyFileSync(join(generated, 'android-monochrome.png'), join(root, 'assets', 'images', 'android-icon-monochrome.png'));
-  copyFileSync(join(generated, 'favicon.png'), join(root, 'assets', 'images', 'favicon.png'));
-  copyFileSync(join(generated, 'android-foreground.png'), join(root, 'assets', 'expo.icon', 'Assets', 'mark.png'));
-  writeExpoIconConfig(brand.tokens.surface, join(root, 'assets', 'expo.icon', 'icon.json'));
-  copyFileSync(join(generated, 'icon.png'), join(root, 'public', 'icon.png'));
-  copyFileSync(join(generated, 'icon-180.png'), join(root, 'public', 'icon-180.png'));
-  writeWebManifest(brand, join(root, 'public', 'manifest.webmanifest'));
-  applyKioskArtwork(generated, brand.tokens.surface);
-}
-
-function writeExpoIconConfig(surface: unknown, target: string): void {
-  const color = typeof surface === 'string' && HEX.test(surface) ? surface : '#FFFFFF';
-  const channels = [1, 3, 5].map((offset) => (Number.parseInt(color.slice(offset, offset + 2), 16) / 255).toFixed(5));
-  const config = {
-    fill: { 'automatic-gradient': `extended-srgb:${channels.join(',')},1.00000` },
-    groups: [{
-      layers: [{ 'image-name': 'mark.png', name: 'mark' }],
-      shadow: { kind: 'neutral', opacity: 0.5 },
-      translucency: { enabled: false, value: 0.5 },
-    }],
-    'supported-platforms': { circles: ['watchOS'], squares: 'shared' },
-  };
-  writeFileSync(target, `${JSON.stringify(config, null, 2)}\n`);
-}
-
-function applyKioskArtwork(generated: string, surface: unknown): void {
-  const root = join(process.cwd(), 'apps', 'kiosk');
-  const images = join(root, 'assets', 'images');
-  const brand = join(root, 'assets', 'brand');
-  const expoIcon = join(root, 'assets', 'expo.icon');
-  const expoIconAssets = join(expoIcon, 'Assets');
-  mkdirSync(images, { recursive: true });
-  mkdirSync(brand, { recursive: true });
-  mkdirSync(expoIconAssets, { recursive: true });
-  copyFileSync(join(generated, 'icon.png'), join(images, 'icon.png'));
-  copyFileSync(join(generated, 'android-foreground.png'), join(images, 'android-icon-foreground.png'));
-  copyFileSync(join(generated, 'android-background.png'), join(images, 'android-icon-background.png'));
-  copyFileSync(join(generated, 'android-monochrome.png'), join(images, 'android-icon-monochrome.png'));
-  copyFileSync(join(generated, 'favicon.png'), join(images, 'favicon.png'));
-  copyFileSync(join(generated, 'splash-logo.png'), join(brand, 'logo.png'));
-  copyFileSync(join(generated, 'android-foreground.png'), join(expoIconAssets, 'mark.png'));
-  writeExpoIconConfig(surface, join(expoIcon, 'icon.json'));
-}
-
-/**
- * Copies the tenant's seated cut-outs into the app and regenerates the static
- * import map.
- *
- * Deliberately quiet when a tenant has none: the shelf that consumes these
- * degrades to however many exist, so a brand with no glass renders is a valid
- * brand and not a failed onboarding.
- */
-function applyProductCutouts(dir: string): string {
-  const from = join(dir, 'assets', 'products');
-  const to = join(process.cwd(), 'apps', 'customer', 'assets', 'products');
-  const generated = join(process.cwd(), 'apps', 'customer', 'src', 'tenant', 'product-media.ts');
-
-  const seated = existsSync(from)
-    ? readdirSync(from)
-        .filter((file) => file.endsWith('.webp'))
-        .map((file) => file.replace(/\.webp$/, ''))
-        .sort()
-    : [];
-
-  syncDirectory(from, to, ['.webp']);
-
-  const identifier = (name: string) => name.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
-  const imports = seated.map((n) => `import ${identifier(n)} from '../../assets/products/${n}.webp';`);
-  const entries = seated.map((n) => `  '${n}': ${identifier(n)},`);
-
-  writeFileSync(
-    generated,
-    `/**
- * The product cut-outs this build ships, for this tenant.
- *
- * GENERATED by \`pnpm onboard --tenant <slug> --apply\` from
- * \`tenants/<slug>/assets/products/\`. Checked in for the same reason
- * \`brand.json\` is: Metro cannot require a path chosen at runtime, so
- * onboarding materialises the choice. Editing this by hand puts it out of step
- * with the tenant folder.
- *
- * A slug missing from this map is not an error. \`resolveProductMedia\` returns
- * null and the shelf is one row shorter -- a tenant part-way through shooting
- * its menu still boots, which is the one place this path deliberately differs
- * from the menu photographs.
- */
-import { EMPTY_PRODUCT_MEDIA, type ProductMediaCatalog } from '@platform/domain';
-
-${imports.join('\n')}${imports.length > 0 ? '\n' : ''}
-/** slug -> Metro module id. The one place a cut-out asset is named. */
-export const BUNDLED_CUTOUTS: Readonly<Record<string, number>> = {
-${entries.join('\n')}${entries.length > 0 ? '\n' : ''}};
-
-/**
- * The catalog the resolver reads.
- *
- * \`remote\` stays empty until \`menu_items.image_url\` has a writer. Nothing
- * about this file or its callers changes when it does -- that is the whole
- * reason the resolver returns a reference rather than a module id.
- */
-export const TENANT_PRODUCT_MEDIA: ProductMediaCatalog = {
-  bundled: new Set(Object.keys(BUNDLED_CUTOUTS)),
-  remote: EMPTY_PRODUCT_MEDIA.remote,
-};
-`,
-  );
-
-  return seated.length > 0
-    ? `${seated.length} copied into apps/customer, import map regenerated`
-    : 'none in this tenant\'s assets/products (the shelf simply shows fewer rows)';
 }
 
 run().catch((error) => {
