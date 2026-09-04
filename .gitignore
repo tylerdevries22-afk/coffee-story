@@ -76,12 +76,17 @@ __pycache__/
 # branch. `.claude/` itself stays tracked: launch.json, settings.json, hooks
 # and skills are real project config.
 **/.claude/session-notes.md
-.claude/.proven-config-version
-.claude/proven-config.json
+# Globbed, not root-anchored: running a command from inside packages/<pkg> or a
+# worktree makes the harness write these there too, and the anchored form left
+# them as untracked noise (hit in packages/domain).
+**/.claude/.proven-config-version
+**/.claude/proven-config.json
 .claude-flow/
+.swarm/
 .codex/
 .tmp/
 apps/*/.claude/
+packages/*/.claude/
 apps/hq/.next-wall*/
 
 # Ruflo Core local state (guidance bundle + vector index)

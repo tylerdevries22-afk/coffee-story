@@ -9,7 +9,7 @@ import { CircleTile } from '@/components/circle/circle-tile';
 import { useKioskMenu } from '@/data/menu-store';
 import { useBuilder } from '@/state/builder';
 import { useFlow } from '@/state/flow';
-import TENANT from '@/tenant/brand.json';
+import { TENANT } from '@/tenant';
 
 /**
  * What is in the category the guest tapped.

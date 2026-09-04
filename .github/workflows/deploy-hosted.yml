@@ -424,7 +424,12 @@ jobs:
             add_public EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY "$SUPABASE_PUBLISHABLE_KEY"
             add_public EXPO_PUBLIC_API_URL "$api_url"
             add_public EXPO_PUBLIC_ALLOWED_API_HOST "$api_host"
-            add_public TENANT "$TENANT"
+            # EXPO_PUBLIC_TENANT, not TENANT: only EXPO_PUBLIC_* is inlined into
+            # the bundle, so TENANT alone moved the Expo config's identity while
+            # the bundle kept whichever tenant was applied. app.config.ts now
+            # refuses that combination outright, which would have failed every
+            # subsequent Vercel build of these two guest surfaces.
+            add_public EXPO_PUBLIC_TENANT "$TENANT"
             if [ "$DEPLOY_ENVIRONMENT" = preview ]; then
               add_public EXPO_PUBLIC_PREVIEW_DIRECTORY "$PREVIEW_DIRECTORY"
             fi
@@ -501,6 +506,10 @@ jobs:
         run: |
           test -n "$EXPO_TOKEN" || { echo '::error::Set EXPO_TOKEN.'; exit 1; }
           test -n "$API_URL" || { echo '::error::The verified HQ deployment did not return a URL.'; exit 1; }
+      # EXPO_PUBLIC_TENANT names which applied tenant this bundle is for.
+      # apps/customer/src/tenants/ holds one directory per applied tenant, and the
+      # bundle throws rather than guessing when several are applied -- publishing
+      # one shop's menu under another shop's name is the failure it prevents.
       - name: Publish customer update
         working-directory: apps/customer
         env:
@@ -509,6 +518,7 @@ jobs:
         run: |
           api_host="${API_URL#https://}"
           api_host="${api_host%%/*}"
+          EXPO_PUBLIC_TENANT="$TENANT" \
           EXPO_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
           EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
           EXPO_PUBLIC_API_URL="$API_URL" \
@@ -527,6 +537,10 @@ jobs:
           EXPO_PUBLIC_API_URL="$API_URL" \
           EXPO_PUBLIC_ALLOWED_API_HOST="$api_host" \
             npx --yes eas-cli@21.4.0 update --channel production --environment production --platform all --non-interactive
+      # EXPO_PUBLIC_TENANT names which applied tenant this bundle is for.
+      # apps/kiosk/src/tenants/ holds one directory per applied tenant, and the
+      # bundle throws rather than guessing when several are applied -- publishing
+      # one shop's menu under another shop's name is the failure it prevents.
       - name: Publish kiosk update
         working-directory: apps/kiosk
         env:
@@ -535,6 +549,7 @@ jobs:
         run: |
           api_host="${API_URL#https://}"
           api_host="${api_host%%/*}"
+          EXPO_PUBLIC_TENANT="$TENANT" \
           EXPO_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
           EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
           EXPO_PUBLIC_API_URL="$API_URL" \

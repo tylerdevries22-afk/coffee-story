@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import coffeeStoryMenu from '../../customer/src/tenant/menu.json';
+import coffeeStoryMenu from '../../customer/src/tenants/coffee-story/menu.json';
 
 import { DEMO_KIOSK_MENU } from './demo-data';
 

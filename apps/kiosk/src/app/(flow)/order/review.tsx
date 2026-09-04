@@ -14,7 +14,7 @@ import * as haptics from '@/lib/haptics';
 import { useBuilder } from '@/state/builder';
 import { useFlow } from '@/state/flow';
 import { useKioskSession } from '@/state/session';
-import TENANT from '@/tenant/brand.json';
+import { TENANT } from '@/tenant';
 
 /**
  * "How does this look?"

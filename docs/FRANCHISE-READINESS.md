@@ -84,9 +84,10 @@ shared package (see below) rather than copy it per app.
 ## Industry-neutrality — moving coffee/restaurant specifics into the tenant folder
 
 The engine, schema, and UI kit are already generic; the coffee identity lives
-mostly where it should (`tenants/coffee-story/`, and the per-binary embed at
-`apps/customer/src/tenant/`). The gaps are the coffee-shaped **demo fixtures
-and copy** baked into app code, which make the framework read as coffee-only:
+mostly where it should (`tenants/coffee-story/`, and the per-tenant embed at
+`apps/customer/src/tenants/<slug>/`). The gaps are the coffee-shaped **demo
+fixtures and copy** baked into app code, which make the framework read as
+coffee-only:
 
 - `apps/hq/lib/demo-data.ts` — `DEMO_MENU` (Cortado, Oat Latte, V60),
   `DEMO_DROPS`, category names (“Espresso”, “Brew Bar”). Move demo fixtures to

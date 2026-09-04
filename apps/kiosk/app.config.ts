@@ -1,3 +1,11 @@
+/**
+ * Expo config for the kiosk binary (rule 7: one kiosk binary per brand).
+ *
+ * This file had no tenant override at all: it read whichever brand file the
+ * last `pnpm onboard --apply` had written, so a second franchisee's kiosk could
+ * not be built from the same checkout. It now resolves an applied tenant the
+ * same way the customer config and the bundle itself do.
+ */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -31,11 +39,68 @@ export function kioskEasConfig(projectId: string | undefined): KioskEasConfig {
   };
 }
 
-const brand = JSON.parse(
-  readFileSync(join(__dirname, 'src', 'tenant', 'brand.json'), 'utf8'),
-) as KioskBrand;
+/**
+ * Which applied tenant this build is for, by the same rule the app uses at runtime.
+ *
+ * `src/tenants/` holds one directory per applied tenant and `applied.json`
+ * names them; `src/tenants/index.ts` selects one from `EXPO_PUBLIC_TENANT` when
+ * the bundle boots. This has to agree with that or the build is the exact
+ * failure the slot layout exists to prevent -- one shop's identity over another
+ * shop's menu, correctly signed, with nothing in the log to say so. Duplicated
+ * here rather than imported because Expo's config loader transpiles this file
+ * and not workspace TypeScript it imports; `src/tenant/tenant.test.ts` pins the
+ * two answers together.
+ *
+ * `TENANT` stays accepted as the legacy build-time name, but only when it
+ * agrees with `EXPO_PUBLIC_TENANT`: `TENANT` alone cannot reach the bundle, so
+ * honouring it by itself is how a franchisee got a correctly named binary
+ * carrying somebody else's menu.
+ */
+function resolveAppliedTenant(appDirectory: string, app: string): string {
+  const manifest: { slugs?: string[] } = JSON.parse(
+    readFileSync(join(appDirectory, 'src', 'tenants', 'applied.json'), 'utf8'),
+  );
+  // Shape-checked, not just membership-checked: these entries are joined into
+  // a filesystem path below, and a hand-edited `..` would read out of the slot
+  // directory entirely. Kebab-case cannot contain a dot or a slash.
+  const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+  const applied = [...(manifest.slugs ?? [])].filter((slug) => slugPattern.test(slug)).sort();
+  const runtime = process.env.EXPO_PUBLIC_TENANT?.trim() ?? '';
+  const legacy = process.env.TENANT?.trim() ?? '';
+  if (legacy !== '' && legacy !== runtime) {
+    throw new Error(
+      `TENANT="${legacy}" cannot reach the bundle; only EXPO_PUBLIC_TENANT is inlined. `
+      + `Build with EXPO_PUBLIC_TENANT=${legacy} instead.`,
+    );
+  }
+  if (applied.length === 0) {
+    throw new Error(`apps/${app} has no tenant applied. Run \`pnpm onboard --tenant <slug> --apply\`.`);
+  }
+  if (runtime !== '') {
+    if (!slugPattern.test(runtime) || !applied.includes(runtime)) {
+      throw new Error(
+        `EXPO_PUBLIC_TENANT="${runtime}" is not applied to apps/${app}. Applied: ${applied.join(', ')}. `
+        + `Run \`pnpm onboard --tenant ${runtime} --apply\` first.`,
+      );
+    }
+    return runtime;
+  }
+  const only = applied[0];
+  if (applied.length === 1 && only !== undefined) return only;
+  throw new Error(
+    `apps/${app} bundles ${applied.length} tenants (${applied.join(', ')}) and EXPO_PUBLIC_TENANT is not set. `
+    + 'Set EXPO_PUBLIC_TENANT=<slug> so this build picks one.',
+  );
+}
 
-/** The checked-in tenant copy is refreshed by `pnpm onboard --tenant <slug> --apply`. */
+/** Read from the applied copy, so the identity always matches the bundled menu. */
+export function appliedBrandPath(appDirectory: string, app: string): string {
+  return join(appDirectory, 'src', 'tenants', resolveAppliedTenant(appDirectory, app), 'brand.json');
+}
+
+const brand = JSON.parse(readFileSync(appliedBrandPath(__dirname, 'kiosk'), 'utf8')) as KioskBrand;
+
+/** One applied tenant per build, chosen by `EXPO_PUBLIC_TENANT`. */
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: `${brand.identity.name} Kiosk`,

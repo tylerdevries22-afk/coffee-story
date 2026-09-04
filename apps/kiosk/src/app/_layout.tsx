@@ -9,7 +9,7 @@ import * as ScreenOrientation from 'expo-screen-orientation';
 import { DEFAULT_TOKENS, PreviewSwitcher, ThemeProvider } from '@platform/ui';
 import { initMobileMonitoring } from '@platform/monitoring';
 
-import TENANT_BRAND_CONFIG from '@/tenant/brand.json';
+import { TENANT_BRAND_CONFIG } from '@/tenant';
 import { kioskCapability } from '@/tenant/capabilities';
 
 import { menuFactsFrom } from '@platform/domain';

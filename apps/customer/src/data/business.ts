@@ -2,7 +2,7 @@
  * The shop's own details, derived from the tenant config in one place.
  *
  * They were written out three times and disagreed (see git history); now the
- * single source is `src/tenant/brand.json`, so rebranding the binary for
+ * single source is the applied `src/tenants/<slug>/brand.json`, so rebranding for
  * another tenant rebrands every error screen, receipt and calendar note with
  * it (rule 4 applies to words too).
  *

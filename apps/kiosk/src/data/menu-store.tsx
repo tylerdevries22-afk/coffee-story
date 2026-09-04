@@ -33,7 +33,7 @@ import {
 import { demoMenu, kioskMenuFromRows } from '@/data/menu-source';
 import { hasSupabaseConfig, supabase } from '@/lib/supabase';
 import { useDevice } from '@/state/device';
-import TENANT_BRAND_CONFIG from '@/tenant/brand.json';
+import { TENANT_BRAND_CONFIG } from '@/tenant';
 
 export type KioskMenuStatus = 'demo' | 'loading' | 'live' | 'paused' | 'unavailable';
 

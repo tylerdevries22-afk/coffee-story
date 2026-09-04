@@ -12,7 +12,7 @@ import { packSavingBps } from '@/features/pack-fill';
 import { useKioskMenu } from '@/data/menu-store';
 import { useBuilder } from '@/state/builder';
 import { useFlow } from '@/state/flow';
-import TENANT from '@/tenant/brand.json';
+import { TENANT } from '@/tenant';
 
 /**
  * "How many would you like?"

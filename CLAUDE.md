@@ -49,6 +49,9 @@ packages/api-client/ typed client for the platform API (trusted writes)
 packages/domain/    guest-and-shift domain + deep-link parsing, framework-free
 tenants/_template/  documented brand.json, menu.csv, assets/, app-store/
 tenants/<slug>/     one folder per tenant (first: coffee-story)
+apps/<app>/src/tenants/<slug>/  the generated per-tenant slot in each guest
+                    app, named by a generated barrel; EXPO_PUBLIC_TENANT picks
+                    which one a build is for
 scripts/            onboarding, migration, sandbox exercises
 docs/               AUDIT, ARCHITECTURE, RUNBOOK, BUILD-REPORT, legal/
 .claude/skills/     onboard-tenant, launch-drop, weekly-report, pitch-pack,
@@ -95,13 +98,19 @@ docs/               AUDIT, ARCHITECTURE, RUNBOOK, BUILD-REPORT, legal/
 2. Run `pnpm onboard --tenant <slug>` (idempotent): creates the brand +
    location rows, seeds the menu, generates icons/splash, writes the Expo
    inputs (bundle id, name, scheme), and emits app-store listing copy and a
-   screenshots checklist to `tenants/<slug>/app-store/`. Add `--apply` to
-   refresh the checked-in customer and kiosk bundles from the tenant folder.
+   screenshots checklist to `tenants/<slug>/app-store/`. Add `--apply` to write
+   the tenant into both guest apps' slots. `--apply` is **additive**: it writes
+   `apps/<app>/src/tenants/<slug>/` and regenerates the barrel, so applying a
+   second brand leaves the first one's build inputs in the tree and its released
+   binary reproducible from a commit.
 3. Connect Square per location from the HQ console (Locations → Connect
    Square); tokens are stored encrypted server-side, never in an app bundle.
-4. Build the customer binary for the tenant with EAS from `apps/customer`
-   using the generated config; the operator app needs no per-tenant build —
-   tenancy is by login.
+4. Build with `EXPO_PUBLIC_TENANT=<slug>` from `apps/customer` or `apps/kiosk`:
+   that names which applied tenant the binary is for, in the Expo config and in
+   the bundle, from one rule. With a single tenant applied it may be omitted;
+   with several, both the config and the bundle throw rather than guess — a
+   build that guesses ships one shop's menu under another shop's name. The
+   operator app needs no per-tenant build — tenancy is by login.
 5. Verify with the `audit-originality` skill before submitting a listing.
 
 See `docs/RUNBOOK.md` for deploys, token rotation, and incident steps.

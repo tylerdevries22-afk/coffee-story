@@ -13,7 +13,7 @@ import { useKioskMenu } from '@/data/menu-store';
 import { isComplete, remaining, retainAllowedChoices } from '@/features/pack-fill';
 import { useBuilder } from '@/state/builder';
 import { useFlow } from '@/state/flow';
-import TENANT from '@/tenant/brand.json';
+import { TENANT } from '@/tenant';
 
 /**
  * Filling the box.

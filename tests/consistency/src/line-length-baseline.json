@@ -98,9 +98,9 @@
     "scripts/capture-surfaces.mjs": 370,
     "scripts/hosted-migrations.ts": 407,
     "scripts/mutate.ts": 278,
-    "scripts/normalize-menu-images.ts": 292,
-    "scripts/normalize-product-cutouts.ts": 564,
-    "scripts/onboard.ts": 1195,
+    "scripts/normalize-menu-images.ts": 250,
+    "scripts/normalize-product-cutouts.ts": 495,
+    "scripts/onboard.ts": 1073,
     "tests/integration/src/stack.ts": 302
   }
 }

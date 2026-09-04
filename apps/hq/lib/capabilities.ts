@@ -9,6 +9,7 @@
 import { cache } from 'react';
 
 import { serverClient } from './supabase-server';
+import { tenantOrgById } from './tenants';
 
 /**
  * What preview resolves to.
@@ -61,7 +62,16 @@ export async function resolveModuleKeys(
   brandId: string | null,
 ): Promise<ReadonlySet<string>> {
   // Case 1 -- demo/fixture mode. No database was asked, so nothing was denied.
-  if (reader === null) return new Set(DEMO_MODULE_KEYS);
+  //
+  // Gate on the selected tenant's own manifest, not one fixed list. Returning
+  // the launch tenant's set for every org meant a construction franchise was
+  // offered Drops, Campaigns and Operations while the one module it runs stayed
+  // hidden -- so the industry-neutrality demo showed the opposite of its claim.
+  // An org this registry does not know still gets the launch set, because the
+  // fixture exists to make the console reviewable rather than empty.
+  if (reader === null) {
+    return new Set(tenantOrgById(brandId)?.moduleKeys ?? DEMO_MODULE_KEYS);
+  }
 
   // Case 2 -- configured. From here every failure denies.
   if (brandId === null) return new Set();

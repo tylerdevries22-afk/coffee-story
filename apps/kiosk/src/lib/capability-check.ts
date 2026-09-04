@@ -21,7 +21,7 @@ import {
 
 import { supabase } from '@/lib/supabase';
 import { TENANT_MODULE_KEYS } from '@/tenant/capabilities';
-import TENANT_BRAND_CONFIG from '@/tenant/brand.json';
+import { TENANT_BRAND_CONFIG } from '@/tenant';
 
 const CACHE_KEY = 'capability-snapshot';
 const CACHE_FILE = 'capability-snapshot.json';

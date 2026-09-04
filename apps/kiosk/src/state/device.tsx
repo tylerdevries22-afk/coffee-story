@@ -15,7 +15,7 @@ import {
   type StoredDeviceToken,
 } from '@/lib/device-token';
 import { pairDevice, refreshDevice } from '@/lib/pairing';
-import TENANT from '@/tenant/brand.json';
+import { TENANT } from '@/tenant';
 
 const TENANT_SLUG = TENANT.identity.slug;
 

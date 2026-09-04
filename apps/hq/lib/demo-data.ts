@@ -1,6 +1,6 @@
 import type { BrandRole } from '@platform/schema';
 
-import coffeeStoryMenu from '../../customer/src/tenant/menu.json';
+import coffeeStoryMenu from '../../customer/src/tenants/coffee-story/menu.json';
 
 /**
  * The fixtures the console renders when no Supabase environment is present,
