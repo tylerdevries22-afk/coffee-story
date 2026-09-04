@@ -78,6 +78,21 @@ describe('demo capability resolution', () => {
     assert.deepEqual([...keys].sort(), [...DEMO_MODULE_KEYS].sort());
   });
 
+  /**
+   * `tenantOrgById` is an array `find` with strict equality, so a prototype key
+   * cannot reach it -- but the same class of bug did reach the slot resolver
+   * (`slots['constructor']` walked the chain to `Object` and resolved), so the
+   * property is worth pinning here rather than left to the implementation.
+   */
+  it('treats a prototype-chain key as an unknown org', async () => {
+    for (const hostile of ['__proto__', 'constructor', 'toString', 'hasOwnProperty']) {
+      assert.equal(tenantOrgById(hostile), null, hostile);
+      const keys = await resolveModuleKeys(null, hostile);
+      assert.deepEqual([...keys].sort(), [...DEMO_MODULE_KEYS].sort(),
+        `${hostile} resolved to something other than the fallback`);
+    }
+  });
+
   it('keeps the fallback list equal to the launch tenant it claims to mirror', () => {
     assert.deepEqual([...DEMO_MODULE_KEYS].sort(), manifestKeys('coffee-story').sort(),
       'DEMO_MODULE_KEYS says it mirrors tenants/coffee-story/modules.json');
