@@ -44,6 +44,7 @@ import { APP_COLOR_KEYS } from '@platform/ui/app-tokens';
 import { isRegisteredFont } from '@platform/ui/font-registry';
 
 import { applyAppArtwork } from './onboard-app-artwork.js';
+import { installTenantModules } from './onboard-module-installs.js';
 import { modulesManifestProblems } from './onboard-modules-manifest.js';
 import { applyTenantSlot, describeApplied } from './onboard-tenant-slots.js';
 
@@ -578,6 +579,9 @@ async function run() {
       .select('id')
       .single();
     if (brandError) throw brandError;
+
+    const installedModules = await installTenantModules(db, brandRow.id, brand.features);
+    if (installedModules.length > 0) console.log(`   modules: ${installedModules.join(', ')}`);
 
     const locationConfig = brand.location;
     let locationId: string | null = null;
