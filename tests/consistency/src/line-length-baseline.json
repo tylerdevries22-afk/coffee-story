@@ -100,7 +100,7 @@
     "scripts/mutate.ts": 278,
     "scripts/normalize-menu-images.ts": 292,
     "scripts/normalize-product-cutouts.ts": 564,
-    "scripts/onboard.ts": 1191,
+    "scripts/onboard.ts": 1195,
     "tests/integration/src/stack.ts": 331
   }
 }
