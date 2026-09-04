@@ -30,6 +30,17 @@ export type TenantLocation = {
   readonly id: string;
   readonly name: string;
   readonly city: string;
+  /**
+   * The site's own IANA zone and trading hours.
+   *
+   * Stated per location rather than defaulted, because the default was wrong
+   * and silently so: every org but the launch tenant was synthesized as
+   * `America/New_York` with retail hours, which put a coffee shop's
+   * `Mon-Sun 08:00-20:00` on a construction franchise's head office in
+   * Michigan. Same UTC offset as Detroit, so nothing looked broken.
+   */
+  readonly timezone: string;
+  readonly hours: string;
 };
 
 export type TenantOrg = {
@@ -56,13 +67,13 @@ export type TenantOrg = {
 };
 
 const STILLPOINT_LOCATIONS: readonly TenantLocation[] = [
-  { id: 'sp-hq', name: 'Head office', city: 'Grand Rapids, MI' },
-  { id: 'sp-north', name: 'North region', city: 'Traverse City, MI' },
+  { id: 'sp-hq', name: 'Head office', city: 'Grand Rapids, MI', timezone: 'America/Detroit', hours: 'Mon–Fri 07:00–16:00' },
+  { id: 'sp-north', name: 'North region', city: 'Traverse City, MI', timezone: 'America/Detroit', hours: 'Mon–Fri 07:00–16:00' },
 ];
 
 const DEMO_ROASTERY_LOCATIONS: readonly TenantLocation[] = [
-  { id: 'dr-market', name: 'Market Street', city: 'Portland, OR' },
-  { id: 'dr-pier', name: 'Pier 7', city: 'Portland, OR' },
+  { id: 'dr-market', name: 'Market Street', city: 'Portland, OR', timezone: 'America/Los_Angeles', hours: 'Mon–Sun 07:00–19:00' },
+  { id: 'dr-pier', name: 'Pier 7', city: 'Portland, OR', timezone: 'America/Los_Angeles', hours: 'Mon–Sun 07:00–19:00' },
 ];
 
 /**
@@ -87,7 +98,13 @@ export const TENANT_ORGS: readonly TenantOrg[] = [
     kind: 'brand',
     brandConfig: coffeeStoryBrand,
     moduleKeys: enabledModuleKeys(coffeeStoryModules),
-    locations: DEMO_LOCATIONS.map((location) => ({ id: location.id, name: location.name, city: location.city })),
+    locations: DEMO_LOCATIONS.map((location) => ({
+      id: location.id,
+      name: location.name,
+      city: location.city,
+      timezone: location.timezone,
+      hours: location.hours,
+    })),
   },
   {
     id: 'demo-roastery',

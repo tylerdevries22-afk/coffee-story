@@ -25,10 +25,12 @@ function seed(): Store {
         id: location.id,
         name: location.name,
         city: location.city,
-        timezone: 'America/New_York',
+        timezone: location.timezone,
+        // No Square connection and nothing paused: an org the demo synthesizes
+        // has not connected a provider, which is the honest starting state.
         squareConnected: false,
         orderingPaused: false,
-        hours: 'Mon–Sun 08:00–20:00',
+        hours: location.hours,
       })),
     );
   }

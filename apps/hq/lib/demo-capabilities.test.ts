@@ -82,4 +82,22 @@ describe('demo capability resolution', () => {
     assert.deepEqual([...DEMO_MODULE_KEYS].sort(), manifestKeys('coffee-story').sort(),
       'DEMO_MODULE_KEYS says it mirrors tenants/coffee-story/modules.json');
   });
+
+  it('gives every registry location its own zone and hours, not a default', () => {
+    // The synthesized default was `America/New_York` with retail hours for every
+    // org but the launch tenant, which put a shop's trading day on a
+    // construction head office in Michigan -- same UTC offset as Detroit, so it
+    // read as correct. A location states its own or the type will not compile.
+    for (const org of TENANT_ORGS) {
+      for (const location of org.locations) {
+        assert.match(location.timezone, /^[A-Za-z]+\/[A-Za-z_]+$/, `${org.slug}/${location.id} zone`);
+        assert.ok(location.hours.length > 0, `${org.slug}/${location.id} hours`);
+      }
+    }
+    const stillpoint = TENANT_ORGS.find((org) => org.slug === 'stillpoint-builders');
+    assert.ok(stillpoint);
+    for (const location of stillpoint.locations) {
+      assert.equal(location.timezone, 'America/Detroit', 'both sites are in Michigan');
+    }
+  });
 });
