@@ -26,7 +26,6 @@
  * a tenant with no menu and no operations config trades from no counter, so
  * steps 2 and 4 narrow rather than fail.
  */
-import { createHash } from 'node:crypto';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -44,6 +43,7 @@ import { APP_COLOR_KEYS } from '@platform/ui/app-tokens';
 import { isRegisteredFont } from '@platform/ui/font-registry';
 
 import { modulesManifestProblems } from './onboard-modules-manifest.js';
+import { syncMenuImage } from './onboard-menu-images.js';
 
 const DATABASE_TIMEOUT_MS = 10_000;
 
@@ -63,45 +63,6 @@ async function resilientFetch(input: RequestInfo | URL, init?: RequestInit): Pro
   throw lastError instanceof Error ? lastError : new Error('Supabase request failed');
 }
 
-async function syncMenuImage(
-  db: SupabaseClient,
-  brandId: string,
-  itemId: string,
-  itemSlug: string,
-  tenantDirectory: string,
-): Promise<boolean> {
-  const imagePath = join(tenantDirectory, 'assets', 'menu', `${itemSlug}.webp`);
-  if (!existsSync(imagePath)) return false;
-  const bytes = readFileSync(imagePath);
-  const checksum = createHash('sha256').update(bytes).digest('hex');
-  const directory = `${brandId}/menu-item/${itemId}`;
-  const objectPath = `${directory}/${checksum}.webp`;
-  const existing = await db.storage.from('menu-images').list(directory, {
-    limit: 1, search: `${checksum}.webp`,
-  });
-  if (existing.error) throw existing.error;
-  if (!(existing.data ?? []).some((object) => object.name === `${checksum}.webp`)) {
-    const uploaded = await db.storage.from('menu-images').upload(objectPath, bytes, {
-      contentType: 'image/webp', cacheControl: '31536000', upsert: false,
-    });
-    if (uploaded.error) {
-      // A lost success response is retried against the same immutable key and
-      // surfaces as "already exists". Verify the object before calling the
-      // tenant sync failed; the checksum path makes that recovery unambiguous.
-      const verified = await db.storage.from('menu-images').list(directory, {
-        limit: 1, search: `${checksum}.webp`,
-      });
-      if (verified.error || !(verified.data ?? []).some((object) => object.name === `${checksum}.webp`)) {
-        throw uploaded.error;
-      }
-    }
-  }
-  const imageUrl = db.storage.from('menu-images').getPublicUrl(objectPath).data.publicUrl;
-  const updated = await db.from('menu_items').update({ image_url: imageUrl })
-    .eq('id', itemId).eq('brand_id', brandId);
-  if (updated.error) throw updated.error;
-  return true;
-}
 
 function requiredOperationId(ids: ReadonlyMap<string, string>, key: string, label: string): string {
   const id = ids.get(key);
