@@ -563,11 +563,42 @@ jobs:
       # Both graphs, because `expo` is a production dependency that drags the
       # whole bundler in with it -- the metro/image-size advisories this repo
       # pins around showed up in the production-only audit.
+      # `pnpm audit` posts to the npm registry, so a socket timeout there fails
+      # the gate exactly like a real advisory would and blocks every merge until
+      # someone re-runs it by hand. Retry the whole call, and keep the two
+      # outcomes distinguishable: a vulnerability still fails, an unreachable
+      # registry says so in its own words.
       - name: Audit production dependencies
-        run: pnpm audit --prod --audit-level=high
+        run: |
+          set -uo pipefail
+          for attempt in 1 2 3; do
+            output=$(pnpm audit --prod --audit-level=high 2>&1) && { echo "$output"; exit 0; }
+            echo "$output"
+            if ! grep -qiE 'ERR_SOCKET_TIMEOUT|FetchError|ECONNRESET|EAI_AGAIN|socket timeout' <<<"$output"; then
+              echo '::error::pnpm audit reported a vulnerability at or above high.'
+              exit 1
+            fi
+            echo "::warning::Registry unreachable on attempt $attempt/3; retrying."
+            sleep $((attempt * 20))
+          done
+          echo '::error::Could not reach the npm advisory registry after 3 attempts.'
+          exit 1
 
       - name: Audit the full dependency graph
-        run: pnpm audit --audit-level=high
+        run: |
+          set -uo pipefail
+          for attempt in 1 2 3; do
+            output=$(pnpm audit --audit-level=high 2>&1) && { echo "$output"; exit 0; }
+            echo "$output"
+            if ! grep -qiE 'ERR_SOCKET_TIMEOUT|FetchError|ECONNRESET|EAI_AGAIN|socket timeout' <<<"$output"; then
+              echo '::error::pnpm audit reported a vulnerability at or above high.'
+              exit 1
+            fi
+            echo "::warning::Registry unreachable on attempt $attempt/3; retrying."
+            sleep $((attempt * 20))
+          done
+          echo '::error::Could not reach the npm advisory registry after 3 attempts.'
+          exit 1
 
   # Publishes the Expo Go demo of the customer app. This lives in the same
   # workflow as the gate rather than in its own file so it can `needs:` those
