@@ -1,5 +1,9 @@
+import { currentSession, hasRole } from '@/lib/auth';
+import { loadIssuedGrants } from '@/lib/delegated-grants';
 import { formatMoney } from '@/lib/kpi';
 import { loadNetworkReports, networkTotals } from '@/lib/network-reporting';
+
+import { revokeDelegatedAccessAction } from './actions';
 
 // The console is live data behind a session: never prerender a fixture
 // snapshot at build time and serve it as if it were today's numbers.
@@ -17,8 +21,51 @@ export const dynamic = 'force-dynamic';
  * the boundary is the database's, under the reader's own session, with no
  * service-role key anywhere in the path.
  */
+/**
+ * The grants this brand has lent out, each with the control that ends it.
+ *
+ * Rendered only for a brand owner, because that is who
+ * `public.revoke_delegated_access` admits alongside a platform administrator.
+ * Until 20260904010000 nothing could write `revoked_at` early at all -- the
+ * retention sweep only back-dates grants that had already run out -- so
+ * ending a delegation meant waiting up to thirty days for its expiry.
+ */
+async function IssuedGrants({ brandId }: { brandId: string | null }) {
+  const grants = await loadIssuedGrants(brandId);
+  if (grants.length === 0) return null;
+  return (
+    <div className="card">
+      <h2>Delegated access your brand has issued</h2>
+      <p className="muted">
+        Live grants only. Revoking one ends it immediately — the grantee stops resolving your
+        brand&apos;s numbers on their next request.
+      </p>
+      <table>
+        <thead>
+          <tr><th>Grantee</th><th>Scopes</th><th>Expires</th><th /></tr>
+        </thead>
+        <tbody>
+          {grants.map((grant) => (
+            <tr key={grant.id}>
+              <td>{grant.granteeUserId}</td>
+              <td>{grant.scope.join(', ') || '—'}</td>
+              <td>{new Date(grant.expiresAt).toISOString().slice(0, 10)}</td>
+              <td>
+                <form action={revokeDelegatedAccessAction}>
+                  <input type="hidden" name="grantId" value={grant.id} />
+                  <button type="submit">Revoke</button>
+                </form>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default async function NetworkPage() {
-  const reports = await loadNetworkReports();
+  const [reports, session] = await Promise.all([loadNetworkReports(), currentSession()]);
   return (
     <>
       <h1>Network reporting</h1>
@@ -78,6 +125,7 @@ export default async function NetworkPage() {
           </div>
         );
       })}
+      {hasRole(session, 'brand_owner') ? <IssuedGrants brandId={session?.brandId ?? null} /> : null}
     </>
   );
 }
