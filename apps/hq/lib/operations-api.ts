@@ -126,10 +126,20 @@ export async function operationsRequestContext(
   if (operationsRateLimited(auth.userId, new URL(request.url).pathname)) {
     return jsonError(429, 'rate_limited', 'Too many operations requests. Try again shortly.');
   }
-  const feature = await service.from('brands').select('operations')
-    .eq('id', auth.claims.brand_id).maybeSingle<{ operations: boolean }>();
-  if (feature.error) return jsonError(503, 'operations_unavailable', 'Operations are temporarily unavailable.');
-  if (!feature.data?.operations) {
+  // The installation, not brands.operations. 20260903220000 made an active
+  // workforce-operations installation the thing that grants operations, and
+  // every RLS policy now asks app.brand_operations_enabled, which reads it.
+  // This guard kept reading the column, so a brand that installed the module
+  // without anyone setting the column got the nav link and a 404 here -- and
+  // the column is dropped in a later phase, which would have made that a 404
+  // for everyone. Queried through the service client because that is what this
+  // helper already holds; the request-scoped activeModuleKeys() cache is for
+  // the console's own reads under the caller's session.
+  const installed = await service.from('module_installations').select('module_key')
+    .eq('brand_id', auth.claims.brand_id).eq('module_key', 'workforce-operations')
+    .eq('state', 'active').maybeSingle<{ module_key: string }>();
+  if (installed.error) return jsonError(503, 'operations_unavailable', 'Operations are temporarily unavailable.');
+  if (!installed.data) {
     return jsonError(404, 'operations_disabled', 'Operations are not enabled for this tenant.');
   }
   const db = authenticatedDb(env, request);

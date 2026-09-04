@@ -13,8 +13,9 @@ import {
   DEFAULT_BOARD_CONFIG, boardQueue, queuePositions,
 } from '@platform/domain/src/board-display.ts';
 
+import { asPrincipal } from './principal.ts';
 import {
-  anonClient, asPrincipal, createSignedInUser, seedBrand, serviceClient, skipUnlessConfigured, sql, stack, userClient,
+  anonClient, createSignedInUser, seedBrand, serviceClient, skipUnlessConfigured, sql, stack, userClient,
 } from './stack.ts';
 
 /**
