@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { after, before, describe, it } from 'node:test';
 
-import { asPrincipal, seedBrand, skipUnlessConfigured, sql } from './stack';
+import { asPrincipal } from './principal';
+import { seedBrand, skipUnlessConfigured, sql } from './stack';
 
 /**
  * What a paired device may do, asserted against the policies rather than the

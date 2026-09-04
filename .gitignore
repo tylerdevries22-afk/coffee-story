@@ -93,3 +93,5 @@ apps/hq/.next-wall*/
 agentdb.rvf
 agentdb.rvf.lock
 ruvector.db
+stack.env
+readiness.err

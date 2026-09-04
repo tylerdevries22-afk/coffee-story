@@ -408,6 +408,144 @@ jobs:
             fi
           fi
 
+  # The RLS suite, on a pull request, against a database that exists only for
+  # the length of this job.
+  #
+  # `hosted-integration` cannot do this and should not try: it holds the
+  # project-creation token, so it is gated to non-pull-request events and
+  # branch code never runs with that credential. The consequence was that no
+  # pull request in this repository had ever executed a migration, an RLS
+  # policy, or the claims hook -- a PR that broke tenant isolation was green
+  # and only failed after reaching main, which is exactly how a 42P13 in
+  # 20260903041500 left main unable to migrate for six merges.
+  #
+  # A local stack closes that without touching the gap that keeps the token
+  # safe: `supabase start` boots Postgres, GoTrue, Realtime and the API in
+  # Docker on the runner, from this branch's own config.toml, with no secret
+  # anywhere. Nothing it can leak exists.
+  security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
+        with:
+          version: 2.116.0
+
+      # Applies every migration in order, which is itself the check: a
+      # migration that cannot be applied fails here rather than on main. The
+      # custom access token hook is declared in config.toml, so the claims it
+      # mints are exercised too.
+      - name: Start a local Supabase and apply the migration chain
+        run: supabase start --ignore-health-check
+
+      # `status -o env` with explicit --override-name, rather than -o json and a
+      # guess at the key names. The dotted names on the left are the CLI's own
+      # identifiers and the documented way to ask for a variable, so this does
+      # not depend on how a given CLI version happens to spell DB_URL. The
+      # first version of this job did guess, got null, and ran `psql ""`.
+      #
+      # Written to a file and sourced under `set -a` so the values never appear
+      # in a command line, and so the keys stay out of the step's own log.
+      - name: Read the local stack's connection details
+        run: |
+          set -euo pipefail
+          supabase status -o env \
+            --override-name api.url=SUPABASE_TEST_URL \
+            --override-name auth.anon_key=SUPABASE_TEST_ANON_KEY \
+            --override-name auth.service_role_key=SUPABASE_TEST_SERVICE_ROLE_KEY \
+            --override-name db.url=SUPABASE_TEST_DB_URL > stack.env
+          set -a; . ./stack.env; set +a
+          for name in SUPABASE_TEST_URL SUPABASE_TEST_ANON_KEY SUPABASE_TEST_SERVICE_ROLE_KEY SUPABASE_TEST_DB_URL; do
+            test -n "${!name:-}" || { echo "::error::$name came back empty from supabase status."; exit 1; }
+            echo "$name is set"
+          done
+          # Only the two URLs are echoed into the environment file; both keys
+          # are local-only test credentials but there is no reason to print them.
+          {
+            echo "SUPABASE_TEST_URL=$SUPABASE_TEST_URL"
+            echo "SUPABASE_TEST_DB_URL=$SUPABASE_TEST_DB_URL"
+            echo "SUPABASE_TEST_ANON_KEY=$SUPABASE_TEST_ANON_KEY"
+            echo "SUPABASE_TEST_SERVICE_ROLE_KEY=$SUPABASE_TEST_SERVICE_ROLE_KEY"
+          } >> "$GITHUB_ENV"
+          echo "API $SUPABASE_TEST_URL"
+
+      # Seed through the real provisioning path, exactly as hosted-integration
+      # does, and for the same reason: platform_release_readiness() executes
+      # every registered assertion, and the frozen 26-link chain among them
+      # asserts backfill parity between a brand's legacy flags and its module
+      # installations. On an empty database those assertions have nothing to
+      # check; the first run of this job asserted readiness against a database
+      # with no tenant in it and failed there rather than on anything real.
+      #
+      # It also means a pull request now exercises onboarding, which is the
+      # provisioning path every future franchisee goes through and had no
+      # coverage outside the hosted job.
+      - name: Seed through the production onboarding path
+        run: |
+          set -euo pipefail
+          export SUPABASE_URL="$SUPABASE_TEST_URL"
+          export SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_TEST_SERVICE_ROLE_KEY"
+          pnpm onboard --tenant coffee-story --require-db
+
+      # Same comparison hosted-integration makes on main: the newest migration
+      # filename must equal what the release registry reports, or the chain and
+      # the health probe disagree. Both sides are printed either way, so a
+      # mismatch says what it actually found.
+      - name: Check the release registry matches the newest migration
+        run: |
+          set -euo pipefail
+          command -v psql >/dev/null || { echo '::error::psql is not on PATH.'; exit 1; }
+          latest=$(ls supabase/migrations/*.sql | tail -1 | xargs basename)
+          expected="${latest%%_*}"
+          echo "newest migration: $latest (expects $expected)"
+
+          # `set -e` plus a failing command substitution aborts the step before
+          # any of the diagnostics below can print, which is how three runs of
+          # this step failed while saying nothing about why. Capture instead of
+          # aborting: platform_release_readiness() executes every registered
+          # assertion, so when it raises, the exception text names the assertion
+          # that failed -- which is the only thing worth knowing here.
+          if ! actual=$(psql "$SUPABASE_TEST_DB_URL" -v ON_ERROR_STOP=1 -Atqc \
+            'select public.platform_release_readiness()' 2>readiness.err); then
+            echo '::error::The readiness query itself failed. PostgreSQL said:'
+            sed 's/^/  /' readiness.err
+            echo '--- registered assertions, in the order the head runs them ---'
+            psql "$SUPABASE_TEST_DB_URL" -Atqc \
+              'select release || '"'"' -> '"'"' || coalesce(assertion::text, '"'"'(none)'"'"') from app.release_assertions order by release' \
+              || echo '  (could not list app.release_assertions)'
+            exit 1
+          fi
+          echo "registry reports: ${actual:-<empty>}"
+          test "$actual" = "$expected" || {
+            echo "::error::Release readiness is ${actual:-<empty>} but the newest migration is $expected."
+            exit 1
+          }
+
+      - name: Run the RLS and authorization suites
+        run: |
+          set -euo pipefail
+          # A skipped suite reports `tests 0 / pass 0 / fail 0`, which reads
+          # exactly like a pass. In the job whose entire purpose is running
+          # them, a missing variable must fail at import instead.
+          export REQUIRE_DATABASE_TESTS=1
+          pnpm --filter @platform/integration-tests test
+
+      - name: Advisors, on the schema this branch actually produces
+        run: supabase db lint --level warning --fail-on warning --db-url "$SUPABASE_TEST_DB_URL"
+
+      # Always, so a failed run does not leave containers holding the runner's
+      # disk for the rest of the job's lifetime.
+      - name: Stop the local stack
+        if: always()
+        run: supabase stop --no-backup || true
+
   audit:
     runs-on: ubuntu-latest
     # Headroom for the retry loops below; each step is ~80s worst case.
@@ -426,6 +564,11 @@ jobs:
       # Both graphs, because `expo` is a production dependency that drags the
       # whole bundler in with it -- the metro/image-size advisories this repo
       # pins around showed up in the production-only audit.
+      # `pnpm audit` posts to the npm registry, so a socket timeout there fails
+      # the gate exactly like a real advisory would and blocks every merge until
+      # someone re-runs it by hand. Retry the whole call, and keep the two
+      # outcomes distinguishable: a vulnerability still fails, an unreachable
+      # registry says so in its own words.
       - name: Audit production dependencies
         env:
           # Let pnpm fail fast so THIS loop owns the retrying. Left at its
@@ -493,7 +636,7 @@ jobs:
            } >> "$GITHUB_STEP_SUMMARY"
           exit 0
   publish-preview:
-    needs: [verify, hosted-integration, audit]
+    needs: [verify, hosted-integration, security, audit]
     if: github.event_name == 'workflow_dispatch' && (inputs.publish || inputs.publish_operator)
     runs-on: ubuntu-latest
     timeout-minutes: 20

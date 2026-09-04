@@ -18,6 +18,8 @@ import {
   validateTrainingManifest,
 } from '../apps/hq/lib/training-bootstrap';
 
+import { registerStorageAsset } from './storage-registry.js';
+
 const DATABASE_TIMEOUT_MS = 15_000;
 
 async function resilientFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
@@ -65,6 +67,15 @@ async function syncTrackArtwork(
         }
       }
     }
+    // Register it, or seeding leaves the platform unreleasable -- the
+    // readiness head raises on any governed object with no registry row.
+    await registerStorageAsset(db, {
+      brandId, bucketId: 'training-media', objectPath, sourceKey: trackKey,
+      originalFilename: `${trackKey}.webp`, assetKind: 'training_media',
+      visibility: 'public', sourceType: 'training_module',
+      mimeType: 'image/webp', byteSize: bytes.length, checksumSha256: checksum,
+    });
+
     const url = `${publicUrl.replace(/\/$/, '')}/storage/v1/object/public/training-media/${objectPath}`;
     return [trackKey, url] as const;
   }));

@@ -7,6 +7,7 @@ import {
 } from '@platform/domain';
 
 import { currentSession, hasRole } from './auth';
+import { activeModuleKeys } from './capabilities';
 import { serverClient } from './supabase-server';
 import { selectedLocationId } from './workspace-location';
 import { liveScope } from './live-scope';
@@ -125,9 +126,16 @@ export async function loadOperationsWorkspace(): Promise<OperationsWorkspace> {
   if (!scope.orgId) return emptyWorkspace(false, hasRole(session, 'brand_owner'));
   const brandId = scope.orgId;
   const locationId = scope.locationId;
-  const brand = await client.from('brands').select('operations').eq('id', brandId)
-    .maybeSingle<{ operations: boolean }>();
-  if (brand.error || !brand.data?.operations) return emptyWorkspace(false, hasRole(session, 'brand_owner'));
+  // The installation, not brands.operations. 20260903220000 moved the grant
+  // onto an active workforce-operations installation, and the console nav
+  // already resolves it that way -- so a brand that installed the module
+  // without anyone setting the legacy column saw the link and an empty
+  // workspace. activeModuleKeys is request-scoped, so the nav and this loader
+  // answer from one query per render rather than two.
+  const modules = await activeModuleKeys(brandId);
+  if (!modules.has('workforce-operations')) {
+    return emptyWorkspace(false, hasRole(session, 'brand_owner'));
+  }
   const since = new Date(Date.now() - 31 * 24 * 60 * 60 * 1_000).toISOString();
   // The header location scopes the per-store work -- schedules and occurrences
   // -- at the query, so the database returns only that store's rows.
