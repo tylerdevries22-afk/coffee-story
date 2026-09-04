@@ -51,14 +51,6 @@ export async function syncMenuImage(
       }
     }
   }
-  // Register it, or onboarding breaks the release gate -- see storage-registry.
-  await registerStorageAsset(db, {
-    brandId, bucketId: 'menu-images', objectPath,
-    originalFilename: `${itemSlug}.webp`, assetKind: 'menu_image',
-    visibility: 'public', sourceType: 'menu_item', sourceKey: itemSlug,
-    mimeType: 'image/webp', byteSize: bytes.length, checksumSha256: checksum,
-  });
-
   // Register it, or onboarding breaks the release gate. See storage-registry:
   // an object with no `storage_assets` row makes the readiness head raise.
   await registerStorageAsset(db, {
