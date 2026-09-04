@@ -19,6 +19,21 @@ export type MenuCsvRow = {
 const MAX_CSV_BYTES = 1024 * 1024;
 const ITEM_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
+/**
+ * Whether a string is a slug this platform would ever have written.
+ *
+ * The pattern menu.csv has always enforced on an item, exported so that
+ * everything which turns a slug into a filesystem path or into generated
+ * TypeScript means the same thing by it -- onboarding's code generators, the
+ * Expo configs, and the guest apps' tenant selector -- rather than each
+ * carrying its own copy. Kebab-case has no quote, backtick, dollar, slash, dot
+ * or newline, so a value that satisfies it cannot break out of a string
+ * literal or climb out of a directory.
+ */
+export function isPlatformSlug(value: string): boolean {
+  return ITEM_SLUG.test(value);
+}
+
 function quotesClose(line: string): boolean {
   let quoted = false;
   for (let index = 0; index < line.length; index += 1) {
