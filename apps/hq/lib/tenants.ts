@@ -16,8 +16,11 @@
  * reusable across verticals.
  */
 import coffeeStoryBrand from '../../../tenants/coffee-story/brand.json';
+import coffeeStoryModules from '../../../tenants/coffee-story/modules.json';
 import demoRoasteryBrand from '../../../tenants/demo-roastery/brand.json';
+import demoRoasteryModules from '../../../tenants/demo-roastery/modules.json';
 import stillpointBrand from '../../../tenants/stillpoint-builders/brand.json';
+import stillpointModules from '../../../tenants/stillpoint-builders/modules.json';
 
 import { DEMO_LOCATIONS, DEMO_SESSION } from './demo-data';
 
@@ -38,6 +41,17 @@ export type TenantOrg = {
   readonly kind: WorkspaceOrgKind;
   /** brand.json (or an inline config) used to theme the console for this org. */
   readonly brandConfig: unknown;
+  /**
+   * The modules this tenant actually runs, from its own `modules.json`.
+   *
+   * Demo mode has no database, so this is what the console gates on. It used to
+   * gate on one hard-coded list that mirrored the launch tenant, which meant
+   * selecting Stillpoint Builders -- a construction franchise -- offered Drops,
+   * Campaigns and Operations and hid the one module it runs. For a platform
+   * whose pitch is that the same five apps serve any industry, the demo
+   * demonstrated the opposite of its claim.
+   */
+  readonly moduleKeys: readonly string[];
   readonly locations: readonly TenantLocation[];
 };
 
@@ -63,6 +77,7 @@ export const TENANT_ORGS: readonly TenantOrg[] = [
     name: 'Stillpoint Builders',
     kind: 'operator',
     brandConfig: stillpointBrand,
+    moduleKeys: enabledModuleKeys(stillpointModules),
     locations: STILLPOINT_LOCATIONS,
   },
   {
@@ -71,6 +86,7 @@ export const TENANT_ORGS: readonly TenantOrg[] = [
     name: 'Coffee Story',
     kind: 'brand',
     brandConfig: coffeeStoryBrand,
+    moduleKeys: enabledModuleKeys(coffeeStoryModules),
     locations: DEMO_LOCATIONS.map((location) => ({ id: location.id, name: location.name, city: location.city })),
   },
   {
@@ -79,9 +95,21 @@ export const TENANT_ORGS: readonly TenantOrg[] = [
     name: 'Demo Roastery',
     kind: 'brand',
     brandConfig: demoRoasteryBrand,
+    moduleKeys: enabledModuleKeys(demoRoasteryModules),
     locations: DEMO_ROASTERY_LOCATIONS,
   },
 ];
+
+/**
+ * The enabled module keys of a tenant manifest.
+ *
+ * Read from the manifest rather than restated, so a tenant's capabilities in
+ * the demo cannot drift from what it declares on disk. `enabled: false` is a
+ * declared-but-off module and must not be offered.
+ */
+function enabledModuleKeys(manifest: { modules: { key: string; enabled?: boolean }[] }): readonly string[] {
+  return manifest.modules.filter((entry) => entry.enabled !== false).map((entry) => entry.key);
+}
 
 export function tenantOrgById(id: string | null | undefined): TenantOrg | null {
   if (!id) return null;
