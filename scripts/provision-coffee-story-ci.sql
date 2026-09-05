@@ -10,8 +10,13 @@ insert into auth.users (id, email, raw_app_meta_data, raw_user_meta_data) values
   ('c1000000-0000-4000-8000-000000000002', 'owner-ci@example.test', '{}', '{}')
 on conflict (id) do nothing;
 
-insert into public.brands (id, slug, name) values
-  ('c1000000-0000-4000-8000-000000000003', 'ci-platform', 'CI Platform')
+insert into public.brands (
+  id, slug, name, drops, catering, delivery, multi_location, sms,
+  stored_value, referrals
+) values (
+  'c1000000-0000-4000-8000-000000000003', 'ci-platform', 'CI Platform',
+  false, false, false, false, false, false, false
+)
 on conflict (id) do nothing;
 
 insert into public.brand_users (user_id, brand_id, role, location_ids) values
