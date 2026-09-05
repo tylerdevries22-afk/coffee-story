@@ -8,8 +8,8 @@
 .search input { width: 224px; min-height: 44px; box-sizing: border-box; padding: 0 12px 0 36px; border: 1px solid var(--mcp-line); border-radius: 9px; outline: none; background: var(--mcp-surface); color: var(--mcp-ink); font: inherit; font-size: 13px; }
 .search input:focus { border-color: var(--mcp-line-strong); box-shadow: 0 0 0 2px color-mix(in srgb, var(--mcp-accent) 35%, transparent); }
 .outcome { margin: 20px 0 0; padding: 12px 16px; border: 1px solid var(--mcp-line); border-radius: 9px; font-size: 13px; }
-.outcome.connected { border-color: #a7c8af; background: #edf7ef; color: #245b31; }
-.outcome.error { border-color: #e4c08e; background: #fff7e9; color: #764a17; }
+.outcome.connected { border-color: color-mix(in srgb, var(--success, var(--mcp-accent)) 42%, var(--mcp-line)); background: color-mix(in srgb, var(--success, var(--mcp-accent)) 10%, var(--mcp-surface)); color: var(--success, var(--mcp-ink)); }
+.outcome.error { border-color: color-mix(in srgb, var(--danger, var(--mcp-accent)) 42%, var(--mcp-line)); background: color-mix(in srgb, var(--danger, var(--mcp-accent)) 9%, var(--mcp-surface)); color: var(--danger, var(--mcp-ink)); }
 .popular { margin-top: 30px; }
 .popular h3 { margin: 0; color: var(--mcp-muted); font-size: 13px; font-weight: 600; }
 .popular > div { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
