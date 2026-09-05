@@ -30,6 +30,7 @@
     ".next-wall-live/types/**/*.ts",
     ".next/types/**/*.ts",
     "next-env.d.ts",
+    "../../node_modules/next/image-types/global.d.ts",
     ".next-wall-interaction/types/**/*.ts"
   ],
   "exclude": [
