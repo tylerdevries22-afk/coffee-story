@@ -1,66 +1,32 @@
-import type { Session, User } from '@supabase/supabase-js';
+import type { Session } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type PropsWithChildren } from 'react';
 
 import type { TenantClaims } from '@platform/schema';
 
-import { createRequestSequence, recoveryCodeFromUrl, recoveryRedirectUrl } from '@platform/domain';
+import {
+  createRequestSequence,
+  recoveryCodeFromUrl,
+  recoveryRedirectUrl,
+  type PortalBundle,
+} from '@platform/domain';
 import { resolveBusiness, setCurrentBusiness } from '@/data/business';
+import { SELECTED_DEMO_TENANT } from '@/data/demo-tenant';
 import { wipePrintOutboxes } from '@/features/operator/print-outbox-storage';
 import { printSecureStorage } from '@/features/operator/print-secure-store';
 import { DEMO_OPERATIONS_ENABLED } from '@/features/operations/demo';
 import { loadStaffContext, type StaffLocation } from '@/lib/live-portal';
 import { hasSupabaseConfig, supabase } from '@/lib/supabase';
+import { EMPTY_PORTAL, type AuthState } from '@/state/auth-state';
 import { useDemo } from '@/state/demo-context';
-import type { AppRole, PortalBundle } from '@platform/domain';
-
-type AuthState = {
-  session: Session | null;
-  user: User | null;
-  role: AppRole;
-  portal: PortalBundle;
-  /** Hook-minted tenancy (live mode only): brand, role, claimed locations. */
-  tenant: TenantClaims | null;
-  /** The locations this account may work (live mode; demo uses its roster). */
-  liveLocations: StaffLocation[];
-  brandName: string | null;
-  operationsEnabled: boolean;
-  brandUserId: string | null;
-  /** brand_config from the signed-in brand row: tokens, copy, business. */
-  brandConfig: unknown;
-  isLoading: boolean;
-  isAuthenticated: boolean;
-  isDemo: boolean;
-  isPasswordRecovery: boolean;
-  error: string | null;
-  signIn: (email: string, password: string) => Promise<void>;
-  requestPasswordReset: (email: string) => Promise<void>;
-  updatePassword: (password: string) => Promise<void>;
-  signOut: () => Promise<void>;
-  refresh: () => Promise<void>;
-};
 
 const AuthContext = createContext<AuthState | null>(null);
-
-const EMPTY_PORTAL: PortalBundle = {
-  profile: { id: '', fullName: '', email: '', phone: null, birthday: null, avatarUrl: null },
-  role: 'staff',
-  orders: [],
-  rewardAccount: { availablePoints: 0, annualPoints: 0, cashCents: 0, annualPeriodStart: `${new Date().getFullYear()}-01-01` },
-  rewardLedger: [],
-  rewardActivities: [],
-  rewardCatalog: [],
-  giftCards: [],
-  paymentMethods: [],
-  messages: [],
-  preferences: { completed: false, notes: '', strength: 'medium', updatedAt: null },
-  membership: null,
-};
 
 export function AuthProvider({ children }: PropsWithChildren) {
   const demo = useDemo();
   const isDemo = demo.mode === 'demo';
+  const demoTenant = SELECTED_DEMO_TENANT;
   const [session, setSession] = useState<Session | null>(null);
   const [livePortal, setLivePortal] = useState<PortalBundle>(EMPTY_PORTAL);
   const [tenant, setTenant] = useState<TenantClaims | null>(null);
@@ -228,7 +194,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     portal: isDemo ? demo.portal : livePortal,
     tenant: isDemo ? null : tenant,
     liveLocations: isDemo ? [] : liveLocations,
-    brandName: isDemo ? null : brandName,
+    brandName: isDemo ? demoTenant?.brandName ?? null : brandName,
     // Demo DEFAULTS the capability; it does not replace the check. `isDemo ||
     // operationsEnabled` read as "demo, or else ask", which is the same
     // sentence a fail-open gate is written in: any future path that set
@@ -237,7 +203,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     // false on every load failure, so the live branch stays fail-closed.
     operationsEnabled: isDemo ? DEMO_OPERATIONS_ENABLED : operationsEnabled,
     brandUserId: isDemo ? 'demo-member' : brandUserId,
-    brandConfig: isDemo ? null : brandConfig,
+    brandConfig: isDemo ? demoTenant?.brandConfig ?? null : brandConfig,
     isLoading: demo.isHydrating || (!isDemo && (
       isLoading || (Boolean(session) && !livePortal.profile.id && !error)
     )),
@@ -250,7 +216,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     updatePassword,
     signOut,
     refresh: () => loadPortal(session),
-  }), [brandConfig, brandName, brandUserId, demo.isHydrating, demo.portal, error, isDemo, isLoading, isPasswordRecovery, livePortal, liveLocations, loadPortal, operationsEnabled, requestPasswordReset, session, signIn, signOut, tenant, updatePassword]);
+  }), [brandConfig, brandName, brandUserId, demo.isHydrating, demo.portal, demoTenant, error, isDemo, isLoading, isPasswordRecovery, livePortal, liveLocations, loadPortal, operationsEnabled, requestPasswordReset, session, signIn, signOut, tenant, updatePassword]);
 
   // Publish the resolved shop for the plain helpers that cannot hold a hook
   // (openWebPath is called from module-level functions). Components read

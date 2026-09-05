@@ -34,6 +34,8 @@ export type LocationInput = {
   closeTime?: string;
   days?: readonly string[];
 };
+export type LocationValidationField = 'name' | 'timezone' | 'openTime' | 'closeTime' | 'days';
+type LocationFailure = { ok: false; error: string; field: LocationValidationField };
 
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 // IANA-ish shape first; Intl below remains the authority for actual tz data.
@@ -61,22 +63,31 @@ function isIanaTimezone(value: string): boolean {
  * success it returns the row-ready draft; the hours span is applied to every
  * selected day, the quick start a single set of opening hours covers.
  */
-export function parseLocationDraft(input: LocationInput): { ok: true; draft: LocationDraft } | { ok: false; error: string } {
+export function parseLocationDraft(input: LocationInput): { ok: true; draft: LocationDraft } | LocationFailure {
   const name = clean(input.name);
-  if (!name) return { ok: false, error: 'Enter a location name.' };
-  if (name.length > 120) return { ok: false, error: 'That location name is too long.' };
+  if (!name) return { ok: false, field: 'name', error: 'Enter a location name.' };
+  if (name.length > 120) return { ok: false, field: 'name', error: 'That location name is too long.' };
 
   const timezone = clean(input.timezone);
-  if (!isIanaTimezone(timezone)) return { ok: false, error: 'Choose the location’s timezone.' };
+  if (!isIanaTimezone(timezone)) {
+    return { ok: false, field: 'timezone', error: 'Choose the location’s timezone.' };
+  }
 
   const open = clean(input.openTime);
   const close = clean(input.closeTime);
-  if (!TIME.test(open) || !TIME.test(close)) return { ok: false, error: 'Enter opening and closing times as HH:MM.' };
-  if (open >= close) return { ok: false, error: 'Closing time has to be after opening time.' };
+  if (!TIME.test(open) || !TIME.test(close)) {
+    return { ok: false, field: !TIME.test(open) ? 'openTime' : 'closeTime',
+      error: 'Enter opening and closing times as HH:MM.' };
+  }
+  if (open >= close) {
+    return { ok: false, field: 'closeTime', error: 'Closing time has to be after opening time.' };
+  }
 
   const requested = new Set((input.days ?? []).map((day) => day.toLowerCase()));
   const openDays = WEEKDAYS.filter((day) => requested.has(day));
-  if (openDays.length === 0) return { ok: false, error: 'Pick at least one day the location is open.' };
+  if (openDays.length === 0) {
+    return { ok: false, field: 'days', error: 'Pick at least one day the location is open.' };
+  }
 
   const hours: HoursByDay = {};
   for (const day of openDays) hours[day] = [{ open, close }];

@@ -1,0 +1,247 @@
+{
+  "schemaVersion": 1,
+  "organization": {
+    "kind": "independent"
+  },
+  "network": null,
+  "inheritance": {
+    "mode": "standalone",
+    "sourceTenantSlug": null,
+    "revision": 1,
+    "overrides": []
+  },
+  "surfaces": [
+    "customer",
+    "kiosk",
+    "operator",
+    "display",
+    "hq"
+  ],
+  "providers": [
+    {
+      "capability": "database",
+      "provider": "supabase",
+      "ownership": "platform",
+      "required": true
+    },
+    {
+      "capability": "identity",
+      "provider": "supabase-auth",
+      "ownership": "platform",
+      "required": true
+    },
+    {
+      "capability": "hosting",
+      "provider": "vercel",
+      "ownership": "platform",
+      "required": true
+    },
+    {
+      "capability": "payments",
+      "provider": "square",
+      "ownership": "organization",
+      "required": true
+    }
+  ],
+  "$docs": {
+    "manifest": "schemaVersion pins this contract. organization/network/inheritance describe tenancy and franchise lineage; surfaces is the exact deployable app matrix; providers records who owns each external dependency.",
+    "identity": "slug is the tenant key everywhere (folder name, brands.slug, onboarding); bundleId/scheme and kioskBundleId/kioskScheme feed the per-brand Expo configs; easProjectId and kioskEasProjectId come from each binary's separate `eas init`.",
+    "tokens": "Hydrated into packages/ui's ThemeProvider and stored on brands.brand_config. Colors are #RRGGBB. fontDisplay/fontBody must be family names from the supported font registry (maintained in packages/ui/src/font-registry.ts, landing in the next phase). Optional tokens.ramp holds advanced overrides for the app's internal palette, keyed exactly like the legacy `colors` export -- note ramp.surface is the app screen surface, distinct from top-level tokens.surface used by splash/shared components; when omitted, the steps are derived from the seed colors by the theme resolver. Derive the palette from the brand's own assets -- never from any other product's look (docs/DO-NOT-RESEMBLE.md).",
+    "copy": "Every user-facing brand string. Keys the apps read are listed in packages/ui/src/copy.ts (DEFAULT_COPY); unknown keys are allowed and ignored. {placeholders} survive until formatted.",
+    "features": "Rule 5 flags, mirrored to the brands row by onboarding.",
+    "fees": "Rule 3: platform take in basis points; above tierThresholdCents of gross in a calendar month (per location) later payments use feeBpsTier2. Confirm per contract before onboarding.",
+    "locations": "Canonical list of locations created by onboarding. hours uses 24h HH:MM in each location's timezone; [] = closed. Legacy location is accepted as one entry during migration, but never declare both shapes.",
+    "illustrations": "Optional named palettes for brand illustration work (e.g. the rewards cup). Free-form; read by the app's illustration components.",
+    "business": "Contact + legal identity the apps print (error screens, receipts, calendar notes, gift codes). monogram is the 1-3 letter fallback mark; giftCodePrefix prefixes every issued gift code.",
+    "information": "Optional overrides for the five reference pages behind More (location, resources, faq, order-policy, privacy). Every page has a brand-neutral default, and the location page is derived from `location` and `business` above rather than retyped -- leave this out entirely and the app still renders all five. Per page: eyebrow/title/summary/webPath/action replace the default string; `rows` replaces the default rows; `addRows` appends to whatever rows are in effect. A row is {title, detail}; a row missing either is dropped rather than rendered blank.",
+    "modifiers.json": "Sibling file: option groups per item slug, in the JSONB shape packages/engine/src/menu-pricing.ts reads -- each slug maps to an array of groups {id, name, select: 'single' | 'multi', required, maxChoices, dependsOn?, choices: [{id, name, priceDeltaCents}]}. Optional; items absent from it sell plain. Every key must be a slug in menu.csv -- onboarding validates that."
+  },
+  "identity": {
+    "slug": "juniper-base-demo",
+    "name": "Juniper Base Demo",
+    "bundleId": "com.juniperbasedemo.app",
+    "scheme": "juniper-base-demo",
+    "kioskBundleId": "com.juniperbasedemo.kiosk",
+    "kioskScheme": "juniper-base-demo-kiosk",
+    "easProjectId": "",
+    "kioskEasProjectId": ""
+  },
+  "tokens": {
+    "primary": "#1C1917",
+    "secondary": "#44403C",
+    "surface": "#FAFAF9",
+    "surfaceElevated": "#FFFFFF",
+    "accent": "#8A7350",
+    "textPrimary": "#1C1917",
+    "textMuted": "#57534E",
+    "success": "#2F6844",
+    "warning": "#8A5A1E",
+    "danger": "#9B3B32",
+    "radius": {
+      "sm": 8,
+      "md": 14,
+      "lg": 22,
+      "pill": 999
+    },
+    "spacing": {
+      "xs": 4,
+      "sm": 8,
+      "md": 12,
+      "lg": 16,
+      "xl": 24,
+      "xxl": 32
+    },
+    "fontDisplay": "System",
+    "fontBody": "System",
+    "motion": {
+      "fast": 120,
+      "base": 220,
+      "slow": 360
+    }
+  },
+  "copy": {
+    "appName": "Juniper Base Demo",
+    "pointsName": "Points",
+    "orderCta": "Browse services",
+    "earnBanner": "Earn {points} {pointsName} for this order",
+    "memberFallback": "Member"
+  },
+  "features": {
+    "drops": true,
+    "catering": false,
+    "delivery": false,
+    "multi_location": false,
+    "sms": false,
+    "stored_value": false,
+    "referrals": false,
+    "operations": false
+  },
+  "fees": {
+    "feeBps": 300,
+    "feeBpsTier2": 150,
+    "tierThresholdCents": 2000000
+  },
+  "tax": {
+    "$docs": "Optional. Each authority on the brand's sales-tax licence, as a fractional rate (0.029 = 2.9%). The order API prices tax from this list, one rounded row per authority; absent or empty means no tax is charged.",
+    "jurisdictions": []
+  },
+  "loyalty": {
+    "$docs": "Optional. tiers is the earning ladder the apps render and earn against -- name (free text), minimumAnnualPoints (points in the trailing year), pointsPerDollar, description, perks[]. Leave it empty to inherit a generic four-rung ladder; write it and the lowest rung must sit at 0, or the whole ladder is ignored rather than half-applied. Keep the names in step with board.tiers, which is the same ladder on the public wall. rewards is what points buy, served by /api/loyalty/redeem; points_cost is integer points.",
+    "tiers": [],
+    "rewards": []
+  },
+  "board": {
+    "$docs": "Optional. The in-store order board. showGuestStatus defaults to false -- a tier badge on a screen the whole room can read is guest information, so a brand opts in rather than inheriting it. tiers is the ladder app.loyalty_tier_for matches against loyalty_accounts.lifetime_points; slug is the stable key (never rename it), label is what the badge says, tone picks a semantic token (muted | accent | success | primary) and color overrides it with an explicit #RRGGBB, icon is the single mark drawn in front of the label (falls back to copy.rewardMark). Both are editable in HQ under Brand config. appUrl must be absolute https -- it is encoded into the QR panel and scanned by strangers who cannot see where it points.",
+    "showGuestStatus": false,
+    "showChannel": true,
+    "maxLines": 9,
+    "appUrl": "",
+    "tiers": []
+  },
+  "locations": [
+    {
+    "name": "Main",
+    "address": {
+      "street": "100 Market Street",
+      "city": "Riverside",
+      "region": "CO",
+      "postal": "80000"
+    },
+    "note": "",
+    "timezone": "America/Denver",
+    "hours": {
+      "mon": [
+        {
+          "open": "08:00",
+          "close": "17:00"
+        }
+      ],
+      "tue": [
+        {
+          "open": "08:00",
+          "close": "17:00"
+        }
+      ],
+      "wed": [
+        {
+          "open": "08:00",
+          "close": "17:00"
+        }
+      ],
+      "thu": [
+        {
+          "open": "08:00",
+          "close": "17:00"
+        }
+      ],
+      "fri": [
+        {
+          "open": "08:00",
+          "close": "17:00"
+        }
+      ],
+      "sat": [],
+      "sun": []
+    }
+  }
+  ],
+  "illustrations": {},
+  "business": {
+    "legalName": "Juniper Base Demo LLC",
+    "tagline": "Practical support for everyday work.",
+    "email": "hello@juniper-base.example",
+    "phone": "+1 555 010 0148",
+    "website": "https://juniper-base.example",
+    "giftCodePrefix": "JBD",
+    "monogram": "JB",
+    "industry": "General business services"
+  },
+  "information": {},
+  "kiosk": {
+    "$docs": "The lobby kiosk's flow. Shape and rules: packages/domain/src/kiosk-flow.ts. EVERY FIELD IS OPTIONAL -- delete this whole block and a device still opens on a first screen derived from your menu.csv categories. Fill it in when you want a say over the order.",
+    "attract": {
+      "$docs": "What the kiosk shows for most of its life, so it is the shop's face more than a menu is. headline null falls back to the brand name.",
+      "headline": null,
+      "invite": "Touch anywhere to begin",
+      "showLogo": true
+    },
+    "entry": {
+      "$docs": "The first screen. `nodes` is YOUR call -- a coffee shop leads with drinks, a bakery leads with box sizes. categoryId is the category TITLE exactly as it appears in menu.csv, because menu_categories has no slug. A tile pointing at a category you later rename is dropped and reported rather than rendered as a dead button. Leave `nodes` out entirely to have them derived from your menu. Max 12; emphasis is hero | standard | minor and is drawn as size.",
+      "prompt": "What can we help with today?",
+      "nodes": []
+    },
+    "$familyDocs": "'item' for a shop whose SKU is a drink or a dish (size, then options). 'pack' for a shop whose SKU is a container the guest fills -- a box of six. Never inferred from your menu: changing the metaphor is a decision, not a guess.",
+    "family": "item",
+    "utilities": [],
+    "$identifyDocs": "An optional identify step that must never block an anonymous purchase. mode off | optional; methods phone | scan.",
+    "identify": {
+      "mode": "off",
+      "methods": []
+    },
+    "$tendersDocs": "card | cash settle an order; stored_value | gift_card reduce what is due and need the brand's stored_value feature switched on. A list with no settling tender has card added to it.",
+    "tenders": [
+      "card",
+      "cash"
+    ],
+    "$tipDocs": "Integer cents, never float dollars. Leave disabled unless you want a tip prompt.",
+    "tip": {
+      "enabled": false,
+      "presetsCents": []
+    },
+    "guestName": {
+      "mode": "optional"
+    },
+    "$surveyDocs": "An optional post-order attribution question. Groups need at least one option each or the survey turns itself off.",
+    "survey": {
+      "enabled": false,
+      "prompt": "",
+      "groups": []
+    },
+    "$idleDocs": "How long an abandoned session survives. Warn first, then clear -- the next guest must never inherit a stranger's bag. A container shop should give longer: filling a twelve-box takes longer than picking one latte. Clamped to 15s-10min, and the reset is always pushed clear of the warning.",
+    "idle": {
+      "warnMs": 60000,
+      "resetMs": 90000
+    },
+    "motion": "full"
+  }
+}

@@ -39,6 +39,8 @@ on:
         required: false
       CRON_SECRET:
         required: true
+      HEALTH_CHECK_TOKEN:
+        required: true
       OPENAI_API_KEY:
         required: false
       DISPLAY_DEVICE_TOKEN:
@@ -73,11 +75,11 @@ on:
         options: [preview, production]
         default: production
       deploy_web:
-        description: Deploy HQ, pickup display, and the three Expo web builds
+        description: Deploy HQ and the tenant's declared hosted application surfaces
         type: boolean
         default: true
       publish_native:
-        description: Publish production OTA updates to all three EAS projects
+        description: Publish production OTA updates to declared native application surfaces
         type: boolean
         default: false
 
@@ -89,7 +91,6 @@ permissions:
   contents: read
 
 env:
-  VERCEL_CLI_VERSION: 59.3.0
   VERCEL_SCOPE: ${{ vars.VERCEL_SCOPE || 'tylerdevries222s-projects' }}
   SUPABASE_PROJECT_REF: ${{ inputs.supabase_project_ref || (inputs.environment == 'preview' && vars.SUPABASE_PREVIEW_PROJECT_REF) || vars.SUPABASE_PROJECT_REF }}
   PRODUCTION_SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
@@ -104,10 +105,21 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: ${{ inputs.environment || 'production' }}
+    outputs:
+      all_surfaces: ${{ steps.surface-plan.outputs.all_surfaces }}
+      artifact_digest: ${{ steps.artifact-digest.outputs.value }}
+      web_matrix: ${{ steps.surface-plan.outputs.web_matrix }}
+      web_count: ${{ steps.surface-plan.outputs.web_count }}
+      native_matrix: ${{ steps.surface-plan.outputs.native_matrix }}
+      native_count: ${{ steps.surface-plan.outputs.native_count }}
     steps:
       - name: Enforce deployment and database isolation
         run: |
           set -euo pipefail
+          test "$PROJECT_PREFIX" = "$TENANT" || {
+            echo '::error::The Vercel project prefix must exactly match the immutable tenant slug.'
+            exit 1
+          }
           test -n "$PRODUCTION_SUPABASE_PROJECT_REF" || {
             echo '::error::Set the canonical production SUPABASE_PROJECT_REF repository variable.'
             exit 1
@@ -139,6 +151,8 @@ jobs:
               ;;
           esac
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
         with:
           version: 10.33.0
@@ -147,12 +161,48 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Require approved production evidence and generated assets
-        if: (inputs.environment || 'production') == 'production'
+      - name: Resolve the declared tenant surface matrix
+        id: surface-plan
         run: |
           set -euo pipefail
-          pnpm release:gate --tenant "$TENANT"
-          pnpm onboard --tenant "$TENANT" --apply
+          plan=$(pnpm exec tsx scripts/release-surfaces.ts --tenant "$TENANT")
+          printf '%s' "$plan" | jq -e '.all | index("hq")' >/dev/null
+          {
+            echo "all_surfaces=$(printf '%s' "$plan" | jq -r '.all | join(",")')"
+            echo "web_matrix=$(printf '%s' "$plan" | jq -c '{include: [.web[] | {surface: .}]}')"
+            echo "web_count=$(printf '%s' "$plan" | jq -r '.web | length')"
+            echo "native_matrix=$(printf '%s' "$plan" | jq -c '{include: [.native[] | {surface: .}]}')"
+            echo "native_count=$(printf '%s' "$plan" | jq -r '.native | length')"
+          } >> "$GITHUB_OUTPUT"
+          printf 'Tenant surfaces: %s\n' "$(printf '%s' "$plan" | jq -r '.all | join(", ")')"
+      - name: Bind this run to one authoritative artifact digest
+        id: artifact-digest
+        env:
+          SYNCHRONIZED_FACTORY_DIGEST: ${{ vars.FACTORY_ARTIFACT_DIGEST }}
+        run: |
+          set -euo pipefail
+          digest=$(pnpm exec tsx scripts/tenant-artifact-digest.ts --tenant "$TENANT")
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || {
+            echo '::error::The deployment artifact digest is missing or malformed.'
+            exit 1
+          }
+          if [ -n "$SYNCHRONIZED_FACTORY_DIGEST" ] && [ "$SYNCHRONIZED_FACTORY_DIGEST" != "$digest" ]; then
+            echo '::error::The synchronized factory digest does not match this checkout.'
+            exit 1
+          fi
+          echo "value=$digest" >> "$GITHUB_OUTPUT"
+      - name: Require approved production evidence and generated assets
+        if: (inputs.environment || 'production') == 'production'
+        env:
+          FACTORY_ARTIFACT_DIGEST: ${{ steps.artifact-digest.outputs.value }}
+          TENANT_SURFACES: ${{ steps.surface-plan.outputs.all_surfaces }}
+        run: |
+          set -euo pipefail
+          pnpm release:gate --tenant "$TENANT" --commit "$GITHUB_SHA"
+          case ",$TENANT_SURFACES," in
+            *,customer,*|*,kiosk,*) pnpm onboard --tenant "$TENANT" --apply ;;
+            *) echo 'No tenant-specific guest bundle is declared; onboarding materialization is not required.' ;;
+          esac
           generated_changes=$(git status --porcelain=v1 --untracked-files=all -- tenants apps/customer apps/kiosk)
           test -z "$generated_changes" || {
             echo '::error::Tenant onboarding output must be generated and committed before production deployment.'
@@ -194,12 +244,15 @@ jobs:
 
   deploy-hq:
     name: Deploy HQ API and console
-    needs: migrate-database
+    needs: [migrate-database, release-policy]
     if: inputs.deploy_web
     runs-on: ubuntu-latest
     timeout-minutes: 20
     outputs:
       url: ${{ steps.deploy.outputs.url }}
+      deployment_id: ${{ steps.deploy.outputs.deployment_id }}
+      deployment_url: ${{ steps.deploy.outputs.deployment_url }}
+      provider_evidence: ${{ steps.deploy.outputs.provider_evidence }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
@@ -236,35 +289,39 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           SUPABASE_JWT_SECRET: ${{ secrets.SUPABASE_JWT_SECRET }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          HEALTH_CHECK_TOKEN: ${{ secrets.HEALTH_CHECK_TOKEN }}
         run: |
           test -n "$VERCEL_TOKEN" || { echo '::error::Set VERCEL_TOKEN.'; exit 1; }
           test -n "$SUPABASE_URL" || { echo '::error::Set SUPABASE_URL.'; exit 1; }
           test -n "$SUPABASE_PUBLISHABLE_KEY" || { echo '::error::Set SUPABASE_PUBLISHABLE_KEY.'; exit 1; }
           test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo '::error::Set SUPABASE_SERVICE_ROLE_KEY.'; exit 1; }
           test -n "$CRON_SECRET" || { echo '::error::Set CRON_SECRET.'; exit 1; }
+          test -n "$HEALTH_CHECK_TOKEN" || { echo '::error::Set HEALTH_CHECK_TOKEN.'; exit 1; }
       - name: Configure hosted server environment
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           SUPABASE_JWT_SECRET: ${{ secrets.SUPABASE_JWT_SECRET }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          HEALTH_CHECK_TOKEN: ${{ secrets.HEALTH_CHECK_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_MENU_MODEL: ${{ vars.OPENAI_MENU_MODEL }}
           OPENAI_RESEARCH_MODEL: ${{ vars.OPENAI_RESEARCH_MODEL }}
           OPENAI_EVALUATION_MODEL: ${{ vars.OPENAI_EVALUATION_MODEL }}
+          TENANT_SURFACES: ${{ needs.release-policy.outputs.all_surfaces }}
         run: |
           set -euo pipefail
           project="${PROJECT_PREFIX}-hq"
           add_secret() {
             local name="$1" value="$2"
             test -n "$value" || return 0
-            npx --yes "vercel@${VERCEL_CLI_VERSION}" env add "$name" "$DEPLOY_ENVIRONMENT" \
+            pnpm exec vercel env add "$name" "$DEPLOY_ENVIRONMENT" \
               --project "$project" --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN" \
               --value "$value" --sensitive --force --yes >/dev/null
           }
           add_public() {
             local name="$1" value="$2"
             test -n "$value" || return 0
-            npx --yes "vercel@${VERCEL_CLI_VERSION}" env add "$name" "$DEPLOY_ENVIRONMENT" \
+            pnpm exec vercel env add "$name" "$DEPLOY_ENVIRONMENT" \
               --project "$project" --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN" \
               --value "$value" --no-sensitive --force --yes >/dev/null
           }
@@ -272,14 +329,15 @@ jobs:
           add_public NEXT_PUBLIC_SUPABASE_URL "$SUPABASE_URL"
           add_public NEXT_PUBLIC_SUPABASE_ANON_KEY "$SUPABASE_PUBLISHABLE_KEY"
           add_public NEXT_PUBLIC_HQ_URL "https://${project}.vercel.app"
+          add_public TENANT "$TENANT"
           # The production console's Apps wall may embed only these canonical,
           # public surface origins. Preview HQ deployments intentionally leave
           # them unset so they never point at a production device or guest app.
           if [ "$DEPLOY_ENVIRONMENT" = production ]; then
-            add_public NEXT_PUBLIC_CUSTOMER_URL "https://${PROJECT_PREFIX}-customer.vercel.app"
-            add_public NEXT_PUBLIC_OPERATOR_URL "https://${PROJECT_PREFIX}-operator.vercel.app"
-            add_public NEXT_PUBLIC_KIOSK_URL "https://${PROJECT_PREFIX}-kiosk.vercel.app"
-            add_public NEXT_PUBLIC_DISPLAY_URL "https://${PROJECT_PREFIX}-display.vercel.app"
+            case ",$TENANT_SURFACES," in *,customer,*) add_public NEXT_PUBLIC_CUSTOMER_URL "https://${PROJECT_PREFIX}-customer.vercel.app" ;; esac
+            case ",$TENANT_SURFACES," in *,operator,*) add_public NEXT_PUBLIC_OPERATOR_URL "https://${PROJECT_PREFIX}-operator.vercel.app" ;; esac
+            case ",$TENANT_SURFACES," in *,kiosk,*) add_public NEXT_PUBLIC_KIOSK_URL "https://${PROJECT_PREFIX}-kiosk.vercel.app" ;; esac
+            case ",$TENANT_SURFACES," in *,display,*) add_public NEXT_PUBLIC_DISPLAY_URL "https://${PROJECT_PREFIX}-display.vercel.app" ;; esac
           fi
           add_secret SUPABASE_SERVICE_ROLE_KEY "$SUPABASE_SERVICE_ROLE_KEY"
           # Required for issuing and validating kiosk/display device tokens.
@@ -287,63 +345,30 @@ jobs:
           # on device pairing without blocking its other hosted surfaces.
           add_secret SUPABASE_JWT_SECRET "$SUPABASE_JWT_SECRET"
           add_secret CRON_SECRET "$CRON_SECRET"
+          add_secret HEALTH_CHECK_TOKEN "$HEALTH_CHECK_TOKEN"
           add_secret OPENAI_API_KEY "$OPENAI_API_KEY"
           add_public OPENAI_MENU_MODEL "$OPENAI_MENU_MODEL"
           add_public OPENAI_RESEARCH_MODEL "$OPENAI_RESEARCH_MODEL"
           add_public OPENAI_EVALUATION_MODEL "$OPENAI_EVALUATION_MODEL"
-      - name: Promote the exact verified HQ commit
+      - name: Stage, verify, and promote the exact HQ commit
         id: deploy
         env:
+          FACTORY_ARTIFACT_DIGEST: ${{ needs.release-policy.outputs.artifact_digest }}
+          HEALTH_CHECK_TOKEN: ${{ secrets.HEALTH_CHECK_TOKEN }}
+          PROJECT: ${{ env.PROJECT_PREFIX }}-hq
+          SURFACE: hq
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        run: |
-          set -euo pipefail
-          project="${PROJECT_PREFIX}-hq"
-          deployment_url=''
-          for _attempt in $(seq 1 30); do
-            deployments=$(npx --yes "vercel@${VERCEL_CLI_VERSION}" list "$project" \
-              --status READY --meta "githubCommitSha=$GITHUB_SHA" --limit 1 --json \
-              --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN")
-            deployment_url=$(printf '%s' "$deployments" | jq -r '.deployments[0].url // empty')
-            [ -n "$deployment_url" ] && break
-            sleep 10
-          done
-          [ -n "$deployment_url" ] || { echo '::error::Exact HQ deployment was not READY.'; exit 1; }
-          redeployed_url=$(npx --yes "vercel@${VERCEL_CLI_VERSION}" redeploy "$deployment_url" \
-            --target "$DEPLOY_ENVIRONMENT" --no-wait --no-color \
-            --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN" | tail -1)
-          case "$redeployed_url" in
-            https://*.vercel.app|*.vercel.app) ;;
-            *) echo '::error::Vercel did not return the exact HQ redeployment URL.'; exit 1 ;;
-          esac
-          inspection=$(npx --yes "vercel@${VERCEL_CLI_VERSION}" inspect "$redeployed_url" \
-            --wait --timeout 8m --json --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN")
-          [ "$(printf '%s' "$inspection" | jq -r '.readyState')" = READY ] \
-            || { echo '::error::Exact HQ redeployment did not become READY.'; exit 1; }
-          if [ "$DEPLOY_ENVIRONMENT" = production ]; then
-            npx --yes "vercel@${VERCEL_CLI_VERSION}" promote "$redeployed_url" --yes --timeout 5m \
-              --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN"
-            public_url="https://${project}.vercel.app"
-          else
-            public_url="$redeployed_url"
-            [[ "$public_url" = https://* ]] || public_url="https://${public_url}"
-          fi
-          echo "url=$public_url" >> "$GITHUB_OUTPUT"
-          echo "HQ verified at $public_url"
+        run: bash scripts/vercel-stage-deployment.sh
 
   deploy-web:
     name: Deploy ${{ matrix.surface }} web app
-    needs: deploy-hq
-    if: inputs.deploy_web
+    needs: [deploy-hq, release-policy]
+    if: inputs.deploy_web && needs.release-policy.outputs.web_count != '0'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - surface: display
-          - surface: customer
-          - surface: operator
-          - surface: kiosk
+      matrix: ${{ fromJSON(needs.release-policy.outputs.web_matrix) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
@@ -381,14 +406,14 @@ jobs:
           add_public() {
             local name="$1" value="$2"
             test -n "$value" || return 0
-            npx --yes "vercel@${VERCEL_CLI_VERSION}" env add "$name" "$DEPLOY_ENVIRONMENT" \
+            pnpm exec vercel env add "$name" "$DEPLOY_ENVIRONMENT" \
               --project "${PROJECT_PREFIX}-${{ matrix.surface }}" --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN" \
               --value "$value" --no-sensitive --force --yes >/dev/null
           }
           add_secret() {
             local name="$1" value="$2"
             test -n "$value" || return 0
-            npx --yes "vercel@${VERCEL_CLI_VERSION}" env add "$name" "$DEPLOY_ENVIRONMENT" \
+            pnpm exec vercel env add "$name" "$DEPLOY_ENVIRONMENT" \
               --project "${PROJECT_PREFIX}-${{ matrix.surface }}" --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN" \
               --value "$value" --sensitive --force --yes >/dev/null
           }
@@ -434,44 +459,24 @@ jobs:
               add_public EXPO_PUBLIC_PREVIEW_DIRECTORY "$PREVIEW_DIRECTORY"
             fi
           fi
-      - name: Promote the exact verified web commit
+      - name: Stage, verify, and promote the exact web commit
+        id: deploy
         env:
+          FACTORY_ARTIFACT_DIGEST: ${{ needs.release-policy.outputs.artifact_digest }}
+          PROJECT: ${{ env.PROJECT_PREFIX }}-${{ matrix.surface }}
+          SURFACE: ${{ matrix.surface }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        run: |
-          set -euo pipefail
-          project="${PROJECT_PREFIX}-${{ matrix.surface }}"
-          deployment_url=''
-          for _attempt in $(seq 1 30); do
-            deployments=$(npx --yes "vercel@${VERCEL_CLI_VERSION}" list "$project" \
-              --status READY --meta "githubCommitSha=$GITHUB_SHA" --limit 1 --json \
-              --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN")
-            deployment_url=$(printf '%s' "$deployments" | jq -r '.deployments[0].url // empty')
-            [ -n "$deployment_url" ] && break
-            sleep 10
-          done
-          [ -n "$deployment_url" ] || { echo "::error::Exact $project deployment was not READY."; exit 1; }
-          redeployed_url=$(npx --yes "vercel@${VERCEL_CLI_VERSION}" redeploy "$deployment_url" \
-            --target "$DEPLOY_ENVIRONMENT" --no-wait --no-color \
-            --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN" | tail -1)
-          case "$redeployed_url" in
-            https://*.vercel.app|*.vercel.app) ;;
-            *) echo "::error::Vercel did not return the exact $project redeployment URL."; exit 1 ;;
-          esac
-          inspection=$(npx --yes "vercel@${VERCEL_CLI_VERSION}" inspect "$redeployed_url" \
-            --wait --timeout 8m --json --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN")
-          [ "$(printf '%s' "$inspection" | jq -r '.readyState')" = READY ] \
-            || { echo "::error::Exact $project redeployment did not become READY."; exit 1; }
-          if [ "$DEPLOY_ENVIRONMENT" = production ]; then
-            npx --yes "vercel@${VERCEL_CLI_VERSION}" promote "$redeployed_url" --yes --timeout 5m \
-              --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN"
-          fi
+        run: bash scripts/vercel-stage-deployment.sh
 
   publish-native:
-    name: Publish native OTA updates
-    needs: [migrate-database, deploy-hq]
-    if: inputs.publish_native && inputs.deploy_web && inputs.environment == 'production'
+    name: Publish ${{ matrix.surface }} native OTA update
+    needs: [migrate-database, deploy-hq, release-policy]
+    if: inputs.publish_native && inputs.deploy_web && inputs.environment == 'production' && needs.release-policy.outputs.native_count != '0'
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.release-policy.outputs.native_matrix) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
@@ -483,6 +488,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Materialize the approved tenant assets and app configuration
+        if: matrix.surface == 'customer' || matrix.surface == 'kiosk'
         run: pnpm onboard --tenant "$TENANT" --apply
       - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
         with:
@@ -506,52 +512,20 @@ jobs:
         run: |
           test -n "$EXPO_TOKEN" || { echo '::error::Set EXPO_TOKEN.'; exit 1; }
           test -n "$API_URL" || { echo '::error::The verified HQ deployment did not return a URL.'; exit 1; }
-      # EXPO_PUBLIC_TENANT names which applied tenant this bundle is for.
-      # apps/customer/src/tenants/ holds one directory per applied tenant, and the
-      # bundle throws rather than guessing when several are applied -- publishing
-      # one shop's menu under another shop's name is the failure it prevents.
-      - name: Publish customer update
-        working-directory: apps/customer
+      - name: Publish the exact declared native surface
+        working-directory: apps/${{ matrix.surface }}
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN || secrets.EXPO_GO_COFFEE }}
           API_URL: ${{ needs.deploy-hq.outputs.url }}
         run: |
+          set -euo pipefail
           api_host="${API_URL#https://}"
           api_host="${api_host%%/*}"
-          EXPO_PUBLIC_TENANT="$TENANT" \
-          EXPO_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
-          EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
-          EXPO_PUBLIC_API_URL="$API_URL" \
-          EXPO_PUBLIC_ALLOWED_API_HOST="$api_host" \
-            npx --yes eas-cli@21.4.0 update --channel production --environment production --platform all --non-interactive
-      - name: Publish operator update
-        working-directory: apps/operator
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN || secrets.EXPO_GO_COFFEE }}
-          API_URL: ${{ needs.deploy-hq.outputs.url }}
-        run: |
-          api_host="${API_URL#https://}"
-          api_host="${api_host%%/*}"
-          EXPO_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
-          EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
-          EXPO_PUBLIC_API_URL="$API_URL" \
-          EXPO_PUBLIC_ALLOWED_API_HOST="$api_host" \
-            npx --yes eas-cli@21.4.0 update --channel production --environment production --platform all --non-interactive
-      # EXPO_PUBLIC_TENANT names which applied tenant this bundle is for.
-      # apps/kiosk/src/tenants/ holds one directory per applied tenant, and the
-      # bundle throws rather than guessing when several are applied -- publishing
-      # one shop's menu under another shop's name is the failure it prevents.
-      - name: Publish kiosk update
-        working-directory: apps/kiosk
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN || secrets.EXPO_GO_COFFEE }}
-          API_URL: ${{ needs.deploy-hq.outputs.url }}
-        run: |
-          api_host="${API_URL#https://}"
-          api_host="${api_host%%/*}"
-          EXPO_PUBLIC_TENANT="$TENANT" \
-          EXPO_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
-          EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
-          EXPO_PUBLIC_API_URL="$API_URL" \
-          EXPO_PUBLIC_ALLOWED_API_HOST="$api_host" \
-            npx --yes eas-cli@21.4.0 update --channel production --environment production --platform all --non-interactive
+          if [ "${{ matrix.surface }}" = customer ] || [ "${{ matrix.surface }}" = kiosk ]; then
+            export EXPO_PUBLIC_TENANT="$TENANT"
+          fi
+          export EXPO_PUBLIC_SUPABASE_URL="$SUPABASE_URL"
+          export EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY"
+          export EXPO_PUBLIC_API_URL="$API_URL"
+          export EXPO_PUBLIC_ALLOWED_API_HOST="$api_host"
+          npx --yes eas-cli@21.4.0 update --channel production --environment production --platform all --non-interactive

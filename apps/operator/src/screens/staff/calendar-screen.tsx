@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { CALENDAR_ITEMS, CALENDAR_PEOPLE } from '@/data/calendar-demo';
+import { DEMO_OPERATOR_FIXTURES } from '@/data/demo-fixtures';
 import { loadLiveCalendarItems } from '@/features/calendar/live';
 import { calendarCategoryForItem, calendarDateRail, calendarItemHref, type CalendarItem } from '@/features/calendar/presentation';
 import { operationCalendarItems } from '@/features/operations/calendar';
@@ -24,13 +24,13 @@ export function CalendarScreen() {
   const { isDemo, tenant } = useAuth();
   const operations = useOperations();
   const { location } = useOperator();
-  const [baseItems, setBaseItems] = useState<readonly CalendarItem[]>(isDemo ? CALENDAR_ITEMS : []);
+  const [baseItems, setBaseItems] = useState<readonly CalendarItem[]>(isDemo ? DEMO_OPERATOR_FIXTURES.calendarItems : []);
   const [mode, setMode] = useState<CalendarMode>('list');
   const [day, setDay] = useState<DayKey>('today');
   const [personId, setPersonId] = useState<string>('all');
   const days = useMemo(() => calendarDateRail(new Date(), 7, business.timezone), [business.timezone]);
   useEffect(() => {
-    if (isDemo) { setBaseItems(CALENDAR_ITEMS); return undefined; }
+    if (isDemo) { setBaseItems(DEMO_OPERATOR_FIXTURES.calendarItems); return undefined; }
     if (!supabase || !tenant) return undefined;
     let mounted = true;
     void loadLiveCalendarItems(supabase, tenant.brand_id).then((loaded) => {
@@ -45,7 +45,7 @@ export function CalendarScreen() {
     ...operationCalendarItems(operations.occurrences, location.name, location.timezone, operations.now),
   ].sort((left, right) => Date.parse(left.startsAt ?? '') - Date.parse(right.startsAt ?? '')),
   [baseItems, location.name, location.timezone, operations.now, operations.occurrences]);
-  const people = useMemo(() => isDemo ? CALENDAR_PEOPLE : Array.from(
+  const people = useMemo(() => isDemo ? DEMO_OPERATOR_FIXTURES.calendarPeople : Array.from(
     new Map(items.flatMap((item) => item.assignees).map((person) => [person.id, person])).values(),
   ), [isDemo, items]);
   const visibleItems = useMemo(() => items.filter((item) => (

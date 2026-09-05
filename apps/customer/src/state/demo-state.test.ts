@@ -203,7 +203,13 @@ test('reschedules only the selected order, moving pickup and not placement', () 
 
 test('redeems an affordable cash reward and adds a ledger entry', () => {
   const initial = createInitialDemoPortal();
-  const reward = initial.rewardCatalog[0];
+  const reward = {
+    id: 'test-reward',
+    name: '$5 credit',
+    description: 'Test reward independent of the active tenant catalog.',
+    pointsCost: 500,
+    active: true,
+  };
   const next = redeemDemoReward(initial, reward, 'ledger-new', '2026-08-01T00:00:00.000Z');
   assert.equal(next.rewardAccount.availablePoints, initial.rewardAccount.availablePoints - reward.pointsCost);
   assert.equal(next.rewardAccount.cashCents, initial.rewardAccount.cashCents + 500);

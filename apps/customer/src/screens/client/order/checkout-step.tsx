@@ -166,7 +166,7 @@ export function CheckoutStep({
               style={styles.tipInput}
             />
           ) : null}
-          <Text style={styles.tipCaption}>100% of tips go to the baristas.</Text>
+          <Text style={styles.tipCaption}>100% of tips go to the service team.</Text>
 
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Total</Text>
@@ -190,7 +190,7 @@ export function CheckoutStep({
             // Nothing to manage: the tender is the counter. A pressable row
             // would open a payments screen live mode does not have.
             <View accessibilityLabel="Payment method: pay at the counter when you pick up" style={styles.paymentRow}>
-              <AppIcon name="cup.and.saucer.fill" size={20} tintColor={tokens.textPrimary} />
+              <AppIcon name="creditcard.fill" size={20} tintColor={tokens.textPrimary} />
               <Text style={styles.paymentLabel}>{describePayment(payment)}</Text>
             </View>
           ) : (

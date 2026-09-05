@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 
-import { subscribeToBoardChanges } from '@platform/data';
+import { subscribeToBoardChanges, subscribeToOperationQueue } from '@platform/data';
 
 import { isConfigured, isLocationId } from '@/lib/board';
 import { deviceToken } from '@/lib/device-token';
@@ -38,12 +38,16 @@ export async function GET(
       };
       const database = createClient(url, token, { auth: { persistSession: false } });
       const unsubscribe = subscribeToBoardChanges(database, location, () => send('change'));
+      const unsubscribeActivity = subscribeToOperationQueue(
+        database, location, () => send('change'),
+      );
       const heartbeat = setInterval(() => send('heartbeat'), 25_000);
       close = () => {
         if (closed) return;
         closed = true;
         clearInterval(heartbeat);
         unsubscribe();
+        unsubscribeActivity();
         controller.close();
       };
       request.signal.addEventListener('abort', close, { once: true });

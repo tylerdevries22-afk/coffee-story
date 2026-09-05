@@ -8,7 +8,7 @@ import { isoDateInTimeZone } from '@platform/domain';
 
 import { CollapsingScreen } from '@/components/collapsing-screen';
 import { Body, Card, SectionTitle } from '@/components/ui';
-import { DEMO_SHIFTS } from '@/data/crew-demo';
+import { DEMO_OPERATOR_FIXTURES } from '@/data/demo-fixtures';
 import {
   leavingSoon, minutesRemaining, shiftState, sortRoster, type Shift,
 } from '@/features/crew/shift';
@@ -42,7 +42,7 @@ export function CrewScreen() {
   } as const;
   const { isDemo, user } = useAuth();
   const { location, locationReady } = useOperator();
-  const [shifts, setShifts] = useState<readonly Shift[]>(() => isDemo ? DEMO_SHIFTS : []);
+  const [shifts, setShifts] = useState<readonly Shift[]>(() => isDemo ? DEMO_OPERATOR_FIXTURES.shifts : []);
   // One clock for the whole render, advanced once a minute so the roster,
   // leaving-soon cue, and location calendar day cannot drift apart.
   const [now, setNow] = useState(() => new Date());
@@ -62,7 +62,7 @@ export function CrewScreen() {
 
   useEffect(() => {
     if (isDemo) {
-      setShifts(DEMO_SHIFTS);
+      setShifts(DEMO_OPERATOR_FIXTURES.shifts);
       return undefined;
     }
     if (!supabase || !user || !locationReady) return undefined;

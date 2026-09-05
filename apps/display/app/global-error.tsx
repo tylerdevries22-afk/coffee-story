@@ -15,8 +15,8 @@ export default function DisplayGlobalError({ error, reset }: {
     <html lang="en">
       <body>
         <main className="display-root display-signpost">
-          <h1 className="board-title">The pickup board is reconnecting</h1>
-          <p className="board-empty">Orders are still safe. Ask a team member while this screen catches up.</p>
+          <h1 className="board-title">The display is reconnecting</h1>
+          <p className="board-empty">Updates are still safe. Ask a team member while this screen catches up.</p>
           <button type="button" onClick={reset}>Try again</button>
         </main>
       </body>

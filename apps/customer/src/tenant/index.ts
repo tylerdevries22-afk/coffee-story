@@ -31,6 +31,7 @@ export type TenantBusiness = {
   website: string;
   giftCodePrefix: string;
   monogram: string;
+  industry: string;
 };
 
 export type TenantFeatures = {
@@ -57,15 +58,71 @@ type TenantFile = {
   tax?: { jurisdictions: { id: string; label: string; rate: number }[] };
   /** The earning ladder. Absent or unparseable means the shipped generic one. */
   loyalty?: { tiers?: unknown };
-  location: {
+  location: TenantLocation;
+};
+
+type TenantLocation = {
     name: string;
     address: { street: string; city: string; region: string; postal: string };
     timezone: string;
     hours: Record<string, { open: string; close: string }[]>;
-  };
 };
 
-export const TENANT = TENANT_SLOT.brand as TenantFile;
+type TenantAddressSource = Partial<TenantLocation['address']> & {
+  line1?: string;
+  postalCode?: string;
+};
+
+export function normalizeTenantAddress(
+  address: TenantAddressSource = {},
+): TenantLocation['address'] {
+  return {
+    street: address.street ?? address.line1 ?? '',
+    city: address.city ?? '',
+    region: address.region ?? '',
+    postal: address.postal ?? address.postalCode ?? '',
+  };
+}
+
+type TenantSource = Omit<TenantFile, 'business' | 'location'> & {
+  business?: Partial<TenantBusiness> & { supportEmail?: string };
+  location?: TenantLocation;
+  locations?: {
+    name?: string;
+    address?: TenantAddressSource;
+    timezone?: string;
+    hours?: TenantLocation['hours'];
+  }[];
+};
+
+function normalizeTenant(source: TenantSource): TenantFile {
+  const first = source.locations?.[0];
+  const location = source.location ?? {
+    name: first?.name ?? source.identity.name,
+    address: normalizeTenantAddress(first?.address),
+    timezone: first?.timezone ?? 'UTC',
+    hours: first?.hours ?? {},
+  };
+  const business = source.business ?? {};
+  const monogram = business.monogram ?? source.identity.name.split(/\s+/)
+    .map((part) => part[0] ?? '').join('').slice(0, 3).toUpperCase();
+  return {
+    ...source,
+    business: {
+      legalName: business.legalName ?? source.identity.name,
+      tagline: business.tagline ?? '',
+      email: business.email ?? business.supportEmail ?? '',
+      phone: business.phone ?? '',
+      website: business.website ?? '',
+      giftCodePrefix: business.giftCodePrefix ?? monogram,
+      monogram,
+      industry: business.industry ?? 'General',
+    },
+    location,
+  };
+}
+
+export const TENANT = normalizeTenant(TENANT_SLOT.brand as TenantSource);
 
 /** The whole file, in the shape ThemeProvider hydrates from. */
 export const TENANT_BRAND_CONFIG: unknown = TENANT_SLOT.brand;

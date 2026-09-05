@@ -1,6 +1,12 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "tenantSlug": "stillpoint-builders",
+  "release": {
+    "releaseId": "",
+    "commitSha": "",
+    "artifactDigest": "",
+    "createdAt": ""
+  },
   "expoGo": {
     "appStoreSdk": 54,
     "checkedAt": "2026-08-31T00:00:00.000Z",

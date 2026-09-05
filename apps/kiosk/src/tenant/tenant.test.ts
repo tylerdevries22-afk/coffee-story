@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
 
-import { EMPTY_MENU_FACTS, resolveKioskFlow } from '@platform/domain';
+import { EMPTY_MENU_FACTS, resolveKioskFlow, type KioskMenuFacts } from '@platform/domain';
 import { STOREFRONT_CAPABILITY_MODULE } from '@platform/module-kit';
 import type { ConfigContext } from 'expo/config';
 
@@ -17,6 +17,21 @@ const TENANTS = join(__dirname, '../../../../tenants');
 
 function readJson(...segments: string[]): unknown {
   return JSON.parse(readFileSync(join(...segments), 'utf8'));
+}
+
+function bundledMenuFacts(): KioskMenuFacts {
+  const menu = readJson(SLOTS, TENANT_SLUG, 'menu.json') as {
+    categories: readonly { id: string; title: string }[];
+    items: readonly { id: string; category: string }[];
+  };
+  return {
+    categories: menu.categories.map((category) => ({
+      id: category.title,
+      title: category.title,
+      hasItems: menu.items.some((item) => item.category === category.id),
+    })),
+    itemSlugs: menu.items.map((item) => item.id),
+  };
 }
 
 describe('the selected tenant', () => {
@@ -53,9 +68,12 @@ describe('the selected tenant', () => {
     assert.equal(config.slug, `${TENANT_SLUG}-kiosk`);
     assert.equal(config.scheme, TENANT.identity.kioskScheme);
     assert.equal(config.ios?.bundleIdentifier, TENANT.identity.kioskBundleId);
-    assert.equal(config.ios?.icon, './assets/expo.icon');
+    assert.equal(config.ios?.icon, `./assets/tenants/${TENANT_SLUG}/expo.icon`);
     assert.equal(config.android?.package, TENANT.identity.kioskBundleId);
-    assert.equal(config.android?.adaptiveIcon?.backgroundImage, './assets/images/android-icon-background.png');
+    assert.equal(
+      config.android?.adaptiveIcon?.backgroundImage,
+      `./assets/tenants/${TENANT_SLUG}/images/android-icon-background.png`,
+    );
     // An empty project id is valid until this tenant's kiosk runs `eas init`,
     // which is the state a franchisee is in on the day they are applied.
     const projectId = TENANT.identity.kioskEasProjectId;
@@ -74,14 +92,8 @@ describe('the selected tenant', () => {
   });
 
   it('ships only artwork generated from its logo', () => {
-    // Single-slot on purpose: app.config.ts and the native build name these at
-    // fixed paths and one binary carries one icon, so this asserts the selected
-    // slug rather than every applied one.
-    //
-    // A tenant that has not supplied a logo has no generated artwork, and the
-    // app keeps whatever the last tenant with one applied. That is a real gap
-    // in a franchisee's onboarding, so it is asserted as such rather than
-    // silently passing: the artwork must belong to SOME applied tenant.
+    // One binary carries one icon, but every applied tenant has its own source
+    // slot so selecting another brand never overwrites this one's release input.
     const generated = join(TENANTS, TENANT_SLUG, 'app-store/generated');
     if (!existsSync(generated)) {
       const applied = (JSON.parse(
@@ -105,13 +117,14 @@ describe('the selected tenant', () => {
     ] as const;
     for (const [source, destination] of mappings) {
       assert.ok(
-        readFileSync(join(__dirname, '../../assets', destination)).equals(readFileSync(join(generated, source))),
+        readFileSync(join(__dirname, '../../assets/tenants', TENANT_SLUG, destination))
+          .equals(readFileSync(join(generated, source))),
         `${destination} has drifted from generated tenant artwork`,
       );
     }
     assert.ok(
-      readFileSync(join(__dirname, '../../assets/expo.icon/icon.json'))
-        .equals(readFileSync(join(__dirname, '../../../customer/assets/expo.icon/icon.json'))),
+      readFileSync(join(__dirname, '../../assets/tenants', TENANT_SLUG, 'expo.icon/icon.json'))
+        .equals(readFileSync(join(__dirname, '../../../customer/assets/tenants', TENANT_SLUG, 'expo.icon/icon.json'))),
       'customer and kiosk Expo icon configurations have drifted',
     );
   });
@@ -121,11 +134,11 @@ describe('the kiosk flow this tenant ships', () => {
   /**
    * The zero-config contract, asserted against the real file rather than a
    * fixture: whatever the tenant did or did not configure, a device opens on
-   * something a guest can press. Passing EMPTY_MENU_FACTS is the worst case --
-   * a brand row seeded before its menu.
+   * something a guest can press. A derived flow needs this tenant's catalog;
+   * inventing a cross-tenant fallback when no catalog exists would be unsafe.
    */
-  it('always yields a tappable first screen, even with no menu', () => {
-    const flow = resolveKioskFlow(TENANT.kiosk, { menu: EMPTY_MENU_FACTS });
+  it('always yields a tappable first screen from the bundled tenant menu', () => {
+    const flow = resolveKioskFlow(TENANT.kiosk, { menu: bundledMenuFacts() });
     assert.ok(flow.entry.nodes.length > 0);
     assert.ok(flow.entry.prompt.length > 0);
   });

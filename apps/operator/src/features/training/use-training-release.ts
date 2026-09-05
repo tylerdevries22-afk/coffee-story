@@ -1,29 +1,40 @@
 import { AppState } from 'react-native';
-import { useEffect, useState } from 'react';
-import { cafeTrainingManifest, type TrainingManifest } from '@platform/domain';
+import { useEffect, useMemo, useState } from 'react';
+import { cafeTrainingManifest, constructionTrainingManifest, isConstructionTrainingProfile, type TenantTrainingProfile, type TrainingManifest } from '@platform/domain';
 import { subscribeToTrainingReleases } from '@platform/data';
 
-import { BUSINESS } from '@/data/business';
 import { mobileApi } from '@/lib/mobile-api';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/state/auth-context';
+import { DEMO_TRAINING_PROFILE, trainingProfileFromBrandConfig } from './training-profile';
 
 export type OperatorTrainingRelease = { id: string; manifest: TrainingManifest };
-
-// The demo shop, named once in data/business.ts rather than restated here.
-// The template key is derived from the name, so the fixture does not carry a
-// second copy of it either.
-const DEMO_TRAINING_RELEASE: OperatorTrainingRelease = {
-  id: 'demo-training-v1',
-  manifest: cafeTrainingManifest({
-    businessName: BUSINESS.name,
-    industry: 'Coffee shop',
-    locale: 'en-US',
-  }),
+const UNIDENTIFIED_TRAINING_PROFILE: TenantTrainingProfile = {
+  businessName: 'business', industry: '', locale: 'en-US',
 };
 
-export function useTrainingRelease(): { release: OperatorTrainingRelease | null; loading: boolean; error: string | null; isDemo: boolean } {
-  const { isDemo, tenant, isAuthenticated } = useAuth();
+function demoTrainingRelease(profile: TenantTrainingProfile): OperatorTrainingRelease {
+  const manifest = isConstructionTrainingProfile(profile)
+    ? constructionTrainingManifest(profile)
+    : cafeTrainingManifest(profile);
+  return { id: 'demo-training-v1', manifest };
+}
+
+export type TrainingReleaseState = {
+  release: OperatorTrainingRelease | null;
+  profile: TenantTrainingProfile;
+  loading: boolean;
+  error: string | null;
+  isDemo: boolean;
+};
+
+export function useTrainingRelease(): TrainingReleaseState {
+  const { isDemo, tenant, isAuthenticated, brandName, brandConfig } = useAuth();
+  const fallbackProfile = isDemo ? DEMO_TRAINING_PROFILE : UNIDENTIFIED_TRAINING_PROFILE;
+  const configuredProfile = useMemo(() => trainingProfileFromBrandConfig(
+    brandConfig, brandName, fallbackProfile,
+  ), [brandConfig, brandName, fallbackProfile]);
+  const demoRelease = useMemo(() => demoTrainingRelease(configuredProfile), [configuredProfile]);
   const brandId = tenant?.brand_id ?? null;
   const [release, setRelease] = useState<OperatorTrainingRelease | null>(null);
   const [releaseBrandId, setReleaseBrandId] = useState<string | null>(null);
@@ -35,7 +46,7 @@ export function useTrainingRelease(): { release: OperatorTrainingRelease | null;
     setRelease(null);
     setReleaseBrandId(null);
     setError(null);
-    if (isDemo) { setRelease(DEMO_TRAINING_RELEASE); setLoading(false); return undefined; }
+    if (isDemo) { setRelease(demoRelease); setLoading(false); return undefined; }
     if (!brandId) {
       setLoading(false);
       if (isAuthenticated) setError('This account has no tenant training access.');
@@ -64,9 +75,10 @@ export function useTrainingRelease(): { release: OperatorTrainingRelease | null;
       if (state === 'active') void load(false);
     });
     return () => { mounted = false; unsubscribe(); appState.remove(); };
-  }, [brandId, isAuthenticated, isDemo]);
+  }, [brandId, demoRelease, isAuthenticated, isDemo]);
   // Effects run after paint. Guard the render result as well so a tenant
   // switch cannot display the prior brand's release for one frame.
-  const visibleRelease = isDemo ? DEMO_TRAINING_RELEASE : releaseBrandId === brandId ? release : null;
-  return { release: visibleRelease, loading, error, isDemo };
+  const visibleRelease = isDemo ? demoRelease : releaseBrandId === brandId ? release : null;
+  const profile = visibleRelease?.manifest.tenant ?? configuredProfile;
+  return { release: visibleRelease, profile, loading, error, isDemo };
 }

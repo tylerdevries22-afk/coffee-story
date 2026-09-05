@@ -2,6 +2,8 @@ import type { BoardTicketRow } from '@platform/schema';
 
 import { serverClient } from './supabase-server';
 import { currentSession } from './auth';
+import { DEMO_SESSION } from './demo-data';
+import { usesLaunchFixtures } from './demo-fixture-scope';
 
 export type WallPreviewTicket = Pick<
   BoardTicketRow,
@@ -34,11 +36,14 @@ const DEMO_TICKETS: WallPreviewTicket[] = [
 /** Reads only the display-safe projection under the signed-in HQ session. */
 export async function loadWallPreviewTickets(locationId: string): Promise<WallPreviewTicket[]> {
   const client = await serverClient();
-  if (!client) return DEMO_TICKETS.map((ticket) => ({ ...ticket, location_id: locationId }));
   const session = await currentSession();
   if (!session) return [];
   const { selectedOrganizationId } = await import('./workspace-scope');
   const brandId = await selectedOrganizationId(session);
+  if (!client) {
+    if (!usesLaunchFixtures(brandId, DEMO_SESSION.brandId)) return [];
+    return DEMO_TICKETS.map((ticket) => ({ ...ticket, location_id: locationId }));
+  }
 
   const rows = await client
     .from('board_tickets')

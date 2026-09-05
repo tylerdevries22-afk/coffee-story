@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   connectorCardsOf,
   defaultConnectorCards,
+  demoConnectorCards,
   type ConnectorCard,
   type ConnectorInstallationRow,
   type ConnectorRegistryRow,
@@ -10,6 +11,12 @@ import {
 } from './integration-cards';
 import { serverClient } from './supabase-server';
 import { currentSession } from './auth';
+import {
+  certifiedOAuthProviders,
+  type ConnectorCapabilityRow,
+  type ConnectorCertificationRow,
+  withConnectorAuthorization,
+} from './connector-auth-readiness';
 
 async function selectedBrandId(): Promise<string | null> {
   const session = await currentSession();
@@ -23,10 +30,14 @@ export async function loadConnectorCards(
   providedClient?: SupabaseClient | null,
 ): Promise<readonly ConnectorCard[]> {
   const client = providedClient === undefined ? await serverClient() : providedClient;
-  if (!client) return defaultConnectorCards();
+  if (!client && providedClient === null) return defaultConnectorCards();
   const brandId = await selectedBrandId();
   if (!brandId) return defaultConnectorCards();
-  const [registry, installations] = await Promise.all([
+  if (!client) {
+    const { demoOrgById } = await import('./demo-orgs');
+    return demoConnectorCards(demoOrgById(brandId)?.connectorIds ?? []);
+  }
+  const [registry, installations, capabilities, certifications] = await Promise.all([
     client
       .from('connector_registry')
       .select('id, provider_key, availability, is_active')
@@ -38,9 +49,20 @@ export async function loadConnectorCards(
       .eq('brand_id', brandId)
       .order('updated_at', { ascending: false })
       .returns<ConnectorInstallationRow[]>(),
+    client.from('connector_capabilities').select('id, provider_id, oauth_scopes')
+      .eq('is_active', true).returns<ConnectorCapabilityRow[]>(),
+    client.from('connector_certifications')
+      .select('capability_id, environment, status, certified_at, valid_until')
+      .returns<ConnectorCertificationRow[]>(),
   ]);
   if (registry.error || installations.error) return defaultConnectorCards();
-  return connectorCardsOf(registry.data ?? [], installations.data ?? []);
+  const certified = capabilities.error || certifications.error ? new Set<string>()
+    : certifiedOAuthProviders(
+      registry.data ?? [], capabilities.data ?? [], certifications.data ?? [],
+    );
+  return withConnectorAuthorization(
+    connectorCardsOf(registry.data ?? [], installations.data ?? []), certified,
+  );
 }
 
 type SyncRunRow = {

@@ -15,6 +15,7 @@ const STAFF_ACCESS: ConsoleNavigationAccess = {
   canViewAnalytics: false,
   canViewIntegrations: false,
   canManageOperations: false,
+  canViewKnowledge: false,
   canManageDrops: false,
   canManageCampaigns: false,
 };
@@ -27,6 +28,7 @@ const FULL_ACCESS: ConsoleNavigationAccess = {
   canViewAnalytics: true,
   canViewIntegrations: true,
   canManageOperations: true,
+  canViewKnowledge: true,
   canManageDrops: true,
   canManageCampaigns: true,
 };
@@ -52,6 +54,7 @@ describe('consoleSectionsFor', () => {
       '/kiosk',
       '/storage',
       '/training',
+      '/knowledge',
       '/drops',
       '/campaigns',
       '/customers',
@@ -93,6 +96,13 @@ describe('consoleSectionsFor', () => {
       '/menu',
       '/customers',
     ]);
+  });
+
+  it('shows installed knowledge to staff without granting owner navigation', () => {
+    const destinations = destinationsFor({ ...STAFF_ACCESS, canViewKnowledge: true });
+    assert.ok(destinations.includes('/knowledge'));
+    assert.equal(destinations.includes('/brand'), false);
+    assert.equal(destinations.includes('/staff'), false);
   });
 
   it('hides the module sections a brand has not installed', () => {

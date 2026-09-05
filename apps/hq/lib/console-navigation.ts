@@ -9,6 +9,7 @@ import {
   DASHBOARD_SECTION,
   DROPS_SECTION,
   INTEGRATIONS_SECTION,
+  KNOWLEDGE_SECTION,
   OPERATIONS_SECTION,
   analyticsSection,
   contentSection,
@@ -38,6 +39,7 @@ export type ConsoleNavigationAccess = {
   readonly canViewAnalytics: boolean;
   readonly canViewIntegrations: boolean;
   readonly canManageOperations: boolean;
+  readonly canViewKnowledge: boolean;
   /** `growth-drops` is installed for the selected brand. */
   readonly canManageDrops: boolean;
   /** The selected brand holds any growth module; see lib/capabilities. */
@@ -50,6 +52,7 @@ export function consoleSectionsFor(access: ConsoleNavigationAccess): ConsoleSect
     DASHBOARD_SECTION,
     APPS_SECTION,
     contentSection(access),
+    ...(access.canViewKnowledge ? [KNOWLEDGE_SECTION] : []),
     ...(access.canManageDrops ? [DROPS_SECTION] : []),
     ...(access.canManageCampaigns ? [CAMPAIGNS_SECTION] : []),
     CUSTOMERS_SECTION,

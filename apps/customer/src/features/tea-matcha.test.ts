@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { CATALOG_ITEMS, MENU_CATEGORY_META } from '../data/catalog-data';
+import type { CatalogItemData } from '../data/catalog-data';
+import coffeeMenu from '../tenants/coffee-story/menu.json';
 import {
   TEA_MATCHA_CATEGORY,
   TEA_MATCHA_FEATURE_IDS,
@@ -11,6 +12,9 @@ import {
   teaMatchaShelf,
   teaMatchaTag,
 } from './tea-matcha';
+
+const CATALOG_ITEMS = coffeeMenu.items as readonly CatalogItemData[];
+const MENU_CATEGORY_META = coffeeMenu.categories;
 
 test('the shelf is six of the ten, in the declared order', () => {
   const shelf = teaMatchaShelf(CATALOG_ITEMS);

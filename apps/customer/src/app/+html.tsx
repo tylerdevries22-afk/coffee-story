@@ -24,6 +24,7 @@ export default function Root({ children }: PropsWithChildren) {
       <head>
         <meta charSet="utf-8" />
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
+        <meta name="platform-tenant" content={TENANT.identity.slug} />
         {/*
           `viewport-fit=cover` lets the layout reach under the notch and home
           indicator, which is what makes safe-area insets meaningful.
@@ -43,10 +44,7 @@ export default function Root({ children }: PropsWithChildren) {
         />
 
         {/* Installable: launches standalone from the home screen. */}
-        {/* Served from `public/`, which Expo copies to the web root. The
-            link used to point at `/demo/manifest.webmanifest`, which does not
-            exist anywhere in the tree -- so it 404'd and `InstallPrompt` was
-            offering an install the browser could never complete. */}
+        {/* app.config.ts selects one tenant public folder for this export. */}
         <link rel="manifest" href="/manifest.webmanifest" />
         <meta name="theme-color" content={appTokens.colors.brand900} />
 

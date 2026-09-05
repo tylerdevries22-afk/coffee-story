@@ -22,6 +22,7 @@ import { join } from 'node:path';
 import {
   parseTenantModulesManifest,
   type TenantModuleInstall,
+  type TenantModulesManifest,
 } from '../packages/module-kit/src/modules-manifest';
 import { MODULE_REGISTRY } from '../packages/module-kit/src/registry';
 import { resolveModules, type ResolutionError } from '../packages/module-kit/src/resolve';
@@ -113,4 +114,15 @@ export function modulesManifestProblems(tenantDir: string): string[] {
     problems.push(...resolution.errors.map(describeResolutionError));
   }
   return problems.map((problem) => `modules.json: ${problem}`);
+}
+
+/** Parses the desired module state after validation has reported no problems. */
+export function readTenantModulesManifest(tenantDir: string): TenantModulesManifest {
+  const path = join(tenantDir, 'modules.json');
+  if (!existsSync(path)) return { schemaVersion: 1, modules: [] };
+  const result = parseTenantModulesManifest(JSON.parse(readFileSync(path, 'utf8')) as unknown);
+  if (result.kind === 'invalid') {
+    throw new Error(`Invalid modules.json: ${result.issues.join('; ')}`);
+  }
+  return result.manifest;
 }

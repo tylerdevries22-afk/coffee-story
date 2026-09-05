@@ -13,9 +13,8 @@ import { TENANT_ORGS, tenantOrgById } from './tenants';
  * Demo mode is the only path the console takes with no database, so it is the
  * whole of what a reviewer sees. It used to answer with one hard-coded list
  * mirroring `tenants/coffee-story/modules.json` for *every* org, which meant
- * selecting Stillpoint Builders -- a construction franchise whose manifest
- * declares `construction-projects` and nothing else -- offered Drops,
- * Campaigns, Operations, Menu and Catalog, and hid the one module it runs.
+ * selecting Stillpoint Builders must expose its construction-specific module
+ * set without leaking Coffee Story growth or hospitality capabilities.
  *
  * For a platform whose pitch is that the same five apps serve any industry,
  * that made the flagship demo demonstrate the opposite of its claim. These
@@ -49,19 +48,17 @@ describe('demo capability resolution', () => {
    * The case that was wrong. Named directly rather than left to the general
    * rule above, because it is the one a reviewer opens the demo to see.
    */
-  it('offers a construction franchise its own module and no commerce', async () => {
+  it('offers the construction franchise its complete tenant module set', async () => {
     const stillpoint = tenantOrgById('stillpoint-builders');
     assert.ok(stillpoint, 'stillpoint-builders is not registered');
     const keys = await resolveModuleKeys(null, 'stillpoint-builders');
-    assert.ok(keys.has('construction-projects'),
-      'the one module this tenant runs must be offered');
-    for (const commerce of [
-      'commerce-ordering', 'commerce-catering', 'commerce-delivery',
-      'growth-drops', 'growth-stored-value', 'growth-referrals',
-      'workforce-operations',
+    assert.deepEqual([...keys].sort(), manifestKeys('stillpoint-builders').sort());
+    for (const hospitality of [
+      'commerce-catering', 'commerce-delivery', 'growth-drops',
+      'growth-stored-value', 'growth-referrals',
     ]) {
-      assert.equal(keys.has(commerce), false,
-        `a construction franchise was offered ${commerce}`);
+      assert.equal(keys.has(hospitality), false,
+        `a construction franchise was offered ${hospitality}`);
     }
   });
 
@@ -101,8 +98,8 @@ describe('demo capability resolution', () => {
   it('gives every registry location its own zone and hours, not a default', () => {
     // The synthesized default was `America/New_York` with retail hours for every
     // org but the launch tenant, which put a shop's trading day on a
-    // construction head office in Michigan -- same UTC offset as Detroit, so it
-    // read as correct. A location states its own or the type will not compile.
+    // construction regional office in Colorado. A location states its own or
+    // the type will not compile.
     for (const org of TENANT_ORGS) {
       for (const location of org.locations) {
         assert.match(location.timezone, /^[A-Za-z]+\/[A-Za-z_]+$/, `${org.slug}/${location.id} zone`);
@@ -112,7 +109,7 @@ describe('demo capability resolution', () => {
     const stillpoint = TENANT_ORGS.find((org) => org.slug === 'stillpoint-builders');
     assert.ok(stillpoint);
     for (const location of stillpoint.locations) {
-      assert.equal(location.timezone, 'America/Detroit', 'both sites are in Michigan');
+      assert.equal(location.timezone, 'America/Denver', 'both sites are in Colorado');
     }
   });
 });

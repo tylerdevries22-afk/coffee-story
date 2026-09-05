@@ -39,8 +39,8 @@ function TicketRow({ entry }: { entry: BoardEntry }) {
     <li className={`wall-preview-ticket${entry.ready ? ' ready' : ''}`}>
       <span className="wall-preview-mark" aria-hidden="true">{entry.ready ? '✓' : entry.position}</span>
       <span className="wall-preview-ticket-copy">
-        <strong>{entry.name || 'Order'}</strong>
-        <small>{entry.ready ? 'Ready for pickup' : `Order ${entry.callout}`}</small>
+        <strong>{entry.name || 'Update'}</strong>
+        <small>{entry.ready ? 'Ready' : `Reference ${entry.callout}`}</small>
       </span>
       {entry.arrived ? <span className="pill success">Arrived</span> : null}
     </li>
@@ -84,11 +84,11 @@ export function WallPreview({
 
   const queue = boardQueue(tickets, resolveBoardConfig(null));
   return (
-    <main className="wall-preview" aria-label={`${locationName} pickup wall`}>
+    <main className="wall-preview" aria-label={`${locationName} location display`}>
       <header className="wall-preview-header">
         <div>
           <p className="wall-preview-kicker">{locationName}</p>
-          <h1>Pickup</h1>
+          <h1>Location status</h1>
         </div>
         <span className={`pill ${degraded ? 'warning' : 'success'}`} aria-live="polite">
           {degraded ? 'Reconnecting' : 'Live'}
@@ -98,7 +98,7 @@ export function WallPreview({
         <ol className="wall-preview-list">
           {queue.entries.map((entry) => <TicketRow entry={entry} key={entry.id} />)}
         </ol>
-      ) : <p className="wall-preview-empty">No active orders at this location.</p>}
+      ) : <p className="wall-preview-empty">No active updates at this location.</p>}
       {queue.overflow > 0 ? <p className="wall-preview-overflow">+{queue.overflow} more waiting</p> : null}
     </main>
   );

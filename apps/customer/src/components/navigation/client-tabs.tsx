@@ -1,8 +1,8 @@
 import { NativeTabs, TabIcon, TabLabel } from '@/components/navigation/native-tabs-compat';
 import { useDeferredTabBar } from '@/components/navigation/use-deferred-tab-bar';
 import { useTabAvatar } from '@/lib/tab-avatar';
-import { CLIENT_TAB_LABELS } from '@/state/navigation-state';
 import { useAuth } from '@/state/auth-context';
+import { TENANT_CLIENT_EXPERIENCE } from '@/tenant/client-experience';
 
 import rewardsCup from '../../../assets/tabs/cup.png';
 import { useTokens as useBrandTokens } from '@platform/ui';
@@ -22,6 +22,8 @@ import { useTokens as useBrandTokens } from '@platform/ui';
  */
 export function ClientTabs() {
   const tokens = useBrandTokens();
+  const experience = TENANT_CLIENT_EXPERIENCE;
+  const construction = experience.kind === 'construction';
   // See useDeferredTabBar: mounting after the first layout window is what
   // keeps the labels on one baseline while the two image icons load. The
   // avatar hook gates the same mount while a freshly chosen photo is cropped.
@@ -47,27 +49,33 @@ export function ClientTabs() {
     >
       <NativeTabs.Trigger name="home">
         <TabIcon sf={{ default: 'house', selected: 'house.fill' }} />
-        <TabLabel>{CLIENT_TAB_LABELS.home}</TabLabel>
+        <TabLabel>{experience.tabLabels.home}</TabLabel>
       </NativeTabs.Trigger>
 
-      <NativeTabs.Trigger name="gift">
-        <TabIcon sf={{ default: 'gift', selected: 'gift.fill' }} />
-        <TabLabel>{CLIENT_TAB_LABELS.gift}</TabLabel>
-      </NativeTabs.Trigger>
+      {experience.tabs.includes('gift') ? <NativeTabs.Trigger name="gift">
+        <TabIcon sf={construction
+          ? { default: 'doc.text', selected: 'doc.text.fill' }
+          : { default: 'gift', selected: 'gift.fill' }} />
+        <TabLabel>{experience.tabLabels.gift}</TabLabel>
+      </NativeTabs.Trigger> : null}
 
       <NativeTabs.Trigger name="book">
-        <TabIcon sf={{ default: 'cup.and.saucer', selected: 'cup.and.saucer.fill' }} />
-        <TabLabel>{CLIENT_TAB_LABELS.book}</TabLabel>
+        <TabIcon sf={construction ? 'calendar' : experience.kind === 'base'
+          ? { default: 'doc.text', selected: 'doc.text.fill' }
+          : { default: 'cup.and.saucer', selected: 'cup.and.saucer.fill' }} />
+        <TabLabel>{experience.tabLabels.book}</TabLabel>
       </NativeTabs.Trigger>
 
       {/* The one mark with no SF Symbol equivalent. expo-router hands UIKit
           only a symbol name or an image, so the drawn hand-and-heart ships as
           a template PNG built by scripts/build-mobile-tab-icons.mjs from the
           same paths react-native-svg draws elsewhere in the app. */}
-      <NativeTabs.Trigger name="rewards">
-        <TabIcon src={rewardsCup} />
-        <TabLabel>{CLIENT_TAB_LABELS.rewards}</TabLabel>
-      </NativeTabs.Trigger>
+      {experience.tabs.includes('rewards') ? <NativeTabs.Trigger name="rewards">
+        {construction
+          ? <TabIcon sf={{ default: 'creditcard', selected: 'creditcard.fill' }} />
+          : <TabIcon src={rewardsCup} />}
+        <TabLabel>{experience.tabLabels.rewards}</TabLabel>
+      </NativeTabs.Trigger> : null}
 
       {/* The user's own photo once they've picked one (circle-cropped by
           useTabAvatar, rendered original so it keeps its colours), otherwise
@@ -75,7 +83,7 @@ export function ClientTabs() {
           "Profile" label sits below either way. */}
       <NativeTabs.Trigger name="more">
         <TabIcon src={avatar.source} renderingMode={avatar.isPhoto ? 'original' : 'template'} />
-        <TabLabel>{CLIENT_TAB_LABELS.more}</TabLabel>
+        <TabLabel>{experience.tabLabels.more}</TabLabel>
       </NativeTabs.Trigger>
     </NativeTabs>
   );

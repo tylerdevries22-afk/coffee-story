@@ -134,7 +134,7 @@ const campaignTable = (input: AnalyticsDashboardInput): AnalyticsTable => ({
 });
 
 const surfaceLabels = {
-  customer: 'Customer', operator: 'Operator', kiosk: 'Kiosk', display: 'Pickup display', hq: 'HQ',
+  customer: 'Customer', operator: 'Operator', kiosk: 'Kiosk', display: 'Location display', hq: 'HQ',
 } as const;
 
 function telemetryCount(input: AnalyticsDashboardInput, metricKey: string): number {
@@ -210,7 +210,7 @@ export function buildAnalyticsDashboard(
       return {
         eyebrow: 'Five-surface telemetry',
         title: 'App usage',
-        description: 'Understand journeys across the customer, operator, kiosk, pickup display, and HQ experiences.',
+        description: 'Understand journeys across the customer, operator, kiosk, location display, and HQ experiences.',
         sourceNote: 'Only bounded, consent-permitted event properties are eligible for these views.',
         metrics: [
           sessions ? { label: 'Sessions', value: number(sessions), detail: 'Across all app surfaces', state: 'available' } : collectingMetric('Sessions', 'Across all app surfaces'),

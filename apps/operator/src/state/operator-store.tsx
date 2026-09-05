@@ -36,8 +36,8 @@ import {
 } from '@platform/data';
 import { canTransition, type OrderRow, type OrderStatus } from '@platform/schema';
 
-import { MENU_ITEMS } from '@/data/catalog';
-import { initialDemoOrders, spawnDemoOrder } from '@/data/demo-orders';
+import { DEMO_OPERATOR_FIXTURES } from '@/data/demo-fixtures';
+import { spawnDemoOrder } from '@/data/demo-orders';
 import { canCancelWithoutRefund, newOrderIds, type BoardOrder } from '@/features/operator/board';
 import { normalizeBoardOrderGuest, upsertBoardOrder } from '@/features/operator/live-board';
 import {
@@ -63,20 +63,13 @@ import { platformApi } from '@/lib/api';
 import { demoSyncClient, demoSyncEnabled } from '@/lib/demo-sync';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/state/auth-context';
+import {
+  DEFAULT_DEMO_LOCATION,
+  TENANT_DEMO_LOCATIONS,
+  type OperatorLocation,
+} from '@/state/operator-locations';
 
-export type OperatorLocation = { id: string; name: string; timezone: string };
-
-/** Multi-location demo roster; a single-location brand just never shows the picker. */
-export const DEMO_LOCATIONS: readonly OperatorLocation[] = [
-  // Districts, not one tenant's street. The operator app is a single listing
-  // signed into by every brand, so demo copy naming a real address showed one
-  // franchisee's location to all the others.
-  { id: 'loc-uptown', name: 'Uptown', timezone: 'America/Denver' },
-  { id: 'loc-downtown', name: 'Downtown', timezone: 'America/Denver' },
-];
-const DEFAULT_DEMO_LOCATION: OperatorLocation = DEMO_LOCATIONS[0] ?? {
-  id: 'demo-location', name: 'Demo location', timezone: 'America/Denver',
-};
+export { DEMO_LOCATIONS, type OperatorLocation } from '@/state/operator-locations';
 
 /** How often the live board re-fetches to catch missed realtime messages
  * and to flush transitions queued while offline. */
@@ -133,14 +126,12 @@ type OperatorState = {
   conflicts: readonly { orderId: string; message: string }[];
 };
 
-const DEMO_MENU_ITEMS: readonly { slug: string; name: string }[] = MENU_ITEMS
-  .map((item) => ({ slug: item.id, name: item.name }));
-
 const OperatorContext = createContext<OperatorState | null>(null);
 
 export function OperatorProvider({ children }: PropsWithChildren) {
   const { isDemo, tenant, liveLocations, user } = useAuth();
   const live = !isDemo && supabase !== null && tenant !== null;
+  const richDemo = isDemo && DEMO_OPERATOR_FIXTURES.launch;
 
   /*
    * One roster, held by whoever is authoritative.
@@ -151,9 +142,9 @@ export function OperatorProvider({ children }: PropsWithChildren) {
    * exactly what "pressing Ready does nothing" looked like. Start empty and
    * let the first reconcile (one second away) bring the shop in.
    */
-  const brokered = demoSyncEnabled(isDemo);
+  const brokered = demoSyncEnabled(richDemo);
   const [orders, setOrders] = useState<BoardOrder[]>(
-    () => (brokered ? [] : initialDemoOrders()),
+    () => (brokered ? [] : [...DEMO_OPERATOR_FIXTURES.boardOrders]),
   );
   const [unseenIds, setUnseenIds] = useState<ReadonlySet<string>>(new Set());
   const [location, setLocation] = useState<OperatorLocation>(DEFAULT_DEMO_LOCATION);
@@ -170,7 +161,7 @@ export function OperatorProvider({ children }: PropsWithChildren) {
   const queueRef = useRef<QueuedTransition[]>([]);
   const spawnIndex = useRef(0);
   const seenRef = useRef<Set<string>>(new Set(
-    brokered ? [] : initialDemoOrders().map((order) => order.id),
+    brokered ? [] : DEMO_OPERATOR_FIXTURES.boardOrders.map((order) => order.id),
   ));
   const ordersRef = useRef<BoardOrder[]>([]);
   const refundInFlightRef = useRef<Set<string>>(new Set());
@@ -200,7 +191,7 @@ export function OperatorProvider({ children }: PropsWithChildren) {
       name: entry.name,
       timezone: entry.timezone?.trim() || 'UTC',
     }))
-    : DEMO_LOCATIONS, [live, liveLocations]);
+    : TENANT_DEMO_LOCATIONS, [live, liveLocations]);
   const locationReady = !live || locations.some((entry) => entry.id === location.id);
 
   // Keep the working location inside the roster the account may work.
@@ -401,7 +392,7 @@ export function OperatorProvider({ children }: PropsWithChildren) {
   // broker, so a local spawn here would only re-create the phantom orders the
   // wall cannot see.
   useEffect(() => {
-    if (!isDemo || brokered) return undefined;
+    if (!richDemo || brokered) return undefined;
     const timer = setInterval(() => {
       const next = spawnDemoOrder(spawnIndex.current++);
       setOrders((current) => {
@@ -411,7 +402,7 @@ export function OperatorProvider({ children }: PropsWithChildren) {
       });
     }, 120_000);
     return () => clearInterval(timer);
-  }, [brokered, isDemo, trackFresh]);
+  }, [brokered, richDemo, trackFresh]);
 
   const markSeen = useCallback(() => setUnseenIds(new Set()), []);
 
@@ -472,7 +463,7 @@ export function OperatorProvider({ children }: PropsWithChildren) {
   }, [trackFresh]);
 
   useEffect(() => {
-    if (!demoSyncEnabled(isDemo)) return undefined;
+    if (!demoSyncEnabled(richDemo)) return undefined;
     void reconcileDemoSync();
     const timer = setInterval(() => void reconcileDemoSync(), DEMO_SYNC_RECONCILE_MS);
     // Only the interval is torn down here. Clearing `demoModeRef` was a latch:
@@ -481,7 +472,7 @@ export function OperatorProvider({ children }: PropsWithChildren) {
     // was not a mode change (a new `reconcileDemoSync` identity, a remount)
     // stopped the operator syncing for the rest of the session, silently.
     return () => clearInterval(timer);
-  }, [isDemo, reconcileDemoSync]);
+  }, [reconcileDemoSync, richDemo]);
 
   /**
    * Queue then apply. Demo's "server" is local state, so the queue reconciles
@@ -632,11 +623,13 @@ export function OperatorProvider({ children }: PropsWithChildren) {
     }
   }, [live, location.id, locationReady, tenant]);
 
-  // Demo runs on the bundled catalogue because demo is that shop. Live shows
+  // The launch demo runs on its bundled catalogue. Other demos start empty.
   // what the brand's own menu says and nothing when it has not loaded, which
   // is honest -- the alternative was another shop's items.
   const menuItems = useMemo(
-    () => (live ? liveMenuItems : DEMO_MENU_ITEMS),
+    () => (live ? liveMenuItems : DEMO_OPERATOR_FIXTURES.orderableItems.map(
+      ({ slug, name }) => ({ slug, name }),
+    )),
     [live, liveMenuItems],
   );
 

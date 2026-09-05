@@ -60,6 +60,7 @@ export const IONICON: Record<string, keyof typeof Ionicons.glyphMap> = {
   'cup.and.saucer.fill': 'cafe',
   'doc.plaintext': 'document-outline',
   'doc.text': 'document-text-outline',
+  'doc.text.fill': 'document-text',
   ellipsis: 'ellipsis-horizontal',
   gearshape: 'settings-outline',
   gift: 'gift-outline',

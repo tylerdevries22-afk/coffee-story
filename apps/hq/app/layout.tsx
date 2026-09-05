@@ -21,6 +21,8 @@ import './styles/storage.css';
 import './styles/analytics.css';
 import './styles/analytics-responsive.css';
 import './styles/status.css';
+import './styles/knowledge.css';
+import './styles/organization-onboarding.css';
 
 export const metadata: Metadata = {
   title: 'HQ',

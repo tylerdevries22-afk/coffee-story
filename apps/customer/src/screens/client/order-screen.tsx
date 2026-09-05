@@ -633,7 +633,7 @@ function OrderHub({
         <HubRow
           icon="person.2"
           title="Catering"
-          detail="Coffee cart for your event — message the shop"
+          detail="Service for your event — message the team"
           onPress={onOpenCatering}
         />
       ) : null}
@@ -653,14 +653,14 @@ function OrderHub({
         style={({ pressed }) => [styles.promo, pressed && styles.cardPressed]}
       >
         <View style={styles.promoCopy}>
-          <Text style={styles.promoTitle}>Every cup counts</Text>
+          <Text style={styles.promoTitle}>Every order counts</Text>
           <Text style={styles.promoDetail}>
             Earn {pointsPerDollar} {POINTS_LABEL} for every $1 you spend, then trade them for the
             next one.
           </Text>
         </View>
         <View style={styles.promoMark}>
-          <AppIcon name="cup.and.saucer.fill" size={28} tintColor={tokens.primary} />
+          <AppIcon name="star.fill" size={28} tintColor={tokens.primary} />
         </View>
       </Pressable>
 
@@ -801,7 +801,7 @@ function ShopIllustration({ active, compact }: { active: boolean; compact: boole
   return (
     <View style={[styles.illustration, compact && styles.illustrationCompact]}>
       <Animated.View style={[styles.shopSign, compact && styles.shopSignCompact, active && styles.shopSignActive, steamStyle]}>
-        <AppIcon name="cup.and.saucer.fill" size={24} tintColor={tokens.primary} />
+        <AppIcon name="bag.fill" size={24} tintColor={tokens.primary} />
       </Animated.View>
       <View style={[styles.shopBuilding, compact && styles.shopBuildingCompact, active && styles.shopBuildingActive]}>
         <View style={styles.shopRoof} />

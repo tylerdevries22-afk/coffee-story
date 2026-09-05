@@ -51,6 +51,13 @@ export type Database = {
             foreignKeyName: "analytics_consent_records_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "analytics_consent_records_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
@@ -116,6 +123,13 @@ export type Database = {
             foreignKeyName: "analytics_daily_rollups_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "analytics_daily_rollups_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
@@ -175,6 +189,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "analytics_event_catalog_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "analytics_event_catalog_brand_id_fkey"
             columns: ["brand_id"]
@@ -256,6 +277,13 @@ export type Database = {
             foreignKeyName: "analytics_events_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "analytics_events_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
@@ -267,75 +295,6 @@ export type Database = {
             referencedColumns: ["id", "brand_id"]
           },
         ]
-      }
-      analytics_events_202605: {
-        Row: {
-          actor_hash: string | null
-          app_version: string
-          brand_id: string
-          build_version: string
-          client_event_id: string
-          consent_basis: string
-          duration_ms: number | null
-          event_key: string
-          event_version: number
-          flow_key: string | null
-          id: string
-          location_id: string | null
-          metric_key: string | null
-          occurred_at: string
-          outcome: string | null
-          properties: Json
-          received_at: string
-          session_hash: string
-          step_key: string | null
-          surface: string
-        }
-        Insert: {
-          actor_hash?: string | null
-          app_version?: string
-          brand_id: string
-          build_version?: string
-          client_event_id: string
-          consent_basis: string
-          duration_ms?: number | null
-          event_key: string
-          event_version?: number
-          flow_key?: string | null
-          id?: string
-          location_id?: string | null
-          metric_key?: string | null
-          occurred_at: string
-          outcome?: string | null
-          properties?: Json
-          received_at?: string
-          session_hash: string
-          step_key?: string | null
-          surface: string
-        }
-        Update: {
-          actor_hash?: string | null
-          app_version?: string
-          brand_id?: string
-          build_version?: string
-          client_event_id?: string
-          consent_basis?: string
-          duration_ms?: number | null
-          event_key?: string
-          event_version?: number
-          flow_key?: string | null
-          id?: string
-          location_id?: string | null
-          metric_key?: string | null
-          occurred_at?: string
-          outcome?: string | null
-          properties?: Json
-          received_at?: string
-          session_hash?: string
-          step_key?: string | null
-          surface?: string
-        }
-        Relationships: []
       }
       analytics_events_202606: {
         Row: {
@@ -1786,6 +1745,75 @@ export type Database = {
         }
         Relationships: []
       }
+      analytics_events_202803: {
+        Row: {
+          actor_hash: string | null
+          app_version: string
+          brand_id: string
+          build_version: string
+          client_event_id: string
+          consent_basis: string
+          duration_ms: number | null
+          event_key: string
+          event_version: number
+          flow_key: string | null
+          id: string
+          location_id: string | null
+          metric_key: string | null
+          occurred_at: string
+          outcome: string | null
+          properties: Json
+          received_at: string
+          session_hash: string
+          step_key: string | null
+          surface: string
+        }
+        Insert: {
+          actor_hash?: string | null
+          app_version?: string
+          brand_id: string
+          build_version?: string
+          client_event_id: string
+          consent_basis: string
+          duration_ms?: number | null
+          event_key: string
+          event_version?: number
+          flow_key?: string | null
+          id?: string
+          location_id?: string | null
+          metric_key?: string | null
+          occurred_at: string
+          outcome?: string | null
+          properties?: Json
+          received_at?: string
+          session_hash: string
+          step_key?: string | null
+          surface: string
+        }
+        Update: {
+          actor_hash?: string | null
+          app_version?: string
+          brand_id?: string
+          build_version?: string
+          client_event_id?: string
+          consent_basis?: string
+          duration_ms?: number | null
+          event_key?: string
+          event_version?: number
+          flow_key?: string | null
+          id?: string
+          location_id?: string | null
+          metric_key?: string | null
+          occurred_at?: string
+          outcome?: string | null
+          properties?: Json
+          received_at?: string
+          session_hash?: string
+          step_key?: string | null
+          surface?: string
+        }
+        Relationships: []
+      }
       analytics_funnel_definitions: {
         Row: {
           brand_id: string
@@ -1830,6 +1858,13 @@ export type Database = {
           version?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "analytics_funnel_definitions_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "analytics_funnel_definitions_brand_id_fkey"
             columns: ["brand_id"]
@@ -1899,6 +1934,13 @@ export type Database = {
             foreignKeyName: "analytics_hourly_rollups_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "analytics_hourly_rollups_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
@@ -1959,6 +2001,13 @@ export type Database = {
             foreignKeyName: "analytics_ingestion_batches_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "analytics_ingestion_batches_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
@@ -2015,6 +2064,13 @@ export type Database = {
             foreignKeyName: "analytics_metric_definitions_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "analytics_metric_definitions_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
@@ -2058,6 +2114,13 @@ export type Database = {
           view_key?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "analytics_saved_reports_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "analytics_saved_reports_brand_id_fkey"
             columns: ["brand_id"]
@@ -2137,6 +2200,13 @@ export type Database = {
             foreignKeyName: "availability_blockouts_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "availability_blockouts_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
@@ -2194,6 +2264,13 @@ export type Database = {
             foreignKeyName: "board_change_signals_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "board_change_signals_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
@@ -2223,6 +2300,13 @@ export type Database = {
           revision?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "brand_config_signals_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: true
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "brand_config_signals_brand_id_fkey"
             columns: ["brand_id"]
@@ -2265,6 +2349,13 @@ export type Database = {
             foreignKeyName: "brand_users_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_users_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
@@ -2272,6 +2363,7 @@ export type Database = {
       }
       brands: {
         Row: {
+          blueprint_key: string
           brand_config: Json
           catering: boolean
           created_at: string
@@ -2280,17 +2372,21 @@ export type Database = {
           fee_bps: number
           fee_bps_tier2: number
           id: string
+          industry_key: string
           multi_location: boolean
           name: string
           operations: boolean
+          organization_kind: string
           referrals: boolean
           slug: string
           sms: boolean
+          status: string
           stored_value: boolean
           tier_threshold_cents: number
           updated_at: string
         }
         Insert: {
+          blueprint_key?: string
           brand_config?: Json
           catering?: boolean
           created_at?: string
@@ -2299,17 +2395,21 @@ export type Database = {
           fee_bps?: number
           fee_bps_tier2?: number
           id?: string
+          industry_key?: string
           multi_location?: boolean
           name: string
           operations?: boolean
+          organization_kind?: string
           referrals?: boolean
           slug: string
           sms?: boolean
+          status?: string
           stored_value?: boolean
           tier_threshold_cents?: number
           updated_at?: string
         }
         Update: {
+          blueprint_key?: string
           brand_config?: Json
           catering?: boolean
           created_at?: string
@@ -2318,12 +2418,15 @@ export type Database = {
           fee_bps?: number
           fee_bps_tier2?: number
           id?: string
+          industry_key?: string
           multi_location?: boolean
           name?: string
           operations?: boolean
+          organization_kind?: string
           referrals?: boolean
           slug?: string
           sms?: boolean
+          status?: string
           stored_value?: boolean
           tier_threshold_cents?: number
           updated_at?: string
@@ -2374,6 +2477,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "calendar_categories_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "calendar_categories_brand_id_fkey"
             columns: ["brand_id"]
@@ -2446,6 +2556,13 @@ export type Database = {
             foreignKeyName: "calendar_entries_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calendar_entries_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
@@ -2501,6 +2618,13 @@ export type Database = {
           workforce_role_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "calendar_entry_assignments_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "calendar_entry_assignments_brand_id_fkey"
             columns: ["brand_id"]
@@ -2582,6 +2706,13 @@ export type Database = {
             foreignKeyName: "campaigns_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaigns_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
@@ -2633,6 +2764,13 @@ export type Database = {
           release_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "catalog_audit_events_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "catalog_audit_events_brand_id_fkey"
             columns: ["brand_id"]
@@ -2704,6 +2842,13 @@ export type Database = {
             foreignKeyName: "catalog_nodes_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_nodes_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
@@ -2759,6 +2904,13 @@ export type Database = {
             foreignKeyName: "catalog_placements_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_placements_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
@@ -2808,6 +2960,13 @@ export type Database = {
           version?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "catalog_publications_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: true
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "catalog_publications_brand_id_fkey"
             columns: ["brand_id"]
@@ -2867,6 +3026,13 @@ export type Database = {
             foreignKeyName: "catalog_relations_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_relations_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
@@ -2896,6 +3062,13 @@ export type Database = {
           release_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "catalog_release_private_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "catalog_release_private_brand_id_fkey"
             columns: ["brand_id"]
@@ -2947,6 +3120,13 @@ export type Database = {
           version?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "catalog_releases_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "catalog_releases_brand_id_fkey"
             columns: ["brand_id"]
@@ -3017,6 +3197,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "catalog_resources_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "catalog_resources_brand_id_fkey"
             columns: ["brand_id"]
@@ -3099,6 +3286,13 @@ export type Database = {
             foreignKeyName: "catalogs_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: true
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalogs_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: true
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
@@ -3159,6 +3353,13 @@ export type Database = {
           source?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "connector_audit_events_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "connector_audit_events_brand_id_fkey"
             columns: ["brand_id"]
@@ -3324,6 +3525,13 @@ export type Database = {
             foreignKeyName: "connector_health_snapshots_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "connector_health_snapshots_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
@@ -3400,6 +3608,13 @@ export type Database = {
             foreignKeyName: "connector_installations_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "connector_installations_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
@@ -3454,6 +3669,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "connector_location_mappings_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "connector_location_mappings_brand_id_fkey"
             columns: ["brand_id"]
@@ -3600,6 +3822,13 @@ export type Database = {
             foreignKeyName: "connector_sync_runs_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "connector_sync_runs_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
@@ -3676,6 +3905,13 @@ export type Database = {
             foreignKeyName: "content_media_versions_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_media_versions_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
@@ -3733,6 +3969,13 @@ export type Database = {
             foreignKeyName: "credential_references_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credential_references_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
@@ -3774,6 +4017,13 @@ export type Database = {
           task_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "crew_task_completions_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "crew_task_completions_brand_id_fkey"
             columns: ["brand_id"]
@@ -3839,6 +4089,13 @@ export type Database = {
             foreignKeyName: "crew_tasks_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crew_tasks_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
@@ -3893,8 +4150,416 @@ export type Database = {
             foreignKeyName: "customers_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customers_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
             referencedRelation: "brands"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      delegated_access_grants: {
+        Row: {
+          brand_id: string
+          created_at: string
+          created_by: string | null
+          expires_at: string
+          grantee_user_id: string
+          id: string
+          idempotency_key: string | null
+          network_id: string
+          revoked_at: string | null
+          scope: string[]
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          created_by?: string | null
+          expires_at: string
+          grantee_user_id: string
+          id?: string
+          idempotency_key?: string | null
+          network_id: string
+          revoked_at?: string | null
+          scope: string[]
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string
+          grantee_user_id?: string
+          id?: string
+          idempotency_key?: string | null
+          network_id?: string
+          revoked_at?: string | null
+          scope?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "delegated_access_grants_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delegated_access_grants_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delegated_access_grants_network_id_fkey"
+            columns: ["network_id"]
+            isOneToOne: false
+            referencedRelation: "franchise_networks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      device_diagnostic_runs: {
+        Row: {
+          brand_id: string
+          created_at: string
+          expires_at: string
+          id: string
+          installation_id: string
+          location_id: string
+          requested_by: string
+          results: Json
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          installation_id: string
+          location_id: string
+          requested_by: string
+          results?: Json
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          installation_id?: string
+          location_id?: string
+          requested_by?: string
+          results?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "device_diagnostic_runs_installation_id_brand_id_location_i_fkey"
+            columns: ["installation_id", "brand_id", "location_id"]
+            isOneToOne: false
+            referencedRelation: "device_installations"
+            referencedColumns: ["id", "brand_id", "location_id"]
+          },
+        ]
+      }
+      device_installations: {
+        Row: {
+          app_target: string
+          app_version: string
+          archived_at: string | null
+          brand_id: string
+          capabilities: string[]
+          created_at: string
+          form_factor: string
+          id: string
+          identity_fingerprint: string
+          installed_by: string | null
+          label: string
+          last_seen_at: string | null
+          location_id: string
+          paired_device_id: string | null
+          platform: string
+          public_key_jwk: Json | null
+          revoked_at: string | null
+          runtime_version: string
+          updated_at: string
+        }
+        Insert: {
+          app_target: string
+          app_version: string
+          archived_at?: string | null
+          brand_id: string
+          capabilities?: string[]
+          created_at?: string
+          form_factor: string
+          id: string
+          identity_fingerprint: string
+          installed_by?: string | null
+          label: string
+          last_seen_at?: string | null
+          location_id: string
+          paired_device_id?: string | null
+          platform: string
+          public_key_jwk?: Json | null
+          revoked_at?: string | null
+          runtime_version: string
+          updated_at?: string
+        }
+        Update: {
+          app_target?: string
+          app_version?: string
+          archived_at?: string | null
+          brand_id?: string
+          capabilities?: string[]
+          created_at?: string
+          form_factor?: string
+          id?: string
+          identity_fingerprint?: string
+          installed_by?: string | null
+          label?: string
+          last_seen_at?: string | null
+          location_id?: string
+          paired_device_id?: string | null
+          platform?: string
+          public_key_jwk?: Json | null
+          revoked_at?: string | null
+          runtime_version?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "device_installations_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "device_installations_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "device_installations_location_id_brand_id_fkey"
+            columns: ["location_id", "brand_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id", "brand_id"]
+          },
+          {
+            foreignKeyName: "device_installations_paired_device_id_brand_id_location_id_fkey"
+            columns: ["paired_device_id", "brand_id", "location_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id", "brand_id", "location_id"]
+          },
+        ]
+      }
+      device_stream_audit_events: {
+        Row: {
+          brand_id: string
+          created_at: string
+          event: string
+          id: number
+          installation_id: string
+          location_id: string
+          reason_code: string | null
+          session_id: string | null
+          viewer_id: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          event: string
+          id?: never
+          installation_id: string
+          location_id: string
+          reason_code?: string | null
+          session_id?: string | null
+          viewer_id: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          event?: string
+          id?: never
+          installation_id?: string
+          location_id?: string
+          reason_code?: string | null
+          session_id?: string | null
+          viewer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "device_stream_audit_events_installation_id_brand_id_locati_fkey"
+            columns: ["installation_id", "brand_id", "location_id"]
+            isOneToOne: false
+            referencedRelation: "device_installations"
+            referencedColumns: ["id", "brand_id", "location_id"]
+          },
+          {
+            foreignKeyName: "device_stream_audit_events_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "device_stream_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      device_stream_sessions: {
+        Row: {
+          brand_id: string
+          created_at: string
+          ended_at: string | null
+          expires_at: string
+          id: string
+          installation_id: string
+          location_id: string
+          state: string
+          viewer_id: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          ended_at?: string | null
+          expires_at: string
+          id?: string
+          installation_id: string
+          location_id: string
+          state?: string
+          viewer_id: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          ended_at?: string | null
+          expires_at?: string
+          id?: string
+          installation_id?: string
+          location_id?: string
+          state?: string
+          viewer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "device_stream_sessions_installation_id_brand_id_location_i_fkey"
+            columns: ["installation_id", "brand_id", "location_id"]
+            isOneToOne: false
+            referencedRelation: "device_installations"
+            referencedColumns: ["id", "brand_id", "location_id"]
+          },
+        ]
+      }
+      device_wall_enrollment_codes: {
+        Row: {
+          brand_id: string
+          code_hash: string
+          created_at: string
+          created_by: string
+          expires_at: string
+          id: string
+          installation_id: string
+          location_id: string
+          paired_device_id: string
+          redeemed_at: string | null
+          revoked_at: string | null
+        }
+        Insert: {
+          brand_id: string
+          code_hash: string
+          created_at?: string
+          created_by: string
+          expires_at: string
+          id?: string
+          installation_id: string
+          location_id: string
+          paired_device_id: string
+          redeemed_at?: string | null
+          revoked_at?: string | null
+        }
+        Update: {
+          brand_id?: string
+          code_hash?: string
+          created_at?: string
+          created_by?: string
+          expires_at?: string
+          id?: string
+          installation_id?: string
+          location_id?: string
+          paired_device_id?: string
+          redeemed_at?: string | null
+          revoked_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "device_wall_enrollment_codes_installation_id_brand_id_loca_fkey"
+            columns: ["installation_id", "brand_id", "location_id"]
+            isOneToOne: false
+            referencedRelation: "device_installations"
+            referencedColumns: ["id", "brand_id", "location_id"]
+          },
+          {
+            foreignKeyName: "device_wall_enrollment_codes_paired_device_id_fkey"
+            columns: ["paired_device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      device_wall_layouts: {
+        Row: {
+          brand_id: string
+          created_at: string
+          id: string
+          layout: Json
+          location_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          id?: string
+          layout?: Json
+          location_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          id?: string
+          layout?: Json
+          location_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "device_wall_layouts_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "device_wall_layouts_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "device_wall_layouts_location_id_brand_id_fkey"
+            columns: ["location_id", "brand_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id", "brand_id"]
           },
         ]
       }
@@ -3909,6 +4574,11 @@ export type Database = {
           paired_at: string | null
           pairing_code_hash: string | null
           pairing_expires_at: string | null
+          refresh_secret_hash: string | null
+          refresh_secret_issued_at: string | null
+          refresh_secret_last_used_at: string | null
+          refresh_secret_previous_expires_at: string | null
+          refresh_secret_previous_hash: string | null
           revoked_at: string | null
           role: "kiosk" | "pos" | "display" | "prep"
           token_version: number
@@ -3924,6 +4594,11 @@ export type Database = {
           paired_at?: string | null
           pairing_code_hash?: string | null
           pairing_expires_at?: string | null
+          refresh_secret_hash?: string | null
+          refresh_secret_issued_at?: string | null
+          refresh_secret_last_used_at?: string | null
+          refresh_secret_previous_expires_at?: string | null
+          refresh_secret_previous_hash?: string | null
           revoked_at?: string | null
           role: "kiosk" | "pos" | "display" | "prep"
           token_version?: number
@@ -3939,12 +4614,24 @@ export type Database = {
           paired_at?: string | null
           pairing_code_hash?: string | null
           pairing_expires_at?: string | null
+          refresh_secret_hash?: string | null
+          refresh_secret_issued_at?: string | null
+          refresh_secret_last_used_at?: string | null
+          refresh_secret_previous_expires_at?: string | null
+          refresh_secret_previous_hash?: string | null
           revoked_at?: string | null
           role?: "kiosk" | "pos" | "display" | "prep"
           token_version?: number
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "devices_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "devices_brand_id_fkey"
             columns: ["brand_id"]
@@ -4003,6 +4690,13 @@ export type Database = {
             foreignKeyName: "drops_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "drops_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
@@ -4014,6 +4708,204 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      franchise_agreements: {
+        Row: {
+          accepted_by: string | null
+          created_at: string
+          effective_at: string | null
+          franchisee_brand_id: string
+          franchisor_brand_id: string | null
+          id: string
+          inheritance_policy: Json
+          inheritance_revision: number
+          network_id: string
+          status: string
+          terminated_at: string | null
+          territory: Json
+          updated_at: string
+        }
+        Insert: {
+          accepted_by?: string | null
+          created_at?: string
+          effective_at?: string | null
+          franchisee_brand_id: string
+          franchisor_brand_id?: string | null
+          id?: string
+          inheritance_policy?: Json
+          inheritance_revision?: number
+          network_id: string
+          status?: string
+          terminated_at?: string | null
+          territory?: Json
+          updated_at?: string
+        }
+        Update: {
+          accepted_by?: string | null
+          created_at?: string
+          effective_at?: string | null
+          franchisee_brand_id?: string
+          franchisor_brand_id?: string | null
+          id?: string
+          inheritance_policy?: Json
+          inheritance_revision?: number
+          network_id?: string
+          status?: string
+          terminated_at?: string | null
+          territory?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "franchise_agreements_franchisee_brand_id_fkey"
+            columns: ["franchisee_brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "franchise_agreements_franchisee_brand_id_fkey"
+            columns: ["franchisee_brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "franchise_agreements_franchisor_brand_id_fkey"
+            columns: ["franchisor_brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "franchise_agreements_franchisor_brand_id_fkey"
+            columns: ["franchisor_brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "franchise_agreements_network_id_fkey"
+            columns: ["network_id"]
+            isOneToOne: false
+            referencedRelation: "franchise_networks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      franchise_memberships: {
+        Row: {
+          created_at: string
+          network_id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          network_id: string
+          role: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          network_id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "franchise_memberships_network_id_fkey"
+            columns: ["network_id"]
+            isOneToOne: false
+            referencedRelation: "franchise_networks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      franchise_network_brands: {
+        Row: {
+          accepted_at: string | null
+          accepted_by: string | null
+          added_by: string | null
+          brand_id: string
+          created_at: string
+          network_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          added_by?: string | null
+          brand_id: string
+          created_at?: string
+          network_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          added_by?: string | null
+          brand_id?: string
+          created_at?: string
+          network_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "franchise_network_brands_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "franchise_network_brands_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "franchise_network_brands_network_id_fkey"
+            columns: ["network_id"]
+            isOneToOne: false
+            referencedRelation: "franchise_networks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      franchise_networks: {
+        Row: {
+          config_revision: number
+          created_at: string
+          id: string
+          inheritance_policy: Json
+          name: string
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          config_revision?: number
+          created_at?: string
+          id?: string
+          inheritance_policy?: Json
+          name: string
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          config_revision?: number
+          created_at?: string
+          id?: string
+          inheritance_policy?: Json
+          name?: string
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       industry_blueprints: {
         Row: {
@@ -4057,6 +4949,62 @@ export type Database = {
         }
         Relationships: []
       }
+      knowledge_acknowledgements: {
+        Row: {
+          acknowledged_at: string
+          brand_id: string
+          id: string
+          resource_id: string
+          resource_version: string
+          user_id: string
+        }
+        Insert: {
+          acknowledged_at?: string
+          brand_id: string
+          id?: string
+          resource_id: string
+          resource_version: string
+          user_id: string
+        }
+        Update: {
+          acknowledged_at?: string
+          brand_id?: string
+          id?: string
+          resource_id?: string
+          resource_version?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_acknowledgements_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_acknowledgements_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_acknowledgements_resource_id_brand_id_fkey"
+            columns: ["resource_id", "brand_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_resources"
+            referencedColumns: ["id", "brand_id"]
+          },
+          {
+            foreignKeyName: "knowledge_acknowledgements_user_id_brand_id_fkey"
+            columns: ["user_id", "brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_users"
+            referencedColumns: ["user_id", "brand_id"]
+          },
+        ]
+      }
       location_setting_signals: {
         Row: {
           brand_id: string
@@ -4077,6 +5025,13 @@ export type Database = {
           revision?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "location_setting_signals_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "location_setting_signals_brand_id_fkey"
             columns: ["brand_id"]
@@ -4144,6 +5099,13 @@ export type Database = {
             foreignKeyName: "locations_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "locations_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
@@ -4185,6 +5147,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "loyalty_accounts_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "loyalty_accounts_brand_id_fkey"
             columns: ["brand_id"]
@@ -4238,6 +5207,13 @@ export type Database = {
             columns: ["account_id"]
             isOneToOne: false
             referencedRelation: "loyalty_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loyalty_events_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_directory"
             referencedColumns: ["id"]
           },
           {
@@ -4300,6 +5276,13 @@ export type Database = {
           title?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "menu_categories_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "menu_categories_brand_id_fkey"
             columns: ["brand_id"]
@@ -4414,6 +5397,13 @@ export type Database = {
             foreignKeyName: "menu_items_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "menu_items_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
@@ -4470,6 +5460,127 @@ export type Database = {
             foreignKeyName: "menus_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "menus_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      module_installation_events: {
+        Row: {
+          actor: string | null
+          brand_id: string
+          config_revision: number | null
+          created_at: string
+          detail: Json | null
+          event: string
+          from_state: string | null
+          id: number
+          installation_id: string
+          to_state: string | null
+        }
+        Insert: {
+          actor?: string | null
+          brand_id: string
+          config_revision?: number | null
+          created_at?: string
+          detail?: Json | null
+          event: string
+          from_state?: string | null
+          id?: never
+          installation_id: string
+          to_state?: string | null
+        }
+        Update: {
+          actor?: string | null
+          brand_id?: string
+          config_revision?: number | null
+          created_at?: string
+          detail?: Json | null
+          event?: string
+          from_state?: string | null
+          id?: never
+          installation_id?: string
+          to_state?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "module_installation_events_installation_brand_fk"
+            columns: ["installation_id", "brand_id"]
+            isOneToOne: false
+            referencedRelation: "module_installations"
+            referencedColumns: ["id", "brand_id"]
+          },
+          {
+            foreignKeyName: "module_installation_events_installation_id_fkey"
+            columns: ["installation_id"]
+            isOneToOne: false
+            referencedRelation: "module_installations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      module_installations: {
+        Row: {
+          brand_id: string
+          config: Json
+          config_revision: number
+          config_schema_version: number
+          created_at: string
+          id: string
+          installed_by: string | null
+          module_key: string
+          state: string
+          surfaces: string[]
+          updated_at: string
+          version: string
+        }
+        Insert: {
+          brand_id: string
+          config?: Json
+          config_revision?: number
+          config_schema_version?: number
+          created_at?: string
+          id?: string
+          installed_by?: string | null
+          module_key: string
+          state?: string
+          surfaces: string[]
+          updated_at?: string
+          version: string
+        }
+        Update: {
+          brand_id?: string
+          config?: Json
+          config_revision?: number
+          config_schema_version?: number
+          created_at?: string
+          id?: string
+          installed_by?: string | null
+          module_key?: string
+          state?: string
+          surfaces?: string[]
+          updated_at?: string
+          version?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "module_installations_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "module_installations_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
@@ -4516,6 +5627,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "brand_users"
             referencedColumns: ["id", "brand_id"]
+          },
+          {
+            foreignKeyName: "operation_action_receipts_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "operation_action_receipts_brand_id_fkey"
@@ -4575,6 +5693,13 @@ export type Database = {
           schedule_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "operation_escalation_rules_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "operation_escalation_rules_brand_id_fkey"
             columns: ["brand_id"]
@@ -4644,6 +5769,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "operation_issues_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "operation_issues_brand_id_fkey"
             columns: ["brand_id"]
@@ -4732,6 +5864,13 @@ export type Database = {
             foreignKeyName: "operation_notification_outbox_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operation_notification_outbox_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
@@ -4803,6 +5942,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "brand_users"
             referencedColumns: ["id", "brand_id"]
+          },
+          {
+            foreignKeyName: "operation_occurrence_events_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "operation_occurrence_events_brand_id_fkey"
@@ -4899,6 +6045,13 @@ export type Database = {
             foreignKeyName: "operation_occurrences_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operation_occurrences_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
@@ -4987,6 +6140,13 @@ export type Database = {
             foreignKeyName: "operation_operator_notifications_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operation_operator_notifications_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
@@ -5039,6 +6199,13 @@ export type Database = {
           updated_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "operation_retention_policies_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: true
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "operation_retention_policies_brand_id_fkey"
             columns: ["brand_id"]
@@ -5133,6 +6300,13 @@ export type Database = {
             foreignKeyName: "operation_schedules_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operation_schedules_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
@@ -5198,6 +6372,13 @@ export type Database = {
             foreignKeyName: "operation_staff_devices_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operation_staff_devices_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
@@ -5245,6 +6426,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "brand_users"
             referencedColumns: ["id", "brand_id"]
+          },
+          {
+            foreignKeyName: "operation_step_responses_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "operation_step_responses_brand_id_fkey"
@@ -5306,6 +6494,13 @@ export type Database = {
           title?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "operation_task_steps_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "operation_task_steps_brand_id_fkey"
             columns: ["brand_id"]
@@ -5391,6 +6586,13 @@ export type Database = {
             foreignKeyName: "operation_task_templates_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operation_task_templates_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
@@ -5437,6 +6639,13 @@ export type Database = {
           revision?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "operations_change_signals_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "operations_change_signals_brand_id_fkey"
             columns: ["brand_id"]
@@ -5518,6 +6727,13 @@ export type Database = {
             | "refunded"
         }
         Relationships: [
+          {
+            foreignKeyName: "order_events_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "order_events_brand_id_fkey"
             columns: ["brand_id"]
@@ -5651,6 +6867,13 @@ export type Database = {
             foreignKeyName: "orders_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
@@ -5670,6 +6893,166 @@ export type Database = {
           },
           {
             foreignKeyName: "orders_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organization_provisioning_runs: {
+        Row: {
+          brand_id: string | null
+          created_at: string
+          error_code: string | null
+          id: string
+          idempotency_key: string
+          owner_email: string
+          owner_user_id: string | null
+          request: Json
+          requested_by: string
+          stage: string
+          updated_at: string
+        }
+        Insert: {
+          brand_id?: string | null
+          created_at?: string
+          error_code?: string | null
+          id?: string
+          idempotency_key: string
+          owner_email: string
+          owner_user_id?: string | null
+          request: Json
+          requested_by: string
+          stage?: string
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string | null
+          created_at?: string
+          error_code?: string | null
+          id?: string
+          idempotency_key?: string
+          owner_email?: string
+          owner_user_id?: string | null
+          request?: Json
+          requested_by?: string
+          stage?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_provisioning_runs_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: true
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organization_provisioning_runs_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: true
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organization_readiness_checks: {
+        Row: {
+          brand_id: string
+          check_key: string
+          checked_at: string | null
+          checked_by: string | null
+          evidence: Json
+          required: boolean
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          check_key: string
+          checked_at?: string | null
+          checked_by?: string | null
+          evidence?: Json
+          required?: boolean
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          check_key?: string
+          checked_at?: string | null
+          checked_by?: string | null
+          evidence?: Json
+          required?: boolean
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_readiness_checks_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organization_readiness_checks_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      platform_access_events: {
+        Row: {
+          action: string
+          actor_id: string | null
+          brand_id: string | null
+          correlation_id: string
+          created_at: string
+          id: string
+          location_id: string | null
+          metadata: Json
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          brand_id?: string | null
+          correlation_id: string
+          created_at?: string
+          id?: string
+          location_id?: string | null
+          metadata?: Json
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          brand_id?: string | null
+          correlation_id?: string
+          created_at?: string
+          id?: string
+          location_id?: string | null
+          metadata?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_access_events_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_access_events_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_access_events_location_id_fkey"
             columns: ["location_id"]
             isOneToOne: false
             referencedRelation: "locations"
@@ -6023,6 +7406,13 @@ export type Database = {
             foreignKeyName: "platform_fees_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_fees_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
@@ -6363,6 +7753,13 @@ export type Database = {
             foreignKeyName: "prep_batches_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prep_batches_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
@@ -6375,10 +7772,10 @@ export type Database = {
           },
           {
             foreignKeyName: "prep_batches_recipe_id_fkey"
-            columns: ["recipe_id"]
+            columns: ["recipe_id", "brand_id"]
             isOneToOne: false
             referencedRelation: "recipes"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "brand_id"]
           },
         ]
       }
@@ -6411,6 +7808,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "push_tokens_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "push_tokens_brand_id_fkey"
             columns: ["brand_id"]
@@ -6475,15 +7879,22 @@ export type Database = {
             foreignKeyName: "recipes_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recipes_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "recipes_menu_item_id_fkey"
-            columns: ["menu_item_id"]
+            columns: ["menu_item_id", "brand_id"]
             isOneToOne: false
             referencedRelation: "menu_items"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "brand_id"]
           },
         ]
       }
@@ -6519,6 +7930,13 @@ export type Database = {
           status?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "referrals_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "referrals_brand_id_fkey"
             columns: ["brand_id"]
@@ -6581,6 +7999,13 @@ export type Database = {
             foreignKeyName: "shifts_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shifts_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
@@ -6599,6 +8024,78 @@ export type Database = {
             referencedColumns: ["id", "brand_id"]
           },
         ]
+      }
+      site_module_overrides: {
+        Row: {
+          brand_id: string
+          created_at: string
+          id: string
+          location_id: string
+          module_key: string
+          overrides: Json
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          id?: string
+          location_id: string
+          module_key: string
+          overrides?: Json
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          id?: string
+          location_id?: string
+          module_key?: string
+          overrides?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "site_module_overrides_brand_id_module_key_fkey"
+            columns: ["brand_id", "module_key"]
+            isOneToOne: false
+            referencedRelation: "module_installations"
+            referencedColumns: ["brand_id", "module_key"]
+          },
+          {
+            foreignKeyName: "site_module_overrides_location_id_brand_id_fkey"
+            columns: ["location_id", "brand_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id", "brand_id"]
+          },
+        ]
+      }
+      square_access_token_retirements: {
+        Row: {
+          access_token_encrypted: string
+          brand_id: string
+          created_at: string
+          id: string
+          location_id: string
+          retire_after: string
+        }
+        Insert: {
+          access_token_encrypted: string
+          brand_id: string
+          created_at?: string
+          id?: string
+          location_id: string
+          retire_after: string
+        }
+        Update: {
+          access_token_encrypted?: string
+          brand_id?: string
+          created_at?: string
+          id?: string
+          location_id?: string
+          retire_after?: string
+        }
+        Relationships: []
       }
       square_connections: {
         Row: {
@@ -6642,6 +8139,13 @@ export type Database = {
             foreignKeyName: "square_connections_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "square_connections_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
@@ -6654,32 +8158,81 @@ export type Database = {
           },
         ]
       }
-      square_access_token_retirements: {
+      storage_assets: {
         Row: {
-          access_token_encrypted: string
+          asset_kind: string
           brand_id: string
+          bucket_id: string
+          byte_size: number
+          checksum_sha256: string | null
           created_at: string
+          created_by: string | null
           id: string
-          location_id: string
-          retire_after: string
+          metadata: Json
+          mime_type: string
+          object_path: string
+          original_filename: string
+          source_key: string | null
+          source_type: string
+          visibility: string
         }
         Insert: {
-          access_token_encrypted: string
+          asset_kind: string
           brand_id: string
+          bucket_id: string
+          byte_size: number
+          checksum_sha256?: string | null
           created_at?: string
+          created_by?: string | null
           id?: string
-          location_id: string
-          retire_after: string
+          metadata?: Json
+          mime_type: string
+          object_path: string
+          original_filename: string
+          source_key?: string | null
+          source_type?: string
+          visibility: string
         }
         Update: {
-          access_token_encrypted?: string
+          asset_kind?: string
           brand_id?: string
+          bucket_id?: string
+          byte_size?: number
+          checksum_sha256?: string | null
           created_at?: string
+          created_by?: string | null
           id?: string
-          location_id?: string
-          retire_after?: string
+          metadata?: Json
+          mime_type?: string
+          object_path?: string
+          original_filename?: string
+          source_key?: string | null
+          source_type?: string
+          visibility?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "storage_assets_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "storage_assets_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "storage_assets_created_by_brand_id_fkey"
+            columns: ["created_by", "brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_users"
+            referencedColumns: ["id", "brand_id"]
+          },
+        ]
       }
       stored_value_ledger: {
         Row: {
@@ -6716,6 +8269,13 @@ export type Database = {
           type?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "stored_value_ledger_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "stored_value_ledger_brand_id_fkey"
             columns: ["brand_id"]
@@ -6802,6 +8362,13 @@ export type Database = {
             foreignKeyName: "training_bootstrap_runs_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_bootstrap_runs_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
@@ -6843,6 +8410,13 @@ export type Database = {
           title?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "training_competencies_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "training_competencies_brand_id_fkey"
             columns: ["brand_id"]
@@ -6936,6 +8510,13 @@ export type Database = {
             foreignKeyName: "training_competency_awards_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_competency_awards_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
@@ -7003,6 +8584,13 @@ export type Database = {
             foreignKeyName: "training_lesson_progress_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_lesson_progress_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
@@ -7064,6 +8652,13 @@ export type Database = {
             foreignKeyName: "training_quiz_attempts_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_quiz_attempts_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
@@ -7112,6 +8707,13 @@ export type Database = {
           version?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "training_release_events_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "training_release_events_brand_id_fkey"
             columns: ["brand_id"]
@@ -7190,6 +8792,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "training_bootstrap_runs"
             referencedColumns: ["id", "brand_id"]
+          },
+          {
+            foreignKeyName: "training_releases_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "training_releases_brand_id_fkey"
@@ -7313,6 +8922,13 @@ export type Database = {
             foreignKeyName: "workforce_profiles_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workforce_profiles_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
@@ -7351,6 +8967,13 @@ export type Database = {
           workforce_role_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "workforce_role_assignments_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "workforce_role_assignments_brand_id_fkey"
             columns: ["brand_id"]
@@ -7423,6 +9046,13 @@ export type Database = {
             foreignKeyName: "workforce_roles_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workforce_roles_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
@@ -7430,6 +9060,27 @@ export type Database = {
       }
     }
     Views: {
+      activity_board_items: {
+        Row: {
+          actor_name: string | null
+          audience_labels: string[] | null
+          brand_id: string | null
+          due_at: string | null
+          id: string | null
+          location_id: string | null
+          scheduled_for: string | null
+          status:
+            | "scheduled"
+            | "claimed"
+            | "completed"
+            | "missed"
+            | "cancelled"
+            | null
+          title: string | null
+          updated_at: string | null
+        }
+        Relationships: []
+      }
       board_tickets: {
         Row: {
           arrived_at: string | null
@@ -7474,24 +9125,60 @@ export type Database = {
             foreignKeyName: "orders_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
         ]
       }
-      brand_storefront: {
+      brand_directory: {
         Row: {
-          brand_config: Json | null
           catering: boolean | null
+          created_at: string | null
           delivery: boolean | null
           drops: boolean | null
           id: string | null
+          location_count: number | null
           multi_location: boolean | null
           name: string | null
           referrals: boolean | null
           slug: string | null
           sms: boolean | null
           stored_value: boolean | null
+        }
+        Insert: {
+          catering?: boolean | null
+          created_at?: string | null
+          delivery?: boolean | null
+          drops?: boolean | null
+          id?: string | null
+          location_count?: never
+          multi_location?: boolean | null
+          name?: string | null
+          referrals?: boolean | null
+          slug?: string | null
+          sms?: boolean | null
+          stored_value?: boolean | null
+        }
+        Update: {
+          catering?: boolean | null
+          created_at?: string | null
+          delivery?: boolean | null
+          drops?: boolean | null
+          id?: string | null
+          location_count?: never
+          multi_location?: boolean | null
+          name?: string | null
+          referrals?: boolean | null
+          slug?: string | null
+          sms?: boolean | null
+          stored_value?: boolean | null
         }
         Relationships: []
       }
@@ -7507,6 +9194,13 @@ export type Database = {
           status: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "drops_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "drops_brand_id_fkey"
             columns: ["brand_id"]
@@ -7536,6 +9230,13 @@ export type Database = {
           revenue_cents: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "orders_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "orders_brand_id_fkey"
             columns: ["brand_id"]
@@ -7588,6 +9289,13 @@ export type Database = {
             foreignKeyName: "loyalty_accounts_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loyalty_accounts_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
@@ -7602,6 +9310,14 @@ export type Database = {
       }
     }
     Functions: {
+      acknowledge_knowledge_resource: {
+        Args: { p_resource_id: string }
+        Returns: {
+          acknowledged_resource_id: string
+          acknowledged_version: string
+          recorded_at: string
+        }[]
+      }
       acknowledge_operation_notification: {
         Args: { target_action_id: string; target_notification: string }
         Returns: {
@@ -7624,6 +9340,18 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      activate_platform_organization: {
+        Args: { p_brand_id: string }
+        Returns: boolean
+      }
+      anonymize_customer_account: {
+        Args: { p_user_id: string }
+        Returns: undefined
+      }
+      apply_operation_retention: {
+        Args: { target_now?: string }
+        Returns: Json
       }
       award_operation_competency: {
         Args: {
@@ -7663,19 +9391,36 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      anonymize_customer_account: {
-        Args: { p_user_id: string }
-        Returns: undefined
-      }
-      apply_operation_retention: {
-        Args: { target_now?: string }
-        Returns: Json
-      }
       brand_storefront_capabilities: {
         Args: { p_slug?: string }
         Returns: {
           module_key: string
           slug: string
+        }[]
+      }
+      brand_storefront_lookup: {
+        Args: { p_brand_id?: string; p_slug?: string }
+        Returns: {
+          brand_config: Json
+          catering: boolean
+          delivery: boolean
+          drops: boolean
+          id: string
+          multi_location: boolean
+          name: string
+          referrals: boolean
+          slug: string
+          sms: boolean
+          stored_value: boolean
+        }[]
+      }
+      caller_network_brand_kpis: {
+        Args: { p_network_id: string }
+        Returns: {
+          brand_id: string
+          brand_name: string
+          gross_cents_30d: number
+          orders_30d: number
         }[]
       }
       cancel_operation_occurrence: {
@@ -7862,6 +9607,24 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      consume_menu_extraction_budget: {
+        Args: { p_brand_id: string }
+        Returns: boolean
+      }
+      create_franchise_network: {
+        Args: { p_name: string; p_slug: string }
+        Returns: string
+      }
+      create_location_if_allowed: {
+        Args: {
+          location_address: Json
+          location_hours: Json
+          location_name: string
+          location_timezone: string
+          target_brand_id: string
+        }
+        Returns: string
+      }
       create_manual_operation_occurrence: {
         Args: {
           target_action_id: string
@@ -7912,6 +9675,62 @@ export type Database = {
         }
         Returns: string
       }
+      create_platform_organization: {
+        Args: {
+          p_brand_config: Json
+          p_correlation_id: string
+          p_name: string
+          p_slug: string
+        }
+        Returns: string
+      }
+      enroll_brand_in_network: {
+        Args: { p_brand_id: string; p_network_id: string }
+        Returns: boolean
+      }
+      ensure_platform_brand_membership: {
+        Args: { p_actor_id: string; p_brand_id: string }
+        Returns: string
+      }
+      get_platform_fee_terms: {
+        Args: { p_actor_id: string; p_brand_id: string }
+        Returns: Json
+      }
+      grant_delegated_access:
+        | {
+            Args: {
+              p_brand_id: string
+              p_expires_at: string
+              p_grantee_user_id: string
+              p_network_id: string
+              p_scope: string[]
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_brand_id: string
+              p_expires_at: string
+              p_grantee_user_id: string
+              p_idempotency_key: string
+              p_network_id: string
+              p_scope: string[]
+            }
+            Returns: string
+          }
+      import_brand_menu: {
+        Args: { p_brand_id: string; p_rows: Json }
+        Returns: number
+      }
+      import_platform_brand_menu: {
+        Args: {
+          p_actor_id: string
+          p_brand_id: string
+          p_correlation_id: string
+          p_rows: Json
+        }
+        Returns: number
+      }
       ingest_analytics_batch: {
         Args: {
           batch_key: string
@@ -7922,6 +9741,26 @@ export type Database = {
         }
         Returns: Json
       }
+      install_brand_module:
+        | {
+            Args: {
+              p_brand_id: string
+              p_config?: Json
+              p_module_key: string
+              p_version?: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_brand_id: string
+              p_config: Json
+              p_module_key: string
+              p_surfaces: string[]
+              p_version: string
+            }
+            Returns: string
+          }
       loyalty_adjust: {
         Args: { account: string; delta: number }
         Returns: number
@@ -7950,6 +9789,46 @@ export type Database = {
         Args: { account: string; cost: number }
         Returns: number
       }
+      manage_brand_member: {
+        Args: {
+          p_brand_id: string
+          p_location_ids?: string[]
+          p_remove?: boolean
+          p_role:
+            | "platform_admin"
+            | "brand_owner"
+            | "location_manager"
+            | "staff"
+          p_user_id: string
+        }
+        Returns: string
+      }
+      manage_franchise_member: {
+        Args: {
+          p_network_id: string
+          p_remove?: boolean
+          p_role: string
+          p_user_id: string
+        }
+        Returns: boolean
+      }
+      manage_platform_brand_member: {
+        Args: {
+          p_action: string
+          p_actor_id: string
+          p_brand_id: string
+          p_correlation_id: string
+          p_location_ids: string[]
+          p_remove: boolean
+          p_role:
+            | "platform_admin"
+            | "brand_owner"
+            | "location_manager"
+            | "staff"
+          p_user_id: string
+        }
+        Returns: string
+      }
       mark_order_arrived: { Args: { target_order: string }; Returns: string }
       operation_queue_eligibility: {
         Args: { target_occurrences: string[] }
@@ -7968,6 +9847,28 @@ export type Database = {
           target_order: string
         }
         Returns: boolean
+      }
+      provision_platform_organization: {
+        Args: {
+          p_blueprint_key: string
+          p_brand_config: Json
+          p_fee_bps?: number
+          p_fee_bps_tier2?: number
+          p_idempotency_key: string
+          p_industry_key: string
+          p_inheritance_policy?: Json
+          p_location: Json
+          p_modules: Json
+          p_name: string
+          p_network_slug?: string
+          p_organization_kind: string
+          p_owner_email: string
+          p_owner_user_id: string
+          p_slug: string
+          p_territory?: Json
+          p_tier_threshold_cents?: number
+        }
+        Returns: Json
       }
       prune_analytics_retention: {
         Args: {
@@ -7999,9 +9900,45 @@ export type Database = {
         }
         Returns: string
       }
+      published_catalog_lookup: {
+        Args: { p_brand_id?: string }
+        Returns: {
+          brand_id: string
+          created_at: string
+          id: string
+          manifest: Json
+          published_at: string
+          status: string
+          version: number
+        }[]
+      }
       queue_due_operation_escalations: {
         Args: { target_now?: string }
         Returns: number
+      }
+      reconcile_brand_modules: {
+        Args: { p_brand_id: string; p_modules: Json }
+        Returns: number
+      }
+      record_organization_readiness: {
+        Args: {
+          p_brand_id: string
+          p_check_key: string
+          p_evidence: Json
+          p_passed: boolean
+        }
+        Returns: boolean
+      }
+      record_platform_access: {
+        Args: {
+          p_action: string
+          p_actor_id: string
+          p_brand_id: string
+          p_correlation_id: string
+          p_location_id: string
+          p_metadata?: Json
+        }
+        Returns: undefined
       }
       refresh_analytics_rollups: {
         Args: { rebuild_from?: string }
@@ -8149,8 +10086,17 @@ export type Database = {
         }
         Returns: Json
       }
+      respond_to_network_enrollment: {
+        Args: { p_accept: boolean; p_brand_id: string; p_network_id: string }
+        Returns: string
+      }
+      restore_brand: { Args: { p_brand_id: string }; Returns: boolean }
       revoke_connector_secret: {
         Args: { target_brand: string; target_reference: string }
+        Returns: boolean
+      }
+      revoke_delegated_access: {
+        Args: { p_grant_id: string }
         Returns: boolean
       }
       run_operation_maintenance: {
@@ -8159,6 +10105,38 @@ export type Database = {
       }
       set_brand_settings_config: {
         Args: { config: Json; expected_updated_at?: string }
+        Returns: string
+      }
+      set_platform_brand_settings_config: {
+        Args: {
+          p_actor_id: string
+          p_brand_id: string
+          p_config: Json
+          p_correlation_id: string
+          p_expected_updated_at?: string
+        }
+        Returns: string
+      }
+      set_platform_kiosk_config: {
+        Args: {
+          p_actor_id: string
+          p_brand_id: string
+          p_config: Json
+          p_correlation_id: string
+          p_expected_updated_at?: string
+        }
+        Returns: string
+      }
+      set_platform_location_fee_overrides: {
+        Args: {
+          p_actor_id: string
+          p_brand_id: string
+          p_correlation_id: string
+          p_fee_bps: number
+          p_fee_bps_tier2: number
+          p_location_id: string
+          p_tier_threshold_cents: number
+        }
         Returns: string
       }
       store_connector_secret: {
@@ -8175,6 +10153,14 @@ export type Database = {
       store_training_profile: {
         Args: { target_brand: string; tenant_profile: Json }
         Returns: undefined
+      }
+      suspend_brand: {
+        Args: { p_brand_id: string; p_reason: string }
+        Returns: boolean
+      }
+      unenroll_brand_from_network: {
+        Args: { p_brand_id: string; p_network_id: string }
+        Returns: boolean
       }
       unregister_operation_device: {
         Args: { target_action_id: string; target_device_id: string }

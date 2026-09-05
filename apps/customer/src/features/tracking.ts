@@ -4,6 +4,7 @@
  * advances through the same model so both paths render identically.
  */
 import type { OrderStatus } from '@platform/schema';
+import type { ClientExperienceKind } from './client-experience';
 
 export type TrackingStep = {
   status: OrderStatus;
@@ -20,6 +21,18 @@ export const TRACKING_STEPS: readonly TrackingStep[] = [
   { status: 'picked_up', title: 'Picked up', detail: 'Enjoy.' },
 ] as const;
 
+export const PROJECT_TRACKING_STEPS: readonly TrackingStep[] = [
+  { status: 'created', title: 'Planning started', detail: 'The project team is confirming scope and next steps.' },
+  { status: 'paid', title: 'Agreement recorded', detail: 'Approved scope and initial payment status are on file.' },
+  {
+    status: 'in_progress',
+    title: 'Work in progress',
+    detail: 'The project team is moving through the current milestone.',
+  },
+  { status: 'ready', title: 'Milestone review', detail: 'The current milestone is ready for client review.' },
+  { status: 'picked_up', title: 'Project handoff', detail: 'Closeout and warranty information are ready.' },
+] as const;
+
 export type TrackingView = {
   steps: readonly TrackingStep[];
   /** Index into steps of the current state. */
@@ -27,12 +40,16 @@ export type TrackingView = {
   failed: 'cancelled' | 'refunded' | null;
 };
 
-export function trackingView(status: OrderStatus): TrackingView {
+export function trackingView(
+  status: OrderStatus,
+  experience: ClientExperienceKind = 'commerce',
+): TrackingView {
+  const steps = experience === 'construction' ? PROJECT_TRACKING_STEPS : TRACKING_STEPS;
   if (status === 'cancelled' || status === 'refunded') {
-    return { steps: TRACKING_STEPS, activeIndex: -1, failed: status };
+    return { steps, activeIndex: -1, failed: status };
   }
-  const activeIndex = TRACKING_STEPS.findIndex((step) => step.status === status);
-  return { steps: TRACKING_STEPS, activeIndex, failed: null };
+  const activeIndex = steps.findIndex((step) => step.status === status);
+  return { steps, activeIndex, failed: null };
 }
 
 /**

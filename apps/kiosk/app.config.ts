@@ -99,6 +99,7 @@ export function appliedBrandPath(appDirectory: string, app: string): string {
 }
 
 const brand = JSON.parse(readFileSync(appliedBrandPath(__dirname, 'kiosk'), 'utf8')) as KioskBrand;
+const artworkRoot = `./assets/tenants/${brand.identity.slug}`;
 
 /** One applied tenant per build, chosen by `EXPO_PUBLIC_TENANT`. */
 export default ({ config }: ConfigContext): ExpoConfig => ({
@@ -107,12 +108,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   slug: `${brand.identity.slug}-kiosk`,
   version: '1.0.0',
   orientation: 'landscape',
-  icon: './assets/images/icon.png',
+  icon: `${artworkRoot}/images/icon.png`,
   scheme: brand.identity.kioskScheme,
   runtimeVersion: 'exposdk:54.0.0',
   userInterfaceStyle: 'light',
   ios: {
-    icon: './assets/expo.icon',
+    icon: `${artworkRoot}/expo.icon`,
     bundleIdentifier: brand.identity.kioskBundleId,
     supportsTablet: true,
     requireFullScreen: true,
@@ -125,9 +126,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     package: brand.identity.kioskBundleId,
     adaptiveIcon: {
       backgroundColor: brand.tokens?.primary ?? '#1C1917',
-      foregroundImage: './assets/images/android-icon-foreground.png',
-      backgroundImage: './assets/images/android-icon-background.png',
-      monochromeImage: './assets/images/android-icon-monochrome.png',
+      foregroundImage: `${artworkRoot}/images/android-icon-foreground.png`,
+      backgroundImage: `${artworkRoot}/images/android-icon-background.png`,
+      monochromeImage: `${artworkRoot}/images/android-icon-monochrome.png`,
     },
     predictiveBackGestureEnabled: false,
     permissions: [
@@ -144,7 +145,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       'android.permission.READ_MEDIA_VIDEO',
     ],
   },
-  web: { output: 'static', favicon: './assets/images/favicon.png' },
+  web: { output: 'static', favicon: `${artworkRoot}/images/favicon.png` },
   plugins: [
     'expo-router',
     '../../packages/device-twin/with-media-projection.cjs',
@@ -153,7 +154,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       'expo-splash-screen',
       {
         backgroundColor: brand.tokens?.surface ?? '#FFFFFF',
-        image: './assets/brand/logo.png',
+        image: `${artworkRoot}/brand/logo.png`,
         imageWidth: 180,
       },
     ],

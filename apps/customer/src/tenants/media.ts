@@ -11,16 +11,108 @@ import { TENANT_SLUG } from './index';
 
 import { TENANT_MENU_MEDIA as menuMediaCoffeeStory } from './coffee-story/menu-media.generated';
 import { BUNDLED_CUTOUTS as cutoutsCoffeeStory } from './coffee-story/product-media.generated';
+import brandLogoCoffeeStory from '../../assets/tenants/coffee-story/brand/logo.png';
+import artworkCoffeeStoryGiftBirthdayCakeWebp from '../../assets/tenants/coffee-story/gift/birthday-cake.webp';
+import artworkCoffeeStoryGiftBirthdayConfettiWebp from '../../assets/tenants/coffee-story/gift/birthday-confetti.webp';
+import artworkCoffeeStoryGiftCongratsBloomWebp from '../../assets/tenants/coffee-story/gift/congrats-bloom.webp';
+import artworkCoffeeStoryGiftCongratsGoldWebp from '../../assets/tenants/coffee-story/gift/congrats-gold.webp';
+import artworkCoffeeStoryGiftGratefulWebp from '../../assets/tenants/coffee-story/gift/grateful.webp';
+import artworkCoffeeStoryGiftHealingOilWebp from '../../assets/tenants/coffee-story/gift/healing-oil.webp';
+import artworkCoffeeStoryGiftQuietHourWebp from '../../assets/tenants/coffee-story/gift/quiet-hour.webp';
+import artworkCoffeeStoryGiftThankYouWebp from '../../assets/tenants/coffee-story/gift/thank-you.webp';
+import artworkCoffeeStoryHeroHomeHeroMp4 from '../../assets/tenants/coffee-story/hero/home-hero.mp4';
+import artworkCoffeeStoryHeroStonesWebp from '../../assets/tenants/coffee-story/hero/stones.webp';
+import artworkCoffeeStoryRewardsLiquidNebulaWebp from '../../assets/tenants/coffee-story/rewards/liquid-nebula.webp';
+import { TENANT_MENU_MEDIA as menuMediaJuniperBaseDemo } from './juniper-base-demo/menu-media.generated';
+import { BUNDLED_CUTOUTS as cutoutsJuniperBaseDemo } from './juniper-base-demo/product-media.generated';
+import brandLogoJuniperBaseDemo from '../../assets/tenants/juniper-base-demo/brand/logo.png';
+import artworkJuniperBaseDemoGiftBirthdayCakeWebp from '../../assets/tenants/juniper-base-demo/gift/birthday-cake.webp';
+import artworkJuniperBaseDemoGiftBirthdayConfettiWebp from '../../assets/tenants/juniper-base-demo/gift/birthday-confetti.webp';
+import artworkJuniperBaseDemoGiftCongratsBloomWebp from '../../assets/tenants/juniper-base-demo/gift/congrats-bloom.webp';
+import artworkJuniperBaseDemoGiftCongratsGoldWebp from '../../assets/tenants/juniper-base-demo/gift/congrats-gold.webp';
+import artworkJuniperBaseDemoGiftGratefulWebp from '../../assets/tenants/juniper-base-demo/gift/grateful.webp';
+import artworkJuniperBaseDemoGiftHealingOilWebp from '../../assets/tenants/juniper-base-demo/gift/healing-oil.webp';
+import artworkJuniperBaseDemoGiftQuietHourWebp from '../../assets/tenants/juniper-base-demo/gift/quiet-hour.webp';
+import artworkJuniperBaseDemoGiftThankYouWebp from '../../assets/tenants/juniper-base-demo/gift/thank-you.webp';
+import artworkJuniperBaseDemoHeroHomeHeroMp4 from '../../assets/tenants/juniper-base-demo/hero/home-hero.mp4';
+import artworkJuniperBaseDemoHeroStonesWebp from '../../assets/tenants/juniper-base-demo/hero/stones.webp';
+import artworkJuniperBaseDemoRewardsLiquidNebulaWebp from '../../assets/tenants/juniper-base-demo/rewards/liquid-nebula.webp';
+import { TENANT_MENU_MEDIA as menuMediaStillpointBuilders } from './stillpoint-builders/menu-media.generated';
+import { BUNDLED_CUTOUTS as cutoutsStillpointBuilders } from './stillpoint-builders/product-media.generated';
+import brandLogoStillpointBuilders from '../../assets/tenants/stillpoint-builders/brand/logo.png';
+import artworkStillpointBuildersGiftBirthdayCakeWebp from '../../assets/tenants/stillpoint-builders/gift/birthday-cake.webp';
+import artworkStillpointBuildersGiftBirthdayConfettiWebp from '../../assets/tenants/stillpoint-builders/gift/birthday-confetti.webp';
+import artworkStillpointBuildersGiftCongratsBloomWebp from '../../assets/tenants/stillpoint-builders/gift/congrats-bloom.webp';
+import artworkStillpointBuildersGiftCongratsGoldWebp from '../../assets/tenants/stillpoint-builders/gift/congrats-gold.webp';
+import artworkStillpointBuildersGiftGratefulWebp from '../../assets/tenants/stillpoint-builders/gift/grateful.webp';
+import artworkStillpointBuildersGiftHealingOilWebp from '../../assets/tenants/stillpoint-builders/gift/healing-oil.webp';
+import artworkStillpointBuildersGiftQuietHourWebp from '../../assets/tenants/stillpoint-builders/gift/quiet-hour.webp';
+import artworkStillpointBuildersGiftThankYouWebp from '../../assets/tenants/stillpoint-builders/gift/thank-you.webp';
+import artworkStillpointBuildersHeroHomeHeroMp4 from '../../assets/tenants/stillpoint-builders/hero/home-hero.mp4';
+import artworkStillpointBuildersHeroStonesWebp from '../../assets/tenants/stillpoint-builders/hero/stones.webp';
+import artworkStillpointBuildersRewardsLiquidNebulaWebp from '../../assets/tenants/stillpoint-builders/rewards/liquid-nebula.webp';
 
 export type TenantMediaSlot = {
+  readonly brandLogo: number;
+  readonly artwork: Readonly<Record<'gift/birthday-cake.webp' | 'gift/birthday-confetti.webp' | 'gift/congrats-bloom.webp' | 'gift/congrats-gold.webp' | 'gift/grateful.webp' | 'gift/healing-oil.webp' | 'gift/quiet-hour.webp' | 'gift/thank-you.webp' | 'hero/home-hero.mp4' | 'hero/stones.webp' | 'rewards/liquid-nebula.webp', number>>;
   readonly menuMedia: Readonly<Record<string, number>>;
   readonly productMedia: Readonly<Record<string, number>>;
 };
 
 const MEDIA: Readonly<Record<string, TenantMediaSlot>> = {
   'coffee-story': {
+    brandLogo: brandLogoCoffeeStory,
+    artwork: {
+      'gift/birthday-cake.webp': artworkCoffeeStoryGiftBirthdayCakeWebp,
+      'gift/birthday-confetti.webp': artworkCoffeeStoryGiftBirthdayConfettiWebp,
+      'gift/congrats-bloom.webp': artworkCoffeeStoryGiftCongratsBloomWebp,
+      'gift/congrats-gold.webp': artworkCoffeeStoryGiftCongratsGoldWebp,
+      'gift/grateful.webp': artworkCoffeeStoryGiftGratefulWebp,
+      'gift/healing-oil.webp': artworkCoffeeStoryGiftHealingOilWebp,
+      'gift/quiet-hour.webp': artworkCoffeeStoryGiftQuietHourWebp,
+      'gift/thank-you.webp': artworkCoffeeStoryGiftThankYouWebp,
+      'hero/home-hero.mp4': artworkCoffeeStoryHeroHomeHeroMp4,
+      'hero/stones.webp': artworkCoffeeStoryHeroStonesWebp,
+      'rewards/liquid-nebula.webp': artworkCoffeeStoryRewardsLiquidNebulaWebp,
+    },
     menuMedia: menuMediaCoffeeStory,
     productMedia: cutoutsCoffeeStory,
+  },
+  'juniper-base-demo': {
+    brandLogo: brandLogoJuniperBaseDemo,
+    artwork: {
+      'gift/birthday-cake.webp': artworkJuniperBaseDemoGiftBirthdayCakeWebp,
+      'gift/birthday-confetti.webp': artworkJuniperBaseDemoGiftBirthdayConfettiWebp,
+      'gift/congrats-bloom.webp': artworkJuniperBaseDemoGiftCongratsBloomWebp,
+      'gift/congrats-gold.webp': artworkJuniperBaseDemoGiftCongratsGoldWebp,
+      'gift/grateful.webp': artworkJuniperBaseDemoGiftGratefulWebp,
+      'gift/healing-oil.webp': artworkJuniperBaseDemoGiftHealingOilWebp,
+      'gift/quiet-hour.webp': artworkJuniperBaseDemoGiftQuietHourWebp,
+      'gift/thank-you.webp': artworkJuniperBaseDemoGiftThankYouWebp,
+      'hero/home-hero.mp4': artworkJuniperBaseDemoHeroHomeHeroMp4,
+      'hero/stones.webp': artworkJuniperBaseDemoHeroStonesWebp,
+      'rewards/liquid-nebula.webp': artworkJuniperBaseDemoRewardsLiquidNebulaWebp,
+    },
+    menuMedia: menuMediaJuniperBaseDemo,
+    productMedia: cutoutsJuniperBaseDemo,
+  },
+  'stillpoint-builders': {
+    brandLogo: brandLogoStillpointBuilders,
+    artwork: {
+      'gift/birthday-cake.webp': artworkStillpointBuildersGiftBirthdayCakeWebp,
+      'gift/birthday-confetti.webp': artworkStillpointBuildersGiftBirthdayConfettiWebp,
+      'gift/congrats-bloom.webp': artworkStillpointBuildersGiftCongratsBloomWebp,
+      'gift/congrats-gold.webp': artworkStillpointBuildersGiftCongratsGoldWebp,
+      'gift/grateful.webp': artworkStillpointBuildersGiftGratefulWebp,
+      'gift/healing-oil.webp': artworkStillpointBuildersGiftHealingOilWebp,
+      'gift/quiet-hour.webp': artworkStillpointBuildersGiftQuietHourWebp,
+      'gift/thank-you.webp': artworkStillpointBuildersGiftThankYouWebp,
+      'hero/home-hero.mp4': artworkStillpointBuildersHeroHomeHeroMp4,
+      'hero/stones.webp': artworkStillpointBuildersHeroStonesWebp,
+      'rewards/liquid-nebula.webp': artworkStillpointBuildersRewardsLiquidNebulaWebp,
+    },
+    menuMedia: menuMediaStillpointBuilders,
+    productMedia: cutoutsStillpointBuilders,
   },
 };
 

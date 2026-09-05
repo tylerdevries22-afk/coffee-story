@@ -2,8 +2,7 @@ import { router, type Href } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-import { CALENDAR_ITEMS } from '@/data/calendar-demo';
+import { DEMO_OPERATOR_FIXTURES } from '@/data/demo-fixtures';
 import { loadLiveCalendarItems } from '@/features/calendar/live';
 import { calendarCategoryForItem, calendarItemById, calendarProgressLabels, type CalendarItem } from '@/features/calendar/presentation';
 import { operationCalendarItems } from '@/features/operations/calendar';
@@ -21,12 +20,12 @@ export function CalendarDetailScreen({ itemId }: { itemId: string }) {
     operations.occurrences, location.name, location.timezone, operations.now,
   ), itemId), [itemId, location.name, location.timezone, operations.now, operations.occurrences]);
   const [item, setItem] = useState<CalendarItem | null>(() => (
-    projectedOperation ?? (isDemo ? calendarItemById(CALENDAR_ITEMS, itemId) : null)
+    projectedOperation ?? (isDemo ? calendarItemById(DEMO_OPERATOR_FIXTURES.calendarItems, itemId) : null)
   ));
   const [loaded, setLoaded] = useState(isDemo);
   useEffect(() => {
     if (projectedOperation) { setItem(projectedOperation); setLoaded(true); return undefined; }
-    if (isDemo) { setItem(calendarItemById(CALENDAR_ITEMS, itemId)); setLoaded(true); return undefined; }
+    if (isDemo) { setItem(calendarItemById(DEMO_OPERATOR_FIXTURES.calendarItems, itemId)); setLoaded(true); return undefined; }
     if (!supabase || !tenant) { setLoaded(true); return undefined; }
     let mounted = true;
     void loadLiveCalendarItems(supabase, tenant.brand_id).then((items) => {
@@ -66,24 +65,20 @@ function DetailHeader() {
   const { colors, styles } = useCalendarDetailTheme();
   return <View style={styles.header}><Pressable accessibilityRole="button" accessibilityLabel="Back to calendar" hitSlop={8} onPress={() => router.back()} style={styles.backButton}><AppIcon name="chevron.left" size={22} tintColor={colors.ink900} weight="semibold" /></Pressable><Text style={styles.headerTitle}>Calendar</Text><Pressable accessibilityRole="button" accessibilityLabel="More actions" hitSlop={8} style={styles.backButton}><AppIcon name="ellipsis" size={22} tintColor={colors.ink900} weight="semibold" /></Pressable></View>;
 }
-
 function DetailHero({ item }: { item: CalendarItem }) {
   const { tokens, styles } = useCalendarDetailTheme();
   const category = calendarCategoryForItem(item, tokens);
   return <View style={styles.hero}><View style={[styles.categoryIcon, { backgroundColor: category.tint }]}><AppIcon name={category.icon} size={26} tintColor={category.color} weight="semibold" /></View><View style={styles.heroCopy}><Text style={[styles.category, { color: category.color }]}>{category.label.toUpperCase()}</Text><Text style={styles.title}>{item.title}</Text><Text style={styles.summary}>{item.summary}</Text></View></View>;
 }
-
 function CalendarLoading() {
   const { colors, styles } = useCalendarDetailTheme();
   return <SafeAreaView style={styles.missing}><AppIcon name="calendar" size={30} tintColor={colors.ink400} /><Text style={styles.summary}>Loading calendar item…</Text></SafeAreaView>;
 }
-
 function ProgressCard({ item }: { item: CalendarItem }) {
   const { styles } = useCalendarDetailTheme();
   const [start, current, finish] = calendarProgressLabels(item);
   return <View style={styles.progressCard}><ProgressStep label={start} complete /><View style={styles.progressLine} /><ProgressStep label={current} active /><View style={styles.progressLine} /><ProgressStep label={finish} /></View>;
 }
-
 function SummaryCard({ item }: { item: CalendarItem }) {
   const { styles } = useCalendarDetailTheme();
   const date = item.date === 'today' ? 'Today' : item.date === 'tomorrow' ? 'Tomorrow' : 'Upcoming';

@@ -34,7 +34,7 @@ function orientation(formFactor: DeviceFormFactor) {
   return formFactor === 'phone' ? 'portrait' as const : 'landscape' as const;
 }
 
-export function DeviceWallModule({ previews, view }: { readonly previews: readonly AppPreview[]; readonly view: DeviceWallView }) {
+export function DeviceWallModule({ constructionOperator, previews, view }: { readonly constructionOperator: boolean; readonly previews: readonly AppPreview[]; readonly view: DeviceWallView }) {
   const initial = useMemo(() => ordered(view), [view]);
   const [devices, setDevices] = useState(initial);
   const [locationId, setLocationId] = useState(view.selectedLocationId ?? 'all');
@@ -86,7 +86,7 @@ export function DeviceWallModule({ previews, view }: { readonly previews: readon
       <AppsViewTabs
         onReset={reset}
         table={<AppsPreviewTable {...controls} />}
-        wall={<AppsPreviewMosaic previews={previews} />}
+        wall={<AppsPreviewMosaic constructionOperator={constructionOperator} previews={previews} />}
       />
       <DeviceConnectionWizard
         canStream={view.canStream}

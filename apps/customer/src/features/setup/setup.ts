@@ -21,6 +21,7 @@ import { TENANT } from '@/tenant';
 
 export const SETUP_STEP_COUNT = 3;
 export const SETUP_AUTO_PROMPT_DELAY_MS = 3_000;
+const IS_PROJECT_BUSINESS = Boolean(TENANT.copy.projectName);
 
 export function shouldScheduleSetupAutoPrompt({
   isDemo,
@@ -42,14 +43,11 @@ export function setupProgressPercent(setup: RoleSetup<unknown>): number {
   return Math.round(((Math.min(setup.step, SETUP_STEP_COUNT - 1) + 1) / SETUP_STEP_COUNT) * 100);
 }
 
-export const CLIENT_GOAL_OPTIONS = [
-  'A reliable morning coffee',
-  'Somewhere to work or study',
-  'Trying the signature drinks',
-  'Late-night hours',
-  'Halal-friendly food',
-  'Catering for events',
-] as const;
+export const CLIENT_GOAL_OPTIONS: readonly string[] = IS_PROJECT_BUSINESS
+  ? ['Plan a renovation', 'Align scope and budget', 'Track an active project',
+      'Coordinate selections', 'Schedule warranty service', 'Connect with my project team']
+  : ['A reliable morning coffee', 'Somewhere to work or study', 'Trying the signature drinks',
+      'Late-night hours', 'Halal-friendly food', 'Catering for events'];
 
 /**
  * How strong a guest takes their coffee. The field name and wire values are
@@ -74,14 +72,9 @@ export const PREFERRED_TIME_OPTIONS = [
   'Saturday',
 ] as const;
 
-export const STAFF_SPECIALTY_OPTIONS = [
-  'Espresso bar',
-  'Latte art',
-  'Matcha & tea',
-  'Boba',
-  'Pastry & bakes',
-  'Coffee cart catering',
-] as const;
+export const STAFF_SPECIALTY_OPTIONS: readonly string[] = IS_PROJECT_BUSINESS
+  ? ['Estimating', 'Project management', 'Site supervision', 'Carpentry', 'Electrical', 'Plumbing']
+  : ['Espresso bar', 'Latte art', 'Matcha & tea', 'Boba', 'Pastry & bakes', 'Coffee cart catering'];
 
 export const DAY_OPTIONS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
 

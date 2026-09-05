@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "modules": [
+    {
+      "key": "commerce-catalog",
+      "version": "1.0.0",
+      "config": "modules/commerce-catalog/config.json",
+      "surfaces": ["customer", "kiosk", "operator", "hq"],
+      "enabled": true
+    },
+    {
+      "key": "device-wall",
+      "version": "1.0.0",
+      "config": "modules/device-wall.json",
+      "surfaces": ["operator", "kiosk", "display"],
+      "enabled": true
+    }
+  ]
+}

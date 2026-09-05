@@ -1,0 +1,6 @@
+slug,name,category,description,base_price_cents,sizes
+project-consultation,Project Consultation,Planning & Design,"On-site scope review, feasibility guidance, and a documented next-step plan.",25000,
+preconstruction-plan,Preconstruction Plan,Planning & Design,"Detailed scope, schedule, selections, and budget alignment before work begins.",150000,
+kitchen-renovation,Kitchen Renovation,Renovation Packages,"A managed kitchen renovation package with design coordination and field delivery.",500000,builder:500000|signature:1000000
+bathroom-renovation,Bathroom Renovation,Renovation Packages,"A complete bathroom renovation package led by a dedicated project team.",350000,builder:350000|signature:750000
+warranty-service-visit,Warranty Service Visit,Service & Warranty,"Post-project inspection and coordinated warranty service for completed work.",0,

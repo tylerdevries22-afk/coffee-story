@@ -10,14 +10,19 @@ import 'server-only';
  */
 import { TENANT_ORGS, type TenantOrg } from './tenants';
 
-export type DemoOrg = Pick<TenantOrg, 'id' | 'slug' | 'name' | 'kind' | 'brandConfig'>;
+export type DemoOrg = Pick<TenantOrg, 'id' | 'slug' | 'name' | 'kind' | 'brandConfig' | 'moduleKeys'> & {
+  readonly connectorIds: readonly string[];
+};
 
 type Store = Map<string, DemoOrg>;
 
 function seed(): Store {
   const store: Store = new Map();
   for (const org of TENANT_ORGS) {
-    store.set(org.id, { id: org.id, slug: org.slug, name: org.name, kind: org.kind, brandConfig: org.brandConfig });
+    store.set(org.id, {
+      id: org.id, slug: org.slug, name: org.name, kind: org.kind,
+      brandConfig: org.brandConfig, moduleKeys: org.moduleKeys, connectorIds: [],
+    });
   }
   return store;
 }

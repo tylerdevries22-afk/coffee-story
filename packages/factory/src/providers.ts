@@ -64,9 +64,15 @@ export function supabaseProjectRequest(
 export function vercelProjectSpecifications(
   tenantSlug: string,
   repository: string,
+  surfaces: readonly FactorySurface[] = FACTORY_SURFACES,
 ): readonly VercelProjectSpecification[] {
   if (!/^[^/\s]+\/[^/\s]+$/.test(repository)) throw new Error('GitHub repository must use owner/name format.');
-  return FACTORY_SURFACES.map((surface) => ({
+  const requested = new Set(surfaces);
+  if (requested.size !== surfaces.length || [...requested].some((surface) => !FACTORY_SURFACES.includes(surface))) {
+    throw new Error('Vercel surfaces must be unique supported factory surfaces.');
+  }
+  if (!requested.has('hq')) throw new Error('Every hosted tenant requires the HQ API surface.');
+  return FACTORY_SURFACES.filter((surface) => requested.has(surface)).map((surface) => ({
     name: factoryResourceName(tenantSlug, surface),
     rootDirectory: `apps/${surface}`,
     framework: surface === 'hq' || surface === 'display' ? 'nextjs' : null,

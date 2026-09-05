@@ -19,6 +19,16 @@ type OccurrenceRow = {
   completed_at: string | null; completion_note: string; created_at: string; updated_at: string;
 };
 
+function record(value: unknown): Record<string, unknown> | null {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? value as Record<string, unknown> : null;
+}
+
+function roleIds(value: unknown): string[] {
+  const ids = record(value)?.requiredRoleIds;
+  return Array.isArray(ids) ? ids.filter((id): id is string => typeof id === 'string') : [];
+}
+
 export function OPTIONS(): Response {
   return corsPreflight();
 }
@@ -45,6 +55,21 @@ export async function GET(request: Request): Promise<Response> {
     return jsonError(503, 'queue_unavailable', 'The operations queue is temporarily unavailable.');
   }
   const occurrenceRows = occurrences.data ?? [];
+  const requiredRoleIds = [...new Set(occurrenceRows.flatMap((row) => roleIds(row.template_snapshot)))];
+  const actorIds = [...new Set(occurrenceRows.flatMap((row) => row.claimed_by ? [row.claimed_by] : []))];
+  const [roles, actors] = await Promise.all([
+    requiredRoleIds.length === 0 ? { data: [], error: null } : context.db
+      .from('workforce_roles').select('id,name').eq('brand_id', context.auth.claims.brand_id)
+      .in('id', requiredRoleIds).returns<{ id: string; name: string }[]>(),
+    actorIds.length === 0 ? { data: [], error: null } : context.db
+      .from('brand_users').select('id,display_name').eq('brand_id', context.auth.claims.brand_id)
+      .in('id', actorIds).returns<{ id: string; display_name: string }[]>(),
+  ]);
+  if (roles.error || actors.error) {
+    return jsonError(503, 'queue_unavailable', 'The operations queue is temporarily unavailable.');
+  }
+  const roleMap = new Map((roles.data ?? []).map((role) => [role.id, role.name]));
+  const actorMap = new Map((actors.data ?? []).map((actor) => [actor.id, actor.display_name]));
   const eligibility = occurrenceRows.length === 0
     ? { data: [] as EligibilityRow[], error: null }
     : await context.db.rpc('operation_queue_eligibility', {
@@ -57,7 +82,15 @@ export async function GET(request: Request): Promise<Response> {
   const eligibilityMap = new Map(eligibilityRows
     .map((row) => [row.occurrence_id, row.eligibility]));
   return jsonWithCors({
-    occurrences: occurrenceRows.map((row) => ({ ...row, eligibility: eligibilityMap.get(row.id) })),
+    occurrences: occurrenceRows.map((row) => ({
+      ...row,
+      template_snapshot: {
+        ...(record(row.template_snapshot) ?? {}),
+        requiredRoleLabels: roleIds(row.template_snapshot).map((id) => roleMap.get(id) ?? 'Field team'),
+      },
+      actorName: row.claimed_by ? actorMap.get(row.claimed_by) ?? null : null,
+      eligibility: eligibilityMap.get(row.id),
+    })),
     issues: issues.data ?? [],
     range,
   });

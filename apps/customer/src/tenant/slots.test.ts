@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
 
@@ -16,6 +16,12 @@ const APPLIED_TENANT_SLUGS: readonly string[] = (readJson(SLOTS, 'applied.json')
 
 /** The generated barrel, read as text so no tenant has to be selected. */
 const BARREL = readFileSync(join(SLOTS, 'index.ts'), 'utf8');
+
+function webps(directory: string): string[] {
+  return existsSync(directory)
+    ? readdirSync(directory).filter((file) => file.endsWith('.webp')).sort()
+    : [];
+}
 
 /**
  * The applied tenant slots, asserted without selecting one.
@@ -109,7 +115,6 @@ describe('applied tenant slots', () => {
       it('ships the tenant menu photographs byte for byte', () => {
         const source = join(TENANTS, slug, 'assets', 'menu');
         const bundled = join(__dirname, '../../assets/menu', slug);
-        const webps = (directory: string) => readdirSync(directory).filter((f) => f.endsWith('.webp')).sort();
         assert.deepEqual(webps(bundled), webps(source), 'stale or missing tenant photographs');
         for (const file of webps(source)) {
           assert.ok(
@@ -125,15 +130,14 @@ describe('applied tenant slots', () => {
         const generated = readFileSync(join(SLOTS, slug, 'product-media.generated.ts'), 'utf8');
         const mapped = [...generated.matchAll(/^  '([a-z0-9-]+)':/gm)].map((match) => match[1]).sort();
         const source = join(TENANTS, slug, 'assets', 'products');
-        const seated = readdirSync(source)
-          .filter((file) => file.endsWith('.webp'))
+        const seated = webps(source)
           .map((file) => file.replace(/\.webp$/, ''))
           .sort();
         assert.deepEqual(mapped, seated);
 
         const bundled = join(__dirname, '../../assets/products', slug);
         assert.deepEqual(
-          readdirSync(bundled).filter((f) => f.endsWith('.webp')).map((f) => f.replace(/\.webp$/, '')).sort(),
+          webps(bundled).map((f) => f.replace(/\.webp$/, '')).sort(),
           seated,
           'stale cut-outs from another tenant',
         );

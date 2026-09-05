@@ -1,0 +1,153 @@
+{
+  "$docs": "Stillpoint field operating system. Every active occurrence is shared by the operator Kanban and the display-safe Activity Board projection.",
+  "roles": [
+    {
+      "key": "general-contractor",
+      "title": "General Contractor",
+      "description": "Superintendents and project leads coordinating the complete jobsite."
+    },
+    {
+      "key": "trade-contractor",
+      "title": "Contractor",
+      "description": "Approved trade partners completing scoped field work."
+    },
+    {
+      "key": "project-admin",
+      "title": "Admin",
+      "description": "Project coordinators managing permits, documents, and client approvals."
+    }
+  ],
+  "competencies": [
+    {
+      "key": "jobsite-safety",
+      "title": "Jobsite safety orientation",
+      "renewalDays": 365
+    },
+    {
+      "key": "project-documentation",
+      "title": "Project documentation standards",
+      "renewalDays": 365
+    }
+  ],
+  "templates": [
+    {
+      "key": "morning-site-coordination",
+      "programKey": "field-coordination",
+      "routineKind": "ad_hoc",
+      "revision": 1,
+      "title": "Morning site coordination",
+      "instructions": "Confirm access, sequencing, and the day’s critical path with every active trade.",
+      "estimatedMinutes": 20,
+      "requiredRoleKeys": ["general-contractor"],
+      "requiredCompetencyKeys": ["jobsite-safety"],
+      "issueCategories": ["safety", "schedule", "access"],
+      "steps": [
+        { "key": "access", "title": "Confirm site access and required signage", "responseKind": "confirm", "required": true },
+        { "key": "sequence", "title": "Review trade sequence and constraints", "responseKind": "pass_fail", "required": true, "issueOnFailure": true },
+        { "key": "briefing", "title": "Complete the morning safety briefing", "responseKind": "confirm", "required": true }
+      ]
+    },
+    {
+      "key": "end-of-day-site-log",
+      "programKey": "field-coordination",
+      "routineKind": "ad_hoc",
+      "revision": 1,
+      "title": "End-of-day site log",
+      "instructions": "Record completed scope, blockers, deliveries, and tomorrow’s first activity.",
+      "estimatedMinutes": 15,
+      "requiredRoleKeys": ["general-contractor"],
+      "requiredCompetencyKeys": ["project-documentation"],
+      "issueCategories": ["quality", "schedule", "delivery"],
+      "steps": [
+        { "key": "progress", "title": "Record completed scope", "responseKind": "text", "required": true, "maxLength": 1200 },
+        { "key": "blockers", "title": "Confirm blockers are assigned", "responseKind": "pass_fail", "required": true, "issueOnFailure": true },
+        { "key": "secure", "title": "Verify the site is secured", "responseKind": "confirm", "required": true }
+      ]
+    },
+    {
+      "key": "pre-work-hazard-check",
+      "programKey": "trade-execution",
+      "routineKind": "ad_hoc",
+      "revision": 1,
+      "title": "Pre-work hazard check",
+      "instructions": "Verify the work area is ready before tools or materials enter the active zone.",
+      "estimatedMinutes": 10,
+      "requiredRoleKeys": ["trade-contractor"],
+      "requiredCompetencyKeys": ["jobsite-safety"],
+      "issueCategories": ["safety", "access", "materials"],
+      "steps": [
+        { "key": "conditions", "title": "Inspect work-area conditions", "responseKind": "pass_fail", "required": true, "issueOnFailure": true },
+        { "key": "protection", "title": "Install required protection and controls", "responseKind": "confirm", "required": true },
+        { "key": "materials", "title": "Verify approved materials are on site", "responseKind": "pass_fail", "required": true, "issueOnFailure": true }
+      ]
+    },
+    {
+      "key": "trade-completion-handoff",
+      "programKey": "trade-execution",
+      "routineKind": "ad_hoc",
+      "revision": 1,
+      "title": "Trade completion handoff",
+      "instructions": "Leave completed work ready for superintendent review and the next trade.",
+      "estimatedMinutes": 15,
+      "requiredRoleKeys": ["trade-contractor"],
+      "requiredCompetencyKeys": ["project-documentation"],
+      "issueCategories": ["quality", "cleanup", "handoff"],
+      "steps": [
+        { "key": "quality", "title": "Complete trade quality check", "responseKind": "pass_fail", "required": true, "issueOnFailure": true },
+        { "key": "cleanup", "title": "Clear debris and stage remaining materials", "responseKind": "confirm", "required": true },
+        { "key": "handoff", "title": "Post handoff notes for the next activity", "responseKind": "text", "required": true, "maxLength": 800 }
+      ]
+    },
+    {
+      "key": "permit-document-review",
+      "programKey": "project-controls",
+      "routineKind": "ad_hoc",
+      "revision": 1,
+      "title": "Permit and document review",
+      "instructions": "Confirm the current approved documents are available before field work begins.",
+      "estimatedMinutes": 15,
+      "requiredRoleKeys": ["project-admin"],
+      "requiredCompetencyKeys": ["project-documentation"],
+      "issueCategories": ["permit", "drawing", "approval"],
+      "steps": [
+        { "key": "permit", "title": "Verify required permits are current", "responseKind": "pass_fail", "required": true, "issueOnFailure": true },
+        { "key": "drawings", "title": "Publish the current drawing set", "responseKind": "confirm", "required": true },
+        { "key": "distribution", "title": "Confirm affected teams received updates", "responseKind": "confirm", "required": true }
+      ]
+    },
+    {
+      "key": "change-order-checkpoint",
+      "programKey": "project-controls",
+      "routineKind": "ad_hoc",
+      "revision": 1,
+      "title": "Change-order checkpoint",
+      "instructions": "Verify scope, cost, schedule impact, and client authorization before changed work proceeds.",
+      "estimatedMinutes": 20,
+      "requiredRoleKeys": ["project-admin"],
+      "requiredCompetencyKeys": ["project-documentation"],
+      "issueCategories": ["scope", "budget", "approval"],
+      "steps": [
+        { "key": "scope", "title": "Confirm the revised scope is documented", "responseKind": "pass_fail", "required": true, "issueOnFailure": true },
+        { "key": "impact", "title": "Record cost and schedule impact", "responseKind": "confirm", "required": true },
+        { "key": "approval", "title": "Verify client authorization", "responseKind": "pass_fail", "required": true, "issueOnFailure": true }
+      ]
+    }
+  ],
+  "schedules": [
+    { "key": "morning-site-coordination", "templateKey": "morning-site-coordination", "rule": { "kind": "fixed_time", "localTime": "07:00", "weekdays": [1, 2, 3, 4, 5] }, "dueWindowMinutes": 30, "graceMinutes": 15, "enabled": true },
+    { "key": "end-of-day-site-log", "templateKey": "end-of-day-site-log", "rule": { "kind": "fixed_time", "localTime": "15:30", "weekdays": [1, 2, 3, 4, 5] }, "dueWindowMinutes": 45, "graceMinutes": 15, "enabled": true },
+    { "key": "pre-work-hazard-check", "templateKey": "pre-work-hazard-check", "rule": { "kind": "fixed_time", "localTime": "07:15", "weekdays": [1, 2, 3, 4, 5] }, "dueWindowMinutes": 30, "graceMinutes": 10, "enabled": true },
+    { "key": "trade-completion-handoff", "templateKey": "trade-completion-handoff", "rule": { "kind": "fixed_time", "localTime": "14:45", "weekdays": [1, 2, 3, 4, 5] }, "dueWindowMinutes": 60, "graceMinutes": 15, "enabled": true },
+    { "key": "permit-document-review", "templateKey": "permit-document-review", "rule": { "kind": "fixed_time", "localTime": "08:00", "weekdays": [1, 2, 3, 4, 5] }, "dueWindowMinutes": 60, "graceMinutes": 30, "enabled": true },
+    { "key": "change-order-checkpoint", "templateKey": "change-order-checkpoint", "rule": { "kind": "fixed_time", "localTime": "13:30", "weekdays": [1, 2, 3, 4, 5] }, "dueWindowMinutes": 90, "graceMinutes": 30, "enabled": true }
+  ],
+  "escalations": [
+    { "scheduleKey": null, "order": 1, "offsetMinutes": 0, "recipientRole": "eligible_staff", "channels": ["in_app", "push"] },
+    { "scheduleKey": null, "order": 2, "offsetMinutes": 30, "recipientRole": "location_manager", "channels": ["in_app", "push"] }
+  ],
+  "retention": {
+    "evidenceDays": 2555,
+    "issueDays": 2555,
+    "actorIdentityDays": 730
+  }
+}

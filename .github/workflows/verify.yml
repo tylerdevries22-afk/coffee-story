@@ -74,6 +74,18 @@ jobs:
         env:
           TZ: America/Denver
 
+      # The default workspace command exercises Coffee Story. This second
+      # matrix proves the other bundled tenant selects its own data and static
+      # artwork from the same checkout.
+      - name: Test both tenant guest apps explicitly
+        run: |
+          set -euo pipefail
+          for tenant in coffee-story stillpoint-builders; do
+            for app in customer kiosk; do
+              EXPO_PUBLIC_TENANT="$tenant" pnpm --filter "@platform/$app" test
+            done
+          done
+
       # Menu photographs are a design contract like tokens are, and nothing
       # enforced it before: 61 assets had drifted to a 5x spread in exposure
       # and were stored in a shape no render site actually used. This fails if
@@ -95,33 +107,23 @@ jobs:
       # The bundle is part of the gate. Lint and tsc both pass on code Metro
       # cannot resolve -- a missing asset or a bad platform-specific import
       # only shows up here.
-      - name: Bundle the customer app for iOS
-        working-directory: apps/customer
-        run: pnpm exec expo export --platform ios
-
-      - name: Bundle the customer app for web
-        working-directory: apps/customer
-        run: pnpm exec expo export --platform web
+      - name: Bundle both tenant guest apps for iOS and web
+        run: |
+          set -euo pipefail
+          for tenant in coffee-story stillpoint-builders; do
+            for app in customer kiosk; do
+              for platform in ios web; do
+                EXPO_PUBLIC_TENANT="$tenant" pnpm --filter "@platform/$app" exec expo export \
+                  --platform "$platform" --output-dir "dist-$tenant-$platform" --source-maps
+                pnpm exec tsx scripts/assert-tenant-bundle.ts --app "$app" --tenant "$tenant" \
+                  --output "apps/$app/dist-$tenant-$platform"
+              done
+            done
+          done
 
       - name: Bundle the operator app for iOS
         working-directory: apps/operator
         run: pnpm exec expo export --platform ios
-
-      # The kiosk and the display were in neither the lint list nor the bundle
-      # list: this workflow did not contain the word "kiosk" or "display" at
-      # all, so two of the five surfaces could break in a way only Metro or
-      # Next sees and CI would stay green. Both pass today -- this is a guard,
-      # not a repair.
-      - name: Bundle the kiosk for iOS
-        working-directory: apps/kiosk
-        run: pnpm exec expo export --platform ios
-
-      # Web too: the kiosk's static export is the surface
-      # scripts/capture-surfaces.mjs drives, so a broken web bundle silently
-      # turns every committed capture into an error page.
-      - name: Bundle the kiosk for web
-        working-directory: apps/kiosk
-        run: pnpm exec expo export --platform web
 
       - name: Build the pickup display
         run: pnpm --filter @platform/display build
@@ -502,7 +504,8 @@ jobs:
         run: |
           set -euo pipefail
           command -v psql >/dev/null || { echo '::error::psql is not on PATH.'; exit 1; }
-          latest=$(ls supabase/migrations/*.sql | tail -1 | xargs basename)
+          latest=$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' -print \
+            | sort | tail -1 | xargs basename)
           expected="${latest%%_*}"
           echo "newest migration: $latest (expects $expected)"
 

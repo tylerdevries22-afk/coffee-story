@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 300" role="img" aria-label="A flexible local business illustration">
+  <rect width="560" height="300" fill="#e7e9eb"/>
+  <rect x="36" y="40" width="488" height="222" rx="10" fill="#ccd4da"/>
+  <path d="M78 122h404L440 78H120z" fill="#f7f7f3" stroke="#18232c" stroke-width="8"/>
+  <path d="M94 122v112h372V122M176 234v-74h96v74M310 160h102v42H310z" fill="#e9ecec" stroke="#18232c" stroke-width="8"/>
+  <path d="M112 92h336" stroke="#496c82" stroke-width="14" stroke-linecap="round"/>
+  <circle cx="126" cy="216" r="11" fill="#9b633b"/><circle cx="438" cy="216" r="11" fill="#9b633b"/>
+</svg>

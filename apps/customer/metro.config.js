@@ -14,6 +14,7 @@ const { getDefaultConfig } = require('expo/metro-config');
 const { FileStore } = require('metro-cache');
 const { createHash } = require('node:crypto');
 const path = require('path');
+const { withTenantBundleResolver } = require('../../scripts/lib/tenant-bundle-resolver');
 
 const config = getDefaultConfig(__dirname);
 config.watchFolders = [path.resolve(__dirname, '../..')];
@@ -52,4 +53,4 @@ config.cacheStores = [
   }),
 ];
 
-module.exports = config;
+module.exports = withTenantBundleResolver(config, __dirname);

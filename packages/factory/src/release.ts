@@ -11,16 +11,35 @@ type ReleaseCheck = {
   approvedAt?: string;
   approvedBy?: string;
   evidenceUrl?: string;
+  releaseId?: string;
+  commitSha?: string;
+  artifactDigest?: string;
 };
 
 export type TenantReleaseManifest = {
-  schemaVersion: 1;
+  schemaVersion: 2;
   tenantSlug: string;
+  release: ReleaseBinding;
   expoGo: { appStoreSdk: number; checkedAt: string; sourceUrl: string };
   checks: Record<(typeof RELEASE_CHECKS)[number], ReleaseCheck>;
 };
 
+export type ReleaseBinding = {
+  releaseId: string;
+  commitSha: string;
+  artifactDigest: string;
+  createdAt: string;
+};
+
+export type ReleaseValidationContext = {
+  now?: Date;
+  expectedArtifactDigest?: string;
+};
+
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const RELEASE_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{7,127}$/;
+const COMMIT_SHA = /^[0-9a-f]{40}$/;
+const ARTIFACT_DIGEST = /^sha256:[0-9a-f]{64}$/;
 
 function evidenceUrl(value: unknown): boolean {
   if (typeof value !== 'string' || value.length > 500) return false;
@@ -33,6 +52,17 @@ function record(value: unknown): Record<string, unknown> | null {
     : null;
 }
 
+export function releaseBinding(value: unknown): ReleaseBinding | null {
+  const manifest = record(value);
+  const release = record(manifest?.release);
+  if (!release) return null;
+  const { releaseId, commitSha, artifactDigest, createdAt } = release;
+  return typeof releaseId === 'string' && typeof commitSha === 'string'
+    && typeof artifactDigest === 'string' && typeof createdAt === 'string'
+    ? { releaseId, commitSha, artifactDigest, createdAt }
+    : null;
+}
+
 /**
  * The EAS project ids a tenant actually needs, given the surfaces it ships.
  *
@@ -41,9 +71,10 @@ function record(value: unknown): Record<string, unknown> | null {
  * happened to the construction tenant, whose modules serve only `operator` and
  * `hq`. The check is per surface rather than universal.
  *
- * `surfaces` must be derived from the module registry, never from the tenant's
- * own declaration of which surfaces it serves: a tenant that could shrink its
- * surface list could shrink its way out of its own release gate.
+ * `surfaces` must come from a validated release plan that cross-checks the
+ * tenant's declared deployable surfaces against its enabled module registry
+ * requirements. That keeps the deployment matrix explicit without allowing a
+ * tenant to shrink its way out of its own release gate.
  *
  * Fail-closed is the caller's job. When the surface set cannot be determined,
  * pass all of them and both ids stay required.
@@ -71,14 +102,29 @@ export function easProjectIssues(identity: unknown, surfaces: Iterable<string>):
 export function releaseManifestIssues(
   value: unknown,
   expectedTenant: string,
-  now = new Date(),
+  input: Date | ReleaseValidationContext = {},
 ): string[] {
+  const context = input instanceof Date ? { now: input } : input;
+  const now = context.now ?? new Date();
   const manifest = record(value);
   if (!manifest) return ['Release manifest must be a JSON object.'];
   const issues: string[] = [];
-  if (manifest.schemaVersion !== 1) issues.push('Release manifest schemaVersion must be 1.');
+  if (manifest.schemaVersion !== 2) issues.push('Release manifest schemaVersion must be 2.');
   if (manifest.tenantSlug !== expectedTenant || !SLUG.test(expectedTenant)) {
     issues.push('Release manifest tenantSlug must match the requested tenant.');
+  }
+  const release = record(manifest.release);
+  const releaseId = typeof release?.releaseId === 'string' ? release.releaseId : '';
+  const commitSha = typeof release?.commitSha === 'string' ? release.commitSha : '';
+  const artifactDigest = typeof release?.artifactDigest === 'string' ? release.artifactDigest : '';
+  const createdAt = typeof release?.createdAt === 'string' ? Date.parse(release.createdAt) : NaN;
+  if (!RELEASE_ID.test(releaseId)) issues.push('Release evidence needs an immutable releaseId.');
+  if (!COMMIT_SHA.test(commitSha)) issues.push('Release evidence needs a full lowercase Git commit SHA.');
+  if (!ARTIFACT_DIGEST.test(artifactDigest)) issues.push('Release evidence needs a SHA-256 tenant artifact digest.');
+  if (Number.isNaN(createdAt) || createdAt > now.getTime()) issues.push('Release evidence needs a valid createdAt that is not in the future.');
+  if (context.expectedArtifactDigest && ARTIFACT_DIGEST.test(artifactDigest)
+    && artifactDigest !== context.expectedArtifactDigest) {
+    issues.push('Release evidence is stale: artifactDigest does not match the tenant artifact being deployed.');
   }
   const expoGo = record(manifest.expoGo);
   const checkedAt = typeof expoGo?.checkedAt === 'string' ? new Date(expoGo.checkedAt) : null;
@@ -103,6 +149,13 @@ export function releaseManifestIssues(
       || Number.isNaN(approvedAt) || approvedAt > now.getTime()
       || !evidenceUrl(check.evidenceUrl)) {
       issues.push(`${key} approval needs approvedBy, approvedAt, and an HTTPS evidenceUrl.`);
+    }
+    if (!Number.isNaN(createdAt) && !Number.isNaN(approvedAt) && approvedAt < createdAt) {
+      issues.push(`${key} approval predates this immutable release.`);
+    }
+    if (check.releaseId !== releaseId || check.commitSha !== commitSha
+      || check.artifactDigest !== artifactDigest) {
+      issues.push(`${key} evidence is not bound to this release, commit, and artifact.`);
     }
   }
   return issues;

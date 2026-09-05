@@ -1,4 +1,7 @@
 import type { OperatorTaskOccurrence } from './model';
+import { resolveActivityBoardConfig } from '@platform/domain';
+import { demoOperationsEnabled, SELECTED_DEMO_TENANT } from '@/data/demo-tenant';
+import { stillpointDemoOccurrences } from './stillpoint-demo';
 
 export const DEMO_OPERATIONS_BRAND_ID = '20000000-0000-4000-8000-000000000001';
 
@@ -11,7 +14,7 @@ export const DEMO_OPERATIONS_BRAND_ID = '20000000-0000-4000-8000-000000000001';
  * told the module is installed -- including one whose staff-context load
  * failed -- resolves false.
  */
-export const DEMO_OPERATIONS_ENABLED = true;
+export const DEMO_OPERATIONS_ENABLED = demoOperationsEnabled();
 const DEMO_LOCATION_IDS: Readonly<Record<string, string>> = {
   'loc-uptown': '20000000-0000-4000-8000-000000000002',
   'loc-downtown': '20000000-0000-4000-8000-000000000003',
@@ -28,6 +31,9 @@ function instant(now: Date, offsetMinutes: number): string {
 /** A tenant-neutral demo exercises due, upcoming, and training-blocked states. */
 export function demoOperationOccurrences(locationKey: string, now: Date): OperatorTaskOccurrence[] {
   const locationId = demoOperationLocationId(locationKey);
+  if (resolveActivityBoardConfig(SELECTED_DEMO_TENANT?.brandConfig).enabled) {
+    return stillpointDemoOccurrences(DEMO_OPERATIONS_BRAND_ID, locationId, now);
+  }
   return [
     {
       id: '20000000-0000-4000-8000-000000000010',
@@ -41,6 +47,7 @@ export function demoOperationOccurrences(locationKey: string, now: Date): Operat
       completedAt: null,
       completedBy: null,
       completionNote: '',
+      actorName: null,
       snapshot: {
         templateId: '20000000-0000-4000-8000-000000000020',
         templateKey: 'guest-area-hourly',
@@ -49,6 +56,7 @@ export function demoOperationOccurrences(locationKey: string, now: Date): Operat
         instructions: 'Place safety signage before beginning and reopen the area after the final check.',
         estimatedMinutes: 10,
         requiredRoleIds: ['floor-team'],
+        requiredRoleLabels: ['Floor team'],
         requiredCompetencyKeys: ['sanitation-basics'],
         issueCategories: ['hazard', 'fixture', 'supplies'],
         steps: [
@@ -73,6 +81,7 @@ export function demoOperationOccurrences(locationKey: string, now: Date): Operat
       completedAt: null,
       completedBy: null,
       completionNote: '',
+      actorName: null,
       snapshot: {
         templateId: '20000000-0000-4000-8000-000000000020',
         templateKey: 'guest-area-hourly',
@@ -81,6 +90,7 @@ export function demoOperationOccurrences(locationKey: string, now: Date): Operat
         instructions: 'Review the full checklist when the occurrence becomes due.',
         estimatedMinutes: 10,
         requiredRoleIds: ['floor-team'],
+        requiredRoleLabels: ['Floor team'],
         requiredCompetencyKeys: ['sanitation-basics'],
         issueCategories: ['hazard', 'fixture', 'supplies'],
         steps: [],
@@ -99,6 +109,7 @@ export function demoOperationOccurrences(locationKey: string, now: Date): Operat
       completedAt: null,
       completedBy: null,
       completionNote: '',
+      actorName: null,
       snapshot: {
         templateId: '20000000-0000-4000-8000-000000000021',
         templateKey: 'equipment-safety',
@@ -107,6 +118,7 @@ export function demoOperationOccurrences(locationKey: string, now: Date): Operat
         instructions: 'Complete the safety module before taking responsibility for this task.',
         estimatedMinutes: 5,
         requiredRoleIds: ['shift-lead'],
+        requiredRoleLabels: ['Shift lead'],
         requiredCompetencyKeys: ['equipment-safety'],
         issueCategories: ['equipment'],
         steps: [],

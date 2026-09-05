@@ -7,21 +7,36 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { alpha, tabState, AppIcon } from '@platform/ui';
 import { useAppState, type ClientTab, type StaffTab } from '@/state/app-context';
-import { CLIENT_TAB_LABELS } from '@/state/navigation-state';
+import { TENANT_CLIENT_EXPERIENCE } from '@/tenant/client-experience';
 import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 /** SF Symbol names, plus the one mark the app draws itself. */
 type NavIcon =
   | 'house' | 'calendar' | 'gift' | 'ellipsis' | 'sun.max' | 'person.2' | 'creditcard'
-  | 'cup';
+  | 'briefcase' | 'doc.text' | 'cup';
 
-const CLIENT_ITEMS: readonly { key: ClientTab; label: string; icon: NavIcon }[] = [
-  { key: 'home', label: CLIENT_TAB_LABELS.home, icon: 'house' },
-  { key: 'gift', label: CLIENT_TAB_LABELS.gift, icon: 'gift' },
-  { key: 'book', label: CLIENT_TAB_LABELS.book, icon: 'calendar' },
-  { key: 'rewards', label: CLIENT_TAB_LABELS.rewards, icon: 'cup' },
-  { key: 'more', label: CLIENT_TAB_LABELS.more, icon: 'ellipsis' },
-];
+function clientItems(): readonly { key: ClientTab; label: string; icon: NavIcon }[] {
+  const experience = TENANT_CLIENT_EXPERIENCE;
+  if (experience.kind === 'construction') return [
+    { key: 'home', label: experience.tabLabels.home, icon: 'house' },
+    { key: 'gift', label: experience.tabLabels.gift, icon: 'doc.text' },
+    { key: 'book', label: experience.tabLabels.book, icon: 'briefcase' },
+    { key: 'rewards', label: experience.tabLabels.rewards, icon: 'creditcard' },
+    { key: 'more', label: experience.tabLabels.more, icon: 'ellipsis' },
+  ];
+  if (experience.kind === 'base') return [
+    { key: 'home', label: experience.tabLabels.home, icon: 'house' },
+    { key: 'book', label: experience.tabLabels.book, icon: 'doc.text' },
+    { key: 'more', label: experience.tabLabels.more, icon: 'ellipsis' },
+  ];
+  return [
+    { key: 'home', label: experience.tabLabels.home, icon: 'house' },
+    { key: 'gift', label: experience.tabLabels.gift, icon: 'gift' },
+    { key: 'book', label: experience.tabLabels.book, icon: 'calendar' },
+    { key: 'rewards', label: experience.tabLabels.rewards, icon: 'cup' },
+    { key: 'more', label: experience.tabLabels.more, icon: 'ellipsis' },
+  ];
+}
 
 const STAFF_ITEMS: readonly { key: StaffTab; label: string; icon: NavIcon }[] = [
   { key: 'today', label: 'Today', icon: 'sun.max' },
@@ -43,7 +58,7 @@ export function BottomNav({
   const insets = useSafeAreaInsets();
   const { barCovered } = useAppState();
   const { clientTab, staffTab, setClientTab, setStaffTab } = useAppState();
-  const items = staff ? STAFF_ITEMS : CLIENT_ITEMS;
+  const items = staff ? STAFF_ITEMS : clientItems();
   const active = staff ? staffTab : clientTab;
 
   function select(key: ClientTab | StaffTab) {

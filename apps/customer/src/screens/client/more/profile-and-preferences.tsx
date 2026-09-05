@@ -263,7 +263,7 @@ export function Preferences({ onBack }: { onBack: () => void }) {
         await refresh();
       }
       setPreferences(next);
-      Alert.alert('Saved', 'The bar can see how you take your coffee.');
+      Alert.alert('Saved', 'The team can see your saved preferences.');
     } catch (error) {
       Alert.alert('Not saved', error instanceof Error ? error.message : 'Try again later.');
     } finally {

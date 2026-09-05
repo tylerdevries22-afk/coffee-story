@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Juniper Base Demo">
+  <rect width="512" height="512" rx="112" fill="#1C1917"/>
+  <path d="M164 144h184v48H212v90c0 57 28 84 84 84h52v48h-52c-88 0-132-44-132-132V144Z" fill="#FAFAF9"/>
+  <circle cx="326" cy="168" r="34" fill="#8A7350"/>
+</svg>

@@ -1,10 +1,8 @@
 /**
  * The console's data layer: every page asks here and cannot tell where the
  * answer came from. Unconfigured deployments (previews, `next build`, local
- * work with no env) get the demo fixtures; configured ones read real rows
- * under the signed-in user's RLS — the 0008 metric views for KPIs, the
- * tables for everything else. Each page changed exactly one import to move
- * from fixtures to this.
+ * work with no env) get demo fixtures; configured ones read real rows under
+ * the signed-in user's RLS. Each page imports this boundary.
  */
 import {
   DEMO_CAMPAIGNS,
@@ -48,13 +46,16 @@ import {
   type PointsRow,
 } from './live-mappers';
 import type { KioskMenuFacts } from '@platform/domain';
-
 import { DEMO_MULTI_LOCATION } from './capabilities';
 import { serverClient } from './supabase-server';
 import { selectedLocationId, selectedOrgId } from './workspace-location';
 import { scopeRowsToLocation } from './location-scope';
 import { demoLocationsFor } from './demo-locations';
 import { liveScope } from './live-scope';
+import { usesLaunchFixtures } from './demo-fixture-scope';
+async function demoFixture<T>(launch: T, neutral: T): Promise<T> {
+  return usesLaunchFixtures(await selectedOrgId(), DEMO_SESSION.brandId) ? launch : neutral;
+}
 
 function sevenDaysAgo(): string {
   const date = new Date();
@@ -71,7 +72,7 @@ async function locationNames(client: NonNullable<Awaited<ReturnType<typeof serve
 export async function loadKpis(): Promise<KpiDay[]> {
   const locationId = await selectedLocationId();
   const client = await serverClient();
-  if (!client) return scopeRowsToLocation(DEMO_KPIS, locationId);
+  if (!client) return demoFixture(scopeRowsToLocation(DEMO_KPIS, locationId), []);
   const scope = await liveScope(client);
   if (!scope.orgId || scope.locationIds.length === 0) return [];
   // The header location scopes the query itself when set, so the database
@@ -92,7 +93,7 @@ export async function loadKpis(): Promise<KpiDay[]> {
 
 export async function loadDrops(): Promise<DropSummary[]> {
   const client = await serverClient();
-  if (!client) return DEMO_DROPS;
+  if (!client) return demoFixture(DEMO_DROPS, []);
   const scope = await liveScope(client);
   if (!scope.orgId) return [];
   const [drops, performance, items] = await Promise.all([
@@ -124,7 +125,7 @@ export async function loadDrops(): Promise<DropSummary[]> {
 
 export async function loadMenu(): Promise<MenuItemSummary[]> {
   const client = await serverClient();
-  if (!client) return DEMO_MENU;
+  if (!client) return demoFixture(DEMO_MENU, []);
   const scope = await liveScope(client);
   if (!scope.orgId) return [];
   const [items, categories] = await Promise.all([
@@ -172,8 +173,7 @@ export async function loadMultiLocationEnabled(): Promise<boolean> {
 export async function loadLocations(): Promise<LocationSummary[]> {
   const client = await serverClient();
   if (!client) {
-    // Demo: the selected org's stores from the in-memory store, so a location
-    // added through the wizard shows up here for the rest of the session.
+    // The selected demo org's in-memory stores survive for the session.
     const orgId = (await selectedOrgId()) ?? DEMO_SESSION.brandId;
     return demoLocationsFor(orgId);
   }
@@ -214,16 +214,15 @@ export async function loadLocations(): Promise<LocationSummary[]> {
 /**
  * Every screen in the brand, newest first.
  *
- * Deliberately brand-wide rather than filtered to the caller's locations:
- * `devices_select` already admits any staff account brand-wide, so filtering
- * here would hide rows without protecting them, and an operator who cannot see
+ * Deliberately brand-wide: `devices_select` already admits staff brand-wide,
+ * and an operator who cannot see
  * the display at the other store cannot tell you it has stopped. What is
  * location-scoped is doing something to one -- that check lives in
  * lib/device-admin and runs on every write.
  */
 export async function loadDevices(): Promise<DeviceSummary[]> {
   const client = await serverClient();
-  if (!client) return DEMO_DEVICES;
+  if (!client) return demoFixture(DEMO_DEVICES, []);
   const scope = await liveScope(client);
   if (!scope.orgId || scope.locationIds.length === 0) return [];
   const [rows, names] = await Promise.all([
@@ -243,7 +242,7 @@ export async function loadDevices(): Promise<DeviceSummary[]> {
 
 export async function loadCampaigns(): Promise<CampaignSummary[]> {
   const client = await serverClient();
-  if (!client) return DEMO_CAMPAIGNS;
+  if (!client) return demoFixture(DEMO_CAMPAIGNS, []);
   const scope = await liveScope(client);
   if (!scope.orgId) return [];
   const rows = await client
@@ -258,7 +257,7 @@ export async function loadCampaigns(): Promise<CampaignSummary[]> {
 
 export async function loadCustomers(): Promise<CustomerSummary[]> {
   const client = await serverClient();
-  if (!client) return DEMO_CUSTOMERS;
+  if (!client) return demoFixture(DEMO_CUSTOMERS, []);
   const scope = await liveScope(client);
   if (!scope.orgId) return [];
   // RLS already narrows what this role may see (managers brand-wide, shift
@@ -289,7 +288,7 @@ export async function loadCustomers(): Promise<CustomerSummary[]> {
 export async function loadFees(): Promise<FeeRow[]> {
   const locationId = await selectedLocationId();
   const client = await serverClient();
-  if (!client) return scopeRowsToLocation(DEMO_FEES, locationId);
+  if (!client) return demoFixture(scopeRowsToLocation(DEMO_FEES, locationId), []);
   const scope = await liveScope(client);
   if (!scope.orgId || scope.locationIds.length === 0) return [];
   const base = client
@@ -305,8 +304,6 @@ export async function loadFees(): Promise<FeeRow[]> {
   if (rows.error) throw new Error(`platform_fees: ${rows.error.message}`);
   return feeRowsOf(rows.data ?? [], names);
 }
-
-
 export type KioskConfigView = {
   /** The raw `brand_config.kiosk`, or null when the brand has none. */
   kiosk: unknown;
@@ -339,15 +336,17 @@ export async function loadBrandConfig(): Promise<BrandConfigView> {
  * The kiosk flow, plus enough of the menu to validate it against.
  *
  * The menu is loaded because `resolveKioskFlow` drops a tile pointing at a
- * category that no longer exists -- the most likely way this config goes wrong,
- * and completely invisible to any check that only reads the config. Categories
+ * category that no longer exists. Categories
  * are keyed by TITLE because `menu_categories` (0003) has no slug and a uuid
  * differs per environment, so a title is the only thing a tenant file can name
  * a category by.
  */
 export async function loadKioskConfig(): Promise<KioskConfigView> {
   const client = await serverClient();
-  if (!client) return { kiosk: DEMO_KIOSK_FLOW, menu: DEMO_KIOSK_MENU, updatedAt: null };
+  if (!client) return demoFixture(
+    { kiosk: DEMO_KIOSK_FLOW, menu: DEMO_KIOSK_MENU, updatedAt: null },
+    { kiosk: null, menu: { categories: [], itemSlugs: [] }, updatedAt: null },
+  );
   const scope = await liveScope(client);
   if (!scope.orgId) throw new Error('brands: no tenant in scope');
 

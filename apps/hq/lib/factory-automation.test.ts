@@ -41,12 +41,17 @@ describe('parseBrandResearchArtifact', () => {
 });
 
 describe('buildFactoryApplicationManifest', () => {
-  it('always produces the five shared surfaces and a fail-closed release policy', () => {
+  it('preserves the declared surface matrix and a fail-closed release policy', () => {
     const manifest = buildFactoryApplicationManifest(
-      { businessName: 'Juniper Coffee', tenantSlug: 'juniper-coffee', industryKey: 'coffee-shop', locationName: 'Downtown' },
+      { businessName: 'Juniper Coffee', tenantSlug: 'juniper-coffee', industryKey: 'coffee-shop', locationName: 'Downtown', surfaces: ['hq', 'customer', 'operator'] },
       { summary: 'A sufficiently detailed public brand summary.', colors: ['#AABBCC', '#112233'], sources: [{ title: 'Official', url: 'https://example.com' }] },
     );
-    assert.deepEqual(manifest.surfaces, ['customer', 'operator', 'kiosk', 'display', 'hq']);
+    assert.deepEqual(manifest.surfaces, ['hq', 'customer', 'operator']);
+    assert.deepEqual(manifest.deployments, [
+      { surface: 'hq', web: true, native: false },
+      { surface: 'customer', web: true, native: true },
+      { surface: 'operator', web: true, native: true },
+    ]);
     assert.deepEqual(manifest.releasePolicy, { publishMode: 'atomic', failClosed: true, fallback: 'last_valid_release' });
   });
 });

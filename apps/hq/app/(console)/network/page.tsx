@@ -4,6 +4,7 @@ import { formatMoney } from '@/lib/kpi';
 import { loadNetworkReports, networkTotals } from '@/lib/network-reporting';
 
 import { revokeDelegatedAccessAction } from './actions';
+import { PendingEnrollmentReview } from './pending-enrollment-review';
 
 // The console is live data behind a session: never prerender a fixture
 // snapshot at build time and serve it as if it were today's numbers.
@@ -64,8 +65,21 @@ async function IssuedGrants({ brandId }: { brandId: string | null }) {
   );
 }
 
-export default async function NetworkPage() {
-  const [reports, session] = await Promise.all([loadNetworkReports(), currentSession()]);
+type Props = { searchParams: Promise<{ enrollment?: string }> };
+const ENROLLMENT_NOTICES: Record<string, string> = {
+  accepted: 'Agreement accepted. Network membership is now active.',
+  rejected: 'Enrollment declined. Network membership remains inactive.',
+  stale: 'That pending agreement is no longer available. The page has been refreshed.',
+  failed: 'The agreement response could not be saved. Try again.',
+  invalid: 'The agreement response was invalid. Review the invitation and try again.',
+  unauthorized: 'Only this brand’s owner can respond to its agreement.',
+  unavailable: 'Agreement responses are unavailable because Supabase is not configured.',
+};
+
+export default async function NetworkPage({ searchParams }: Props) {
+  const [reports, session, query] = await Promise.all([
+    loadNetworkReports(), currentSession(), searchParams,
+  ]);
   return (
     <>
       <h1>Network reporting</h1>
@@ -73,6 +87,17 @@ export default async function NetworkPage() {
         Orders and gross for the last 30 days, per brand, across the networks you administer or
         hold a live grant on. Counts and sums only — no order or guest record crosses a tenant.
       </p>
+      {query.enrollment && ENROLLMENT_NOTICES[query.enrollment] ? (
+        <div
+          className={query.enrollment === 'accepted' ? 'notice' : 'notice danger'}
+          role="status"
+        >
+          {ENROLLMENT_NOTICES[query.enrollment]}
+        </div>
+      ) : null}
+      {session?.brandId && hasRole(session, 'brand_owner') ? (
+        <PendingEnrollmentReview brandId={session.brandId} />
+      ) : null}
       {reports.length === 0 ? (
         <div className="notice">
           You are not a member of a franchise network, and no delegated network grant is currently

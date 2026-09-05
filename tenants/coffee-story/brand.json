@@ -1,4 +1,48 @@
 {
+  "schemaVersion": 1,
+  "organization": {
+    "kind": "independent"
+  },
+  "network": null,
+  "inheritance": {
+    "mode": "standalone",
+    "sourceTenantSlug": null,
+    "revision": 1,
+    "overrides": []
+  },
+  "surfaces": [
+    "customer",
+    "kiosk",
+    "operator",
+    "display",
+    "hq"
+  ],
+  "providers": [
+    {
+      "capability": "database",
+      "provider": "supabase",
+      "ownership": "platform",
+      "required": true
+    },
+    {
+      "capability": "identity",
+      "provider": "supabase-auth",
+      "ownership": "platform",
+      "required": true
+    },
+    {
+      "capability": "hosting",
+      "provider": "vercel",
+      "ownership": "platform",
+      "required": true
+    },
+    {
+      "capability": "payments",
+      "provider": "square",
+      "ownership": "organization",
+      "required": true
+    }
+  ],
   "$docs": {
     "status": "Placeholder palette (warm neutrals, deep espresso, brass accent) derived from the existing app's own tokens -- replace with the client's real brand once supplied. Fees are the platform default pending the signed agreement. Hours mirror src SHOP_HOURS (Sun-Thu 8-11pm, Fri-Sat 8-midnight)."
   },

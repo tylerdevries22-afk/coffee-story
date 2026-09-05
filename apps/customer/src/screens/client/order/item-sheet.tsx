@@ -202,7 +202,7 @@ function ItemSheetBody({
           <Text accessibilityRole="alert" style={styles.error}>
             {shortfall === 0
               ? `Your bag already holds ${MAX_LINE_QUANTITY} of these — the most we make to order. Call the shop for a larger run.`
-              : `Only ${shortfall} more would fit; ${MAX_LINE_QUANTITY} per drink is the most we make to order.`}
+              : `Only ${shortfall} more would fit; ${MAX_LINE_QUANTITY} per item is the most we make to order.`}
           </Text>
         ) : null}
       </ScrollView>

@@ -94,7 +94,11 @@ export async function resolveModuleKeys(
 export const activeModuleKeys = cache(
   async (brandId: string | null): Promise<ReadonlySet<string>> => {
     const client = await serverClient();
-    if (!client) return resolveModuleKeys(null, brandId);
+    if (!client) {
+      const { demoOrgById } = await import('./demo-orgs');
+      const created = brandId ? demoOrgById(brandId) : null;
+      return created ? new Set(created.moduleKeys) : resolveModuleKeys(null, brandId);
+    }
     return resolveModuleKeys(
       async (id) => client
         .from('module_installations')
@@ -122,6 +126,7 @@ export type ConsoleCapabilities = {
   readonly operations: boolean;
   readonly drops: boolean;
   readonly growth: boolean;
+  readonly knowledge: boolean;
 };
 
 /**
@@ -144,5 +149,6 @@ export function consoleCapabilitiesOf(moduleKeys: ReadonlySet<string>): ConsoleC
     operations: moduleKeys.has('workforce-operations'),
     drops: moduleKeys.has('growth-drops'),
     growth: GROWTH_MODULE_KEYS.some((key) => moduleKeys.has(key)),
+    knowledge: moduleKeys.has('workforce-training'),
   };
 }

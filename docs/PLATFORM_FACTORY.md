@@ -1,12 +1,20 @@
-# Platform factory: clone to live
+# Platform factory: infrastructure and release orchestration
 
 ![Platform factory flow](./assets/platform-factory-flow.svg)
 
-The canonical model is **one isolated GitHub/Supabase/Vercel stack per tenant brand**,
+_Target-state flow; the current automation boundary is documented below._
+
+The target model is **one isolated GitHub/Supabase/Vercel stack per tenant brand**,
 created from a shared, versioned industry blueprint. This gives each franchise a
 separate failure, billing, credential, and data boundary while shared packages and
 templates preserve one upgrade path. A materially different industry changes its
 blueprint and vocabulary, not the tenant-safe runtime contracts.
+
+The current implementation is not an arbitrary-intake, clone-to-live system. It can
+create or adopt the isolated provider resources, synchronize runtime configuration,
+and fail closed around immutable content and deployment evidence. It does not
+materialize a new tenant's source inputs or generated assets into the repository,
+commit or push them, or dispatch `bootstrap-tenant.yml`/`deploy-hosted.yml`.
 
 The HQ **Settings → Onboarding** page is the operator surface. It creates a private,
 idempotent run in hosted Supabase, exposes reviewed credential walkthroughs, and
@@ -14,29 +22,59 @@ advances through research, demo, access, infrastructure, content, canary, and li
 stages. Paid resources and external accounts are never created before the credential
 gate. Failed validation leaves the previous release active.
 
-## What is automated
+## What the factory currently automates
 
 1. Validate an industry blueprint and tenant intake.
-2. Research public brand facts and prepare draft assets with source/rights metadata.
-3. Build and verify a private five-surface demo.
-4. Pause for the human-owned account access that cannot legally be automated.
-5. Create or select the GitHub repository, Doppler project/configs, hosted Supabase
-   project, and five Vercel projects.
-6. Apply migrations, seed the tenant overlay, upload immutable media, and publish
-   catalog/training releases atomically.
-7. Verify customer → operator → pickup order propagation and HQ editing in canary.
-8. Promote only after all required gates pass; otherwise roll back to last known good.
+2. Research public brand facts and record brand/application manifests with source and
+   rights metadata; this does not generate or commit a runnable tenant source tree.
+3. Pause for the human-owned account access that cannot legally be automated.
+4. Create or adopt the GitHub repository, Doppler project/configs, hosted Supabase
+   project, and the declared Vercel surface projects.
+5. Synchronize and verify provider identities, deployment credentials, and Vercel
+   runtime configuration.
+6. Attest already-published catalog/training releases and wait for deployment evidence
+   bound to the same tenant, content digest, and commit.
+7. Record organization readiness and mark the run live only after a separately
+   executed deployment supplies valid canary and promotion evidence.
 
-The durable executor currently completes steps 1–5. It then records
-`content_bootstrap_required` and stops before any public release. Steps 6–8 remain in
-the persisted task graph so a partial run is visible and resumable, but they must not
-be represented as complete until the migration/seed, canary, and promotion executors
-are connected and verified.
+For a new tenant slug, a human or separate trusted automation must first add and review
+`tenants/<slug>/`, materialize the generated app assets, and commit those inputs to the
+generated repository. The target brand must also have authoritative published catalog
+and training releases. An operator must then dispatch the repository's bootstrap or
+deployment workflow. Until those inputs exist, the durable factory correctly stops at
+`content_bootstrap_required`; provider provisioning alone is not a live tenant.
+
+The durable executor checkpoints every completed task. It stops with
+`content_bootstrap_required` until valid `application`, `catalog`, and `training`
+artifact manifests exist, then resumes without repeating completed provider work.
+The content fingerprints are combined into one SHA-256 release digest and published
+atomically before the organization readiness RPC records `tenant_artifacts`.
+
+Canary and promotion are fail-closed attestations supplied by the deployment executor
+as a valid `deployment` artifact manifest. The manifest names the tenant, matching
+artifact digest, full Git commit SHA, canary status and provider reference, plus a
+promotion status/reference after promotion. A failed canary keeps the previous release
+active. Only a passed canary with promotion evidence completes `promote-live`, records
+`release_approval` through the service-role-only readiness RPC, and marks the factory
+run live. Platform administrators can resume blocked or failed runs from the HQ run
+list after the missing evidence is supplied.
+
+After application, catalog, and training content is authoritative, the factory writes
+its combined digest to the generated repository's `FACTORY_ARTIFACT_DIGEST` Actions
+variable. `deploy-hosted.yml` captures that value once, creates a new exact-checkout
+Vercel deployment with `githubCommitSha` and `factoryArtifactDigest` metadata, and
+checks the unique deployment URL before promotion. It uses Vercel's supported staged
+production flow (`deploy --prod --skip-domain`, then `promote`); `redeploy` is not used
+because it cannot attach the required metadata. Deployment ID, URL, commit, digest,
+and promotion state are emitted as provider evidence and independently re-read from
+Vercel by the factory before the release can become live.
+[Vercel staged production deployments](https://vercel.com/docs/cli/deploying-from-cli)
+and [`deploy --meta`](https://vercel.com/docs/cli/deploy#meta) document this flow.
 
 The workflow `.github/workflows/deploy-hosted.yml` accepts `tenant`, `project_prefix`,
 and `environment`. Coffee Story remains the default, so existing deployment commands
-keep working. New stacks use `<project_prefix>-hq`, `-customer`, `-operator`, `-kiosk`,
-and `-display`.
+keep working. Declared surfaces use the applicable `<project_prefix>-hq`, `-customer`,
+`-operator`, `-kiosk`, and `-display` project names.
 
 ## Secret architecture
 
@@ -229,8 +267,12 @@ connector installation, and release carries the tenant/brand boundary.
 
 - Create the private run in HQ and approve researched brand facts/media rights.
 - Verify each credential card; never paste secrets into notes or source files.
+- Materialize and review `tenants/<slug>/` and generated app assets in the generated
+  repository, then commit them; the factory does not perform this source mutation.
+- Publish the tenant's authoritative catalog and training releases in the target brand.
 - Run hosted migration dry-run, push, and remote schema lint.
-- Dispatch `deploy hosted surfaces` with the run's tenant and project prefix.
+- Manually dispatch `bootstrap-tenant.yml` (or `deploy-hosted.yml` for an already
+  bootstrapped database) with the run's tenant, project prefix, and project reference.
 - Verify the five-app wall, realtime order flow, catalog/training publication, RLS
   isolation, accessibility, error monitoring, and rollback.
 - Enable native publishing only after the client store accounts and legal agreements are

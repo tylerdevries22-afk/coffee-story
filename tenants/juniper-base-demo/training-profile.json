@@ -1,0 +1,14 @@
+{
+  "businessName": "Juniper Base Demo",
+  "industry": "General business services",
+  "locale": "en-US",
+  "website": "https://juniper-base.example",
+  "products": [],
+  "services": [],
+  "complianceTopics": [
+    "workplace safety",
+    "customer privacy",
+    "incident reporting"
+  ],
+  "brandVoice": "Clear, practical, welcoming, and concise"
+}

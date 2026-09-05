@@ -179,6 +179,128 @@ html, body {
 
 .ticket:last-child { border-bottom: none; }
 
+/* Stillpoint activity mode ------------------------------------------- */
+
+.display-activity {
+  background: var(--board-surface, #f4f6f8);
+}
+
+.activity-header > div { min-width: 0; }
+
+.activity-location {
+  margin: 0 0 0.55vh;
+  color: var(--board-ink-muted, #5a6b7a);
+  font-size: clamp(13px, 1.35vmin, 22px);
+  font-weight: 650;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.activity-feed {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+  gap: clamp(10px, 1.5vmin, 24px);
+  padding: clamp(16px, 2.4vmin, 40px) 2.6vw;
+}
+
+.activity-item {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: clamp(12px, 1.4vmin, 22px);
+  padding: clamp(14px, 1.8vmin, 28px);
+  border: 1px solid var(--board-line, #d7dee4);
+  border-left: clamp(4px, 0.5vmin, 8px) solid var(--board-accent, #4c7da6);
+  border-radius: var(--board-radius, 22px);
+  background: var(--board-raised, #fff);
+  box-shadow: 0 12px 32px color-mix(in srgb, var(--board-primary, #161b22) 8%, transparent);
+  animation: activity-enter var(--board-motion, 220ms) both cubic-bezier(0.22, 1, 0.36, 1);
+  animation-delay: calc(var(--activity-index, 0) * 45ms);
+}
+
+.activity-item[data-status='claimed'] { border-left-color: var(--board-warning, #9a5b24); }
+.activity-item[data-status='completed'] { border-left-color: var(--board-success, #3e6b4f); }
+
+.activity-avatar {
+  width: clamp(42px, 5.6vmin, 82px);
+  height: clamp(42px, 5.6vmin, 82px);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--board-primary, #161b22);
+  color: var(--board-raised, #fff);
+  font-family: var(--board-font-display, Georgia, serif);
+  font-size: clamp(16px, 2vmin, 30px);
+  letter-spacing: 0.03em;
+}
+
+.activity-copy { min-width: 0; display: grid; gap: 0.35em; }
+.activity-copy strong {
+  overflow: hidden;
+  color: var(--board-ink, #12181f);
+  font-family: var(--board-font-display, Georgia, serif);
+  font-size: clamp(19px, 2.35vmin, 36px);
+  line-height: 1.08;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.activity-copy small {
+  color: var(--board-ink-muted, #5a6b7a);
+  font-size: clamp(12px, 1.25vmin, 20px);
+}
+.activity-role {
+  color: var(--board-accent, #4c7da6);
+  font-size: clamp(11px, 1.1vmin, 18px);
+  font-weight: 750;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.activity-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55em;
+  color: var(--board-ink-muted, #5a6b7a);
+  font-size: clamp(12px, 1.25vmin, 20px);
+  white-space: nowrap;
+}
+.activity-status i {
+  width: 0.65em;
+  height: 0.65em;
+  border-radius: 50%;
+  background: var(--board-accent, #4c7da6);
+}
+.activity-item[data-status='claimed'] .activity-status i {
+  background: var(--board-warning, #9a5b24);
+  animation: activity-pulse 1.8s ease-in-out infinite;
+}
+.activity-item[data-status='completed'] .activity-status i {
+  background: var(--board-success, #3e6b4f);
+}
+
+@keyframes activity-enter {
+  from { opacity: 0; transform: translateY(14px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes activity-pulse {
+  0%, 100% { opacity: 0.5; transform: scale(0.85); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+
+@media (max-width: 760px) {
+  .activity-feed { grid-template-columns: 1fr; overflow-y: auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .activity-item, .activity-item[data-status='claimed'] .activity-status i {
+    animation: none;
+  }
+}
+
 /* The mark ------------------------------------------------------------- */
 
 /*

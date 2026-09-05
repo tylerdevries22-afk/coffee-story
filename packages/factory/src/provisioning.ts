@@ -13,13 +13,13 @@ const IANA_ZONE = /^[A-Za-z_]+(?:\/[A-Za-z0-9_+-]+)+$/;
 
 const TASKS = [
   task('research-brand', 'Research brand and source assets', 'intake', 'research', [], ['openai.api_key']),
-  task('generate-demo', 'Generate the five-app demo', 'demo', 'platform', ['research-brand']),
+  task('generate-demo', 'Generate the declared application demo', 'demo', 'platform', ['research-brand']),
   task('verify-demo', 'Verify cross-app demo behavior', 'demo', 'platform', ['generate-demo']),
   task('collect-credentials', 'Verify required provider access', 'credentials', 'platform', ['verify-demo']),
   task('create-github-repository', 'Create the industry repository', 'infrastructure', 'github', ['collect-credentials'], ['github.app']),
   task('create-doppler-project', 'Create scoped secret environments', 'infrastructure', 'doppler', ['create-github-repository'], ['doppler.service_token']),
   task('create-supabase-project', 'Create the hosted data project', 'infrastructure', 'supabase', ['create-doppler-project'], ['supabase.management_token']),
-  task('create-vercel-projects', 'Create and configure five Vercel projects', 'infrastructure', 'vercel', ['create-supabase-project'], ['vercel.token']),
+  task('create-vercel-projects', 'Create and configure declared Vercel projects', 'infrastructure', 'vercel', ['create-supabase-project'], ['vercel.token']),
   task('publish-content', 'Publish the validated catalog and training release', 'content', 'platform', ['create-vercel-projects']),
   task('verify-canary', 'Verify the hosted canary release', 'canary', 'vercel', ['publish-content']),
   task('promote-live', 'Promote the verified release', 'live', 'vercel', ['verify-canary']),

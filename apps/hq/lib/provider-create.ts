@@ -2,7 +2,7 @@
  * Retrying a provider create without duplicating what it made.
  *
  * The factory provisions a GitHub repository, a Doppler project, a Supabase
- * project and five Vercel projects, each with one POST. None of those providers
+ * project and the declared Vercel projects, each with one POST. None of those providers
  * accepts an Idempotency-Key header, so the workflow gives a POST a single
  * attempt: a blind retry risks two repositories or two billed Supabase
  * projects, which is worse than the failure it would paper over. The price of

@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  CLIENT_GOAL_OPTIONS,
+  STAFF_SPECIALTY_OPTIONS,
   initialSetupState,
   portalSetup,
   setupProgressPercent,
@@ -11,6 +13,7 @@ import {
   withRoleSetup,
 } from '@/features/setup/setup';
 import type { PortalBundle, RoleSetup, ClientSetupAnswers } from '@platform/domain';
+import { TENANT } from '@/tenant';
 
 function bundleWith(setup?: unknown): PortalBundle {
   return {
@@ -41,16 +44,16 @@ test('portalSetup fills defaults when the bundle has no setup', () => {
 
 test('portalSetup sanitizes hostile stored values', () => {
   const setup = portalSetup(bundleWith({
-    client: { status: 'root', step: 99, answers: { goals: ['Late-night hours', 'evil'], pressure: 'crushing', preferredTimes: 'no' } },
+    client: { status: 'root', step: 99, answers: { goals: [CLIENT_GOAL_OPTIONS[0], 'evil'], pressure: 'crushing', preferredTimes: 'no' } },
     admin: { status: 'completed', step: 2, answers: { businessName: 42, openDays: ['Mon', 'Funday'], menuConfirmed: 'yes' } },
   }));
   assert.equal(setup.client.status, 'not_started');
   assert.equal(setup.client.step, 2);
-  assert.deepEqual(setup.client.answers.goals, ['Late-night hours']);
+  assert.deepEqual(setup.client.answers.goals, [CLIENT_GOAL_OPTIONS[0]]);
   assert.equal(setup.client.answers.pressure, 'medium');
   assert.deepEqual(setup.client.answers.preferredTimes, []);
   assert.equal(setup.admin.status, 'completed');
-  assert.equal(setup.admin.answers.businessName, 'Coffee Story');
+  assert.equal(setup.admin.answers.businessName, TENANT.identity.name);
   assert.deepEqual(setup.admin.answers.openDays, ['Mon']);
   assert.equal(setup.admin.answers.menuConfirmed, false);
 });
@@ -60,7 +63,7 @@ test('withRoleSetup persists one role and leaves the others intact', () => {
   const staffSetup = {
     status: 'in_progress' as const,
     step: 1,
-    answers: { specialties: ['Espresso bar'], workingDays: ['Mon', 'Tue'] },
+    answers: { specialties: [STAFF_SPECIALTY_OPTIONS[0]], workingDays: ['Mon', 'Tue'] },
   };
   const next = withRoleSetup(portal, 'staff', staffSetup);
   assert.deepEqual(portalSetup(next).staff, staffSetup);

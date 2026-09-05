@@ -118,6 +118,7 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
     // installed the module manages nothing, and a brand that has installed it
     // still does not hand the rail to a barista.
     canManageOperations: canViewManagement && capabilities.operations,
+    canViewKnowledge: hasRole(session, 'staff') && capabilities.knowledge,
     canManageDrops: capabilities.drops,
     canManageCampaigns: capabilities.growth,
   });

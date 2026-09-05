@@ -21,6 +21,15 @@ describe('trackingView', () => {
   it('explains how a created pay-at-pickup order advances', () => {
     assert.match(trackingView('created').steps[0]?.detail ?? '', /counter/);
   });
+
+  it('uses project milestones without changing the shared status contract', () => {
+    const view = trackingView('in_progress', 'construction');
+    assert.equal(view.activeIndex, 2);
+    assert.equal(view.steps[2]?.title, 'Work in progress');
+    assert.match(view.steps[3]?.title ?? '', /Milestone/);
+    assert.doesNotMatch(view.steps.map((step) => `${step.title} ${step.detail}`).join(' '),
+      /coffee|counter|pickup|order/i);
+  });
 });
 
 describe('simulateProgress', () => {

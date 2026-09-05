@@ -106,7 +106,7 @@ describe('consoleCapabilitiesOf', () => {
 
   it('denies every console capability on a denied resolve', () => {
     assert.deepEqual(consoleCapabilitiesOf(new Set()), {
-      operations: false, drops: false, growth: false,
+      operations: false, drops: false, growth: false, knowledge: false,
     });
   });
 
@@ -115,5 +115,10 @@ describe('consoleCapabilitiesOf', () => {
     assert.equal(demo.operations, true);
     assert.equal(demo.drops, true);
     assert.equal(demo.growth, true);
+  });
+
+  it('gates knowledge on the shared knowledge and training capability', () => {
+    assert.equal(consoleCapabilitiesOf(new Set(['workforce-training'])).knowledge, true);
+    assert.equal(consoleCapabilitiesOf(new Set(['construction-projects'])).knowledge, false);
   });
 });

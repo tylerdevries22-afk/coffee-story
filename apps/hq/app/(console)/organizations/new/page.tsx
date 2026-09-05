@@ -1,43 +1,22 @@
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
+import { OrganizationOnboardingWizard } from '@/components/organization-onboarding-wizard';
 import { currentSession, hasRole } from '@/lib/auth';
-
-import { createOrganizationAction } from '../actions';
+import { connectorCardsOf, defaultConnectorCards } from '@/lib/integration-cards';
+import { serverClient } from '@/lib/supabase-server';
 
 export const dynamic = 'force-dynamic';
 
-type NewOrgPageProps = { searchParams: Promise<{ error?: string }> };
-
-export default async function NewOrganizationPage({ searchParams }: NewOrgPageProps) {
-  const [session, params] = await Promise.all([currentSession(), searchParams]);
-  // Adding a tenant to the platform is a platform-admin action; RLS agrees.
+export default async function NewOrganizationPage() {
+  const session = await currentSession();
   if (!session || !hasRole(session, 'platform_admin')) redirect('/');
+  const client = await serverClient();
+  const registry = await client?.from('connector_registry')
+    .select('id,provider_key,availability,is_active').eq('is_active', true);
+  const connectorCards = client
+    ? connectorCardsOf(registry?.data ?? [], [])
+    : defaultConnectorCards();
 
-  return (
-    <>
-      <h1>Create organization</h1>
-      <p className="subtitle">
-        Starts blank — a neutral theme and no copy until you brand it. You’ll add
-        the first location next, then connect Square and pair devices.
-      </p>
-      {params.error ? <div className="notice danger" role="status">{params.error}</div> : null}
-      <div className="card">
-        <form action={createOrganizationAction} className="location-form">
-          <label className="field">
-            Organization name
-            <input name="name" required maxLength={120} placeholder="e.g. Harbor Bakery" autoFocus />
-          </label>
-          <p className="muted">
-            Any industry — the handle is derived from the name, and the theme,
-            menu, and copy stay empty until you set them.
-          </p>
-          <div className="location-form-actions">
-            <Link href="/" className="button secondary">Cancel</Link>
-            <button type="submit" className="button">Create &amp; add first location</button>
-          </div>
-        </form>
-      </div>
-    </>
-  );
+  return <OrganizationOnboardingWizard idempotencyKey={crypto.randomUUID()}
+    ownerEmail={session.email} connectorCards={connectorCards} />;
 }

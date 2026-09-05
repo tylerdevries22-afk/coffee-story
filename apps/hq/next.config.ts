@@ -24,7 +24,10 @@ const config: NextConfig = {
   // build. Shared output can serve stale routes or missing chunks.
   distDir: process.env.NEXT_DIST_DIR ?? (process.env.NODE_ENV === 'development' ? '.next-dev' : '.next'),
   // Workspace packages ship TypeScript source; Next compiles them in place.
-  transpilePackages: ['@platform/schema', '@platform/domain', '@platform/engine', '@platform/api-client'],
+  transpilePackages: [
+    '@platform/schema', '@platform/domain', '@platform/engine', '@platform/api-client',
+    'franchise-mcp-store-ui',
+  ],
   // The workflow runtime loads its queue adapter by provider name. Keeping
   // that server-only graph external avoids webpack's dynamic-require warning
   // and lets Vercel provide the adapter at runtime without bundling it into
@@ -57,10 +60,9 @@ const config: NextConfig = {
       // The dashboard is a first-party device on the apps wall. It remains
       // unavailable to every other origin, but can render inside that wall.
       source: '/',
-      headers: securityHeaders({
-        developmentFrames: process.env.NODE_ENV !== 'production',
-        frameAncestors: ["'self'"],
-      }),
+      headers: process.env.NODE_ENV === 'production'
+        ? securityHeaders({ developmentFrames: false, frameAncestors: ["'self'"] })
+        : securityHeaders({ developmentFrames: true }),
     },
     {
       source: '/((?!api/|wall/preview/|$).*)',

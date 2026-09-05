@@ -1,7 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type PropsWithChildren } from 'react';
 
-import { MENU_ITEMS } from '@/data/catalog';
-import { DEMO_STAFF } from '@/data/demo';
+import { DEMO_OPERATOR_FIXTURES } from '@/data/demo-fixtures';
 import type {
   AdminQuickActionHandlers,
   AdminQuickActionSubmission,
@@ -13,15 +12,13 @@ import {
   withBusinessIdentity,
   type AdminSettingsState,
 } from '@/features/admin/admin-settings';
-import { resolvePickupLocations, taxCentsFor , requestKey , projectFirstVariants } from '@platform/domain';
+import { requestKey, resolvePickupLocations, taxCentsFor } from '@platform/domain';
 import { applyDemoBlockTime, applyDemoGuestNote } from '@/features/staff/dashboard';
 import { mobileApi } from '@/lib/mobile-api';
 import { useAppState } from '@/state/app-context';
 import { useAuth } from '@/state/auth-context';
 import { useBusiness } from '@/state/business';
 import type { OrderableItem, StaffDashboard } from '@platform/domain';
-
-import { DEMO_TAX_JURISDICTIONS } from '@/data/business';
 
 /**
  * Everything the staff workspace's screens used to reach through
@@ -54,12 +51,10 @@ type StaffWorkspaceState = {
 
 const StaffWorkspaceContext = createContext<StaffWorkspaceState | null>(null);
 
-const demoOrderableItems: OrderableItem[] = projectFirstVariants(MENU_ITEMS);
-
 export function StaffWorkspaceProvider({ children }: PropsWithChildren) {
   const { staffDetailPath } = useAppState();
   const { isDemo, brandName, liveLocations } = useAuth();
-  const [dashboard, setDashboard] = useState<StaffDashboard>(DEMO_STAFF);
+  const [dashboard, setDashboard] = useState<StaffDashboard>(DEMO_OPERATOR_FIXTURES.staffDashboard);
   const [liveOrderableItems, setLiveOrderableItems] = useState<OrderableItem[]>([]);
   // Demo only. The bundled catalogue is the launch shop's menu, and one
   // listing serves every tenant (rule 7), so standing it in whenever the live
@@ -67,7 +62,10 @@ export function StaffWorkspaceProvider({ children }: PropsWithChildren) {
   // does not sell -- against slugs its own menu has never heard of. An empty
   // list is the honest answer while the live catalogue has no schema behind
   // it; the screens say so rather than substituting.
-  const orderableItems = isDemo ? demoOrderableItems : liveOrderableItems;
+  const orderableItems = useMemo(
+    () => (isDemo ? [...DEMO_OPERATOR_FIXTURES.orderableItems] : liveOrderableItems),
+    [isDemo, liveOrderableItems],
+  );
 
   /**
    * The shops this signed-in brand collects from.
@@ -92,7 +90,7 @@ export function StaffWorkspaceProvider({ children }: PropsWithChildren) {
 
   const loadDashboard = useCallback(async () => {
     if (isDemo) {
-      setDashboard(DEMO_STAFF);
+      setDashboard(DEMO_OPERATOR_FIXTURES.staffDashboard);
       setLoading(false);
       return;
     }
@@ -216,7 +214,7 @@ export function StaffWorkspaceProvider({ children }: PropsWithChildren) {
       const item = orderableItems.find((entry) => entry.slug === submission.itemSlug);
       const placedAt = new Date(submission.startsAt);
       const priceCents = item?.priceCents ?? 0;
-      const taxCents = taxCentsFor(priceCents, DEMO_TAX_JURISDICTIONS);
+      const taxCents = taxCentsFor(priceCents, DEMO_OPERATOR_FIXTURES.taxJurisdictions);
       setDashboard((current) => ({
         ...current,
         orders: [...current.orders, {

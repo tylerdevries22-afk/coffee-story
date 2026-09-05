@@ -201,39 +201,57 @@ describe('franchise network write path', { skip: skipUnlessConfigured }, () => {
     }
   });
 
-  it('lends a brand only inside its network, only for 30 days', async () => {
-    const granted = await asPrincipal<{ grant_delegated_access: string }>(
+  it('lends a brand idempotently, only inside its network and for 30 days', async () => {
+    const idempotencyKey = randomUUID();
+    const [granted, replayed] = await asPrincipalSequence<{ grant_delegated_access: string }>(
       ownerClaims(brandOwner.userId, enrolledBrand),
-      `select public.grant_delegated_access($1, $2, $3, '{network:kpis}', now() + interval '10 days')`,
-      [networkId, enrolledBrand, stranger.userId],
+      [
+        {
+          text: `select public.grant_delegated_access(
+            $1, $2, $3, '{network:kpis}', now() + interval '10 days', $4)`,
+          params: [networkId, enrolledBrand, stranger.userId, idempotencyKey],
+        },
+        {
+          text: `select public.grant_delegated_access(
+            $1, $2, $3, '{network:kpis}', now() + interval '10 days', $4)`,
+          params: [networkId, enrolledBrand, stranger.userId, idempotencyKey],
+        },
+      ],
     );
-    assert.match(granted.rows[0]!.grant_delegated_access, /^[0-9a-f-]{36}$/);
+    const grantId = granted!.rows[0]!.grant_delegated_access;
+    assert.match(grantId, /^[0-9a-f-]{36}$/);
+    assert.equal(replayed!.rows[0]!.grant_delegated_access, grantId,
+      'replaying the same request returns the original grant');
 
     await refused(
       ownerClaims(brandOwner.userId, outsideBrand),
-      `select public.grant_delegated_access($1, $2, $3, '{network:kpis}', now() + interval '10 days')`,
-      [networkId, outsideBrand, stranger.userId],
+      `select public.grant_delegated_access(
+        $1, $2, $3, '{network:kpis}', now() + interval '10 days', $4)`,
+      [networkId, outsideBrand, stranger.userId, randomUUID()],
       '23514', /delegated_brand_outside_network/,
       'a grant over a brand the network never enrolled authorizes nothing',
     );
     await refused(
       ownerClaims(brandOwner.userId, enrolledBrand),
-      `select public.grant_delegated_access($1, $2, $3, '{network:kpis}', now() + interval '31 days')`,
-      [networkId, enrolledBrand, stranger.userId],
-      '22023', /invalid_delegated_expiry/,
-      'the table\'s 30-day ceiling is restated so the caller learns what it did wrong',
+      `select public.grant_delegated_access(
+        $1, $2, $3, '{network:kpis}', now() + interval '31 days', $4)`,
+      [networkId, enrolledBrand, stranger.userId, randomUUID()],
+      '22023', /invalid_delegated_grant/,
+      'the current grant contract rejects expiry outside its 30-day ceiling',
     );
     await refused(
       ownerClaims(brandOwner.userId, enrolledBrand),
-      `select public.grant_delegated_access($1, $2, $3, '{not a scope}', now() + interval '5 days')`,
-      [networkId, enrolledBrand, stranger.userId],
-      '22023', /invalid_delegated_scope/,
-      'a scope outside the grammar is refused before the CHECK sees it',
+      `select public.grant_delegated_access(
+        $1, $2, $3, '{not a scope}', now() + interval '5 days', $4)`,
+      [networkId, enrolledBrand, stranger.userId, randomUUID()],
+      '22023', /invalid_delegated_grant/,
+      'the current grant contract rejects a scope outside the grammar',
     );
     await refused(
       { sub: franchisor.userId },
-      `select public.grant_delegated_access($1, $2, $3, '{network:kpis}', now() + interval '5 days')`,
-      [networkId, enrolledBrand, stranger.userId],
+      `select public.grant_delegated_access(
+        $1, $2, $3, '{network:kpis}', now() + interval '5 days', $4)`,
+      [networkId, enrolledBrand, stranger.userId, randomUUID()],
       '42501', /brand_owner_required/,
       'the network that benefits from a grant may not issue itself one',
     );

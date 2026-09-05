@@ -1,12 +1,6 @@
 'use server';
 
-/**
- * Selecting an organization or location. Each is a plain server action so the
- * switcher works with no client JS: a menu row is a submit button that posts
- * its own id. The action re-establishes the session, re-authorizes the posted
- * id against the real set (never trusting the form), writes the cookie, and
- * revalidates the layout so the whole console re-themes and re-scopes.
- */
+/** Re-authorized workspace selection with a serializable client result. */
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 
@@ -25,57 +19,87 @@ import {
   workspaceCookieOptions,
 } from '@/lib/workspace-cookie';
 
-export async function selectOrganization(formData: FormData): Promise<void> {
-  const session = await currentSession();
-  if (!session) return;
-  const posted = String(formData.get('orgId') ?? '');
-  if (!isWorkspaceCookieValue(posted)) return;
-  const authorized = await authorizeOrganization(session, posted);
-  if (!authorized) return;
-  const audited = await recordPlatformAccess(session, {
-    action: 'workspace.organization.select',
-    brandId: authorized,
-    locationId: null,
-  });
-  if (!audited) return;
-  const store = await cookies();
-  store.set(ORG_COOKIE, authorized, workspaceCookieOptions());
-  // A location id only means something inside its owning org, so switching org
-  // drops the remembered location rather than carrying a now-foreign one.
-  store.set(LOCATION_COOKIE, '', expiredWorkspaceCookieOptions());
-  revalidatePath('/', 'layout');
+export type WorkspaceActionState =
+  | { readonly status: 'idle' }
+  | { readonly status: 'success'; readonly selectedId: string; readonly changed: boolean }
+  | { readonly status: 'error'; readonly message: string };
+
+const SESSION_ERROR = 'Your session expired. Sign in again.';
+const SWITCH_ERROR = 'We could not switch workspaces. Try again.';
+
+function failure(message: string): WorkspaceActionState {
+  return { status: 'error', message };
 }
 
-export async function selectLocation(formData: FormData): Promise<void> {
-  const session = await currentSession();
-  if (!session) return;
-  const store = await cookies();
-  // Re-authorize the remembered org exactly as the layout does. A stale
-  // cookie from an earlier session must not poison an otherwise valid choice.
-  const orgId = await selectedOrganizationId(session);
-  const posted = String(formData.get('locationId') ?? '');
-  // The empty value is the "All locations" row -- a valid choice that clears
-  // the scope rather than selecting one store.
-  if (posted === '') {
+function success(selectedId: string, changed: boolean): WorkspaceActionState {
+  return { status: 'success', selectedId, changed };
+}
+
+export async function selectOrganization(
+  _previous: WorkspaceActionState,
+  formData: FormData,
+): Promise<WorkspaceActionState> {
+  try {
+    const session = await currentSession();
+    if (!session) return failure(SESSION_ERROR);
+    const posted = String(formData.get('orgId') ?? '');
+    if (!isWorkspaceCookieValue(posted)) return failure('Choose a valid organization.');
+    const authorized = await authorizeOrganization(session, posted);
+    if (!authorized) return failure('That organization is no longer available.');
+
+    // Reselecting the current organization must not discard its location scope.
+    if (await selectedOrganizationId(session) === authorized) return success(authorized, false);
     const audited = await recordPlatformAccess(session, {
-      action: 'workspace.location.select',
-      brandId: orgId,
+      action: 'workspace.organization.select',
+      brandId: authorized,
       locationId: null,
     });
-    if (!audited) return;
+    if (!audited) return failure(SWITCH_ERROR);
+    const store = await cookies();
+    store.set(ORG_COOKIE, authorized, workspaceCookieOptions());
     store.set(LOCATION_COOKIE, '', expiredWorkspaceCookieOptions());
     revalidatePath('/', 'layout');
-    return;
+    return success(authorized, true);
+  } catch {
+    return failure(SWITCH_ERROR);
   }
-  if (!isWorkspaceCookieValue(posted) || !isWorkspaceCookieValue(orgId)) return;
-  const authorized = await authorizeLocation(session, orgId, posted);
-  if (!authorized) return;
-  const audited = await recordPlatformAccess(session, {
-    action: 'workspace.location.select',
-    brandId: orgId,
-    locationId: authorized,
-  });
-  if (!audited) return;
-  store.set(LOCATION_COOKIE, authorized, workspaceCookieOptions());
-  revalidatePath('/', 'layout');
+}
+
+export async function selectLocation(
+  _previous: WorkspaceActionState,
+  formData: FormData,
+): Promise<WorkspaceActionState> {
+  try {
+    const session = await currentSession();
+    if (!session) return failure(SESSION_ERROR);
+    const store = await cookies();
+    const orgId = await selectedOrganizationId(session);
+    const posted = String(formData.get('locationId') ?? '');
+    const current = store.get(LOCATION_COOKIE)?.value ?? '';
+    if (posted === '') {
+      if (current === '') return success('', false);
+      const audited = await recordPlatformAccess(session, {
+        action: 'workspace.location.select', brandId: orgId, locationId: null,
+      });
+      if (!audited) return failure(SWITCH_ERROR);
+      store.set(LOCATION_COOKIE, '', expiredWorkspaceCookieOptions());
+      revalidatePath('/', 'layout');
+      return success('', true);
+    }
+    if (!isWorkspaceCookieValue(posted) || !isWorkspaceCookieValue(orgId)) {
+      return failure('Choose a valid location.');
+    }
+    const authorized = await authorizeLocation(session, orgId, posted);
+    if (!authorized) return failure('That location is no longer available.');
+    if (current === authorized) return success(authorized, false);
+    const audited = await recordPlatformAccess(session, {
+      action: 'workspace.location.select', brandId: orgId, locationId: authorized,
+    });
+    if (!audited) return failure(SWITCH_ERROR);
+    store.set(LOCATION_COOKIE, authorized, workspaceCookieOptions());
+    revalidatePath('/', 'layout');
+    return success(authorized, true);
+  } catch {
+    return failure(SWITCH_ERROR);
+  }
 }

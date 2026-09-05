@@ -1,60 +1,83 @@
 {
-  "$comment": "The five surfaces, as the preview wall frames them. `launch` names the entry in .claude/launch.json that serves each one; `pnpm preview` fails if a port here disagrees with that file. width/height are the device viewport the surface is designed for -- the wall renders at that size and scales down, so a small tile still shows the layout the real device gets. span is how many of the wall's six grid columns the cell claims.",
+  "$comment": "Canonical device presets and five preview surfaces. The publisher resolves activeDevice from enabled tenant capabilities; the browser has no tenant-specific logic.",
+  "schemaVersion": 2,
+  "devicePresets": [
+    {
+      "id": "desktop",
+      "label": "Desktop",
+      "device": "Desktop",
+      "width": 1440,
+      "height": 900,
+      "frame": "desktop"
+    },
+    {
+      "id": "tablet",
+      "label": "Tablet",
+      "device": "Tablet landscape",
+      "width": 1180,
+      "height": 820,
+      "frame": "tablet"
+    },
+    {
+      "id": "mobile",
+      "label": "Mobile",
+      "device": "Mobile portrait",
+      "width": 390,
+      "height": 844,
+      "frame": "phone"
+    }
+  ],
   "surfaces": [
     {
       "launch": "display",
-      "name": "Pickup display",
-      "device": "wall TV",
+      "name": "Public display",
       "port": 3200,
       "path": "/board/demo",
-      "width": 1920,
-      "height": 1080,
-      "frame": "tv",
-      "span": 3
+      "span": 3,
+      "devices": ["desktop", "tablet", "mobile"],
+      "defaultDevice": "desktop",
+      "namePreferences": [
+        { "whenCapability": "construction-projects", "name": "Activity board" }
+      ]
     },
     {
       "launch": "hq",
       "name": "HQ console",
-      "device": "desktop",
       "port": 3300,
       "path": "/",
-      "width": 1440,
-      "height": 900,
-      "frame": "desktop",
-      "span": 3
+      "span": 3,
+      "devices": ["desktop", "tablet", "mobile"],
+      "defaultDevice": "desktop"
     },
     {
       "launch": "kiosk-web",
       "name": "Kiosk / POS",
-      "device": "iPad landscape",
       "port": 4180,
       "path": "/",
-      "width": 1180,
-      "height": 820,
-      "frame": "tablet",
-      "span": 2
+      "span": 2,
+      "devices": ["desktop", "tablet", "mobile"],
+      "defaultDevice": "tablet"
     },
     {
       "launch": "operator-web",
       "name": "Operator",
-      "device": "iPad landscape",
       "port": 4191,
       "path": "/",
-      "width": 1180,
-      "height": 820,
-      "frame": "tablet",
-      "span": 2
+      "span": 2,
+      "devices": ["desktop", "tablet", "mobile"],
+      "defaultDevice": "tablet",
+      "devicePreferences": [
+        { "whenCapability": "construction-projects", "device": "mobile" }
+      ]
     },
     {
       "launch": "customer-web",
       "name": "Customer",
-      "device": "iPhone",
       "port": 4170,
       "path": "/",
-      "width": 390,
-      "height": 844,
-      "frame": "phone",
-      "span": 2
+      "span": 2,
+      "devices": ["desktop", "tablet", "mobile"],
+      "defaultDevice": "mobile"
     }
   ]
 }

@@ -34,6 +34,9 @@ const OPERATOR = join(ROOT, 'apps', 'operator', 'src');
  * their live planes.
  */
 const DIVERGENT_BY_DESIGN = [
+  // The customer web shell owns install metadata and its compiled tenant;
+  // the shared staff operator shell stays intentionally minimal before login.
+  'app/+html.tsx',
   'app/_layout.tsx',
   'app/index.tsx',
   'app/notifications.tsx',

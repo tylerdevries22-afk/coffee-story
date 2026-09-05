@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Stillpoint Builders</title>
+  <desc id="desc">A steel blue SB monogram framed by a building outline.</desc>
+  <rect width="512" height="512" rx="96" fill="#161B22"/>
+  <path d="M108 388V188l148-88 148 88v200" fill="none" stroke="#4C7DA6" stroke-width="26" stroke-linejoin="round"/>
+  <path d="M162 388V238h188v150M256 238v150" fill="none" stroke="#F4F6F8" stroke-width="22" stroke-linejoin="round"/>
+  <path d="M194 318h124" fill="none" stroke="#4C7DA6" stroke-width="18" stroke-linecap="round"/>
+  <text x="256" y="458" fill="#F4F6F8" font-family="Arial, sans-serif" font-size="52" font-weight="700" text-anchor="middle" letter-spacing="12">SB</text>
+</svg>

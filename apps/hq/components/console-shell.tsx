@@ -116,7 +116,6 @@ export function ConsoleShell(props: ConsoleShellProps) {
       <ConsoleTopbar
         section={activeSection}
         brandName={props.brandName}
-        initials={props.initials}
         dataMode={props.dataMode}
         compact={compact}
         mobile={mobileNav}

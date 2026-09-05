@@ -12,7 +12,6 @@ import { Icon } from './icon';
 type ConsoleTopbarProps = {
   readonly section: ConsoleSection;
   readonly brandName: string;
-  readonly initials: string;
   readonly dataMode: 'hosted' | 'preview';
   readonly compact: boolean;
   readonly mobile: boolean;
@@ -51,23 +50,20 @@ export function ConsoleTopbar(props: ConsoleTopbarProps) {
           aria-expanded={navigationExpanded}
           aria-label={navigationLabel}
         >
-          <span aria-hidden="true">{props.initials.charAt(0)}</span>
+          <Icon name={props.mobile ? 'menu' : 'panel'} size={19} />
         </Button>
         <nav className="hq-topbar-context" aria-label="Workspace context">
           {props.orgSwitcher ? (
             <Fragment key="organization-switcher">{props.orgSwitcher}</Fragment>
           ) : <strong className="hq-topbar-brand">{props.brandName}</strong>}
+          {props.locationSwitcher ? (
+            <Fragment key="location-switcher">{props.locationSwitcher}</Fragment>
+          ) : null}
           <span className="hq-topbar-divider" aria-hidden="true">/</span>
           <Link href={props.section.home} className="hq-topbar-section">
             {props.section.title}
             <Icon name="chevron" size={14} />
           </Link>
-          {props.locationSwitcher ? (
-            <>
-              <span className="hq-topbar-divider" aria-hidden="true">/</span>
-              <Fragment key="location-switcher">{props.locationSwitcher}</Fragment>
-            </>
-          ) : null}
         </nav>
       </div>
 

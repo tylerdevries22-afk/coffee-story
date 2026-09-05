@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 2,
+  "tenantSlug": "juniper-base-demo",
+  "release": {
+    "releaseId": "",
+    "commitSha": "",
+    "artifactDigest": "",
+    "createdAt": ""
+  },
+  "expoGo": {
+    "appStoreSdk": 54,
+    "checkedAt": "2026-08-31T00:00:00.000Z",
+    "sourceUrl": "https://docs.expo.dev/versions/v54.0.0/"
+  },
+  "checks": {
+    "productionCredentials": { "status": "pending" },
+    "providerAccounts": { "status": "pending" },
+    "legalAndPrivacy": { "status": "pending" },
+    "storeListings": { "status": "pending" },
+    "commercialConfiguration": { "status": "pending" }
+  }
+}

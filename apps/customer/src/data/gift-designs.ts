@@ -1,13 +1,15 @@
-import birthdayCake from '../../assets/gift/birthday-cake.webp';
-import birthdayConfetti from '../../assets/gift/birthday-confetti.webp';
-import congratsBloom from '../../assets/gift/congrats-bloom.webp';
-import congratsGold from '../../assets/gift/congrats-gold.webp';
-import grateful from '../../assets/gift/grateful.webp';
-import healingOil from '../../assets/gift/healing-oil.webp';
-import quietHour from '../../assets/gift/quiet-hour.webp';
-import thankYou from '../../assets/gift/thank-you.webp';
-
 import { TENANT } from '@/tenant';
+import { TENANT_MEDIA } from '@/tenants/media';
+
+const art = TENANT_MEDIA.artwork;
+const birthdayCake = art['gift/birthday-cake.webp'];
+const birthdayConfetti = art['gift/birthday-confetti.webp'];
+const congratsBloom = art['gift/congrats-bloom.webp'];
+const congratsGold = art['gift/congrats-gold.webp'];
+const grateful = art['gift/grateful.webp'];
+const healingOil = art['gift/healing-oil.webp'];
+const quietHour = art['gift/quiet-hour.webp'];
+const thankYou = art['gift/thank-you.webp'];
 
 export type GiftDesign = {
   /** Persisted on the gift card, so these keys must stay stable. */

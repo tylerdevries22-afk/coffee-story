@@ -9,9 +9,10 @@ import { databaseHealthy } from '../../../lib/deep-health';
  * dependency rather than accepting a redirect to the login page as healthy.
  */
 export async function GET(request: Request): Promise<Response> {
-  const body: HealthResponse = {
+  const body: HealthResponse & { tenant: string } = {
     ok: true,
     version: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 12) ?? 'dev',
+    tenant: process.env.TENANT ?? '',
   };
   const deep = new URL(request.url).searchParams.get('deep') === '1';
   if (!deep) return jsonWithCors(body);

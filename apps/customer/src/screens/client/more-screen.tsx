@@ -160,21 +160,21 @@ export function MoreScreen() {
 
       <SectionTitle>General</SectionTitle>
       <PillRow
-        title="Menu & pricing"
-        subtitle="Every drink, size, and extra"
+        title="Catalog & pricing"
+        subtitle="Every item, option, and extra"
         symbol="heart"
         onPress={() => openMore('menu-prices')}
       />
-      <PillRow title="Shop location & hours" subtitle={`${BUSINESS.street}, ${BUSINESS.cityLine}`} symbol="calendar" onPress={() => openMore('location')} />
-      <PillRow title="Our story & brewing guides" symbol="doc.text" onPress={() => openMore('resources')} />
+      <PillRow title="Location & hours" subtitle={`${BUSINESS.street}, ${BUSINESS.cityLine}`} symbol="calendar" onPress={() => openMore('location')} />
+      <PillRow title="Guides & resources" symbol="doc.text" onPress={() => openMore('resources')} />
       {tenantFeature('drops') ? (
         <PillRow title="Drops" subtitle="Limited runs, past and present" symbol="clock.arrow.circlepath" onPress={() => openMore('drops')} />
       ) : null}
       {tenantFeature('catering') ? (
-        <PillRow title="Catering" subtitle="Carafes and pastry boxes for events" symbol="calendar" onPress={() => openMore('catering')} />
+        <PillRow title="Catering" subtitle="Event service and group options" symbol="calendar" onPress={() => openMore('catering')} />
       ) : null}
       {tenantFeature('referrals') ? (
-        <PillRow title="Refer a friend" subtitle="A free drink for you both" symbol="heart" onPress={() => openMore('referrals')} />
+        <PillRow title="Refer a friend" subtitle="A reward for you both" symbol="heart" onPress={() => openMore('referrals')} />
       ) : null}
       {/* Domains the live plane does not serve yet stay demo-only: the live
           bundle omits their keys, so these rows only render with data behind

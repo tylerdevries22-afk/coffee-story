@@ -50,4 +50,27 @@ describe('provider request builders', () => {
     assert.equal(projects[0]?.framework, 'nextjs');
     assert.equal(projects[2]?.framework, null);
   });
+
+  it('creates all declared projects for the Stillpoint construction tenant', () => {
+    const projects = vercelProjectSpecifications(
+      'stillpoint-builders',
+      'platform-owner/stillpoint-builders',
+      ['hq', 'display', 'customer', 'operator', 'kiosk'],
+    );
+    assert.deepEqual(projects.map((project) => project.name), [
+      'stillpoint-builders-hq',
+      'stillpoint-builders-display',
+      'stillpoint-builders-customer',
+      'stillpoint-builders-operator',
+      'stillpoint-builders-kiosk',
+    ]);
+  });
+
+  it('rejects unsupported, duplicate, or API-less surface declarations', () => {
+    assert.throws(() => vercelProjectSpecifications('tenant', 'owner/tenant', ['operator']), /HQ API/);
+    assert.throws(
+      () => vercelProjectSpecifications('tenant', 'owner/tenant', ['hq', 'hq']),
+      /unique supported/,
+    );
+  });
 });

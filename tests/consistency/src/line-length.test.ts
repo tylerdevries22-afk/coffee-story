@@ -47,7 +47,7 @@ function counted(name: string): boolean {
 function sourceFiles(dir: string): string[] {
   const found: string[] = [];
   for (const entry of readdirSync(dir)) {
-    if (SKIP_DIRS.has(entry)) continue;
+    if (SKIP_DIRS.has(entry) || entry.startsWith('.next-')) continue;
     const full = join(dir, entry);
     if (statSync(full).isDirectory()) found.push(...sourceFiles(full));
     else if (counted(entry)) found.push(full);

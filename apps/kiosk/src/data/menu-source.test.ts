@@ -10,15 +10,18 @@ describe('demoMenu', () => {
     assert.equal(demoMenu().items.length, MENU_ITEMS.length);
   });
 
-  it('carries the generated tenant option groups onto kiosk items', () => {
-    const item = demoMenu().items.find((candidate) => candidate.id === 'tiramisu-latte');
-    assert.ok(item);
-    assert.ok(item.optionGroups.some((group) => group.id === 'serve'));
-    assert.ok(item.optionGroups.some((group) => group.id === 'ice'));
+  it('carries every generated tenant option contract onto kiosk items', () => {
+    const items = demoMenu().items;
+    assert.deepEqual(
+      items.map((item) => item.optionGroups),
+      MENU_ITEMS.map((item) => item.optionGroups),
+    );
   });
 
   it('keeps an explicit empty option contract empty', () => {
-    const item = demoMenu().items.find((candidate) => candidate.id === 'strawberry-nutella-croissant');
+    const empty = MENU_ITEMS.find((candidate) => candidate.optionGroups.length === 0);
+    assert.ok(empty, 'the selected tenant needs one simple service to cover this path');
+    const item = demoMenu().items.find((candidate) => candidate.id === empty.id);
     assert.ok(item);
     assert.deepEqual(item.optionGroups, []);
   });

@@ -120,6 +120,7 @@ export async function grantDelegatedAccessAction(formData: FormData): Promise<vo
   const networkId = uuidField(formData, 'networkId', 'A network');
   const brandId = uuidField(formData, 'brandId', 'A brand');
   const granteeUserId = uuidField(formData, 'granteeUserId', 'A grantee');
+  const idempotencyKey = uuidField(formData, 'idempotencyKey', 'A request');
   const scope = scopeField(formData);
   const expiresAt = expiresAtField(formData);
   const client = await networkClient();
@@ -127,6 +128,7 @@ export async function grantDelegatedAccessAction(formData: FormData): Promise<vo
     p_brand_id: brandId,
     p_expires_at: expiresAt,
     p_grantee_user_id: granteeUserId,
+    p_idempotency_key: idempotencyKey,
     p_network_id: networkId,
     p_scope: scope,
   });

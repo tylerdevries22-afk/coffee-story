@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { appPreviewFor, appPreviewsFor } from './app-previews';
+import { appPreviewFor, appPreviewsFor, defaultPreviewDevice, previewForDevice } from './app-previews';
 
 describe('appPreviewFor', () => {
   it('uses the documented local five-surface URLs during development', () => {
@@ -44,5 +44,19 @@ describe('appPreviewFor', () => {
     assert.equal(appPreviewFor('display', {
       ...production, NEXT_PUBLIC_DISPLAY_URL: 'https://user:secret@display.example.com',
     }).url, null);
+  });
+
+  it('reframes an app without changing its source URL', () => {
+    const preview = appPreviewFor('operator', { NODE_ENV: 'development' });
+    const mobile = previewForDevice(preview, 'mobile');
+    assert.equal(mobile.frame, 'phone');
+    assert.deepEqual(mobile.viewport, { width: 390, height: 844 });
+    assert.equal(mobile.url, preview.url);
+  });
+
+  it('defaults a construction operator to mobile', () => {
+    assert.equal(defaultPreviewDevice('operator', true), 'mobile');
+    assert.equal(defaultPreviewDevice('operator', false), 'tablet');
+    assert.equal(defaultPreviewDevice('customer', true), 'mobile');
   });
 });

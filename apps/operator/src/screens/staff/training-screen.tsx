@@ -9,7 +9,7 @@ import { operatorLayout } from '@/lib/responsive-layout';
 import { useTrainingRelease } from '@/features/training/use-training-release';
 import { useBusiness } from '@/state/business';
 import { useAppTokens, type AppTokens, AppIcon } from '@platform/ui';
-import { isCoreTrainingTrack, TRAINING_TRACK_ORDER, type TrainingTrackKey } from '@platform/domain';
+import { completionReport, isConstructionTrainingProfile, isCoreTrainingTrack, remindersFor, TRAINING_TRACK_ORDER, type TrainingAssignment, type TrainingTrackKey } from '@platform/domain';
 
 const TRACK_LABELS: Record<TrainingTrackKey, string> = {
   knowledge: 'Knowledge', skills: 'Skills', service: 'Service', safety: 'Safety', operations: 'Operations',
@@ -23,8 +23,20 @@ export function TrainingScreen() {
   const { width, height } = useWindowDimensions();
   const layout = operatorLayout(width, height);
   const business = useBusiness();
-  const { release, loading, error, isDemo } = useTrainingRelease();
+  const { release, profile, loading, error, isDemo } = useTrainingRelease();
   const tracks = useMemo(() => release?.manifest.tracks ?? [], [release]);
+  const construction = isConstructionTrainingProfile(profile);
+  const demoAssignments = useMemo<TrainingAssignment[]>(() => construction ? [
+    { trackSlug: 'safety', lessonSlug: 'incident-response', role: 'staff', trade: 'foreman', status: 'complete', completedAt: '2026-08-30', certificationExpiresAt: '2026-09-20' },
+    { trackSlug: 'field-skills', lessonSlug: 'pre-task-plan', role: 'staff', trade: 'field_crew', status: 'in_progress' },
+    { trackSlug: 'operations', lessonSlug: 'daily-log-and-handoff', role: 'staff', trade: 'superintendent', status: 'complete', completedAt: '2026-09-02', signedOffAt: '2026-09-02', signedOffBy: 'Maya Chen' },
+  ] : [
+    { trackSlug: 'knowledge', lessonSlug: 'menu-fluency', role: 'staff', trade: 'barista', status: 'complete', completedAt: '2026-09-02', signedOffAt: '2026-09-02', signedOffBy: 'Maya Chen' },
+    { trackSlug: 'skills', lessonSlug: 'espresso-execution', role: 'staff', trade: 'barista', status: 'in_progress' },
+    { trackSlug: 'safety', lessonSlug: 'chemicals-and-incidents', role: 'staff', trade: 'barista', status: 'complete', completedAt: '2026-08-30', certificationExpiresAt: '2026-09-20' },
+  ], [construction]);
+  const report = useMemo(() => completionReport(demoAssignments, new Date('2026-09-04')), [demoAssignments]);
+  const reminders = useMemo(() => remindersFor(demoAssignments, new Date('2026-09-04')), [demoAssignments]);
   // One lookup on one key. This used to match trackKey OR slug and then list
   // anything without a trackKey as additional, so a track could appear twice.
   const coreTracks = useMemo(() => TRAINING_TRACK_ORDER.map((slug) => tracks.find((track) => track.slug === slug)), [tracks]);
@@ -68,17 +80,18 @@ export function TrainingScreen() {
         {!loading && !error && !isDemo && !release ? (
           <StatusCard title="Curriculum is being prepared" detail="This tenant has no published release yet. HQ can research, validate, and publish the first curriculum." />
         ) : null}
-        {isDemo ? <TrainingSection title="Weekly Training"><TrainingCard title="This week" subtitle="2 tracks assigned" progress={50} /></TrainingSection> : null}
+        {isDemo ? <TrainingSection title="Demo training progress"><TrainingCard title={construction ? 'Field operations path' : 'Barista path'} subtitle={`Preview only · ${report.completed} of ${report.total} complete · ${reminders.length} follow-ups`} demoProgress={report.percent} /></TrainingSection> : null}
+        {isDemo && construction ? <TrainingSection title="Demo curriculum preview"><TrainingCard title={`${business.name || 'Your workspace'} construction curriculum`} subtitle="Preview only · site safety, field skills, and project handoffs" demoProgress={report.percent} onPress={() => router.push('/staff/training/operations' as Href)} /></TrainingSection> : null}
         {release ? (
           <>
           <TrainingSection title="Core Training">
             {coreTracks.map((track, index) => {
               const trackKey = TRAINING_TRACK_ORDER[index] ?? 'knowledge';
               const slug = track?.slug ?? trackKey;
-              return <TrainingCard key={slug} title={track?.title || TRACK_LABELS[trackKey]} subtitle={track ? `${track.lessons.length} lessons` : 'No lessons published yet'} progress={0} onPress={() => router.push(`/staff/training/${encodeURIComponent(slug)}` as Href)} />;
+              return <TrainingCard key={slug} title={track?.title || TRACK_LABELS[trackKey]} subtitle={track ? `${track.lessons.length} lessons` : 'No lessons published yet'} onPress={() => router.push(`/staff/training/${encodeURIComponent(slug)}` as Href)} />;
             })}
           </TrainingSection>
-          {tenantTracks.length > 0 ? <TrainingSection title="Additional training">{tenantTracks.map((track) => <TrainingCard key={track.slug} title={track.title} subtitle={`${track.lessons.length} lessons`} progress={0} onPress={() => router.push(`/staff/training/${encodeURIComponent(track.slug)}` as Href)} />)}</TrainingSection> : null}
+          {tenantTracks.length > 0 ? <TrainingSection title="Additional training">{tenantTracks.map((track) => <TrainingCard key={track.slug} title={track.title} subtitle={`${track.lessons.length} lessons`} onPress={() => router.push(`/staff/training/${encodeURIComponent(track.slug)}` as Href)} />)}</TrainingSection> : null}
           </>
         ) : null}
       </ScrollView>
@@ -105,11 +118,14 @@ function TrainingSection({ title, children }: { title: string; children: React.R
   return <View style={styles.section}><Text style={styles.sectionTitle}>{title}</Text>{children}</View>;
 }
 
-function TrainingCard({ title, subtitle, progress, onPress }: { title: string; subtitle: string; progress: number; onPress?: () => void }) {
+function TrainingCard({ title, subtitle, demoProgress, onPress }: { title: string; subtitle: string; demoProgress?: number; onPress?: () => void }) {
   const { colors, styles } = useTrainingTheme();
+  const accessibilityLabel = demoProgress === undefined
+    ? `${title}. ${subtitle}`
+    : `${title}, demo progress ${demoProgress}%`;
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={`${title}, ${progress}% complete`} onPress={onPress} style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
-      <ProgressRing progress={progress} />
+    <Pressable accessibilityRole="button" accessibilityLabel={accessibilityLabel} onPress={onPress} style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
+      {demoProgress === undefined ? null : <ProgressRing progress={demoProgress} />}
       <View style={styles.cardCopy}><Text style={styles.cardTitle}>{title}</Text><Text style={styles.cardSubtitle}>{subtitle}</Text></View>
       <AppIcon name="chevron.right" size={17} tintColor={colors.ink400} />
     </Pressable>

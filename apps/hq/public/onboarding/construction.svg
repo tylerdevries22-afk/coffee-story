@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 300" role="img" aria-label="A modern construction site illustration">
+  <rect width="560" height="300" fill="#e9e8e3"/>
+  <rect x="30" y="42" width="500" height="220" rx="10" fill="#d2d6d3"/>
+  <path d="M55 230h450M100 230V94h210v136M120 116h170v114M330 230V72h125v158" fill="none" stroke="#172028" stroke-width="12"/>
+  <path d="M82 96h247M320 70h160M392 70V38M392 38h98M490 38v30" fill="none" stroke="#a16a32" stroke-width="8"/>
+  <rect x="146" y="148" width="50" height="82" fill="#f8f6ef"/><rect x="224" y="148" width="50" height="42" fill="#f8f6ef"/>
+  <circle cx="448" cy="218" r="12" fill="#a16a32"/>
+</svg>

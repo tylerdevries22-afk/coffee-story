@@ -10,6 +10,7 @@ import type {
 } from '@platform/domain';
 
 import { TENANT, TENANT_TAX_JURISDICTIONS } from '@/tenant';
+import { CONSTRUCTION_ORDER_SEEDS, constructionMessages } from './construction-demo';
 
 // Sanitized, production-scale demo dataset. All names/emails/phones are fictional
 // (example.com, 555 numbers). Every date is relative to portal creation so
@@ -28,8 +29,9 @@ function isoAt(daysFromNow: number, hour: number, minute = 0): string {
 }
 
 const SHOP_LABEL = `${TENANT.identity.name} · ${TENANT.location.address.street}`;
-const DELIVERY_LABEL = 'Delivery';
-const DELIVERY_DETAIL = `Demo delivery · ${TENANT.location.address.city}, ${TENANT.location.address.region}`;
+const IS_PROJECT_BUSINESS = Boolean(TENANT.copy.projectName);
+const DELIVERY_LABEL = IS_PROJECT_BUSINESS ? 'Project site' : 'Delivery';
+const DELIVERY_DETAIL = `${IS_PROJECT_BUSINESS ? 'Demo site' : 'Demo delivery'} · ${TENANT.location.address.city}, ${TENANT.location.address.region}`;
 
 type OrderSeed = {
   id: string;
@@ -74,9 +76,6 @@ function order(seed: OrderSeed): PortalOrder {
     locationDetail: seed.mobile ? DELIVERY_DETAIL : undefined,
   };
 }
-
-
-// --- Client portal -----------------------------------------------------------
 
 const pastOrders: PortalOrder[] = [
   order({ id: 'past-01', item: 'Spanish Latte (16 oz)', days: -235, hour: 10, priceCents: 700, status: 'picked_up' }),
@@ -238,36 +237,36 @@ export const DEMO_PORTAL: PortalBundle = {
     avatarUrl: null,
   },
   role: 'client',
-  orders: [...upcomingOrders, ...pastOrders],
+  orders: IS_PROJECT_BUSINESS ? CONSTRUCTION_ORDER_SEEDS.map(order) : [...upcomingOrders, ...pastOrders],
   rewardAccount: {
     availablePoints: 1376,
     annualPoints: 1876,
     cashCents: 2500,
     annualPeriodStart: `${now.getFullYear()}-01-01`,
   },
-  rewardLedger: rewardLedger,
-  rewardActivities: ['add_birthday', 'complete_intake'],
-  rewardCatalog: [
+  rewardLedger: IS_PROJECT_BUSINESS ? [] : rewardLedger,
+  rewardActivities: IS_PROJECT_BUSINESS ? [] : ['add_birthday', 'complete_intake'],
+  rewardCatalog: IS_PROJECT_BUSINESS ? [] : [
     { id: 'demo-r1', name: '$5 drink credit', description: 'Apply toward any drink on the menu.', pointsCost: 500, active: true },
     { id: 'demo-r2', name: 'Free mochi donut', description: 'One fresh mochi donut, any flavor.', pointsCost: 800, active: true },
     { id: 'demo-r3', name: '$15 drink credit', description: 'Apply toward any drink on the menu.', pointsCost: 1500, active: true },
     { id: 'demo-r4', name: 'Free signature latte', description: 'Any signature latte, any size.', pointsCost: 2000, active: true },
   ],
-  giftCards,
+  giftCards: IS_PROJECT_BUSINESS ? [] : giftCards,
   paymentMethods: [
     { id: 'demo-payment-1', brand: 'Visa', last4: '4242', expirationMonth: 12, expirationYear: now.getFullYear() + 2, isDefault: true },
     { id: 'demo-payment-2', brand: 'Mastercard', last4: '5544', expirationMonth: 8, expirationYear: now.getFullYear() + 1, isDefault: false },
   ],
-  messages,
+  messages: IS_PROJECT_BUSINESS ? constructionMessages(isoAt) : messages,
   preferences: {
     completed: true,
-    notes: 'Oat milk preferred, half-sweet on the signature lattes. Pistachio anything is a yes.',
+    notes: IS_PROJECT_BUSINESS ? 'Preferred contact: email. Access window is 8 AM–4 PM; coordinate trade arrivals with the superintendent.' : 'Oat milk preferred, half-sweet on the signature lattes. Pistachio anything is a yes.',
     strength: 'medium',
         updatedAt: isoAt(-20, 9),
   },
   membership: {
     id: 'demo-membership',
-    name: 'Brew Club',
+    name: IS_PROJECT_BUSINESS ? 'Project Care' : 'Brew Club',
     status: 'active',
     priceCents: 1900,
     renewsAt: new Date(now.getFullYear(), now.getMonth() + 1, 5).toISOString(),

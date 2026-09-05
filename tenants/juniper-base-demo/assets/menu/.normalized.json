@@ -1,0 +1,66 @@
+{
+  "planning-session": {
+    "hash": "81819feffe1026e4d7d5b9df53fadc5051e6494c67e1cbfc49df2d831706c471",
+    "measured": {
+      "luminance": 123,
+      "warmth": 32,
+      "saturation": 0.279
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    },
+    "needsReshoot": [
+      "saturation"
+    ]
+  },
+  "starter-guide": {
+    "hash": "81819feffe1026e4d7d5b9df53fadc5051e6494c67e1cbfc49df2d831706c471",
+    "measured": {
+      "luminance": 123,
+      "warmth": 32,
+      "saturation": 0.279
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    },
+    "needsReshoot": [
+      "saturation"
+    ]
+  },
+  "support-plan": {
+    "hash": "81819feffe1026e4d7d5b9df53fadc5051e6494c67e1cbfc49df2d831706c471",
+    "measured": {
+      "luminance": 123,
+      "warmth": 32,
+      "saturation": 0.279
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    },
+    "needsReshoot": [
+      "saturation"
+    ]
+  },
+  "team-workshop": {
+    "hash": "81819feffe1026e4d7d5b9df53fadc5051e6494c67e1cbfc49df2d831706c471",
+    "measured": {
+      "luminance": 123,
+      "warmth": 32,
+      "saturation": 0.279
+    },
+    "correction": {
+      "brightness": 1,
+      "saturation": 1,
+      "warmth": 0
+    },
+    "needsReshoot": [
+      "saturation"
+    ]
+  }
+}

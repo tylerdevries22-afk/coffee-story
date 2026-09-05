@@ -17,6 +17,12 @@ import { selectTenantSlot, type TenantSlotIdentity } from '@platform/domain';
 import brandCoffeeStory from './coffee-story/brand.json';
 import menuCoffeeStory from './coffee-story/menu.json';
 import modulesCoffeeStory from './coffee-story/modules.json';
+import brandJuniperBaseDemo from './juniper-base-demo/brand.json';
+import menuJuniperBaseDemo from './juniper-base-demo/menu.json';
+import modulesJuniperBaseDemo from './juniper-base-demo/modules.json';
+import brandStillpointBuilders from './stillpoint-builders/brand.json';
+import menuStillpointBuilders from './stillpoint-builders/menu.json';
+import modulesStillpointBuilders from './stillpoint-builders/modules.json';
 
 export type TenantSlot = TenantSlotIdentity & {
   readonly brand: unknown;
@@ -25,7 +31,7 @@ export type TenantSlot = TenantSlotIdentity & {
 };
 
 /** Applied slugs, sorted. More than one is the point of this layout. */
-export const APPLIED_TENANT_SLUGS: readonly string[] = ['coffee-story'];
+export const APPLIED_TENANT_SLUGS: readonly string[] = ['coffee-story', 'juniper-base-demo', 'stillpoint-builders'];
 
 const SLOTS: Readonly<Record<string, TenantSlot>> = {
   'coffee-story': {
@@ -33,6 +39,18 @@ const SLOTS: Readonly<Record<string, TenantSlot>> = {
     brand: brandCoffeeStory,
     modules: modulesCoffeeStory,
     menu: menuCoffeeStory,
+  },
+  'juniper-base-demo': {
+    slug: 'juniper-base-demo',
+    brand: brandJuniperBaseDemo,
+    modules: modulesJuniperBaseDemo,
+    menu: menuJuniperBaseDemo,
+  },
+  'stillpoint-builders': {
+    slug: 'stillpoint-builders',
+    brand: brandStillpointBuilders,
+    modules: modulesStillpointBuilders,
+    menu: menuStillpointBuilders,
   },
 };
 

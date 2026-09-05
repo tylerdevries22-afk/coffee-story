@@ -1,0 +1,69 @@
+{
+  "version": 1,
+  "categories": [
+    {
+      "id": "services",
+      "title": "Services",
+      "tagline": "Choose the help you need"
+    },
+    {
+      "id": "resources",
+      "title": "Resources",
+      "tagline": "Useful tools for daily work"
+    }
+  ],
+  "items": [
+    {
+      "id": "planning-session",
+      "name": "Planning Session",
+      "description": "A focused session to clarify goals and next actions.",
+      "category": "services",
+      "sizes": [
+        {
+          "slug": "planning-session",
+          "priceCents": 7500
+        }
+      ],
+      "optionGroups": []
+    },
+    {
+      "id": "team-workshop",
+      "name": "Team Workshop",
+      "description": "A facilitated working session for small teams.",
+      "category": "services",
+      "sizes": [
+        {
+          "slug": "team-workshop",
+          "priceCents": 24000
+        }
+      ],
+      "optionGroups": []
+    },
+    {
+      "id": "starter-guide",
+      "name": "Starter Guide",
+      "description": "A concise printed guide for getting organized.",
+      "category": "resources",
+      "sizes": [
+        {
+          "slug": "starter-guide",
+          "priceCents": 1800
+        }
+      ],
+      "optionGroups": []
+    },
+    {
+      "id": "support-plan",
+      "name": "Support Plan",
+      "description": "Ongoing practical support billed per visit.",
+      "category": "resources",
+      "sizes": [
+        {
+          "slug": "support-plan",
+          "priceCents": 9500
+        }
+      ],
+      "optionGroups": []
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { cafeTrainingManifest, liftTrainingManifest, parseOptionGroups, parseSizes } from '@platform/domain';
+import { liftTrainingManifest, parseOptionGroups, parseSizes } from '@platform/domain';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { TrainingAnswerKey, TrainingManifest } from './training-bootstrap';
@@ -17,8 +17,9 @@ import { serverEnv, serviceDb } from './api-auth';
 import { serverClient } from './supabase-server';
 import { resolveTenantTrainingProfile } from './training-bootstrap';
 import { selectedOrganizationId } from './workspace-scope';
-
-import demoMenuJson from '../../customer/src/tenants/coffee-story/menu.json';
+import { demoContentWorkspace } from './content-demo-workspace';
+import { demoOrgById } from './demo-orgs';
+import { DEMO_SESSION } from './demo-data';
 
 type BrandRow = { id: string; name: string; brand_config: unknown };
 type MenuRow = { id: string; name: string; is_published: boolean; updated_at: string };
@@ -55,70 +56,6 @@ type MediaVersionRow = { id: string; entity_type: string; entity_key: string; sl
 type CatalogResourceRow = { id: string; kind: ContentWorkspaceData['catalogResources'][number]['kind']; slug: string; title: string; summary: string; audience: ContentWorkspaceData['catalogResources'][number]['audience']; external_ref: string | null; image_url: string | null };
 type CatalogRelationRow = { id: string; source_key: string; target_key: string; kind: ContentWorkspaceData['catalogRelations'][number]['kind'] };
 type CatalogPlacementRow = { id: string; node_id: string; parent_id: string | null; sort_order: number; is_primary: boolean };
-
-const DEMO_PROFILE = {
-  businessName: 'Coffee Story', industry: 'Specialty coffee shop and café', locale: 'en-US',
-  products: ['Espresso', 'Tea', 'Pastries'],
-};
-
-type DemoMenu = {
-  categories: { id: string; title: string; tagline: string }[];
-  items: {
-    id: string;
-    name: string;
-    description: string;
-    category: string;
-    sizes: { priceCents: number }[];
-    optionGroups: ContentMenuItem['optionGroups'];
-    soldOutToday?: boolean;
-  }[];
-};
-
-const DEMO_MENU = demoMenuJson as DemoMenu;
-
-function demoManifest(): TrainingManifest {
-  return cafeTrainingManifest(DEMO_PROFILE);
-}
-
-const DEMO_WORKSPACE: ContentWorkspaceData = {
-  menu: { id: 'demo-menu', name: 'Coffee Story catalog', isPublished: true, draftVersion: 1, publishedVersion: 1, updatedAt: null },
-  categories: DEMO_MENU.categories.map((category, index) => ({
-    ...category, slug: category.id, parentId: null, imageUrl: null,
-    audience: 'public' as const, archived: false, sortOrder: index * 10, mediaVersions: [],
-  })),
-  items: DEMO_MENU.items.map((item, index) => {
-    const imageUrl = `/api/demo-media/menu/${item.id}`;
-    const prices = item.sizes.map((size) => size.priceCents);
-    return {
-      id: item.id,
-      name: item.name,
-      slug: item.id,
-      description: item.description,
-      categoryId: item.category,
-      basePriceCents: prices.length > 0 ? Math.min(...prices) : 0,
-      sizes: item.sizes.map((size, sizeIndex) => ({
-        slug: 'slug' in size && typeof size.slug === 'string' ? size.slug : `size-${sizeIndex + 1}`,
-        label: 'ounces' in size && typeof size.ounces === 'number' ? `${size.ounces} oz` : 'Each',
-        priceCents: size.priceCents,
-      })),
-      optionGroups: item.optionGroups,
-      imageUrl,
-      audience: 'public',
-      isListed: true,
-      is86d: item.soldOutToday === true,
-      sortOrder: index * 10,
-      updatedAt: null,
-      mediaVersions: [{ id: `${item.id}-bundled`, url: imageUrl, createdAt: '2026-08-26T00:00:00.000Z' }],
-    };
-  }),
-  catalogResources: [],
-  catalogRelations: [],
-  catalogPlacements: [],
-  training: { id: 'demo-release', version: 3, status: 'published', manifest: demoManifest(), updatedAt: null },
-  trainingMediaVersions: [],
-  trainingProfile: DEMO_PROFILE,
-  automationRun: { id: 'demo-run', status: 'published', stage: 'complete', progress: 100, createdAt: '2026-08-26T00:00:00.000Z' },
-};
 
 function asManifest(value: unknown, profile: ContentWorkspaceData['trainingProfile']): TrainingManifest {
   return liftTrainingManifest(value) ?? starterTrainingManifest(profile);
@@ -204,7 +141,13 @@ export async function loadContentWorkspace(options: { includeDraft?: boolean; in
   const session = await currentSession();
   if (!session || !hasRole(session, 'location_manager')) throw new Error('Content management requires manager access.');
   const client = await serverClient();
-  if (!client) return DEMO_WORKSPACE;
+  if (!client) {
+    const brandId = await selectedOrganizationId(session);
+    if (brandId === DEMO_SESSION.brandId) return demoContentWorkspace();
+    const org = demoOrgById(brandId);
+    const profile = resolveTenantTrainingProfile(org?.name ?? 'Base App', org?.brandConfig ?? null);
+    return demoContentWorkspace(profile);
+  }
   const user = await client.auth.getUser();
   if (!user.data.user) throw new Error('Content management requires an active session.');
   const brandId = await selectedOrganizationId(session);

@@ -51,7 +51,8 @@ test('a shaped but unknown timezone is rejected', () => {
 
 test('close before open is rejected', () => {
   const result = parseLocationDraft({ ...valid, openTime: '20:00', closeTime: '08:00' });
-  assert.equal(result.ok, false);
+  assert.deepEqual(result, { ok: false, field: 'closeTime',
+    error: 'Closing time has to be after opening time.' });
 });
 
 test('a malformed time is rejected', () => {
@@ -61,7 +62,8 @@ test('a malformed time is rejected', () => {
 
 test('no open days is rejected', () => {
   const result = parseLocationDraft({ ...valid, days: [] });
-  assert.equal(result.ok, false);
+  assert.deepEqual(result, { ok: false, field: 'days',
+    error: 'Pick at least one day the location is open.' });
 });
 
 test('address fields left blank stay undefined, not empty strings', () => {

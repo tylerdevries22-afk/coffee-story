@@ -63,7 +63,7 @@ const apiRoutes = routeFiles(HQ_API).map((file) => ({
  */
 const AUTHENTICATES = new RegExp('\\b(' + [
   'authenticateAny', 'authenticate', 'matchesSecret', 'verifyDeviceToken',
-  'redeemPairingCode', 'exchangeDeviceRefreshSecret', 'operationsRequestContext',
+  'redeemPairingCode', 'exchangeDeviceRefreshSecret', 'operationsRequestContext', 'authorizeConnectorOAuth',
 ].join('|') + ')\\b');
 
 /**

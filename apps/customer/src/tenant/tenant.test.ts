@@ -8,7 +8,13 @@ import {
   STOREFRONT_CAPABILITY_MODULE,
 } from '@platform/module-kit';
 
-import { TENANT, TENANT_MODULE_KEYS, TENANT_SLUG, tenantFeature } from './index';
+import {
+  normalizeTenantAddress,
+  TENANT,
+  TENANT_MODULE_KEYS,
+  TENANT_SLUG,
+  tenantFeature,
+} from './index';
 
 const TENANTS = join(__dirname, '../../../../tenants');
 
@@ -43,14 +49,20 @@ describe('the selected tenant', () => {
     assert.ok(TENANT.location.timezone.includes('/'));
   });
 
+  it('normalizes canonical and legacy tenant address fields', () => {
+    assert.deepEqual(
+      normalizeTenantAddress({ street: '100 Market Street', city: 'Riverside', region: 'CO', postal: '80000' }),
+      { street: '100 Market Street', city: 'Riverside', region: 'CO', postal: '80000' },
+    );
+    assert.deepEqual(
+      normalizeTenantAddress({ line1: '1 Main Street', postalCode: '10001' }),
+      { street: '1 Main Street', city: '', region: '', postal: '10001' },
+    );
+  });
+
   it('ships only artwork generated from its logo', () => {
-    // Single-slot, and deliberately so: app.config.ts and the native build name
-    // these at fixed paths, and one binary carries one icon. Applying a second
-    // tenant replaces them, which is why this asserts the selected slug only.
-    //
-    // A tenant that supplied no logo has no generated artwork, and this build
-    // keeps whichever tenant's icons were applied last -- a real onboarding gap
-    // for a franchisee, so it is named rather than silently passed over.
+    // One binary carries one icon, but every applied tenant has its own source
+    // slot so selecting another brand never overwrites this one's release input.
     const generated = join(TENANTS, TENANT_SLUG, 'app-store/generated');
     if (!existsSync(generated)) {
       const applied = (JSON.parse(
@@ -63,19 +75,25 @@ describe('the selected tenant', () => {
       return;
     }
     const mappings = [
-      ['icon.png', '../../assets/images/icon.png'],
-      ['android-foreground.png', '../../assets/images/android-icon-foreground.png'],
-      ['android-background.png', '../../assets/images/android-icon-background.png'],
-      ['android-monochrome.png', '../../assets/images/android-icon-monochrome.png'],
-      ['favicon.png', '../../assets/images/favicon.png'],
-      ['splash-logo.png', '../../assets/brand/logo.png'],
-      ['icon.png', '../../public/icon.png'],
-      ['icon-180.png', '../../public/icon-180.png'],
+      ['icon.png', 'images/icon.png'],
+      ['android-foreground.png', 'images/android-icon-foreground.png'],
+      ['android-background.png', 'images/android-icon-background.png'],
+      ['android-monochrome.png', 'images/android-icon-monochrome.png'],
+      ['favicon.png', 'images/favicon.png'],
+      ['splash-logo.png', 'brand/logo.png'],
     ] as const;
     for (const [source, destination] of mappings) {
       assert.ok(
-        readFileSync(join(__dirname, destination)).equals(readFileSync(join(generated, source))),
+        readFileSync(join(__dirname, '../../assets/tenants', TENANT_SLUG, destination))
+          .equals(readFileSync(join(generated, source))),
         `${destination} has drifted from generated tenant artwork`,
+      );
+    }
+    for (const name of ['icon.png', 'icon-180.png']) {
+      assert.ok(
+        readFileSync(join(__dirname, '../../public/tenants', TENANT_SLUG, name))
+          .equals(readFileSync(join(generated, name))),
+        `${name} has drifted from generated tenant web artwork`,
       );
     }
   });

@@ -65,20 +65,13 @@ import {
 } from '@/features/glass-feature';
 import { DropCountdown, alpha, disabledState, type BrandTokens, useReducedMotion, useTokens as useBrandTokens } from '@platform/ui';
 
-import heroVideo from '../../../assets/hero/home-hero.mp4';
-import packagesMedia from '../../../assets/hero/stones.webp';
-import giftingMedia from '../../../assets/gift/quiet-hour.webp';
-
-const HOME_PACKAGES = [
-  { name: 'The Daily Ritual', detail: '10 × brewed coffee, any size', price: '$35' },
-  { name: 'Latte Lover', detail: '5 × signature lattes', price: '$30' },
-  { name: 'Boba Week', detail: '5 × boba milk teas', price: '$30' },
-  { name: 'The Sweet Pair', detail: '6 × mochi donuts + 2 lattes', price: '$32' },
-] as const;
+import { TENANT_MEDIA } from '@/tenants/media';
+import { ACTION_DETAIL, ACTION_LABEL, HOME_COPY, HOME_PACKAGES, IS_PROJECT_BUSINESS } from './home-content';
 
 const HERO_SLIDES = ['opening', 'packages', 'gifting'] as const;
-
-/** Tiramisu Latte leads, per the house. */
+const heroVideo = TENANT_MEDIA.artwork['hero/home-hero.mp4'];
+const packagesMedia = TENANT_MEDIA.artwork['hero/stones.webp'];
+const giftingMedia = TENANT_MEDIA.artwork['gift/quiet-hour.webp'];
 
 /** Rows shown per category before its Show All button. */
 const CATEGORY_PREVIEW_COUNT = 7;
@@ -186,7 +179,11 @@ export function HomeScreen() {
     startOrder(menuItems[0]?.id);
   }, [menuItems, startOrder]);
 
-  const siriCommands: readonly SiriCommand[] = [
+  const siriCommands: readonly SiriCommand[] = IS_PROJECT_BUSINESS ? [
+    { key: 'book', phrase: 'Start a project', onRun: () => startOrder() },
+    { key: 'next-order', phrase: 'Show my project status', onRun: () => openMore('orders') },
+    { key: 'support', phrase: 'Contact my project team', onRun: () => openMore('messages') },
+  ] : [
     { key: 'book', phrase: 'Order my usual', onRun: () => startOrder() },
     { key: 'next-order', phrase: 'When is my next pickup?', onRun: () => openMore('orders') },
     { key: 'rewards', phrase: 'Check my rewards balance', onRun: () => setClientTab('rewards') },
@@ -278,14 +275,15 @@ export function HomeScreen() {
                       style={StyleSheet.absoluteFill}
                       contentFit="cover"
                       nativeControls={false}
-                      accessibilityLabel={`Inside the ${TENANT.identity.name} café`}
+                      accessibilityLabel={HOME_COPY.openingAlt}
                     />
                   ) : (
                     <Image
                       source={slide === 'packages' ? packagesMedia : giftingMedia}
                       style={StyleSheet.absoluteFill}
                       contentFit="cover"
-                      alt={slide === 'packages' ? 'Coffee beans and bundles ready for pickup' : `A ${TENANT.identity.name} gift card design`}
+                      alt={slide === 'packages' && !IS_PROJECT_BUSINESS
+                        ? 'Coffee beans and bundles ready for pickup' : HOME_COPY.mediaAlt}
                     />
                   )}
                 </Animated.View>
@@ -304,8 +302,8 @@ export function HomeScreen() {
                   <View style={styles.packagePanel}>
                     <View style={styles.packageHeadingRow}>
                       <View>
-                        <Text style={styles.storyEyebrowDark}>Bundles &amp; beans</Text>
-                        <Text style={styles.packageTitle}>Stock your story.</Text>
+                        <Text style={styles.storyEyebrowDark}>{HOME_COPY.packageEyebrow}</Text>
+                        <Text style={styles.packageTitle}>{HOME_COPY.packageTitle}</Text>
                       </View>
                       <Pressable
                         accessibilityRole="button"
@@ -331,15 +329,17 @@ export function HomeScreen() {
                 {slide === 'gifting' ? (
                   <View style={styles.storyContent}>
                     <Text style={styles.storyEyebrow}>{TENANT.business.tagline}</Text>
-                    <Text style={styles.storyTitle}>Gift their next favorite cup.</Text>
-                    <Text style={styles.storyBody}>Digital gift cards arrive beautifully and never expire.</Text>
+                    <Text style={styles.storyTitle}>{HOME_COPY.supportTitle}</Text>
+                    <Text style={styles.storyBody}>{HOME_COPY.supportBody}</Text>
                     <Pressable
                       accessibilityRole="button"
-                      accessibilityLabel={`Send a ${TENANT.identity.name} gift card`}
-                      onPress={() => setClientTab('gift')}
+                      accessibilityLabel={HOME_COPY.supportA11y}
+                      onPress={() => IS_PROJECT_BUSINESS
+                        ? startOrder('warranty-service-visit')
+                        : setClientTab('gift')}
                       style={({ pressed }) => [styles.storyButton, pressed && styles.pressed]}
                     >
-                      <Text style={styles.storyButtonText}>Send a Gift</Text>
+                      <Text style={styles.storyButtonText}>{HOME_COPY.supportAction}</Text>
                       <AppIcon name="chevron.right" size={14} tintColor={tokens.textPrimary} />
                     </Pressable>
                   </View>
@@ -388,14 +388,14 @@ export function HomeScreen() {
 
       <SectionHeader
         pill={`Welcome back, ${firstName}`}
-        title="House Favorites"
-        body={`The drinks ${TENANT.location.address.city || 'our neighborhood'} keeps coming back for — handcrafted by ${TENANT.identity.name}.`}
+        title={HOME_COPY.favoritesTitle}
+        body={HOME_COPY.favoritesBody}
       />
       {favorites.map((item, index) => (
         <FeatureRow
           key={item.id}
           item={item}
-          tag="Most Loved"
+          tag={HOME_COPY.favoriteTag}
           flip={index % 2 === 1}
           onPress={() => startOrder(item.id)}
         />
@@ -435,9 +435,9 @@ export function HomeScreen() {
       ) : null}
 
       <SectionHeader
-        pill="The Full Menu"
-        title="Explore by Category"
-        body="Every drink and bite we serve — tap anything to start an order."
+        pill={HOME_COPY.catalogPill}
+        title={HOME_COPY.catalogTitle}
+        body={HOME_COPY.catalogBody}
       />
       {menuCategories.map((category) => {
         const items = menuItems.filter((item) => item.category === category.id);
@@ -521,13 +521,13 @@ export function HomeScreen() {
       >
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Book now"
+          accessibilityLabel={ACTION_LABEL}
           onPress={onBookNow}
           style={({ pressed }) => [styles.stickyBookNowButton, pressed && styles.pressed]}
         >
           <PulseDot reducedMotion={reducedMotion} />
-          <Text style={styles.stickyBookNowText}>Order Now</Text>
-          <Text style={styles.stickyBookNowWait}>~ 3 min</Text>
+          <Text style={styles.stickyBookNowText}>{ACTION_LABEL}</Text>
+          <Text style={styles.stickyBookNowWait}>{ACTION_DETAIL}</Text>
           <AppIcon name="chevron.right" size={14} tintColor={tokens.surfaceElevated} />
         </Pressable>
       </Animated.View>
@@ -570,14 +570,14 @@ function BookNowPill({ onPress, reducedMotion }: { onPress: () => void; reducedM
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel="Book now — about a 3 minute wait"
+      accessibilityLabel={`${ACTION_LABEL} — ${ACTION_DETAIL}`}
       onPress={onPress}
       style={({ pressed }) => [styles.bookNowPill, pressed && styles.pressed]}
     >
       <PulseDot reducedMotion={reducedMotion} />
-      <Text style={styles.bookNowText}>Order Now</Text>
+      <Text style={styles.bookNowText}>{ACTION_LABEL}</Text>
       <View style={styles.bookNowDivider} />
-      <Text style={styles.bookNowWait}>~ 3 min</Text>
+      <Text style={styles.bookNowWait}>{ACTION_DETAIL}</Text>
       <AppIcon name="chevron.right" size={14} tintColor={tokens.surfaceElevated} />
     </Pressable>
   );
@@ -623,10 +623,10 @@ function FeatureRow({
         {from ? <Text style={styles.featureFrom}>From {formatMoney(from)}</Text> : null}
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Order ${item.name}`}
+          accessibilityLabel={`${ACTION_LABEL}: ${item.name}`}
           onPress={onPress}
         >
-          <Text style={styles.learnMore}>Order Now  ›</Text>
+          <Text style={styles.learnMore}>{ACTION_LABEL}  ›</Text>
         </Pressable>
       </View>
     </View>
@@ -810,12 +810,12 @@ function GlassFeatureRow({
         {from ? <Text style={styles.featureFrom}>From {formatMoney(from)}</Text> : null}
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={soldOut ? `${item.name}, out for today` : `Order ${item.name}`}
+          accessibilityLabel={soldOut ? `${item.name}, out for today` : `${ACTION_LABEL}: ${item.name}`}
           disabled={soldOut}
           {...disabledState(soldOut)}
           onPress={onPress}
         >
-          <Text style={styles.learnMore}>{soldOut ? 'Back tomorrow' : 'Order Now  ›'}</Text>
+          <Text style={styles.learnMore}>{soldOut ? 'Back tomorrow' : `${ACTION_LABEL}  ›`}</Text>
         </Pressable>
       </View>
     </View>
@@ -829,7 +829,7 @@ function MenuRow({ item, onPress }: { item: MenuItem; onPress: () => void }) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Order ${item.name}`}
+      accessibilityLabel={`${ACTION_LABEL}: ${item.name}`}
       onPress={onPress}
       style={({ pressed }) => [styles.menuRow, pressed && styles.pressed]}
     >

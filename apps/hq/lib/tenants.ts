@@ -66,15 +66,30 @@ export type TenantOrg = {
   readonly locations: readonly TenantLocation[];
 };
 
-const STILLPOINT_LOCATIONS: readonly TenantLocation[] = [
-  { id: 'sp-hq', name: 'Head office', city: 'Grand Rapids, MI', timezone: 'America/Detroit', hours: 'Mon–Fri 07:00–16:00' },
-  { id: 'sp-north', name: 'North region', city: 'Traverse City, MI', timezone: 'America/Detroit', hours: 'Mon–Fri 07:00–16:00' },
-];
+type ManifestLocation = {
+  name?: string;
+  address?: { city?: string };
+  timezone?: string;
+  hours?: Record<string, readonly { open?: string; close?: string }[]>;
+};
 
-const DEMO_ROASTERY_LOCATIONS: readonly TenantLocation[] = [
-  { id: 'dr-market', name: 'Market Street', city: 'Portland, OR', timezone: 'America/Los_Angeles', hours: 'Mon–Sun 07:00–19:00' },
-  { id: 'dr-pier', name: 'Pier 7', city: 'Portland, OR', timezone: 'America/Los_Angeles', hours: 'Mon–Sun 07:00–19:00' },
-];
+function manifestLocations(config: unknown, tenantSlug: string): readonly TenantLocation[] {
+  const locations = (config as { locations?: ManifestLocation[] }).locations ?? [];
+  return locations.map((location, index) => ({
+    id: `${tenantSlug}-${index + 1}`,
+    name: location.name ?? `Location ${index + 1}`,
+    city: location.address?.city ?? 'Location pending',
+    timezone: location.timezone ?? 'UTC',
+    hours: summarizeHours(location.hours),
+  }));
+}
+
+function summarizeHours(hours: ManifestLocation['hours']): string {
+  if (!hours) return 'Hours pending';
+  const shifts = Object.values(hours).flat();
+  const first = shifts.find((shift) => shift.open && shift.close);
+  return first ? `${first.open}–${first.close} local` : 'By appointment';
+}
 
 /**
  * Every organization the demo console can switch between, operator first.
@@ -89,7 +104,7 @@ export const TENANT_ORGS: readonly TenantOrg[] = [
     kind: 'operator',
     brandConfig: stillpointBrand,
     moduleKeys: enabledModuleKeys(stillpointModules),
-    locations: STILLPOINT_LOCATIONS,
+    locations: manifestLocations(stillpointBrand, 'stillpoint-builders'),
   },
   {
     id: DEMO_SESSION.brandId,
@@ -113,7 +128,7 @@ export const TENANT_ORGS: readonly TenantOrg[] = [
     kind: 'brand',
     brandConfig: demoRoasteryBrand,
     moduleKeys: enabledModuleKeys(demoRoasteryModules),
-    locations: DEMO_ROASTERY_LOCATIONS,
+    locations: manifestLocations(demoRoasteryBrand, 'demo-roastery'),
   },
 ];
 

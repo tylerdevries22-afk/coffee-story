@@ -1,19 +1,8 @@
 /**
  * `pnpm preview` — build the local preview and publish the five-surface wall.
  *
- * Three of the five surfaces are Expo apps, and `serve` can only show them as
- * static web exports. The trap is that `dist/` already holds the **iOS** export
- * that `pnpm verify` writes, so pointing a static server at it serves a folder
- * with no HTML in it at all — the failure looks like a broken app rather than a
- * missing build. Web therefore gets its own `dist-web/`, and this script is the
- * thing that fills it.
- *
- * It also publishes the wall (`tools/preview-wall/`) into the customer app's
- * static server rather than giving it a server of its own: the preview tooling
- * caps a worktree at five dev servers and all five are apps. `dist-web/` is
- * gitignored build output, so nothing about that lands in the repo — but it
- * does mean an export wipes the wall, which is exactly why publishing is part
- * of the same command as exporting.
+ * Expo web builds live in `dist-web/`; the customer build also hosts the wall
+ * so all five server slots stay available to the apps themselves.
  *
  *   pnpm preview           export the three Expo apps for web, then publish
  *   pnpm preview --wall    publish the wall only (seconds, not minutes)
@@ -24,20 +13,17 @@
  * so this script refuses to publish when they disagree.
  */
 import { spawn } from 'node:child_process';
-import { copyFileSync, existsSync, readFileSync } from 'node:fs';
+import { copyFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-type Surface = {
-  launch: string;
-  name: string;
-  device: string;
-  port: number;
-  path: string;
-  width: number;
-  height: number;
-  frame: 'tv' | 'desktop' | 'tablet' | 'phone';
-  span: number;
-};
+import {
+  parseBuildContext,
+  parseWallSource,
+  readTenantContext,
+  requestedTenant,
+  resolveWall,
+  type WallSurface,
+} from './preview-wall-config';
 
 type LaunchConfig = { name: string; runtimeArgs?: string[]; port?: number };
 
@@ -48,6 +34,7 @@ const LAUNCH_FILE = join(ROOT, '.claude', 'launch.json');
 /** Where the wall is published, and therefore which app must be exported last. */
 const HOST_APP = 'customer';
 const HOST_DIST = join(ROOT, 'apps', HOST_APP, 'dist-web');
+const BUILD_CONTEXT = join(HOST_DIST, 'wall-build-context.json');
 const BROWSER_BLOCKED_PORTS = new Set([
   0, 1, 7, 9, 11, 13, 15, 17, 19, 20, 21, 22, 23, 25, 37, 42, 43, 53, 69,
   77, 79, 87, 95, 101, 102, 103, 104, 109, 110, 111, 113, 115, 117, 119, 123,
@@ -56,19 +43,13 @@ const BROWSER_BLOCKED_PORTS = new Set([
   1720, 1723, 2049, 3659, 4045, 4190, 5060, 5061, 6000, 6566, 6665, 6666,
   6667, 6668, 6669, 6697, 10080,
 ]);
-const FRAME_TYPES = new Set<Surface['frame']>(['tv', 'desktop', 'tablet', 'phone']);
-
 const wallOnly = process.argv.slice(2).some((a) => a === '--wall' || a === '--wall-only');
 
 function readJson<T>(path: string): T {
   return JSON.parse(readFileSync(path, 'utf8')) as T;
 }
 
-/**
- * The launch entry that serves a directory tells us which apps need a web
- * export — derived rather than listed, so adding a surface to launch.json is
- * enough and there is no second list to forget.
- */
+/** Derive web exports from launch configuration, without a second app list. */
 function exportTargets(configs: LaunchConfig[]): string[] {
   const apps = new Set<string>();
   for (const config of configs) {
@@ -80,14 +61,11 @@ function exportTargets(configs: LaunchConfig[]): string[] {
   return [...apps].sort();
 }
 
-function assertPortsAgree(surfaces: Surface[], configs: LaunchConfig[]): void {
+function assertPortsAgree(surfaces: WallSurface[], configs: LaunchConfig[]): void {
   const byName = new Map(configs.map((c) => [c.name, c]));
   const problems: string[] = [];
 
   for (const surface of surfaces) {
-    if (!FRAME_TYPES.has(surface.frame)) {
-      problems.push(`${surface.name}: unsupported frame "${surface.frame}"`);
-    }
     if (BROWSER_BLOCKED_PORTS.has(surface.port)) {
       problems.push(`${surface.name}: port ${surface.port} is blocked by browsers`);
     }
@@ -111,12 +89,24 @@ function assertPortsAgree(surfaces: Surface[], configs: LaunchConfig[]): void {
   }
 }
 
-/**
- * Each app has its own Metro FileStore cache root, so these are safe to run
- * together; they were not always, and a shared cache once had an operator
- * export serving the customer's route tree.
- */
-function exportWeb(app: string, demoSyncUrl: string): Promise<void> {
+function selectedTenant(): string {
+  const requested = requestedTenant(process.argv.slice(2), process.env.EXPO_PUBLIC_TENANT);
+  if (!wallOnly) {
+    if (!requested) throw new Error('Pass --tenant <slug> before publishing the app wall.');
+    return requested;
+  }
+  if (!existsSync(BUILD_CONTEXT)) {
+    throw new Error('The wall has no verified build context; run a full preview export.');
+  }
+  const built = parseBuildContext(readJson<unknown>(BUILD_CONTEXT));
+  if (requested && built && requested !== built) {
+    throw new Error(`The wall build contains ${built}, not ${requested}; run a full preview export.`);
+  }
+  return requested ?? built;
+}
+
+/** Export one app at a time; each has an isolated Metro cache. */
+function exportWeb(app: string, demoSyncUrl: string, tenantKey: string): Promise<void> {
   return new Promise((resolvePromise, rejectPromise) => {
     const child = spawn(
       'npx',
@@ -126,6 +116,7 @@ function exportWeb(app: string, demoSyncUrl: string): Promise<void> {
         stdio: 'pipe',
         env: {
           ...process.env,
+          EXPO_PUBLIC_TENANT: tenantKey,
           EXPO_PUBLIC_DEMO_SYNC_URL: demoSyncUrl,
           EXPO_PUBLIC_PREVIEW_WALL: '1',
         },
@@ -152,8 +143,11 @@ function exportWeb(app: string, demoSyncUrl: string): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  const { surfaces } = readJson<{ surfaces: Surface[] }>(join(WALL_DIR, 'surfaces.json'));
+  const source = parseWallSource(readJson<unknown>(join(WALL_DIR, 'surfaces.json')));
+  const { surfaces } = source;
   const { configurations } = readJson<{ configurations: LaunchConfig[] }>(LAUNCH_FILE);
+  const tenantKey = selectedTenant();
+  const publishedWall = resolveWall(source, readTenantContext(ROOT, tenantKey));
 
   assertPortsAgree(surfaces, configurations);
   const hq = configurations.find((config) => config.name === 'hq');
@@ -166,7 +160,8 @@ async function main(): Promise<void> {
     // Metro already fans each export across worker processes. Running three
     // Metros together exhausts memory on a normal demo laptop and can make a
     // 20-second bundle take minutes, so keep the app-level queue serial.
-    for (const app of apps) await exportWeb(app, demoSyncUrl);
+    for (const app of apps) await exportWeb(app, demoSyncUrl, tenantKey);
+    writeFileSync(BUILD_CONTEXT, `${JSON.stringify({ tenantKey })}\n`);
   }
 
   if (!existsSync(HOST_DIST)) {
@@ -179,7 +174,11 @@ async function main(): Promise<void> {
   copyFileSync(join(WALL_DIR, 'index.html'), join(HOST_DIST, 'wall.html'));
   copyFileSync(join(WALL_DIR, 'wall.css'), join(HOST_DIST, 'wall.css'));
   copyFileSync(join(WALL_DIR, 'wall.js'), join(HOST_DIST, 'wall.js'));
-  copyFileSync(join(WALL_DIR, 'surfaces.json'), join(HOST_DIST, 'wall-surfaces.json'));
+  copyFileSync(join(WALL_DIR, 'wall-model.mjs'), join(HOST_DIST, 'wall-model.mjs'));
+  writeFileSync(
+    join(HOST_DIST, 'wall-surfaces.json'),
+    `${JSON.stringify(publishedWall, null, 2)}\n`,
+  );
 
   const host = surfaces.find((s) => s.launch.startsWith(HOST_APP));
   const wallUrl = `http://localhost:${host?.port ?? 4170}/wall`;

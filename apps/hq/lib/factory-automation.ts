@@ -13,6 +13,7 @@ export type FactoryRunInput = {
   industryKey: string;
   locationName: string;
   websiteUrl?: string;
+  surfaces: readonly import('@platform/factory').FactorySurface[];
 };
 
 const HTTPS = /^https:\/\//;
@@ -73,7 +74,12 @@ export function buildFactoryApplicationManifest(
     schemaVersion: 1,
     tenant: { slug: run.tenantSlug, businessName: run.businessName, industryKey: run.industryKey, locationName: run.locationName, ...(run.websiteUrl ? { websiteUrl: run.websiteUrl } : {}) },
     brandKit: { summary: research.summary, colors: research.colors, logoSourceUrl: research.logoSourceUrl ?? null },
-    surfaces: ['customer', 'operator', 'kiosk', 'display', 'hq'],
+    surfaces: run.surfaces,
+    deployments: run.surfaces.map((surface) => ({
+      surface,
+      web: true,
+      native: surface === 'customer' || surface === 'operator' || surface === 'kiosk',
+    })),
     releasePolicy: { publishMode: 'atomic', failClosed: true, fallback: 'last_valid_release' },
   });
 }

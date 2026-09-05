@@ -29,10 +29,66 @@ permissions:
   contents: read
 
 jobs:
+  policy:
+    name: Validate target before mutation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: ${{ inputs.environment }}
+    env:
+      TENANT: ${{ inputs.tenant }}
+      PROJECT_PREFIX: ${{ inputs.project_prefix }}
+      SUPABASE_PROJECT_REF: ${{ inputs.supabase_project_ref }}
+      PRODUCTION_SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+      PREVIEW_SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PREVIEW_PROJECT_REF }}
+      DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
+    steps:
+      - name: Enforce tenant and database identity
+        run: |
+          set -euo pipefail
+          test "$PROJECT_PREFIX" = "$TENANT" || {
+            echo '::error::The Vercel project prefix must exactly match the immutable tenant slug.'
+            exit 1
+          }
+          case "$DEPLOY_ENVIRONMENT" in
+            preview)
+              test -n "$PREVIEW_SUPABASE_PROJECT_REF" \
+                && test "$SUPABASE_PROJECT_REF" = "$PREVIEW_SUPABASE_PROJECT_REF" || {
+                  echo '::error::Bootstrap preview must target the canonical preview Supabase project.'
+                  exit 1
+                }
+              ;;
+            production)
+              test -n "$PRODUCTION_SUPABASE_PROJECT_REF" \
+                && test "$SUPABASE_PROJECT_REF" = "$PRODUCTION_SUPABASE_PROJECT_REF" || {
+                  echo '::error::Bootstrap production must target the canonical production Supabase project.'
+                  exit 1
+                }
+              ;;
+            *) echo '::error::Unsupported deployment environment.'; exit 1 ;;
+          esac
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: 10.33.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Validate tenant identity and surface contract
+        run: pnpm exec tsx scripts/release-surfaces.ts --tenant "$TENANT" >/dev/null
+      - name: Require approved production evidence
+        if: inputs.environment == 'production'
+        run: pnpm release:gate --tenant "$TENANT" --commit "$GITHUB_SHA"
+
   database:
     name: Migrate and seed hosted Supabase
+    needs: policy
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    environment: ${{ inputs.environment }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10

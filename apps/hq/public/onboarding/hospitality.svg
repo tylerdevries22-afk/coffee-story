@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 300" role="img" aria-label="A warm hospitality counter illustration">
+  <rect width="560" height="300" fill="#eee9df"/>
+  <rect x="34" y="38" width="492" height="224" rx="10" fill="#d9cfbf"/>
+  <path d="M62 112h436M88 112V72h384v40M84 220h392v36H84z" fill="#f7f3ea" stroke="#28231f" stroke-width="8"/>
+  <path d="M130 220v-70h96v70M252 220v-70h96v70M374 220v-70h58v70" fill="#bd8d62" stroke="#28231f" stroke-width="8"/>
+  <path d="M160 84h48M256 84h48M352 84h48" stroke="#9c5933" stroke-width="10" stroke-linecap="round"/>
+  <circle cx="116" cy="185" r="14" fill="#31584a"/><circle cx="448" cy="185" r="14" fill="#31584a"/>
+</svg>

@@ -18,6 +18,7 @@ export default async function IntegrationDetailPage({ params }: IntegrationDetai
   const card = (await loadConnectorCards()).find((candidate) => candidate.id === provider);
   if (!card) notFound();
   const isComingSoon = definition.availability === 'coming-soon';
+  const isUnavailable = !card.canConfigure && !card.isInstalled;
   return (
     <div className="management-page integration-detail-page">
       <header className="management-heading integration-detail-heading">
@@ -43,14 +44,18 @@ export default async function IntegrationDetailPage({ params }: IntegrationDetai
         </section>
         <aside className="card integration-setup-card">
           <p className="eyebrow">Connection readiness</p>
-          <h2>{isComingSoon ? 'Certification pending' : card.statusLabel}</h2>
+          <h2>{isComingSoon ? 'Certification pending' : isUnavailable ? 'Unavailable' : card.statusLabel}</h2>
           <p>{isComingSoon
             ? 'This adapter is listed for roadmap visibility and cannot be connected until its sandbox contract passes certification.'
+            : isUnavailable
+              ? 'This provider is not available in the active MCP catalog. Existing tenant history remains visible, but new setup is disabled.'
             : 'A brand owner must configure provider credentials and callback URLs in the deployed environment. Secrets are stored as Vault references and never sent to this browser.'}</p>
           {card.isConnected ? (
             <Link className="button secondary" href="/integrations/health">View latest health</Link>
-          ) : provider === 'square' && !isComingSoon ? (
+          ) : card.connectHref && provider === 'square' ? (
             <Link className="button" href="/locations">Connect Square by location</Link>
+          ) : card.connectHref ? (
+            <a className="button" href={card.connectHref}>{card.connectLabel ?? 'Connect'}</a>
           ) : (
             <span className="integration-card-disabled">
               {isComingSoon ? 'Awaiting sandbox certification' : 'Awaiting provider configuration'}

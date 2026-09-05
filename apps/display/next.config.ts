@@ -6,24 +6,24 @@ import { withSentryConfig } from '@sentry/nextjs';
 import { securityHeaders } from '@platform/web-config';
 
 const workspaceRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const DEFAULT_HQ_ORIGIN = 'https://coffee-story-hq.vercel.app';
 
-function hqOrigin(): string {
+function hqOrigin(): string | null {
   const configured = process.env.HQ_ORIGIN?.trim();
-  if (!configured) return DEFAULT_HQ_ORIGIN;
+  if (!configured) return null;
   try {
     const url = new URL(configured);
-    return url.protocol === 'https:' ? url.origin : DEFAULT_HQ_ORIGIN;
+    return url.protocol === 'https:' ? url.origin : null;
   } catch {
-    return DEFAULT_HQ_ORIGIN;
+    return null;
   }
 }
 
 function displayContentSecurityPolicy(): string {
   const development = process.env.NODE_ENV !== 'production';
+  const productionAncestors = ["'self'", hqOrigin()].filter(Boolean).join(' ');
   const ancestors = development
     ? "'self' http://localhost:4170 http://127.0.0.1:4170 http://localhost:3300 http://127.0.0.1:3300 http://localhost:3400 http://127.0.0.1:3400"
-    : `'self' ${hqOrigin()}`;
+    : productionAncestors;
   // Next's dev runtime evaluates its own chunks with `eval`, so the shipped
   // policy killed `main-app.js` before React could hydrate: the board rendered
   // once on the server and then never polled again. On a wall that looks like

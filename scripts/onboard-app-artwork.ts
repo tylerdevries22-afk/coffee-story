@@ -1,51 +1,53 @@
 /**
- * The parts of a tenant that stay single-slot, and why.
+ * The parts of a tenant that are generated outside its JSON/menu slot.
  *
  * `scripts/onboard-tenant-slots.ts` made brand.json, modules.json, the compiled
  * menu, the menu photographs and the product cut-outs per-slug, so N tenants
  * coexist in the tree. These do not follow, for two different reasons:
  *
  *  - App icon, splash, adaptive icon, favicon, web manifest and the Expo icon
- *    project are named at fixed paths by `app.config.ts` and by native build
- *    config. One binary carries exactly one of each -- rule 7 -- and Apple will
- *    not let 50 franchisee brands share one listing with 50 icons. Making these
- *    per-slug would buy nothing a build could use.
+ *    project live under a per-slug directory. `app.config.ts` selects that
+ *    directory from `EXPO_PUBLIC_TENANT`, so one binary still carries one
+ *    identity while every applied tenant stays reproducible from one commit.
  *  - Gift-card, hero and rewards illustrations are a fixed set of platform slots
  *    with persisted keys (`gift-designs.ts` names `quiet-hour.webp` by hand, and
  *    the key is stored on issued gift cards). Per-slug art would need a platform
  *    default set for tenants that ship none, which does not exist yet.
  *
- * So applying a second tenant overwrites this artwork with the second tenant's,
- * and the drift test asserts it against the *selected* slug only. Every guard
- * here exists because the previous version crashed or deleted files on a tenant
- * that ships no photography (`demo-roastery`, deliberately).
+ * Every guard here exists because the previous version crashed or deleted files
+ * on a tenant that ships no photography (`demo-roastery`, deliberately).
  */
 import { copyFileSync, existsSync, lstatSync, mkdirSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import type { TenantSurface } from '../packages/tenant-config/src/index.js';
+import { reconcileTenantArtwork } from './lib/onboard-guest-reconciliation.js';
+
 const HEX = /^#[0-9a-fA-F]{6}$/;
 
-/** Generated source -> path under apps/customer, relative to the app root. */
+/** Generated source -> path under an app's assets/tenants/<slug> directory. */
 const CUSTOMER_ARTWORK: readonly (readonly [string, string])[] = [
-  ['splash-logo.png', 'assets/brand/logo.png'],
-  ['icon.png', 'assets/images/icon.png'],
-  ['android-foreground.png', 'assets/images/android-icon-foreground.png'],
-  ['android-background.png', 'assets/images/android-icon-background.png'],
-  ['android-monochrome.png', 'assets/images/android-icon-monochrome.png'],
-  ['favicon.png', 'assets/images/favicon.png'],
-  ['android-foreground.png', 'assets/expo.icon/Assets/mark.png'],
-  ['icon.png', 'public/icon.png'],
-  ['icon-180.png', 'public/icon-180.png'],
+  ['splash-logo.png', 'brand/logo.png'],
+  ['icon.png', 'images/icon.png'],
+  ['android-foreground.png', 'images/android-icon-foreground.png'],
+  ['android-background.png', 'images/android-icon-background.png'],
+  ['android-monochrome.png', 'images/android-icon-monochrome.png'],
+  ['favicon.png', 'images/favicon.png'],
+  ['android-foreground.png', 'expo.icon/Assets/mark.png'],
 ];
 
 const KIOSK_ARTWORK: readonly (readonly [string, string])[] = [
-  ['icon.png', 'assets/images/icon.png'],
-  ['android-foreground.png', 'assets/images/android-icon-foreground.png'],
-  ['android-background.png', 'assets/images/android-icon-background.png'],
-  ['android-monochrome.png', 'assets/images/android-icon-monochrome.png'],
-  ['favicon.png', 'assets/images/favicon.png'],
-  ['splash-logo.png', 'assets/brand/logo.png'],
-  ['android-foreground.png', 'assets/expo.icon/Assets/mark.png'],
+  ['icon.png', 'images/icon.png'],
+  ['android-foreground.png', 'images/android-icon-foreground.png'],
+  ['android-background.png', 'images/android-icon-background.png'],
+  ['android-monochrome.png', 'images/android-icon-monochrome.png'],
+  ['favicon.png', 'images/favicon.png'],
+  ['splash-logo.png', 'brand/logo.png'],
+  ['android-foreground.png', 'expo.icon/Assets/mark.png'],
+];
+
+const CUSTOMER_WEB_ARTWORK: readonly (readonly [string, string])[] = [
+  ['icon.png', 'icon.png'], ['icon-180.png', 'icon-180.png'],
 ];
 
 /** Fixed-name illustration slots, seeded from the tenant folder. Customer only. */
@@ -54,6 +56,13 @@ const ILLUSTRATIONS: readonly (readonly [string, readonly string[]])[] = [
   ['hero', ['.webp', '.png', '.mp4']],
   ['rewards', ['.webp', '.png']],
 ];
+
+const CUSTOMER_REQUIRED_ILLUSTRATIONS = [
+  'hero/home-hero.mp4', 'hero/stones.webp',
+  'gift/birthday-cake.webp', 'gift/birthday-confetti.webp', 'gift/congrats-bloom.webp',
+  'gift/congrats-gold.webp', 'gift/grateful.webp', 'gift/healing-oil.webp',
+  'gift/quiet-hour.webp', 'gift/thank-you.webp', 'rewards/liquid-nebula.webp',
+] as const;
 
 export type ArtworkBrand = {
   identity: { name: string };
@@ -90,26 +99,37 @@ function writeWebManifest(brand: ArtworkBrand, target: string): void {
 }
 
 function copyArtwork(generated: string, appRoot: string, mappings: readonly (readonly [string, string])[]): number {
-  let copied = 0;
   for (const [source, destination] of mappings) {
     const from = join(generated, source);
-    if (!existsSync(from)) continue;
     const to = join(appRoot, destination);
     mkdirSync(join(to, '..'), { recursive: true });
     copyFileSync(from, to);
-    copied += 1;
   }
-  return copied;
+  return mappings.length;
 }
 
-/**
- * Mirrors an illustration group, and leaves the app alone when the tenant has none.
- *
- * The "leaves it alone" half is the fix: the previous version unlinked whatever
- * the destination held when the source was empty, so applying a tenant with no
- * gift artwork deleted the assets `gift-designs.ts` statically imports and broke
- * the bundle for every tenant.
- */
+function assertCompleteSources(
+  generated: string,
+  tenantDir: string,
+  surfaces: readonly TenantSurface[],
+): void {
+  const mappings = surfaces.flatMap((surface) => surface === 'customer'
+    ? [...CUSTOMER_ARTWORK, ...CUSTOMER_WEB_ARTWORK]
+    : KIOSK_ARTWORK);
+  const missingGenerated = [...new Set(mappings.map(([source]) => source))]
+    .filter((source) => !existsSync(join(generated, source)));
+  if (missingGenerated.length > 0) {
+    throw new Error(`Generated artwork is incomplete: ${missingGenerated.join(', ')}`);
+  }
+  if (!surfaces.includes('customer')) return;
+  const missingIllustrations = CUSTOMER_REQUIRED_ILLUSTRATIONS
+    .filter((source) => !existsSync(join(tenantDir, 'assets', source)));
+  if (missingIllustrations.length > 0) {
+    throw new Error(`Customer artwork is incomplete: ${missingIllustrations.join(', ')}`);
+  }
+}
+
+/** Mirrors one complete tenant illustration group and removes stale files. */
 function syncIllustrations(from: string, to: string, extensions: readonly string[]): number {
   // lstat, not stat: copyFileSync follows symlinks, and a tenant asset folder
   // is not a place a link should be able to reach out of.
@@ -128,33 +148,51 @@ function syncIllustrations(from: string, to: string, extensions: readonly string
 }
 
 /**
- * Refreshes the single-slot artwork for the tenant being applied.
+ * Refreshes the per-tenant artwork for the tenant being applied.
  *
- * Returns a line for the CLI rather than throwing on missing artwork: a tenant
- * with no `assets/logo.png` has no generated icons, which is a step that has not
- * run yet, not a broken apply.
+ * Source completeness is checked before any destination changes, preventing a
+ * partial or asset-less tenant from inheriting the previously selected brand.
  */
-export function applyAppArtwork(root: string, slug: string, tenantDir: string, brand: ArtworkBrand): string {
+export function applyAppArtwork(
+  root: string,
+  slug: string,
+  tenantDir: string,
+  brand: ArtworkBrand,
+  surfaces: readonly ('customer' | 'kiosk')[],
+): string {
   const customer = join(root, 'apps', 'customer');
   const kiosk = join(root, 'apps', 'kiosk');
+  const customerAssets = join(customer, 'assets', 'tenants', slug);
+  const customerWeb = join(customer, 'public', 'tenants', slug);
+  const kioskAssets = join(kiosk, 'assets', 'tenants', slug);
   const generated = join(tenantDir, 'app-store', 'generated');
+  assertCompleteSources(generated, tenantDir, surfaces);
 
   let illustrations = 0;
-  for (const [group, extensions] of ILLUSTRATIONS) {
-    illustrations += syncIllustrations(join(tenantDir, 'assets', group), join(customer, 'assets', group), extensions);
+  if (surfaces.includes('customer')) {
+    for (const [group, extensions] of ILLUSTRATIONS) {
+      illustrations += syncIllustrations(
+        join(tenantDir, 'assets', group), join(customerAssets, group), extensions,
+      );
+    }
   }
 
-  if (!existsSync(generated)) {
-    const note = illustrations > 0 ? `; ${illustrations} illustrations synced` : '';
-    return `icons and splash skipped -- tenants/${slug}/app-store/generated does not exist yet${note}`;
+  let copied = 0;
+  if (surfaces.includes('customer')) {
+    copied += copyArtwork(generated, customerAssets, CUSTOMER_ARTWORK);
+    copied += copyArtwork(generated, customerWeb, CUSTOMER_WEB_ARTWORK);
   }
-
-  const copied = copyArtwork(generated, customer, CUSTOMER_ARTWORK) + copyArtwork(generated, kiosk, KIOSK_ARTWORK);
-  for (const appRoot of [customer, kiosk]) {
-    const expoIcon = join(appRoot, 'assets', 'expo.icon');
+  if (surfaces.includes('kiosk')) copied += copyArtwork(generated, kioskAssets, KIOSK_ARTWORK);
+  const roots = surfaces.map((surface) => surface === 'customer' ? customerAssets : kioskAssets);
+  for (const appRoot of roots) {
+    const expoIcon = join(appRoot, 'expo.icon');
     if (existsSync(expoIcon)) writeExpoIconConfig(brand.tokens.surface, join(expoIcon, 'icon.json'));
   }
-  mkdirSync(join(customer, 'public'), { recursive: true });
-  writeWebManifest(brand, join(customer, 'public', 'manifest.webmanifest'));
-  return `${copied} icon/splash files, the web manifest, and ${illustrations} illustrations`;
+  if (surfaces.includes('customer')) {
+    mkdirSync(customerWeb, { recursive: true });
+    writeWebManifest(brand, join(customerWeb, 'manifest.webmanifest'));
+  }
+  reconcileTenantArtwork(root, slug, surfaces);
+  const destination = surfaces.length > 0 ? surfaces.join(' + ') : 'no guest apps';
+  return `${copied} icon/splash files for ${destination}, ${illustrations} illustrations (${slug})`;
 }

@@ -4,14 +4,18 @@ import { motion, useTransform, type MotionStyle } from 'framer-motion';
 import { useRef } from 'react';
 
 import type { AppPreviewTile } from '@/lib/app-wall-geometry';
+import type { AppPreviewDevice } from '@/lib/app-previews';
 import type { Phase } from '@/lib/app-wall-sim';
 
 import { WallChipRail, type WallChipRailProps } from './apps-preview-chips';
+import { AppDeviceToggle } from './app-device-toggle';
 import { DevicePreviewFrame } from './device-preview-frame';
 import type { TileMotion } from './use-wall-simulation';
 
 type TileProps = Omit<WallChipRailProps, 'portrait' | 'rotateDisabled'> & {
   readonly motion: TileMotion;
+  readonly device: AppPreviewDevice;
+  readonly onDeviceChange: (device: AppPreviewDevice) => void;
   readonly phase: Phase;
   readonly ready: boolean;
   readonly reducedMotion: boolean;
@@ -25,7 +29,7 @@ const sum = ([rest, kinetic]: number[]) => (rest ?? 0) + (kinetic ?? 0);
  * values written by the simulation, so no frame of a drag, coast or turn
  * passes through React; React only sees phase and orientation changes.
  */
-export function AppsPreviewTile({ motion: values, phase, preview, ready, reducedMotion, tile, ...chips }: TileProps) {
+export function AppsPreviewTile({ device, motion: values, onDeviceChange, phase, preview, ready, reducedMotion, tile, ...chips }: TileProps) {
   const anchorRef = useRef<HTMLElement>(null);
   const x = useTransform([values.restX, values.kinX], sum);
   const y = useTransform([values.restY, values.kinY], sum);
@@ -46,7 +50,7 @@ export function AppsPreviewTile({ motion: values, phase, preview, ready, reduced
           <DevicePreviewFrame anchorRef={anchorRef} frame={preview.frame} height={preview.viewport.height} loading="eager" reducedMotion={reducedMotion} src={preview.url ?? 'about:blank'} title={`${preview.label} production preview`} turn={values.turn} width={preview.viewport.width} />
           <WallChipRail {...chips} portrait={tile.orientation === 'portrait'} preview={preview} rotateDisabled={busy} />
         </div>
-        <p className="apps-wall-caption" id={captionId}><strong>{preview.label}</strong><small>{preview.device}</small></p>
+        <p className="apps-wall-caption" id={captionId}><strong>{preview.label}</strong><small>{preview.device}</small><AppDeviceToggle app={preview.label} onChange={onDeviceChange} value={device} /></p>
       </article>
     </motion.li>
   );

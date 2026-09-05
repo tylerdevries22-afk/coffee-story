@@ -1,95 +1,138 @@
-const wall = document.getElementById('wall');
+import {
+  HARDWARE,
+  presetMap,
+  validWallData,
+} from './wall-model.mjs';
 
-const HARDWARE = {
-  tv: { x: 13, y: 13, base: 18 },
-  desktop: { x: 12, y: 14, base: 26 },
-  tablet: { x: 12, y: 12, base: 0 },
-  phone: { x: 13, y: 14, base: 0 },
-};
+const wall = document.getElementById('wall');
+const heading = document.getElementById('wall-title');
+const fits = new WeakMap();
+const resizeObserver = new ResizeObserver((entries) => {
+  for (const { target } of entries) fits.get(target)?.();
+});
+
+function element(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text) node.textContent = text;
+  return node;
+}
 
 function fault(message, detail) {
-  const note = document.createElement('p');
-  const code = document.createElement('code');
-  note.className = 'fault';
+  const note = element('p', 'fault');
+  const code = element('code', '', detail);
+  note.setAttribute('role', 'alert');
   note.append(message, ' ', code);
-  code.textContent = detail;
   wall.appendChild(note);
 }
 
-function validSurface(value) {
-  return value && typeof value === 'object'
-    && typeof value.name === 'string'
-    && typeof value.device === 'string'
-    && typeof value.port === 'number'
-    && typeof value.path === 'string'
-    && Number.isInteger(value.width) && value.width > 0
-    && Number.isInteger(value.height) && value.height > 0
-    && Number.isInteger(value.span) && value.span > 0
-    && Object.hasOwn(HARDWARE, value.frame);
+function surfaceUrl(surface) {
+  const hostname = window.location.hostname.includes(':')
+    ? `[${window.location.hostname}]`
+    : window.location.hostname;
+  return `${window.location.protocol}//${hostname}:${surface.port}${surface.path}`;
+}
+
+function createSelector(surface, presets, selected, onChange) {
+  const fieldset = element('fieldset', 'device-toggle');
+  fieldset.appendChild(element('legend', 'sr-only', `${surface.name} preview device`));
+  for (const preset of presets) {
+    const label = element('label', 'device-option');
+    const input = document.createElement('input');
+    input.type = 'radio';
+    input.name = `device-${surface.launch}`;
+    input.value = preset.id;
+    input.checked = preset.id === selected;
+    input.addEventListener('change', () => {
+      if (input.checked) onChange(preset.id);
+    });
+    label.append(input, element('span', '', preset.label));
+    fieldset.appendChild(label);
+  }
+  return fieldset;
 }
 
 function createCell(surface, url) {
-  const cell = document.createElement('figure');
-  cell.className = 'cell';
-  cell.dataset.span = String(surface.span);
-  cell.dataset.frame = surface.frame;
-  cell.innerHTML = `
-    <figcaption><span class="dot"></span><span class="name"></span>
-    <span class="meta"><a target="_blank" rel="noreferrer"></a> · <span class="note"></span></span></figcaption>
-    <div class="stage"><div class="device"><div class="viewport"><iframe class="screen"></iframe></div></div></div>`;
-  cell.querySelector('.name').textContent = surface.name;
-  cell.querySelector('.note').textContent = `${surface.device} · ${surface.width}×${surface.height}`;
-  const link = cell.querySelector('.meta a');
+  const cell = element('figure', 'cell');
+  const caption = document.createElement('figcaption');
+  const name = element('span', 'name', surface.name);
+  const meta = element('span', 'meta');
+  const link = element('a', '', `:${surface.port}`);
+  const note = element('span', 'note');
+  const stage = element('div', 'stage');
+  const device = element('div', 'device');
+  const viewport = element('div', 'viewport');
+  const frame = element('iframe', 'screen');
   link.href = url;
-  link.textContent = `:${surface.port}`;
-  return cell;
+  link.target = '_blank';
+  link.rel = 'noreferrer';
+  meta.append(link, ' · ', note);
+  frame.src = url;
+  frame.referrerPolicy = 'no-referrer';
+  frame.setAttribute('sandbox', 'allow-forms allow-popups allow-same-origin allow-scripts');
+  viewport.appendChild(frame);
+  device.appendChild(viewport);
+  stage.appendChild(device);
+  caption.appendChild(name);
+  cell.append(caption, stage);
+  cell.dataset.span = String(surface.span);
+  return { caption, cell, device, frame, meta, note, stage };
 }
 
-function mount(surface) {
-  if (!validSurface(surface)) {
-    fault('Could not load a valid surface definition.', 'Check wall-surfaces.json.');
-    return;
-  }
-  const url = `http://localhost:${surface.port}${surface.path}`;
-  const hardware = HARDWARE[surface.frame];
-  const cell = createCell(surface, url);
-  const device = cell.querySelector('.device');
-  const stage = cell.querySelector('.stage');
-  const frame = cell.querySelector('iframe');
-  const dot = cell.querySelector('.dot');
-  device.classList.add(`device--${surface.frame}`);
-  device.style.setProperty('--screen-w', `${surface.width}px`);
-  device.style.setProperty('--screen-h', `${surface.height}px`);
-  device.style.setProperty('--frame-x', `${hardware.x}px`);
-  device.style.setProperty('--frame-y', `${hardware.y}px`);
-  device.style.width = `${surface.width + (hardware.x * 2)}px`;
-  device.style.height = `${surface.height + (hardware.y * 2)}px`;
-  frame.width = surface.width;
-  frame.height = surface.height;
-  frame.src = url;
-  frame.title = `${surface.name} at ${surface.width} by ${surface.height}`;
-  frame.addEventListener('load', () => dot.classList.add('up'));
-  wall.appendChild(cell);
+function mount(surface, presetsById) {
+  const url = surfaceUrl(surface);
+  let selected = surface.activeDevice;
+  let preset = presetsById.get(selected);
+  const available = surface.devices.map((id) => presetsById.get(id));
+  if (!preset || available.some((item) => !item)) return fault('Invalid device profile for', surface.name);
+  const view = createCell(surface, url);
 
   const fit = () => {
-    const outerWidth = surface.width + (hardware.x * 2);
-    const outerHeight = surface.height + (hardware.y * 2) + hardware.base;
-    const scale = Math.min(stage.clientWidth / outerWidth, stage.clientHeight / outerHeight);
-    device.style.left = `${Math.round((stage.clientWidth - (outerWidth * scale)) / 2)}px`;
-    device.style.top = `${Math.round((stage.clientHeight - (outerHeight * scale)) / 2)}px`;
-    device.style.transform = `scale(${scale})`;
+    const hardware = HARDWARE[preset.frame];
+    const outerWidth = preset.width + (hardware.x * 2);
+    const outerHeight = preset.height + (hardware.y * 2) + hardware.base;
+    if (view.stage.clientWidth === 0 || view.stage.clientHeight === 0) return;
+    const scale = Math.min(view.stage.clientWidth / outerWidth, view.stage.clientHeight / outerHeight);
+    view.device.style.left = `${Math.round((view.stage.clientWidth - (outerWidth * scale)) / 2)}px`;
+    view.device.style.top = `${Math.round((view.stage.clientHeight - (outerHeight * scale)) / 2)}px`;
+    view.device.style.transform = `scale(${scale})`;
   };
-  new ResizeObserver(fit).observe(stage);
-  fit();
+  const apply = (id) => {
+    const next = presetsById.get(id);
+    if (!next || !surface.devices.includes(id)) return;
+    selected = id;
+    preset = next;
+    const hardware = HARDWARE[preset.frame];
+    view.device.className = `device device--${preset.frame}`;
+    view.device.style.setProperty('--screen-w', `${preset.width}px`);
+    view.device.style.setProperty('--screen-h', `${preset.height}px`);
+    view.device.style.setProperty('--frame-x', `${hardware.x}px`);
+    view.device.style.setProperty('--frame-y', `${hardware.y}px`);
+    view.device.style.width = `${preset.width + (hardware.x * 2)}px`;
+    view.device.style.height = `${preset.height + (hardware.y * 2)}px`;
+    view.frame.width = String(preset.width);
+    view.frame.height = String(preset.height);
+    view.frame.title = `${surface.name}, ${preset.device}, ${preset.width} by ${preset.height}`;
+    view.note.textContent = `${preset.device} · ${preset.width}×${preset.height}`;
+    fit();
+  };
+  const selector = createSelector(surface, available, selected, apply);
+  view.caption.append(selector, view.meta);
+  wall.appendChild(view.cell);
+  fits.set(view.stage, fit);
+  resizeObserver.observe(view.stage);
+  apply(selected);
 }
 
 fetch('./wall-surfaces.json')
   .then((response) => (response.ok ? response.json() : Promise.reject(new Error(`HTTP ${response.status}`))))
   .then((data) => {
-    if (!data || !Array.isArray(data.surfaces)) throw new Error('Missing surfaces');
-    data.surfaces.forEach(mount);
+    if (!validWallData(data)) throw new Error('Invalid wall data');
+    heading.textContent = `${data.context.organizationName} · five apps`;
+    const presetsById = presetMap(data);
+    data.surfaces.forEach((surface) => mount(surface, presetsById));
   })
-  .catch(() => fault('Could not read the surface list — re-publish the wall with', 'pnpm preview --wall'));
+  .catch(() => fault('Could not read the surface list — re-publish the wall with', 'pnpm preview'));
 
 document.getElementById('reload').addEventListener('click', () => {
   for (const frame of document.querySelectorAll('iframe.screen')) frame.src = frame.src;

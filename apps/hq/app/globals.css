@@ -1262,6 +1262,14 @@ body {
   resize: vertical;
 }
 .location-form-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 10px; }
+.organization-location-fields {
+  margin: 12px 0 4px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.organization-location-fields > legend { padding: 0 6px; font-weight: 700; }
+.readiness-summary { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
 
 .scope-switcher { position: relative; min-width: 0; }
 
@@ -1322,6 +1330,7 @@ body {
 .scope-trigger-icon { color: var(--accent); flex: none; }
 .scope-trigger-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .scope-trigger-chevron { color: var(--text-muted); flex: none; }
+.scope-organization-logo,
 .scope-trigger-brand-glyph {
   display: grid;
   width: 32px;
@@ -1335,7 +1344,14 @@ body {
   font-family: var(--font-display);
   font-size: 16px;
   font-weight: 700;
+  object-fit: cover;
 }
+.scope-organization-logo.compact { width: 28px; height: 28px; flex-basis: 28px; border-radius: 7px; }
+.scope-organization-logo.fallback { place-items: center; }
+.scope-trigger-icon-frame,
+.scope-option-icon { display: grid; flex: none; place-items: center; border: 1px solid var(--line); background: var(--bg); color: var(--accent); }
+.scope-trigger-icon-frame { width: 32px; height: 32px; border-radius: 8px; }
+.scope-option-icon { width: 28px; height: 28px; border-radius: 7px; }
 .scope-trigger-copy { display: grid; min-width: 0; flex: 1; gap: 1px; text-align: left; }
 .scope-trigger-subtitle { color: var(--text-muted); font-size: 10px; font-weight: 500; }
 

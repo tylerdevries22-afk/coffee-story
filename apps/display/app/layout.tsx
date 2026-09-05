@@ -1,12 +1,22 @@
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 
+import { selectedDemoDisplayPresentation } from '@/lib/demo-tenant';
+
 import './display.css';
 import { PreviewSwitcher } from './preview-switcher';
 
+const display = selectedDemoDisplayPresentation();
+const activityDescription = ['Live', display.tenantName, 'project activity']
+  .filter(Boolean)
+  .join(' ');
+
 export const metadata: Metadata = {
-  title: 'Pickup',
-  description: 'Order status for the counter',
+  title: display.activityConfig.enabled ? display.activityConfig.title : 'Display',
+  description: display.activityConfig.enabled
+    ? activityDescription
+    : 'Live status for this location',
+  other: { 'platform-tenant': process.env.TENANT ?? '' },
   // A wall screen must never end up in a search index: the board carries
   // guest names, meant for the room they are standing in.
   robots: { index: false, follow: false },

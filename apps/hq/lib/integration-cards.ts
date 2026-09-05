@@ -38,8 +38,11 @@ export type ConnectorCard = {
   readonly connectedAt: string | null;
   readonly lastSyncedAt: string | null;
   readonly logo: ConnectorCatalogEntry['logo'];
+  readonly isInstalled: boolean;
   readonly isConnected: boolean;
   readonly canConfigure: boolean;
+  readonly connectHref: string | null;
+  readonly connectLabel: string | null;
 };
 
 export type IntegrationActivity = {
@@ -78,6 +81,10 @@ const STATUS_LABELS: Readonly<Record<ConnectorInstallationStatus, string>> = {
   uncertified: 'Uncertified',
 };
 
+const CONFIGURABLE_REGISTRY_AVAILABILITY = new Set([
+  'available', 'setup_required', 'provider_approval_required',
+]);
+
 function normalizedStatus(status: string | undefined): ConnectorInstallationStatus | undefined {
   if (!status) return undefined;
   const candidate = status.replaceAll('_', '-') as ConnectorInstallationStatus;
@@ -90,6 +97,24 @@ function fallbackStatus(entry: ConnectorCatalogEntry): ConnectorInstallationStat
   return 'setup-required';
 }
 
+function registryStatus(
+  entry: ConnectorCatalogEntry,
+  registry: ConnectorRegistryRow | undefined,
+): ConnectorInstallationStatus {
+  if (!registry) return 'disabled';
+  const availability = registry.availability.replaceAll('-', '_');
+  if (availability === 'coming_soon' || availability === 'uncertified') {
+    return 'uncertified';
+  }
+  if (!registry.is_active || availability === 'disabled') return 'disabled';
+  return fallbackStatus(entry);
+}
+
+function registryAllowsConfiguration(registry: ConnectorRegistryRow | undefined): boolean {
+  if (!registry?.is_active) return false;
+  return CONFIGURABLE_REGISTRY_AVAILABILITY.has(registry.availability.replaceAll('-', '_'));
+}
+
 /** Resolves the immutable catalog and tenant installation rows into safe UI cards. */
 export function connectorCardsOf(
   registryRows: readonly ConnectorRegistryRow[],
@@ -100,7 +125,7 @@ export function connectorCardsOf(
   return listConnectorCatalog().map((entry) => {
     const registry = registryByKey.get(entry.descriptor.id);
     const installation = registry ? installationByProvider.get(registry.id) : undefined;
-    const status = normalizedStatus(installation?.status) ?? fallbackStatus(entry);
+    const status = normalizedStatus(installation?.status) ?? registryStatus(entry, registry);
     const isConnected = status === 'connected-healthy' || status === 'connected-degraded';
     return Object.freeze({
       id: entry.descriptor.id,
@@ -116,15 +141,48 @@ export function connectorCardsOf(
       connectedAt: installation?.connected_at ?? null,
       lastSyncedAt: installation?.last_synced_at ?? null,
       logo: entry.logo,
+      isInstalled: Boolean(installation),
       isConnected,
-      canConfigure: entry.availability !== 'coming-soon' && registry?.is_active !== false,
+      canConfigure: entry.availability !== 'coming-soon'
+        && registryAllowsConfiguration(registry),
+      connectHref: null,
+      connectLabel: null,
     });
   });
 }
 
-/** Returns the catalog with truthful setup states before tenant rows exist. */
+/** Returns the static catalog for visibility, with every setup action disabled. */
 export function defaultConnectorCards(): readonly ConnectorCard[] {
   return connectorCardsOf([], []);
+}
+
+/** Removes stale or forged selections that have no configurable registry row. */
+export function selectableConnectorIds(
+  cards: readonly ConnectorCard[],
+  selectedIds: readonly string[],
+): readonly string[] {
+  const configurable = new Set(cards.filter((card) => card.canConfigure).map((card) => card.id));
+  return [...new Set(selectedIds)].filter((id) => configurable.has(id));
+}
+
+/** Builds tenant-scoped setup cards for the infrastructure-free HQ demo. */
+export function demoConnectorCards(selectedIds: readonly string[]): readonly ConnectorCard[] {
+  const selected = new Set(selectedIds);
+  const registryRows = listConnectorCatalog().map((entry) => ({
+    id: entry.descriptor.id,
+    provider_key: entry.descriptor.id,
+    availability: entry.availability,
+    is_active: entry.availability !== 'coming-soon',
+  }));
+  const installationRows = registryRows.filter((row) => selected.has(row.provider_key)).map((row) => ({
+    id: `demo-${row.id}`,
+    provider_id: row.id,
+    status: row.availability === 'provider-approval-required'
+      ? 'provider_approval_required' : 'setup_required',
+    external_account_label: '', enabled_capabilities: [], connected_at: null,
+    last_synced_at: null, updated_at: new Date(0).toISOString(),
+  }));
+  return connectorCardsOf(registryRows, installationRows);
 }
 
 /** Returns cards for one contextual Integrations view. */

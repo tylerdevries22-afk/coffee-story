@@ -10,14 +10,29 @@
 import { TENANT_SLUG } from './index';
 
 import { TENANT_MENU_MEDIA as menuMediaCoffeeStory } from './coffee-story/menu-media.generated';
+import brandLogoCoffeeStory from '../../assets/tenants/coffee-story/brand/logo.png';
+import { TENANT_MENU_MEDIA as menuMediaJuniperBaseDemo } from './juniper-base-demo/menu-media.generated';
+import brandLogoJuniperBaseDemo from '../../assets/tenants/juniper-base-demo/brand/logo.png';
+import { TENANT_MENU_MEDIA as menuMediaStillpointBuilders } from './stillpoint-builders/menu-media.generated';
+import brandLogoStillpointBuilders from '../../assets/tenants/stillpoint-builders/brand/logo.png';
 
 export type TenantMediaSlot = {
+  readonly brandLogo: number;
   readonly menuMedia: Readonly<Record<string, number>>;
 };
 
 const MEDIA: Readonly<Record<string, TenantMediaSlot>> = {
   'coffee-story': {
+    brandLogo: brandLogoCoffeeStory,
     menuMedia: menuMediaCoffeeStory,
+  },
+  'juniper-base-demo': {
+    brandLogo: brandLogoJuniperBaseDemo,
+    menuMedia: menuMediaJuniperBaseDemo,
+  },
+  'stillpoint-builders': {
+    brandLogo: brandLogoStillpointBuilders,
+    menuMedia: menuMediaStillpointBuilders,
   },
 };
 

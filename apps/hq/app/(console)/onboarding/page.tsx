@@ -1,18 +1,14 @@
-import { randomUUID } from 'node:crypto';
-
-import { factoryTasks, parseOnboardingIntake, proposalTermsFor } from '@platform/factory';
+import { proposalTermsFor } from '@platform/factory';
 import Link from 'next/link';
-import { revalidatePath } from 'next/cache';
-import { redirect } from 'next/navigation';
-import { start } from 'workflow/api';
 
 import { Icon, type IconName } from '@/components/icon';
 import { currentSession, hasRole } from '@/lib/auth';
-import { serverEnv, serviceDb } from '@/lib/api-auth';
 import { loadFactoryOverview } from '@/lib/factory-data';
 import { formatMoney } from '@/lib/kpi';
+import { ONBOARDING_INDUSTRIES } from '@/lib/onboarding-industries';
 import { serverClient } from '@/lib/supabase-server';
-import { runPlatformFactory } from '@/workflows/platform-factory';
+
+import { createOnboardingRun, resumeOnboardingRun } from './actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,67 +26,6 @@ const APP_SURFACES: readonly {
   { name: 'Pickup display', purpose: 'Realtime preparation and pickup status', delivery: 'Paired display application', icon: 'activity' },
   { name: 'HQ', purpose: 'Tenant control plane and reporting', delivery: 'Role-scoped web console', icon: 'dashboard' },
 ];
-
-async function createOnboardingRun(formData: FormData): Promise<void> {
-  'use server';
-
-  const session = await currentSession();
-  if (!hasRole(session, 'platform_admin')) redirect('/onboarding?error=forbidden');
-
-  const parsed = parseOnboardingIntake({
-    businessName: formData.get('businessName'),
-    tenantSlug: formData.get('tenantSlug'),
-    industryKey: formData.get('industryKey'),
-    locationName: formData.get('locationName'),
-    timezone: formData.get('timezone'),
-    websiteUrl: formData.get('websiteUrl'),
-  });
-  if (!parsed.ok) redirect(`/onboarding?error=invalid&detail=${encodeURIComponent(parsed.issues[0] ?? '')}`);
-
-  const signedClient = await serverClient();
-  const environment = serverEnv();
-  if (!signedClient || !environment) redirect('/onboarding?preview_created=1');
-
-  const user = await signedClient.auth.getUser();
-  if (!user.data.user) redirect('/login');
-
-  const database = serviceDb(environment);
-  const blueprint = await database
-    .from('industry_blueprints')
-    .select('id')
-    .eq('industry_key', parsed.value.industryKey)
-    .eq('status', 'active')
-    .order('version', { ascending: false })
-    .limit(1)
-    .maybeSingle<{ id: string }>();
-  if (blueprint.error || !blueprint.data) redirect('/onboarding?error=blueprint');
-
-  const result = await database.rpc('create_platform_onboarding_run', {
-    input_blueprint_id: blueprint.data.id,
-    input_business_name: parsed.value.businessName,
-    input_tenant_slug: parsed.value.tenantSlug,
-    input_location_name: parsed.value.locationName,
-    input_timezone: parsed.value.timezone,
-    input_website_url: parsed.value.websiteUrl ?? '',
-    input_idempotency_key: randomUUID(),
-    input_created_by: user.data.user.id,
-    input_tasks: factoryTasks(),
-  });
-  if (result.error || typeof result.data !== 'string') redirect('/onboarding?error=create');
-
-  try {
-    await start(runPlatformFactory, [{ runId: result.data }]);
-  } catch {
-    await Promise.all([
-      database.from('platform_onboarding_runs').update({ state: 'failed', last_error_code: 'workflow_start_failed' }).eq('id', result.data),
-      database.from('platform_onboarding_tasks').update({ state: 'failed', last_error_code: 'workflow_start_failed' }).eq('run_id', result.data).eq('task_key', 'research-brand'),
-    ]);
-    redirect('/onboarding?error=automation');
-  }
-
-  revalidatePath('/onboarding');
-  redirect('/onboarding?created=1');
-}
 
 function firstParam(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
@@ -124,6 +59,7 @@ export default async function OnboardingPage({ searchParams }: { searchParams: S
       </header>
 
       {params.created ? <div className="notice">The onboarding run was created and its first research task is ready.</div> : null}
+      {params.resumed ? <div className="notice">The factory run resumed from its last completed task.</div> : null}
       {params.preview_created ? <div className="notice">Preview accepted. Configure the hosted factory environment to persist and execute this run.</div> : null}
       {error ? (
         <div className="notice factory-notice-danger" role="alert">
@@ -132,6 +68,7 @@ export default async function OnboardingPage({ searchParams }: { searchParams: S
           {error === 'blueprint' ? 'The selected industry blueprint is not available.' : null}
           {error === 'create' ? 'The run could not be created. No infrastructure or billing changes were made.' : null}
           {error === 'automation' ? 'The run was saved, but its hosted automation could not start. No provider resources were created.' : null}
+          {error === 'resume' ? 'Only a blocked or failed factory run can be resumed.' : null}
         </div>
       ) : null}
       {overview.issue ? <div className="notice">{overview.issue} Apply the factory migration to the hosted platform project to enable live runs.</div> : null}
@@ -157,7 +94,11 @@ export default async function OnboardingPage({ searchParams }: { searchParams: S
               </div>
               <div className="factory-field-row">
                 <label className="field">Industry
-                  <select name="industryKey" defaultValue="coffee-shop"><option value="coffee-shop">Coffee shop</option></select>
+                  <select name="industryKey" defaultValue="coffee-shop">
+                    {ONBOARDING_INDUSTRIES.map((industry) => (
+                      <option key={industry.key} value={industry.key}>{industry.label}</option>
+                    ))}
+                  </select>
                 </label>
                 <label className="field">First location<input required minLength={2} maxLength={120} name="locationName" placeholder="Downtown" /></label>
               </div>
@@ -228,6 +169,12 @@ export default async function OnboardingPage({ searchParams }: { searchParams: S
                   <span>{run.verifiedCredentials} of {run.requiredCredentials} credentials verified</span>
                   <span>Stage: {runStateLabel(run.stage)}</span>
                 </div>
+                {admin && (run.state === 'blocked' || run.state === 'failed') ? (
+                  <form action={resumeOnboardingRun}>
+                    <input type="hidden" name="runId" value={run.id} />
+                    <button className="button secondary" type="submit">Resume from checkpoint</button>
+                  </form>
+                ) : null}
               </article>
             );
           }) : <div className="factory-empty"><Icon name="onboarding" size={22} /><strong>No tenant runs yet</strong><p>Create a private demo to begin the verified pipeline.</p></div>}

@@ -39,11 +39,11 @@ import {
   type SloshState,
 } from './liquid-physics';
 import { useLiquidMotion } from './use-liquid-motion';
-
-import NEBULA from '../../../assets/rewards/liquid-nebula.webp';
+import { TENANT_MEDIA } from '@/tenants/media';
 
 import { POUR_MS, type LiquidDrag } from './liquid-drag';
 
+const NEBULA = TENANT_MEDIA.artwork['rewards/liquid-nebula.webp'];
 // One seamless takeaway-cup path in the same 116x106 design box: a lid band
 // with a slight overhang, a gently tapered body and a rounded base. Rendering
 // in a single Skia canvas removes the composite-clip seams entirely.

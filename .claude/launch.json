@@ -39,7 +39,8 @@
       ],
       "env": {
         "DEMO_SYNC_URL": "http://localhost:3300/api/demo-sync",
-        "PREVIEW_WALL": "1"
+        "PREVIEW_WALL": "1",
+        "TENANT": "stillpoint-builders"
       },
       "port": 3200,
       "autoPort": false

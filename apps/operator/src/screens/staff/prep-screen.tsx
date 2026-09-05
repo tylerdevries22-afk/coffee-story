@@ -8,7 +8,7 @@ import {
 } from '@platform/data';
 import { isoDateInTimeZone } from '@platform/domain';
 
-import { DEMO_BAKE_LIST } from '@/data/prep-demo';
+import { DEMO_OPERATOR_FIXTURES } from '@/data/demo-fixtures';
 import {
   bakeProgress, multiplierLabel, recipeSteps, sortBakeList,
 } from '@/features/prep/bake-list';
@@ -44,12 +44,12 @@ export function PrepScreen() {
   } as const;
   const { isDemo } = useAuth();
   const { location, locationReady } = useOperator();
-  const [batches, setBatches] = useState<readonly PrepBoardEntry[]>(() => isDemo ? DEMO_BAKE_LIST : []);
+  const [batches, setBatches] = useState<readonly PrepBoardEntry[]>(() => isDemo ? DEMO_OPERATOR_FIXTURES.prepBatches : []);
   const [openId, setOpenId] = useState<string | null>(null);
 
   useEffect(() => {
     if (isDemo) {
-      setBatches(DEMO_BAKE_LIST);
+      setBatches(DEMO_OPERATOR_FIXTURES.prepBatches);
       return undefined;
     }
     if (!supabase || !locationReady) return undefined;

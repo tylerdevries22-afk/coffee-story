@@ -8,8 +8,14 @@
  * hook gives them their role.
  */
 import { redirect } from 'next/navigation';
+import { cookies } from 'next/headers';
 
 import { serverClient } from '@/lib/supabase-server';
+import {
+  expiredWorkspaceCookieOptions,
+  LOCATION_COOKIE,
+  ORG_COOKIE,
+} from '@/lib/workspace-cookie';
 
 function loginError(message: string): never {
   redirect(`/login?error=${encodeURIComponent(message)}`);
@@ -49,6 +55,14 @@ export async function verifyEmailCode(formData: FormData): Promise<void> {
 
 export async function signOut(): Promise<void> {
   const client = await serverClient();
-  if (client) await client.auth.signOut();
+  try {
+    if (client) await client.auth.signOut();
+  } catch {
+    // Local workspace scope still has to disappear when auth is unavailable.
+  }
+  const store = await cookies();
+  const expired = expiredWorkspaceCookieOptions();
+  store.set(ORG_COOKIE, '', expired);
+  store.set(LOCATION_COOKIE, '', expired);
   redirect('/login');
 }

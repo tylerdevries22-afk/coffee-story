@@ -29,7 +29,7 @@ export const APPS_SECTION = {
     { href: '/apps/customer', label: 'Customer', icon: 'users' },
     { href: '/apps/operator', label: 'Operator', icon: 'activity' },
     { href: '/apps/kiosk', label: 'Kiosk / POS', icon: 'kiosk' },
-    { href: '/apps/display', label: 'Pickup display', icon: 'wall' },
+    { href: '/apps/display', label: 'Location display', icon: 'wall' },
   ],
 } satisfies ConsoleSection;
 
@@ -55,6 +55,14 @@ export const CUSTOMERS_SECTION = {
   icon: 'users',
   home: '/customers',
   items: [{ href: '/customers', label: 'Directory', icon: 'users' }],
+} satisfies ConsoleSection;
+
+export const KNOWLEDGE_SECTION = {
+  key: 'knowledge',
+  title: 'Knowledge',
+  icon: 'book',
+  home: '/knowledge',
+  items: [{ href: '/knowledge', label: 'Library', icon: 'book' }],
 } satisfies ConsoleSection;
 
 /**

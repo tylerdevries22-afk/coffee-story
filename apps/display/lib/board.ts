@@ -1,28 +1,21 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-import {
-  createDemoSyncClient, type DemoSyncBoardTicket, type DemoSyncClient,
-} from '@platform/api-client';
-import { abortRead, fetchBoardTickets, readWithRetry } from '@platform/data';
-import { resolveBoardConfig, type BoardConfig } from '@platform/domain';
-import type { BoardTicketRow } from '@platform/schema';
-import { resolveCopy, type BrandCopy } from '@platform/ui/copy';
+import { fetchActivityBoardItems, fetchBoardTickets } from '@platform/data';
+import type { ActivityBoardItemRow, BoardTicketRow } from '@platform/schema';
 
 import { deviceToken, deviceTokenConfigured } from './device-token';
 
-import { DEMO_BRAND_CONFIG, demoBoardAt, demoLocationName } from './demo-board';
-import { displayTheme, type DisplayTheme } from './theme';
+import {
+  demoSyncClient, synchronizedFixtureTickets, synchronizedPreview,
+} from './board-demo-sync';
+import {
+  fixtureBoardSnapshot, liveBoardSnapshot, loadBrandBits, unpairedBoardSnapshot,
+  type BoardSnapshot,
+} from './board-snapshot';
+import { demoActivityItems, selectedDemoTenantKind } from './demo-tenant';
 
-const demoSyncClient = createDemoSyncClient(process.env.DEMO_SYNC_URL, 'pos');
-
-export function previewWallEnabled(flag: string | undefined, syncConfigured: boolean): boolean {
-  return flag === '1' && syncConfigured;
-}
-
-const synchronizedPreview = previewWallEnabled(
-  process.env.PREVIEW_WALL,
-  demoSyncClient !== null,
-);
+export { previewWallEnabled, synchronizedFixtureTickets } from './board-demo-sync';
+export type { BoardSnapshot } from './board-snapshot';
 
 /**
  * The display's read.
@@ -113,126 +106,6 @@ export function isLocationId(value: string): boolean {
 }
 
 /**
- * Everything one board needs, in the shape the screen draws.
- *
- * Assembled server-side in one pass so the page has no waterfall: a display
- * reboots to a cold cache every morning and the first paint is the one the
- * room sees.
- */
-export type BoardSnapshot = {
-  locationName: string;
-  tickets: BoardTicketRow[];
-  config: BoardConfig;
-  copy: BrandCopy;
-  theme: DisplayTheme;
-  /** False when the deployment has no database; the board then runs on fixtures. */
-  live: boolean;
-  /** True when a live read failed and the board is showing what it last knew. */
-  degraded: boolean;
-  /**
-   * True when this is a production deployment with no device token: the screen
-   * is not paired to a location, so there is nothing honest to draw.
-   */
-  unpaired: boolean;
-  demoSynced: boolean;
-};
-
-type BrandBits = { name: string; config: unknown };
-
-async function loadBrandBits(db: SupabaseClient, locationId: string): Promise<BrandBits | null> {
-  const location = await readWithRetry('display location', (signal) => abortRead(db
-    .from('locations')
-    .select('name, brand_id')
-    .eq('id', locationId), signal)
-    .maybeSingle<{ name: string; brand_id: string }>());
-  if (!location) return null;
-
-  // brand_storefront_lookup, not brands: the table also carries the platform's
-  // fee terms, which stay claim-gated (0015). A wall screen has no business
-  // holding a query that could ever return them. The lookup is narrowed to the
-  // one brand by argument, so it cannot enumerate the platform (0903005237).
-  const brand = await readWithRetry('display brand', (signal) => abortRead(db
-    .rpc('brand_storefront_lookup', { p_brand_id: location.brand_id }), signal)
-    .maybeSingle<{ brand_config: unknown }>());
-  return { name: location.name, config: brand?.brand_config ?? {} };
-}
-
-function fixtures(
-  locationId: string,
-  degraded: boolean,
-  tickets = demoBoardAt(Date.now(), locationId),
-): BoardSnapshot {
-  return {
-    locationName: demoLocationName(locationId),
-    tickets,
-    config: resolveBoardConfig(DEMO_BRAND_CONFIG),
-    copy: resolveCopy((DEMO_BRAND_CONFIG as { copy?: unknown }).copy),
-    theme: displayTheme(DEMO_BRAND_CONFIG),
-    live: false,
-    degraded,
-    unpaired: false,
-    demoSynced: demoSyncClient !== null,
-  };
-}
-
-/**
- * A production screen with no device token.
- *
- * Deliberately empty rather than fixtures: an unpaired board must not be
- * mistakable for a working one. It keeps the platform's default palette
- * because there is no brand to hydrate from -- not knowing which shop this is
- * is precisely the condition being reported.
- */
-function unpaired(): BoardSnapshot {
-  return {
-    locationName: '',
-    tickets: [],
-    config: resolveBoardConfig(null),
-    copy: resolveCopy(null),
-    theme: displayTheme(null),
-    live: false,
-    degraded: false,
-    unpaired: true,
-    demoSynced: false,
-  };
-}
-
-const ACTIVE_BOARD_STATUSES = new Set(['paid', 'in_progress', 'ready']);
-
-function demoSyncTickets(tickets: DemoSyncBoardTicket[], locationId: string): BoardTicketRow[] {
-  return tickets.filter((ticket) => ACTIVE_BOARD_STATUSES.has(ticket.status)).map((ticket) => ({
-    id: ticket.id, brand_id: 'brand-demo', location_id: locationId,
-    daily_number: ticket.dailyNumber, guest_label: ticket.guestName,
-    status: ticket.status as BoardTicketRow['status'],
-    fulfillment_type: ticket.fulfillmentType, channel: ticket.channel,
-    arrived_at: null, loyalty_tier: null, updated_at: ticket.updatedAt,
-  }));
-}
-
-/**
- * The broker is the board whenever it holds anything.
- *
- * This used to interleave: the local clock-driven roster filled the screen and
- * broker sales replaced rows off the end of it. That produced a board of
- * orders no operator could act on -- the two rosters were different orders
- * with different numbers, and a barista pressing Ready moved a ticket the wall
- * had never heard of. One roster, held by the broker, is the whole point of
- * the shared demo plane; the local roster stays as the standalone fallback for
- * a display running with no broker configured, and as the opening screen in
- * the moment before the broker answers.
- */
-export async function synchronizedFixtureTickets(
-  locationId: string,
-  syncClient: Pick<DemoSyncClient, 'board'> | null = demoSyncClient,
-  now = Date.now(),
-): Promise<BoardTicketRow[]> {
-  const base = demoBoardAt(now, locationId);
-  if (!syncClient) return base;
-  const synchronized = demoSyncTickets(await syncClient.board(), locationId);
-  return synchronized.length > 0 ? synchronized : base;
-}
-
-/**
  * Never throws.
  *
  * Nobody is watching this screen for a stack trace, and a Next error page in
@@ -243,32 +116,27 @@ export async function synchronizedFixtureTickets(
 export async function loadBoard(locationId: string): Promise<BoardSnapshot> {
   const db = await client();
   if (!db) {
-    if (!demoAllowed()) return unpaired();
-    try { return fixtures(locationId, false, await synchronizedFixtureTickets(locationId)); }
-    catch { return fixtures(locationId, demoSyncClient !== null); }
+    if (!demoAllowed()) return unpairedBoardSnapshot();
+    try {
+      const tickets = await synchronizedFixtureTickets(locationId);
+      return fixtureBoardSnapshot(locationId, false, demoSyncClient !== null, tickets);
+    } catch {
+      return fixtureBoardSnapshot(locationId, demoSyncClient !== null, demoSyncClient !== null);
+    }
   }
 
   try {
-    const [tickets, brand] = await Promise.all([
+    const [tickets, activityItems, brand] = await Promise.all([
       fetchBoardTickets(db, locationId),
+      fetchActivityBoardItems(db, locationId),
       loadBrandBits(db, locationId),
     ]);
-    return {
-      locationName: brand?.name ?? 'Pickup',
-      tickets,
-      config: resolveBoardConfig(brand?.config),
-      copy: resolveCopy((brand?.config as { copy?: unknown } | undefined)?.copy),
-      theme: displayTheme(brand?.config),
-      live: true,
-      degraded: false,
-      unpaired: false,
-      demoSynced: false,
-    };
+    return liveBoardSnapshot(brand, tickets, activityItems);
   } catch (error) {
     console.error('display: board read failed', error);
     // Degraded, not demo: a failed read on a paired screen must not start
     // inventing guests either.
-    return { ...unpaired(), degraded: true, unpaired: false };
+    return { ...unpairedBoardSnapshot(), degraded: true, unpaired: false };
   }
 }
 
@@ -284,7 +152,18 @@ export async function loadBoardTickets(locationId: string): Promise<BoardTicketR
   const db = await client();
   if (!db) {
     if (!demoAllowed()) return [];
+    if (selectedDemoTenantKind() !== 'default') return [];
     return synchronizedFixtureTickets(locationId);
   }
   return fetchBoardTickets(db, locationId);
+}
+
+/** The activity reconcile read, using the same safe projection as first paint. */
+export async function loadActivityBoardItems(locationId: string): Promise<ActivityBoardItemRow[]> {
+  const db = await client();
+  if (!db) {
+    if (!demoAllowed()) return [];
+    return demoActivityItems(Date.now(), locationId);
+  }
+  return fetchActivityBoardItems(db, locationId);
 }

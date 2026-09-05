@@ -9,6 +9,7 @@ export type IconName =
   | 'chevron'
   | 'close'
   | 'dashboard'
+  | 'desktop'
   | 'drop'
   | 'drag'
   | 'edit'
@@ -21,12 +22,14 @@ export type IconName =
   | 'lock'
   | 'locations'
   | 'menu'
+  | 'mobile'
   | 'onboarding'
   | 'panel'
   | 'plus'
   | 'resize'
   | 'search'
   | 'settings'
+  | 'tablet'
   | 'rotate'
   | 'training'
   | 'upload'
@@ -47,6 +50,7 @@ const paths: Record<IconName, readonly string[]> = {
   chevron: ['m8 10 4 4 4-4'],
   close: ['M6 6l12 12', 'M18 6 6 18'],
   dashboard: ['M4 4h6v6H4z', 'M14 4h6v6h-6z', 'M4 14h6v6H4z', 'M14 14h6v6h-6z'],
+  desktop: ['M3 4h18v12H3z', 'M8 20h8', 'M12 16v4'],
   drag: ['M9 6h.01', 'M15 6h.01', 'M9 12h.01', 'M15 12h.01', 'M9 18h.01', 'M15 18h.01'],
   drop: ['M12 3s6 6.2 6 10a6 6 0 0 1-12 0c0-3.8 6-10 6-10z', 'M9 15.2a3.3 3.3 0 0 0 3 1.8'],
   edit: ['M4 20h4.2L19.3 8.9a2.1 2.1 0 0 0-3-3L5.2 17v3z', 'm14.9 7.3 3 3'],
@@ -59,6 +63,7 @@ const paths: Record<IconName, readonly string[]> = {
   lock: ['M6 10h12v10H6z', 'M8.5 10V7.5a3.5 3.5 0 0 1 7 0V10', 'M12 14v2'],
   locations: ['M12 21s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z', 'M12 11a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z'],
   menu: ['M4 5h16', 'M4 12h16', 'M4 19h16'],
+  mobile: ['M8 2h8v20H8z', 'M11 18h2'],
   onboarding: ['M12 3v4', 'M12 17v4', 'M3 12h4', 'M17 12h4', 'm5.6 5.6 2.8-2.8', 'm15.6 8.4 2.8-2.8', 'm5.6 6.4 2.8 2.8', 'm15.6 15.6 2.8 2.8'],
   panel: ['M4 4h16v16H4z', 'M9 4v16'],
   plus: ['M12 5v14', 'M5 12h14'],
@@ -66,6 +71,7 @@ const paths: Record<IconName, readonly string[]> = {
   search: ['m21 21-4.4-4.4', 'M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14z'],
   rotate: ['M20 10V4l-2.2 2.2A8 8 0 1 0 20 12', 'M20 4h-6'],
   settings: ['M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z', 'M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-1.7 1.7-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-2.4v-.2a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L8 17l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H6v-2.4h.8a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L8 8.6l1.7-1.7.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.6v-.2h2.4v.2a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1 1.7 1.7-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2V14h-.2a1.7 1.7 0 0 0-1.6 1z'],
+  tablet: ['M5 3h14v18H5z', 'M11 17h2'],
   training: ['M4 5h16v11H4z', 'M8 20h8', 'M12 16v4', 'm8 9 2.5 2.5L16 7'],
   upload: ['M12 16V4', 'm7 9 5-5 5 5', 'M5 15v5h14v-5'],
   users: ['M16 20v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 18.5V20', 'M10 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z', 'M17 11a3 3 0 0 0 0-6', 'M20 20v-1.5a3.5 3.5 0 0 0-2.5-3.4'],

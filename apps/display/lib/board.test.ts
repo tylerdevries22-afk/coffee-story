@@ -447,4 +447,10 @@ describe('the wall content security policy', () => {
     assert.doesNotMatch(shipped, /unsafe-eval/,
       'the production branch must stay the narrowest policy the app can run under');
   });
+
+  it('does not authorize another tenant HQ when the origin is absent or invalid', () => {
+    assert.doesNotMatch(config, /coffee-story-hq/);
+    assert.match(config, /if \(!configured\) return null/);
+    assert.match(config, /url\.protocol === 'https:' \? url\.origin : null/);
+  });
 });

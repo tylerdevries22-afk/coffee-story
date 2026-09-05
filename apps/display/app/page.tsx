@@ -8,10 +8,10 @@
 export default function DisplayIndex() {
   return (
     <main className="display-root display-signpost">
-      <h1 className="board-title">Pickup display</h1>
+      <h1 className="board-title">Location display</h1>
       <p className="board-empty">
         Open this screen at <code>/board/&lt;location&gt;</code> to show that
-        shop&apos;s queue.
+        location&apos;s live information.
       </p>
     </main>
   );

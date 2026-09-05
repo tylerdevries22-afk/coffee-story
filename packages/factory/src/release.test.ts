@@ -4,8 +4,14 @@ import { describe, it } from 'node:test';
 import { easProjectIssues, RELEASE_CHECKS, releaseManifestIssues } from './release';
 
 function approvedManifest() {
+  const release = {
+    releaseId: 'release-2026-09-01.1',
+    commitSha: 'a'.repeat(40),
+    artifactDigest: `sha256:${'b'.repeat(64)}`,
+    createdAt: '2026-08-29T00:00:00.000Z',
+  };
   return {
-    schemaVersion: 1, tenantSlug: 'juniper-coffee',
+    schemaVersion: 2, tenantSlug: 'juniper-coffee', release,
     expoGo: {
       appStoreSdk: 54, checkedAt: '2026-08-31T00:00:00.000Z',
       sourceUrl: 'https://docs.expo.dev/versions/v54.0.0/',
@@ -13,6 +19,9 @@ function approvedManifest() {
     checks: Object.fromEntries(RELEASE_CHECKS.map((key) => [key, {
       status: 'approved', approvedAt: '2026-08-30T00:00:00.000Z', approvedBy: 'Client owner',
       evidenceUrl: `https://evidence.example/${key}`,
+      releaseId: release.releaseId,
+      commitSha: release.commitSha,
+      artifactDigest: release.artifactDigest,
     }])),
   };
 }
@@ -27,15 +36,38 @@ describe('releaseManifestIssues', () => {
   it('fails closed on pending approvals and a stale or mismatched SDK check', () => {
     const manifest = approvedManifest();
     manifest.expoGo.appStoreSdk = 55;
-    manifest.checks.legalAndPrivacy = {
-      status: 'pending', approvedAt: '', approvedBy: '', evidenceUrl: '',
-    };
+    manifest.checks.legalAndPrivacy!.status = 'pending';
+    manifest.checks.legalAndPrivacy!.approvedAt = '';
+    manifest.checks.legalAndPrivacy!.approvedBy = '';
+    manifest.checks.legalAndPrivacy!.evidenceUrl = '';
     const issues = releaseManifestIssues(
       manifest, 'juniper-coffee', new Date('2026-11-01T00:00:00.000Z'),
     );
     assert.ok(issues.some((issue) => issue.includes('SDK')));
     assert.ok(issues.some((issue) => issue.includes('45 days')));
     assert.ok(issues.some((issue) => issue.includes('legalAndPrivacy')));
+  });
+
+  it('rejects evidence copied from another commit or tenant artifact', () => {
+    const manifest = approvedManifest();
+    manifest.release.commitSha = 'c'.repeat(40);
+    const issues = releaseManifestIssues(manifest, 'juniper-coffee', {
+      now: new Date('2026-09-01T00:00:00.000Z'),
+      expectedArtifactDigest: `sha256:${'d'.repeat(64)}`,
+    });
+    assert.ok(issues.some((issue) => issue.includes('artifactDigest')));
+    assert.ok(issues.some((issue) => issue.includes('not bound')));
+  });
+
+  it('rejects an approval that predates or is not bound to the release', () => {
+    const manifest = approvedManifest();
+    manifest.checks.providerAccounts!.approvedAt = '2026-08-28T00:00:00.000Z';
+    manifest.checks.providerAccounts!.commitSha = 'c'.repeat(40);
+    const issues = releaseManifestIssues(
+      manifest, 'juniper-coffee', new Date('2026-09-01T00:00:00.000Z'),
+    );
+    assert.ok(issues.some((issue) => issue.includes('predates')));
+    assert.ok(issues.some((issue) => issue.includes('not bound')));
   });
 });
 

@@ -1,8 +1,10 @@
 import type { IconName } from '@/components/icon';
 
 export const APP_PREVIEW_KEYS = ['hq', 'customer', 'operator', 'kiosk', 'display'] as const;
+export const APP_PREVIEW_DEVICES = ['desktop', 'tablet', 'mobile'] as const;
 
 export type AppPreviewKey = (typeof APP_PREVIEW_KEYS)[number];
+export type AppPreviewDevice = (typeof APP_PREVIEW_DEVICES)[number];
 export type AppPreviewSource = 'configured' | 'local' | 'unavailable';
 export type AppPreviewFrame = 'phone' | 'tablet' | 'computer' | 'tv';
 export type AppPreviewEnvironment = Readonly<Record<string, string | undefined>>;
@@ -25,6 +27,16 @@ type AppPreviewDefinition = Omit<AppPreview, 'source' | 'url'> & {
   readonly localUrl: string;
 };
 
+const DEVICE_PROFILES: Readonly<Record<AppPreviewDevice, Pick<AppPreview, 'device' | 'frame' | 'viewport'>>> = {
+  desktop: { device: 'Desktop', frame: 'computer', viewport: { width: 1440, height: 810 } },
+  tablet: { device: 'Tablet landscape', frame: 'tablet', viewport: { width: 1180, height: 884 } },
+  mobile: { device: 'Mobile portrait', frame: 'phone', viewport: { width: 390, height: 844 } },
+};
+
+const DEFAULT_DEVICE: Readonly<Record<AppPreviewKey, AppPreviewDevice>> = {
+  hq: 'desktop', customer: 'mobile', operator: 'tablet', kiosk: 'tablet', display: 'desktop',
+};
+
 const APP_PREVIEWS = {
   hq: {
     key: 'hq', label: 'HQ console', href: '/apps/hq', icon: 'activity',
@@ -35,25 +47,25 @@ const APP_PREVIEWS = {
   },
   customer: {
     key: 'customer', label: 'Customer', href: '/apps/customer', icon: 'users',
-    description: 'Guest ordering, rewards, order status, and account journeys.',
+    description: 'Customer account, requests, updates, and service journeys.',
     device: 'iPhone', frame: 'phone', viewport: { width: 390, height: 844 }, environmentKey: 'NEXT_PUBLIC_CUSTOMER_URL',
     localUrl: 'http://localhost:4170/',
   },
   operator: {
     key: 'operator', label: 'Operator', href: '/apps/operator', icon: 'activity',
-    description: 'Barista workflow for accepting, preparing, and handing off orders.',
+    description: 'Team workflow for accepting, progressing, and completing work.',
     device: 'iPad Pro landscape', frame: 'tablet', viewport: { width: 1180, height: 884 }, environmentKey: 'NEXT_PUBLIC_OPERATOR_URL',
     localUrl: 'http://localhost:4191/',
   },
   kiosk: {
     key: 'kiosk', label: 'Kiosk / POS', href: '/apps/kiosk', icon: 'kiosk',
-    description: 'Self-service menu, checkout, and in-store order capture.',
+    description: 'Self-service catalog, intake, and on-site transactions.',
     device: 'iPad Pro landscape', frame: 'tablet', viewport: { width: 1180, height: 884 }, environmentKey: 'NEXT_PUBLIC_KIOSK_URL',
     localUrl: 'http://localhost:4180/',
   },
   display: {
-    key: 'display', label: 'Pickup display', href: '/apps/display', icon: 'wall',
-    description: 'The location-scoped queue guests see when their order is ready.',
+    key: 'display', label: 'Location display', href: '/apps/display', icon: 'wall',
+    description: 'Location-scoped status and activity for customers and teams.',
     device: 'TV display', frame: 'tv', viewport: { width: 1920, height: 1080 }, environmentKey: 'NEXT_PUBLIC_DISPLAY_URL',
     localUrl: 'http://localhost:3200/board/demo',
   },
@@ -77,6 +89,17 @@ function safePreviewUrl(value: string | undefined): string | null {
 /** The device silhouette an app previews in, without resolving its URL. */
 export function frameOfKey(key: AppPreviewKey): AppPreviewFrame {
   return APP_PREVIEWS[key].frame;
+}
+
+/** The initial simulator profile. Construction operators start on the phone-first workflow. */
+export function defaultPreviewDevice(key: AppPreviewKey, constructionOperator = false): AppPreviewDevice {
+  return key === 'operator' && constructionOperator ? 'mobile' : DEFAULT_DEVICE[key];
+}
+
+/** Reframes one app without changing its URL, identity, or tenant scope. */
+export function previewForDevice(preview: AppPreview, device: AppPreviewDevice): AppPreview {
+  if (preview.key === 'display' && device === 'desktop') return preview;
+  return { ...preview, ...DEVICE_PROFILES[device] };
 }
 
 /** Resolves a public, frame-safe application URL without accepting an open redirect. */

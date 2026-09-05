@@ -3,7 +3,7 @@
 import { useReducedMotion } from 'framer-motion';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import type { AppPreview, AppPreviewKey } from '@/lib/app-previews';
+import { defaultPreviewDevice, previewForDevice, type AppPreview, type AppPreviewDevice, type AppPreviewKey } from '@/lib/app-previews';
 import { layoutExtent } from '@/lib/app-wall-fit';
 
 import { AppsPreviewStack } from './apps-preview-stack';
@@ -29,18 +29,28 @@ const NOTICE: Readonly<Record<WallNotice, (label: string) => string>> = {
 };
 
 /** A full-width app wall with direct manipulation, live collision response, and spring settling. */
-export function AppsPreviewMosaic({ previews }: { readonly previews: readonly AppPreview[] }) {
+export function AppsPreviewMosaic({ constructionOperator, previews }: { readonly constructionOperator: boolean; readonly previews: readonly AppPreview[] }) {
   const mode = useWallMode();
   const keys = useMemo(() => previews.map((preview) => preview.key), [previews]);
   const layout = useWallLayout(keys);
   const reducedMotion = useReducedMotion() ?? false;
-  if (mode === 'stack') return <AppsPreviewStack master={layout.master} onCommit={layout.commit} previews={previews} reducedMotion={reducedMotion} rotatable={ROTATABLE_APPS} />;
-  return <WallCanvas layout={layout} previews={previews} reducedMotion={reducedMotion} />;
+  const [devices, setDevices] = useState<Readonly<Record<AppPreviewKey, AppPreviewDevice>>>(() =>
+    Object.fromEntries(keys.map((key) => [key, defaultPreviewDevice(key, constructionOperator)])) as Record<AppPreviewKey, AppPreviewDevice>);
+  const framed = useMemo(() => previews.map((preview) => previewForDevice(preview, devices[preview.key])), [devices, previews]);
+  const selectDevice = (key: AppPreviewKey, device: AppPreviewDevice) => setDevices((current) => ({ ...current, [key]: device }));
+  if (mode === 'stack') return <AppsPreviewStack devices={devices} master={layout.master} onCommit={layout.commit} onDeviceChange={selectDevice} previews={framed} reducedMotion={reducedMotion} rotatable={ROTATABLE_APPS} />;
+  return <WallCanvas devices={devices} layout={layout} onDeviceChange={selectDevice} previews={framed} reducedMotion={reducedMotion} />;
 }
 
-type CanvasProps = { readonly layout: ReturnType<typeof useWallLayout>; readonly previews: readonly AppPreview[]; readonly reducedMotion: boolean };
+type CanvasProps = {
+  readonly devices: Readonly<Record<AppPreviewKey, AppPreviewDevice>>;
+  readonly layout: ReturnType<typeof useWallLayout>;
+  readonly onDeviceChange: (key: AppPreviewKey, device: AppPreviewDevice) => void;
+  readonly previews: readonly AppPreview[];
+  readonly reducedMotion: boolean;
+};
 
-function WallCanvas({ layout, previews, reducedMotion }: CanvasProps) {
+function WallCanvas({ devices, layout, onDeviceChange, previews, reducedMotion }: CanvasProps) {
   const canvasRef = useRef<HTMLOListElement>(null);
   // The wall measures its wrapper, never the list: the list is absolute in
   // wall mode and grows in stacked mode, so measuring it would feed a stacked
@@ -71,7 +81,7 @@ function WallCanvas({ layout, previews, reducedMotion }: CanvasProps) {
           {core.tiles.map((tile) => {
             const preview = byKey.get(tile.key);
             if (!preview) return null;
-            return <AppsPreviewTile key={tile.key} motion={core.motionFor(tile.key)} onDragEnd={gestures.dragEnd} onDragMove={gestures.dragMove} onDragStart={() => gestures.dragStart(tile.key)} onKeyMove={(dx, dy) => gestures.nudge(tile.key, dx, dy)} onResizeBy={(amount) => gestures.resizeBy(tile.key, amount)} onResizeEnd={gestures.resizeEnd} onResizeMove={gestures.resizeMove} onResizeStart={(corner) => gestures.resizeStart(tile.key, corner)} onRotate={() => gestures.rotate(tile.key)} phase={core.phase?.key === tile.key ? core.phase.phase : 'idle'} preview={preview} ready={viewport.ready} reducedMotion={reducedMotion} rotatable={ROTATABLE_APPS.has(tile.key)} tile={tile} />;
+            return <AppsPreviewTile device={devices[tile.key]} key={tile.key} motion={core.motionFor(tile.key)} onDeviceChange={(device) => onDeviceChange(tile.key, device)} onDragEnd={gestures.dragEnd} onDragMove={gestures.dragMove} onDragStart={() => gestures.dragStart(tile.key)} onKeyMove={(dx, dy) => gestures.nudge(tile.key, dx, dy)} onResizeBy={(amount) => gestures.resizeBy(tile.key, amount)} onResizeEnd={gestures.resizeEnd} onResizeMove={gestures.resizeMove} onResizeStart={(corner) => gestures.resizeStart(tile.key, corner)} onRotate={() => gestures.rotate(tile.key)} phase={core.phase?.key === tile.key ? core.phase.phase : 'idle'} preview={preview} ready={viewport.ready} reducedMotion={reducedMotion} rotatable={ROTATABLE_APPS.has(tile.key)} tile={tile} />;
           })}
         </ol>
       </div>

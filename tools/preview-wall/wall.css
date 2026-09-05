@@ -31,7 +31,7 @@ h1 { margin: 0; font-size: 15px; letter-spacing: -.01em; }
 .wall-description { margin: 0; color: var(--muted); }
 .wall-header button {
   min-width: 44px;
-  min-height: 36px;
+  min-height: 44px;
   margin-left: auto;
   padding: 7px 12px;
   border: 1px solid #464e5a;
@@ -42,7 +42,10 @@ h1 { margin: 0; font-size: 15px; letter-spacing: -.01em; }
   font: inherit;
 }
 .wall-header button:hover { background: #2a303b; }
-.wall-header button:focus-visible, .meta a:focus-visible { outline: 2px solid #b9e5c5; outline-offset: 2px; }
+.wall-header button:focus-visible, .meta a:focus-visible, .device-option:has(input:focus-visible) {
+  outline: 2px solid #b9e5c5;
+  outline-offset: 2px;
+}
 
 .wall {
   min-height: calc(100vh - 58px);
@@ -73,12 +76,35 @@ figcaption {
   padding: 6px 10px;
   border-bottom: 1px solid var(--line);
 }
-.dot { width: 7px; height: 7px; flex: none; border-radius: 50%; background: #66707d; }
-.dot.up { background: var(--live); box-shadow: 0 0 0 3px rgb(142 216 161 / .12); }
-.name { font-weight: 650; }
+.name { min-width: max-content; font-weight: 650; }
 .meta { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .meta a { color: inherit; text-decoration: none; border-bottom: 1px dotted currentColor; }
 .meta a:hover { color: var(--ink); }
+.device-toggle {
+  display: inline-flex;
+  min-width: 0;
+  margin: 0 0 0 4px;
+  padding: 2px;
+  border: 1px solid #3b424d;
+  border-radius: 8px;
+  background: #111419;
+}
+.device-option {
+  position: relative;
+  min-width: 64px;
+  min-height: 44px;
+  display: grid;
+  place-items: center;
+  padding: 0 9px;
+  border-radius: 6px;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+.device-option:hover { color: var(--ink); background: #20252d; }
+.device-option:has(input:checked) { color: var(--ink); background: #303741; box-shadow: inset 0 0 0 1px #596271; }
+.device-option input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 .stage {
   position: relative;
@@ -106,10 +132,6 @@ figcaption {
 .screen { display: block; width: var(--screen-w); height: var(--screen-h); border: 0; background: #fff; }
 .device::before, .device::after { position: absolute; display: block; content: ""; pointer-events: none; }
 
-.device--tv { border-color: #737b86; border-radius: 8px; box-shadow: 0 24px 42px rgb(0 0 0 / .48), inset 0 1px #99a2ad, inset 0 -2px #070809; }
-.device--tv .viewport { box-shadow: inset 0 0 0 1px #050608; }
-.device--tv::before { top: 4px; left: 50%; width: 32px; height: 2px; border-radius: 2px; background: #606775; transform: translateX(-50%); }
-.device--tv::after { bottom: -18px; left: 50%; width: 26%; height: 18px; border: 1px solid #606874; border-radius: 1px 1px 7px 7px; background: #20242b; box-shadow: 0 15px 0 -6px #161a20; transform: translateX(-50%); }
 .device--desktop { border-color: #69727e; border-radius: 10px 10px 6px 6px; box-shadow: 0 24px 42px rgb(0 0 0 / .45), inset 0 1px #929ba5; }
 .device--desktop::before { top: 5px; left: 50%; width: 5px; height: 5px; border-radius: 50%; background: #515864; transform: translateX(-50%); }
 .device--desktop::after { bottom: -26px; left: 50%; width: 14%; height: 26px; border: 1px solid #535c67; border-bottom: 0; background: #252a31; box-shadow: 0 25px 0 -20px #5f6872; transform: translateX(-50%); }
@@ -136,12 +158,15 @@ figcaption {
   .wall { min-height: auto; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: none; }
   .cell { grid-column: span 1 !important; min-height: min(64vh, 640px); }
 }
+@media (max-width: 1600px) { .meta .note { display: none; } }
 @media (max-width: 700px) {
   .wall-header { align-items: flex-start; }
   .wall-header h1 { font-size: 14px; }
   .wall-description { display: none; }
   .wall { grid-template-columns: minmax(0, 1fr); }
   .cell { min-height: 68vh; }
-  .meta .note { display: none; }
+  .meta { display: none; }
+  .device-toggle { margin-left: auto; }
+  .device-option { min-width: 58px; padding: 0 7px; }
 }
-@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition-duration: .01ms !important; } }

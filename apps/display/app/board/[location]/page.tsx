@@ -7,6 +7,7 @@ import { isConfigured, isLocationId, loadBoard } from '@/lib/board';
 import { recordDisplayScreen } from '@/lib/telemetry';
 
 import { BoardView } from './board-view';
+import { ActivityBoardView } from './activity-board-view';
 import { QrPanel } from './qr-panel';
 
 /**
@@ -41,6 +42,20 @@ export default async function BoardPage({ params }: { params: Promise<{ location
       <div className="display-root display-signpost" style={board.theme.cssVariables}>
         <h1 className="board-title">{formatCopy(board.copy, 'boardUnpairedTitle')}</h1>
         <p className="board-empty">{formatCopy(board.copy, 'boardUnpairedBody')}</p>
+      </div>
+    );
+  }
+
+  if (board.activityConfig.enabled) {
+    return (
+      <div className="display-root display-activity" style={board.theme.cssVariables}>
+        <ActivityBoardView
+          initialItems={board.activityItems}
+          config={board.activityConfig}
+          locationName={board.locationName}
+          live={board.live}
+          degraded={board.degraded}
+        />
       </div>
     );
   }

@@ -43,6 +43,8 @@ export type TabSymbol =
   | 'plus.circle' | 'plus.circle.fill'
   | 'sun.max' | 'sun.max.fill'
   | 'heart' | 'person.circle'
+  | 'doc.text' | 'doc.text.fill'
+  | 'creditcard' | 'creditcard.fill'
   | 'cup.and.saucer' | 'cup.and.saucer.fill'
   | 'person.2' | 'person.2.fill';
 

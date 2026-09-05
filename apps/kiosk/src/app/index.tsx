@@ -11,8 +11,7 @@ import { useDevice } from '@/state/device';
 import { useFlow } from '@/state/flow';
 import { useGuest } from '@/state/guest';
 import { useKioskSession } from '@/state/session';
-
-import tenantLogo from '../../assets/brand/logo.png';
+import { TENANT_MEDIA } from '@/tenants/media';
 
 /**
  * The attract screen.
@@ -57,7 +56,7 @@ export default function AttractScreen() {
         <View style={[styles.center, { gap: tokens.spacing.xl }]}>
           {flow.attract.showLogo ? (
             <Image
-              source={tenantLogo}
+              source={TENANT_MEDIA.brandLogo}
               contentFit="contain"
               alt=""
               style={{ width: tokens.type.ticket, height: tokens.type.ticket }}
@@ -76,7 +75,7 @@ export default function AttractScreen() {
           {preview ? (
             <Text style={[styles.preview, { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: tokens.type.md }]}>
               {demoSyncConfigured
-                ? 'Shared demo · orders sync to operator and pickup display'
+                ? 'Shared demo · changes sync across connected apps'
                 : 'Local preview · orders are not sent'}
             </Text>
           ) : null}

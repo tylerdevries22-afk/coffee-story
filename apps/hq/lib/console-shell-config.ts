@@ -39,8 +39,8 @@ const PAGE_TITLES: Readonly<Record<string, string>> = {
   '/apps/customer': 'Customer app',
   '/apps/operator': 'Operator app',
   '/apps/kiosk': 'Kiosk / POS app',
-  '/apps/display': 'Pickup display',
-  '/wall': 'Pickup display',
+  '/apps/display': 'Location display',
+  '/wall': 'Location display',
 };
 
 export const FALLBACK_SECTION: ConsoleSection = {
@@ -55,7 +55,7 @@ export function pageTitleFor(pathname: string, section: ConsoleSection): string 
   const exact = PAGE_TITLES[pathname];
   if (exact) return exact;
   if (pathname.startsWith('/apps/')) return 'Apps';
-  if (pathname.startsWith('/wall')) return 'Pickup display';
+  if (pathname.startsWith('/wall')) return 'Location display';
   if (pathname.startsWith('/status/')) return 'System status';
   return section.title;
 }

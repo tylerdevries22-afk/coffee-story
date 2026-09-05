@@ -36,10 +36,10 @@ function PreviewFrame({ preview }: PreviewProps) {
 }
 
 /** The Apps root: a navigable overview of every operational application. */
-export function AppsPreviewWall({ deviceWall, previews }: { readonly deviceWall: DeviceWallView; readonly previews: readonly AppPreview[] }) {
+export function AppsPreviewWall({ constructionOperator, deviceWall, previews }: { readonly constructionOperator: boolean; readonly deviceWall: DeviceWallView; readonly previews: readonly AppPreview[] }) {
   return (
     <div className="apps-page apps-wall-page">
-      <DeviceWallModule previews={previews} view={deviceWall} />
+      <DeviceWallModule constructionOperator={constructionOperator} key={deviceWall.brandId} previews={previews} view={deviceWall} />
     </div>
   );
 }

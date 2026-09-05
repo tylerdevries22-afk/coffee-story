@@ -1,0 +1,95 @@
+{
+  "version": 1,
+  "categories": [
+    {
+      "id": "planning-design",
+      "title": "Planning & Design",
+      "tagline": ""
+    },
+    {
+      "id": "renovation-packages",
+      "title": "Renovation Packages",
+      "tagline": ""
+    },
+    {
+      "id": "service-warranty",
+      "title": "Service & Warranty",
+      "tagline": ""
+    }
+  ],
+  "items": [
+    {
+      "id": "project-consultation",
+      "name": "Project Consultation",
+      "description": "On-site scope review, feasibility guidance, and a documented next-step plan.",
+      "category": "planning-design",
+      "sizes": [
+        {
+          "slug": "project-consultation",
+          "priceCents": 25000
+        }
+      ],
+      "optionGroups": []
+    },
+    {
+      "id": "preconstruction-plan",
+      "name": "Preconstruction Plan",
+      "description": "Detailed scope, schedule, selections, and budget alignment before work begins.",
+      "category": "planning-design",
+      "sizes": [
+        {
+          "slug": "preconstruction-plan",
+          "priceCents": 150000
+        }
+      ],
+      "optionGroups": []
+    },
+    {
+      "id": "kitchen-renovation",
+      "name": "Kitchen Renovation",
+      "description": "A managed kitchen renovation package with design coordination and field delivery.",
+      "category": "renovation-packages",
+      "sizes": [
+        {
+          "slug": "kitchen-renovation-builder",
+          "priceCents": 500000
+        },
+        {
+          "slug": "kitchen-renovation-signature",
+          "priceCents": 1000000
+        }
+      ],
+      "optionGroups": []
+    },
+    {
+      "id": "bathroom-renovation",
+      "name": "Bathroom Renovation",
+      "description": "A complete bathroom renovation package led by a dedicated project team.",
+      "category": "renovation-packages",
+      "sizes": [
+        {
+          "slug": "bathroom-renovation-builder",
+          "priceCents": 350000
+        },
+        {
+          "slug": "bathroom-renovation-signature",
+          "priceCents": 750000
+        }
+      ],
+      "optionGroups": []
+    },
+    {
+      "id": "warranty-service-visit",
+      "name": "Warranty Service Visit",
+      "description": "Post-project inspection and coordinated warranty service for completed work.",
+      "category": "service-warranty",
+      "sizes": [
+        {
+          "slug": "warranty-service-visit",
+          "priceCents": 0
+        }
+      ],
+      "optionGroups": []
+    }
+  ]
+}

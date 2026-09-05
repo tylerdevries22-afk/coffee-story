@@ -17,6 +17,7 @@
 import { taxJurisdictionsFromBrandConfig, type TaxJurisdiction } from '@platform/domain';
 
 export const BUSINESS = {
+  slug: 'coffee-story',
   name: 'Coffee Story',
   legalName: 'Coffee Story by Barakah Brews',
   tagline: 'A Blessing In Every Cup',
@@ -31,7 +32,6 @@ export const BUSINESS = {
   /** The shop's wall-clock zone: pickup windows, calendar events, hours. */
   timezone: 'America/Denver',
 } as const;
-
 export const BUSINESS_ADDRESS = `${BUSINESS.street}, ${BUSINESS.cityLine}`;
 
 /** The two-letter mark the app falls back to when there is no name or photo. */
@@ -157,14 +157,14 @@ export function businessFromBrandConfig(
   };
 }
 
-/** Demo mode is Coffee Story's shop; live mode is whoever signed in. */
+/** Demo defaults to Coffee Story; an explicit tenant preview uses that tenant. */
 export function resolveBusiness(input: {
   isDemo: boolean;
   brandConfig: unknown;
   brandName: string | null;
   location: BusinessLocationSource;
 }): BusinessDetails {
-  return input.isDemo
+  return input.isDemo && input.brandConfig === null
     ? DEMO_BUSINESS
     : businessFromBrandConfig(input.brandConfig, input.brandName, input.location);
 }

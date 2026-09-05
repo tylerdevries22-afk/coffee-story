@@ -12,10 +12,8 @@
  * is on both shipped menus), so a flat asset directory is a byte collision, not
  * just untidy.
  *
- * What is deliberately NOT per-slug: the app icon, splash, adaptive icon,
- * favicon and web manifest. Those are named at fixed paths by app.config.ts and
- * by native build config, and one binary carries exactly one of each -- see
- * scripts/onboard-app-artwork.ts.
+ * App icons, splash, favicon and the web manifest are also per-slug, but their
+ * generated source and native-specific layout live in onboard-app-artwork.ts.
  */
 import { copyFileSync, existsSync, lstatSync, mkdirSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -30,6 +28,7 @@ import {
   slotsDirectory,
   type GuestApp,
 } from './onboard-tenant-barrel.js';
+import { reconcileTenantSlots } from './lib/onboard-guest-reconciliation.js';
 
 /**
  * Refuses a name that must not reach generated source or a filesystem path.
@@ -140,6 +139,8 @@ export type TenantSlotApplication = {
   readonly menuJson: string;
   /** Menu item slugs in menu order; each needs one statically importable WebP. */
   readonly itemSlugs: readonly string[];
+  /** Exact guest binaries this tenant declares in brand.json surfaces. */
+  readonly surfaces?: readonly GuestApp[];
 };
 
 export type TenantSlotResult = {
@@ -155,14 +156,14 @@ export type TenantSlotResult = {
  * are derived from the directory listing rather than appended to.
  */
 export function applyTenantSlot(application: TenantSlotApplication): TenantSlotResult {
-  const { root, slug, tenantDir, menuJson, itemSlugs } = application;
+  const { root, slug, tenantDir, menuJson, itemSlugs, surfaces = GUEST_APPS } = application;
   assertSlug(slug, 'tenant slug');
   const brandPath = join(tenantDir, 'brand.json');
   const modulesPath = join(tenantDir, 'modules.json');
   const cutouts = webpSlugs(join(tenantDir, 'assets', 'products'));
 
   let menuAssets = 0;
-  for (const app of GUEST_APPS) {
+  for (const app of surfaces) {
     const slotDir = join(slotsDirectory(root, app), slug);
     mkdirSync(slotDir, { recursive: true });
     copyFileSync(brandPath, join(slotDir, 'brand.json'));
@@ -173,7 +174,7 @@ export function applyTenantSlot(application: TenantSlotApplication): TenantSlotR
     }
     writeFileSync(join(slotDir, 'menu.json'), menuJson);
     writeFileSync(join(slotDir, 'menu-media.generated.ts'), renderMenuMedia(slug, itemSlugs));
-    menuAssets = syncAssets(
+    menuAssets += syncAssets(
       join(tenantDir, 'assets', 'menu'),
       join(root, 'apps', app, 'assets', 'menu', slug),
       ['.webp', '.normalized.json'],
@@ -183,6 +184,8 @@ export function applyTenantSlot(application: TenantSlotApplication): TenantSlotR
       writeFileSync(join(slotDir, 'product-media.generated.ts'), renderProductMedia(slug, cutouts));
     }
   }
+
+  reconcileTenantSlots(root, slug, surfaces);
 
   const appliedByApp = {
     customer: regenerateBarrels(root, 'customer'),

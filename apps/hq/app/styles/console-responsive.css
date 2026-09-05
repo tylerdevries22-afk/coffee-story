@@ -3,12 +3,12 @@
   .hq-shell.compact { --hq-navigation-width: 0rem; }
   .hq-main { padding-right: 1.5rem; padding-left: 1.5rem; }
   .hq-topbar { padding-inline: .875rem; }
-  .hq-topbar .scope-trigger { max-width: 9rem; }
+  .hq-topbar .scope-switcher { width: 10.5rem; }
 }
 
 @media (max-width: 56.25rem) {
-  .hq-topbar-context > .hq-topbar-divider:last-of-type,
-  .hq-topbar-context > .scope-switcher:has(.scope-trigger-location) { display: none; }
+  .hq-topbar-section,
+  .hq-topbar-divider { display: none; }
   .hq-system-status strong { display: none; }
 }
 
@@ -40,7 +40,9 @@
   .hq-topbar-context { gap: .5rem; }
   .hq-topbar-divider { display: none; }
   .hq-topbar-section { display: none; }
-  .hq-topbar .scope-trigger { max-width: min(42vw, 10rem); }
+  .hq-topbar-context { flex: 1; }
+  .hq-topbar .scope-switcher { width: min(34vw, 10.5rem); }
+  .hq-topbar .scope-trigger-subtitle,
   .hq-topbar .scope-trigger-chevron { display: none; }
   .hq-system-status { min-width: 2.75rem; min-height: 2.75rem; justify-content: center; padding: 0 .5rem; }
   .hq-system-status > span { display: none; }
@@ -100,8 +102,12 @@
 }
 
 @media (max-width: 26.25rem) {
-  .hq-topbar .scope-trigger { max-width: 9rem; }
+  .hq-topbar-leading { gap: .4rem; }
+  .hq-topbar-context { gap: .35rem; }
+  .hq-topbar .scope-switcher { width: min(31vw, 8.25rem); }
   .hq-topbar .scope-trigger-org::before { display: none; }
+  .hq-topbar .scope-organization-logo,
+  .hq-topbar .scope-trigger-icon-frame { width: 28px; height: 28px; flex-basis: 28px; }
   .hq-shell { --hq-main-pad-top: 1.25rem; }
   .hq-command-dialog { max-height: 82vh; }
 }

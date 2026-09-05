@@ -40,7 +40,7 @@ export async function addOrderToCalendar(
     endDate: new Date(date.getTime() + order.durationMin * 60_000),
     timeZone: TENANT.location.timezone,
     location: `${TENANT.location.name}, ${TENANT.location.address.street}`,
-    notes: `Your ${TENANT.identity.name} order is confirmed. See you at the bar.`,
+    notes: `Your ${TENANT.identity.name} order is confirmed. See you at the scheduled location.`,
     alarms: [{ relativeOffset: -60 }],
   });
   return { simulated: false, message: 'Your order is saved with a one-hour reminder.' };

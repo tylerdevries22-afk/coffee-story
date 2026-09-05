@@ -5,9 +5,13 @@ has and scaled to fit. Useful for a demo, and for catching the thing no single
 surface shows you: whether the five read as one platform.
 
 ```bash
-pnpm preview        # build the web exports, then publish the wall
-pnpm preview --wall # re-publish the wall only (seconds, not minutes)
+pnpm preview --tenant stillpoint-builders # build tenant web exports and publish
+pnpm preview --wall                       # re-publish the verified build only
 ```
+
+`EXPO_PUBLIC_TENANT=stillpoint-builders pnpm preview` remains supported. A
+full export requires one of those explicit tenant selectors. Wall-only mode
+reuses a verified build context and refuses to relabel an older tenant build.
 
 Start the servers from `.claude/launch.json` — one entry per surface — and open
 **http://localhost:4170/wall**.
@@ -25,7 +29,14 @@ one shop, so the wall frames `/board/demo` rather than `/`.
 
 ## How it is wired
 
-`surfaces.json` is the list the wall renders, and `scripts/preview.ts` refuses
+`surfaces.json` owns the canonical Desktop, Tablet, and Mobile profiles plus
+the list the wall renders. Every app card exposes all three profiles without
+reloading its iframe. Defaults stay surface-appropriate: console/display use
+Desktop, kiosk uses Tablet, and Customer uses Mobile. Publisher-side capability
+rules switch a construction-enabled Operator to Mobile and its public display
+label to Activity board; no tenant name is encoded in those rules.
+
+`scripts/preview.ts` refuses
 to publish when a port in it disagrees with `.claude/launch.json`. Those two
 drifting apart produces a wall of blank tiles and no error message, which is a
 bad afternoon; the guard turns it into one line of output. Change ports in both

@@ -98,12 +98,19 @@ describe('businessFromBrandConfig', () => {
 });
 
 describe('resolveBusiness', () => {
-  it('keeps the bundled shop in demo mode, which is Coffee Story', () => {
+  it('keeps the bundled shop when demo mode has no explicit tenant', () => {
     const business = resolveBusiness({
-      isDemo: true, brandConfig: ROASTERY_CONFIG, brandName: 'Demo Roastery', location: DOWNTOWN,
+      isDemo: true, brandConfig: null, brandName: null, location: null,
     });
     assert.deepEqual(business, DEMO_BUSINESS);
     assert.equal(business.name, 'Coffee Story');
+  });
+
+  it('uses an explicitly selected tenant for a tenant preview', () => {
+    const business = resolveBusiness({
+      isDemo: true, brandConfig: ROASTERY_CONFIG, brandName: 'Demo Roastery', location: DOWNTOWN,
+    });
+    assert.equal(business.name, 'Demo Roastery');
   });
 
   it('resolves the brand row in live mode', () => {
