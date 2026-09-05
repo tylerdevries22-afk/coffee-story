@@ -3,6 +3,11 @@
   "ignoreCommand": "node \"$(git rev-parse --show-toplevel)/scripts/vercel-ignore.mjs\" hq",
   "git": {
     "deploymentEnabled": {
+      "agent/**": false,
+      "claude/**": false,
+      "codex/**": false,
+      "docs/**": false,
+      "wip/**": false,
       "dependabot/**": false
     }
   },
