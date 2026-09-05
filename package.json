@@ -27,10 +27,21 @@
     "sharp": "^0.35.0",
     "tsx": "^4.23.1",
     "typescript": "~5.9.2",
-    "vercel": "59.3.0"
+    "vercel": "59.11.7"
   },
   "pnpm": {
     "overrides": {
+      "@vercel/backends>path-to-regexp": "8.4.2",
+      "@vercel/express>path-to-regexp": "8.4.2",
+      "@vercel/fun>@tootallnate/once": "2.0.1",
+      "@vercel/fun>path-to-regexp": "8.4.2",
+      "@vercel/fun>tar": "7.5.22",
+      "@vercel/hono>path-to-regexp": "8.4.2",
+      "@vercel/python-analysis>js-yaml": "4.3.1",
+      "@vercel/python-analysis>minimatch": "10.2.6",
+      "@vercel/python-analysis>smol-toml": "1.6.1",
+      "@vercel/rust>smol-toml": "1.6.1",
+      "@vercel/static-config>ajv": "8.18.0",
       "decode-uri-component": "0.5.0",
       "fast-uri": ">=3.1.6",
       "metro": "0.83.8",
@@ -41,7 +52,8 @@
       "qs": ">=6.16.0",
       "sharp": ">=0.35.0",
       "undici": "7.29.0",
-      "uuid": "11.1.1"
+      "uuid": "11.1.1",
+      "vercel>smol-toml": "1.6.1"
     },
     "patchedDependencies": {
       "@expo/cli@54.0.27": "patches/@expo__cli@54.0.27.patch"
@@ -50,7 +62,7 @@
   "dependencies": {
     "@platform/engine": "workspace:*",
     "@platform/schema": "workspace:*",
-    "@supabase/supabase-js": "^2.111.0",
-    "@platform/ui": "workspace:*"
+    "@platform/ui": "workspace:*",
+    "@supabase/supabase-js": "^2.111.0"
   }
 }

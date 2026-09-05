@@ -52,8 +52,8 @@ describe('factory deployment attestation producer', () => {
   });
 
   it('executes only lockfile-integrated deployment and connector packages', () => {
-    assert.match(rootPackage, /"vercel": "59\.3\.0"/);
-    assert.match(lockfile, /vercel@59\.3\.0:/);
+    assert.match(rootPackage, /"vercel": "59\.11\.7"/);
+    assert.match(lockfile, /vercel@59\.11\.7:/);
     assert.match(hqPackage, /"franchise-mcp-store-ui": "workspace:\*"/);
     assert.match(lockfile, /version: link:\.\.\/\.\.\/packages\/franchise-mcp-store-ui/);
   });
