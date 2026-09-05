@@ -77,8 +77,10 @@ describe('module franchise RLS', { skip: skipUnlessConfigured }, () => {
       [networkId, franchisor.userId],
     );
     await sql(
-      `insert into public.franchise_network_brands (network_id, brand_id, added_by)
-       values ($1, $2, $3), ($1, $4, $3)`,
+      `insert into public.franchise_network_brands
+         (network_id, brand_id, added_by, status, accepted_by, accepted_at)
+       values ($1, $2, $3, 'active', $3, now()),
+              ($1, $4, $3, 'active', $3, now())`,
       [networkId, brandA, franchisor.userId, brandB],
     );
     // 20260903170000 closed the direct write path: the only way to an active
@@ -252,7 +254,7 @@ describe('module installations as the authorization root', { skip: skipUnlessCon
     await assert.rejects(
       sql(`select app.create_module_installation($1, 'commerce-teleport', '1.0.0', null::jsonb, null::uuid, $2)`,
         [brandId, randomUUID()]),
-      /module_installations_module_key_in_registry|violates foreign key/,
+      /module_not_registered|module_installations_module_key_in_registry|violates foreign key/,
       'an ungoverned key would be an ungoverned permission set');
   });
 

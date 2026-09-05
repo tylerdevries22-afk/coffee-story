@@ -67,8 +67,9 @@ async function delegateKpis(brandId: string, granteeId: string, tag: string): Pr
   );
   const networkId = network.rows[0]!.id;
   await sql(
-    `insert into public.franchise_network_brands (network_id, brand_id, added_by)
-     values ($1, $2, $3)`,
+    `insert into public.franchise_network_brands
+       (network_id, brand_id, added_by, status, accepted_by, accepted_at)
+     values ($1, $2, $3, 'active', $3, now())`,
     [networkId, brandId, granteeId],
   );
   const grant = await sql<{ id: string }>(

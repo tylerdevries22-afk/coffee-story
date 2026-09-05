@@ -96,8 +96,9 @@ describe('franchise network write path', { skip: skipUnlessConfigured }, () => {
       [networkId, franchisor.userId],
     );
     await sql(
-      `insert into public.franchise_network_brands (network_id, brand_id, added_by)
-       values ($1, $2, $3)`,
+      `insert into public.franchise_network_brands
+         (network_id, brand_id, added_by, status, accepted_by, accepted_at)
+       values ($1, $2, $3, 'active', $3, now())`,
       [networkId, enrolledBrand, franchisor.userId],
     );
 
