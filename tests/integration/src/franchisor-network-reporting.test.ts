@@ -51,12 +51,15 @@ describe('franchisor network reporting', { skip: skipUnlessConfigured }, () => {
 
   async function grant(
     session: Session, expiresAt: string, revokedAt: string | null,
+    createdAt = new Date().toISOString(),
   ): Promise<void> {
     await sql(
       `insert into public.delegated_access_grants
-         (brand_id, network_id, grantee_user_id, scope, created_by, expires_at, revoked_at)
-       values ($1, $2, $3, '{network:kpis}', $4, $5, $6)`,
-      [brandB, networkId, session.userId, franchisor.userId, expiresAt, revokedAt],
+         (brand_id, network_id, grantee_user_id, scope, created_by,
+          expires_at, revoked_at, created_at)
+       values ($1, $2, $3, '{network:kpis}', $4, $5, $6, $7)`,
+      [brandB, networkId, session.userId, franchisor.userId,
+        expiresAt, revokedAt, createdAt],
     );
   }
 
@@ -143,7 +146,7 @@ describe('franchisor network reporting', { skip: skipUnlessConfigured }, () => {
   });
 
   it('refuses an expired grant', async () => {
-    await grant(expiredDelegate, daysFromNow(-1), null);
+    await grant(expiredDelegate, daysFromNow(-1), null, daysFromNow(-2));
     await refused(expiredDelegate, 'a grant that ran out authorizes nothing');
   });
 

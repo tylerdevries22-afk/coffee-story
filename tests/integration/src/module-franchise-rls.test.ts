@@ -138,8 +138,9 @@ describe('module franchise RLS', { skip: skipUnlessConfigured }, () => {
   it('refuses the network aggregate to an expired delegated grant', async () => {
     await sql(
       `insert into public.delegated_access_grants
-         (brand_id, network_id, grantee_user_id, scope, created_by, expires_at)
-       values ($1, $2, $3, '{network:kpis}', $4, now() - interval '1 day')`,
+         (brand_id, network_id, grantee_user_id, scope, created_by, expires_at, created_at)
+       values ($1, $2, $3, '{network:kpis}', $4,
+         now() - interval '1 day', now() - interval '2 days')`,
       [brandB, networkId, delegate.userId, franchisor.userId],
     );
     await assert.rejects(

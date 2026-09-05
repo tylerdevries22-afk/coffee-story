@@ -101,6 +101,12 @@ describe('franchise network write path', { skip: skipUnlessConfigured }, () => {
        values ($1, $2, $3, 'active', $3, now())`,
       [networkId, enrolledBrand, franchisor.userId],
     );
+    await sql(
+      `insert into public.franchise_agreements
+         (network_id, franchisee_brand_id, status, accepted_by, effective_at)
+       values ($1, $2, 'active', $3, now())`,
+      [networkId, enrolledBrand, brandOwner.userId],
+    );
 
     liveGrantId = (await sql<{ id: string }>(
       `insert into public.delegated_access_grants
@@ -119,8 +125,9 @@ describe('franchise network write path', { skip: skipUnlessConfigured }, () => {
   });
 
   after(async () => {
-    // Grants, memberships and enrolments all cascade from the network, which
-    // is the only row this suite owns outside the brands seedBrand re-seeds.
+    await sql(`delete from public.franchise_agreements where network_id = $1`, [networkId]);
+    // Grants, memberships and enrolments cascade from the network, which is
+    // the only remaining row this suite owns outside the brands seedBrand re-seeds.
     await sql(`delete from public.franchise_networks where id = $1`, [networkId]);
   });
 
@@ -173,22 +180,22 @@ describe('franchise network write path', { skip: skipUnlessConfigured }, () => {
     }
   });
 
-  it('enrols a brand once, and reports the second call as a no-op', async () => {
+  it('opens an enrollment request and accepts an active replay idempotently', async () => {
     const first = await asPrincipal<{ enroll_brand_in_network: boolean }>(
       { sub: franchisor.userId },
       `select public.enroll_brand_in_network($1, $2)`,
       [networkId, outsideBrand],
     );
     assert.equal(first.rows[0]!.enroll_brand_in_network, true);
-    // enrolledBrand is already in the network from the fixture, which is the
-    // second call without depending on the rolled-back one above.
+    // enrolledBrand already has an accepted agreement. Replaying the request
+    // reports success without reopening consent or creating another row.
     const again = await asPrincipal<{ enroll_brand_in_network: boolean }>(
       { sub: franchisor.userId },
       `select public.enroll_brand_in_network($1, $2)`,
       [networkId, enrolledBrand],
     );
-    assert.equal(again.rows[0]!.enroll_brand_in_network, false,
-      'a repeat enrolment is a no-op rather than a 23505');
+    assert.equal(again.rows[0]!.enroll_brand_in_network, true,
+      'an accepted relationship is an idempotent success rather than a 23505');
   });
 
   it('refuses enrolment to a brand owner and to a stranger', async () => {
