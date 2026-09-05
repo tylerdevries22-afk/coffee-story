@@ -299,9 +299,26 @@ jobs:
 
       - name: Seed through the production onboarding path
         run: |
-          psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 \
+          set -euo pipefail
+          retry_seed() {
+            local attempt=1
+            local maximum=5
+            until timeout 3m "$@"; do
+              if [ "$attempt" -ge "$maximum" ]; then
+                echo "::error::Hosted tenant seed failed after $maximum attempts."
+                return 1
+              fi
+              echo "::warning::Hosted database recycled; retrying seed attempt $((attempt + 1))/$maximum."
+              sleep $((attempt * 5))
+              attempt=$((attempt + 1))
+            done
+          }
+          # A new preview database may recycle once after migration. The SQL
+          # fixture is transactional and onboarding is reconciliatory, so both
+          # commands are safe to replay after a dropped connection.
+          retry_seed psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 \
             -f scripts/provision-coffee-story-ci.sql
-          pnpm onboard --tenant coffee-story --require-db
+          retry_seed pnpm onboard --tenant coffee-story --require-db
 
       - name: Run integration suites against hosted Supabase
         run: |
