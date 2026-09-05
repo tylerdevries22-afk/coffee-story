@@ -17,6 +17,7 @@
       ],
       "env": {
         "COFFEE_STORY_DEMO_SYNC": "1",
+        "COFFEE_STORY_LOCAL_PREVIEWS": "1",
         "COFFEE_STORY_PREVIEW_WALL": "1",
         "NEXT_DIST_DIR": ".next-preview"
       },

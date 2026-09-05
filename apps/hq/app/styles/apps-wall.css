@@ -34,7 +34,8 @@
 /* Tiles are sized in cells by two motion values; the transform carries position, so a tile never triggers layout on its neighbours. */
 .apps-preview-card { position: absolute; z-index: 1; top: 0; left: 0; width: calc(var(--tile-w) * var(--wall-cell)); min-width: 0; outline: none; opacity: 0; will-change: transform; }
 .apps-preview-card[data-ready] { opacity: 1; transition: opacity var(--motion-base) var(--ease-enter); }
-.apps-preview-card:hover, .apps-preview-card:focus-within { z-index: 4; }
+.apps-preview-card:hover { z-index: 4; }
+.apps-preview-card:focus-within { z-index: 6; }
 .apps-preview-card:not([data-phase='idle']) { z-index: 8; }
 .apps-preview-card[data-phase='dragging'], .apps-preview-card[data-phase='coasting'] { cursor: grabbing; }
 .apps-wall-frame { position: relative; min-width: 0; }
@@ -49,7 +50,7 @@
 .apps-wall-caption { --wall-chip-size: clamp(var(--wall-chip-min), calc(var(--device-width, 0px) * .09), var(--wall-chip-max)); --wall-caption-offset: min(var(--wall-chip-size) / 2, var(--wall-cell, 1rem) * .7); position: absolute; left: var(--device-left, 0px); top: calc(var(--device-top, 0px) + var(--device-height, 100%) + var(--wall-caption-offset)); display: flex; width: var(--device-width, 100%); height: calc(var(--wall-cell, 1rem) * 2 - var(--wall-caption-offset)); min-width: 0; align-items: center; gap: var(--space-xs); margin: 0; overflow: hidden; font-size: min(clamp(var(--type-xs), calc(var(--device-width, 0px) * .045), var(--type-md)), calc(var(--wall-cell, 1rem) * 1.15)); line-height: 1.2; white-space: nowrap; }
 .apps-wall-caption strong { overflow: hidden; font-family: var(--font-display); font-weight: 700; letter-spacing: -.02em; text-overflow: ellipsis; }
 .apps-wall-caption small { min-width: 0; overflow: hidden; color: var(--text-muted); font-size: .82em; text-overflow: ellipsis; }
-.apps-device-toggle { display: inline-flex; flex: none; margin-left: auto; padding: 2px; border: 1px solid var(--line); border-radius: var(--radius-pill); background: color-mix(in srgb, var(--bg-raised) 88%, transparent); box-shadow: 0 1px 2px color-mix(in srgb, var(--text) 5%, transparent); }
+.apps-device-toggle { position: relative; z-index: 6; display: inline-flex; flex: none; margin-left: auto; padding: 2px; border: 1px solid var(--line); border-radius: var(--radius-pill); background: color-mix(in srgb, var(--bg-raised) 88%, transparent); box-shadow: 0 1px 2px color-mix(in srgb, var(--text) 5%, transparent); }
 .apps-device-toggle button { display: inline-grid; width: 1.45rem; height: 1.45rem; place-items: center; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--text-muted); cursor: pointer; }
 .apps-device-toggle button:hover, .apps-device-toggle button:focus-visible { color: var(--action); outline: none; }
 .apps-device-toggle button:focus-visible { box-shadow: 0 0 0 2px var(--ring); }
