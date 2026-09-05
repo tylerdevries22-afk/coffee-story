@@ -298,7 +298,10 @@ jobs:
             --type performance --level warn --fail-on warn
 
       - name: Seed through the production onboarding path
-        run: pnpm onboard --tenant coffee-story --require-db
+        run: |
+          psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 \
+            -f scripts/provision-coffee-story-ci.sql
+          pnpm onboard --tenant coffee-story --require-db
 
       - name: Run integration suites against hosted Supabase
         run: |
@@ -494,6 +497,8 @@ jobs:
           set -euo pipefail
           export SUPABASE_URL="$SUPABASE_TEST_URL"
           export SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_TEST_SERVICE_ROLE_KEY"
+          psql "$SUPABASE_TEST_DB_URL" -v ON_ERROR_STOP=1 \
+            -f scripts/provision-coffee-story-ci.sql
           pnpm onboard --tenant coffee-story --require-db
 
       # Same comparison hosted-integration makes on main: the newest migration
