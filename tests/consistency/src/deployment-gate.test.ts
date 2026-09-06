@@ -61,6 +61,7 @@ describe('hosted database promotion gate', () => {
     assert.match(verify, /-f scripts\/activate-coffee-story-ci\.sql/);
     assert.match(ciActivation, /record_organization_readiness/);
     assert.match(ciActivation, /activate_platform_organization/);
+    assert.match(ciActivation, /where slug = 'coffee-story' \\gset tenant_/);
     assert.doesNotMatch(ciActivation, /update public\.(brands|organization_readiness_checks)/i);
   });
 

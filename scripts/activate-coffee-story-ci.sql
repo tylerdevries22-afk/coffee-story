@@ -6,13 +6,14 @@
 begin;
 
 set local role service_role;
+select id as brand_id from public.brands where slug = 'coffee-story' \gset tenant_
 select public.record_organization_readiness(
-  'c1000000-0000-4000-8000-000000000004',
+  :'tenant_brand_id'::uuid,
   'tenant_artifacts', true,
   jsonb_build_object('artifactDigest', :'artifact_digest')
 );
 select public.record_organization_readiness(
-  'c1000000-0000-4000-8000-000000000004',
+  :'tenant_brand_id'::uuid,
   'release_approval', true,
   jsonb_build_object(
     'artifactDigest', :'artifact_digest',
@@ -37,7 +38,7 @@ select set_config(
 );
 
 select public.activate_platform_organization(
-  'c1000000-0000-4000-8000-000000000004'
+  :'tenant_brand_id'::uuid
 );
 
 commit;
