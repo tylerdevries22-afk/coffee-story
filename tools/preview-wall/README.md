@@ -5,16 +5,18 @@ has and scaled to fit. Useful for a demo, and for catching the thing no single
 surface shows you: whether the five read as one platform.
 
 ```bash
-pnpm preview --tenant stillpoint-builders # build tenant web exports and publish
-pnpm preview --wall                       # re-publish the verified build only
+pnpm wall:start --tenant stillpoint-builders # build, start, and health-check all five
+pnpm preview --wall                          # re-publish the verified build only
 ```
 
 `EXPO_PUBLIC_TENANT=stillpoint-builders pnpm preview` remains supported. A
 full export requires one of those explicit tenant selectors. Wall-only mode
 reuses a verified build context and refuses to relabel an older tenant build.
 
-Start the servers from `.claude/launch.json` — one entry per surface — and open
-**http://localhost:4170/wall**.
+The launcher derives every process from `.claude/launch.json`, overrides the
+display demo with the selected tenant, reuses already-healthy servers, and opens
+no production credentials. Keep it attached while using the wall; `Ctrl-C`
+stops only processes it started. Open **http://localhost:4170/wall**.
 
 | Surface | Launch config | URL |
 | --- | --- | --- |
