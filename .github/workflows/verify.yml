@@ -341,11 +341,13 @@ jobs:
         run: |
           set -euo pipefail
           ( cd apps/customer && \
+            EXPO_PUBLIC_TENANT="coffee-story" \
             EXPO_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
             EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
             EXPO_PUBLIC_API_URL="http://127.0.0.1:4383" \
             pnpm exec expo export --platform web --output-dir dist-e2e )
           ( cd apps/operator && \
+            EXPO_PUBLIC_TENANT="coffee-story" \
             EXPO_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
             EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
             EXPO_PUBLIC_API_URL="http://127.0.0.1:4383" \
