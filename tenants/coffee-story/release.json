@@ -2,10 +2,10 @@
   "schemaVersion": 2,
   "tenantSlug": "coffee-story",
   "release": {
-    "releaseId": "",
-    "commitSha": "",
-    "artifactDigest": "",
-    "createdAt": ""
+    "releaseId": "coffee-story-2026-09-06.1",
+    "commitSha": "674b2e57905251d298599d39776d15609c9fe548",
+    "artifactDigest": "sha256:c8ce1f956e0d07c5c2f1c76bba94d9ccf43ae393f28ba7c5edffa5c9ea01710e",
+    "createdAt": "2026-09-06T07:06:02.000Z"
   },
   "expoGo": {
     "appStoreSdk": 54,
