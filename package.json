@@ -12,6 +12,8 @@
     "wall:start": "tsx scripts/wall-launch.ts",
     "onboard": "tsx scripts/onboard.ts",
     "release:gate": "tsx scripts/release-gate.ts",
+    "tenant-package:publish": "tsx scripts/publish-tenant-package.ts",
+    "tenant-package:retention": "tsx scripts/tenant-package-retention.ts",
     "supabase:promote": "tsx scripts/apply-hosted-migrations.ts",
     "db:local": "tsx scripts/local-database-chain.ts",
     "supabase:verify": "supabase db lint --linked --level warning --fail-on warning && supabase db advisors --linked --type security --level warn --fail-on warn && supabase db advisors --linked --type performance --level warn --fail-on warn",
@@ -25,7 +27,6 @@
   "devDependencies": {
     "@types/node": "^26.1.2",
     "checkly": "^8.22.0",
-    "sharp": "^0.35.0",
     "tsx": "^4.23.1",
     "typescript": "~5.9.2",
     "vercel": "59.11.7"
@@ -64,6 +65,7 @@
     "@platform/engine": "workspace:*",
     "@platform/schema": "workspace:*",
     "@platform/ui": "workspace:*",
-    "@supabase/supabase-js": "^2.111.0"
+    "@supabase/supabase-js": "^2.111.0",
+    "sharp": "^0.35.0"
   }
 }

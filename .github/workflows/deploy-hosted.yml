@@ -242,9 +242,75 @@ jobs:
           test -n "$SUPABASE_PROJECT_REF" || { echo '::error::Set SUPABASE_PROJECT_REF.'; exit 1; }
           pnpm supabase:promote
 
+  stage-tenant-package:
+    name: Verify and stage immutable tenant package
+    needs: [migrate-database, release-policy]
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: 10.33.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
+        with:
+          version: 2.116.0
+      - run: pnpm install --frozen-lockfile
+      - name: Install current malware signatures
+        run: |
+          set -euo pipefail
+          sudo apt-get -o Acquire::Retries=3 update
+          sudo apt-get -o Acquire::Retries=3 install --yes clamav
+          sudo systemctl stop clamav-freshclam 2>/dev/null || true
+          for attempt in 1 2 3; do
+            sudo freshclam && exit 0
+            sleep $((attempt * 2))
+          done
+          echo '::error::ClamAV signatures could not be refreshed.'
+          exit 1
+      - name: Resolve authoritative organization and service credential
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          [[ "$TENANT" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]] || {
+            echo '::error::Tenant slug is invalid.'
+            exit 1
+          }
+          test -n "$SUPABASE_ACCESS_TOKEN" || { echo '::error::Set SUPABASE_ACCESS_TOKEN.'; exit 1; }
+          test -n "$SUPABASE_PROJECT_REF" || { echo '::error::Set SUPABASE_PROJECT_REF.'; exit 1; }
+          keys=''
+          for attempt in 1 2 3; do
+            keys=$(supabase projects api-keys --project-ref "$SUPABASE_PROJECT_REF" -o json) && break
+            sleep $((attempt * 2))
+          done
+          service_role=$(printf '%s' "$keys" | jq -er '[.[] | select(.name == "service_role")][0].api_key')
+          supabase_url="https://${SUPABASE_PROJECT_REF}.supabase.co"
+          echo "::add-mask::$service_role"
+          response=$(curl --fail-with-body --silent --show-error --retry 2 --retry-all-errors \
+            --connect-timeout 10 --max-time 45 \
+            -H "apikey: $service_role" -H "authorization: Bearer $service_role" \
+            "$supabase_url/rest/v1/brands?slug=eq.${TENANT}&status=in.(provisioning,active)&select=id&limit=2")
+          brand_id=$(printf '%s' "$response" | jq -er 'if length == 1 then .[0].id else error("organization_not_unique") end')
+          {
+            echo "SUPABASE_URL=$supabase_url"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$service_role"
+            echo "TENANT_PACKAGE_BRAND_ID=$brand_id"
+          } >> "$GITHUB_ENV"
+      - name: Build, scan, upload, verify, and stage package
+        env:
+          TENANT_SLUG: ${{ env.TENANT }}
+        run: pnpm exec tsx scripts/publish-tenant-package.ts
+
   deploy-hq:
     name: Deploy HQ API and console
-    needs: [migrate-database, release-policy]
+    needs: [stage-tenant-package, release-policy]
     if: inputs.deploy_web
     runs-on: ubuntu-latest
     timeout-minutes: 20

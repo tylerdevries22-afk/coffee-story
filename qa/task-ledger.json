@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "goalId": "production-franchise-hardening-2026-09-06",
+  "nativeGoal": "01a06dc5-b5d5-7060-ae26-8ef29a6cda1c",
+  "phase": "implementation",
+  "workingBranch": "codex/tenant-package-hardening",
+  "baseCommit": "9bf39b37fb4db5d9a6adeb3183c889766bd8680e",
+  "actualWorkerConcurrency": 0,
+  "workerConstraint": "Host exposes three worker slots; shared policy requires five workers for a claimed swarm.",
+  "completed": [],
+  "inProgress": ["TP-01", "TP-02"],
+  "remaining": ["TP-03", "TP-04", "TP-05", "SEC-01", "CI-01", "MOB-01", "REF-01", "QA-01", "REL-01"],
+  "verification": [
+    {
+      "at": "2026-09-06T18:31:30Z",
+      "task": "baseline",
+      "result": "pass",
+      "evidence": "Ruflo guidance compiled and repository baseline/audit evidence reconciled at 9bf39b3."
+    }
+  ],
+  "blockers": [
+    "Heavy checks require Mission Control because local free disk is below 50 GiB and the offload marker is present.",
+    "Production release approvals, provider credentials, store accounts, signing, and rollout evidence remain external gates."
+  ],
+  "nextAction": "Finish TP-01 migration tests and TP-02 package-builder security tests.",
+  "refreshedAt": "2026-09-06T18:34:00Z"
+}

@@ -15,6 +15,8 @@ const RUN: FactoryRunRow = {
   surfaces: ['hq', 'customer', 'operator'],
 };
 const CONTENT: ContentEvidence = {
+  releaseKey: 'stillpoint-2026-09-06.1',
+  sourceCommitSha: 'c'.repeat(40),
   artifactDigest: `sha256:${'a'.repeat(64)}`,
   artifactIds: ['application', 'catalog', 'training'],
 };
@@ -33,24 +35,24 @@ function harness(input: {
 } = {}) {
   const tasks: string[] = [];
   const runs: Record<string, unknown>[] = [];
-  const readiness: { brandId: string; check: string; evidence: Record<string, string> }[] = [];
+  const promotions: Array<{ brandId: string; content: ContentEvidence }> = [];
   let publications = 0;
   const dependencies: FactoryReleaseDependencies = {
     loadContentEvidence: async () => input.content === undefined ? CONTENT : input.content,
     publishContent: async () => { publications += 1; },
     organizationBrandId: async () => input.brandId === undefined ? 'brand-1' : input.brandId,
-    recordReadiness: async (brandId, check, evidence) => {
-      readiness.push({ brandId, check, evidence });
+    promoteTenantPackage: async (brandId, content) => {
+      promotions.push({ brandId, content });
     },
     loadDeploymentEvidence: async () => input.deployment === undefined ? DEPLOYMENT : input.deployment,
     updateTask: async (task, state, code) => { tasks.push(`${task}:${state}:${code ?? ''}`); },
     updateRun: async (values) => { runs.push(values); },
   };
-  return { dependencies, tasks, runs, readiness, publications: () => publications };
+  return { dependencies, tasks, runs, promotions, publications: () => publications };
 }
 
 describe('advanceFactoryRelease', () => {
-  it('blocks at content without recording readiness when immutable artifacts are absent', async () => {
+  it('blocks at content when an immutable tenant package is absent', async () => {
     const state = harness({ content: null });
     const result = await advanceFactoryRelease(
       RUN, new Set(['create-vercel-projects']), state.dependencies,
@@ -58,7 +60,7 @@ describe('advanceFactoryRelease', () => {
     assert.deepEqual(result, {
       status: 'blocked', stage: 'content', code: 'content_bootstrap_required',
     });
-    assert.deepEqual(state.readiness, []);
+    assert.deepEqual(state.promotions, []);
     assert.equal(state.publications(), 0);
   });
 
@@ -70,23 +72,14 @@ describe('advanceFactoryRelease', () => {
     assert.equal(result.code, 'canary_evidence_required');
     assert.equal(state.publications(), 1);
     assert.ok(state.tasks.includes('publish-content:completed:'));
-    assert.deepEqual(state.readiness.map(({ check }) => check), ['tenant_artifacts']);
+    assert.deepEqual(state.promotions, []);
   });
 
-  it('records both readiness checks with immutable evidence only', async () => {
+  it('promotes the canonical package only after matching release evidence', async () => {
     const state = harness();
     const result = await advanceFactoryRelease(RUN, new Set(), state.dependencies);
     assert.equal(result.status, 'live');
-    assert.deepEqual(state.readiness, [
-      { brandId: 'brand-1', check: 'tenant_artifacts', evidence: {
-        artifactDigest: CONTENT.artifactDigest,
-      } },
-      { brandId: 'brand-1', check: 'release_approval', evidence: {
-        commitSha: DEPLOYMENT.commitSha,
-        artifactDigest: CONTENT.artifactDigest,
-        providerReference: 'vercel:production-1',
-      } },
-    ]);
+    assert.deepEqual(state.promotions, [{ brandId: 'brand-1', content: CONTENT }]);
   });
 
   it('fails closed when canary verification reports a failure', async () => {
@@ -101,6 +94,17 @@ describe('advanceFactoryRelease', () => {
     assert.ok(!state.tasks.some((task) => task.startsWith('promote-live:')));
   });
 
+  it('blocks promotion when the deployment names a different package digest', async () => {
+    const state = harness({
+      deployment: { ...DEPLOYMENT, artifactDigest: `sha256:${'d'.repeat(64)}` },
+    });
+    const result = await advanceFactoryRelease(RUN, new Set(), state.dependencies);
+    assert.deepEqual(result, {
+      status: 'blocked', stage: 'canary', code: 'deployment_evidence_mismatch',
+    });
+    assert.deepEqual(state.promotions, []);
+  });
+
   it('completes live promotion after a passed canary and provider promotion', async () => {
     const state = harness();
     const result = await advanceFactoryRelease(
@@ -108,9 +112,7 @@ describe('advanceFactoryRelease', () => {
     );
     assert.equal(result.status, 'live');
     assert.deepEqual(state.tasks, ['promote-live:running:', 'promote-live:completed:']);
-    assert.deepEqual(state.readiness.map(({ check }) => check), [
-      'tenant_artifacts', 'release_approval',
-    ]);
+    assert.deepEqual(state.promotions, [{ brandId: 'brand-1', content: CONTENT }]);
     assert.equal(state.runs.at(-1)?.state, 'live');
   });
 });

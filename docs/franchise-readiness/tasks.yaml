@@ -1,0 +1,62 @@
+goal_id: production-franchise-hardening-2026-09-06
+objective: >-
+  Ship a verified, fail-closed tenant-package pipeline and HQ explorer, close
+  sensitive-path security gaps, and establish enforceable production gates.
+working_branch: codex/tenant-package-hardening
+base_commit: 9bf39b37fb4db5d9a6adeb3183c889766bd8680e
+tasks:
+  - id: TP-01
+    title: Authoritative tenant-package schema and access controls
+    status: in_progress
+    depends_on: []
+    acceptance: RLS matrix and migration tests pass with service-only mutations.
+  - id: TP-02
+    title: Deterministic tenant package builder
+    status: in_progress
+    depends_on: []
+    acceptance: Security corpus covers paths, MIME, secrets, archives, TOCTOU, limits, and digest stability.
+  - id: TP-03
+    title: Immutable upload and canonical factory promotion
+    status: pending
+    depends_on: [TP-01, TP-02]
+    acceptance: Clean-CI staging and canary promotion use one artifact digest with rollback safety.
+  - id: TP-04
+    title: Secure authenticated tenant-package APIs
+    status: pending
+    depends_on: [TP-01]
+    acceptance: UUID-only lookup, uniform 404, distributed limits, audit events, safe previews, and 30-second links.
+  - id: TP-05
+    title: Accessible responsive HQ Tenant package explorer
+    status: pending
+    depends_on: [TP-04]
+    acceptance: Owner/admin navigation, keyboard tree, search, states, preview, download, and mobile drawer pass UI tests.
+  - id: SEC-01
+    title: Fail-closed production configuration and sensitive-path review
+    status: pending
+    depends_on: []
+    acceptance: Production cannot enter demo mode; security scan and focused tests pass.
+  - id: CI-01
+    title: Pinned SAST, secrets, dependency, SBOM, DAST, and source-size gates
+    status: pending
+    depends_on: []
+    acceptance: Inconclusive scans fail and weekly plus pull-request workflows are pinned and reproducible.
+  - id: MOB-01
+    title: Android and store-readiness verification
+    status: pending
+    depends_on: []
+    acceptance: Customer, operator, and kiosk Android exports and release metadata checks join existing iOS/web gates.
+  - id: REF-01
+    title: Staged 200-line source compliance
+    status: pending
+    depends_on: [TP-03, TP-04]
+    acceptance: Critical files first, then every non-exempt source/test file passes the CI size gate.
+  - id: QA-01
+    title: Full franchise isolation and release verification
+    status: pending
+    depends_on: [TP-01, TP-02, TP-03, TP-04, TP-05, SEC-01, CI-01, MOB-01, REF-01]
+    acceptance: All required checks pass and neutral demo isolation is verified across all five apps.
+  - id: REL-01
+    title: Evidence-bound rollout and rollback drill
+    status: pending
+    depends_on: [QA-01]
+    acceptance: Neutral demo, Stillpoint, then Coffee Story advance only with matching approvals and rollback evidence.
