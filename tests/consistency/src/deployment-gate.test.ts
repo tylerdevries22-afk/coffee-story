@@ -10,6 +10,7 @@ const verify = readFileSync(join(ROOT, '.github', 'workflows', 'verify.yml'), 'u
 const simulators = readFileSync(join(ROOT, '.github', 'workflows', 'simulators.yml'), 'utf8');
 const migrationRunner = readFileSync(join(ROOT, 'scripts', 'hosted-migrations.ts'), 'utf8');
 const releaseSurfaces = readFileSync(join(ROOT, 'scripts', 'release-surfaces.ts'), 'utf8');
+const ciActivation = readFileSync(join(ROOT, 'scripts', 'activate-coffee-story-ci.sql'), 'utf8');
 
 describe('hosted database promotion gate', () => {
   it('migrates and verifies the target before every deploy path', () => {
@@ -56,6 +57,11 @@ describe('hosted database promotion gate', () => {
     assert.match(verify, /\*'Resource has been removed'\*\) ;;/);
     assert.match(verify, /actual_readiness=\$\(psql "\$SUPABASE_DB_URL"/);
     assert.match(verify, /actual_readiness" = "\$expected_readiness/);
+    assert.match(verify, /tenantArtifactDigest\('\.\/tenants\/coffee-story'\)/);
+    assert.match(verify, /-f scripts\/activate-coffee-story-ci\.sql/);
+    assert.match(ciActivation, /record_organization_readiness/);
+    assert.match(ciActivation, /activate_platform_organization/);
+    assert.doesNotMatch(ciActivation, /update public\.(brands|organization_readiness_checks)/i);
   });
 
   it('keeps the generated repository passwordless after Supabase creation', () => {

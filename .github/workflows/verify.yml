@@ -319,6 +319,13 @@ jobs:
           retry_seed psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 \
             -f scripts/provision-coffee-story-ci.sql
           retry_seed pnpm onboard --tenant coffee-story --require-db
+          artifact_digest=$(pnpm exec tsx -e \
+            "import { tenantArtifactDigest } from './packages/factory/src/artifact-binding.ts'; process.stdout.write(tenantArtifactDigest('./tenants/coffee-story'))")
+          retry_seed psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 \
+            -v commit_sha="$GITHUB_SHA" \
+            -v artifact_digest="$artifact_digest" \
+            -v provider_reference="github:actions/$GITHUB_RUN_ID" \
+            -f scripts/activate-coffee-story-ci.sql
 
       - name: Run integration suites against hosted Supabase
         run: |
