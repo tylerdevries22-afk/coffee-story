@@ -50,6 +50,7 @@
       "metro-config": "0.83.8",
       "metro-transform-worker": "0.83.8",
       "nanoid": "5.1.16",
+      "path-to-regexp@6.1.0": "6.3.0",
       "postcss": "8.5.25",
       "qs": ">=6.16.0",
       "sharp": ">=0.35.0",
