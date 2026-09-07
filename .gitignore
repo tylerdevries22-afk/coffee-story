@@ -95,3 +95,7 @@ agentdb.rvf.lock
 ruvector.db
 stack.env
 readiness.err
+
+# audit skill artifacts (config.json is tracked, run dirs are not)
+.audit/*
+!.audit/config.json

@@ -1,0 +1,12 @@
+{
+  "gates": {
+    "build": "pnpm --filter @platform/hq --filter @platform/display run build",
+    "format": null,
+    "coverage": null
+  },
+  "reasons": {
+    "build": "No root build script. apps/hq and apps/display are the only workspaces with a real build step; the Expo apps build through EAS, not locally.",
+    "format": "n/a - no formatter is configured anywhere in the repo; ESLint with --max-warnings=0 is the only style gate.",
+    "coverage": "n/a - no coverage tooling is wired; node:test runs through tsx without --experimental-test-coverage."
+  }
+}
