@@ -1,0 +1,223 @@
+{
+  "schemaVersion": 1,
+  "goalId": "coffee-story-hardening-20260906",
+  "taskSource": "qa/tasks.yaml",
+  "recoveryLedger": ".adaptive-context/ledger.json",
+  "ownerActions": "OWNER-ACTIONS.md",
+  "artifact": {
+    "target": "plan.html",
+    "published": false,
+    "url": null
+  },
+  "goalTracking": {
+    "nativeGoalTool": false,
+    "note": "No native goal tool was reachable in this session; the goal is tracked in these files only."
+  },
+  "cycles": [
+    {
+      "cycle": 1,
+      "taskId": "T1",
+      "change": "Audited the WorktreeCreate hook chain and proved it preserves state",
+      "checks": [
+        {
+          "name": "worktree creation with staged, unstaged, untracked and .adaptive-context state",
+          "result": "pass"
+        }
+      ],
+      "risks": [
+        "github_origin_required still refuses a repo whose origin is not GitHub"
+      ],
+      "next": "None; blocker closed"
+    },
+    {
+      "cycle": 2,
+      "taskId": "T2",
+      "change": "Fixed adaptive-context handoff data loss across the ledger, handoff and CLI layers",
+      "checks": [
+        {
+          "name": "context-handoff.test.mjs",
+          "result": "pass",
+          "detail": "7/7 in 332.69ms"
+        },
+        {
+          "name": "context-ledger.test.mjs",
+          "result": "pass",
+          "detail": "7/7 in 398.29ms"
+        },
+        {
+          "name": "context-policy + paths + project",
+          "result": "pass",
+          "detail": "20/20 in 329.28ms"
+        },
+        {
+          "name": "real-ledger handoff round trip",
+          "result": "pass",
+          "detail": "files 940, next 200, currentVerification 1110 bytes carried"
+        }
+      ],
+      "risks": [
+        "~/.agents is not a git repository, so these changes are unversioned"
+      ],
+      "next": "Re-issue a working copy-paste handoff command"
+    },
+    {
+      "cycle": 3,
+      "taskId": "T3",
+      "change": "Audited five quarantined worktrees against their branch tips",
+      "checks": [
+        {
+          "name": "per-tree read-tree + diff --stat against branch tip",
+          "result": "pass",
+          "detail": "all five byte-clean"
+        },
+        {
+          "name": "bundle head verification",
+          "result": "pass",
+          "detail": "all five tips present in all-refs-20260906.bundle"
+        }
+      ],
+      "risks": [
+        "The rescued untracked directory sits inside the quarantine root and dies with it"
+      ],
+      "next": "None; audit closed"
+    },
+    {
+      "cycle": 4,
+      "taskId": "T4",
+      "change": "Split the Mission Control gate and ran the static half on Fly",
+      "checks": [
+        {
+          "name": "lint, typecheck, test on Fly at 5873220a",
+          "result": "pass",
+          "detail": "task 54, 727s, $0.01738984"
+        }
+      ],
+      "risks": [
+        "fork/main advanced to ef9463a3, so this pass is orphaned evidence"
+      ],
+      "next": "Re-run at the current default once the build half passes"
+    },
+    {
+      "cycle": 5,
+      "taskId": "T5",
+      "change": "Ran the standalone build half on Fly three times",
+      "checks": [
+        {
+          "name": "integrated gate",
+          "result": "fail",
+          "detail": "task 52, exit 137 as a deadline overrun at 1906s"
+        },
+        {
+          "name": "build attempt 1",
+          "result": "fail",
+          "detail": "task 55, worker disappeared at 3600s; infrastructure loss, not a build result"
+        },
+        {
+          "name": "build attempt 2",
+          "result": "fail",
+          "detail": "task 55, exit 137 under the 1800s cap at 979s"
+        },
+        {
+          "name": "build retry at ef9463a3",
+          "result": "fail",
+          "detail": "task 57, exit 137 at 635s under the 1800s cap; live sample read 3787MB at 0.98% CPU 95s before the kill, terminal row read 717MB after death"
+        }
+      ],
+      "risks": [
+        "No memory lever exists: mc_submit_fly_leaf is additionalProperties:false and mission-control sets no --max-old-space-size"
+      ],
+      "next": "Stop rule fired on the third exit 137: no further build submissions. Escalated to OWNER-ACTIONS.md section 7."
+    },
+    {
+      "cycle": 6,
+      "taskId": "T5",
+      "change": "Executed the recorded stop rule and escalated the Fly memory ceiling to the owner",
+      "checks": [
+        {
+          "name": "stop rule",
+          "result": "pass",
+          "detail": "third exit 137 under the cap; no build resubmitted, static half not submitted, nothing run locally (safe_local_fallback false)"
+        },
+        {
+          "name": "memory lever search",
+          "result": "fail",
+          "detail": "mc_submit_fly_leaf additionalProperties:false with no env/NODE_OPTIONS/memory/image_kind input; grep for max-old-space and NODE_OPTIONS across mission-control package.json, next.config.* and .github/workflows/ returned nothing"
+        },
+        {
+          "name": "escalation written",
+          "result": "pass",
+          "detail": "OWNER-ACTIONS.md section 7 records the four job rows, the memory evidence and three owner-side remedies"
+        }
+      ],
+      "risks": [
+        "T6 promotion and T7 post-promotion smoke are blocked indefinitely behind the owner action",
+        "Gate A's pass at 5873220a is orphaned; fork/main has moved to ef9463a3 and is still moving under a concurrent session",
+        "Failures are arriving earlier each attempt (1906s, 979s, 635s), which may indicate varying host memory pressure rather than a fixed ceiling; no logs are available to confirm"
+      ],
+      "next": "Build plan.html from qa/tasks.yaml, qa/task-ledger.json and git log; do not resubmit the Fly build until an owner raises the heap or worker memory"
+    },
+    {
+      "cycle": 7,
+      "taskId": "T11",
+      "change": "Audited the per-tenant preview URL directory end to end: the domain parser, both switcher consumers, and the hosted deploy's environment gating",
+      "checks": [
+        {
+          "name": "preview-directory.test.ts",
+          "result": "pass",
+          "detail": "2/2 in 405.86ms"
+        },
+        {
+          "name": "parser fails closed on scheme, credentials, slug shape, duplicates, size and arity",
+          "result": "pass",
+          "detail": "HTTPS only, plus localhost/127.0.0.1 HTTP; >12 entries and >20KB raw return []"
+        },
+        {
+          "name": "consumer scoping",
+          "result": "pass",
+          "detail": "RN switcher returns null off web so no native binary can reach it; kiosk additionally gates on posture.unattended; display reads non-public PREVIEW_DIRECTORY from a server component so it never inlines client-side"
+        },
+        {
+          "name": "production environment gating",
+          "result": "fail",
+          "detail": "deploy-hosted.yml writes the variable only on preview, but add_public only adds and nothing asserts the variable is absent from production"
+        }
+      ],
+      "risks": [
+        "A PREVIEW_DIRECTORY value set by hand in the Vercel dashboard, or scoped there to all environments, would survive into a production customer web build and surface another brand's URLs on a live tenant; the code-level guards narrow this on kiosk but not on customer web or the display"
+      ],
+      "next": "Add the production-absence assertion to deploy-hosted.yml beside the existing DISPLAY_DEVICE_REFRESH_SECRET check"
+    },
+    {
+      "cycle": 8,
+      "taskId": "T11",
+      "change": "Closed the preview-directory production gap found by cycle 7: the hosted deploy now asserts the preview tenant directory is absent from the production Vercel environment instead of only declining to write it there",
+      "checks": [
+        {
+          "name": "assert_absent behaviour",
+          "result": "pass",
+          "detail": "Five canned vercel env listings: absent passes, a present row fails with ::error::, an all-environments row fails, EXPO_PUBLIC_PREVIEW_DIRECTORY_OLD does not false-positive, and an unreadable listing exits 3 so the step fails closed"
+        },
+        {
+          "name": "workflow syntax",
+          "result": "pass",
+          "detail": "deploy-hosted.yml parses as YAML (6 jobs) and the edited run block passes bash -n"
+        },
+        {
+          "name": "preview path unchanged",
+          "result": "pass",
+          "detail": "Display previews still write PREVIEW_DIRECTORY and guest previews still write EXPO_PUBLIC_PREVIEW_DIRECTORY; only the production branches gained an assertion"
+        },
+        {
+          "name": "documented contract",
+          "result": "pass",
+          "detail": "docs/FRANCHISE-PRODUCTION.md now states the production assertion and the dashboard remedy beside the existing HTTPS/twelve-tenant rules"
+        }
+      ],
+      "risks": [
+        "The assertion runs during the deploy, so a hand-set production value is caught at deploy time rather than prevented at the dashboard; the check has no way to remove the variable itself",
+        "It reads the production environment of the surface being deployed, so a stray value on a surface no longer in TENANT_SURFACES would go unnoticed until that surface is deployed again"
+      ],
+      "next": "T8 remains the top agent-owned item: commit the wall/cache launcher work. The Mission Control gate stays owner-blocked."
+    }
+  ]
+}

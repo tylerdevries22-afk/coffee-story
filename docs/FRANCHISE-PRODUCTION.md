@@ -83,6 +83,13 @@ tenants, are accepted. The customer switcher is web-preview-only. Kiosk uses it
 on unattended preview surfaces, while the pickup display renders plain links.
 The operator app retains its real authenticated switcher.
 
+The workflow writes the variable on preview deployments only, and a production
+deployment asserts it is absent from the project's production environment
+before it stages anything. `vercel env add` only ever adds, so a value set by
+hand in the dashboard, or scoped there to every environment, would otherwise
+survive into a production build and put another tenant's URLs on a live
+surface. Remove it in the dashboard and redeploy if that assertion fails.
+
 ## Production release evidence
 
 Each tenant owns `tenants/<slug>/release.json`. Run:
