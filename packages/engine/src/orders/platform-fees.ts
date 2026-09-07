@@ -5,7 +5,10 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { computeAppFeeCents, feeMonthRange, type FeeConfig } from '../fees';
+import {
+  computeAppFeeCents, feeMonthRange, resolveFeeConfig,
+  type BrandFeeTerms, type FeeConfig, type LocationFeeTerms,
+} from '../fees';
 
 /**
  * The platform's cut for one settled card payment (rule 3), written once.
@@ -31,23 +34,20 @@ export async function recordPlatformFee(
     .from('brands')
     .select('fee_bps, fee_bps_tier2, tier_threshold_cents')
     .eq('id', input.brandId)
-    .single<{ fee_bps: number; fee_bps_tier2: number; tier_threshold_cents: number }>();
+    .single<BrandFeeTerms>();
   if (brand.error) throw brand.error;
   const location = await db
     .from('locations')
-    .select('timezone')
+    .select('timezone, fee_bps, fee_bps_tier2, tier_threshold_cents')
     .eq('id', input.locationId)
-    .single<{ timezone: string | null }>();
+    .eq('brand_id', input.brandId)
+    .single<LocationFeeTerms & { timezone: string | null }>();
   if (location.error) throw location.error;
 
   const fee = await appFeeForCharge(db, {
     locationId: input.locationId,
     chargeCents: input.grossCents,
-    feeConfig: {
-      feeBps: Number(brand.data.fee_bps),
-      feeBpsTier2: Number(brand.data.fee_bps_tier2),
-      tierThresholdCents: Number(brand.data.tier_threshold_cents),
-    },
+    feeConfig: resolveFeeConfig(brand.data, location.data),
     locationTimezone: location.data.timezone ?? 'UTC',
   });
 
