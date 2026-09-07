@@ -8,7 +8,7 @@ import { recordPlatformFee } from './platform-fees';
 
 const INPUT = {
   brandId: 'brand-a', locationId: 'location-a', orderId: 'order-a',
-  squarePaymentId: 'payment-a', grossCents: 10_000,
+  squarePaymentId: 'payment-a', grossCents: 10_000, settledFeeCents: 150,
 };
 
 function database(options: {
@@ -32,9 +32,7 @@ function database(options: {
         } else if (table === 'locations') {
           assert.equal(url.searchParams.get('brand_id'), 'eq.brand-a');
           assert.equal(url.searchParams.get('id'), 'eq.location-a');
-          for (const column of ['timezone', 'fee_bps', 'fee_bps_tier2', 'tier_threshold_cents']) {
-            assert.ok(url.searchParams.get('select')?.split(',').includes(column));
-          }
+          assert.equal(url.searchParams.get('select'), 'id');
           data = { timezone: 'America/Denver', ...options.location };
           if (options.locationError) {
             status = 406;
@@ -72,11 +70,11 @@ describe('settlement fee terms', () => {
     }]);
   });
 
-  it('inherits each unset term while honoring the location threshold and tier2', async () => {
+  it('records the collected blended rate after the location terms change', async () => {
     const { db, inserted } = database({
       location: { fee_bps: null, fee_bps_tier2: 100, tier_threshold_cents: 5_000 },
     });
-    await recordPlatformFee(db, INPUT);
+    await recordPlatformFee(db, { ...INPUT, settledFeeCents: 200 });
     assert.equal(inserted[0]?.fee_cents, 200);
     assert.equal(inserted[0]?.fee_bps_applied, 200);
   });
@@ -85,7 +83,7 @@ describe('settlement fee terms', () => {
     const { db, inserted } = database({
       location: { fee_bps: null, fee_bps_tier2: null, tier_threshold_cents: null },
     });
-    await recordPlatformFee(db, INPUT);
+    await recordPlatformFee(db, { ...INPUT, settledFeeCents: 300 });
     assert.equal(inserted[0]?.fee_cents, 300);
   });
 
@@ -102,9 +100,30 @@ describe('settlement fee terms', () => {
     });
   });
 
+  it('records zero collected fees without losing the payment volume', async () => {
+    const { db, requests, inserted } = database();
+    await recordPlatformFee(db, { ...INPUT, settledFeeCents: 0 });
+    assert.equal(inserted[0]?.fee_cents, 0);
+    assert.equal(inserted[0]?.gross_cents, 10_000);
+    assert.equal(inserted[0]?.fee_bps_applied, 0);
+    assert.equal(requests.some(url => url.pathname.endsWith('/brands')), false);
+    assert.equal(requests.filter(url => url.pathname.endsWith('/platform_fees')).length, 1);
+  });
+
+  it('rejects invalid provider money before making database calls', async () => {
+    const { db, requests } = database();
+    for (const settledFeeCents of [-1, 0.5, NaN, Infinity, 10_001, Number.MAX_SAFE_INTEGER + 1]) {
+      await assert.rejects(recordPlatformFee(db, { ...INPUT, settledFeeCents }), RangeError);
+    }
+    for (const grossCents of [-1, 0.5, NaN, Infinity]) {
+      await assert.rejects(recordPlatformFee(db, { ...INPUT, grossCents }), RangeError);
+    }
+    assert.equal(requests.length, 0);
+  });
+
   it('does not query the database for a zero-value payment', async () => {
     const { db, requests } = database();
-    await recordPlatformFee(db, { ...INPUT, grossCents: 0 });
+    await recordPlatformFee(db, { ...INPUT, grossCents: 0, settledFeeCents: 0 });
     assert.equal(requests.length, 0);
   });
 });

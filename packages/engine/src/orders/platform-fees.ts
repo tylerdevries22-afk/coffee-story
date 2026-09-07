@@ -6,8 +6,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import {
-  computeAppFeeCents, feeMonthRange, resolveFeeConfig,
-  type BrandFeeTerms, type FeeConfig, type LocationFeeTerms,
+  computeAppFeeCents, feeMonthRange, type FeeConfig,
 } from '../fees';
 
 /**
@@ -27,37 +26,32 @@ export async function recordPlatformFee(
     orderId: string;
     squarePaymentId: string;
     grossCents: number;
+    /** Actual application fee from the authenticated provider settlement. */
+    settledFeeCents: number;
   },
 ): Promise<void> {
-  if (input.grossCents <= 0) return;
-  const brand = await db
-    .from('brands')
-    .select('fee_bps, fee_bps_tier2, tier_threshold_cents')
-    .eq('id', input.brandId)
-    .single<BrandFeeTerms>();
-  if (brand.error) throw brand.error;
-  const location = await db
-    .from('locations')
-    .select('timezone, fee_bps, fee_bps_tier2, tier_threshold_cents')
-    .eq('id', input.locationId)
-    .eq('brand_id', input.brandId)
-    .single<LocationFeeTerms & { timezone: string | null }>();
+  const { grossCents, settledFeeCents } = input;
+  if (!Number.isSafeInteger(grossCents) || grossCents < 0
+    || !Number.isSafeInteger(settledFeeCents) || settledFeeCents < 0
+    || settledFeeCents > grossCents) {
+    throw new RangeError('Invalid settled payment amounts.');
+  }
+  if (grossCents === 0) return;
+  // Validate the location's tenant even though settlement uses provider money.
+  const location = await db.from('locations').select('id')
+    .eq('id', input.locationId).eq('brand_id', input.brandId).single();
   if (location.error) throw location.error;
-
-  const fee = await appFeeForCharge(db, {
-    locationId: input.locationId,
-    chargeCents: input.grossCents,
-    feeConfig: resolveFeeConfig(brand.data, location.data),
-    locationTimezone: location.data.timezone ?? 'UTC',
-  });
+  // A hosted link can settle after another payment, a month boundary, or a
+  // contract edit. Repricing here would invent revenue Square never charged.
+  const feeBpsApplied = Math.round((settledFeeCents / grossCents) * 10_000);
 
   await insertPlatformFeeOnce(db, {
     brand_id: input.brandId,
     location_id: input.locationId,
     order_id: input.orderId,
     gross_cents: input.grossCents,
-    fee_cents: fee.feeCents,
-    fee_bps_applied: fee.feeBpsApplied,
+    fee_cents: settledFeeCents,
+    fee_bps_applied: feeBpsApplied,
     square_payment_id: input.squarePaymentId,
   });
 }

@@ -54,7 +54,7 @@ export async function POST(request: Request): Promise<Response> {
     return new Response('Body is not JSON', { status: 400 });
   }
   const mapped = mapSquareEvent(event);
-  if (!mapped) return new Response('No event id', { status: 400 });
+  if (!mapped) return new Response('Invalid Square event', { status: 400 });
 
   const db = createClient(serviceUrl, serviceKey, {
     auth: { persistSession: false },
@@ -93,6 +93,12 @@ export async function POST(request: Request): Promise<Response> {
   const { data: order, error: orderError } = await orderQuery.maybeSingle();
   if (orderError) return new Response('Could not resolve order', { status: 503 });
   if (!order) return new Response('Order not known (yet); Square will retry', { status: 404 });
+
+  const grossCents = order.total_cents - order.stored_value_applied_cents;
+  if (mapped.orderStatus === 'paid' && (
+    !Number.isSafeInteger(grossCents) || grossCents < 0
+    || mapped.settledFeeCents === undefined || mapped.settledFeeCents > grossCents
+  )) return new Response('Invalid payment settlement amounts', { status: 422 });
 
   if (mapped.orderStatus === 'refunded') {
     if (!mapped.squareRefundId || mapped.refundedCents === null || mapped.refundedCents <= 0) {
@@ -140,13 +146,14 @@ export async function POST(request: Request): Promise<Response> {
   // fee so the volume tier and platform revenue stay complete (rule 3).
   try {
     if (mapped.orderStatus === 'paid') {
-      if (mapped.squarePaymentId) {
+      if (mapped.squarePaymentId && mapped.settledFeeCents !== undefined) {
         await recordPlatformFee(db, {
           brandId: order.brand_id,
           locationId: order.location_id,
           orderId: order.id,
           squarePaymentId: mapped.squarePaymentId,
-          grossCents: order.total_cents - order.stored_value_applied_cents,
+          grossCents,
+          settledFeeCents: mapped.settledFeeCents,
         });
       }
     }

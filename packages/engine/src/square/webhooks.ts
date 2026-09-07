@@ -36,7 +36,10 @@ export type SquareEvent = {
   type?: string;
   data?: {
     object?: {
-      payment?: { id?: string; status?: string; order_id?: string };
+      payment?: {
+        id?: string; status?: string; order_id?: string;
+        app_fee_money?: { amount?: number; currency?: string };
+      };
       refund?: {
         id?: string;
         status?: string;
@@ -62,6 +65,8 @@ export type MappedEvent = {
    * were the whole order — a $2 courtesy refund wiped a $50 order's points.
    */
   refundedCents: number | null;
+  /** Actual fee collected by this application; absent Square fees mean zero. */
+  settledFeeCents?: number;
   kind: 'payment' | 'refund' | 'order' | 'ignored';
 };
 
@@ -72,12 +77,21 @@ export type MappedEvent = {
  * Square until a terminal state lands.
  */
 export function mapSquareEvent(event: SquareEvent): MappedEvent | null {
+  if (!event || typeof event !== 'object') return null;
   const id = event.event_id;
   if (!id) return null;
   const object = event.data?.object ?? {};
 
   if (event.type === 'payment.updated' && object.payment) {
+    const money = object.payment.app_fee_money;
+    // Square omits app_fee_money when this application collected no fee.
+    // Explicit malformed money must never silently become a zero receipt.
+    const settledFeeCents = money === undefined ? 0 : money?.amount;
+    if (typeof settledFeeCents !== 'number' || !Number.isSafeInteger(settledFeeCents)
+      || settledFeeCents < 0 || (money !== undefined && money?.currency !== 'USD')) return null;
+    if (object.payment.status === 'COMPLETED' && !object.payment.id) return null;
     return {
+      settledFeeCents,
       squareEventId: id,
       orderStatus: object.payment.status === 'COMPLETED' ? 'paid' : null,
       squareOrderId: object.payment.order_id ?? null,
