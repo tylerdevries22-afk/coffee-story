@@ -3,7 +3,7 @@
 External dependencies, decisions, and machine-state findings that an agent cannot
 resolve on its own. Each item states the evidence and the exact action needed.
 
-Last refreshed: 2026-09-06.
+Last refreshed: 2026-09-07.
 
 ## 1. Worktree handoff blocker — RESOLVED, no action needed
 
@@ -202,17 +202,40 @@ under the 50 GB threshold. The rule for an eligible leaf that cannot be admitted
 while offload is required is to leave it pending and report the blocker, so no
 verification was run locally.
 
-**What is standing in for it.** Pull request #115 runs the repository's own
+**What is standing in for it.** Pull requests #115 and #116 run the repository's own
 required checks — `verify`, `audit`, `security` — on GitHub Actions. Those are
 external, remote, and are branch-protection gates on `main`, so they are the real
 merge gate rather than an agent-chosen one. This is a substitute for the Fly gate,
 not a replacement for it: it does not tell you why admission was refused.
 
+**A second refusal, on a completely idle pool, falsifies option 1 as first written.**
+The leaf was resubmitted at the pushed SHA `fe5b8f4`, same `runtime=command`,
+same `setup=pnpm-ci`, same `checks=[lint, typecheck, test]`, deliberately timed
+against an empty pool. `mc_fly_status` immediately before the submission read
+`ready: true`, `issues: []`, **`active_workers: 0`, `available_slots: 25`,
+`queued: 0`** — 25 of 25 slots free, nothing running, nothing waiting. Admission
+returned the identical string:
+
+```
+{"route": "local", "accepted": false, "safe_local_fallback": true,
+ "reason": "Historical memory exceeds the largest approved class with safety headroom"}
+```
+
+With no concurrent job in the pool there is no neighbour to sample, so the
+refusal cannot be caused by one. The word *historical* in the reason should be
+read literally: the controller is scoring **stored history**, not live capacity,
+and the refusal is deterministic for this repository rather than incidental to
+what else is running. A third submission would tell an owner nothing new.
+
 **Owner options.**
 
-1. Inspect what history the admission controller is scoring. If it is scoring
-   across all repositories, one heavy neighbour (a concurrent job was sampled at
-   2,383,110,144 bytes) can block every project's static checks.
+1. Inspect what stored history the admission controller scores for this
+   repository, and against which approved class. The live-contention
+   explanation is ruled out by the idle-pool refusal above, so the answer is in
+   whatever record the controller keeps — most likely a retained high-water mark
+   from an earlier heavy job attributed to this repository, since its equivalent
+   static leaf succeeded as task 62 at 1,627,471,872 bytes, comfortably inside
+   the class now being refused.
 2. Raise the approved class or the safety headroom, as in section 7 option 2.
 3. Clear `~/.agents/state/fly-offload-required` and free disk if local
    verification is meant to be available as a fallback on this host.
