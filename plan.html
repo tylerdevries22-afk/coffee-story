@@ -1,0 +1,231 @@
+<title>Coffee Story Hardening Plan</title>
+<style>:root{color-scheme:dark;--bg:#0d0f12;--panel:#15181d;--line:#262b33;
+--ink:#e8eaed;--dim:#9aa3af;--ok:#4ea672;--warn:#c9922f;--stop:#c05a52;--info:#5a86c0}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);
+font:14px/1.55 ui-sans-serif,-apple-system,Segoe UI,Roboto,sans-serif}
+main{max-width:980px;margin:0 auto;padding:40px 24px 72px}
+h1{font-size:22px;margin:0 0 6px}h2{font-size:15px;letter-spacing:.08em;text-transform:uppercase;
+color:var(--dim);margin:40px 0 12px;font-weight:600}h3{font-size:14px;margin:0 0 6px}
+.meta{color:var(--dim);font-size:12px;margin:0 0 24px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px}
+.tally{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 8px;padding:0;list-style:none}
+.tally li{background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:4px 12px;font-size:12px}
+.tally b{font-variant-numeric:tabular-nums}
+.scroll{overflow-x:auto}table{width:100%;border-collapse:collapse;min-width:640px}
+th,td{text-align:left;vertical-align:top;padding:12px 10px;border-top:1px solid var(--line)}
+th{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);border-top:0}
+.id{font-variant-numeric:tabular-nums;color:var(--dim)}.owner{color:var(--dim)}
+.title{font-weight:600}dl.detail{margin:6px 0 0;display:grid;grid-template-columns:auto 1fr;gap:2px 12px}
+.k{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--dim);margin-top:8px}
+dl.detail .k{margin:0}dl.detail div{font-size:13px;color:var(--dim)}
+.pill{display:inline-block;border-radius:999px;padding:2px 9px;font-size:11px;border:1px solid currentColor}
+.p-done,.p-pass{color:var(--ok)}.p-blocked,.p-fail{color:var(--stop)}
+.p-pending{color:var(--dim)}.p-in_progress{color:var(--info)}
+.cycle{border-left:2px solid var(--line);padding:0 0 0 16px;margin:0 0 22px}
+.cycle .tag{color:var(--dim);font-weight:400}.change{margin:0 0 10px;color:var(--dim)}
+ul.checks,ul.plain{list-style:none;margin:0;padding:0}
+ul.checks li{padding:4px 0}ul.checks .d{display:block;color:var(--dim);font-size:13px;margin-left:2px}
+ul.plain li{color:var(--dim);padding:2px 0}
+ol.steps{color:var(--dim);padding-left:20px;margin:0}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:var(--ink)}
+.commits{list-style:none;margin:0;padding:0}
+.commits li{padding:4px 0;border-top:1px solid var(--line);display:flex;gap:12px;flex-wrap:wrap}
+.commits li:first-child{border-top:0}.commits .sha{color:var(--warn)}.commits .when{color:var(--dim)}
+footer{margin-top:44px;color:var(--dim);font-size:12px;border-top:1px solid var(--line);padding-top:14px}</style>
+<main>
+<h1>Advance Coffee Story release readiness and Mission Control gate verification without weakening evidence-based approvals.</h1>
+<p class="meta">Goal <code>coffee-story-hardening-20260906</code> &middot; refreshed 2026-09-07 05:25 UTC &middot;
+11 tasks &middot; 9 verification cycles</p>
+
+<ul class="tally"><li><b>4</b> done</li><li><b>0</b> in progress</li><li><b>0</b> pending</li><li><b>7</b> blocked</li></ul>
+
+<h2>Next action</h2>
+<div class="card">Three threads, none of them agent-executable. (1) T11 is done and committed as ef5b7e8: deploy-hosted.yml asserts the preview tenant directory is absent from the production Vercel environment on every surface, documented in docs/FRANCHISE-PRODUCTION.md, with the qa/ tracking files now tracked. Nothing is pushed; the pre-push Codex gate and promotion were not requested. (2) T8 is blocked, not pending: the goal explicitly excludes committing or promoting the uncommitted wall/cache work, so an owner must lift that exclusion before an agent stages it. The work stays verified and untouched on the dirty dev branch. (3) Mission Control gate: CLOSED to the agent and owner-blocked. The standalone build half failed a third time (task 57, exit 137 at 635s at ef9463a3) and the stop rule has fired, so do not resubmit the build, do not spend a submission on the static half, and do not run it locally. The blocker is OWNER-ACTIONS.md section 7. T6 promotion and T7 post-promotion smoke stay blocked behind it. Before any future promotion, re-check that fork/main has not moved again.</div>
+
+<h2>Tasks</h2>
+<div class="scroll"><table>
+<thead><tr><th>ID</th><th>Task</th><th>Status</th><th>Owner</th></tr></thead>
+<tbody><tr class="s-done">
+    <td class="id">T1</td>
+    <td><div class="title">Resolve the WorktreeCreate handoff blocker</div><dl class="detail"><div class="k">Acceptance</div><div>A worktree is created with staged, unstaged and untracked state intact</div><div class="k">Evidence</div><div>ledger.currentVerification; OWNER-ACTIONS.md section 1</div></dl></td>
+    <td><span class="pill p-done">done</span></td>
+    <td class="owner">agent</td>
+  </tr><tr class="s-done">
+    <td class="id">T2</td>
+    <td><div class="title">Fix adaptive-context handoff data loss</div><dl class="detail"><div class="k">Acceptance</div><div>A real-ledger handoff carries files, next and currentVerification</div><div class="k">Evidence</div><div>34 tests across handoff, ledger, policy, paths, project libs</div></dl></td>
+    <td><span class="pill p-done">done</span></td>
+    <td class="owner">agent</td>
+  </tr><tr class="s-done">
+    <td class="id">T3</td>
+    <td><div class="title">Audit the quarantined worktrees for lost work</div><dl class="detail"><div class="k">Acceptance</div><div>Every quarantined tree diffed against its branch tip; tips preserved</div><div class="k">Evidence</div><div>all five trees byte-clean; all-refs-20260906.bundle holds every tip</div></dl></td>
+    <td><span class="pill p-done">done</span></td>
+    <td class="owner">agent</td>
+  </tr><tr class="s-blocked">
+    <td class="id">T4</td>
+    <td><div class="title">Mission Control gate A - lint, typecheck, unit tests</div><dl class="detail"><div class="k">Acceptance</div><div>Passes on Fly at the same SHA as gate B</div><div class="k">Evidence</div><div>task 54 passed at 5873220a in 727s</div><div class="k">Blocked by</div><div>base SHA moved; the pass at 5873220a is orphaned evidence</div></dl></td>
+    <td><span class="pill p-blocked">blocked</span></td>
+    <td class="owner">agent</td>
+  </tr><tr class="s-blocked">
+    <td class="id">T5</td>
+    <td><div class="title">Mission Control gate B - standalone production build</div><dl class="detail"><div class="k">Acceptance</div><div>next build --webpack and artifact:prepare pass on Fly under the cap</div><div class="k">Evidence</div><div>task 52 exit 137 at 1906s; task 55 attempt 1 lost its worker at 3600s; task 55 attempt 2 exit 137 at 979s; task 57 exit 137 at 635s with a live 3787MB sample at 0.98% CPU 95s before the kill</div><div class="k">Blocked by</div><div>Three exit-137 kills on Fly with no agent-side memory lever; escalated as OWNER-ACTIONS.md section 7. Do not resubmit until an owner raises the heap or worker memory.</div></dl></td>
+    <td><span class="pill p-blocked">blocked</span></td>
+    <td class="owner">owner</td>
+  </tr><tr class="s-blocked">
+    <td class="id">T6</td>
+    <td><div class="title">Promote the standalone controller build during an idle queue window</div><dl class="detail"><div class="k">Acceptance</div><div>Default re-checked immediately before push; promotion pushed clean</div><div class="k">Blocked by</div><div>T4 and T5 must both pass at one SHA</div></dl></td>
+    <td><span class="pill p-blocked">blocked</span></td>
+    <td class="owner">agent</td>
+  </tr><tr class="s-blocked">
+    <td class="id">T7</td>
+    <td><div class="title">Post-promotion Coffee Story Fly smoke, polled to cleanup</div><dl class="detail"><div class="k">Blocked by</div><div>T6</div></dl></td>
+    <td><span class="pill p-blocked">blocked</span></td>
+    <td class="owner">agent</td>
+  </tr><tr class="s-blocked">
+    <td class="id">T8</td>
+    <td><div class="title">Commit the wall/cache launcher work</div><dl class="detail"><div class="k">Acceptance</div><div>Staged diff inspected; 51 script tests, ESLint and tsc green at commit</div><div class="k">Blocked by</div><div>The goal excludes committing or promoting the uncommitted wall/cache work, so this needs an owner decision to lift that exclusion before an agent stages it. The recovery ledger previously named it the next agent item; the exclusion governs.</div><div class="k">Note</div><div>Verified locally but deliberately uncommitted; separate from the gate</div></dl></td>
+    <td><span class="pill p-blocked">blocked</span></td>
+    <td class="owner">owner</td>
+  </tr><tr class="s-blocked">
+    <td class="id">T9</td>
+    <td><div class="title">Coffee Story release approvals</div><dl class="detail"><div class="k">Acceptance</div><div>Five approval records carry immutable external evidence</div><div class="k">Blocked by</div><div>owner and provider actions; see OWNER-ACTIONS.md section 6</div></dl></td>
+    <td><span class="pill p-blocked">blocked</span></td>
+    <td class="owner">owner</td>
+  </tr><tr class="s-blocked">
+    <td class="id">T10</td>
+    <td><div class="title">Commit repo-fleet&#39;s 61 uncommitted files</div><dl class="detail"><div class="k">Blocked by</div><div>owner decision on whether the component is wanted</div><div class="k">Note</div><div>Unborn HEAD; no commit exists in any bundle or remote</div></dl></td>
+    <td><span class="pill p-blocked">blocked</span></td>
+    <td class="owner">owner</td>
+  </tr><tr class="s-done">
+    <td class="id">T11</td>
+    <td><div class="title">Assert PREVIEW_DIRECTORY is absent from the production environment</div><dl class="detail"><div class="k">Acceptance</div><div>The hosted deploy fails when PREVIEW_DIRECTORY or EXPO_PUBLIC_PREVIEW_DIRECTORY is set on the production Vercel environment</div><div class="k">Evidence</div><div>assert_absent in deploy-hosted.yml, exercised against canned vercel env listings: absent passes, present fails with ::error::, an all-environments row fails, a near-miss name passes, and an unreadable listing aborts the step rather than reading as an absence</div><div class="k">Note</div><div>Found by audit. previewTargets and both switchers are sound, and the workflow only writes the variable on preview. But add_public only adds, so a value set by hand in the Vercel dashboard (or scoped to all environments) would persist into a production customer web build and put another brand&#39;s URLs on a live tenant surface, with no repository gate noticing. The fix is an assertion beside the existing production DISPLAY_DEVICE_REFRESH_SECRET check, not a change to the domain module.</div></dl></td>
+    <td><span class="pill p-done">done</span></td>
+    <td class="owner">agent</td>
+  </tr></tbody></table></div>
+
+<h2>Out of scope</h2>
+<div class="card"><ul class="plain"><li>Marking owner/provider approvals without immutable external evidence</li><li>Running offloaded verification locally while remote admission is active</li><li>Committing or promoting the uncommitted wall/cache work as part of this goal</li></ul></div>
+
+<h2>Verification history</h2>
+<article class="cycle">
+    <h3>Cycle 1 <span class="tag">T1</span></h3>
+    <p class="change">Audited the WorktreeCreate hook chain and proved it preserves state</p>
+    <ul class="checks"><li class="r-pass">
+    <span class="pill p-pass">pass</span>
+    <strong>worktree creation with staged, unstaged, untracked and .adaptive-context state</strong><span class="d"></span></li></ul><div class="k">Remaining risks</div><ul class="plain"><li>github_origin_required still refuses a repo whose origin is not GitHub</li></ul>
+    <div class="k">Next</div><p>None; blocker closed</p>
+  </article><article class="cycle">
+    <h3>Cycle 2 <span class="tag">T2</span></h3>
+    <p class="change">Fixed adaptive-context handoff data loss across the ledger, handoff and CLI layers</p>
+    <ul class="checks"><li class="r-pass">
+    <span class="pill p-pass">pass</span>
+    <strong>context-handoff.test.mjs</strong><span class="d">7/7 in 332.69ms</span></li><li class="r-pass">
+    <span class="pill p-pass">pass</span>
+    <strong>context-ledger.test.mjs</strong><span class="d">7/7 in 398.29ms</span></li><li class="r-pass">
+    <span class="pill p-pass">pass</span>
+    <strong>context-policy + paths + project</strong><span class="d">20/20 in 329.28ms</span></li><li class="r-pass">
+    <span class="pill p-pass">pass</span>
+    <strong>real-ledger handoff round trip</strong><span class="d">files 940, next 200, currentVerification 1110 bytes carried</span></li></ul><div class="k">Remaining risks</div><ul class="plain"><li>~/.agents is not a git repository, so these changes are unversioned</li></ul>
+    <div class="k">Next</div><p>Re-issue a working copy-paste handoff command</p>
+  </article><article class="cycle">
+    <h3>Cycle 3 <span class="tag">T3</span></h3>
+    <p class="change">Audited five quarantined worktrees against their branch tips</p>
+    <ul class="checks"><li class="r-pass">
+    <span class="pill p-pass">pass</span>
+    <strong>per-tree read-tree + diff --stat against branch tip</strong><span class="d">all five byte-clean</span></li><li class="r-pass">
+    <span class="pill p-pass">pass</span>
+    <strong>bundle head verification</strong><span class="d">all five tips present in all-refs-20260906.bundle</span></li></ul><div class="k">Remaining risks</div><ul class="plain"><li>The rescued untracked directory sits inside the quarantine root and dies with it</li></ul>
+    <div class="k">Next</div><p>None; audit closed</p>
+  </article><article class="cycle">
+    <h3>Cycle 4 <span class="tag">T4</span></h3>
+    <p class="change">Split the Mission Control gate and ran the static half on Fly</p>
+    <ul class="checks"><li class="r-pass">
+    <span class="pill p-pass">pass</span>
+    <strong>lint, typecheck, test on Fly at 5873220a</strong><span class="d">task 54, 727s, $0.01738984</span></li></ul><div class="k">Remaining risks</div><ul class="plain"><li>fork/main advanced to ef9463a3, so this pass is orphaned evidence</li></ul>
+    <div class="k">Next</div><p>Re-run at the current default once the build half passes</p>
+  </article><article class="cycle">
+    <h3>Cycle 5 <span class="tag">T5</span></h3>
+    <p class="change">Ran the standalone build half on Fly three times</p>
+    <ul class="checks"><li class="r-fail">
+    <span class="pill p-fail">fail</span>
+    <strong>integrated gate</strong><span class="d">task 52, exit 137 as a deadline overrun at 1906s</span></li><li class="r-fail">
+    <span class="pill p-fail">fail</span>
+    <strong>build attempt 1</strong><span class="d">task 55, worker disappeared at 3600s; infrastructure loss, not a build result</span></li><li class="r-fail">
+    <span class="pill p-fail">fail</span>
+    <strong>build attempt 2</strong><span class="d">task 55, exit 137 under the 1800s cap at 979s</span></li><li class="r-fail">
+    <span class="pill p-fail">fail</span>
+    <strong>build retry at ef9463a3</strong><span class="d">task 57, exit 137 at 635s under the 1800s cap; live sample read 3787MB at 0.98% CPU 95s before the kill, terminal row read 717MB after death</span></li></ul><div class="k">Remaining risks</div><ul class="plain"><li>No memory lever exists: mc_submit_fly_leaf is additionalProperties:false and mission-control sets no --max-old-space-size</li></ul>
+    <div class="k">Next</div><p>Stop rule fired on the third exit 137: no further build submissions. Escalated to OWNER-ACTIONS.md section 7.</p>
+  </article><article class="cycle">
+    <h3>Cycle 6 <span class="tag">T5</span></h3>
+    <p class="change">Executed the recorded stop rule and escalated the Fly memory ceiling to the owner</p>
+    <ul class="checks"><li class="r-pass">
+    <span class="pill p-pass">pass</span>
+    <strong>stop rule</strong><span class="d">third exit 137 under the cap; no build resubmitted, static half not submitted, nothing run locally (safe_local_fallback false)</span></li><li class="r-fail">
+    <span class="pill p-fail">fail</span>
+    <strong>memory lever search</strong><span class="d">mc_submit_fly_leaf additionalProperties:false with no env/NODE_OPTIONS/memory/image_kind input; grep for max-old-space and NODE_OPTIONS across mission-control package.json, next.config.* and .github/workflows/ returned nothing</span></li><li class="r-pass">
+    <span class="pill p-pass">pass</span>
+    <strong>escalation written</strong><span class="d">OWNER-ACTIONS.md section 7 records the four job rows, the memory evidence and three owner-side remedies</span></li></ul><div class="k">Remaining risks</div><ul class="plain"><li>T6 promotion and T7 post-promotion smoke are blocked indefinitely behind the owner action</li><li>Gate A&#39;s pass at 5873220a is orphaned; fork/main has moved to ef9463a3 and is still moving under a concurrent session</li><li>Failures are arriving earlier each attempt (1906s, 979s, 635s), which may indicate varying host memory pressure rather than a fixed ceiling; no logs are available to confirm</li></ul>
+    <div class="k">Next</div><p>Build plan.html from qa/tasks.yaml, qa/task-ledger.json and git log; do not resubmit the Fly build until an owner raises the heap or worker memory</p>
+  </article><article class="cycle">
+    <h3>Cycle 7 <span class="tag">T11</span></h3>
+    <p class="change">Audited the per-tenant preview URL directory end to end: the domain parser, both switcher consumers, and the hosted deploy&#39;s environment gating</p>
+    <ul class="checks"><li class="r-pass">
+    <span class="pill p-pass">pass</span>
+    <strong>preview-directory.test.ts</strong><span class="d">2/2 in 405.86ms</span></li><li class="r-pass">
+    <span class="pill p-pass">pass</span>
+    <strong>parser fails closed on scheme, credentials, slug shape, duplicates, size and arity</strong><span class="d">HTTPS only, plus localhost/127.0.0.1 HTTP; &gt;12 entries and &gt;20KB raw return []</span></li><li class="r-pass">
+    <span class="pill p-pass">pass</span>
+    <strong>consumer scoping</strong><span class="d">RN switcher returns null off web so no native binary can reach it; kiosk additionally gates on posture.unattended; display reads non-public PREVIEW_DIRECTORY from a server component so it never inlines client-side</span></li><li class="r-fail">
+    <span class="pill p-fail">fail</span>
+    <strong>production environment gating</strong><span class="d">deploy-hosted.yml writes the variable only on preview, but add_public only adds and nothing asserts the variable is absent from production</span></li></ul><div class="k">Remaining risks</div><ul class="plain"><li>A PREVIEW_DIRECTORY value set by hand in the Vercel dashboard, or scoped there to all environments, would survive into a production customer web build and surface another brand&#39;s URLs on a live tenant; the code-level guards narrow this on kiosk but not on customer web or the display</li></ul>
+    <div class="k">Next</div><p>Add the production-absence assertion to deploy-hosted.yml beside the existing DISPLAY_DEVICE_REFRESH_SECRET check</p>
+  </article><article class="cycle">
+    <h3>Cycle 8 <span class="tag">T11</span></h3>
+    <p class="change">Closed the preview-directory production gap found by cycle 7: the hosted deploy now asserts the preview tenant directory is absent from the production Vercel environment instead of only declining to write it there</p>
+    <ul class="checks"><li class="r-pass">
+    <span class="pill p-pass">pass</span>
+    <strong>assert_absent behaviour</strong><span class="d">Five canned vercel env listings: absent passes, a present row fails with ::error::, an all-environments row fails, EXPO_PUBLIC_PREVIEW_DIRECTORY_OLD does not false-positive, and an unreadable listing exits 3 so the step fails closed</span></li><li class="r-pass">
+    <span class="pill p-pass">pass</span>
+    <strong>workflow syntax</strong><span class="d">deploy-hosted.yml parses as YAML (6 jobs) and the edited run block passes bash -n</span></li><li class="r-pass">
+    <span class="pill p-pass">pass</span>
+    <strong>preview path unchanged</strong><span class="d">Display previews still write PREVIEW_DIRECTORY and guest previews still write EXPO_PUBLIC_PREVIEW_DIRECTORY; only the production branches gained an assertion</span></li><li class="r-pass">
+    <span class="pill p-pass">pass</span>
+    <strong>documented contract</strong><span class="d">docs/FRANCHISE-PRODUCTION.md now states the production assertion and the dashboard remedy beside the existing HTTPS/twelve-tenant rules</span></li></ul><div class="k">Remaining risks</div><ul class="plain"><li>The assertion runs during the deploy, so a hand-set production value is caught at deploy time rather than prevented at the dashboard; the check has no way to remove the variable itself</li><li>It reads the production environment of the surface being deployed, so a stray value on a surface no longer in TENANT_SURFACES would go unnoticed until that surface is deployed again</li></ul>
+    <div class="k">Next</div><p>T8 remains the top agent-owned item: commit the wall/cache launcher work. The Mission Control gate stays owner-blocked.</p>
+  </article><article class="cycle">
+    <h3>Cycle 9 <span class="tag">T11</span></h3>
+    <p class="change">Committed the T11 workflow assertion, its documentation and the qa/ durable tracking files as ef5b7e8 on dev, and reconciled T8 against the goal exclusions instead of committing the wall/cache work</p>
+    <ul class="checks"><li class="r-pass">
+    <span class="pill p-pass">pass</span>
+    <strong>scoped commit</strong><span class="d">ef5b7e8 carries deploy-hosted.yml, docs/FRANCHISE-PRODUCTION.md and qa/ only; every wall/cache file and the pre-existing dirty tree are untouched and still uncommitted</span></li><li class="r-pass">
+    <span class="pill p-pass">pass</span>
+    <strong>re-verified before commit</strong><span class="d">deploy-hosted.yml parses as YAML (6 jobs), the edited run block passes bash -n, and git diff --check is clean</span></li><li class="r-pass">
+    <span class="pill p-pass">pass</span>
+    <strong>private detail excluded</strong><span class="d">qa/ scanned clean of absolute paths and credential strings; plan.html, OWNER-ACTIONS.md and .adaptive-context/ stay untracked because they render machine paths and another repository&#39;s local state</span></li><li class="r-fail">
+    <span class="pill p-fail">fail</span>
+    <strong>T8 scope reconciliation</strong><span class="d">The recovery ledger named T8 the next agent-owned item, but the goal excludes committing or promoting the uncommitted wall/cache work. The exclusion governs, so T8 is re-marked blocked on an owner decision rather than executed</span></li></ul><div class="k">Remaining risks</div><ul class="plain"><li>plan.html is now generated from two untracked sources, so no other clone can reproduce it; the renderer is tracked but its inputs are local-only</li><li>The wall/cache work remains uncommitted on a dirty dev branch and is preserved only by not touching it</li></ul>
+    <div class="k">Next</div><p>No agent-owned task is executable. T8 needs an owner decision to lift the goal exclusion; T4-T7 stay blocked on the Fly memory ceiling; T9/T10 are owner-owned.</p>
+  </article>
+
+<h2>Owner actions</h2>
+<div class="card"><ol class="steps"><li>1. Worktree handoff blocker — RESOLVED, no action needed</li><li>2. repo-fleet has 61 files of unpushed work on an unborn HEAD — ACTION NEEDED</li><li>3. Quarantine audit — clean, with one at-risk file already rescued</li><li>4. Five mission-control stashes are still unpopped — ACTION NEEDED</li><li>5. MCP servers awaiting authorization — ACTION NEEDED</li><li>6. Coffee Story release approvals — still pending, unchanged</li><li>7. Mission Control standalone build exceeds the Fly worker memory ceiling — BLOCKED, owner action required</li></ol>
+<p class="meta">Full detail in <code>OWNER-ACTIONS.md</code>.</p></div>
+
+<h2>Open risks</h2>
+<div class="card"><ul class="plain"><li>Some third-party providers may require credentials or vendor approval that are not present locally</li><li>Current launcher/cache fixes are uncommitted local changes; preserve the adaptive-context ledger and pre-existing stashes/worktrees</li><li>tenants/coffee-story/release.json binds an earlier verified source and still has five pending approval records; local source changes require new release evidence before promotion</li><li>A durable DISPLAY_DEVICE_REFRESH_SECRET still needs verification; the temporary display token is not an overnight production credential</li><li>Store accounts/signing and first EAS builds require owner/provider actions and may incur external cost</li><li>mission-control fork/main is moving under concurrent sessions (claude/fly-hybrid-topology); any promotion must re-check that the default has not moved immediately before pushing</li><li>The Mission Control standalone build fails with SIGKILL on Fly and the agent has no memory lever: mc_submit_fly_leaf is additionalProperties:false with no env, NODE_OPTIONS or image class input, and mission-control configures no --max-old-space-size anywhere</li><li>repo-fleet at ~/Dev/repos/tylerdevries22-afk/repo-fleet holds 46 staged and 15 untracked files on an unborn HEAD with no commit anywhere; a checkout, reset or move loses all of it</li><li>The rescued untracked file lives inside the quarantine root, so it survives a per-worktree sweep but not deletion of the whole quarantine directory</li><li>Fly build failures are arriving earlier each attempt (1906s, 979s, 635s), which is more consistent with varying host memory pressure than a fixed deterministic ceiling; no worker logs are available to confirm either reading.</li><li>The preview-directory assertion runs at deploy time on the surface being deployed, so a stray production value on a surface no longer in TENANT_SURFACES stays unnoticed until that surface deploys again (T11)</li><li>plan.html is generated from two untracked sources (.adaptive-context/ledger.json and OWNER-ACTIONS.md), so no other clone can reproduce it; only the renderer is tracked</li></ul></div>
+
+<h2>Recent commits</h2>
+<ul class="commits"><li><code class="sha">ef5b7e8</code>
+<span>fix(ci): assert the preview tenant directory is absent in production</span><span class="when">2026-09-06</span></li><li><code class="sha">9bf39b3</code>
+<span>chore(release): bind Coffee Story candidate evidence</span><span class="when">2026-09-06</span></li><li><code class="sha">674b2e5</code>
+<span>feat(wall): launch all five previews with one command</span><span class="when">2026-09-06</span></li><li><code class="sha">097f225</code>
+<span>fix(ci): resolve provisioned tenant before activation</span><span class="when">2026-09-05</span></li><li><code class="sha">a530d9e</code>
+<span>fix(ci): activate hosted tenant before E2E</span><span class="when">2026-09-05</span></li><li><code class="sha">8f44abd</code>
+<span>fix(ci): select kiosk tenant for hosted build</span><span class="when">2026-09-05</span></li><li><code class="sha">33ae3dd</code>
+<span>fix(ci): select tenant for hosted app builds</span><span class="when">2026-09-05</span></li><li><code class="sha">1311f1a</code>
+<span>fix(hq): load static image types in clean builds</span><span class="when">2026-09-05</span></li></ul>
+
+<footer>Generated by <code>qa/build-plan.mjs</code> from
+<code>qa/tasks.yaml</code> <code>qa/task-ledger.json</code> <code>.adaptive-context/ledger.json</code> <code>OWNER-ACTIONS.md</code> and <code>git log</code>.
+Re-run that script to refresh this page; it holds no hand-authored content.</footer>
+</main>
