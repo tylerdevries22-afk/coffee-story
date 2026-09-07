@@ -1,6 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-type FailureContext = { eventId: string; orderId: string; brandId: string; stage: 'refund' | 'platform_fee' };
+export type WebhookFailureStage = 'refund' | 'platform_fee' | 'order_event'
+  | 'record_delivery' | 'read_delivery' | 'resolve_order' | 'stamp_delivery';
+type FailureContext = { eventId: string; orderId?: string; brandId?: string; stage: WebhookFailureStage };
 
 function safeCode(error: unknown): string {
   if (error && typeof error === 'object' && 'code' in error
@@ -22,7 +24,8 @@ export async function recordWebhookFailure(
   } catch {
     // Logging remains available when the same database outage prevents the receipt update.
   }
-  const identifier = (value: string) => /^[a-zA-Z0-9_-]{1,128}$/.test(value) ? value : 'invalid_identifier';
+  const identifier = (value: string | undefined) => value === undefined ? null
+    : /^[a-zA-Z0-9_-]{1,128}$/.test(value) ? value : 'invalid_identifier';
   console.error('Square webhook processing failed.', {
     level: 'error', provider: 'square', stage: context.stage, code, diagnosticStored,
     eventId: identifier(context.eventId), orderId: identifier(context.orderId), brandId: identifier(context.brandId),

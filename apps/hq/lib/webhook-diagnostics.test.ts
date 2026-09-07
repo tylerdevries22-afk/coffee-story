@@ -5,8 +5,9 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { POST } from '../app/api/webhooks/square/route';
 import { recordWebhookFailure } from './webhook-diagnostics';
 
+for (const stage of ['refund', 'order_event'] as const) {
 for (const persistenceFails of [false, true]) {
-  test(`refund failure keeps safe context when diagnostic persistence ${persistenceFails ? 'fails' : 'succeeds'}`, async () => {
+  test(`${stage} failure keeps safe context when diagnostic persistence ${persistenceFails ? 'fails' : 'succeeds'}`, async () => {
     const env = { SQUARE_WEBHOOK_SIGNATURE_KEY: 'test-signature-key',
       SQUARE_WEBHOOK_URL: 'https://app.example.test/api/webhooks/square',
       SUPABASE_URL: 'https://database.example.test', SUPABASE_SERVICE_ROLE_KEY: 'test-service-key' };
@@ -19,7 +20,7 @@ for (const persistenceFails of [false, true]) {
     console.error = (...args: unknown[]) => { logs.push(args); };
     globalThis.fetch = async (input, init) => {
       const url = new URL(String(input));
-      if (url.pathname.endsWith('/rpc/process_square_refund')) {
+      if (url.pathname.endsWith('/rpc/process_square_refund') || url.pathname.endsWith('/order_events')) {
         return Response.json({ code: '23514', message: 'sensitive database detail' }, { status: 400 });
       }
       if (url.pathname.endsWith('/orders')) return Response.json({ id: 'order', brand_id: 'brand',
@@ -36,18 +37,20 @@ for (const persistenceFails of [false, true]) {
       return Response.json({ processed_at: null });
     };
     try {
-      const body = JSON.stringify({ event_id: 'refund-event', type: 'refund.updated', data: { object: { refund: {
-        id: 'refund', status: 'COMPLETED', payment_id: 'payment', amount_money: { amount: 200, currency: 'USD' },
-      } } } });
+      const object = stage === 'refund'
+        ? { refund: { id: 'refund', status: 'COMPLETED', payment_id: 'payment', amount_money: { amount: 200, currency: 'USD' } } }
+        : { payment: { id: 'payment', status: 'COMPLETED' } };
+      const body = JSON.stringify({ event_id: 'refund-event',
+        type: stage === 'refund' ? 'refund.updated' : 'payment.updated', data: { object } });
       const signature = createHmac('sha256', env.SQUARE_WEBHOOK_SIGNATURE_KEY)
         .update(env.SQUARE_WEBHOOK_URL + body).digest('base64');
       const response = await POST(new Request(env.SQUARE_WEBHOOK_URL, {
         method: 'POST', body, headers: { 'x-square-hmacsha256-signature': signature },
       }));
       assert.equal(response.status, 409);
-      assert.equal(await response.text(), 'Refund processing failed');
-      assert.deepEqual(writes, [{ error: JSON.stringify({ stage: 'refund', code: '23514' }) }]);
-      assert.deepEqual(logs[0]?.[1], { level: 'error', provider: 'square', stage: 'refund', code: '23514',
+      assert.equal(await response.text(), stage === 'refund' ? 'Refund processing failed' : 'Event rejected');
+      assert.deepEqual(writes, [{ error: JSON.stringify({ stage, code: '23514' }) }]);
+      assert.deepEqual(logs[0]?.[1], { level: 'error', provider: 'square', stage, code: '23514',
         diagnosticStored: !persistenceFails, eventId: 'refund-event', orderId: 'order', brandId: 'brand' });
       assert.ok(!JSON.stringify(logs).includes('sensitive'));
     } finally {
@@ -58,6 +61,7 @@ for (const persistenceFails of [false, true]) {
       }
     }
   });
+}
 }
 
 test('diagnostic transport failure still logs safely without exposing arbitrary error fields', async () => {
