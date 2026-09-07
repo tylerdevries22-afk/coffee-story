@@ -1,0 +1,125 @@
+# Durable task definitions for the Coffee Story hardening goal.
+# Task definitions govern scope; qa/task-ledger.json records actual outcomes.
+# Status values: done | in_progress | blocked | pending
+
+goal:
+  id: coffee-story-hardening-20260906
+  objective: >-
+    Advance Coffee Story release readiness and Mission Control gate verification
+    without weakening evidence-based approvals.
+  exclusions:
+    - Marking owner/provider approvals without immutable external evidence
+    - Running offloaded verification locally while remote admission is active
+    - Committing or promoting the uncommitted wall/cache work as part of this goal
+
+tasks:
+  - id: T1
+    title: Resolve the WorktreeCreate handoff blocker
+    status: done
+    acceptance: A worktree is created with staged, unstaged and untracked state intact
+    evidence: ledger.currentVerification; OWNER-ACTIONS.md section 1
+    owner: agent
+
+  - id: T2
+    title: Fix adaptive-context handoff data loss
+    status: done
+    acceptance: A real-ledger handoff carries files, next and currentVerification
+    evidence: 34 tests across handoff, ledger, policy, paths, project libs
+    owner: agent
+
+  - id: T3
+    title: Audit the quarantined worktrees for lost work
+    status: done
+    acceptance: Every quarantined tree diffed against its branch tip; tips preserved
+    evidence: all five trees byte-clean; all-refs-20260906.bundle holds every tip
+    owner: agent
+
+  - id: T4
+    title: Mission Control gate A - lint, typecheck, unit tests
+    status: blocked
+    blocked_by: base SHA moved; the pass at 5873220a is orphaned evidence
+    acceptance: Passes on Fly at the same SHA as gate B
+    evidence: task 54 passed at 5873220a in 727s
+    owner: agent
+
+  - id: T5
+    title: Mission Control gate B - standalone production build
+    status: blocked
+    blocked_by: >-
+      Three exit-137 kills on Fly with no agent-side memory lever; escalated as
+      OWNER-ACTIONS.md section 7. Do not resubmit until an owner raises the heap
+      or worker memory.
+    acceptance: next build --webpack and artifact:prepare pass on Fly under the cap
+    evidence: >-
+      task 52 exit 137 at 1906s; task 55 attempt 1 lost its worker at 3600s;
+      task 55 attempt 2 exit 137 at 979s; task 57 exit 137 at 635s with a live
+      3787MB sample at 0.98% CPU 95s before the kill
+    owner: owner
+
+  - id: T6
+    title: Promote the standalone controller build during an idle queue window
+    status: blocked
+    blocked_by: T4 and T5 must both pass at one SHA
+    acceptance: Default re-checked immediately before push; promotion pushed clean
+    owner: agent
+
+  - id: T7
+    title: Post-promotion Coffee Story Fly smoke, polled to cleanup
+    status: blocked
+    blocked_by: T6
+    owner: agent
+
+  - id: T8
+    title: Commit the wall/cache launcher work
+    status: done
+    acceptance: Staged diff inspected; 51 script tests, ESLint and tsc green at commit
+    evidence: >-
+      Mission Control task 62 succeeded in 755s on Fly: lint, typecheck and unit
+      tests passed at the published SHA a3df47f, verification only, no branch
+      pushed. Green at exactly the commit that is on origin/dev.
+    note: >-
+      Overtaken by events, and closed out of order. The Stop hook autocommitted
+      16 files as a3df47f and pushed dev to origin, so the work was published
+      without the staged-diff inspection this task required and without the
+      owner decision the goal exclusion called for; the checks came back green
+      43 minutes after the push rather than before it. The result is trustworthy
+      for the published SHA, but the pre-commit review the exclusion existed to
+      force never happened and cannot be recovered. a3df47f also tracked
+      OWNER-ACTIONS.md and plan.html, which were deliberately untracked; that
+      remains an open owner decision.
+    owner: agent
+
+  - id: T9
+    title: Coffee Story release approvals
+    status: blocked
+    blocked_by: owner and provider actions; see OWNER-ACTIONS.md section 6
+    acceptance: Five approval records carry immutable external evidence
+    owner: owner
+
+  - id: T10
+    title: Commit repo-fleet's 61 uncommitted files
+    status: blocked
+    blocked_by: owner decision on whether the component is wanted
+    note: Unborn HEAD; no commit exists in any bundle or remote
+    owner: owner
+
+  - id: T11
+    title: Assert PREVIEW_DIRECTORY is absent from the production environment
+    status: done
+    acceptance: >-
+      The hosted deploy fails when PREVIEW_DIRECTORY or
+      EXPO_PUBLIC_PREVIEW_DIRECTORY is set on the production Vercel environment
+    evidence: >-
+      assert_absent in deploy-hosted.yml, exercised against canned vercel env
+      listings: absent passes, present fails with ::error::, an all-environments
+      row fails, a near-miss name passes, and an unreadable listing aborts the
+      step rather than reading as an absence
+    note: >-
+      Found by audit. previewTargets and both switchers are sound, and the
+      workflow only writes the variable on preview. But add_public only adds,
+      so a value set by hand in the Vercel dashboard (or scoped to all
+      environments) would persist into a production customer web build and put
+      another brand's URLs on a live tenant surface, with no repository gate
+      noticing. The fix is an assertion beside the existing production
+      DISPLAY_DEVICE_REFRESH_SECRET check, not a change to the domain module.
+    owner: agent

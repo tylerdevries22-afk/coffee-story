@@ -14,9 +14,12 @@ full export requires one of those explicit tenant selectors. Wall-only mode
 reuses a verified build context and refuses to relabel an older tenant build.
 
 The launcher derives every process from `.claude/launch.json`, overrides the
-display demo with the selected tenant, reuses already-healthy servers, and opens
-no production credentials. Keep it attached while using the wall; `Ctrl-C`
-stops only processes it started. Open **http://localhost:4170/wall**.
+display demo with the selected tenant, and starts all five apps without opening
+production credentials. It checks ports before modifying exports and refuses to
+reuse unknown listeners; stop any existing preview commands first. Keep it
+attached while using the wall; `Ctrl-C` stops its own process groups, including
+wrapper descendants. This launcher supports macOS, Linux, and WSL.
+Open **http://localhost:4170/wall**.
 
 | Surface | Launch config | URL |
 | --- | --- | --- |

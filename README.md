@@ -29,10 +29,12 @@ pnpm wall:start --tenant stillpoint-builders
 ```
 
 That builds or reuses the selected tenant's web exports, publishes the wall,
-starts any missing app servers from `.claude/launch.json`, and health-checks all
+starts all app servers from `.claude/launch.json`, and health-checks all
 five surfaces before printing **http://localhost:4170/wall**. It stays attached
 to processes it starts, so `Ctrl-C` shuts down only those processes. Add
-`--rebuild` to force fresh Expo exports.
+`--rebuild` to force fresh Expo exports. Stop existing preview commands first:
+occupied ports are reported without terminating or reusing unknown listeners.
+Incomplete exports trigger a full build. Requires macOS, Linux, or WSL.
 
 `pnpm preview --wall` still re-publishes the wall without managing servers.
 Details, including why the console needed a development-only framing header, are in

@@ -417,6 +417,21 @@ jobs:
               --project "${PROJECT_PREFIX}-${{ matrix.surface }}" --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN" \
               --value "$value" --sensitive --force --yes >/dev/null
           }
+          assert_absent() {
+            # `vercel env add` only ever adds, so declining to write the preview
+            # tenant directory in production is not the same as it being absent
+            # there: a value set by hand in the dashboard, or scoped there to
+            # every environment, would survive into a production build and put
+            # another tenant's URLs on a live surface. Assert, do not assume.
+            local name="$1" project="${PROJECT_PREFIX}-${{ matrix.surface }}" listing
+            # Listed, not piped into grep: an unreadable listing must fail the
+            # deploy rather than read as an absence.
+            listing=$(pnpm exec vercel env ls production \
+              --project "$project" --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN")
+            awk -v name="$name" '$1 == name { hit = 1 } END { exit hit ? 0 : 1 }' <<<"$listing" || return 0
+            echo "::error::$name is set on the production environment of $project. The preview tenant directory must never reach production; remove it in the Vercel dashboard and redeploy."
+            exit 1
+          }
           if [ "${{ matrix.surface }}" = display ]; then
             add_public NEXT_PUBLIC_SUPABASE_URL "$SUPABASE_URL"
             add_public HQ_ORIGIN "${{ needs.deploy-hq.outputs.url }}"
@@ -428,6 +443,7 @@ jobs:
               test -n "$DISPLAY_DEVICE_REFRESH_SECRET" || test -n "$DISPLAY_DEVICE_TOKEN" \
                 || { echo '::error::Set DISPLAY_DEVICE_REFRESH_SECRET (preferred) or DISPLAY_DEVICE_TOKEN after pairing the production screen.'; exit 1; }
               add_public DISPLAY_DEMO_MODE 0
+              assert_absent PREVIEW_DIRECTORY
             else
               # A branch preview is a review surface, not a paired shop screen.
               # Keep production fail-closed while making preview deployments
@@ -457,6 +473,8 @@ jobs:
             add_public EXPO_PUBLIC_TENANT "$TENANT"
             if [ "$DEPLOY_ENVIRONMENT" = preview ]; then
               add_public EXPO_PUBLIC_PREVIEW_DIRECTORY "$PREVIEW_DIRECTORY"
+            else
+              assert_absent EXPO_PUBLIC_PREVIEW_DIRECTORY
             fi
           fi
       - name: Stage, verify, and promote the exact web commit
