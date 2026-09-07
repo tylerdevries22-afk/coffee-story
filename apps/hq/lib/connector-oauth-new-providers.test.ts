@@ -11,6 +11,7 @@ import {
 
 const ENV = [
   'META_APP_ID', 'META_APP_SECRET',
+  'STRIPE_CONNECT_CLIENT_ID', 'STRIPE_SECRET_KEY',
   'YOUTUBE_OAUTH_CLIENT_ID', 'YOUTUBE_OAUTH_CLIENT_SECRET',
   'TIKTOK_CLIENT_KEY', 'TIKTOK_CLIENT_SECRET',
 ] as const;
@@ -149,6 +150,66 @@ describe('publishing and social OAuth providers', { concurrency: false }, () => 
       await verifyConnectorIdentity('meta-business-suite', { access_token: 'access-token' }, null),
       { accountId: '10000000000', accountLabel: 'Coffee Story HQ' },
     );
+  });
+
+  it('names a Stripe account by display name, falling back to its id', async () => {
+    mock.method(globalThis, 'fetch', async () =>
+      Response.json({ id: 'acct_1', display_name: 'Coffee Story' }));
+    assert.deepEqual(
+      await verifyConnectorIdentity('stripe', { access_token: 'access-token' }, null),
+      { accountId: 'acct_1', accountLabel: 'Coffee Story' },
+    );
+
+    mock.restoreAll();
+    mock.method(globalThis, 'fetch', async () => Response.json({ id: 'acct_2' }));
+    assert.deepEqual(
+      await verifyConnectorIdentity('stripe', { access_token: 'access-token' }, null),
+      { accountId: 'acct_2', accountLabel: 'acct_2' },
+    );
+  });
+
+  it('trusts a Slack identity only when the payload reports ok', async () => {
+    mock.method(globalThis, 'fetch', async () =>
+      Response.json({ ok: true, team_id: 'T1', team: 'Coffee Story' }));
+    assert.deepEqual(
+      await verifyConnectorIdentity('slack', { access_token: 'access-token' }, null),
+      { accountId: 'T1', accountLabel: 'Coffee Story' },
+    );
+
+    mock.restoreAll();
+    mock.method(globalThis, 'fetch', async () =>
+      Response.json({ ok: false, team_id: 'T1', team: 'Coffee Story' }));
+    await assert.rejects(
+      verifyConnectorIdentity('slack', { access_token: 'access-token' }, null),
+      /identity verification failed/i,
+    );
+  });
+
+  it('rejects a QuickBooks realm id that is not a plain numeric string', async () => {
+    const fetchMock = mock.method(globalThis, 'fetch', async () => Response.json({}));
+    await assert.rejects(
+      verifyConnectorIdentity('quickbooks-online', { access_token: 'access-token' }, '9341; drop'),
+      /identity verification failed/i,
+    );
+    assert.equal(fetchMock.mock.callCount(), 0, 'a bad realm id must never be dialled');
+  });
+
+  it('signs the Stripe token exchange with Basic auth, never a form secret', async () => {
+    process.env.STRIPE_CONNECT_CLIENT_ID = 'ca_client';
+    process.env.STRIPE_SECRET_KEY = 'sk_secret';
+    const fetchMock = mock.method(globalThis, 'fetch', async () =>
+      Response.json({ access_token: 'stripe-token' }));
+
+    await exchangeConnectorCode(
+      'stripe', 'one-time-code', 'v'.repeat(43),
+      'https://hq.example.com/api/connectors/stripe/callback',
+    );
+
+    const [, init] = fetchMock.mock.calls[0]?.arguments ?? [];
+    const headers = (init as RequestInit | undefined)?.headers as Record<string, string>;
+    assert.equal(headers.Authorization, `Basic ${Buffer.from('sk_secret:').toString('base64')}`);
+    const body = String((init as RequestInit | undefined)?.body);
+    assert.ok(!body.includes('client_secret'), 'the secret must not also travel in the body');
   });
 
   it('rejects a grant whose identity call returns no usable account', async () => {

@@ -3,7 +3,7 @@ import { afterEach, describe, it } from 'node:test';
 
 import { listConnectorCatalog } from '@platform/integrations';
 
-import { connectorCardsOf, defaultConnectorCards } from './integration-cards';
+import { connectorCardsOf, defaultConnectorCards, demoConnectorCards } from './integration-cards';
 import { withConnectorAuthorization } from './connector-auth-readiness';
 
 const ENV = [
@@ -81,6 +81,16 @@ describe('connector setup routing', { concurrency: false }, () => {
     for (const id of ['youtube', 'tiktok', 'meta-business-suite']) {
       assert.equal(cards.get(id)?.connectHref, null, `${id} needs certification first`);
     }
+  });
+
+  it('rests a demo manual-only selection at manual import, not setup required', () => {
+    const cards = new Map(
+      demoConnectorCards(['kindle-direct-publishing', 'youtube', 'meta-business-suite'])
+        .map((card) => [card.id, card]),
+    );
+    assert.equal(cards.get('kindle-direct-publishing')?.status, 'manual-import');
+    assert.equal(cards.get('youtube')?.status, 'setup-required');
+    assert.equal(cards.get('meta-business-suite')?.status, 'provider-approval-required');
   });
 
   it('keeps a planned provider unconfigurable and unlinked', () => {

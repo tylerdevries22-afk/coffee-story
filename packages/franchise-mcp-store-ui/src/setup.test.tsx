@@ -110,6 +110,16 @@ describe('setup guidance', () => {
     expect(html).not.toContain('How to connect');
   });
 
+  it('omits the time estimate when a provider has nothing to configure yet', () => {
+    const html = renderToStaticMarkup(<McpStore entries={[{
+      ...TIKTOK, status: 'unavailable',
+      setup: { ...ONE_CLICK, estimatedMinutes: 0, steps: [{ text: 'Awaiting certification.' }] },
+    }]} />);
+    expect(html).toContain('One-click sign-in');
+    expect(html).not.toContain('min<');
+    expect(html).not.toContain('~0');
+  });
+
   it('omits setup guidance from onboarding selection, which is intent only', () => {
     const html = renderToStaticMarkup(<McpStore entries={[TRANSISTOR]} mode="select" />);
     expect(html).not.toContain('How to connect');
