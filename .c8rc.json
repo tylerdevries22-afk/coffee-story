@@ -1,0 +1,22 @@
+{
+  "all": true,
+  "extension": [".ts"],
+  "include": [
+    "apps/*/app/**/*.ts",
+    "apps/*/components/**/*.ts",
+    "apps/*/lib/**/*.ts",
+    "apps/*/src/**/*.ts",
+    "packages/*/src/**/*.ts",
+    "scripts/**/*.ts"
+  ],
+  "exclude": [
+    "**/*.d.ts",
+    "**/*.test.*",
+    "**/*.config.*",
+    "**/generated.ts",
+    "**/dist*/**",
+    "**/node_modules/**",
+    "**/test/**",
+    "**/tests/**"
+  ]
+}

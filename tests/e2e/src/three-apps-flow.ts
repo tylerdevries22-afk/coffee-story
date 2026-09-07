@@ -8,6 +8,7 @@ import { APP_MODE_STORAGE_KEY as OPERATOR_APP_MODE_KEY }
   from '../../../apps/operator/src/state/demo-storage-keys.ts';
 
 import { clickLabel, clickText, fillLabel, openApp, waitText } from './driver.ts';
+import { smokeCustomerRoutes, smokeHqRoutes, smokeOperatorRoutes } from './route-smoke.ts';
 import { createGuestAccount, createStaffAccount, onboardedBrand, seedRivalBrandOrder } from './seed.ts';
 import { sql } from './stack.ts';
 
@@ -139,6 +140,9 @@ export async function runThreeAppsFullLoop(): Promise<void> {
     assert.ok(revenue >= Number(order.total_cents), 'the metric views carry the order');
     await waitText(hq.page, money(revenue), 30_000);
     await hq.shot('06-hq-dashboard');
+    await smokeCustomerRoutes(customer.page);
+    await smokeOperatorRoutes(operator.page);
+    await smokeHqRoutes(hq.page);
   } catch (error) {
     await dumpOnFail();
     throw error;

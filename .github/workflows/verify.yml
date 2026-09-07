@@ -359,21 +359,22 @@ jobs:
             EXPO_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
             EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
             EXPO_PUBLIC_API_URL="http://127.0.0.1:4383" \
-            pnpm exec expo export --platform web --output-dir dist-e2e )
+            pnpm exec expo export --platform web --output-dir dist-e2e --source-maps )
           ( cd apps/operator && \
             EXPO_PUBLIC_TENANT="coffee-story" \
             EXPO_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
             EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
             EXPO_PUBLIC_API_URL="http://127.0.0.1:4383" \
-            pnpm exec expo export --platform web --output-dir dist-e2e )
+            pnpm exec expo export --platform web --output-dir dist-e2e --source-maps )
           ( cd apps/kiosk && \
             EXPO_PUBLIC_TENANT="coffee-story" \
             EXPO_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
             EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
             EXPO_PUBLIC_API_URL="http://127.0.0.1:4383" \
-            pnpm exec expo export --platform web --output-dir dist-e2e )
+            pnpm exec expo export --platform web --output-dir dist-e2e --source-maps )
           NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
             NEXT_PUBLIC_SUPABASE_ANON_KEY="$SUPABASE_PUBLISHABLE_KEY" \
+            BROWSER_COVERAGE=1 \
             pnpm --filter @platform/hq build
           NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
             pnpm --filter @platform/display build
@@ -388,6 +389,7 @@ jobs:
           export E2E_OPERATOR_DIR="$GITHUB_WORKSPACE/apps/operator/dist-e2e"
           export E2E_HQ_DIR="$GITHUB_WORKSPACE/apps/hq"
           export E2E_SHOT_DIR="$GITHUB_WORKSPACE/e2e-shots"
+          export BROWSER_COVERAGE_DIR="$GITHUB_WORKSPACE/browser-coverage"
           # Same reason as the integration step: a skipped E2E suite reports
           # zero tests and reads as green.
           export REQUIRE_DATABASE_TESTS=1
@@ -409,6 +411,14 @@ jobs:
             e2e-shots/
             e2e-output.log
           if-no-files-found: ignore
+
+      - name: Keep browser coverage for the merged gate
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: browser-coverage
+          path: browser-coverage/
+          if-no-files-found: error
 
       - name: Replay the failure at the end of the log
         if: failure()
@@ -446,6 +456,42 @@ jobs:
               fi
             fi
           fi
+
+  coverage:
+    if: github.event_name != 'pull_request'
+    needs: hosted-integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: 10.33.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Download hosted browser coverage
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: browser-coverage
+          path: browser-coverage
+      - name: Measure tracked TypeScript logic
+        run: pnpm coverage:unit
+      - name: Merge unit and browser execution and enforce 70 percent
+        run: >-
+          pnpm --filter @platform/e2e-tests merge-coverage
+          "$GITHUB_WORKSPACE/coverage/unit/coverage-final.json"
+          "$GITHUB_WORKSPACE/browser-coverage/coverage-final.json"
+          "$GITHUB_WORKSPACE/coverage/merged"
+      - name: Keep the auditable coverage maps
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: merged-coverage
+          path: coverage/
+          if-no-files-found: error
 
   # The RLS suite, on a pull request, against a database that exists only for
   # the length of this job.
