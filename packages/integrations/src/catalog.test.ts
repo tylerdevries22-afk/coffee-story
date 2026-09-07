@@ -19,6 +19,8 @@ describe('operations connector catalog', () => {
       'slack', 'twilio', 'resend', 'supabase', 'vercel', 'sentry',
       'shopify', 'sendgrid', 'cloudflare', 'github', 'expo',
       'apple-distribution', 'google-play', 'checkly', 'turnstile',
+      'meta-business-suite', 'youtube', 'tiktok',
+      'transistor', 'beehiiv', 'kindle-direct-publishing', 'acx-audiobooks',
     ]) {
       assert.ok(ids.includes(id), `${id} should be registered`);
     }
@@ -35,9 +37,14 @@ describe('operations connector catalog', () => {
       assert.ok(descriptor.capabilities.length > 0);
       assert.match(catalogEntry.logo.brandColor, /^#[0-9A-F]{6}$/iu);
       assert.match(catalogEntry.logo.sourceUrl, /^https:\/\//u);
-      assert.equal(catalogEntry.logo.license, 'CC0-1.0');
-      assert.equal(catalogEntry.logo.attribution, 'Simple Icons contributors');
       assert.match(catalogEntry.logo.verifiedAt, /^\d{4}-\d{2}-\d{2}$/u);
+      if (catalogEntry.logo.simpleIconsSlug === undefined) {
+        assert.equal(catalogEntry.logo.license, 'brand-guidelines-initials');
+        assert.ok(catalogEntry.logo.attribution.length > 0);
+      } else {
+        assert.equal(catalogEntry.logo.license, 'CC0-1.0');
+        assert.equal(catalogEntry.logo.attribution, 'Simple Icons contributors');
+      }
     }
   });
 

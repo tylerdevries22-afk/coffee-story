@@ -3,6 +3,7 @@
 import {
   McpStore as SharedMcpStore,
   type McpStoreEntry,
+  type McpStoreSetup,
   type McpStoreStatus,
 } from 'franchise-mcp-store-ui';
 import { useMemo } from 'react';
@@ -23,8 +24,27 @@ const POPULAR = new Set(['google-suite', 'quickbooks-online', 'slack']);
 function sharedStatus(card: ConnectorCard, mode: 'manage' | 'select'): McpStoreStatus {
   if (card.status === 'connected-healthy') return 'connected';
   if (card.status === 'connected-degraded' || card.status === 'reauthorization-required') return 'reconnect';
+  if (card.isManualOnly) return 'manual';
   if (mode === 'select' ? !card.canConfigure : !card.connectHref) return 'unavailable';
   return 'not_connected';
+}
+
+const CONSOLE_LABELS: Readonly<Record<ConnectorCard['setup']['kind'], string>> = {
+  'one-click-oauth': 'Open provider console',
+  'api-key': 'Open the key screen',
+  'operator-portal': 'Open the provider portal',
+};
+
+/** Projects the catalog setup block onto the shared store's disclosure shape. */
+function sharedSetup(card: ConnectorCard): McpStoreSetup {
+  return {
+    kind: card.setup.kind,
+    estimatedMinutes: card.setup.estimatedMinutes,
+    steps: card.setup.steps,
+    consoleHref: card.setup.consoleUrl,
+    consoleLabel: CONSOLE_LABELS[card.setup.kind],
+    documentationHref: card.setup.documentationUrl,
+  };
 }
 
 function sharedEntry(card: ConnectorCard, mode: 'manage' | 'select'): McpStoreEntry {
@@ -41,6 +61,7 @@ function sharedEntry(card: ConnectorCard, mode: 'manage' | 'select'): McpStoreEn
     detailHref: `/integrations/${card.id}`,
     connectHref: card.connectHref,
     connectLabel: card.connectLabel ?? undefined,
+    setup: mode === 'manage' ? sharedSetup(card) : undefined,
   };
 }
 

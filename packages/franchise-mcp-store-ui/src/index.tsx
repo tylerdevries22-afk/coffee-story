@@ -3,9 +3,16 @@
 import type { ReactNode } from 'react';
 import { useMemo, useState } from 'react';
 
+import { SetupDisclosure, type McpStoreSetup } from './setup';
 import styles from './styles.module.css';
 
-export type McpStoreStatus = 'connected' | 'reconnect' | 'not_connected' | 'unavailable';
+export {
+  SetupBadge, SetupDisclosure, setupKindLabel,
+  type McpStoreSetup, type McpStoreSetupKind, type McpStoreSetupStep,
+} from './setup';
+
+export type McpStoreStatus =
+  | 'connected' | 'reconnect' | 'not_connected' | 'manual' | 'unavailable';
 
 export type McpStoreEntry = {
   readonly id: string;
@@ -20,6 +27,8 @@ export type McpStoreEntry = {
   readonly detailHref?: string | null;
   readonly connectHref?: string | null;
   readonly connectLabel?: string;
+  /** Walked setup path. Omit to keep a row action-only. */
+  readonly setup?: McpStoreSetup;
 };
 
 type Filter = 'all' | 'connected' | 'not_connected';
@@ -36,6 +45,7 @@ export type McpStoreProps = {
 function statusLabel(status: McpStoreStatus): string {
   if (status === 'connected') return 'Connected';
   if (status === 'reconnect') return 'Reconnect';
+  if (status === 'manual') return 'Manual import';
   if (status === 'unavailable') return 'Unavailable';
   return 'Not connected';
 }
@@ -69,6 +79,9 @@ function EntryIcon({ entry, size, render }: {
 function ManageAction({ entry }: { readonly entry: McpStoreEntry }) {
   if (entry.status === 'connected' || entry.status === 'unavailable') {
     return <span className={`${styles.status} ${styles[entry.status]}`}>{statusLabel(entry.status)}</span>;
+  }
+  if (entry.status === 'manual' && !entry.connectHref) {
+    return <span className={styles.status}>{statusLabel(entry.status)}</span>;
   }
   if (!entry.connectHref) {
     return <span className={styles.status}>{statusLabel(entry.status)}</span>;
@@ -115,6 +128,7 @@ function DirectoryRow({ entry, mode, selected, onToggle, renderIcon }: {
     disabled={entry.selectable === false} aria-pressed={selected} onClick={onToggle}>{content}</button>;
   return <article className={styles.row}>{content}
     {entry.detailHref ? <a className={styles.rowLink} href={entry.detailHref} aria-label={`View ${entry.name}`} /> : null}
+    {entry.setup ? <SetupDisclosure entry={entry} setup={entry.setup} /> : null}
   </article>;
 }
 
@@ -127,7 +141,8 @@ export function McpStore({ entries, mode = 'manage', outcome, selectedIds = [],
     const connected = mode === 'select' ? selected.has(entry.id) : entry.status === 'connected';
     const statusMatches = filter === 'all' || (filter === 'connected' ? connected : !connected);
     const needle = query.trim().toLowerCase();
-    return statusMatches && (!needle || `${entry.name} ${entry.description} ${entry.type}`.toLowerCase().includes(needle));
+    const haystack = `${entry.name} ${entry.description} ${entry.type} ${entry.setup?.kind ?? ''}`;
+    return statusMatches && (!needle || haystack.toLowerCase().includes(needle));
   }), [entries, filter, mode, query, selected]);
   const toggle = (entry: McpStoreEntry) => {
     if (entry.selectable === false) return;

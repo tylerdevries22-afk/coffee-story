@@ -95,3 +95,6 @@ agentdb.rvf.lock
 ruvector.db
 stack.env
 readiness.err
+
+# Audit run artifacts (see ~/.agents/skills/audit)
+.audit/

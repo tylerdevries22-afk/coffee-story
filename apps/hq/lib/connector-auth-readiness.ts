@@ -37,9 +37,21 @@ export function withConnectorAuthorization(
   const stateReady = has('CONNECTOR_OAUTH_STATE_SECRET')
     && (process.env.CONNECTOR_OAUTH_STATE_SECRET?.trim().length ?? 0) >= 32;
   return cards.map((card) => {
+    // A manual-only provider has no API to authorize; its action is the guided import.
+    if (card.isManualOnly) {
+      return card.canConfigure
+        ? { ...card, connectHref: `/integrations/${card.id}`, connectLabel: 'Set up import' }
+        : card;
+    }
     if (card.id === 'square') {
       const ready = has('SQUARE_APP_ID', 'SQUARE_APP_SECRET', 'SQUARE_TOKEN_KEY');
       return { ...card, connectHref: ready ? '/locations' : null, connectLabel: 'Choose location' };
+    }
+    // An API-key provider is configured on its detail page, never by redirect.
+    if (card.setup.kind === 'api-key') {
+      return card.canConfigure
+        ? { ...card, connectHref: `/integrations/${card.id}`, connectLabel: 'Add API key' }
+        : card;
     }
     if (!isOAuthConnectorKey(card.id) || !certifiedProviders.has(card.id)
       || !stateReady || !publicOriginReady()

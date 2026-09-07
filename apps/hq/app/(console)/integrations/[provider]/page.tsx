@@ -2,6 +2,7 @@ import { getConnectorCatalogEntry } from '@platform/integrations';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
+import { ConnectorSetupPanel } from '@/components/connector-setup-panel';
 import { ProviderLogo } from '@/components/provider-logo';
 import { loadConnectorCards } from '@/lib/integration-data';
 
@@ -19,6 +20,13 @@ export default async function IntegrationDetailPage({ params }: IntegrationDetai
   if (!card) notFound();
   const isComingSoon = definition.availability === 'coming-soon';
   const isUnavailable = !card.canConfigure && !card.isInstalled;
+  const readinessNote = isComingSoon
+    ? 'This adapter is listed for roadmap visibility and cannot be connected until its sandbox contract passes certification.'
+    : isUnavailable
+      ? 'This provider is not available in the active MCP catalog. Existing tenant history remains visible, but new setup is disabled.'
+      : card.isManualOnly
+        ? 'This provider publishes no API, so the steps below are the whole setup. Nothing is stored until you upload a report.'
+        : 'Secrets are stored as Vault references and never sent to this browser.';
   return (
     <div className="management-page integration-detail-page">
       <header className="management-heading integration-detail-heading">
@@ -44,12 +52,9 @@ export default async function IntegrationDetailPage({ params }: IntegrationDetai
         </section>
         <aside className="card integration-setup-card">
           <p className="eyebrow">Connection readiness</p>
-          <h2>{isComingSoon ? 'Certification pending' : isUnavailable ? 'Unavailable' : card.statusLabel}</h2>
-          <p>{isComingSoon
-            ? 'This adapter is listed for roadmap visibility and cannot be connected until its sandbox contract passes certification.'
-            : isUnavailable
-              ? 'This provider is not available in the active MCP catalog. Existing tenant history remains visible, but new setup is disabled.'
-            : 'A brand owner must configure provider credentials and callback URLs in the deployed environment. Secrets are stored as Vault references and never sent to this browser.'}</p>
+          <h2>{isComingSoon ? 'Certification pending'
+            : isUnavailable && !card.isManualOnly ? 'Unavailable' : card.statusLabel}</h2>
+          <p>{readinessNote}</p>
           {card.isConnected ? (
             <Link className="button secondary" href="/integrations/health">View latest health</Link>
           ) : card.connectHref && provider === 'square' ? (
@@ -64,6 +69,7 @@ export default async function IntegrationDetailPage({ params }: IntegrationDetai
           <small>Configuration gaps remain explicit and do not interrupt the rest of HQ.</small>
         </aside>
       </div>
+      {isComingSoon ? null : <ConnectorSetupPanel card={card} />}
     </div>
   );
 }
