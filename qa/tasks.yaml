@@ -71,10 +71,15 @@ tasks:
 
   - id: T8
     title: Commit the wall/cache launcher work
-    status: pending
+    status: blocked
+    blocked_by: >-
+      The goal excludes committing or promoting the uncommitted wall/cache work,
+      so this needs an owner decision to lift that exclusion before an agent
+      stages it. The recovery ledger previously named it the next agent item;
+      the exclusion governs.
     acceptance: Staged diff inspected; 51 script tests, ESLint and tsc green at commit
     note: Verified locally but deliberately uncommitted; separate from the gate
-    owner: agent
+    owner: owner
 
   - id: T9
     title: Coffee Story release approvals

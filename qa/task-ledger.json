@@ -218,6 +218,38 @@
         "It reads the production environment of the surface being deployed, so a stray value on a surface no longer in TENANT_SURFACES would go unnoticed until that surface is deployed again"
       ],
       "next": "T8 remains the top agent-owned item: commit the wall/cache launcher work. The Mission Control gate stays owner-blocked."
+    },
+    {
+      "cycle": 9,
+      "taskId": "T11",
+      "change": "Committed the T11 workflow assertion, its documentation and the qa/ durable tracking files as ef5b7e8 on dev, and reconciled T8 against the goal exclusions instead of committing the wall/cache work",
+      "checks": [
+        {
+          "name": "scoped commit",
+          "result": "pass",
+          "detail": "ef5b7e8 carries deploy-hosted.yml, docs/FRANCHISE-PRODUCTION.md and qa/ only; every wall/cache file and the pre-existing dirty tree are untouched and still uncommitted"
+        },
+        {
+          "name": "re-verified before commit",
+          "result": "pass",
+          "detail": "deploy-hosted.yml parses as YAML (6 jobs), the edited run block passes bash -n, and git diff --check is clean"
+        },
+        {
+          "name": "private detail excluded",
+          "result": "pass",
+          "detail": "qa/ scanned clean of absolute paths and credential strings; plan.html, OWNER-ACTIONS.md and .adaptive-context/ stay untracked because they render machine paths and another repository's local state"
+        },
+        {
+          "name": "T8 scope reconciliation",
+          "result": "fail",
+          "detail": "The recovery ledger named T8 the next agent-owned item, but the goal excludes committing or promoting the uncommitted wall/cache work. The exclusion governs, so T8 is re-marked blocked on an owner decision rather than executed"
+        }
+      ],
+      "risks": [
+        "plan.html is now generated from two untracked sources, so no other clone can reproduce it; the renderer is tracked but its inputs are local-only",
+        "The wall/cache work remains uncommitted on a dirty dev branch and is preserved only by not touching it"
+      ],
+      "next": "No agent-owned task is executable. T8 needs an owner decision to lift the goal exclusion; T4-T7 stay blocked on the Fly memory ceiling; T9/T10 are owner-owned."
     }
   ]
 }
