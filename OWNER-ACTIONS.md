@@ -177,3 +177,47 @@ promoted, and the post-promotion Coffee Story smoke stays blocked behind it. Gat
 default anyway.
 
 **Cost spent on this gate:** $0.188 estimated Fly compute across four submissions.
+
+## 8. Fly admission now refuses the Coffee Story verification leaf — ACTION NEEDED
+
+The pre-merge gate for the `dev` → `main` squash merge could not be admitted.
+`mc_submit_fly_leaf` returned, at the pushed SHA `082a6cb`, `runtime=command`,
+`setup=pnpm-ci`, `checks=[lint, typecheck, test]`:
+
+```
+{"route": "local", "accepted": false, "safe_local_fallback": true,
+ "reason": "Historical memory exceeds the largest approved class with safety headroom"}
+```
+
+This is not capacity. `mc_fly_status` at the same moment reported `ready: true`,
+23 of 25 slots free, an empty queue, and no issues. It is the same memory-class
+judgement as section 7, but applied to the *static* half — lint, typecheck and
+unit tests — for a repository whose equivalent leaf succeeded as task 62 at
+1,627,471,872 bytes, comfortably inside the class that was refused here.
+
+**Why the agent did not fall back locally.** Mission Control offered
+`safe_local_fallback: true`, but the host policy is stricter and wins:
+`~/.agents/state/fly-offload-required` exists and the data volume has 22 GB free,
+under the 50 GB threshold. The rule for an eligible leaf that cannot be admitted
+while offload is required is to leave it pending and report the blocker, so no
+verification was run locally.
+
+**What is standing in for it.** Pull request #115 runs the repository's own
+required checks — `verify`, `audit`, `security` — on GitHub Actions. Those are
+external, remote, and are branch-protection gates on `main`, so they are the real
+merge gate rather than an agent-chosen one. This is a substitute for the Fly gate,
+not a replacement for it: it does not tell you why admission was refused.
+
+**Owner options.**
+
+1. Inspect what history the admission controller is scoring. If it is scoring
+   across all repositories, one heavy neighbour (a concurrent job was sampled at
+   2,383,110,144 bytes) can block every project's static checks.
+2. Raise the approved class or the safety headroom, as in section 7 option 2.
+3. Clear `~/.agents/state/fly-offload-required` and free disk if local
+   verification is meant to be available as a fallback on this host.
+
+**Cost:** $0.00098072 estimated Fly compute, from task 65 — a submission that
+failed in 41 s because it was sent with `setup=npm-ci` against a pnpm repository
+and never reached dependency install. That failure was an agent error and says
+nothing about the branch.
