@@ -264,7 +264,7 @@
         {
           "name": "untracked-by-intent files published",
           "result": "fail",
-          "detail": "a3df47f also tracked OWNER-ACTIONS.md and plan.html, which were left untracked because they render the absolute path of an unrelated private repository. No credential, token or key was published; the exposure is one machine path in a private repository"
+          "detail": "a3df47f also tracked OWNER-ACTIONS.md and plan.html. Verified by grep across the working tree, HEAD and a3df47f: the home-directory path of an unrelated private checkout appears in full only at OWNER-ACTIONS.md line 34, because build-plan.mjs lifts only the ## headings out of that file, and in tilde form once in plan.html through a recovery risk line the renderer emitted verbatim. That risk line has since been reworded, so a rebuild no longer reproduces it. No credential, token or key was published, and the repository is private"
         },
         {
           "name": "post-hoc verification offloaded",
@@ -279,10 +279,43 @@
       ],
       "risks": [
         "The Stop hook can publish any dirty tree at the end of a turn, so a goal exclusion that depends on work staying uncommitted is not enforceable by the agent alone",
-        "OWNER-ACTIONS.md and plan.html now carry a home-directory path for an unrelated private repository in the pushed history of tylerdevries22-afk/coffee-story",
+        "OWNER-ACTIONS.md carries the absolute path of an unrelated private checkout at line 34, and plan.html carries its tilde form through one risk line, in the pushed history of this private repository",
         "T8's acceptance checks never ran before the commit; task 62 can only confirm or refute the published SHA after the fact"
       ],
       "next": "Poll task 62 to a terminal state and record the actual result against a3df47f. The published-history decision (leave as is, remove the two files in a follow-up commit with ignore rules, or rewrite) belongs to the owner."
+    },
+    {
+      "cycle": 11,
+      "taskId": "T8",
+      "change": "Polled the offloaded post-hoc verification of the published SHA to a terminal state and recorded its actual result; corrected the cycle-10 wording about which published file carries the private path",
+      "checks": [
+        {
+          "name": "Fly verification terminal",
+          "result": "pass",
+          "detail": "Mission Control task 62, submission 99aa3df755a14cb19cb013ffc9ff6161, job 58a06307912e43d1b3bfbc0e3ad4091d: succeeded in 755s on core-performance at 62.77% CPU and 1627471872 bytes. Outcome resolution: lint, typecheck, test passed at a3df47f4960f9e10fc98a46f785ef25fdd5d68f3; verification only, no branch pushed. Attempts 1, safe_local_fallback false, observed cost $0.0180596. Nothing was run locally while the leaf was admitted"
+        },
+        {
+          "name": "acceptance met out of order",
+          "result": "fail",
+          "detail": "T8 required the staged diff to be inspected and the checks green at commit. The Stop hook committed first, so the diff was never inspected before publication and the green result arrived 43 minutes after the push. The checks are green at exactly the published SHA; the ordering the task specified is not recoverable"
+        },
+        {
+          "name": "exposure scope re-verified",
+          "result": "fail",
+          "detail": "Corrected from cycle 10. The absolute path is published once, at OWNER-ACTIONS.md:34. plan.html does not carry it, but does carry the tilde form once through a recovery risk line the renderer emits verbatim. Both files are tracked in pushed history until an owner decides otherwise"
+        },
+        {
+          "name": "reconciliation commit published",
+          "result": "pending",
+          "detail": "2a6d35a is now on origin/dev (pushed at 1788761545 per the origin/dev reflog). This session's own git push was denied by the permission layer and was not retried, so the push came from outside this session. Reported, not assumed"
+        }
+      ],
+      "risks": [
+        "The private checkout's path stays in pushed history until the owner chooses between leaving it, removing the two files in a follow-up commit with ignore rules, or rewriting a3df47f out",
+        "A green post-hoc result confirms the published SHA builds; it does not restore the pre-commit review the exclusion existed to force",
+        "T4 through T7 remain blocked on the Fly memory ceiling in OWNER-ACTIONS.md section 7, with the stop rule in force: no fourth build submission, no static-half submission, no local run"
+      ],
+      "next": "The agent-executable thread for T8 is finished: the published SHA is verified green on Fly. Everything that remains on this goal is owner-owned - the published-history decision, the Fly memory ceiling behind T4-T7, the five release approvals in T9, and the repo-fleet decision in T10."
     }
   ]
 }

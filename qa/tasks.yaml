@@ -71,15 +71,22 @@ tasks:
 
   - id: T8
     title: Commit the wall/cache launcher work
-    status: in_progress
+    status: done
     acceptance: Staged diff inspected; 51 script tests, ESLint and tsc green at commit
+    evidence: >-
+      Mission Control task 62 succeeded in 755s on Fly: lint, typecheck and unit
+      tests passed at the published SHA a3df47f, verification only, no branch
+      pushed. Green at exactly the commit that is on origin/dev.
     note: >-
-      Overtaken by events. The Stop hook autocommitted 16 files as a3df47f and
-      pushed dev to origin, so the work is published without the staged-diff
-      inspection or the green checks this task required, and without the owner
-      decision the goal exclusion called for. Verification is running after the
-      fact as Mission Control task 62 at the pushed SHA. a3df47f also published
-      OWNER-ACTIONS.md and plan.html, which were deliberately untracked.
+      Overtaken by events, and closed out of order. The Stop hook autocommitted
+      16 files as a3df47f and pushed dev to origin, so the work was published
+      without the staged-diff inspection this task required and without the
+      owner decision the goal exclusion called for; the checks came back green
+      43 minutes after the push rather than before it. The result is trustworthy
+      for the published SHA, but the pre-commit review the exclusion existed to
+      force never happened and cannot be recovered. a3df47f also tracked
+      OWNER-ACTIONS.md and plan.html, which were deliberately untracked; that
+      remains an open owner decision.
     owner: agent
 
   - id: T9
