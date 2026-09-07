@@ -355,6 +355,50 @@
         "T4 through T7 remain blocked on the Fly memory ceiling in OWNER-ACTIONS.md section 7, with the stop rule in force: no fourth build submission, no static-half submission, no local run"
       ],
       "next": "Push the sanitized tip, resubmit the pre-merge gate with setup pnpm-ci at the new pushed SHA, and open the squash merge to main only after that gate returns a terminal success."
+    },
+    {
+      "cycle": 13,
+      "taskId": "T8",
+      "change": "Promoted dev to main by squash merge after the repository's own required checks passed at the exact head SHA, recorded the Fly admission refusal as OWNER-ACTIONS.md section 8, and reported the fourth out-of-session publication",
+      "checks": [
+        {
+          "name": "required checks at the merged SHA",
+          "result": "pass",
+          "detail": "GitHub Actions run 34095056649 at 505407833e789a1369d6077103ec78e62811e013: audit success in 33s, security success in 2m54s, verify success in 22m14s; hosted-integration and publish-preview skipped. These are the three contexts main's branch protection requires, so this is external immutable evidence at exactly the commit that was merged, not at an earlier one"
+        },
+        {
+          "name": "first gate run cancelled, not failed",
+          "result": "fail",
+          "detail": "Run 34094536852 at 082a6cb had audit and security green and verify still in progress when the autocommit mechanism published 5054078 to origin/dev between turns. The push cancelled the run by workflow concurrency. verify shows cancelled; it is not evidence of a code failure and was not read as one. The gate was re-run from scratch at the new head rather than carried over"
+        },
+        {
+          "name": "fourth out-of-session publication",
+          "result": "fail",
+          "detail": "5054078, Autocommit: 1 file(s) from an assistant turn, committed and pushed the OWNER-ACTIONS.md section 8 edit before this session committed it. The Stop hook array in ~/.claude/settings.json is still empty, so the mechanism is unidentified. Its effect here was to invalidate a running gate: each autocommit push cancels the in-flight PR run, so editing files while a gate runs is a livelock. This session therefore made no file edits between arming the second watcher and the merge"
+        },
+        {
+          "name": "squash merge landed",
+          "result": "pass",
+          "detail": "gh pr merge 115 --squash succeeded. PR 115 state MERGED at 2026-09-07T07:44:17Z, merge commit 50075b354afd7374f2cd88afbbe2f48dc8b02b4c on main. git diff --stat origin/main origin/dev is empty afterwards, so the two branches are content-identical and dev needs no back-merge; it differs only by carrying the unsquashed history"
+        },
+        {
+          "name": "repository auto-merge unavailable",
+          "result": "fail",
+          "detail": "gh pr merge 115 --squash --auto returned GraphQL: Auto merge is not allowed for this repository (enablePullRequestAutoMerge). The user's instruction asked for auto squash merge. Enabling allow_auto_merge is a persistent repository settings change that outlives this goal, so it was not made; the merge was performed manually on a verified green instead, which produces the same result without changing repository configuration"
+        },
+        {
+          "name": "admission refusal recorded",
+          "result": "pass",
+          "detail": "OWNER-ACTIONS.md section 8 records the mc_submit_fly_leaf refusal verbatim, the healthy capacity reading that rules out contention, why no local fallback was taken while the offload-required flag is present on a 22 GB volume, and three owner options. The tracked file still greps zero for absolute private paths"
+        }
+      ],
+      "risks": [
+        "The Fly gate for this repository is still unadmittable. The merge rests on GitHub Actions evidence, which is sound for the merged SHA but says nothing about why Mission Control refuses the leaf",
+        "The autocommit mechanism remains unidentified and can publish and cancel gates between turns. Any future gate on this repository can be invalidated the same way",
+        "The private path survives in the published commits a3df47f and 2a6d35a, and is now also inside the squashed history reachable from main. Removing it requires rewriting published history, which is the owner's decision and was not authorized",
+        "T4 through T7 remain blocked on the Fly memory ceiling with the stop rule in force, T9 on five approvals that need immutable external evidence, and T10 on the repo-fleet owner decision. None of these can be closed by an agent"
+      ],
+      "next": "Nothing in scope remains that an agent can advance. The goal stays open on owner actions: the published-history decision, the Fly memory ceiling in sections 7 and 8, the five release approvals, and repo-fleet."
     }
   ]
 }
