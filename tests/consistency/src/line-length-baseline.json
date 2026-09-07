@@ -82,7 +82,6 @@
     "packages/domain/src/pickup.ts": 230,
     "packages/engine/src/menu-pricing.ts": 223,
     "packages/engine/src/operations.ts": 219,
-    "packages/engine/src/square/client.ts": 395,
     "packages/integrations/src/resilience.ts": 236,
     "packages/schema/src/operations-config.ts": 413,
     "packages/schema/src/types.ts": 522,

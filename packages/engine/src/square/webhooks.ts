@@ -14,6 +14,8 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 
 import type { OrderStatus } from '@platform/schema';
 
+import { squareAppFeeCents } from './payment-receipt';
+
 export function verifySquareSignature(
   signatureKey: string,
   notificationUrl: string,
@@ -83,12 +85,9 @@ export function mapSquareEvent(event: SquareEvent): MappedEvent | null {
   const object = event.data?.object ?? {};
 
   if (event.type === 'payment.updated' && object.payment) {
-    const money = object.payment.app_fee_money;
-    // Square omits app_fee_money when this application collected no fee.
-    // Explicit malformed money must never silently become a zero receipt.
-    const settledFeeCents = money === undefined ? 0 : money?.amount;
-    if (typeof settledFeeCents !== 'number' || !Number.isSafeInteger(settledFeeCents)
-      || settledFeeCents < 0 || (money !== undefined && money?.currency !== 'USD')) return null;
+    // Missing app_fee_money means no fee; malformed money is rejected.
+    const settledFeeCents = squareAppFeeCents(object.payment.app_fee_money);
+    if (settledFeeCents === null) return null;
     if (object.payment.status === 'COMPLETED' && !object.payment.id) return null;
     return {
       settledFeeCents,

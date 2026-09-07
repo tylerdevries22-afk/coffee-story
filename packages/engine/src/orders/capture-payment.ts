@@ -8,7 +8,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { FeeConfig } from '../fees';
-import { createSquareOrder, createSquarePayment, type SquareConfig } from '../square/client';
+import { createSquareOrder, createSquarePayment, getSquarePayment, type SquareConfig } from '../square/client';
+
+import { settledPaymentFee } from '../square/payment-receipt';
 
 import type { SnapshotLine } from './internal';
 import { appFeeForCharge, insertPlatformFeeOnce } from './platform-fees';
@@ -62,12 +64,8 @@ export async function captureSquarePayment(
   // repairs prevent a linked-but-unpaid order replaying as a false success.
   if (order.square_payment_id) {
     const cardChargeCents = order.total_cents - order.stored_value_applied_cents;
-    const fee = await appFeeForCharge(deps.db, {
-      locationId: order.location_id,
-      chargeCents: cardChargeCents,
-      feeConfig: deps.feeConfig,
-      locationTimezone: deps.locationTimezone,
-    });
+    const receipt = await getSquarePayment(deps.square, deps.locationAccessToken, order.square_payment_id);
+    const fee = settledPaymentFee(receipt.payment, order.square_payment_id, cardChargeCents);
     await insertPlatformFeeOnce(deps.db, {
       brand_id: order.brand_id,
       location_id: order.location_id,
@@ -134,6 +132,7 @@ export async function captureSquarePayment(
   });
   const paymentId = payment.payment?.id;
   if (!paymentId) throw new Error('Square returned no payment id.');
+  const settledFee = settledPaymentFee(payment.payment, paymentId, cardChargeCents);
 
   // Checked, because this is the field a refund later depends on: an
   // unchecked failure here left a charged card on an order the app could
@@ -156,8 +155,8 @@ export async function captureSquarePayment(
     location_id: order.location_id,
     order_id: order.id,
     gross_cents: cardChargeCents,
-    fee_cents: fee.feeCents,
-    fee_bps_applied: fee.feeBpsApplied,
+    fee_cents: settledFee.feeCents,
+    fee_bps_applied: settledFee.feeBpsApplied,
     square_payment_id: paymentId,
   });
 
