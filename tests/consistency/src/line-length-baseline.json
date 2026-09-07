@@ -31,7 +31,6 @@
     "apps/customer/src/state/demo-state.ts": 318,
     "apps/display/app/board/[location]/board-view.tsx": 289,
     "apps/hq/app/(console)/content/actions.ts": 785,
-    "apps/hq/app/api/jobs/run/route.ts": 377,
     "apps/hq/app/api/square/callback/route.ts": 202,
     "apps/hq/components/kiosk-flow-editor.tsx": 358,
     "apps/hq/lib/analytics-dashboard.ts": 315,

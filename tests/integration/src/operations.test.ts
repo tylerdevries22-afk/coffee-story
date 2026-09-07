@@ -853,7 +853,7 @@ describe('tenant operations against real Supabase', { skip: skipUnlessConfigured
     });
   });
 
-  it('queues overdue escalation after an occurrence is missed and reclaims abandoned sends', async () => {
+  it('queues overdue escalation after an occurrence is missed and quarantines ambiguous abandoned sends', async () => {
     const occurrenceId = await createOccurrence({
       brandId: fixture.primary.brandId,
       locationId: fixture.primary.locationId,
@@ -883,6 +883,14 @@ describe('tenant operations against real Supabase', { skip: skipUnlessConfigured
     });
     assert.equal(firstClaim.error, null, firstClaim.error?.message);
     assert.ok((firstClaim.data as Array<{ id: string }>).some((row) => row.id === outbox.rows[0]!.id));
+    await sql(`update public.operation_notification_outbox set status = 'failed',
+      last_error = 'delivery_failed', available_at = now() - interval '1 second'
+      where id = $1`, [outbox.rows[0]!.id]);
+    const retryClaim = await serviceClient().rpc('claim_operation_notification_batch', { target_limit: 200 });
+    assert.equal(retryClaim.error, null, retryClaim.error?.message);
+    const retried = (retryClaim.data as Array<{ id: string; attempt_count: number }>)
+      .find((row) => row.id === outbox.rows[0]!.id);
+    assert.equal(retried?.attempt_count, 2, 'known rejection must remain retryable');
     await sql(`update public.operation_notification_outbox set available_at = now() - interval '1 second'
       where id = $1`, [outbox.rows[0]!.id]);
     const secondClaim = await serviceClient().rpc('claim_operation_notification_batch', {
@@ -891,7 +899,13 @@ describe('tenant operations against real Supabase', { skip: skipUnlessConfigured
     assert.equal(secondClaim.error, null, secondClaim.error?.message);
     const reclaimed = (secondClaim.data as Array<{ id: string; attempt_count: number }>)
       .find((row) => row.id === outbox.rows[0]!.id);
-    assert.equal(reclaimed?.attempt_count, 2);
+    assert.equal(reclaimed, undefined, 'an expired send may already have reached the provider');
+    const held = await sql(`select status, last_error, attempt_count
+      from public.operation_notification_outbox where id = $1`, [outbox.rows[0]!.id]);
+    assert.deepEqual(held.rows[0], { status: 'cancelled', last_error: 'delivery_uncertain', attempt_count: 2 });
+    const thirdClaim = await serviceClient().rpc('claim_operation_notification_batch', { target_limit: 200 });
+    assert.equal(thirdClaim.error, null, thirdClaim.error?.message);
+    assert.ok(!(thirdClaim.data as Array<{ id: string }>).some((row) => row.id === outbox.rows[0]!.id));
   });
 
   it('cancels pending deliveries and suppresses escalation for a disabled tenant', async () => {

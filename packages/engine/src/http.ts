@@ -31,14 +31,16 @@ async function retryDelay(milliseconds: number, signal?: AbortSignal | null): Pr
 }
 
 /**
- * Mutations need provider idempotency keys: a provider can accept a request
+ * Non-idempotent sends select rejected-only: retry explicit429 rejections, never
+ * ambiguous network failures, body timeouts or5xx responses. Other mutations
+ * need provider idempotency keys: a provider can accept a request
  * before its response fails. A complete body is buffered before releasing the
  * deadline so JSON consumers cannot hang after receiving successful headers.
  */
 export async function fetchExternalWithRetry(
   input: RequestInfo | URL,
   init: RequestInit = {},
-  options: { timeoutMs?: number; attempts?: number; retryDelayMs?: number } = {},
+  options: { timeoutMs?: number; attempts?: number; retryDelayMs?: number; retryMode?: 'idempotent' | 'rejected-only' } = {},
 ): Promise<Response> {
   const timeoutMs = Math.max(1, Math.trunc(options.timeoutMs ?? 10_000));
   const attempts = Math.max(2, Math.trunc(options.attempts ?? 2));
@@ -54,7 +56,7 @@ export async function fetchExternalWithRetry(
     parentSignal?.addEventListener('abort', abortFromParent, { once: true });
     try {
       const response = await fetch(input, { ...init, signal: controller.signal });
-      if (response.status >= 500 || response.status === 429) {
+      if (response.status === 429 || (options.retryMode !== 'rejected-only' && response.status >= 500)) {
         lastError = new ExternalRequestError('provider', response.status);
         await response.body?.cancel();
       } else {
@@ -71,6 +73,7 @@ export async function fetchExternalWithRetry(
     } catch (error) {
       if (parentSignal?.aborted) throw new ExternalRequestError('cancelled', undefined, error);
       lastError = new ExternalRequestError(controller.signal.aborted ? 'timeout' : 'network', undefined, error);
+      if (options.retryMode === 'rejected-only') throw lastError;
     } finally {
       clearTimeout(timer);
       parentSignal?.removeEventListener('abort', abortFromParent);

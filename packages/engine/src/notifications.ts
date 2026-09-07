@@ -10,6 +10,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { fetchExternalWithRetry } from './http';
+import { NotificationDeliveryUncertainError, requestNotification } from './notification-request';
 
 export type NotificationChannel = 'push' | 'sms' | 'email';
 
@@ -82,21 +83,26 @@ export function expoPushAccepted(payload: unknown): boolean {
 export function liveTransport(env: NodeJS.ProcessEnv = process.env): Transport {
   return {
     async sendPush(token, title, body, data) {
-      const response = await fetchExternalWithRetry('https://exp.host/--/api/v2/push/send', {
+      const response = await requestNotification('https://exp.host/--/api/v2/push/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ to: token, title, body, sound: 'default', ...(data ? { data } : {}) }),
       });
       if (!response.ok) throw new Error(`Expo push failed: ${response.status}`);
       const payload: unknown = await response.json().catch(() => null);
-      if (!expoPushAccepted(payload)) throw new Error('Expo push was rejected.');
+      if (expoPushAccepted(payload)) return;
+      const ticket = payload && typeof payload === 'object' && 'data' in payload ? payload.data : null;
+      if (ticket && typeof ticket === 'object' && 'status' in ticket && ticket.status === 'error') {
+        throw new Error('Expo push was rejected.');
+      }
+      throw new NotificationDeliveryUncertainError();
     },
     async sendSms(phone, body) {
       const sid = env.TWILIO_ACCOUNT_SID;
       const auth = env.TWILIO_AUTH_TOKEN;
       const from = env.TWILIO_FROM_NUMBER;
       if (!sid || !auth || !from) throw new Error('Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER.');
-      const response = await fetchExternalWithRetry(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
+      const response = await requestNotification(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
         method: 'POST',
         headers: {
           Authorization: `Basic ${Buffer.from(`${sid}:${auth}`).toString('base64')}`,
@@ -153,8 +159,8 @@ export type OperationPushWork = {
 
 export type OperationPushResult = {
   outboxId: string;
-  outcome: 'sent' | 'failed';
-  errorCode: 'no_active_device' | 'delivery_failed' | null;
+  outcome: 'sent' | 'failed' | 'uncertain';
+  errorCode: 'no_active_device' | 'delivery_failed' | 'delivery_uncertain' | null;
 };
 
 /** Delivers one claimed batch without leaking provider errors into persisted audit data. */
@@ -173,6 +179,9 @@ export async function deliverOperationPushBatch(
       { appName: item.appName, pointsName: '', taskTitle: item.taskTitle, locationName: item.locationName },
       { occurrenceId: item.occurrenceId },
     )));
+    const uncertain = deliveries.some((delivery) => delivery.status === 'rejected'
+      && delivery.reason instanceof NotificationDeliveryUncertainError);
+    if (uncertain) return { outboxId: item.outboxId, outcome: 'uncertain', errorCode: 'delivery_uncertain' } as const;
     const delivered = deliveries.some((delivery) => delivery.status === 'fulfilled');
     return delivered
       ? { outboxId: item.outboxId, outcome: 'sent', errorCode: null } as const

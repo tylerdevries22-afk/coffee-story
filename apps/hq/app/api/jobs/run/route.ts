@@ -1,162 +1,24 @@
-import { randomUUID } from 'node:crypto';
-
 import {
-  deliverOperationPushBatch,
   dueCampaigns,
   dueDropTransitions,
   loadTokenKey,
-  liveTransport,
   squareConfigFromEnv,
-  type OperationPushResult,
-  type OperationPushWork,
   type SquareConfig,
 } from '@platform/engine';
-import type { SupabaseClient } from '@supabase/supabase-js';
-import { start } from 'workflow/api';
 
 import { jsonError, matchesSecret, notConfigured, serverEnv, serviceDb } from '../../../../lib/api-auth';
-import {
-  TRAINING_PIPELINE_VERSION,
-  resolveTenantTrainingProfile,
-} from '../../../../lib/training-bootstrap';
 import { analyticsMaintenanceCutoffs } from '../../../../lib/analytics-maintenance';
 import { delegatedGrantRetentionCutoff } from '../../../../lib/delegated-grant-maintenance';
-import { trainingProfileFingerprint } from '../../../../lib/training-fingerprint';
 import {
   renewDueSquareConnections,
   retireDueSquareAccessTokens,
   type SquareAccessTokenRetirementSummary,
   type SquareRenewalSummary,
 } from '../../../../lib/square-renewal';
-import { bootstrapTenantTraining } from '../../../../workflows/tenant-training-bootstrap';
+import { runTrainingMaintenance } from '../../../../lib/training-maintenance';
+import { deliverOperationNotifications } from '../../../../lib/operation-notifications';
 
 export const maxDuration = 300;
-
-type TrainingBrandRow = { id: string; name: string; brand_config: unknown };
-type TrainingRunRow = { id: string; brand_id: string; profile_fingerprint: string; status: string; updated_at: string; retry_count: number; next_attempt_at: string | null };
-type TrainingReleaseRow = { brand_id: string; bootstrap_run_id: string | null; manifest: unknown };
-type OperationOutboxRow = {
-  id: string; brand_id: string; location_id: string; occurrence_id: string;
-  recipient_id: string; channel: string; attempt_count: number;
-};
-type OperationContextRow = { id: string; template_snapshot: unknown };
-
-function snapshotTitle(value: unknown): string {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return 'Scheduled operation';
-  const title = (value as Record<string, unknown>).title;
-  return typeof title === 'string' && title.trim() ? title : 'Scheduled operation';
-}
-
-function recipientKey(brandId: string, recipientId: string): string {
-  return `${brandId}:${recipientId}`;
-}
-
-async function operationPushWork(
-  db: SupabaseClient,
-  rows: readonly OperationOutboxRow[],
-): Promise<OperationPushWork[]> {
-  const [occurrences, locations, brands, devices] = await Promise.all([
-    db.from('operation_occurrences').select('id,template_snapshot')
-      .in('id', rows.map((row) => row.occurrence_id)).returns<OperationContextRow[]>(),
-    db.from('locations').select('id,name').in('id', rows.map((row) => row.location_id))
-      .returns<{ id: string; name: string }[]>(),
-    db.from('brands').select('id,name').in('id', rows.map((row) => row.brand_id))
-      .returns<{ id: string; name: string }[]>(),
-    db.from('operation_staff_devices').select('brand_id,brand_user_id,expo_push_token')
-      .eq('is_active', true).in('brand_user_id', rows.map((row) => row.recipient_id))
-      .returns<{ brand_id: string; brand_user_id: string; expo_push_token: string }[]>(),
-  ]);
-  const failedRead = [occurrences, locations, brands, devices].find((result) => result.error)?.error;
-  if (failedRead) throw failedRead;
-  const occurrenceMap = new Map((occurrences.data ?? []).map((row) => [row.id, row]));
-  const locationMap = new Map((locations.data ?? []).map((row) => [row.id, row.name]));
-  const brandMap = new Map((brands.data ?? []).map((row) => [row.id, row.name]));
-  const tokenMap = new Map<string, Set<string>>();
-  for (const device of devices.data ?? []) {
-    const key = recipientKey(device.brand_id, device.brand_user_id);
-    const tokens = tokenMap.get(key) ?? new Set<string>();
-    tokens.add(device.expo_push_token);
-    tokenMap.set(key, tokens);
-  }
-  return rows.map((row) => ({
-    outboxId: row.id,
-    occurrenceId: row.occurrence_id,
-    tokens: [...(tokenMap.get(recipientKey(row.brand_id, row.recipient_id)) ?? [])],
-    appName: brandMap.get(row.brand_id) ?? 'Operations',
-    taskTitle: snapshotTitle(occurrenceMap.get(row.occurrence_id)?.template_snapshot),
-    locationName: locationMap.get(row.location_id) ?? 'your location',
-  }));
-}
-
-async function persistOperationPushResults(
-  db: SupabaseClient,
-  rows: readonly OperationOutboxRow[],
-  results: readonly OperationPushResult[],
-  now: Date,
-): Promise<void> {
-  const outboxMap = new Map(rows.map((row) => [row.id, row]));
-  await Promise.all(results.map(async (result) => {
-    const row = outboxMap.get(result.outboxId);
-    if (!row) throw new Error('Claimed operation notification context was lost.');
-    const retrySeconds = Math.min(3_600, 30 * (2 ** Math.min(row.attempt_count, 7)));
-    const values = result.outcome === 'sent'
-      ? { status: 'sent', sent_at: now.toISOString(), last_error: null }
-      : { status: 'failed', available_at: new Date(now.getTime() + retrySeconds * 1_000).toISOString(),
-        last_error: result.errorCode };
-    const updated = await db.from('operation_notification_outbox').update(values)
-      .eq('id', result.outboxId).eq('status', 'sending')
-      .eq('attempt_count', row.attempt_count);
-    if (updated.error) throw updated.error;
-  }));
-}
-
-async function deliverOperationNotifications(db: SupabaseClient, now: Date): Promise<{
-  sent: number; failed: number;
-}> {
-  const claimed = await db.rpc('claim_operation_notification_batch', { target_limit: 50 });
-  if (claimed.error) throw claimed.error;
-  const claimedRows = Array.isArray(claimed.data) ? claimed.data as OperationOutboxRow[] : [];
-  const rows = claimedRows.filter((row) => row.channel === 'push');
-  if (rows.length === 0) return { sent: 0, failed: 0 };
-  const results = await deliverOperationPushBatch(liveTransport(), await operationPushWork(db, rows));
-  await persistOperationPushResults(db, rows, results, now);
-  return {
-    sent: results.filter((result) => result.outcome === 'sent').length,
-    failed: results.filter((result) => result.outcome === 'failed').length,
-  };
-}
-
-async function trainingScanRows(db: SupabaseClient): Promise<{ brands: TrainingBrandRow[]; runs: TrainingRunRow[]; releases: TrainingReleaseRow[] }> {
-  const brands: TrainingBrandRow[] = [];
-  const runs: TrainingRunRow[] = [];
-  const releases: TrainingReleaseRow[] = [];
-  const pageSize = 500;
-  for (let offset = 0; ; offset += pageSize) {
-    const page = await db.from('brands').select('id, name, brand_config').order('created_at').range(offset, offset + pageSize - 1).returns<TrainingBrandRow[]>();
-    if (page.error) throw page.error;
-    brands.push(...(page.data ?? []));
-    if ((page.data?.length ?? 0) < pageSize) break;
-  }
-  for (let offset = 0; ; offset += pageSize) {
-    const page = await db.from('training_bootstrap_runs').select('id, brand_id, profile_fingerprint, status, updated_at, retry_count, next_attempt_at').eq('pipeline_version', TRAINING_PIPELINE_VERSION).range(offset, offset + pageSize - 1).returns<TrainingRunRow[]>();
-    if (page.error) throw page.error;
-    runs.push(...(page.data ?? []));
-    if ((page.data?.length ?? 0) < pageSize) break;
-  }
-  for (let offset = 0; ; offset += pageSize) {
-    const page = await db.from('training_releases').select('brand_id, bootstrap_run_id, manifest').eq('status', 'published').range(offset, offset + pageSize - 1).returns<TrainingReleaseRow[]>();
-    if (page.error) throw page.error;
-    releases.push(...(page.data ?? []));
-    if ((page.data?.length ?? 0) < pageSize) break;
-  }
-  return { brands, runs, releases };
-}
-
-function healthyRelease(release: TrainingReleaseRow | undefined, runId: string | undefined): boolean {
-  if (!release || release.bootstrap_run_id !== runId || !release.manifest || typeof release.manifest !== 'object') return false;
-  const modules = (release.manifest as { modules?: unknown }).modules;
-  return Array.isArray(modules) && modules.length >= 2;
-}
 
 /**
  * The scheduled tick, reached as GET from Vercel Cron (via vercel.json) and as
@@ -261,51 +123,7 @@ export async function POST(request: Request): Promise<Response> {
     if (sent.error) throw sent.error;
   }
 
-  let trainingBootstraps = 0;
-  if (process.env.OPENAI_API_KEY && process.env.OPENAI_RESEARCH_MODEL) {
-    const scan = await trainingScanRows(db);
-    for (const brand of scan.brands) {
-      if (trainingBootstraps >= 2) break;
-      const profile = resolveTenantTrainingProfile(brand.name, brand.brand_config);
-      const fingerprint = trainingProfileFingerprint(profile);
-      const brandRuns = scan.runs.filter((run) => run.brand_id === brand.id);
-      const matching = brandRuns.find((run) => run.profile_fingerprint === fingerprint);
-      const release = scan.releases.find((candidate) => candidate.brand_id === brand.id);
-      const activeStatuses = ['queued', 'researching', 'generating', 'validating'];
-      const active = matching && activeStatuses.includes(matching.status);
-      const stale = active && Date.now() - new Date(matching.updated_at).getTime() > 2 * 60 * 60 * 1_000;
-      const waiting = matching?.next_attempt_at && new Date(matching.next_attempt_at).getTime() > Date.now();
-      if (healthyRelease(release, matching?.id) || (active && !stale) || waiting || (matching?.retry_count ?? 0) >= 8) continue;
-      const runId = matching?.id ?? randomUUID();
-      const retryCount = matching ? matching.retry_count + 1 : 0;
-      const values = {
-        id: runId,
-        brand_id: brand.id,
-        profile_fingerprint: fingerprint,
-        pipeline_version: TRAINING_PIPELINE_VERSION,
-        trigger_kind: brandRuns.length > 0 ? 'profile_changed' : 'empty_tenant',
-        status: 'queued',
-        stage: 'queued',
-        progress: 0,
-        retry_count: retryCount,
-        next_attempt_at: retryCount > 0 ? new Date(Date.now() + Math.min(24, 2 ** retryCount) * 60 * 60 * 1_000).toISOString() : null,
-        error_code: null,
-        error_detail: {},
-        started_at: null,
-        finished_at: null,
-      };
-      const created = matching
-        ? await db.from('training_bootstrap_runs').update(values).eq('id', runId).eq('brand_id', brand.id)
-        : await db.from('training_bootstrap_runs').insert(values);
-      if (created.error) throw created.error;
-      try {
-        await start(bootstrapTenantTraining, [{ brandId: brand.id, runId, profile }]);
-        trainingBootstraps += 1;
-      } catch {
-        await db.from('training_bootstrap_runs').update({ status: 'failed', stage: 'queue', error_code: 'workflow_start_failed', finished_at: new Date().toISOString() }).eq('id', runId);
-      }
-    }
-  }
+  const trainingBootstraps = await runTrainingMaintenance(db);
 
   const analyticsCutoffs = analyticsMaintenanceCutoffs(now);
   const rollups = await db.rpc('refresh_analytics_rollups', {
