@@ -316,6 +316,45 @@
         "T4 through T7 remain blocked on the Fly memory ceiling in OWNER-ACTIONS.md section 7, with the stop rule in force: no fourth build submission, no static-half submission, no local run"
       ],
       "next": "The agent-executable thread for T8 is finished: the published SHA is verified green on Fly. Everything that remains on this goal is owner-owned - the published-history decision, the Fly memory ceiling behind T4-T7, the five release approvals in T9, and the repo-fleet decision in T10."
+    },
+    {
+      "cycle": 12,
+      "taskId": "T8",
+      "change": "Removed the last absolute private path from the tracked tip, reviewed the full dev-vs-main diff locally as a substitute for the pre-commit review T8 lost, and ran the pre-merge Fly gate. The gate submission failed on my own configuration error and verified nothing",
+      "checks": [
+        {
+          "name": "pre-merge Fly gate",
+          "result": "fail",
+          "detail": "Mission Control task 65, submission 2f691e9be5b3494f90f1ba9dbf57dcda, job 2df11843bdb44377b2d583bd18e86de7, machine 80d961b6149708: failed after 41s at $0.00098072, 20.07% CPU, 263073792 bytes, branch mc/fly-task-65-2df11843, result_sha null. Reason: the selected setup lockfile is missing. Cause is mine, not the code: I passed setup npm-ci and this repository is pnpm, so no package-lock.json exists and only pnpm-lock.yaml is present. The run never reached dependency install, so no check ran and nothing about the code was tested. Recorded as a failed cycle rather than retried silently"
+        },
+        {
+          "name": "tracked tip de-leaked",
+          "result": "pass",
+          "detail": "git grep at HEAD found two absolute-path hits. OWNER-ACTIONS.md line 34 named the private repo-fleet checkout in full; it is replaced with a location description that points at the git-excluded recovery ledger, keeping the file a valid render source for qa/build-plan.mjs. The remaining hit, docs/REBRAND_PLAN.md line 4, is this repository's own former path and is already on origin/main, so it predates this goal and is flagged rather than changed"
+        },
+        {
+          "name": "plan.html clean at HEAD",
+          "result": "pass",
+          "detail": "HEAD:plan.html greps zero for both the absolute form and the tilde form. The de-leaked artifact reached origin in 9c5930b, so the exposure now survives only in the historical commits a3df47f and 2a6d35a"
+        },
+        {
+          "name": "third out-of-session publication",
+          "result": "fail",
+          "detail": "9c5930b, Autocommit: 3 file(s) from an assistant turn, was committed and pushed to origin/dev between turns even though the Stop hook array in ~/.claude/settings.json is empty. It carried exactly the three files this session had deliberately left uncommitted. The effect was benign, but this is the third publication this session did not perform and did not authorize, after a3df47f and the push of 2a6d35a. Reported as a mechanism still firing, not attributed to an agent action"
+        },
+        {
+          "name": "pre-merge diff review",
+          "result": "pass",
+          "detail": "Reviewed origin/main...HEAD locally: 23 files, 1650 insertions, 240 deletions. scripts/lib/metro-runtime-cache.js hashes every defined EXPO_PUBLIC_ variable rather than the hardcoded list of five it replaces, so tenant isolation is strictly stronger even though the cache path drops the tenant directory segment; EXPO_PUBLIC_TENANT is still inside the hash. One non-blocking regression: a roughly 25-line comment recording the tenant cache-poisoning incident was replaced by a one-liner, losing the why under a repository convention that requires it"
+        }
+      ],
+      "risks": [
+        "The pre-merge gate has not passed. Task 65 proved nothing; the merge must wait on a real terminal success from a resubmission with setup pnpm-ci at the pushed SHA",
+        "Sanitizing the tip does not remove the path from a3df47f or 2a6d35a. Rewriting published history is the owner's decision and was not authorized",
+        "The autocommit mechanism can still publish files between turns, so any SHA this session gates may be superseded before a merge lands",
+        "T4 through T7 remain blocked on the Fly memory ceiling in OWNER-ACTIONS.md section 7, with the stop rule in force: no fourth build submission, no static-half submission, no local run"
+      ],
+      "next": "Push the sanitized tip, resubmit the pre-merge gate with setup pnpm-ci at the new pushed SHA, and open the squash merge to main only after that gate returns a terminal success."
     }
   ]
 }

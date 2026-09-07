@@ -31,8 +31,10 @@ passes. A repo with no GitHub origin still cannot get a managed worktree.
 
 ## 2. repo-fleet has 61 files of unpushed work on an unborn HEAD — ACTION NEEDED
 
-Path (corrected): `/Users/tylerdevries/Dev/repos/tylerdevries22-afk/repo-fleet`
-— not `~/Dev/repo-fleet`.
+Path: a `repo-fleet` checkout under the local repos root, not the
+sibling location first assumed. The absolute path is private operational
+detail and is deliberately not recorded in a tracked file; it is in the
+recovery ledger under `.adaptive-context/`, which is git-excluded.
 
 | Probe | Result |
 | --- | --- |
