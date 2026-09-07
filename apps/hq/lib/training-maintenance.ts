@@ -42,7 +42,17 @@ function healthyRelease(release: TrainingReleaseRow | undefined, runId: string |
   return Array.isArray(modules) && modules.length >= 2;
 }
 
-export async function runTrainingMaintenance(db: SupabaseClient): Promise<number> {
+type TrainingDispatch = (input: {
+  brandId: string; runId: string; profile: ReturnType<typeof resolveTenantTrainingProfile>;
+}) => Promise<void>;
+
+const dispatchTraining: TrainingDispatch = async (input) => {
+  await start(bootstrapTenantTraining, [input]);
+};
+
+export async function runTrainingMaintenance(
+  db: SupabaseClient, dispatch: TrainingDispatch = dispatchTraining,
+): Promise<number> {
   let trainingBootstraps = 0;
   if (process.env.OPENAI_API_KEY && process.env.OPENAI_RESEARCH_MODEL) {
     const scan = await trainingScanRows(db);
@@ -81,10 +91,16 @@ export async function runTrainingMaintenance(db: SupabaseClient): Promise<number
         : await db.from('training_bootstrap_runs').insert(values);
       if (created.error) throw created.error;
       try {
-        await start(bootstrapTenantTraining, [{ brandId: brand.id, runId, profile }]);
+        await dispatch({ brandId: brand.id, runId, profile });
         trainingBootstraps += 1;
       } catch {
-        await db.from('training_bootstrap_runs').update({ status: 'failed', stage: 'queue', error_code: 'workflow_start_failed', finished_at: new Date().toISOString() }).eq('id', runId);
+        const recorded = await db.from('training_bootstrap_runs').update({
+          status: 'failed', stage: 'queue', error_code: 'workflow_start_failed',
+          finished_at: new Date().toISOString(),
+        }).eq('id', runId).eq('brand_id', brand.id);
+        if (recorded.error) {
+          throw new Error('Training dispatch failure could not be recorded.', { cause: recorded.error });
+        }
       }
     }
   }
