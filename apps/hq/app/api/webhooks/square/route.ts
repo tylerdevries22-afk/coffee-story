@@ -6,7 +6,10 @@ import {
 } from '@platform/engine';
 import { createClient } from '@supabase/supabase-js';
 
-import { recordWebhookFailure, type WebhookFailureStage } from '@/lib/webhook-diagnostics';
+import {
+  recordWebhookFailure,
+  type WebhookFailureStage,
+} from '../../../../lib/webhook-diagnostics';
 
 const DATABASE_TIMEOUT_MS = 8_000;
 
