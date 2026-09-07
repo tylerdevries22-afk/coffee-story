@@ -250,6 +250,39 @@
         "The wall/cache work remains uncommitted on a dirty dev branch and is preserved only by not touching it"
       ],
       "next": "No agent-owned task is executable. T8 needs an owner decision to lift the goal exclusion; T4-T7 stay blocked on the Fly memory ceiling; T9/T10 are owner-owned."
+    },
+    {
+      "cycle": 10,
+      "taskId": "T8",
+      "change": "Reconciled the durable state against a Stop-hook autocommit that published the wall/cache work and two deliberately untracked files, and submitted after-the-fact verification of the pushed SHA to Fly",
+      "checks": [
+        {
+          "name": "autocommit identified",
+          "result": "fail",
+          "detail": "a3df47f committed 16 files from the assistant turn and pushed dev to origin (origin/dev...dev is 0 0). It published the wall/cache launcher work that the goal excludes from this goal, without the staged-diff inspection or the green script tests, ESLint and tsc that T8's acceptance required"
+        },
+        {
+          "name": "untracked-by-intent files published",
+          "result": "fail",
+          "detail": "a3df47f also tracked OWNER-ACTIONS.md and plan.html, which were left untracked because they render the absolute path of an unrelated private repository. No credential, token or key was published; the exposure is one machine path in a private repository"
+        },
+        {
+          "name": "post-hoc verification offloaded",
+          "result": "pending",
+          "detail": "Mission Control task 62, submission 99aa3df755a14cb19cb013ffc9ff6161: lint, typecheck and unit tests at the pushed SHA a3df47f, pnpm-ci, running on Fly. Submitted, not passed; no local run while it is admitted"
+        },
+        {
+          "name": "published history left intact",
+          "result": "pass",
+          "detail": "No rebase, amend, revert or force-push. Rewriting or redacting pushed history is an owner decision, so the state is reported rather than changed"
+        }
+      ],
+      "risks": [
+        "The Stop hook can publish any dirty tree at the end of a turn, so a goal exclusion that depends on work staying uncommitted is not enforceable by the agent alone",
+        "OWNER-ACTIONS.md and plan.html now carry a home-directory path for an unrelated private repository in the pushed history of tylerdevries22-afk/coffee-story",
+        "T8's acceptance checks never ran before the commit; task 62 can only confirm or refute the published SHA after the fact"
+      ],
+      "next": "Poll task 62 to a terminal state and record the actual result against a3df47f. The published-history decision (leave as is, remove the two files in a follow-up commit with ignore rules, or rewrite) belongs to the owner."
     }
   ]
 }

@@ -71,15 +71,16 @@ tasks:
 
   - id: T8
     title: Commit the wall/cache launcher work
-    status: blocked
-    blocked_by: >-
-      The goal excludes committing or promoting the uncommitted wall/cache work,
-      so this needs an owner decision to lift that exclusion before an agent
-      stages it. The recovery ledger previously named it the next agent item;
-      the exclusion governs.
+    status: in_progress
     acceptance: Staged diff inspected; 51 script tests, ESLint and tsc green at commit
-    note: Verified locally but deliberately uncommitted; separate from the gate
-    owner: owner
+    note: >-
+      Overtaken by events. The Stop hook autocommitted 16 files as a3df47f and
+      pushed dev to origin, so the work is published without the staged-diff
+      inspection or the green checks this task required, and without the owner
+      decision the goal exclusion called for. Verification is running after the
+      fact as Mission Control task 62 at the pushed SHA. a3df47f also published
+      OWNER-ACTIONS.md and plan.html, which were deliberately untracked.
+    owner: agent
 
   - id: T9
     title: Coffee Story release approvals
