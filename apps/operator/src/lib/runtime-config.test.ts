@@ -13,8 +13,13 @@ test('accepts secure Supabase URLs and local development', () => {
   assert.equal(isValidSupabaseUrl('http://example.supabase.co'), false);
 });
 
-const ANON_JWT = 'eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJpc3MiOiAic3VwYWJhc2UiLCAicm9sZSI6ICJhbm9uIiwgImlhdCI6IDEsICJleHAiOiAyfQ.signature';
-const SERVICE_ROLE_JWT = 'eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJpc3MiOiAic3VwYWJhc2UiLCAicm9sZSI6ICJzZXJ2aWNlX3JvbGUiLCAiaWF0IjogMSwgImV4cCI6IDJ9.signature';
+function testJwtForRole(role: string): string {
+  const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString('base64url');
+  return [encode({ alg: 'HS256', typ: 'JWT' }), encode({ iss: 'supabase', role }), 'test'].join('.');
+}
+
+const ANON_JWT = testJwtForRole('anon');
+const SERVICE_ROLE_JWT = testJwtForRole('service_role');
 
 test('accepts only Supabase keys that are safe to publish', () => {
   assert.equal(isValidSupabasePublishableKey('short'), false);

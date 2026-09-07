@@ -11,6 +11,13 @@ on:
         description: Parent hosted Supabase project used for the disposable branch
         type: string
         required: false
+    secrets:
+      SUPABASE_ACCESS_TOKEN:
+        required: false
+      EXPO_TOKEN:
+        required: false
+      EXPO_GO_COFFEE:
+        required: false
   push:
     branches: [main]
   pull_request:
