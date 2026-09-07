@@ -7,6 +7,8 @@
  * fails loudly at send time, never silently drops.
  */
 
+import { randomUUID } from 'node:crypto';
+
 import { fetchExternalWithRetry } from './http';
 
 export type NotificationChannel = 'push' | 'sms' | 'email';
@@ -110,7 +112,8 @@ export function liveTransport(env: NodeJS.ProcessEnv = process.env): Transport {
       if (!key || !from) throw new Error('Set RESEND_API_KEY and RESEND_FROM.');
       const response = await fetchExternalWithRetry('https://api.resend.com/emails', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+        // One key per send invocation; every internal transport retry reuses it.
+        headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', 'Idempotency-Key': randomUUID() },
         body: JSON.stringify({ from, to: address, subject, text: body }),
       });
       if (!response.ok) throw new Error(`Resend send failed: ${response.status}`);
