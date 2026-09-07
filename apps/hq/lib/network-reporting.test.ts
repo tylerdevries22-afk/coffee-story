@@ -22,7 +22,7 @@ function fakeClient(options: {
   calls?: { name: string; networkId: unknown }[];
   grants?: Result;
   networks?: Result;
-  rpc?: (networkId: string) => Result;
+  rpc?: (networkId: string) => Result | Promise<Result>;
 }): SupabaseClient {
   return {
     from: (table: string) => queryStub(
@@ -131,6 +131,35 @@ describe('loadNetworkReports', () => {
       networks: { data: [{ id: 'net-1', name: 'Front Range' }], error: null },
     }));
     assert.equal(calls.length, 1, 'one network, one round trip');
+  });
+
+  it('loads independent networks concurrently and preserves membership order', async () => {
+    const resolvers = new Map<string, (result: Result) => void>();
+    let signalStarted: (() => void) | undefined;
+    const allStarted = new Promise<void>((resolve) => { signalStarted = resolve; });
+    const pending = loadNetworkReports(fakeClient({
+      networks: {
+        data: [
+          { id: 'net-1', name: 'Alpha' },
+          { id: 'net-2', name: 'Beta' },
+          { id: 'net-3', name: 'Gamma' },
+        ],
+        error: null,
+      },
+      rpc: (networkId) => new Promise<Result>((resolve) => {
+        resolvers.set(networkId, resolve);
+        if (resolvers.size === 3) signalStarted?.();
+      }),
+    }));
+
+    await allStarted;
+    assert.equal(resolvers.size, 3, 'all bounded RPCs start before any one finishes');
+    resolvers.get('net-3')?.({ data: [kpiRow('c', 'C', 1, 3)], error: null });
+    resolvers.get('net-2')?.({ data: null, error: { code: 'P0002' } });
+    resolvers.get('net-1')?.({ data: [kpiRow('a', 'A', 1, 1)], error: null });
+
+    const reports = await pending;
+    assert.deepEqual(reports.map((report) => report.networkId), ['net-1', 'net-3']);
   });
 
   it('returns nothing when the deployment carries no Supabase env', async () => {
