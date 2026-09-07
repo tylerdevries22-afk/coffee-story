@@ -90,14 +90,27 @@ export async function appFeeForCharge(
   // The location's own month, as UTC instants: a bare date string resolves
   // at UTC midnight, which is not when the month starts anywhere but UTC.
   const { startIso, endIso } = feeMonthRange(new Date(), input.locationTimezone);
-  const { data, error } = await db
-    .from('platform_fees')
-    .select('gross_cents, created_at')
-    .eq('location_id', input.locationId)
-    .gte('created_at', startIso)
-    .lt('created_at', endIso);
-  if (error) throw error;
-  const monthGrossBefore = (data ?? []).reduce(
-    (sum: number, row: { gross_cents: number }) => sum + row.gross_cents, 0);
+  let monthGrossBefore = 0;
+  let afterId: string | undefined;
+  // A REST response is capped independently of the requested limit. Advance
+  // by the last immutable key and stop only on an empty page, so a lower
+  // deployment cap cannot silently move a busy location back to tier one.
+  while (true) {
+    let query = db.from('platform_fees')
+      .select('id, gross_cents')
+      .eq('location_id', input.locationId)
+      .gte('created_at', startIso)
+      .lt('created_at', endIso)
+      .order('id', { ascending: true })
+      .limit(1_000);
+    if (afterId) query = query.gt('id', afterId);
+    const { data, error } = await query.returns<{ id: string; gross_cents: number }[]>();
+    if (error) throw error;
+    const last = data?.at(-1);
+    if (!last) break;
+    if (last.id === afterId) throw new Error('Monthly fee pagination did not advance.');
+    monthGrossBefore += data.reduce((sum, row) => sum + row.gross_cents, 0);
+    afterId = last.id;
+  }
   return computeAppFeeCents(input.feeConfig, monthGrossBefore, input.chargeCents);
 }
