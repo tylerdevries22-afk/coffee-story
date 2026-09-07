@@ -6,6 +6,8 @@ import {
 } from '@platform/engine';
 import { createClient } from '@supabase/supabase-js';
 
+import { recordWebhookFailure } from '@/lib/webhook-diagnostics';
+
 const DATABASE_TIMEOUT_MS = 8_000;
 
 async function resilientFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
@@ -111,7 +113,12 @@ export async function POST(request: Request): Promise<Response> {
       refunded_cents: mapped.refundedCents,
       square_event_type: event.type ?? 'refund.updated',
     });
-    if (processed.error) return new Response('Refund processing failed', { status: 409 });
+    if (processed.error) {
+      await recordWebhookFailure(db, {
+        eventId: mapped.squareEventId, orderId: order.id, brandId: order.brand_id, stage: 'refund',
+      }, processed.error);
+      return new Response('Refund processing failed', { status: 409 });
+    }
     const stamped = await db.from('webhook_events')
       .update({ processed_at: new Date().toISOString(), error: null })
       .eq('event_id', mapped.squareEventId);
@@ -158,8 +165,9 @@ export async function POST(request: Request): Promise<Response> {
       }
     }
   } catch (error) {
-    const detail = error instanceof Error ? error.message.slice(0, 500) : 'Unknown processing failure';
-    await db.from('webhook_events').update({ error: detail }).eq('event_id', mapped.squareEventId);
+    await recordWebhookFailure(db, {
+      eventId: mapped.squareEventId, orderId: order.id, brandId: order.brand_id, stage: 'platform_fee',
+    }, error);
     return new Response('Event processing failed', { status: 503 });
   }
 
