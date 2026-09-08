@@ -8,9 +8,9 @@ import type { ConnectorSetup } from './contracts';
  * field that does not exist. The detail page repeats this in its own words.
  */
 const PENDING_STORAGE =
-  'Keep the key somewhere safe for now: storing it against this organization is not enabled yet, so setup cannot be finished today.';
+  'Keep the key somewhere safe: storing it against this organization is not enabled yet, so setup cannot finish today.';
 const PENDING_IMPORT =
-  'Keep the export somewhere safe for now: uploading it is not enabled yet, so the import cannot be finished today.';
+  'Keep the export somewhere safe: uploading it is not enabled yet, so the import cannot finish today.';
 
 /**
  * Builds the one-press OAuth setup block shared by every hosted-client provider.

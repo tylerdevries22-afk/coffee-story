@@ -1,5 +1,6 @@
 import {
   certifiedOAuthProviders,
+  withAuthorizableCapabilities,
   withConnectorAuthorization,
   type ConnectorCapabilityRow,
   type ConnectorCertificationRow,
@@ -44,6 +45,10 @@ export function connectorCardsFromQueries(
       registry.data ?? [], capabilities.data ?? [], certifications.data ?? [],
     );
   return withConnectorAuthorization(
-    connectorCardsOf(registry.data ?? [], installations.data ?? []), certified,
+    withAuthorizableCapabilities(
+      connectorCardsOf(registry.data ?? [], installations.data ?? []),
+      registry.data ?? [], capabilities.error ? [] : capabilities.data ?? [],
+    ),
+    certified,
   );
 }

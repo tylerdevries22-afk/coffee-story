@@ -19,7 +19,7 @@ export const AUDIENCE_DEFINITIONS: readonly CatalogDefinition[] = [
       documentationUrl: 'https://developers.facebook.com/docs/facebook-login/guides/advanced/manual-flow',
       operatorSteps: [
         { text: 'Choose the Business portfolio and the specific Pages this organization owns.' },
-        { text: 'Meta reviews advanced permissions before live data flows; sandbox works immediately.', href: 'https://developers.facebook.com/docs/app-review' },
+        { text: 'Publishing, Instagram and lead forms are deliberately not requested until Meta App Review covers those scopes.', href: 'https://developers.facebook.com/docs/app-review' },
       ],
     }),
   },
@@ -38,6 +38,7 @@ export const AUDIENCE_DEFINITIONS: readonly CatalogDefinition[] = [
       operatorSteps: [
         { text: 'Sign in with the Google account that owns the channel, not a viewer account.' },
         { text: 'Uploads stay private until you publish them from the channel.' },
+        { text: 'Playlist changes are deliberately not requested; this asks only for read, upload and analytics access.', href: 'https://developers.google.com/youtube/v3/guides/auth/installed-apps' },
       ],
     }),
   },
@@ -55,7 +56,7 @@ export const AUDIENCE_DEFINITIONS: readonly CatalogDefinition[] = [
       documentationUrl: 'https://developers.tiktok.com/doc/login-kit-web',
       operatorSteps: [
         { text: 'You are granting read access only: profile, video list and post analytics.' },
-        { text: 'Publishing needs the video.publish scope, which is deliberately not requested until TikTok\'s content-posting audit passes.', href: 'https://developers.tiktok.com/doc/content-posting-api-get-started' },
+        { text: 'Publishing is deliberately not requested until the content-posting audit passes.', href: 'https://developers.tiktok.com/doc/content-posting-api-get-started' },
       ],
     }),
   },

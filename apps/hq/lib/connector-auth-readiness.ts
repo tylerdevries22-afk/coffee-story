@@ -72,6 +72,47 @@ export function withConnectorAuthorization(
   });
 }
 
+/** Capabilities whose scopes are a subset of what this deployment requests. */
+function authorizableCapabilities(
+  providerKey: string,
+  rows: readonly ConnectorCapabilityRow[],
+): readonly ConnectorCapabilityRow[] {
+  if (!isOAuthConnectorKey(providerKey)) return rows;
+  const requested = new Set(connectorProviderScopes(providerKey));
+  return rows.filter((capability) => capability.oauth_scopes.length === 0
+    || capability.oauth_scopes.every((scope) => requested.has(scope)));
+}
+
+/**
+ * Records how many capabilities each connector could actually deliver.
+ *
+ * The catalog count includes capabilities gated behind scopes this deployment
+ * deliberately does not request, so comparing an installation against it would
+ * report a partial grant for every healthy connection. Cards keep their catalog
+ * count when no capability rows are available, which reads as "no gap known".
+ */
+export function withAuthorizableCapabilities(
+  cards: readonly ConnectorCard[],
+  registry: readonly ConnectorRegistryGate[],
+  capabilities: readonly ConnectorCapabilityRow[],
+): readonly ConnectorCard[] {
+  if (capabilities.length === 0) return cards;
+  const byProvider = new Map<string, ConnectorCapabilityRow[]>();
+  for (const capability of capabilities) {
+    const group = byProvider.get(capability.provider_id);
+    if (group) group.push(capability);
+    else byProvider.set(capability.provider_id, [capability]);
+  }
+  const countByKey = new Map(registry.map((provider) => [
+    provider.provider_key,
+    authorizableCapabilities(provider.provider_key, byProvider.get(provider.id) ?? []).length,
+  ]));
+  return cards.map((card) => {
+    const authorizable = countByKey.get(card.id);
+    return authorizable === undefined ? card : { ...card, authorizableCapabilityCount: authorizable };
+  });
+}
+
 /**
  * Returns the provider keys whose enabled capabilities have all passed sandbox
  * certification.
@@ -100,10 +141,9 @@ export function certifiedOAuthProviders(
     if (provider.is_active === false) return false;
     const availability = provider.availability?.replaceAll('-', '_');
     if (availability !== undefined && !CONFIGURABLE_AVAILABILITY.includes(availability)) return false;
-    const granted = new Set(connectorProviderScopes(provider.provider_key));
-    const enabled = (byProvider.get(provider.id) ?? []).filter((capability) =>
-      capability.oauth_scopes.length === 0
-      || capability.oauth_scopes.every((scope) => granted.has(scope)));
+    const enabled = authorizableCapabilities(
+      provider.provider_key, byProvider.get(provider.id) ?? [],
+    );
     return enabled.length > 0 && enabled.every((capability) => passed.has(capability.id));
   }).map((provider) => provider.provider_key));
 }

@@ -1,6 +1,8 @@
 import { mcpCookieBindingMatches, mcpSha256 } from 'franchise-mcp-store-ui/oauth';
 import { NextResponse } from 'next/server';
 
+import { AppNetworkError } from '@platform/api-client';
+
 import {
   ConnectorExchangeError,
   ConnectorIdentityError,
@@ -44,7 +46,10 @@ function finish(request: Request, provider: OAuthConnectorKey, outcome: string):
 function reportFailure(provider: OAuthConnectorKey, error: unknown): 'connection_failed' {
   const stage = error instanceof ConnectorExchangeError ? error.stage
     : error instanceof ConnectorScopeError ? 'scope'
-    : error instanceof ConnectorIdentityError ? 'identity' : 'storage';
+    : error instanceof ConnectorIdentityError ? 'identity'
+    // fetchWithRetry raises this for a timeout or a network failure on the
+    // identity and permissions calls, which is a provider problem, not storage.
+    : error instanceof AppNetworkError ? 'transport' : 'storage';
   const status = error instanceof ConnectorExchangeError && error.status !== null
     ? ` status=${error.status}` : '';
   console.error(`connector.oauth.callback provider=${provider} stage=${stage}${status}`);
@@ -55,9 +60,10 @@ function reportFailure(provider: OAuthConnectorKey, error: unknown): 'connection
  * Raised when the granted scopes cannot be established.
  *
  * Storing the installation anyway would mark it connected and healthy with an
- * empty capability set, and the store offers no reconnect affordance for a
- * healthy connector, so the owner would be stranded on a green card that never
- * syncs. Failing here leaves them able to press Connect again.
+ * empty capability set. A narrowed grant is recoverable — the card reports the
+ * gap and offers a reconnect — but an unknown one is not, because there is
+ * nothing to compare against. Failing here leaves the owner able to press Connect
+ * again rather than acting on a number we could not establish.
  */
 class ConnectorScopeError extends Error {
   constructor() {

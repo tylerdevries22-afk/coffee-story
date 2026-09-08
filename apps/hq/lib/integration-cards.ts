@@ -38,6 +38,14 @@ export type ConnectorCard = {
   readonly statusLabel: string;
   readonly accountLabel: string | null;
   readonly capabilityCount: number;
+  /**
+   * Capabilities this deployment could enable, given the scopes it actually
+   * requests. Lower than `capabilityCount` whenever a scope is deliberately
+   * withheld — Meta's publishing permissions pending App Review, for instance —
+   * so it is the only honest denominator for "did the user grant everything".
+   * Defaults to `capabilityCount` until the capability rows are known.
+   */
+  readonly authorizableCapabilityCount: number;
   readonly enabledCapabilityCount: number;
   readonly connectedAt: string | null;
   readonly lastSyncedAt: string | null;
@@ -80,6 +88,7 @@ function cardOf(
     statusLabel: STATUS_LABELS[status],
     accountLabel: installation?.external_account_label || null,
     capabilityCount: entry.descriptor.capabilities.length,
+    authorizableCapabilityCount: entry.descriptor.capabilities.length,
     enabledCapabilityCount: installation?.enabled_capabilities.length ?? 0,
     connectedAt: installation?.connected_at ?? null,
     lastSyncedAt: installation?.last_synced_at ?? null,

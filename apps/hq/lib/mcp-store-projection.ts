@@ -41,17 +41,23 @@ export function sharedStatus(card: ConnectorCard, mode: StoreMode): McpStoreStat
 }
 
 /**
- * True when the provider granted less than the connector advertises.
+ * True when the user granted less than this deployment asked for.
  *
  * A granular consent screen lets a user decline individual permissions, and the
  * installation then stores a narrower capability set while still reading healthy.
  * Without this the card would be green and silently never deliver what it lists,
  * with no way to widen the grant: re-consent is only reachable by connecting again.
+ *
+ * The comparison is against `authorizableCapabilityCount`, never the catalog
+ * total. The catalog includes capabilities gated behind scopes this deployment
+ * deliberately withholds — Meta's publishing permissions until App Review, TikTok's
+ * until its audit — so measuring against the total would report a gap on every
+ * healthy connection and offer a Reconnect that could not change the answer.
  */
 export function hasScopeGap(card: ConnectorCard): boolean {
   return card.isConnected
-    && card.capabilityCount > 0
-    && card.enabledCapabilityCount < card.capabilityCount;
+    && card.authorizableCapabilityCount > 0
+    && card.enabledCapabilityCount < card.authorizableCapabilityCount;
 }
 
 /**
@@ -85,9 +91,11 @@ export function sharedSetup(card: ConnectorCard): McpStoreSetup | undefined {
  */
 export function readinessLabel(card: ConnectorCard, mode: StoreMode): string {
   const status = sharedStatus(card, mode);
-  if (status === 'unavailable') return card.statusLabel === 'Disabled' ? 'Disabled' : 'Unavailable';
+  // Branch on the status, not on its display copy, so renaming a label cannot
+  // silently change which readiness line a card shows.
+  if (status === 'unavailable') return card.status === 'disabled' ? 'Disabled' : 'Unavailable';
   if (status === 'reconnect' && hasScopeGap(card)) {
-    return `Connected with ${card.enabledCapabilityCount} of ${card.capabilityCount} capabilities`;
+    return `Connected with ${card.enabledCapabilityCount} of ${card.authorizableCapabilityCount} capabilities`;
   }
   return card.statusLabel;
 }

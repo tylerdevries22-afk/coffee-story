@@ -68,22 +68,49 @@ describe('mcp store projection', () => {
     );
   });
 
+  it('reads a full grant as connected even where the catalog lists more than we request', () => {
+    // The catalog counts capabilities gated behind scopes this deployment
+    // deliberately withholds (Meta publishing until App Review, TikTok until its
+    // audit). Measuring a grant against the catalog total would report a gap on
+    // every healthy connection and offer a Reconnect that cannot change the answer.
+    const full = cardFor('meta-business-suite', {
+      status: 'connected-healthy', isConnected: true,
+      capabilityCount: 6, authorizableCapabilityCount: 3, enabledCapabilityCount: 3,
+    });
+    assert.equal(hasScopeGap(full), false, 'everything askable was granted');
+    assert.equal(sharedStatus(full, 'manage'), 'connected');
+    assert.equal(readinessLabel(full, 'manage'), 'Connected and healthy');
+  });
+
+  it('treats an unknown authorizable count as no gap rather than a false alarm', () => {
+    // Before the capability rows load, the count defaults to the catalog total.
+    const unknown = cardFor('meta-business-suite', {
+      status: 'connected-healthy', isConnected: true,
+      capabilityCount: 6, authorizableCapabilityCount: 0, enabledCapabilityCount: 0,
+    });
+    assert.equal(hasScopeGap(unknown), false, 'nothing askable is known, so no gap');
+    assert.equal(sharedStatus(unknown, 'manage'), 'connected');
+  });
+
   it('offers a reconnect when a granular consent screen granted less than advertised', () => {
     // A green card that silently delivers nothing is worse than an honest gap, and
     // re-consent is only reachable by connecting again.
     const partial = cardFor('meta-business-suite', {
       status: 'connected-healthy', isConnected: true,
-      capabilityCount: 6, enabledCapabilityCount: 1,
+      capabilityCount: 6, authorizableCapabilityCount: 3, enabledCapabilityCount: 1,
     });
     assert.equal(hasScopeGap(partial), true);
     assert.equal(sharedStatus(partial, 'manage'), 'reconnect');
-    assert.equal(readinessLabel(partial, 'manage'), 'Connected with 1 of 6 capabilities');
+    assert.equal(
+      readinessLabel(partial, 'manage'), 'Connected with 1 of 3 capabilities',
+      'the denominator is what we asked for, not what the catalog lists',
+    );
   });
 
   it('reads a full grant as plainly connected', () => {
     const full = cardFor('meta-business-suite', {
       status: 'connected-healthy', isConnected: true,
-      capabilityCount: 6, enabledCapabilityCount: 6,
+      capabilityCount: 6, authorizableCapabilityCount: 6, enabledCapabilityCount: 6,
     });
     assert.equal(hasScopeGap(full), false);
     assert.equal(sharedStatus(full, 'manage'), 'connected');
@@ -95,7 +122,7 @@ describe('mcp store projection', () => {
     // connection read as though it never existed.
     const connected = cardFor('slack', {
       status: 'connected-healthy', isConnected: true, canConfigure: false,
-      capabilityCount: 3, enabledCapabilityCount: 3,
+      capabilityCount: 3, authorizableCapabilityCount: 3, enabledCapabilityCount: 3,
     });
     assert.equal(sharedStatus(connected, 'manage'), 'connected');
     const degraded = cardFor('slack', {

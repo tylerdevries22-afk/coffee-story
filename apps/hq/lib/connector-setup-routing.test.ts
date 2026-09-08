@@ -19,10 +19,64 @@ const ENV = [
   'TIKTOK_CLIENT_KEY', 'TIKTOK_CLIENT_SECRET',
   'META_APP_ID', 'META_APP_SECRET',
   'SLACK_CLIENT_ID', 'SLACK_CLIENT_SECRET',
+  'GOOGLE_OAUTH_CLIENT_ID', 'GOOGLE_OAUTH_CLIENT_SECRET',
+  'QUICKBOOKS_CLIENT_ID', 'QUICKBOOKS_CLIENT_SECRET',
+  'STRIPE_CONNECT_CLIENT_ID', 'STRIPE_SECRET_KEY',
 ] as const;
 const ORIGINAL = Object.fromEntries(ENV.map((name) => [name, process.env[name]]));
 
 const OAUTH_IDS = ['youtube', 'tiktok', 'meta-business-suite'] as const;
+
+/**
+ * The scope each advertised capability needs, mirroring
+ * `connector_capabilities.oauth_scopes` in the migrations.
+ *
+ * Kept here rather than parsed out of the SQL so it stays readable and a reviewer
+ * can check it against the seed in one glance. Only capabilities that need a scope
+ * appear; anything absent is assumed to need none. The duplication is deliberate:
+ * this is the assertion's own statement of what the walkthroughs must disclose, so
+ * it has to be independent of the code it checks.
+ */
+const CAPABILITY_SCOPES: Readonly<Record<string, string>> = {
+  // Meta withholds publishing, Instagram and lead retrieval until App Review.
+  'meta-business-suite:pages.read': 'pages_show_list',
+  'meta-business-suite:pages.publish': 'pages_manage_posts',
+  'meta-business-suite:instagram.read': 'instagram_basic',
+  'meta-business-suite:insights.read': 'read_insights',
+  'meta-business-suite:ads.reporting': 'ads_read',
+  'meta-business-suite:leadgen.read': 'leads_retrieval',
+  // TikTok withholds publishing until its content-posting audit passes.
+  'tiktok:profile.read': 'user.info.basic',
+  'tiktok:videos.read': 'video.list',
+  'tiktok:videos.publish': 'video.publish',
+  'tiktok:analytics.read': 'video.list',
+  // YouTube withholds the full read-write scope playlists need.
+  'youtube:channel.read': 'https://www.googleapis.com/auth/youtube.readonly',
+  'youtube:videos.read': 'https://www.googleapis.com/auth/youtube.readonly',
+  'youtube:videos.upload': 'https://www.googleapis.com/auth/youtube.upload',
+  'youtube:playlists.write': 'https://www.googleapis.com/auth/youtube',
+  'youtube:analytics.reporting': 'https://www.googleapis.com/auth/yt-analytics.readonly',
+  // Google withholds Business Profile, Analytics and Ads.
+  'google-suite:business-profile.performance': 'https://www.googleapis.com/auth/business.manage',
+  'google-suite:business-profile.reviews': 'https://www.googleapis.com/auth/business.manage',
+  'google-suite:business-profile.locations': 'https://www.googleapis.com/auth/business.manage',
+  'google-suite:gmail.send-reviewed': 'https://www.googleapis.com/auth/gmail.compose',
+  'google-suite:drive.import': 'https://www.googleapis.com/auth/drive.file',
+  'google-suite:drive.export': 'https://www.googleapis.com/auth/drive.file',
+  'google-suite:calendar.read': 'https://www.googleapis.com/auth/calendar.events',
+  'google-suite:calendar.write': 'https://www.googleapis.com/auth/calendar.events',
+  'google-suite:ga4.reporting': 'https://www.googleapis.com/auth/analytics.readonly',
+  'google-suite:google-ads.reporting': 'https://www.googleapis.com/auth/adwords',
+  // QuickBooks and Slack request everything they list.
+  'quickbooks-online:reports.read': 'com.intuit.quickbooks.accounting',
+  'quickbooks-online:invoices.read': 'com.intuit.quickbooks.accounting',
+  'quickbooks-online:expenses.read': 'com.intuit.quickbooks.accounting',
+  'quickbooks-online:vendors.read': 'com.intuit.quickbooks.accounting',
+  'quickbooks-online:accounts.read': 'com.intuit.quickbooks.accounting',
+  'slack:channels.read': 'channels:read',
+  'slack:alerts.write': 'chat:write',
+  'slack:summaries.write': 'chat:write',
+};
 
 /** Satisfies every gate except the one a test is isolating. */
 function configureEverything(): void {
@@ -36,6 +90,12 @@ function configureEverything(): void {
   process.env.META_APP_SECRET = 'meta-secret';
   process.env.SLACK_CLIENT_ID = 'slack-client';
   process.env.SLACK_CLIENT_SECRET = 'slack-secret';
+  process.env.GOOGLE_OAUTH_CLIENT_ID = 'google-client';
+  process.env.GOOGLE_OAUTH_CLIENT_SECRET = 'google-secret';
+  process.env.QUICKBOOKS_CLIENT_ID = 'qb-client';
+  process.env.QUICKBOOKS_CLIENT_SECRET = 'qb-secret';
+  process.env.STRIPE_CONNECT_CLIENT_ID = 'stripe-client';
+  process.env.STRIPE_SECRET_KEY = 'stripe-secret';
 }
 
 /** Mirrors an activated registry: every non-planned provider live for the tenant. */
@@ -72,33 +132,33 @@ afterEach(() => {
 });
 
 describe('connector setup routing', { concurrency: false }, () => {
-  it('never instructs an owner to approve a scope the request does not ask for', () => {
-    // The catalog cannot see the authorize request, so the binding is asserted
-    // here. A step naming a permission that is not requested sends an owner
-    // hunting a toggle the provider's dialog cannot show them.
+  it('discloses every capability it advertises but cannot currently authorize', () => {
+    // A walkthrough that stays silent about a withheld scope sends an owner hunting
+    // a consent toggle the provider's dialog cannot show. This binds disclosure to
+    // the authorize request rather than to any particular wording: if a listed
+    // capability needs a scope the request omits, the steps must say so.
     configureEverything();
-    const withheld: Readonly<Record<string, readonly string[]>> = {
-      'meta-business-suite': ['pages_manage_posts', 'instagram_basic', 'leads_retrieval'],
-      tiktok: ['video.publish'],
-    };
-    for (const [id, scopes] of Object.entries(withheld)) {
-      const requested = new Set(connectorProviderScopes(id as typeof OAUTH_CONNECTOR_KEYS[number]));
-      const steps = listConnectorCatalog()
-        .find((entry) => entry.descriptor.id === id)?.setup.steps ?? [];
-      const body = steps.map((step) => step.text).join(' ');
-      for (const scope of scopes) {
-        assert.ok(!requested.has(scope), `${id} must not request ${scope} before its review passes`);
-        // If a step mentions a withheld scope at all, it must say it is withheld.
-        if (body.includes(scope)) {
-          assert.match(
-            body, /deliberately not requested|not requested until/u,
-            `${id} names ${scope} without saying it is withheld`,
-          );
-        }
+
+    for (const key of OAUTH_CONNECTOR_KEYS) {
+      const requested = new Set(connectorProviderScopes(key));
+      const entry = listConnectorCatalog().find((candidate) => candidate.descriptor.id === key);
+      assert.ok(entry, `${key} should be in the catalog`);
+      const withheld = entry.descriptor.capabilities
+        .map((capability) => CAPABILITY_SCOPES[`${key}:${capability.id}`])
+        .filter((scope): scope is string => scope !== undefined && !requested.has(scope));
+      const body = entry.setup.steps.map((step) => step.text).join(' ');
+
+      if (withheld.length === 0) {
+        assert.ok(
+          !/not requested/u.test(body),
+          `${key} requests every scope it lists, so it must not claim otherwise`,
+        );
+        continue;
       }
-      assert.ok(
-        !/approve content posting when/iu.test(body),
-        `${id} must not ask an owner to approve an unrequested permission`,
+      assert.match(
+        body, /deliberately not requested|not requested until/u,
+        `${key} lists ${withheld.length} capabilities needing ${withheld.join(', ')}, `
+        + 'which the request omits, and must disclose that',
       );
     }
   });

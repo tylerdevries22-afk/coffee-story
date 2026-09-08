@@ -15,7 +15,8 @@ export const MESSAGING_DEFINITIONS: readonly CatalogDefinition[] = [
       consoleUrl: 'https://console.cloud.google.com/apis/credentials',
       documentationUrl: 'https://developers.google.com/identity/protocols/oauth2/web-server',
       operatorSteps: [
-        { text: 'Grant the Business Profile locations you manage, not every location Google offers.' },
+        { text: 'You are granting Drive, Calendar and Gmail compose access for this organization.' },
+        { text: 'Business Profile, Analytics and Ads are deliberately not requested until Google approves this app.', href: 'https://developers.google.com/my-business/content/prereqs' },
       ],
     }),
   },
