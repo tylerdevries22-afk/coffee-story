@@ -175,7 +175,9 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: verification-coverage
-          path: coverage/verification/
+          path: |
+            coverage/verification/coverage-final.json
+            coverage/verification/coverage-summary.json
           if-no-files-found: error
 
   # One disposable hosted branch proves migrations, RLS, Realtime, the five
@@ -658,7 +660,9 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: integration-coverage
-          path: coverage/integration/
+          path: |
+            coverage/integration/coverage-final.json
+            coverage/integration/coverage-summary.json
           if-no-files-found: error
 
       - name: Advisors, on the schema this branch actually produces
