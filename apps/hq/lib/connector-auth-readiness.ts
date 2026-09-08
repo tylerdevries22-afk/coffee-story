@@ -88,8 +88,10 @@ function authorizableCapabilities(
  *
  * The catalog count includes capabilities gated behind scopes this deployment
  * deliberately does not request, so comparing an installation against it would
- * report a partial grant for every healthy connection. Cards keep their catalog
- * count when no capability rows are available, which reads as "no gap known".
+ * report a partial grant for every healthy connection. With no capability rows the
+ * count stays at its zero default, which callers read as "not known" — the catalog
+ * total would be a denominator from a different source than the numerator, and
+ * would manufacture a gap on every connector the moment this read degrades.
  */
 export function withAuthorizableCapabilities(
   cards: readonly ConnectorCard[],

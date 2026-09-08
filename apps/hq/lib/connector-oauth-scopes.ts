@@ -71,8 +71,29 @@ export async function resolveGrantedScopes(
   token: ConnectorToken,
 ): Promise<readonly string[] | null> {
   const reported = grantedConnectorScopes(token);
-  if (reported) return reported;
+  if (reported) return withinRequest(key, reported);
   const source = connectorScopeSource(key);
   if (source === 'request') return connectorProviderScopes(key);
-  return source === 'verify' ? metaGrantedScopes(token) : null;
+  const verified = source === 'verify' ? await metaGrantedScopes(token) : null;
+  return verified === null ? null : withinRequest(key, verified);
+}
+
+/**
+ * Narrows a granted list to what this connector actually asked for.
+ *
+ * Google is sent `include_granted_scopes=true`, so its token can report scopes
+ * carried over from an earlier consent for a different connector. Storing those
+ * would let a capability be enabled on the strength of a grant this connector
+ * never requested: either the storage RPC rejects it as uncertified and strands
+ * the installation, or it pads the enabled set back up and hides a real decline —
+ * the false "Connected and healthy" this whole area exists to prevent.
+ *
+ * A provider that requests no scopes at all, like Stripe Connect, is left alone;
+ * there is nothing to narrow against.
+ */
+function withinRequest(key: OAuthConnectorKey, granted: readonly string[]): readonly string[] {
+  const requested = connectorProviderScopes(key);
+  if (requested.length === 0) return granted;
+  const asked = new Set(requested);
+  return granted.filter((scope) => asked.has(scope));
 }

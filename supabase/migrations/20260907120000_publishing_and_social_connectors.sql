@@ -334,18 +334,24 @@ declare
   uncertified integer;
   unadmittable integer;
 begin
+  -- Everything below asserts that this release SEEDED its rows correctly. It must
+  -- not assert operator choices: `is_active` and an `availability` of 'disabled'
+  -- are the per-tenant kill switch this same release made load-bearing, and
+  -- platform_release_readiness gates every hosted promotion, so pinning them would
+  -- mean suspending a connector blocks all deploys until it is re-enabled.
   select count(*) into registered
   from public.connector_registry
   where provider_key in (
     'meta-business-suite', 'youtube', 'tiktok', 'transistor', 'beehiiv',
     'kindle-direct-publishing', 'acx-audiobooks'
-  ) and is_active;
+  );
   if registered <> 7 then
     raise exception 'publishing and social connectors are not fully registered';
   end if;
 
-  -- The exact count, not merely "at least one": silently deactivating a single
-  -- capability narrows a connector without the release gate noticing.
+  -- The exact count, not merely "at least one", so a capability dropped from the
+  -- seed is caught. Rows are counted regardless of `is_active`: deactivating one
+  -- is an operator action, and the seed is what this assertion owns.
   select count(*) into uncovered
   from public.connector_registry registry
   join (values
@@ -356,7 +362,7 @@ begin
     on expected.provider_key = registry.provider_key
   where expected.capability_count <> (
     select count(*) from public.connector_capabilities capability
-    where capability.provider_id = registry.id and capability.is_active
+    where capability.provider_id = registry.id
   );
   if uncovered > 0 then
     raise exception 'a registered connector does not carry its full capability set';
@@ -399,7 +405,10 @@ begin
     ('acx-audiobooks', 'manual_only')
   ) as expected(provider_key, availability)
     on expected.provider_key = registry.provider_key
-  where registry.availability <> expected.availability;
+  where registry.availability <> expected.availability
+    -- A suspended connector is an operator decision, not a seeding error.
+    and registry.is_active
+    and registry.availability <> 'disabled';
   if mislabelled > 0 then
     raise exception 'a connector registry row disagrees with the code catalog';
   end if;
@@ -413,6 +422,8 @@ begin
     'google-suite', 'stripe', 'quickbooks-online', 'slack',
     'meta-business-suite', 'youtube', 'tiktok'
   ) and is_active
+    -- 'disabled' is the kill switch, not a misconfiguration.
+    and availability <> 'disabled'
     and availability not in ('available', 'provider_approval_required');
   if unadmittable > 0 then
     raise exception 'an OAuth connector is registered in a state the authorize RPC rejects';

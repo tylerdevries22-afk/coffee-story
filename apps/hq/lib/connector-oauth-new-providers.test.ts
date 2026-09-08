@@ -31,6 +31,12 @@ function configure(): void {
   process.env.YOUTUBE_OAUTH_CLIENT_SECRET = 'youtube-secret';
   process.env.TIKTOK_CLIENT_KEY = 'tiktok-key';
   process.env.TIKTOK_CLIENT_SECRET = 'tiktok-secret';
+  process.env.GOOGLE_OAUTH_CLIENT_ID = 'google-client';
+  process.env.GOOGLE_OAUTH_CLIENT_SECRET = 'google-secret';
+  process.env.SLACK_CLIENT_ID = 'slack-client';
+  process.env.SLACK_CLIENT_SECRET = 'slack-secret';
+  process.env.STRIPE_CONNECT_CLIENT_ID = 'stripe-client';
+  process.env.STRIPE_SECRET_KEY = 'stripe-secret';
 }
 
 afterEach(() => {
@@ -255,6 +261,52 @@ describe('publishing and social OAuth providers', { concurrency: false }, () => 
       ['com.intuit.quickbooks.accounting'],
     );
     assert.equal(fetchMock.mock.callCount(), 0, 'no verification call is needed');
+  });
+
+  it('never records a scope this connector did not ask for', async () => {
+    configure();
+    // Google is sent include_granted_scopes=true, so its token can report scopes
+    // carried over from an earlier consent for a different connector. Storing them
+    // would enable a capability on a grant this connector never requested.
+    const granted = await resolveGrantedScopes('google-suite', {
+      access_token: 't',
+      scope: 'openid email https://www.googleapis.com/auth/drive.file'
+        + ' https://www.googleapis.com/auth/business.manage'
+        + ' https://www.googleapis.com/auth/adwords',
+    });
+    assert.ok(granted);
+    assert.ok(
+      !granted.includes('https://www.googleapis.com/auth/business.manage'),
+      'a carried-over scope must not be recorded as granted here',
+    );
+    assert.ok(!granted.includes('https://www.googleapis.com/auth/adwords'));
+    assert.deepEqual(
+      [...granted].sort(),
+      ['email', 'https://www.googleapis.com/auth/drive.file', 'openid'],
+      'only what this connector requested survives',
+    );
+  });
+
+  it('narrows a verified Meta grant to the request as well', async () => {
+    configure();
+    mock.method(globalThis, 'fetch', async () => Response.json({ data: [
+      { permission: 'pages_show_list', status: 'granted' },
+      { permission: 'pages_manage_posts', status: 'granted' },
+    ] }));
+    const granted = await resolveGrantedScopes('meta-business-suite', { access_token: 't' });
+    assert.deepEqual(
+      granted, ['pages_show_list'],
+      'pages_manage_posts is withheld from the request, so it is not ours to record',
+    );
+  });
+
+  it('leaves a provider that requests no scopes untouched', async () => {
+    configure();
+    // Stripe Connect issues no scopes; access follows the connected account.
+    assert.deepEqual(
+      await resolveGrantedScopes('stripe', { access_token: 't', scope: 'read_write' }),
+      ['read_write'],
+    );
   });
 
   it('still prefers a reported scope over the requested list', async () => {

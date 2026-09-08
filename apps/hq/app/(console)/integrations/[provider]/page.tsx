@@ -70,7 +70,10 @@ export default async function IntegrationDetailPage({ params }: IntegrationDetai
             : scopeGap ? 'Partly authorized'
             : isUnavailable && !card.isManualOnly ? 'Unavailable' : card.statusLabel}</h2>
           <p>{scopeGap
-            ? `This connection is healthy, but only ${card.enabledCapabilityCount} of ${card.authorizableCapabilityCount} capabilities were authorized. Reconnecting lets you approve the rest.`
+            ? `This connection is healthy, but only ${card.enabledCapabilityCount} of ${card.authorizableCapabilityCount} capabilities were authorized.`
+              + (card.connectHref
+                ? ' Reconnecting lets you approve the rest.'
+                : ' Reconnecting is unavailable until this provider is certified again.')
             : readinessNote}</p>
           {card.isConnected && scopeGap && card.connectHref ? (
             <a className="button" href={card.connectHref}>Reconnect to widen access</a>
