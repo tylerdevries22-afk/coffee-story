@@ -48,7 +48,7 @@ export async function mergeCoverage(
   integrationPath: string,
   browserPath: string,
   outputDir: string,
-  threshold = 40,
+  threshold = 55,
 ): Promise<number> {
   const report = new CoverageReport({
     name: 'Workspace verification, database integration, and hosted browser coverage',
