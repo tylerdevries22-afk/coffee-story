@@ -34,8 +34,6 @@ export async function POST(request: Request): Promise<Response> {
   const db = serviceDb(env);
   const now = new Date();
 
-  const square = await runSquareMaintenance(db, now);
-
   const drops = await db
     .from('drops')
     .select('id, status, starts_at, ends_at')
@@ -118,6 +116,10 @@ export async function POST(request: Request): Promise<Response> {
     ended_before: delegatedGrantRetentionCutoff(now),
   });
   if (delegatedGrants.error) throw delegatedGrants.error;
+
+  // Provider maintenance has its own finite claim budget and runs last so a
+  // Square outage cannot delay time-sensitive work owned by the shared tick.
+  const square = await runSquareMaintenance(db, now);
 
   return Response.json({
     ok: true,

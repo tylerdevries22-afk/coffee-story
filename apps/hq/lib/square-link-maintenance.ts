@@ -8,8 +8,11 @@ import {
 } from '@platform/engine';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-const BATCH_SIZE = 10;
-const CONCURRENCY = 2;
+// The Square transport caps one operation at two 10-second attempts plus its
+// retry delay. Five waves therefore reserve about 102 seconds of a 300-second
+// tick, while the database lease rotates later rows through a sustained outage.
+const CLAIM_LIMIT = 50;
+const CONCURRENCY = 10;
 
 type DueQuote = {
   order_id: string;
@@ -47,7 +50,7 @@ export type SquareLinkExpirySummary = {
 };
 
 type MaintenanceDeps = {
-  load?: (db: SupabaseClient, now: Date, afterOrderId?: string) => Promise<DueSquareLink[]>;
+  load?: (db: SupabaseClient, now: Date) => Promise<DueSquareLink[]>;
   cancel?: (square: SquareConfig, row: DueSquareLink) => Promise<boolean>;
   finalize?: (db: SupabaseClient, row: DueSquareLink) => Promise<boolean>;
 };
@@ -55,17 +58,13 @@ type MaintenanceDeps = {
 async function loadDueLinks(
   db: SupabaseClient,
   now: Date,
-  afterOrderId?: string,
 ): Promise<DueSquareLink[]> {
-  let query = db.from('platform_fee_quotes')
-    .select('order_id, brand_id, location_id, expires_at')
-    .lte('expires_at', now.toISOString())
-    .order('order_id', { ascending: true })
-    .limit(BATCH_SIZE);
-  if (afterOrderId) query = query.gt('order_id', afterOrderId);
-  const quotes = await query.returns<DueQuote[]>();
+  const quotes = await db.rpc('claim_due_square_checkout_quotes', {
+    p_now: now.toISOString(),
+    p_limit: CLAIM_LIMIT,
+  });
   if (quotes.error) throw quotes.error;
-  const due = quotes.data ?? [];
+  const due = (quotes.data ?? []) as DueQuote[];
   if (due.length === 0) return [];
 
   const orderIds = due.map((row) => row.order_id);
@@ -137,45 +136,35 @@ export async function expireDueSquareCheckoutLinks(
   const summary: SquareLinkExpirySummary = {
     scanned: 0, cancelled: 0, failed: 0, stale: 0, scanFailed: false,
   };
-  let afterOrderId: string | undefined;
-  while (true) {
-    let rows: DueSquareLink[];
-    try {
-      rows = await (deps.load ?? loadDueLinks)(db, now, afterOrderId);
-    } catch (error) {
-      console.error('Square checkout expiry scan failed.', {
-        error: error instanceof Error ? error.message : 'database query failed',
-      });
-      summary.scanFailed = true;
-      break;
-    }
-    summary.scanned += rows.length;
-    for (let offset = 0; offset < rows.length; offset += CONCURRENCY) {
-      const results = await Promise.all(rows.slice(offset, offset + CONCURRENCY).map(async (row) => {
-        if (!row.paymentLinkId || !row.squareOrderId || !row.accessTokenEncrypted) {
-          return 'failed' as const;
-        }
-        try {
-          const providerCancelled = await (deps.cancel ?? cancelLink)(square, row);
-          if (!providerCancelled) return 'failed' as const;
-        } catch { return 'failed' as const; }
-        try {
-          return await (deps.finalize ?? finalizeExpiry)(db, row)
-            ? 'cancelled' as const
-            : 'stale' as const;
-        } catch {
-          return 'failed' as const;
-        }
-      }));
-      for (const result of results) summary[result] += 1;
-    }
-    if (rows.length < BATCH_SIZE) break;
-    const nextOrderId = rows.at(-1)?.order_id;
-    if (!nextOrderId || nextOrderId === afterOrderId) {
-      summary.scanFailed = true;
-      break;
-    }
-    afterOrderId = nextOrderId;
+  let rows: DueSquareLink[];
+  try {
+    rows = await (deps.load ?? loadDueLinks)(db, now);
+  } catch (error) {
+    console.error('Square checkout expiry scan failed.', {
+      error: error instanceof Error ? error.message : 'database query failed',
+    });
+    summary.scanFailed = true;
+    return summary;
+  }
+  summary.scanned = rows.length;
+  for (let offset = 0; offset < rows.length; offset += CONCURRENCY) {
+    const results = await Promise.all(rows.slice(offset, offset + CONCURRENCY).map(async (row) => {
+      if (!row.paymentLinkId || !row.squareOrderId || !row.accessTokenEncrypted) {
+        return 'failed' as const;
+      }
+      try {
+        const providerCancelled = await (deps.cancel ?? cancelLink)(square, row);
+        if (!providerCancelled) return 'failed' as const;
+      } catch { return 'failed' as const; }
+      try {
+        return await (deps.finalize ?? finalizeExpiry)(db, row)
+          ? 'cancelled' as const
+          : 'stale' as const;
+      } catch {
+        return 'failed' as const;
+      }
+    }));
+    for (const result of results) summary[result] += 1;
   }
   return summary;
 }

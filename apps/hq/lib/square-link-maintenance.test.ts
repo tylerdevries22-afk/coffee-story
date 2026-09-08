@@ -26,6 +26,23 @@ const row = (id: string): DueSquareLink => ({
 });
 
 describe('Square checkout link expiry', () => {
+  it('claims no more than fifty rows for one scheduled tick', async () => {
+    const calls: unknown[] = [];
+    const claimDb = {
+      rpc: async (name: string, args: unknown) => {
+        calls.push({ name, args });
+        return { data: [], error: null };
+      },
+    } as unknown as SupabaseClient;
+    const now = new Date('2026-09-08T15:30:00.000Z');
+    const result = await expireDueSquareCheckoutLinks(claimDb, square, now);
+    assert.deepEqual(calls, [{
+      name: 'claim_due_square_checkout_quotes',
+      args: { p_now: now.toISOString(), p_limit: 50 },
+    }]);
+    assert.equal(result.scanned, 0);
+  });
+
   it('confirms provider deletion before releasing each reservation', async () => {
     const calls: string[] = [];
     const result = await expireDueSquareCheckoutLinks(db, square, new Date(), {
@@ -43,21 +60,26 @@ describe('Square checkout link expiry', () => {
     }
   });
 
-  it('drains every due page in one maintenance run', async () => {
-    const due = Array.from({ length: 11 }, (_, index) => row(String(index).padStart(2, '0')));
-    const cursors: Array<string | undefined> = [];
+  it('processes one claimed batch with at most ten provider calls at once', async () => {
+    const due = Array.from({ length: 50 }, (_, index) => row(String(index).padStart(2, '0')));
+    let loads = 0;
+    let active = 0;
+    let peak = 0;
     const result = await expireDueSquareCheckoutLinks(db, square, new Date(), {
-      load: async (_db, _now, afterOrderId) => {
-        cursors.push(afterOrderId);
-        const start = afterOrderId ? due.findIndex((item) => item.order_id === afterOrderId) + 1 : 0;
-        return due.slice(start, start + 10);
+      load: async () => { loads += 1; return due; },
+      cancel: async () => {
+        active += 1;
+        peak = Math.max(peak, active);
+        await new Promise((resolve) => setImmediate(resolve));
+        active -= 1;
+        return true;
       },
-      cancel: async () => true,
       finalize: async () => true,
     });
-    assert.deepEqual(cursors, [undefined, '09']);
+    assert.equal(loads, 1);
+    assert.equal(peak, 10);
     assert.deepEqual(result,
-      { scanned: 11, cancelled: 11, failed: 0, stale: 0, scanFailed: false });
+      { scanned: 50, cancelled: 50, failed: 0, stale: 0, scanFailed: false });
   });
 
   it('keeps capacity when Square rejects cancellation', async () => {
