@@ -36,12 +36,19 @@ export async function POST(request: Request): Promise<Response> {
   const now = new Date();
   const stages = await runIndependentCronStages({
     drops: async () => {
-      const result = await db.from('drops').select('id, status, starts_at, ends_at')
-        .in('status', ['scheduled', 'live'])
-        .returns<{ id: string; status: 'scheduled' | 'live'; starts_at: string; ends_at: string }[]>();
+      const result = await db.from('drops').select('id, status, reveal_at, starts_at, ends_at')
+        .in('status', ['scheduled', 'revealed', 'live'])
+        .returns<{
+          id: string;
+          status: 'scheduled' | 'revealed' | 'live';
+          reveal_at: string | null;
+          starts_at: string;
+          ends_at: string;
+        }[]>();
       if (result.error) throw result.error;
       const transitions = dueDropTransitions((result.data ?? []).map((drop) => ({
-        id: drop.id, status: drop.status, startsAt: drop.starts_at, endsAt: drop.ends_at,
+        id: drop.id, status: drop.status, revealAt: drop.reveal_at,
+        startsAt: drop.starts_at, endsAt: drop.ends_at,
       })), now);
       for (const transition of transitions) {
         const moved = await db.from('drops').update({ status: transition.to }).eq('id', transition.id);
