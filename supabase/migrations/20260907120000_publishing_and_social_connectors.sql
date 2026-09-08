@@ -321,7 +321,7 @@ declare
   registered integer;
   uncovered integer;
   mislabelled integer;
-  unadmittable integer;
+  uncertified integer;
 begin
   select count(*) into registered
   from public.connector_registry
@@ -333,17 +333,39 @@ begin
     raise exception 'publishing and social connectors are not fully registered';
   end if;
 
+  -- The exact count, not merely "at least one": silently deactivating a single
+  -- capability narrows a connector without the release gate noticing.
   select count(*) into uncovered
   from public.connector_registry registry
+  join (values
+    ('meta-business-suite', 6), ('youtube', 5), ('tiktok', 4),
+    ('transistor', 4), ('beehiiv', 5),
+    ('kindle-direct-publishing', 3), ('acx-audiobooks', 2)
+  ) as expected(provider_key, capability_count)
+    on expected.provider_key = registry.provider_key
+  where expected.capability_count <> (
+    select count(*) from public.connector_capabilities capability
+    where capability.provider_id = registry.id and capability.is_active
+  );
+  if uncovered > 0 then
+    raise exception 'a registered connector does not carry its full capability set';
+  end if;
+
+  -- Each capability must carry a sandbox certification row, or the gate that
+  -- reads them has nothing to check.
+  select count(*) into uncertified
+  from public.connector_capabilities capability
+  join public.connector_registry registry on registry.id = capability.provider_id
   where registry.provider_key in (
     'meta-business-suite', 'youtube', 'tiktok', 'transistor', 'beehiiv',
     'kindle-direct-publishing', 'acx-audiobooks'
   ) and not exists (
-    select 1 from public.connector_capabilities capability
-    where capability.provider_id = registry.id and capability.is_active
+    select 1 from public.connector_certifications certification
+    where certification.capability_id = capability.id
+      and certification.environment = 'sandbox'
   );
-  if uncovered > 0 then
-    raise exception 'a registered connector has no active capability';
+  if uncertified > 0 then
+    raise exception 'a registered capability has no sandbox certification row';
   end if;
 
   if app.connector_onboarding_status('manual_only') <> 'manual_import' then
@@ -371,15 +393,9 @@ begin
     raise exception 'a connector registry row disagrees with the code catalog';
   end if;
 
-  -- Every OAuth connector must be admissible by the authorize RPC, or its
-  -- Connect button is decorative.
-  select count(*) into unadmittable
-  from public.connector_registry
-  where provider_key in ('meta-business-suite', 'youtube', 'tiktok')
-    and availability not in ('available', 'provider_approval_required');
-  if unadmittable > 0 then
-    raise exception 'an OAuth connector is registered in a state the authorize RPC rejects';
-  end if;
+  -- Note: OAuth admissibility needs no separate check. The expected
+  -- availabilities pinned above are exactly the two states
+  -- begin_connector_oauth_state admits, so the check above subsumes it.
 
   -- The three CHECK constraints this migration re-added must still accept the
   -- values the application writes.

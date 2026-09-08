@@ -1,50 +1,61 @@
 import { fetchWithRetry } from '@platform/api-client';
 
-import { connectorProviderScopes, type OAuthConnectorKey } from './connector-oauth-config';
+import { type OAuthConnectorKey } from './connector-oauth-config';
 import { stringAt, type ConnectorToken } from './connector-oauth-exchange';
 
 const META_PERMISSIONS = 'https://graph.facebook.com/v25.0/me/permissions';
 
-export function grantedConnectorScopes(
-  key: OAuthConnectorKey,
-  token: ConnectorToken,
-): readonly string[] {
+/**
+ * The scopes a provider itself says it granted.
+ *
+ * Returns `null`, never the requested list, when the provider reports nothing.
+ * Assuming the request would record a declined permission as consent, and the
+ * first sync would then fail with a provider permission error instead of the card
+ * showing a scope gap. `null` means "unknown", which callers must not treat as a
+ * successful connection.
+ */
+export function grantedConnectorScopes(token: ConnectorToken): readonly string[] | null {
   const reported = stringAt(token, 'scope');
-  if (reported) return [...new Set(reported.split(/[\s,]+/).filter(Boolean))];
-  return connectorProviderScopes(key);
+  if (!reported) return null;
+  return [...new Set(reported.split(/[\s,]+/).filter(Boolean))];
 }
 
 /**
- * Resolves the scopes the user actually granted.
+ * Asks Meta which permissions survived its consent screen.
  *
- * Meta's token response carries no `scope` field, and its consent screen lets a
- * user decline individual permissions, so falling back to the requested list
- * would record declined scopes as granted and the first sync would fail with a
- * permission error instead of the card showing a scope gap. `/me/permissions` is
- * the only truthful source, so Meta is asked directly.
+ * Meta's token response carries no `scope` field and its dialog lets a user
+ * decline individual permissions, so `/me/permissions` is the only truthful
+ * source. Returns `null` when it cannot be reached, which is deliberately
+ * distinct from an empty grant: one is an unknown, the other is an answer.
  */
-export async function resolveGrantedScopes(
-  key: OAuthConnectorKey,
-  token: ConnectorToken,
-): Promise<readonly string[]> {
-  if (key !== 'meta-business-suite' || stringAt(token, 'scope')) {
-    return grantedConnectorScopes(key, token);
-  }
+async function metaGrantedScopes(token: ConnectorToken): Promise<readonly string[] | null> {
   try {
     const response = await fetchWithRetry(
       META_PERMISSIONS,
       { headers: { Accept: 'application/json', Authorization: `Bearer ${token.access_token}` } },
     );
-    if (!response.ok) return [];
+    if (!response.ok) return null;
     const rows = Reflect.get(await response.json() as object, 'data');
-    if (!Array.isArray(rows)) return [];
+    if (!Array.isArray(rows)) return null;
     return [...new Set(rows
       .filter((row) => stringAt(row, 'status') === 'granted')
       .map((row) => stringAt(row, 'permission'))
       .filter((permission): permission is string => permission !== null))];
   } catch {
-    // A scope list we could not verify is recorded as empty, never as the full
-    // request: an empty list reads as a gap, an assumed list reads as consent.
-    return [];
+    return null;
   }
+}
+
+/**
+ * Resolves the scopes the user actually granted, or `null` if that cannot be
+ * established. A caller must fail the connection on `null` rather than storing an
+ * installation whose capability set would be silently empty.
+ */
+export async function resolveGrantedScopes(
+  key: OAuthConnectorKey,
+  token: ConnectorToken,
+): Promise<readonly string[] | null> {
+  const reported = grantedConnectorScopes(token);
+  if (reported) return reported;
+  return key === 'meta-business-suite' ? metaGrantedScopes(token) : null;
 }

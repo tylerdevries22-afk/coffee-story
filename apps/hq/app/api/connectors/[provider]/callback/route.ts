@@ -41,11 +41,27 @@ function finish(request: Request, provider: OAuthConnectorKey, outcome: string):
  * not tell a stale client secret from a declined scope or a storage error.
  */
 function reportFailure(provider: OAuthConnectorKey, error: unknown): 'connection_failed' {
-  const stage = error instanceof ConnectorExchangeError ? error.stage : 'storage';
+  const stage = error instanceof ConnectorExchangeError ? error.stage
+    : error instanceof ConnectorScopeError ? 'scope' : 'storage';
   const status = error instanceof ConnectorExchangeError && error.status !== null
     ? ` status=${error.status}` : '';
   console.error(`connector.oauth.callback provider=${provider} stage=${stage}${status}`);
   return 'connection_failed';
+}
+
+/**
+ * Raised when the granted scopes cannot be established.
+ *
+ * Storing the installation anyway would mark it connected and healthy with an
+ * empty capability set, and the store offers no reconnect affordance for a
+ * healthy connector, so the owner would be stranded on a green card that never
+ * syncs. Failing here leaves them able to press Connect again.
+ */
+class ConnectorScopeError extends Error {
+  constructor() {
+    super('Connector granted scopes could not be verified.');
+    this.name = 'ConnectorScopeError';
+  }
 }
 
 function expiryOf(token: Readonly<Record<string, unknown>>): string | null {
@@ -82,6 +98,8 @@ export async function GET(
   if (!callbackUrl || callbackUrl !== record.redirect_uri) return finish(request, provider, 'invalid_state');
   try {
     const token = await exchangeConnectorCode(provider, code, cookie.verifier, callbackUrl);
+    const grantedScopes = await resolveGrantedScopes(provider, token);
+    if (grantedScopes === null) throw new ConnectorScopeError();
     const identity = await verifyConnectorIdentity(provider, token, url.searchParams.get('realmId'));
     const credential = { ...token, external_account_id: identity.accountId, acquired_at: new Date().toISOString() };
     const completed = await context.db.rpc('complete_connector_oauth_connection', {
@@ -91,7 +109,7 @@ export async function GET(
       p_actor_user_id: context.userId,
       p_credential: credential,
       p_account_label: identity.accountLabel,
-      p_granted_scopes: await resolveGrantedScopes(provider, token),
+      p_granted_scopes: grantedScopes,
       p_expires_at: expiryOf(token),
     });
     if (completed.error) throw new Error('Connector storage failed.');

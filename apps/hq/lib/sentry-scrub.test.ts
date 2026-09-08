@@ -49,6 +49,49 @@ describe('OAuth telemetry scrubbing', () => {
     assert.ok(!serialized.includes('AQD-secret-code'), 'no authorization code anywhere in the event');
   });
 
+  it('scrubs the trace context, where the callback route\'s own code lands', () => {
+    // The root span's attributes serialize to contexts.trace.data, so a callback
+    // request carries the single-use authorization code there.
+    const event = scrubEvent({
+      contexts: {
+        trace: {
+          data: {
+            'url.full': 'https://hq.example.com/api/connectors/meta-business-suite/callback?code=AQD-single-use&state=s',
+            'http.url': 'https://hq.example.com/api/connectors/meta-business-suite/callback?code=AQD-single-use',
+            'http.target': '/api/connectors/meta-business-suite/callback?code=AQD-single-use&state=s',
+          },
+        },
+      },
+    });
+    const serialized = JSON.stringify(event);
+    assert.ok(!serialized.includes('AQD-single-use'), 'the code must not survive anywhere');
+    assert.ok(serialized.includes('code=REDACTED'));
+  });
+
+  it('redacts http.target, which is a path and query rather than a URL', () => {
+    // `state` is a signed, public value, so only the code is redacted.
+    assert.equal(
+      redactUrl('/api/connectors/tiktok/callback?code=abc&state=s'),
+      '/api/connectors/tiktok/callback?code=REDACTED&state=s',
+    );
+    assert.equal(redactUrl('/integrations?tab=connected'), '/integrations?tab=connected');
+  });
+
+  it('redacts a query that carries a code even with no URL beside it', () => {
+    const breadcrumb = scrubBreadcrumb({ data: { 'http.query': '?code=AQD-secret-code' } });
+    assert.equal(breadcrumb.data['http.query'], 'REDACTED');
+  });
+
+  it('keeps query telemetry for requests that are not token exchanges', () => {
+    // Blanking every *query key would strip query strings from every unrelated
+    // outgoing request in the deployment.
+    const breadcrumb = scrubBreadcrumb({
+      data: { url: 'https://api.stripe.com/v1/charges?limit=10', 'http.query': '?limit=10' },
+    });
+    assert.equal(breadcrumb.data['http.query'], '?limit=10', 'an unrelated query survives');
+    assert.equal(breadcrumb.data.url, 'https://api.stripe.com/v1/charges?limit=10');
+  });
+
   it('tolerates an event with none of the fields it scrubs', () => {
     assert.deepEqual(scrubEvent({ message: 'hello' }), { message: 'hello' });
     assert.deepEqual(scrubBreadcrumb({ category: 'ui' }), { category: 'ui' });

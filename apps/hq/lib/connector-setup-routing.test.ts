@@ -3,8 +3,14 @@ import { afterEach, describe, it } from 'node:test';
 
 import { listConnectorCatalog } from '@platform/integrations';
 
+import { OAUTH_CONNECTOR_KEYS } from './connector-oauth-config';
+
 import { connectorCardsOf, defaultConnectorCards, demoConnectorCards } from './integration-cards';
-import { certifiedOAuthProviders, withConnectorAuthorization } from './connector-auth-readiness';
+import {
+  certifiedOAuthProviders,
+  withConnectorAuthorization,
+  type ConnectorCertificationRow,
+} from './connector-auth-readiness';
 
 const ENV = [
   'CONNECTOR_OAUTH_STATE_SECRET', 'CONNECTOR_PUBLIC_ORIGIN',
@@ -12,6 +18,7 @@ const ENV = [
   'YOUTUBE_OAUTH_CLIENT_ID', 'YOUTUBE_OAUTH_CLIENT_SECRET',
   'TIKTOK_CLIENT_KEY', 'TIKTOK_CLIENT_SECRET',
   'META_APP_ID', 'META_APP_SECRET',
+  'SLACK_CLIENT_ID', 'SLACK_CLIENT_SECRET',
 ] as const;
 const ORIGINAL = Object.fromEntries(ENV.map((name) => [name, process.env[name]]));
 
@@ -27,6 +34,8 @@ function configureEverything(): void {
   process.env.TIKTOK_CLIENT_SECRET = 'tiktok-secret';
   process.env.META_APP_ID = 'meta-app';
   process.env.META_APP_SECRET = 'meta-secret';
+  process.env.SLACK_CLIENT_ID = 'slack-client';
+  process.env.SLACK_CLIENT_SECRET = 'slack-secret';
 }
 
 /** Mirrors an activated registry: every non-planned provider live for the tenant. */
@@ -63,6 +72,32 @@ afterEach(() => {
 });
 
 describe('connector setup routing', { concurrency: false }, () => {
+  it('publishes a redirect path only for a provider this app actually routes', () => {
+    // The catalog cannot import from apps/hq, so the binding between what it
+    // advertises and what a route serves is asserted here, where both are visible.
+    // Removing a key from OAUTH_CONNECTOR_KEYS must fail this, not 404 in production.
+    const served = new Set<string>([
+      ...OAUTH_CONNECTOR_KEYS.map((key) => `/api/connectors/${key}/callback`),
+      '/api/square/callback',
+    ]);
+    const published = listConnectorCatalog()
+      .filter((entry) => entry.setup.redirectPath !== undefined)
+      .map((entry) => ({ id: entry.descriptor.id, path: entry.setup.redirectPath }));
+
+    assert.ok(published.length > 0);
+    for (const { id, path } of published) {
+      assert.ok(path !== undefined && served.has(path), `${id} publishes ${path}, which no route serves`);
+    }
+    // And every routed OAuth provider should advertise its path, so the operator
+    // is never left guessing the callback to register.
+    for (const key of OAUTH_CONNECTOR_KEYS) {
+      assert.ok(
+        published.some((entry) => entry.id === key),
+        `${key} is routed but publishes no redirect path`,
+      );
+    }
+  });
+
   it('gives every connectable card the setup block its provider declares', () => {
     for (const card of defaultConnectorCards()) {
       if (card.availability === 'coming-soon') continue;
@@ -141,6 +176,67 @@ describe('connector setup routing', { concurrency: false }, () => {
     assert.equal(certified.has('youtube'), false, 'an inactive row is not certified');
     assert.equal(certified.has('tiktok'), false, 'a disabled availability is not certified');
     assert.equal(certified.has('slack'), true, 'an active, available row is certified');
+  });
+
+  it('certifies only a sandbox row that passed, was certified, and has not expired', () => {
+    const registry = [{ id: 'p1', provider_key: 'slack', availability: 'available', is_active: true }];
+    const capabilities = [{ id: 'cap', provider_id: 'p1', oauth_scopes: [] as readonly string[] }];
+    const now = Date.parse('2026-09-07T00:00:00.000Z');
+    const base: ConnectorCertificationRow = {
+      capability_id: 'cap', environment: 'sandbox', status: 'passed',
+      certified_at: '2026-01-01T00:00:00.000Z', valid_until: null,
+    };
+    const certifies = (row: ConnectorCertificationRow) =>
+      certifiedOAuthProviders(registry, capabilities, [row], now).has('slack');
+
+    assert.equal(certifies(base), true, 'a passed, certified, unexpired sandbox row certifies');
+    assert.equal(certifies({ ...base, environment: 'production' }), false, 'production is not the gate');
+    assert.equal(certifies({ ...base, environment: 'staging' }), false, 'nor is staging');
+    assert.equal(certifies({ ...base, status: 'failed' }), false, 'a failed run must not certify');
+    assert.equal(certifies({ ...base, status: 'not_started' }), false, 'nor an unstarted one');
+    assert.equal(certifies({ ...base, certified_at: null }), false, 'passed without a date is not certified');
+    assert.equal(
+      certifies({ ...base, valid_until: '2026-09-01T00:00:00.000Z' }), false,
+      'an expired certification must not certify',
+    );
+    assert.equal(
+      certifies({ ...base, valid_until: '2026-12-01T00:00:00.000Z' }), true,
+      'one still in date does',
+    );
+  });
+
+  it('refuses to certify a provider that has no enabled capability at all', () => {
+    configureEverything();
+    const registry = [{ id: 'p1', provider_key: 'slack', availability: 'available', is_active: true }];
+    // No capability rows: there is nothing certified, so nothing to authorize.
+    assert.equal(certifiedOAuthProviders(registry, [], []).has('slack'), false);
+    // A capability whose scopes were never requested is excluded, which leaves the
+    // provider with no enabled capability and so uncertified.
+    const unrequested = [{ id: 'cap', provider_id: 'p1', oauth_scopes: ['chat:write.customize'] }];
+    const passed = [{
+      capability_id: 'cap', environment: 'sandbox', status: 'passed',
+      certified_at: '2026-01-01T00:00:00.000Z', valid_until: null,
+    }];
+    assert.equal(certifiedOAuthProviders(registry, unrequested, passed).has('slack'), false);
+  });
+
+  it('requires every enabled capability to be certified, not merely one', () => {
+    // The scope-subset filter compares against the provider's configured request
+    // list, which is empty until its credentials are present.
+    configureEverything();
+    const registry = [{ id: 'p1', provider_key: 'slack', availability: 'available', is_active: true }];
+    const capabilities = [
+      { id: 'read', provider_id: 'p1', oauth_scopes: ['channels:read'] },
+      { id: 'write', provider_id: 'p1', oauth_scopes: ['chat:write'] },
+    ];
+    const row = (id: string) => ({
+      capability_id: id, environment: 'sandbox', status: 'passed',
+      certified_at: '2026-01-01T00:00:00.000Z', valid_until: null,
+    });
+    assert.equal(certifiedOAuthProviders(registry, capabilities, [row('read')]).has('slack'), false);
+    assert.equal(
+      certifiedOAuthProviders(registry, capabilities, [row('read'), row('write')]).has('slack'), true,
+    );
   });
 
   it('leaves an API-key provider without a redirect, because no route accepts a key', () => {

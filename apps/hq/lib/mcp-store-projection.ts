@@ -15,19 +15,25 @@ const CONSOLE_LABELS: Readonly<Record<ConnectorCard['setup']['kind'], string>> =
 /**
  * Maps a card onto the store's status vocabulary.
  *
- * Order matters. A disabled or revoked connector must read as unavailable even
- * when it is manual-only, otherwise a deactivated import advertises an action
- * beside a "Disabled" label.
+ * Order matters, and so does what "unavailable" means. It is reserved for a
+ * connector the tenant cannot set up at all. A connector that is configurable but
+ * carries no button — every API-key provider, because no route accepts a pasted
+ * key yet — reads as not connected, so the badge agrees with the "Setup required"
+ * readiness text and the how-to beside it. Reading those as unavailable while
+ * showing live setup steps contradicts itself.
+ *
+ * `manual` likewise means an import relationship exists, so it follows the
+ * installation status rather than the provider's kind: a manual-only connector
+ * with nothing imported is simply not connected yet.
  */
 export function sharedStatus(card: ConnectorCard, mode: StoreMode): McpStoreStatus {
   if (card.status === 'connected-healthy') return 'connected';
   if (card.status === 'connected-degraded' || card.status === 'reauthorization-required') {
     return 'reconnect';
   }
-  if (card.status === 'disabled' || card.status === 'revoked') return 'unavailable';
-  if (mode === 'select') return card.canConfigure ? 'not_connected' : 'unavailable';
-  if (card.isManualOnly) return card.canConfigure ? 'manual' : 'unavailable';
-  return card.connectHref ? 'not_connected' : 'unavailable';
+  if (!card.canConfigure) return 'unavailable';
+  if (mode === 'select') return 'not_connected';
+  return card.isManualOnly && card.status === 'manual-import' ? 'manual' : 'not_connected';
 }
 
 /**

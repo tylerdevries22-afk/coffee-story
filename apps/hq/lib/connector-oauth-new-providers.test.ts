@@ -174,14 +174,37 @@ describe('publishing and social OAuth providers', { concurrency: false }, () => 
     ] }));
 
     const granted = await resolveGrantedScopes('meta-business-suite', { access_token: 'meta-token' });
+    assert.ok(granted, 'the permissions call answered, so this is a known grant');
     assert.deepEqual([...granted].sort(), ['pages_show_list', 'read_insights']);
     assert.ok(!granted.includes('ads_read'), 'a declined permission must not be recorded');
   });
 
-  it('records no scopes rather than assumed scopes when Meta cannot be asked', async () => {
+  it('reports an unknown grant, not an empty one, when Meta cannot be asked', async () => {
     configure();
     mock.method(globalThis, 'fetch', async () => new Response('nope', { status: 500 }));
+    // null and [] must stay distinct: one is "we could not tell", the other is a
+    // real answer. The callback refuses to store an installation on null.
+    assert.equal(await resolveGrantedScopes('meta-business-suite', { access_token: 't' }), null);
+  });
+
+  it('distinguishes a genuinely empty Meta grant from an unreachable one', async () => {
+    configure();
+    mock.method(globalThis, 'fetch', async () => Response.json({ data: [] }));
     assert.deepEqual(await resolveGrantedScopes('meta-business-suite', { access_token: 't' }), []);
+  });
+
+  it('never assumes the requested list for any provider that reports no scope', async () => {
+    configure();
+    const fetchMock = mock.method(globalThis, 'fetch', async () => Response.json({}));
+    // The Meta fix generalizes: assuming the request would record declined
+    // consent for TikTok and Slack exactly as it would for Meta.
+    for (const key of ['tiktok', 'slack', 'youtube', 'stripe'] as const) {
+      assert.equal(
+        await resolveGrantedScopes(key, { access_token: 't' }), null,
+        `${key} must not assume its requested scopes were granted`,
+      );
+    }
+    assert.equal(fetchMock.mock.callCount(), 0, 'and must not call out to find out');
   });
 
   it('trusts a reported scope string when the provider sends one', async () => {

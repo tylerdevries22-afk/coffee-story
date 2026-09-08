@@ -27,30 +27,47 @@ describe('mcp store projection', () => {
     );
   });
 
-  it('reads a disabled or revoked connector as unavailable before anything else', () => {
-    // Ordering matters: a deactivated manual-only import must not advertise an
-    // action beside a "Disabled" label.
+  it('reserves unavailable for a connector the tenant cannot set up at all', () => {
+    // A deactivated manual-only import must not advertise an action beside a
+    // "Disabled" label, whatever kind of provider it is.
     const disabled = cardFor('kindle-direct-publishing', { status: 'disabled', canConfigure: false });
     assert.equal(sharedStatus(disabled, 'manage'), 'unavailable');
-    const revoked = cardFor('kindle-direct-publishing', {
-      status: 'revoked', canConfigure: true, connectHref: '/somewhere',
-    });
-    assert.equal(sharedStatus(revoked, 'manage'), 'unavailable');
+    assert.equal(sharedStatus(cardFor('youtube', { canConfigure: false }), 'manage'), 'unavailable');
+    assert.equal(sharedStatus(cardFor('acx-audiobooks', { canConfigure: false }), 'manage'), 'unavailable');
   });
 
-  it('reads a live manual-only connector as manual, and a blocked one as unavailable', () => {
-    assert.equal(sharedStatus(cardFor('acx-audiobooks'), 'manage'), 'manual');
+  it('never contradicts a live how-to by badging the row unavailable', () => {
+    // Every API-key provider is configurable and deliberately carries no button,
+    // because no route accepts a pasted key yet. Badging that "Unavailable" beside
+    // "Setup required" and working console links contradicts itself.
+    for (const id of ['transistor', 'beehiiv', 'twilio', 'resend', 'sendgrid', 'plaid']) {
+      const card = cardFor(id);
+      assert.equal(card.canConfigure, true, `${id} is configurable`);
+      assert.equal(card.connectHref, null, `${id} has no button`);
+      assert.equal(sharedStatus(card, 'manage'), 'not_connected', `${id} is simply not connected`);
+    }
+  });
+
+  it('reads manual only once an import relationship exists', () => {
     assert.equal(
-      sharedStatus(cardFor('acx-audiobooks', { canConfigure: false }), 'manage'), 'unavailable',
+      sharedStatus(cardFor('acx-audiobooks'), 'manage'), 'not_connected',
+      'nothing imported yet, so it is not "Manual import"',
+    );
+    assert.equal(
+      sharedStatus(cardFor('acx-audiobooks', { status: 'manual-import' }), 'manage'), 'manual',
+    );
+    // The kind alone is not enough: an OAuth provider never reads as manual.
+    assert.equal(
+      sharedStatus(cardFor('youtube', { status: 'manual-import' }), 'manage'), 'not_connected',
     );
   });
 
-  it('reads an unlinked OAuth provider as unavailable and a linked one as not connected', () => {
-    assert.equal(sharedStatus(cardFor('youtube', { connectHref: null }), 'manage'), 'unavailable');
+  it('reads a linked OAuth provider as not connected until it connects', () => {
     assert.equal(
       sharedStatus(cardFor('youtube', { connectHref: '/api/connectors/youtube/authorize' }), 'manage'),
       'not_connected',
     );
+    assert.equal(sharedStatus(cardFor('youtube', { status: 'connected-healthy' }), 'manage'), 'connected');
   });
 
   it('judges selection mode on configurability, not on a link', () => {

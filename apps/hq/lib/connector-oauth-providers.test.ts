@@ -79,7 +79,7 @@ describe('connector OAuth providers', { concurrency: false }, () => {
 
   it('deduplicates provider-reported granted scopes', () => {
     assert.deepEqual(
-      grantedConnectorScopes('slack', { access_token: 'token', scope: 'chat:write,channels:read chat:write' }),
+      grantedConnectorScopes({ access_token: 'token', scope: 'chat:write,channels:read chat:write' }),
       ['chat:write', 'channels:read'],
     );
   });
