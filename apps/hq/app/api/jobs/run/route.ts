@@ -5,11 +5,9 @@ import {
 
 import { jsonError, matchesSecret, notConfigured, serverEnv, serviceDb } from '../../../../lib/api-auth';
 import { analyticsMaintenanceCutoffs } from '../../../../lib/analytics-maintenance';
+import { runIndependentCronStages } from '../../../../lib/cron-stage-runner';
 import { delegatedGrantRetentionCutoff } from '../../../../lib/delegated-grant-maintenance';
-import {
-  runSquareMaintenance,
-  waitForSquareMaintenanceBeforeRethrow,
-} from '../../../../lib/square-job-maintenance';
+import { runSquareMaintenance } from '../../../../lib/square-job-maintenance';
 import { runTrainingMaintenance } from '../../../../lib/training-maintenance';
 import { deliverOperationNotifications } from '../../../../lib/operation-notifications';
 
@@ -36,115 +34,72 @@ export async function POST(request: Request): Promise<Response> {
   if (!env) return notConfigured();
   const db = serviceDb(env);
   const now = new Date();
-  // Start the finite provider work alongside the database-only stages. The
-  // catch below still awaits it when an unrelated stage fails, so neither
-  // side can starve the other.
-  const squarePromise = runSquareMaintenance(db, now);
+  const stages = await runIndependentCronStages({
+    drops: async () => {
+      const result = await db.from('drops').select('id, status, starts_at, ends_at')
+        .in('status', ['scheduled', 'live'])
+        .returns<{ id: string; status: 'scheduled' | 'live'; starts_at: string; ends_at: string }[]>();
+      if (result.error) throw result.error;
+      const transitions = dueDropTransitions((result.data ?? []).map((drop) => ({
+        id: drop.id, status: drop.status, startsAt: drop.starts_at, endsAt: drop.ends_at,
+      })), now);
+      for (const transition of transitions) {
+        const moved = await db.from('drops').update({ status: transition.to }).eq('id', transition.id);
+        if (moved.error) throw moved.error;
+      }
+      return transitions.length;
+    },
+    campaigns: async () => {
+      const result = await db.from('campaigns').select('id, status, scheduled_at')
+        .eq('status', 'scheduled')
+        .returns<{ id: string; status: 'scheduled'; scheduled_at: string | null }[]>();
+      if (result.error) throw result.error;
+      const ids = dueCampaigns((result.data ?? []).map((campaign) => ({
+        id: campaign.id, status: campaign.status, scheduledAt: campaign.scheduled_at,
+      })), now);
+      for (const id of ids) {
+        const sent = await db.from('campaigns')
+          .update({ status: 'sent', stats: { delivered: 0, note: 'no delivery provider configured' } })
+          .eq('id', id).eq('status', 'scheduled');
+        if (sent.error) throw sent.error;
+      }
+      return ids.length;
+    },
+    training: () => runTrainingMaintenance(db),
+    analytics: async () => {
+      const cutoffs = analyticsMaintenanceCutoffs(now);
+      const rollups = await db.rpc('refresh_analytics_rollups', { rebuild_from: cutoffs.rebuildFrom });
+      if (rollups.error) throw rollups.error;
+      const retention = await db.rpc('prune_analytics_retention', {
+        raw_before: cutoffs.rawBefore, hourly_before: cutoffs.hourlyBefore, daily_before: cutoffs.dailyBefore,
+      });
+      if (retention.error) throw retention.error;
+      return { rollups: rollups.data, retention: retention.data };
+    },
+    operations: async () => {
+      const maintenance = await db.rpc('run_operation_maintenance', {
+        target_now: now.toISOString(), target_horizon_hours: 336,
+      });
+      if (maintenance.error) throw maintenance.error;
+      const escalations = await db.rpc('queue_due_operation_escalations', { target_now: now.toISOString() });
+      if (escalations.error) throw escalations.error;
+      const notifications = await deliverOperationNotifications(db, now);
+      const retention = await db.rpc('apply_operation_retention', { target_now: now.toISOString() });
+      if (retention.error) throw retention.error;
+      return { maintenance: maintenance.data, escalations: escalations.data, notifications, retention: retention.data };
+    },
+    delegatedGrants: async () => {
+      const result = await db.rpc('prune_delegated_access_grants', {
+        ended_before: delegatedGrantRetentionCutoff(now),
+      });
+      if (result.error) throw result.error;
+      return result.data;
+    },
+    square: () => runSquareMaintenance(db, now),
+  });
 
-  try {
-    const drops = await db
-      .from('drops')
-      .select('id, status, starts_at, ends_at')
-      .in('status', ['scheduled', 'live'])
-      .returns<{ id: string; status: 'scheduled' | 'live'; starts_at: string; ends_at: string }[]>();
-    if (drops.error) throw drops.error;
-    const dropTransitions = dueDropTransitions(
-      (drops.data ?? []).map((drop) => ({
-        id: drop.id,
-        status: drop.status,
-        startsAt: drop.starts_at,
-        endsAt: drop.ends_at,
-      })),
-      now,
-    );
-    for (const transition of dropTransitions) {
-      const moved = await db.from('drops').update({ status: transition.to }).eq('id', transition.id);
-      if (moved.error) throw moved.error;
-    }
-
-    const campaigns = await db
-      .from('campaigns')
-      .select('id, status, scheduled_at')
-      .eq('status', 'scheduled')
-      .returns<{ id: string; status: 'scheduled'; scheduled_at: string | null }[]>();
-    if (campaigns.error) throw campaigns.error;
-    const dueCampaignIds = dueCampaigns(
-      (campaigns.data ?? []).map((campaign) => ({
-        id: campaign.id,
-        status: campaign.status,
-        scheduledAt: campaign.scheduled_at,
-      })),
-      now,
-    );
-    for (const id of dueCampaignIds) {
-      const sent = await db
-        .from('campaigns')
-        .update({ status: 'sent', stats: { delivered: 0, note: 'no delivery provider configured' } })
-        .eq('id', id)
-        .eq('status', 'scheduled');
-      if (sent.error) throw sent.error;
-    }
-
-    const trainingBootstraps = await runTrainingMaintenance(db);
-
-    const analyticsCutoffs = analyticsMaintenanceCutoffs(now);
-    const rollups = await db.rpc('refresh_analytics_rollups', {
-      rebuild_from: analyticsCutoffs.rebuildFrom,
-    });
-    if (rollups.error) throw rollups.error;
-    const retention = await db.rpc('prune_analytics_retention', {
-      raw_before: analyticsCutoffs.rawBefore,
-      hourly_before: analyticsCutoffs.hourlyBefore,
-      daily_before: analyticsCutoffs.dailyBefore,
-    });
-    if (retention.error) throw retention.error;
-
-    // The same scheduled tick owns operations lifecycle work. The database
-    // function is idempotent, tenant-feature-gated, and snapshots each task at
-    // materialization time; a delayed Vercel invocation safely catches up.
-    const operations = await db.rpc('run_operation_maintenance', {
-      target_now: now.toISOString(),
-      target_horizon_hours: 336,
-    });
-    if (operations.error) throw operations.error;
-    const operationEscalations = await db.rpc('queue_due_operation_escalations', {
-      target_now: now.toISOString(),
-    });
-    if (operationEscalations.error) throw operationEscalations.error;
-    const operationNotifications = await deliverOperationNotifications(db, now);
-    const operationsRetention = await db.rpc('apply_operation_retention', {
-      target_now: now.toISOString(),
-    });
-    if (operationsRetention.error) throw operationsRetention.error;
-
-    // Delegated access grants end on their own clock, so the same tick stamps the
-    // ones that have run out and drops the ones past retention. Without it a
-    // grant is only ever ended by hand, and nothing has ever ended one.
-    const delegatedGrants = await db.rpc('prune_delegated_access_grants', {
-      ended_before: delegatedGrantRetentionCutoff(now),
-    });
-    if (delegatedGrants.error) throw delegatedGrants.error;
-
-    const square = await squarePromise;
-
-    return Response.json({
-      ok: true,
-      drops: dropTransitions.length,
-      campaigns: dueCampaignIds.length,
-      trainingBootstraps,
-      square,
-      analytics: { rollups: rollups.data, retention: retention.data },
-      delegatedGrants: delegatedGrants.data,
-      operations: {
-        maintenance: operations.data,
-        escalations: operationEscalations.data,
-        notifications: operationNotifications,
-        retention: operationsRetention.data,
-      },
-    });
-  } catch (error) {
-    return waitForSquareMaintenanceBeforeRethrow(squarePromise, error);
-  }
+  const { training, ...results } = stages;
+  return Response.json({ ok: true, ...results, trainingBootstraps: training });
 }
 
 /**

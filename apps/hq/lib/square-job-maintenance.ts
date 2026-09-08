@@ -42,16 +42,3 @@ export async function runSquareMaintenance(db: SupabaseClient, now: Date) {
   }
   return { configured: true, ...renewals, retirements, checkoutLinks };
 }
-
-/** Finish provider cleanup before surfacing an unrelated scheduled-job error. */
-export async function waitForSquareMaintenanceBeforeRethrow(
-  maintenance: Promise<unknown>,
-  jobError: unknown,
-): Promise<never> {
-  try {
-    await maintenance;
-  } catch (maintenanceError) {
-    console.error('Square maintenance also failed after the scheduled job failed.', maintenanceError);
-  }
-  throw jobError;
-}
