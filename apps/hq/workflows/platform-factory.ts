@@ -6,6 +6,7 @@ import {
   completedFactoryTasks,
   factoryReleaseDependencies,
   loadContentEvidence,
+  organizationBrandId,
 } from './factory-release-runtime';
 import { synchronizeDeploymentEvidence } from './factory-deployment-sync';
 import {
@@ -141,7 +142,8 @@ export async function runPlatformFactory(input: PlatformFactoryInput): Promise<P
       completed.add('create-vercel-projects');
     }
     await synchronizePublishedContent(run.id, run.tenantSlug);
-    const content = await loadContentEvidence(run.id);
+    const brandId = await organizationBrandId(run.tenantSlug);
+    const content = brandId ? await loadContentEvidence(run.id, brandId) : null;
     if (content) {
       await synchronizeGitHubArtifactDigest(run, content.artifactDigest);
       await synchronizeDeploymentEvidence(run, content.artifactDigest);
