@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import { ConnectorSetupPanel } from '@/components/connector-setup-panel';
+import { hasScopeGap } from '@/lib/mcp-store-projection';
 import { ProviderLogo } from '@/components/provider-logo';
 import { currentSession, hasRole } from '@/lib/auth';
 import { visibleCredentialEnvKeys } from '@/lib/connector-oauth-providers';
@@ -28,6 +29,9 @@ export default async function IntegrationDetailPage({ params }: IntegrationDetai
   );
   const isComingSoon = definition.availability === 'coming-soon';
   const isUnavailable = !card.canConfigure && !card.isInstalled;
+  // A granular consent screen can grant less than the connector lists, which reads
+  // as healthy while silently delivering nothing. Say so, and offer re-consent.
+  const scopeGap = hasScopeGap(card);
   const readinessNote = isComingSoon
     ? 'This adapter is listed for roadmap visibility and cannot be connected until its sandbox contract passes certification.'
     : isUnavailable
@@ -63,9 +67,14 @@ export default async function IntegrationDetailPage({ params }: IntegrationDetai
         <aside className="card integration-setup-card">
           <p className="eyebrow">Connection readiness</p>
           <h2>{isComingSoon ? 'Certification pending'
+            : scopeGap ? 'Partly authorized'
             : isUnavailable && !card.isManualOnly ? 'Unavailable' : card.statusLabel}</h2>
-          <p>{readinessNote}</p>
-          {card.isConnected ? (
+          <p>{scopeGap
+            ? `This connection is healthy, but only ${card.enabledCapabilityCount} of ${card.capabilityCount} capabilities were authorized. Reconnecting lets you approve the rest.`
+            : readinessNote}</p>
+          {card.isConnected && scopeGap && card.connectHref ? (
+            <a className="button" href={card.connectHref}>Reconnect to widen access</a>
+          ) : card.isConnected ? (
             <Link className="button secondary" href="/integrations/health">View latest health</Link>
           ) : card.connectHref && provider === 'square' ? (
             <Link className="button" href="/locations">Connect Square by location</Link>

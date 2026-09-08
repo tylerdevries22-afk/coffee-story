@@ -23,8 +23,6 @@ export type ConnectorInstallationStatus =
 
 export interface ConnectorInstallationState {
   readonly configured: boolean;
-  /** The provider publishes no API, so data arrives by operator upload. */
-  readonly manualImportOnly?: boolean;
   readonly connected: boolean;
   readonly connecting?: boolean;
   readonly disabled?: boolean;
@@ -66,7 +64,6 @@ export function deriveInstallationStatus(
 ): ConnectorInstallationStatus {
   if (installation.revoked) return 'revoked';
   if (installation.disabled) return 'disabled';
-  if (installation.manualImportOnly) return 'manual-import';
   if (!certificationCurrent) return 'uncertified';
   if (installation.providerApprovalRequired) return 'provider-approval-required';
   if (!installation.configured) return 'setup-required';

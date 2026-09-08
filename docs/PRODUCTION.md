@@ -213,9 +213,13 @@ Provider owner actions still required before activation:
 - YouTube: a Google OAuth client whose consent screen carries
   `youtube.readonly`, `youtube.upload` and `yt-analytics.readonly`, authorized by
   the account that owns the channel rather than a viewer.
-- TikTok: a TikTok for Developers app, and the content-posting audit before
-  anything publishes publicly — an unaudited app can only post private drafts.
-  TikTok names the credential a client *key*, not a client id.
+- TikTok: a TikTok for Developers app. `video.publish` is seeded as the scope for
+  publishing and is deliberately not requested, exactly as with Meta's
+  `pages_manage_posts`, so `videos.publish` stays out of `enabled_capabilities`
+  until the content-posting audit passes and the scope is added to the request
+  list in `connector-oauth-config.ts`. Until then the grant is read-only: profile,
+  video list and analytics. TikTok names the credential a client *key*, not a
+  client id.
 - Transistor and beehiiv: no OAuth client is issued to us, so each organization
   supplies its own API key. beehiiv also needs its `pub_`-prefixed publication id.
   Neither is a deployment environment variable: both belong in Vault against that

@@ -54,8 +54,8 @@ export const AUDIENCE_DEFINITIONS: readonly CatalogDefinition[] = [
       consoleUrl: 'https://developers.tiktok.com/apps',
       documentationUrl: 'https://developers.tiktok.com/doc/login-kit-web',
       operatorSteps: [
-        { text: 'Approve Content Posting when TikTok asks; without it publishing stays read-only.' },
-        { text: 'Unaudited TikTok apps can only post to private drafts until audit passes.', href: 'https://developers.tiktok.com/doc/content-posting-api-get-started' },
+        { text: 'You are granting read access only: profile, video list and post analytics.' },
+        { text: 'Publishing needs the video.publish scope, which is deliberately not requested until TikTok\'s content-posting audit passes.', href: 'https://developers.tiktok.com/doc/content-posting-api-get-started' },
       ],
     }),
   },

@@ -27,13 +27,31 @@ const CONSOLE_LABELS: Readonly<Record<ConnectorCard['setup']['kind'], string>> =
  * with nothing imported is simply not connected yet.
  */
 export function sharedStatus(card: ConnectorCard, mode: StoreMode): McpStoreStatus {
-  if (card.status === 'connected-healthy') return 'connected';
+  // Connected states are read before the configurability gate, so an operator
+  // deactivating a provider never silently hides a live connection the tenant has.
   if (card.status === 'connected-degraded' || card.status === 'reauthorization-required') {
     return 'reconnect';
+  }
+  if (card.status === 'connected-healthy') {
+    return hasScopeGap(card) ? 'reconnect' : 'connected';
   }
   if (!card.canConfigure) return 'unavailable';
   if (mode === 'select') return 'not_connected';
   return card.isManualOnly && card.status === 'manual-import' ? 'manual' : 'not_connected';
+}
+
+/**
+ * True when the provider granted less than the connector advertises.
+ *
+ * A granular consent screen lets a user decline individual permissions, and the
+ * installation then stores a narrower capability set while still reading healthy.
+ * Without this the card would be green and silently never deliver what it lists,
+ * with no way to widen the grant: re-consent is only reachable by connecting again.
+ */
+export function hasScopeGap(card: ConnectorCard): boolean {
+  return card.isConnected
+    && card.capabilityCount > 0
+    && card.enabledCapabilityCount < card.capabilityCount;
 }
 
 /**
@@ -58,6 +76,22 @@ export function sharedSetup(card: ConnectorCard): McpStoreSetup | undefined {
   };
 }
 
+/**
+ * The readiness line, which must agree with the badge beside it.
+ *
+ * A card whose badge reads "Unavailable" must not report the installation's own
+ * status one column to the left, and a partial grant should say so rather than
+ * claim health.
+ */
+export function readinessLabel(card: ConnectorCard, mode: StoreMode): string {
+  const status = sharedStatus(card, mode);
+  if (status === 'unavailable') return card.statusLabel === 'Disabled' ? 'Disabled' : 'Unavailable';
+  if (status === 'reconnect' && hasScopeGap(card)) {
+    return `Connected with ${card.enabledCapabilityCount} of ${card.capabilityCount} capabilities`;
+  }
+  return card.statusLabel;
+}
+
 /** Builds the tenant-safe store entry for one connector card. */
 export function sharedEntry(card: ConnectorCard, mode: StoreMode): McpStoreEntry {
   return {
@@ -67,7 +101,7 @@ export function sharedEntry(card: ConnectorCard, mode: StoreMode): McpStoreEntry
     type: card.category.charAt(0).toUpperCase() + card.category.slice(1),
     status: sharedStatus(card, mode),
     accountName: card.accountLabel,
-    readiness: card.statusLabel,
+    readiness: readinessLabel(card, mode),
     popular: POPULAR.has(card.id),
     selectable: card.canConfigure,
     detailHref: `/integrations/${card.id}`,

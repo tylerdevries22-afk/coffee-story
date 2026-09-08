@@ -4,7 +4,8 @@ import { describe, it } from 'node:test';
 import { listConnectorCatalog } from '@platform/integrations';
 
 import { connectorCardsOf, type ConnectorCard } from './integration-cards';
-import { sharedEntry, sharedSetup, sharedStatus } from './mcp-store-projection';
+import { STATUS_LABELS } from './integration-card-status';
+import { hasScopeGap, readinessLabel, sharedEntry, sharedSetup, sharedStatus } from './mcp-store-projection';
 
 function cardFor(id: string, patch: Partial<ConnectorCard> = {}): ConnectorCard {
   const registry = listConnectorCatalog()
@@ -15,7 +16,12 @@ function cardFor(id: string, patch: Partial<ConnectorCard> = {}): ConnectorCard 
     }));
   const card = connectorCardsOf(registry, []).find((candidate) => candidate.id === id);
   assert.ok(card, `${id} should be in the catalog`);
-  return { ...card, ...patch };
+  // statusLabel is derived from status in production, so keep them consistent when
+  // a test patches one of them.
+  const merged = { ...card, ...patch };
+  return patch.status && !patch.statusLabel
+    ? { ...merged, statusLabel: STATUS_LABELS[patch.status] }
+    : merged;
 }
 
 describe('mcp store projection', () => {
@@ -60,6 +66,59 @@ describe('mcp store projection', () => {
     assert.equal(
       sharedStatus(cardFor('youtube', { status: 'manual-import' }), 'manage'), 'not_connected',
     );
+  });
+
+  it('offers a reconnect when a granular consent screen granted less than advertised', () => {
+    // A green card that silently delivers nothing is worse than an honest gap, and
+    // re-consent is only reachable by connecting again.
+    const partial = cardFor('meta-business-suite', {
+      status: 'connected-healthy', isConnected: true,
+      capabilityCount: 6, enabledCapabilityCount: 1,
+    });
+    assert.equal(hasScopeGap(partial), true);
+    assert.equal(sharedStatus(partial, 'manage'), 'reconnect');
+    assert.equal(readinessLabel(partial, 'manage'), 'Connected with 1 of 6 capabilities');
+  });
+
+  it('reads a full grant as plainly connected', () => {
+    const full = cardFor('meta-business-suite', {
+      status: 'connected-healthy', isConnected: true,
+      capabilityCount: 6, enabledCapabilityCount: 6,
+    });
+    assert.equal(hasScopeGap(full), false);
+    assert.equal(sharedStatus(full, 'manage'), 'connected');
+    assert.equal(readinessLabel(full, 'manage'), 'Connected and healthy');
+  });
+
+  it('never hides a live connection behind the configurability gate', () => {
+    // An operator deactivating a provider must not make a tenant's existing
+    // connection read as though it never existed.
+    const connected = cardFor('slack', {
+      status: 'connected-healthy', isConnected: true, canConfigure: false,
+      capabilityCount: 3, enabledCapabilityCount: 3,
+    });
+    assert.equal(sharedStatus(connected, 'manage'), 'connected');
+    const degraded = cardFor('slack', {
+      status: 'connected-degraded', isConnected: true, canConfigure: false,
+    });
+    assert.equal(sharedStatus(degraded, 'manage'), 'reconnect');
+  });
+
+  it('keeps the readiness line agreeing with the badge beside it', () => {
+    // A badge reading "Unavailable" must not sit next to the installation's own
+    // status one column to the left.
+    for (const status of ['setup-required', 'connecting', 'available', 'manual-import'] as const) {
+      const blocked = cardFor('beehiiv', { status, canConfigure: false });
+      assert.equal(sharedStatus(blocked, 'manage'), 'unavailable');
+      assert.equal(
+        readinessLabel(blocked, 'manage'), 'Unavailable',
+        `${status} must not be reported beside an Unavailable badge`,
+      );
+    }
+    // "Disabled" is itself an unavailable reading, so it survives as the more
+    // specific of the two.
+    const disabled = cardFor('beehiiv', { status: 'disabled', canConfigure: false });
+    assert.equal(readinessLabel(disabled, 'manage'), 'Disabled');
   });
 
   it('reads a linked OAuth provider as not connected until it connects', () => {

@@ -3,7 +3,7 @@ import { afterEach, describe, it } from 'node:test';
 
 import { listConnectorCatalog } from '@platform/integrations';
 
-import { OAUTH_CONNECTOR_KEYS } from './connector-oauth-config';
+import { OAUTH_CONNECTOR_KEYS, connectorProviderScopes } from './connector-oauth-config';
 
 import { connectorCardsOf, defaultConnectorCards, demoConnectorCards } from './integration-cards';
 import {
@@ -72,6 +72,37 @@ afterEach(() => {
 });
 
 describe('connector setup routing', { concurrency: false }, () => {
+  it('never instructs an owner to approve a scope the request does not ask for', () => {
+    // The catalog cannot see the authorize request, so the binding is asserted
+    // here. A step naming a permission that is not requested sends an owner
+    // hunting a toggle the provider's dialog cannot show them.
+    configureEverything();
+    const withheld: Readonly<Record<string, readonly string[]>> = {
+      'meta-business-suite': ['pages_manage_posts', 'instagram_basic', 'leads_retrieval'],
+      tiktok: ['video.publish'],
+    };
+    for (const [id, scopes] of Object.entries(withheld)) {
+      const requested = new Set(connectorProviderScopes(id as typeof OAUTH_CONNECTOR_KEYS[number]));
+      const steps = listConnectorCatalog()
+        .find((entry) => entry.descriptor.id === id)?.setup.steps ?? [];
+      const body = steps.map((step) => step.text).join(' ');
+      for (const scope of scopes) {
+        assert.ok(!requested.has(scope), `${id} must not request ${scope} before its review passes`);
+        // If a step mentions a withheld scope at all, it must say it is withheld.
+        if (body.includes(scope)) {
+          assert.match(
+            body, /deliberately not requested|not requested until/u,
+            `${id} names ${scope} without saying it is withheld`,
+          );
+        }
+      }
+      assert.ok(
+        !/approve content posting when/iu.test(body),
+        `${id} must not ask an owner to approve an unrequested permission`,
+      );
+    }
+  });
+
   it('publishes a redirect path only for a provider this app actually routes', () => {
     // The catalog cannot import from apps/hq, so the binding between what it
     // advertises and what a route serves is asserted here, where both are visible.
