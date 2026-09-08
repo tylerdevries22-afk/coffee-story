@@ -54,7 +54,10 @@ describe('factory deployment attestation producer', () => {
   it('executes only lockfile-integrated deployment and connector packages', () => {
     assert.match(rootPackage, /"vercel": "59\.11\.7"/);
     assert.match(lockfile, /vercel@59\.11\.7:/);
-    assert.match(hqPackage, /"franchise-mcp-store-ui": "workspace:\*"/);
-    assert.match(lockfile, /version: link:\.\.\/\.\.\/packages\/franchise-mcp-store-ui/);
+    const asset = 'https://github.com/tylerdevries22-afk/franchise-mcp-store-ui/releases/download/v1.3.0/franchise-mcp-store-ui-1.3.0.tgz';
+    const integrity = 'sha512-0YyDFsGFRw+fSwG7bmYnhEcGoYabQRj1CcdPEeUGDhOTsHy+oWQhJ33/xOXzhDHAqnWLOyF7sjQFbltvYPHaig==';
+    assert.ok(hqPackage.includes(`"franchise-mcp-store-ui": "${asset}"`));
+    assert.ok(lockfile.includes(`resolution: {integrity: ${integrity}, tarball: ${asset}}`));
+    assert.doesNotMatch(lockfile, /version: link:.*packages\/franchise-mcp-store-ui/);
   });
 });
