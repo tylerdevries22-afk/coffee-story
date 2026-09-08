@@ -4,23 +4,23 @@ import { describe, it } from 'node:test';
 
 import { POST } from '../app/api/webhooks/square/route';
 
-const URL = 'https://app.example.test/api/webhooks/square';
+const WEBHOOK_URL = 'https://app.example.test/api/webhooks/square';
 const KEY = 'test-signature-key';
 const ENV = {
   SQUARE_WEBHOOK_SIGNATURE_KEY: KEY,
-  SQUARE_WEBHOOK_URL: URL,
+  SQUARE_WEBHOOK_URL: WEBHOOK_URL,
   SUPABASE_URL: 'https://database.example.test',
   SUPABASE_SERVICE_ROLE_KEY: 'test-service-key',
 };
 
 function requestFor(value: unknown, body = JSON.stringify(value), signature = sign(body)): Request {
-  return new Request(URL, {
+  return new Request(WEBHOOK_URL, {
     method: 'POST', body, headers: { 'x-square-hmacsha256-signature': signature },
   });
 }
 
 function sign(body: string): string {
-  return createHmac('sha256', KEY).update(URL + body).digest('base64');
+  return createHmac('sha256', KEY).update(WEBHOOK_URL + body).digest('base64');
 }
 
 async function withWebhookEnv(run: () => Promise<void>): Promise<void> {
