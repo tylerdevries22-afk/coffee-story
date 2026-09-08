@@ -42,19 +42,19 @@ export function filterBrowserCoverage(input: object): IstanbulMap {
 }
 
 export async function mergeCoverage(
-  unitPath: string,
+  verificationPath: string,
   integrationPath: string,
   browserPath: string,
   outputDir: string,
   threshold = 70,
 ): Promise<number> {
   const report = new CoverageReport({
-    name: 'Unit, database integration, and hosted browser coverage',
+    name: 'Workspace verification, database integration, and hosted browser coverage',
     outputDir,
     reports: ['json', 'json-summary', 'text-summary'],
     logging: 'info',
   });
-  await report.add(await readJson(unitPath));
+  await report.add(await readJson(verificationPath));
   await report.add(await readJson(integrationPath));
   await report.add(filterBrowserCoverage(await readJson(browserPath)));
   await report.generate();
@@ -67,11 +67,11 @@ export async function mergeCoverage(
 }
 
 if (process.argv[1]?.endsWith('merge-coverage.ts')) {
-  const [unitPath, integrationPath, browserPath, outputDir] = process.argv.slice(2);
-  if (!unitPath || !integrationPath || !browserPath || !outputDir) {
+  const [verificationPath, integrationPath, browserPath, outputDir] = process.argv.slice(2);
+  if (!verificationPath || !integrationPath || !browserPath || !outputDir) {
     throw new Error(
-      'Usage: merge-coverage.ts <unit.json> <integration.json> <browser.json> <output-dir>',
+      'Usage: merge-coverage.ts <verification.json> <integration.json> <browser.json> <output-dir>',
     );
   }
-  await mergeCoverage(unitPath, integrationPath, browserPath, outputDir);
+  await mergeCoverage(verificationPath, integrationPath, browserPath, outputDir);
 }

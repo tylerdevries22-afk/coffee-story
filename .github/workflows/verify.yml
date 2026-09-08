@@ -67,7 +67,13 @@ jobs:
       # not fail a build; lint ran only here, so a warning passed locally.
       # Whatever this gate is, both sides now run all of it.
       - name: Verify all workspaces
-        run: pnpm verify
+        run: >-
+          pnpm exec c8
+          --temp-directory coverage/verification/tmp
+          --reports-dir coverage/verification
+          --reporter=json
+          --reporter=json-summary
+          pnpm verify
 
       # The runner is UTC, and that hid a customer-facing bug for a whole
       # release: the drop board formatted its date range through the device
@@ -163,6 +169,14 @@ jobs:
             exit 1
           fi
           echo "PASS: no competitor name in any tracked file."
+
+      - name: Keep verification coverage
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: verification-coverage
+          path: coverage/verification/
+          if-no-files-found: error
 
   # One disposable hosted branch proves migrations, RLS, Realtime, the five
   # surfaces, and browser journeys without Docker or a developer machine.
@@ -459,7 +473,7 @@ jobs:
 
   coverage:
     if: github.event_name != 'pull_request'
-    needs: [hosted-integration, security]
+    needs: [verify, hosted-integration, security]
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -482,12 +496,15 @@ jobs:
         with:
           name: integration-coverage
           path: coverage/integration
-      - name: Measure tracked TypeScript logic
-        run: pnpm coverage:unit
-      - name: Merge unit, database, and browser execution and enforce 70 percent
+      - name: Download workspace verification coverage
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: verification-coverage
+          path: coverage/verification
+      - name: Merge verification, database, and browser execution and enforce 70 percent
         run: >-
           pnpm --filter @platform/e2e-tests merge-coverage
-          "$GITHUB_WORKSPACE/coverage/unit/coverage-final.json"
+          "$GITHUB_WORKSPACE/coverage/verification/coverage-final.json"
           "$GITHUB_WORKSPACE/coverage/integration/coverage-final.json"
           "$GITHUB_WORKSPACE/browser-coverage/coverage-final.json"
           "$GITHUB_WORKSPACE/coverage/merged"
