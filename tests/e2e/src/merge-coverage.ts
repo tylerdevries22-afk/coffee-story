@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import { dirname, isAbsolute, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -30,7 +31,8 @@ async function readJson(path: string): Promise<object> {
 export function isCountedBrowserFile(file: string): boolean {
   const clean = file.replaceAll('\\', '/');
   const fromRoot = relative(workspaceRoot, clean).replaceAll('\\', '/');
-  if (!isAbsolute(clean) || fromRoot.startsWith('../') || isAbsolute(fromRoot)) return false;
+  if (!isAbsolute(clean) || !existsSync(clean)
+    || fromRoot.startsWith('../') || isAbsolute(fromRoot)) return false;
   if (!/^(?:apps|packages|scripts)\//.test(fromRoot) || !clean.endsWith('.ts')) return false;
   return !/(?:\.d|\.test|\.config|\.generated)\.ts$|\/(?:dist[^/]*|node_modules|tests?)\//.test(clean);
 }
