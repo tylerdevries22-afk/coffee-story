@@ -37,13 +37,16 @@ export type ConnectorCard = {
   readonly status: ConnectorInstallationStatus;
   readonly statusLabel: string;
   readonly accountLabel: string | null;
-  readonly capabilityCount: number;
   /**
    * Capabilities this deployment could enable, given the scopes it actually
-   * requests. Lower than `capabilityCount` whenever a scope is deliberately
-   * withheld — Meta's publishing permissions pending App Review, for instance —
-   * so it is the only honest denominator for "did the user grant everything".
-   * Defaults to `capabilityCount` until the capability rows are known.
+   * requests. Narrower than the catalog's list whenever a scope is deliberately
+   * withheld — Meta's publishing permissions pending App Review, for instance — so
+   * it is the only honest denominator for "did the user grant everything".
+   *
+   * Zero means the askable set is not known: no capability rows have loaded, or
+   * the read failed. Callers must treat zero as "no gap known" rather than as an
+   * answer, because the numerator comes from a different source and comparing the
+   * two would report a gap on every connector.
    */
   readonly authorizableCapabilityCount: number;
   readonly enabledCapabilityCount: number;
@@ -87,8 +90,7 @@ function cardOf(
     status,
     statusLabel: STATUS_LABELS[status],
     accountLabel: installation?.external_account_label || null,
-    capabilityCount: entry.descriptor.capabilities.length,
-    authorizableCapabilityCount: entry.descriptor.capabilities.length,
+    authorizableCapabilityCount: 0,
     enabledCapabilityCount: installation?.enabled_capabilities.length ?? 0,
     connectedAt: installation?.connected_at ?? null,
     lastSyncedAt: installation?.last_synced_at ?? null,

@@ -113,8 +113,7 @@ describe('connectorCardsFromQueries', { concurrency: false }, () => {
       ok(registry), ok(installed), ok(capabilities), ok([]),
     ).find((card) => card.id === 'meta-business-suite');
 
-    assert.equal(meta?.capabilityCount, 6, 'the catalog still lists six');
-    assert.equal(meta?.authorizableCapabilityCount, 3, 'but only three are askable today');
+    assert.equal(meta?.authorizableCapabilityCount, 3, 'only three are askable today');
     assert.equal(meta?.enabledCapabilityCount, 3);
     assert.equal(hasScopeGap(meta!), false, 'so a full grant is not a gap');
     assert.equal(sharedStatus(meta!, 'manage'), 'connected');
@@ -146,16 +145,39 @@ describe('connectorCardsFromQueries', { concurrency: false }, () => {
     assert.equal(sharedStatus(meta!, 'manage'), 'reconnect');
   });
 
-  it('leaves the count at the catalog total when the capability rows are unavailable', () => {
-    const cards = connectorCardsFromQueries(
-      ok(REGISTRY), ok<ConnectorInstallationRow>([]),
+  it('reports an unknown askable set as zero when the capability read fails', () => {
+    // Zero is what hasScopeGap reads as "no gap known". Any other default would
+    // compare a DB numerator against a catalog denominator and report a gap on
+    // every connector the moment this read degrades.
+    const installed = [{
+      id: 'slack-inst', provider_id: 'slack-id', status: 'connected_healthy',
+      external_account_label: 'Coffee Story', enabled_capabilities: ['cap'],
+      connected_at: '2026-09-01T00:00:00.000Z', last_synced_at: null,
+      updated_at: '2026-09-01T00:00:00.000Z',
+    }];
+    const slack = connectorCardsFromQueries(
+      ok(REGISTRY), ok(installed),
       failed<typeof CAPABILITIES[number]>(), ok(CERTIFICATIONS),
-    );
-    const slack = cards.find((card) => card.id === 'slack');
-    assert.equal(
-      slack?.authorizableCapabilityCount, slack?.capabilityCount,
-      'an unknown askable set must not manufacture a gap',
-    );
+    ).find((card) => card.id === 'slack');
+
+    assert.equal(slack?.authorizableCapabilityCount, 0, 'unknown, not the catalog total');
+    assert.equal(hasScopeGap(slack!), false, 'so a degraded read manufactures no gap');
+    assert.equal(sharedStatus(slack!, 'manage'), 'connected', 'and the row stays connected');
+  });
+
+  it('reports an unknown askable set as zero when the capability read is empty', () => {
+    const installed = [{
+      id: 'slack-inst', provider_id: 'slack-id', status: 'connected_healthy',
+      external_account_label: 'Coffee Story', enabled_capabilities: ['cap'],
+      connected_at: '2026-09-01T00:00:00.000Z', last_synced_at: null,
+      updated_at: '2026-09-01T00:00:00.000Z',
+    }];
+    const slack = connectorCardsFromQueries(
+      ok(REGISTRY), ok(installed), ok([]), ok(CERTIFICATIONS),
+    ).find((card) => card.id === 'slack');
+
+    assert.equal(slack?.authorizableCapabilityCount, 0);
+    assert.equal(hasScopeGap(slack!), false);
   });
 
   it('treats a null data payload without an error as an empty result', () => {

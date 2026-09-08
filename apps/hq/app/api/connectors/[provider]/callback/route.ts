@@ -47,8 +47,9 @@ function reportFailure(provider: OAuthConnectorKey, error: unknown): 'connection
   const stage = error instanceof ConnectorExchangeError ? error.stage
     : error instanceof ConnectorScopeError ? 'scope'
     : error instanceof ConnectorIdentityError ? 'identity'
-    // fetchWithRetry raises this for a timeout or a network failure on the
-    // identity and permissions calls, which is a provider problem, not storage.
+    // fetchWithRetry raises this for a timeout or network failure on the identity
+    // call, which is a provider problem rather than a storage one. The permissions
+    // call catches its own failures and surfaces as `scope`, above.
     : error instanceof AppNetworkError ? 'transport' : 'storage';
   const status = error instanceof ConnectorExchangeError && error.status !== null
     ? ` status=${error.status}` : '';
