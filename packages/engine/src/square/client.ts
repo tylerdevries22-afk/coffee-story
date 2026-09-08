@@ -8,6 +8,6 @@ export {
 export type { OAuthTokens, SquareTokenState } from './oauth';
 export { listSquareLocations, chooseSquareLocation } from './merchant-locations';
 export type { SquareMerchantLocation, SquareLocationRefusal, SquareLocationChoice } from './merchant-locations';
-export { createSquareOrder, createPaymentLink } from './order-api';
+export { createSquareOrder, createPaymentLink, deletePaymentLink } from './order-api';
 export type { SquareOrderLine } from './order-api';
 export { createSquarePayment, getSquarePayment, refundSquarePayment } from './payment-api';

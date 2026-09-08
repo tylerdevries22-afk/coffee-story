@@ -63,37 +63,56 @@ describe('platform fee quote serialization', { skip: skipUnlessConfigured }, () 
       [orders.rows.map((order) => order.id)]);
   });
 
-  it('removes abandoned reservations and excludes cancelled orders from volume', async () => {
+  it('releases an expired reservation only after its hosted link is disabled', async () => {
+    const isolated = await seedBrand(`platform-fee-expiry-${randomUUID()}`);
     const orders = await sql<{ id: string }>(
-      `insert into public.orders (brand_id, location_id, total_cents, subtotal_cents)
-       values ($1, $2, 100000, 100000), ($1, $2, 100000, 100000),
-              ($1, $2, 1000, 1000) returning id`,
-      [brandId, locationId],
+      `insert into public.orders
+         (brand_id, location_id, total_cents, subtotal_cents, tender_type, square_payment_link_id)
+       values ($1, $2, 99000, 99000, 'square_link', $3),
+              ($1, $2, 2000, 2000, 'square_link', $4),
+              ($1, $2, 1000, 1000, 'square_link', $5) returning id`,
+      [isolated.brandId, isolated.locationId, `link-${randomUUID()}`,
+        `link-${randomUUID()}`, `link-${randomUUID()}`],
     );
     const now = new Date();
     const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
     const monthEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
     const quote = (orderId: string, chargeCents: number) =>
       serviceClient().rpc('claim_platform_fee_quote', {
-        p_order_id: orderId, p_location_id: locationId, p_charge_cents: chargeCents,
+        p_order_id: orderId, p_location_id: isolated.locationId, p_charge_cents: chargeCents,
         p_fee_bps: 300, p_fee_bps_tier2: 150, p_tier_threshold_cents: 100_000,
         p_month_start: monthStart.toISOString(), p_month_end: monthEnd.toISOString(),
       });
 
-    assert.equal((await quote(orders.rows[0]!.id, 100_000)).error, null);
+    assert.equal((await quote(orders.rows[0]!.id, 99_000)).error, null);
     await sql(`update public.platform_fee_quotes set expires_at = now() - interval '1 second'
                where order_id = $1`, [orders.rows[0]!.id]);
-    assert.equal((await quote(orders.rows[1]!.id, 100_000)).error, null);
-    await sql(`update public.orders set status = 'cancelled' where id = $1`, [orders.rows[1]!.id]);
+    const crossing = await quote(orders.rows[1]!.id, 2_000);
+    assert.equal(crossing.error, null);
+    assert.equal(Number((crossing.data as { quoted_fee_cents: number }[])[0]!.quoted_fee_cents), 45);
+
+    const link = await sql<{ square_payment_link_id: string }>(
+      `select square_payment_link_id from public.orders where id = $1`, [orders.rows[0]!.id],
+    );
+    const expired = await serviceClient().rpc('expire_square_checkout_quote', {
+      p_order_id: orders.rows[0]!.id,
+      p_payment_link_id: link.rows[0]!.square_payment_link_id,
+    });
+    assert.equal(expired.error, null);
+    assert.equal(expired.data, true);
 
     const result = await quote(orders.rows[2]!.id, 1_000);
     assert.equal(result.error, null);
     assert.equal(Number((result.data as { quoted_fee_cents: number }[])[0]!.quoted_fee_cents), 30);
-    const abandoned = await sql<{ count: string }>(
-      `select count(*)::text as count from public.platform_fee_quotes where order_id = $1`,
+    const state = await sql<{ status: string; quotes: string; events: string }>(
+      `select target.status,
+              (select count(*)::text from public.platform_fee_quotes where order_id = target.id) as quotes,
+              (select count(*)::text from public.order_events
+                where order_id = target.id and type = 'cancelled' and source = 'job') as events
+         from public.orders target where target.id = $1`,
       [orders.rows[0]!.id],
     );
-    assert.equal(abandoned.rows[0]!.count, '0');
+    assert.deepEqual(state.rows[0], { status: 'cancelled', quotes: '0', events: '1' });
   });
 
   it('releases a rejected attempt but preserves a settled quote', async () => {
@@ -132,11 +151,25 @@ describe('platform fee quote serialization', { skip: skipUnlessConfigured }, () 
        values ($1, $2, $3, 1000, 30, 300, $4)`,
       [brandId, locationId, order.rows[0]!.id, `settled-${randomUUID()}`],
     );
+    const settledLinkId = `link-${randomUUID()}`;
+    await sql(
+      `update public.orders set tender_type = 'square_link', square_payment_link_id = $2
+         where id = $1;
+       update public.platform_fee_quotes set expires_at = now() - interval '1 second'
+         where order_id = $1`,
+      [order.rows[0]!.id, settledLinkId],
+    );
     const settledRelease = await serviceClient().rpc('release_platform_fee_quote', {
       p_order_id: order.rows[0]!.id,
     });
     assert.equal(settledRelease.error, null);
     assert.equal(settledRelease.data, false);
+    const settledExpiry = await serviceClient().rpc('expire_square_checkout_quote', {
+      p_order_id: order.rows[0]!.id,
+      p_payment_link_id: settledLinkId,
+    });
+    assert.equal(settledExpiry.error, null);
+    assert.equal(settledExpiry.data, false);
     const preserved = await sql<{ count: string }>(
       `select count(*)::text as count from public.platform_fee_quotes where order_id = $1`,
       [order.rows[0]!.id],

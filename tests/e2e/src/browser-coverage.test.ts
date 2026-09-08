@@ -38,7 +38,7 @@ describe('browser coverage source mapping', () => {
     assert.equal(isProjectSource('../../../src/features/order.ts'), true);
     assert.equal(isProjectSource('../../packages/domain/src/orders.ts'), true);
     assert.equal(isProjectSource('../../node_modules/@platform/domain/src/orders.ts'), true);
-    assert.equal(isProjectSource('webpack://_N_E/./app/page.tsx'), false);
+    assert.equal(isProjectSource('webpack://_N_E/./app/page.tsx'), true);
     assert.equal(isProjectSource('../../node_modules/react/index.js'), false);
     assert.equal(isProjectSource('apps/customer/dist-e2e/app.js'), false);
   });

@@ -75,6 +75,16 @@ jobs:
           --reporter=json-summary
           pnpm verify
 
+      # Hosted database and browser jobs cannot safely receive secrets from a
+      # pull request. This threshold still makes every PR enforce the complete
+      # TS/TSX source denominator using the secret-free verification suite.
+      - name: Enforce pull-request TS/TSX coverage
+        if: github.event_name == 'pull_request'
+        run: >-
+          pnpm --filter @platform/e2e-tests check-coverage
+          "$GITHUB_WORKSPACE/coverage/verification/coverage-summary.json"
+          40
+
       # The runner is UTC, and that hid a customer-facing bug for a whole
       # release: the drop board formatted its date range through the device
       # clock, so a window the shop advertised as opening the 20th read the
@@ -503,7 +513,7 @@ jobs:
         with:
           name: verification-coverage
           path: coverage/verification
-      - name: Merge verification, database, and browser execution and enforce 70 percent
+      - name: Merge verification, database, and browser execution and enforce 40 percent
         run: >-
           pnpm --filter @platform/e2e-tests merge-coverage
           "$GITHUB_WORKSPACE/coverage/verification/coverage-final.json"

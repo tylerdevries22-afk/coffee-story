@@ -8,6 +8,7 @@
     "lint": "echo 'e2e tests: lint covered by typecheck'",
     "typecheck": "tsc --noEmit",
     "merge-coverage": "tsx src/merge-coverage.ts",
+    "check-coverage": "tsx src/check-coverage.ts",
     "verify": "pnpm typecheck && pnpm test"
   },
   "dependencies": {

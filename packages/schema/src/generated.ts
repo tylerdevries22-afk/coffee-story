@@ -6769,6 +6769,7 @@ export type Database = {
           scheduled_for: string | null
           service_date: string | null
           square_checkout_url: string | null
+          square_payment_link_id: string | null
           square_order_id: string | null
           square_payment_id: string | null
           status:
@@ -6806,6 +6807,7 @@ export type Database = {
           scheduled_for?: string | null
           service_date?: string | null
           square_checkout_url?: string | null
+          square_payment_link_id?: string | null
           square_order_id?: string | null
           square_payment_id?: string | null
           status?:
@@ -6843,6 +6845,7 @@ export type Database = {
           scheduled_for?: string | null
           service_date?: string | null
           square_checkout_url?: string | null
+          square_payment_link_id?: string | null
           square_order_id?: string | null
           square_payment_id?: string | null
           status?:

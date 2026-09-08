@@ -97,3 +97,15 @@ export function createPaymentLink(
   });
 }
 
+/** Disable a hosted checkout page before its fee reservation is released. */
+export async function deletePaymentLink(
+  config: SquareConfig,
+  token: string,
+  paymentLinkId: string,
+): Promise<void> {
+  if (!paymentLinkId.trim()) throw new RangeError('Square payment link id is required.');
+  await call(config, `/v2/online-checkout/payment-links/${encodeURIComponent(paymentLinkId)}`, {
+    method: 'DELETE',
+    token,
+  });
+}

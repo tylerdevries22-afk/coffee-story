@@ -320,6 +320,7 @@ export type OrderRow = {
   client_key: string | null;
   tender_type: OrderTenderType;
   square_checkout_url: string | null;
+  square_payment_link_id: string | null;
   square_order_id: string | null;
   square_payment_id: string | null;
   created_at: string;

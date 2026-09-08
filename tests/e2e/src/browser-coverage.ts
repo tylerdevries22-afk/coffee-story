@@ -42,7 +42,7 @@ export function normalizeCoveragePath(filePath: string, distFile = ''): string {
 
 export function isProjectSource(filePath: string): boolean {
   const clean = filePath.split('?')[0]?.replaceAll('\\', '/') ?? filePath;
-  if (!clean.endsWith('.ts')) return false;
+  if (!/\.tsx?$/.test(clean)) return false;
   const workspacePackage = clean.includes('/node_modules/@platform/');
   if ((clean.includes('/node_modules/') && !workspacePackage) || clean.includes('/dist-e2e/')) return false;
   if (workspacePackage) return true;

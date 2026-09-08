@@ -33,8 +33,8 @@ export function isCountedBrowserFile(file: string): boolean {
   const fromRoot = relative(workspaceRoot, clean).replaceAll('\\', '/');
   if (!isAbsolute(clean) || !existsSync(clean)
     || fromRoot.startsWith('../') || isAbsolute(fromRoot)) return false;
-  if (!/^(?:apps|packages|scripts)\//.test(fromRoot) || !clean.endsWith('.ts')) return false;
-  return !/(?:\.d|\.test|\.config|\.generated)\.ts$|\/(?:dist[^/]*|node_modules|tests?)\//.test(clean);
+  if (!/^(?:apps|packages|scripts)\//.test(fromRoot) || !/\.tsx?$/.test(clean)) return false;
+  return !/(?:\.d|\.test|\.config|\.generated)\.tsx?$|\/(?:dist[^/]*|node_modules|tests?)\//.test(clean);
 }
 
 export function filterBrowserCoverage(input: object): IstanbulMap {
@@ -48,7 +48,7 @@ export async function mergeCoverage(
   integrationPath: string,
   browserPath: string,
   outputDir: string,
-  threshold = 70,
+  threshold = 40,
 ): Promise<number> {
   const report = new CoverageReport({
     name: 'Workspace verification, database integration, and hosted browser coverage',

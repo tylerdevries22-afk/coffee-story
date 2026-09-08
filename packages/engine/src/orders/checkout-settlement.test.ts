@@ -23,7 +23,9 @@ it('records the exact checkout fees when payments settle out of order across a t
     const id = body.order.reference_id;
     quoted.set(id, body.checkout_options.app_fee_money.amount);
     res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify({ payment_link: { url: `https://checkout.example/${id}`, order_id: `sq-${id}` } }));
+    res.end(JSON.stringify({ payment_link: {
+      id: `link-${id}`, url: `https://checkout.example/${id}`, order_id: `sq-${id}`,
+    } }));
   });
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');
@@ -49,7 +51,11 @@ it('records the exact checkout fees when payments settle out of order across a t
           total_cents: 10_000, stored_value_applied_cents: 0, square_checkout_url: null,
           totals: { lines: [{ name: 'Coffee box', quantity: 1, unit_price_cents: 10_000 }] },
         };
-        if (init?.method === 'PATCH') assert.equal('totals' in JSON.parse(String(init.body)), false);
+        if (init?.method === 'PATCH') {
+          const update = JSON.parse(String(init.body)) as Record<string, unknown>;
+          assert.equal('totals' in update, false);
+          assert.equal(update.square_payment_link_id, `link-${id}`);
+        }
       } else if (table === 'claim_platform_fee_quote') {
         const input = JSON.parse(String(init?.body)) as { p_order_id: string; p_charge_cents: number };
         const feeCents = reservedGross >= 100_000 ? 150 : 300;

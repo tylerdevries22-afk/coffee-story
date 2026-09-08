@@ -7,6 +7,7 @@
     "typecheck": "pnpm -r --workspace-concurrency=1 typecheck && tsc -p scripts",
     "test": "pnpm test:scripts && pnpm -r --workspace-concurrency=1 test",
     "coverage:unit": "c8 --temp-directory coverage/unit/tmp --reports-dir coverage/unit --reporter=json --reporter=json-summary pnpm test",
+    "coverage:check": "pnpm --filter @platform/e2e-tests check-coverage coverage/unit/coverage-summary.json 40",
     "test:scripts": "tsx --test \"scripts/**/*.test.ts\" \"scripts/**/*.test.mjs\"",
     "verify": "pnpm audit:tokens && pnpm audit:brand && pnpm lint && tsc -p scripts && pnpm test:scripts && pnpm -r --workspace-concurrency=1 verify",
     "mutate": "tsx scripts/mutate.ts",
