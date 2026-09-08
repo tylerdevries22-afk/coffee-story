@@ -20,9 +20,13 @@ describe('hosted database promotion gate', () => {
     assert.doesNotMatch(deploy, /EXPECTED_RELEASE_READINESS/);
     assert.match(migrationRunner, /const latestVersion = local\.at\(-1\)\?\.version/);
     assert.match(migrationRunner, /Release readiness must match the newest local migration version/);
-    assert.match(deploy, /deploy-hq:[\s\S]*?needs: \[migrate-database, release-policy\]/);
+    assert.match(deploy, /stage-tenant-package:[\s\S]*?needs: \[migrate-database, release-policy\]/);
+    assert.match(deploy, /stage-tenant-package:[\s\S]*?if: inputs\.deploy_web \|\| inputs\.publish_native/);
+    assert.match(deploy, /deploy-hq:[\s\S]*?needs: \[stage-tenant-package, release-policy\]/);
     assert.match(deploy, /publish-native:[\s\S]*?needs: \[migrate-database, deploy-hq, release-policy\]/);
     assert.match(deploy, /publish-native:[\s\S]*?inputs\.publish_native && inputs\.deploy_web && inputs\.environment == 'production'/);
+    assert.match(deploy, /Native publishing requires the same-run hosted application release/);
+    assert.match(deploy, /Native publishing is supported only for production releases/);
     assert.match(deploy, /EXPO_TOKEN: \$\{\{ secrets\.EXPO_TOKEN \|\| secrets\.EXPO_GO_COFFEE \}\}/);
     assert.match(deploy, /API_URL: \$\{\{ needs\.deploy-hq\.outputs\.url \}\}/);
   });

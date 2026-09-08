@@ -2,8 +2,9 @@ goal_id: production-franchise-hardening-2026-09-06
 objective: >-
   Ship a verified, fail-closed tenant-package pipeline and HQ explorer, close
   sensitive-path security gaps, and establish enforceable production gates.
-working_branch: codex/tenant-package-hardening
-base_commit: 9bf39b37fb4db5d9a6adeb3183c889766bd8680e
+record_type: historical_implementation_backlog
+source_branch: codex/tenant-package-hardening
+source_base_commit: 9bf39b37325f7d99e2b26793bda53e3df26c36be
 tasks:
   - id: TP-01
     title: Authoritative tenant-package schema and access controls

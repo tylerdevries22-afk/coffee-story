@@ -1,7 +1,4 @@
-import {
-  dueCampaigns,
-  dueDropTransitions,
-} from '@platform/engine';
+import { dueCampaigns } from '@platform/engine';
 
 import { jsonError, matchesSecret, notConfigured, serverEnv, serviceDb } from '../../../../lib/api-auth';
 import { analyticsMaintenanceCutoffs } from '../../../../lib/analytics-maintenance';
@@ -12,6 +9,8 @@ import { runTrainingMaintenance } from '../../../../lib/training-maintenance';
 import { deliverOperationNotifications } from '../../../../lib/operation-notifications';
 
 export const maxDuration = 300;
+const DROP_BATCH_SIZE = 200;
+const DROP_MAX_BATCHES = 5;
 
 /**
  * The scheduled tick, reached as GET from Vercel Cron (via vercel.json) and as
@@ -36,25 +35,18 @@ export async function POST(request: Request): Promise<Response> {
   const now = new Date();
   const stages = await runIndependentCronStages({
     drops: async () => {
-      const result = await db.from('drops').select('id, status, reveal_at, starts_at, ends_at')
-        .in('status', ['scheduled', 'revealed', 'live'])
-        .returns<{
-          id: string;
-          status: 'scheduled' | 'revealed' | 'live';
-          reveal_at: string | null;
-          starts_at: string;
-          ends_at: string;
-        }[]>();
-      if (result.error) throw result.error;
-      const transitions = dueDropTransitions((result.data ?? []).map((drop) => ({
-        id: drop.id, status: drop.status, revealAt: drop.reveal_at,
-        startsAt: drop.starts_at, endsAt: drop.ends_at,
-      })), now);
-      for (const transition of transitions) {
-        const moved = await db.from('drops').update({ status: transition.to }).eq('id', transition.id);
-        if (moved.error) throw moved.error;
+      let advanced = 0;
+      for (let batch = 0; batch < DROP_MAX_BATCHES; batch += 1) {
+        const result = await db.rpc('advance_due_drop_batch', {
+          target_now: now.toISOString(),
+          target_limit: DROP_BATCH_SIZE,
+        }).returns<{ id: string }[]>();
+        if (result.error) throw result.error;
+        const count = result.data?.length ?? 0;
+        advanced += count;
+        if (count < DROP_BATCH_SIZE) break;
       }
-      return transitions.length;
+      return advanced;
     },
     campaigns: async () => {
       const result = await db.from('campaigns').select('id, status, scheduled_at')

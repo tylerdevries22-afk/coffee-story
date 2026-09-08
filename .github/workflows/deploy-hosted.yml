@@ -114,8 +114,23 @@ jobs:
       native_count: ${{ steps.surface-plan.outputs.native_count }}
     steps:
       - name: Enforce deployment and database isolation
+        env:
+          DEPLOY_WEB: ${{ inputs.deploy_web }}
+          PUBLISH_NATIVE: ${{ inputs.publish_native }}
         run: |
           set -euo pipefail
+          if [ "$DEPLOY_WEB" != true ] && [ "$PUBLISH_NATIVE" != true ]; then
+            echo '::error::Select at least one web or native release surface.'
+            exit 1
+          fi
+          if [ "$PUBLISH_NATIVE" = true ] && [ "$DEPLOY_WEB" != true ]; then
+            echo '::error::Native publishing requires the same-run hosted application release.'
+            exit 1
+          fi
+          if [ "$PUBLISH_NATIVE" = true ] && [ "$DEPLOY_ENVIRONMENT" != production ]; then
+            echo '::error::Native publishing is supported only for production releases.'
+            exit 1
+          fi
           test "$PROJECT_PREFIX" = "$TENANT" || {
             echo '::error::The Vercel project prefix must exactly match the immutable tenant slug.'
             exit 1
@@ -248,6 +263,7 @@ jobs:
   stage-tenant-package:
     name: Verify and stage immutable tenant package
     needs: [migrate-database, release-policy]
+    if: inputs.deploy_web || inputs.publish_native
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
