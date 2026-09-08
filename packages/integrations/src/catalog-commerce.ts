@@ -1,4 +1,4 @@
-import { apiKeySetup, logo, oauthSetup, type CatalogDefinition } from './catalog-definition';
+import { apiKeySetup, connectorCallbackPath, logo, oauthSetup, type CatalogDefinition } from './catalog-definition';
 
 /** Commerce and finance providers that move or reconcile money. */
 export const COMMERCE_DEFINITIONS: readonly CatalogDefinition[] = [
@@ -10,11 +10,10 @@ export const COMMERCE_DEFINITIONS: readonly CatalogDefinition[] = [
     mapping: ['organization', 'account', 'location'],
     health: ['auth', 'read', 'write', 'webhook', 'quota', 'reconciliation'],
     logo: logo('square', '#006AFF'), webhooks: true,
-    setup: oauthSetup({
-      id: 'square', estimatedMinutes: 2,
+    setup: oauthSetup({ estimatedMinutes: 2,
+      redirectPath: '/api/square/callback',
       consoleUrl: 'https://developer.squareup.com/apps',
       documentationUrl: 'https://developer.squareup.com/docs/oauth-api/overview',
-      credentialEnvKeys: ['SQUARE_APP_ID', 'SQUARE_APP_SECRET', 'SQUARE_TOKEN_KEY'],
       operatorSteps: [
         { text: 'Pick the location this Square account should post against.', href: '/locations' },
       ],
@@ -29,10 +28,9 @@ export const COMMERCE_DEFINITIONS: readonly CatalogDefinition[] = [
     health: ['auth', 'read', 'webhook', 'quota', 'reconciliation'],
     logo: logo('stripe', '#635BFF'), webhooks: true,
     setup: oauthSetup({
-      id: 'stripe',
+      redirectPath: connectorCallbackPath('stripe'),
       consoleUrl: 'https://dashboard.stripe.com/settings/connect/onboarding-options/oauth',
       documentationUrl: 'https://docs.stripe.com/connect/oauth-reference',
-      credentialEnvKeys: ['STRIPE_CONNECT_CLIENT_ID', 'STRIPE_SECRET_KEY'],
       operatorSteps: [],
     }),
   },
@@ -44,10 +42,9 @@ export const COMMERCE_DEFINITIONS: readonly CatalogDefinition[] = [
     mapping: ['organization', 'account'], health: ['auth', 'read', 'quota', 'reconciliation'],
     logo: logo('quickbooks', '#2CA01C'),
     setup: oauthSetup({
-      id: 'quickbooks-online', estimatedMinutes: 2,
+      redirectPath: connectorCallbackPath('quickbooks-online'), estimatedMinutes: 2,
       consoleUrl: 'https://developer.intuit.com/app/developer/myapps',
       documentationUrl: 'https://developer.intuit.com/app/developer/qbo/docs/develop/authentication-and-authorization/oauth-2.0',
-      credentialEnvKeys: ['QUICKBOOKS_CLIENT_ID', 'QUICKBOOKS_CLIENT_SECRET', 'QUICKBOOKS_ENV'],
       operatorSteps: [
         { text: 'Choose the company file to sync when Intuit lists more than one.' },
       ],
@@ -65,7 +62,6 @@ export const COMMERCE_DEFINITIONS: readonly CatalogDefinition[] = [
       estimatedMinutes: 4,
       consoleUrl: 'https://dashboard.plaid.com/developers/keys',
       documentationUrl: 'https://plaid.com/docs/quickstart/',
-      credentialEnvKeys: ['PLAID_CLIENT_ID', 'PLAID_SECRET', 'PLAID_ENV'],
       steps: [
         { text: 'Open Plaid Dashboard, then Developers, then Keys.', href: 'https://dashboard.plaid.com/developers/keys' },
         { text: 'Copy the client ID and the secret for the environment you are launching in.' },

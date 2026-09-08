@@ -88,8 +88,7 @@ function cardOf(
     isInstalled: Boolean(installation),
     isConnected,
     isManualOnly,
-    canConfigure: entry.availability !== 'coming-soon'
-      && registryAllowsConfiguration(registry),
+    canConfigure: registryAllowsConfiguration(entry, registry),
     connectHref: null,
     connectLabel: null,
   });

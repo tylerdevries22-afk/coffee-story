@@ -2,10 +2,11 @@ import { mcpCookieBindingMatches, mcpSha256 } from 'franchise-mcp-store-ui/oauth
 import { NextResponse } from 'next/server';
 
 import {
+  ConnectorExchangeError,
   connectorCallbackUrl,
   exchangeConnectorCode,
-  grantedConnectorScopes,
   isOAuthConnectorKey,
+  resolveGrantedScopes,
   verifyConnectorIdentity,
   type OAuthConnectorKey,
 } from '@/lib/connector-oauth-providers';
@@ -31,6 +32,20 @@ function finish(request: Request, provider: OAuthConnectorKey, outcome: string):
   const response = NextResponse.redirect(target, 302);
   response.headers.append('Set-Cookie', `${connectorCookieName(provider)}=; Path=/api/connectors/${provider}/callback; Max-Age=0; HttpOnly; SameSite=Lax`);
   return response;
+}
+
+/**
+ * Records which stage failed, without the code, the token, or any credential.
+ *
+ * Every cause previously collapsed into one opaque redirect, so an operator could
+ * not tell a stale client secret from a declined scope or a storage error.
+ */
+function reportFailure(provider: OAuthConnectorKey, error: unknown): 'connection_failed' {
+  const stage = error instanceof ConnectorExchangeError ? error.stage : 'storage';
+  const status = error instanceof ConnectorExchangeError && error.status !== null
+    ? ` status=${error.status}` : '';
+  console.error(`connector.oauth.callback provider=${provider} stage=${stage}${status}`);
+  return 'connection_failed';
 }
 
 function expiryOf(token: Readonly<Record<string, unknown>>): string | null {
@@ -76,12 +91,12 @@ export async function GET(
       p_actor_user_id: context.userId,
       p_credential: credential,
       p_account_label: identity.accountLabel,
-      p_granted_scopes: grantedConnectorScopes(provider, token),
+      p_granted_scopes: await resolveGrantedScopes(provider, token),
       p_expires_at: expiryOf(token),
     });
     if (completed.error) throw new Error('Connector storage failed.');
     return finish(request, provider, 'connected');
-  } catch {
-    return finish(request, provider, 'connection_failed');
+  } catch (error) {
+    return finish(request, provider, reportFailure(provider, error));
   }
 }

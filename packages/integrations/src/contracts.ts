@@ -101,13 +101,17 @@ export interface ConnectorSetup {
   readonly kind: ConnectorSetupKind;
   /** Honest wall-clock estimate for the owner-facing work only. */
   readonly estimatedMinutes: number;
-  /** Provider console where credentials or exports are obtained. */
-  readonly consoleUrl: string;
-  readonly documentationUrl: string;
+  /**
+   * Provider console where credentials or exports are obtained. Absent when
+   * there is nothing for a reader to open yet, so no link is rendered.
+   */
+  readonly consoleUrl?: string;
+  readonly documentationUrl?: string;
   readonly steps: readonly ConnectorSetupStep[];
-  /** Deployment environment variables the platform operator must supply. */
-  readonly credentialEnvKeys: readonly string[];
-  /** Redirect path the operator registers with the provider, when OAuth applies. */
+  /**
+   * Callback path the operator registers with the provider. Present only when a
+   * route actually serves it, so the panel never publishes a URL that 404s.
+   */
   readonly redirectPath?: string;
 }
 

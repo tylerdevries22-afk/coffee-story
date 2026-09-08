@@ -80,9 +80,6 @@ function ManageAction({ entry }: { readonly entry: McpStoreEntry }) {
   if (entry.status === 'connected' || entry.status === 'unavailable') {
     return <span className={`${styles.status} ${styles[entry.status]}`}>{statusLabel(entry.status)}</span>;
   }
-  if (entry.status === 'manual' && !entry.connectHref) {
-    return <span className={styles.status}>{statusLabel(entry.status)}</span>;
-  }
   if (!entry.connectHref) {
     return <span className={styles.status}>{statusLabel(entry.status)}</span>;
   }

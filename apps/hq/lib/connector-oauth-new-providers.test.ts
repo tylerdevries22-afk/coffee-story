@@ -2,10 +2,12 @@ import assert from 'node:assert/strict';
 import { afterEach, describe, it, mock } from 'node:test';
 
 import {
+  ConnectorExchangeError,
   connectorAuthorizationUrl,
   connectorProviderReady,
   exchangeConnectorCode,
   isOAuthConnectorKey,
+  resolveGrantedScopes,
   verifyConnectorIdentity,
 } from './connector-oauth-providers';
 
@@ -109,6 +111,109 @@ describe('publishing and social OAuth providers', { concurrency: false }, () => 
     assert.equal((init as RequestInit | undefined)?.method, undefined);
     assert.match(String(target), /^https:\/\/graph\.facebook\.com\/v25\.0\/oauth\/access_token\?/);
     assert.match(String(target), /client_secret=meta-secret/);
+  });
+
+  it('never replays a single-use authorization code, whatever the method', async () => {
+    configure();
+    // Meta's endpoint is a GET, which a retry-aware fetch would treat as safe.
+    // A replay burns the code and forces the owner back through consent.
+    for (const key of ['meta-business-suite', 'tiktok'] as const) {
+      mock.restoreAll();
+      const fetchMock = mock.method(globalThis, 'fetch', async () =>
+        new Response('{}', { status: 502 }));
+      await assert.rejects(
+        exchangeConnectorCode(key, 'one-time-code', 'v'.repeat(43), 'https://hq.example.com/cb'),
+        ConnectorExchangeError,
+      );
+      assert.equal(fetchMock.mock.callCount(), 1, `${key} must be attempted exactly once`);
+    }
+  });
+
+  it('names the failing stage without leaking the code or the secret', async () => {
+    configure();
+    mock.method(globalThis, 'fetch', async () => new Response('<html>throttled</html>', {
+      status: 429, headers: { 'content-type': 'text/html' },
+    }));
+    await assert.rejects(
+      exchangeConnectorCode('tiktok', 'one-time-code', 'v'.repeat(43), 'https://hq.example.com/cb'),
+      (error: unknown) => {
+        assert.ok(error instanceof ConnectorExchangeError);
+        assert.equal(error.stage, 'payload');
+        assert.equal(error.status, 429);
+        assert.ok(!error.message.includes('one-time-code'));
+        assert.ok(!error.message.includes('tiktok-secret'));
+        return true;
+      },
+    );
+  });
+
+  it('reports the provider error text on a rejected exchange', async () => {
+    configure();
+    mock.method(globalThis, 'fetch', async () => Response.json(
+      { error: 'invalid_client', error_description: 'client secret mismatch' }, { status: 400 },
+    ));
+    await assert.rejects(
+      exchangeConnectorCode('youtube', 'one-time-code', 'v'.repeat(43), 'https://hq.example.com/cb'),
+      (error: unknown) => {
+        assert.ok(error instanceof ConnectorExchangeError);
+        assert.equal(error.stage, 'provider');
+        assert.match(error.message, /client secret mismatch/u);
+        return true;
+      },
+    );
+  });
+
+  it('asks Meta which permissions were actually granted, not which were requested', async () => {
+    configure();
+    // Meta sends no `scope` field and lets a user decline individual permissions,
+    // so the requested list would record consent that never happened.
+    mock.method(globalThis, 'fetch', async () => Response.json({ data: [
+      { permission: 'pages_show_list', status: 'granted' },
+      { permission: 'ads_read', status: 'declined' },
+      { permission: 'read_insights', status: 'granted' },
+    ] }));
+
+    const granted = await resolveGrantedScopes('meta-business-suite', { access_token: 'meta-token' });
+    assert.deepEqual([...granted].sort(), ['pages_show_list', 'read_insights']);
+    assert.ok(!granted.includes('ads_read'), 'a declined permission must not be recorded');
+  });
+
+  it('records no scopes rather than assumed scopes when Meta cannot be asked', async () => {
+    configure();
+    mock.method(globalThis, 'fetch', async () => new Response('nope', { status: 500 }));
+    assert.deepEqual(await resolveGrantedScopes('meta-business-suite', { access_token: 't' }), []);
+  });
+
+  it('trusts a reported scope string when the provider sends one', async () => {
+    configure();
+    const fetchMock = mock.method(globalThis, 'fetch', async () => Response.json({ data: [] }));
+    assert.deepEqual(
+      await resolveGrantedScopes('meta-business-suite',
+        { access_token: 't', scope: 'pages_show_list,ads_read' }),
+      ['pages_show_list', 'ads_read'],
+    );
+    assert.equal(fetchMock.mock.callCount(), 0, 'no extra call when the token reports scopes');
+  });
+
+  it('bounds a provider-supplied account label before it reaches storage', async () => {
+    mock.method(globalThis, 'fetch', async () => Response.json({
+      id: '10000000000', name: `  ${'n'.repeat(4_000)}  `,
+    }));
+    const identity = await verifyConnectorIdentity(
+      'meta-business-suite', { access_token: 'access-token' }, null,
+    );
+    assert.equal(identity.accountLabel.length, 160, 'the label is capped to its column width');
+    assert.equal(identity.accountLabel.trim(), identity.accountLabel, 'and trimmed');
+  });
+
+  it('collapses whitespace a provider used to pad an account label', async () => {
+    mock.method(globalThis, 'fetch', async () => Response.json({
+      id: 'acct_1', display_name: '\n\n  Coffee   Story \t',
+    }));
+    assert.deepEqual(
+      await verifyConnectorIdentity('stripe', { access_token: 'access-token' }, null),
+      { accountId: 'acct_1', accountLabel: 'Coffee Story' },
+    );
   });
 
   it('accepts the TikTok token whether it is nested under data or not', async () => {

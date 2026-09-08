@@ -37,12 +37,35 @@ export function SetupBadge({ setup }: { readonly setup: McpStoreSetup }) {
   </span>;
 }
 
+/**
+ * A step link is host copy, so the scheme is enforced here rather than trusted:
+ * only an https URL or a same-app absolute path renders as a link, and anything
+ * else degrades to plain text. That keeps `javascript:` and `data:` unreachable
+ * even if a host passes one.
+ */
+function safeHref(href: string): { readonly href: string; readonly external: boolean } | null {
+  if (href.startsWith('https://')) return { href, external: true };
+  if (href.startsWith('/') && !href.startsWith('//')) return { href, external: false };
+  return null;
+}
+
 function StepText({ step }: { readonly step: McpStoreSetupStep }) {
-  if (!step.href) return <>{step.text}</>;
-  const external = step.href.startsWith('https://');
-  return <a href={step.href} {...(external ? { rel: 'noreferrer noopener', target: '_blank' } : {})}>
+  const target = step.href ? safeHref(step.href) : null;
+  if (!target) return <>{step.text}</>;
+  return <a href={target.href}
+    {...(target.external ? { rel: 'noreferrer noopener', target: '_blank' } : {})}>
     {step.text}
   </a>;
+}
+
+function SetupLink({ href, text }: {
+  readonly href: string | null | undefined;
+  readonly text: string;
+}) {
+  const target = href ? safeHref(href) : null;
+  if (!target) return null;
+  return <a href={target.href}
+    {...(target.external ? { rel: 'noreferrer noopener', target: '_blank' } : {})}>{text}</a>;
 }
 
 /**
@@ -62,12 +85,8 @@ export function SetupDisclosure({ entry, setup }: {
       <StepText step={step} />
     </li>)}</ol>
     <p className={styles.setupLinks}>
-      {setup.consoleHref ? <a href={setup.consoleHref} rel="noreferrer noopener" target="_blank">
-        {setup.consoleLabel ?? 'Open provider console'}
-      </a> : null}
-      {setup.documentationHref ? <a href={setup.documentationHref} rel="noreferrer noopener" target="_blank">
-        Provider documentation
-      </a> : null}
+      <SetupLink href={setup.consoleHref} text={setup.consoleLabel ?? 'Open provider console'} />
+      <SetupLink href={setup.documentationHref} text="Provider documentation" />
     </p>
   </details>;
 }

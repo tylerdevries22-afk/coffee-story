@@ -110,6 +110,33 @@ describe('setup guidance', () => {
     expect(html).not.toContain('How to connect');
   });
 
+  it('refuses a step link that is not https or a same-app path', () => {
+    const html = renderToStaticMarkup(<McpStore entries={[{
+      ...TRANSISTOR,
+      setup: { ...API_KEY, steps: [
+        { text: 'Hostile scheme.', href: 'javascript:alert(1)' },
+        { text: 'Protocol relative.', href: '//evil.example.com' },
+        { text: 'Data URI.', href: 'data:text/html,<script>' },
+        { text: 'Legitimate path.', href: '/integrations' },
+      ] },
+    }]} />);
+    expect(html).toContain('Hostile scheme.');
+    expect(html).not.toContain('javascript:');
+    expect(html).not.toContain('//evil.example.com');
+    expect(html).not.toContain('data:text/html');
+    expect(html).toContain('href="/integrations"');
+  });
+
+  it('renders no console link when the host supplies none', () => {
+    const html = renderToStaticMarkup(<McpStore entries={[{
+      ...TRANSISTOR,
+      setup: { ...API_KEY, consoleHref: null, documentationHref: null },
+    }]} />);
+    expect(html).toContain('How to connect');
+    expect(html).not.toContain('Open the key screen');
+    expect(html).not.toContain('Provider documentation');
+  });
+
   it('omits the time estimate when a provider has nothing to configure yet', () => {
     const html = renderToStaticMarkup(<McpStore entries={[{
       ...TIKTOK, status: 'unavailable',

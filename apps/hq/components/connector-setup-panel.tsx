@@ -1,5 +1,6 @@
-import { setupKindLabel } from 'franchise-mcp-store-ui';
+import { SetupBadge, type McpStoreSetup } from 'franchise-mcp-store-ui';
 
+import { sharedSetup } from '@/lib/mcp-store-projection';
 import type { ConnectorCard } from '@/lib/integration-cards';
 
 const KIND_HEADLINES: Readonly<Record<ConnectorCard['setup']['kind'], string>> = {
@@ -10,50 +11,57 @@ const KIND_HEADLINES: Readonly<Record<ConnectorCard['setup']['kind'], string>> =
 
 const KIND_NOTES: Readonly<Record<ConnectorCard['setup']['kind'], string>> = {
   'one-click-oauth':
-    'This deployment already holds the provider client, so you approve scopes and nothing else. Tokens are stored as Vault references and never reach this browser.',
+    'This deployment holds the provider client, so you approve scopes and nothing else. Tokens are stored as Vault references and never reach this browser.',
   'api-key':
-    'This provider issues no OAuth client to us, so one key is copied from the screen linked below. The key is written straight to Vault and is never displayed again.',
+    'This provider issues no OAuth client to us, so one key is copied from the screen linked below. The key is stored in Vault against this organization alone.',
   'operator-portal':
-    'This provider publishes no API. Download the report it does offer and upload it here; column mapping is automatic and every import is reversible.',
+    'This provider publishes no API. Download the report it does offer and bring it here; nothing is stored until you do.',
 };
 
-function StepLink({ href, text }: { readonly href: string; readonly text: string }) {
+type ConnectorSetupPanelProps = {
+  readonly card: ConnectorCard;
+  /** Deployment secret names, passed only for a reader entitled to see them. */
+  readonly credentialEnvKeys?: readonly string[];
+};
+
+function SetupLink({ href, text }: { readonly href: string; readonly text: string }) {
   const external = href.startsWith('https://');
   return <a href={href} {...(external ? { rel: 'noreferrer noopener', target: '_blank' } : {})}>{text}</a>;
 }
 
 /** The full walked setup path for one provider, shown on its detail page. */
-export function ConnectorSetupPanel({ card }: { readonly card: ConnectorCard }) {
-  const { setup } = card;
+export function ConnectorSetupPanel({ card, credentialEnvKeys = [] }: ConnectorSetupPanelProps) {
+  const setup: McpStoreSetup | undefined = sharedSetup(card);
+  if (!setup) return null;
+  const showOperatorDetail = credentialEnvKeys.length > 0;
   return (
     <section className="card connector-setup-panel">
-      <p className="eyebrow">
-        {setupKindLabel(setup.kind)}
-        {setup.estimatedMinutes > 0 ? ` · about ${setup.estimatedMinutes} min` : ''}
-      </p>
+      <p className="eyebrow"><SetupBadge setup={setup} /></p>
       <h2>{KIND_HEADLINES[setup.kind]}</h2>
       <p>{KIND_NOTES[setup.kind]}</p>
       <ol className="connector-setup-steps">
         {setup.steps.map((step, index) => (
           <li key={`${card.id}-step-${index}`}>
-            {step.href ? <StepLink href={step.href} text={step.text} /> : step.text}
+            {step.href ? <SetupLink href={step.href} text={step.text} /> : step.text}
           </li>
         ))}
       </ol>
       <p className="connector-setup-links">
-        <StepLink href={setup.consoleUrl} text="Open provider console" />
-        <StepLink href={setup.documentationUrl} text="Provider documentation" />
+        {setup.consoleHref
+          ? <SetupLink href={setup.consoleHref} text={setup.consoleLabel ?? 'Open provider console'} /> : null}
+        {setup.documentationHref
+          ? <SetupLink href={setup.documentationHref} text="Provider documentation" /> : null}
       </p>
-      {setup.redirectPath ? (
+      {showOperatorDetail && card.setup.redirectPath ? (
         <p className="connector-setup-redirect">
           <span>Redirect URI to register with the provider</span>
-          <code>{setup.redirectPath}</code>
+          <code>{card.setup.redirectPath}</code>
         </p>
       ) : null}
-      {setup.credentialEnvKeys.length > 0 ? (
+      {showOperatorDetail ? (
         <p className="connector-setup-env">
-          <span>Deployment secrets this connector reads</span>
-          <code>{setup.credentialEnvKeys.join(', ')}</code>
+          <span>Deployment secrets an operator sets for this connector</span>
+          <code>{credentialEnvKeys.join(', ')}</code>
         </p>
       ) : null}
     </section>

@@ -19,6 +19,15 @@ export type ConnectorCertificationRow = {
   readonly valid_until: string | null;
 };
 
+export type ConnectorRegistryGate = {
+  readonly id: string;
+  readonly provider_key: string;
+  readonly availability?: string;
+  readonly is_active?: boolean;
+};
+
+const CONFIGURABLE_AVAILABILITY = ['available', 'setup_required', 'provider_approval_required'];
+
 function has(...names: readonly string[]): boolean {
   return names.every((name) => Boolean(process.env[name]?.trim()));
 }
@@ -29,7 +38,17 @@ function publicOriginReady(): boolean {
     || has('PLATFORM_BASE_URL');
 }
 
-/** Adds only authorization links backed by a configured, implemented route. */
+/**
+ * Adds only authorization links backed by a configured, implemented route.
+ *
+ * Every branch is gated on `canConfigure`, which carries the operator's registry
+ * kill switch. Without that gate a provider deactivated in `connector_registry`
+ * still advertises a live authorize link beside a "Disabled" label.
+ *
+ * API-key and manual-only providers deliberately get no link: no route accepts a
+ * pasted key or an uploaded report yet, so a button here would be a dead click.
+ * Their setup guidance carries the real provider console link instead.
+ */
 export function withConnectorAuthorization(
   cards: readonly ConnectorCard[],
   certifiedProviders: ReadonlySet<string> = new Set(),
@@ -37,21 +56,10 @@ export function withConnectorAuthorization(
   const stateReady = has('CONNECTOR_OAUTH_STATE_SECRET')
     && (process.env.CONNECTOR_OAUTH_STATE_SECRET?.trim().length ?? 0) >= 32;
   return cards.map((card) => {
-    // A manual-only provider has no API to authorize; its action is the guided import.
-    if (card.isManualOnly) {
-      return card.canConfigure
-        ? { ...card, connectHref: `/integrations/${card.id}`, connectLabel: 'Set up import' }
-        : card;
-    }
+    if (!card.canConfigure) return card;
     if (card.id === 'square') {
       const ready = has('SQUARE_APP_ID', 'SQUARE_APP_SECRET', 'SQUARE_TOKEN_KEY');
-      return { ...card, connectHref: ready ? '/locations' : null, connectLabel: 'Choose location' };
-    }
-    // An API-key provider is configured on its detail page, never by redirect.
-    if (card.setup.kind === 'api-key') {
-      return card.canConfigure
-        ? { ...card, connectHref: `/integrations/${card.id}`, connectLabel: 'Add API key' }
-        : card;
+      return ready ? { ...card, connectHref: '/locations', connectLabel: 'Choose location' } : card;
     }
     if (!isOAuthConnectorKey(card.id) || !certifiedProviders.has(card.id)
       || !stateReady || !publicOriginReady()
@@ -64,8 +72,16 @@ export function withConnectorAuthorization(
   });
 }
 
+/**
+ * Returns the provider keys whose enabled capabilities have all passed sandbox
+ * certification.
+ *
+ * A provider the operator has deactivated, or moved to a non-configurable
+ * availability, is excluded here as well as at the card level: this set is the
+ * input to the authorize link, so it must not outlive the kill switch.
+ */
 export function certifiedOAuthProviders(
-  registry: readonly { readonly id: string; readonly provider_key: string }[],
+  registry: readonly ConnectorRegistryGate[],
   capabilities: readonly ConnectorCapabilityRow[],
   certifications: readonly ConnectorCertificationRow[],
   now = Date.now(),
@@ -75,10 +91,15 @@ export function certifiedOAuthProviders(
     && (!row.valid_until || Date.parse(row.valid_until) > now)).map((row) => row.capability_id));
   const byProvider = new Map<string, ConnectorCapabilityRow[]>();
   for (const capability of capabilities) {
-    byProvider.set(capability.provider_id, [...(byProvider.get(capability.provider_id) ?? []), capability]);
+    const group = byProvider.get(capability.provider_id);
+    if (group) group.push(capability);
+    else byProvider.set(capability.provider_id, [capability]);
   }
   return new Set(registry.filter((provider) => {
     if (!isOAuthConnectorKey(provider.provider_key)) return false;
+    if (provider.is_active === false) return false;
+    const availability = provider.availability?.replaceAll('-', '_');
+    if (availability !== undefined && !CONFIGURABLE_AVAILABILITY.includes(availability)) return false;
     const granted = new Set(connectorProviderScopes(provider.provider_key));
     const enabled = (byProvider.get(provider.id) ?? []).filter((capability) =>
       capability.oauth_scopes.length === 0

@@ -30,9 +30,41 @@ export const STATUS_LABELS: Readonly<Record<ConnectorInstallationStatus, string>
   'manual-import': 'Manual import',
 };
 
+/**
+ * How each registry availability reads when the tenant has no installation yet.
+ * `manual_only` resolves to `setup-required` because nothing has been imported:
+ * `manual-import` is reserved for an installation that actually exists.
+ */
+const REGISTRY_STATUS: Readonly<Record<string, ConnectorInstallationStatus>> = {
+  available: 'setup-required',
+  setup_required: 'setup-required',
+  provider_approval_required: 'provider-approval-required',
+  manual_only: 'setup-required',
+  uncertified: 'uncertified',
+  coming_soon: 'uncertified',
+  disabled: 'disabled',
+};
+
 const CONFIGURABLE_REGISTRY_AVAILABILITY = new Set([
-  'available', 'setup_required', 'provider_approval_required', 'manual_only',
+  'available', 'setup_required', 'provider_approval_required',
 ]);
+
+function normalizedAvailability(registry: ConnectorRegistryRow): string {
+  return registry.availability.replaceAll('-', '_');
+}
+
+/**
+ * True when the registry row and the code catalog agree that this provider has
+ * no API. A disagreement is an operator error or a stale row, so it fails closed
+ * rather than letting an OAuth provider inherit the manual-import treatment.
+ */
+function manualOnlyAgreed(
+  entry: ConnectorCatalogEntry,
+  registry: ConnectorRegistryRow,
+): boolean {
+  return normalizedAvailability(registry) === 'manual_only'
+    && entry.availability === 'manual-only';
+}
 
 export function normalizedStatus(status: string | undefined): ConnectorInstallationStatus | undefined {
   if (!status) return undefined;
@@ -40,30 +72,33 @@ export function normalizedStatus(status: string | undefined): ConnectorInstallat
   return INSTALLATION_STATES.has(candidate) ? candidate : undefined;
 }
 
-function fallbackStatus(entry: ConnectorCatalogEntry): ConnectorInstallationStatus {
-  if (entry.availability === 'manual-only') return 'manual-import';
-  if (entry.availability === 'provider-approval-required') return 'provider-approval-required';
-  if (entry.availability === 'coming-soon') return 'uncertified';
-  return 'setup-required';
-}
-
 /**
- * Resolves the status shown when the tenant has no installation row yet. With no
- * registry row at all the catalog is being rendered fail-closed, so every
- * provider reads as disabled regardless of how it would otherwise be set up.
+ * Resolves the status shown when the tenant has no installation row yet.
+ *
+ * The registry row is the authority, because it carries the operator's per-tenant
+ * switch; the catalog only narrows it. An absent row, an inactive row, an
+ * unrecognized availability, or a registry/catalog disagreement all read as
+ * disabled so the card cannot advertise an action it should not have.
  */
 export function registryStatus(
   entry: ConnectorCatalogEntry,
   registry: ConnectorRegistryRow | undefined,
 ): ConnectorInstallationStatus {
-  if (!registry) return 'disabled';
-  const availability = registry.availability.replaceAll('-', '_');
-  if (availability === 'coming_soon' || availability === 'uncertified') return 'uncertified';
-  if (!registry.is_active || availability === 'disabled') return 'disabled';
-  return fallbackStatus(entry);
+  if (entry.availability === 'coming-soon') return 'uncertified';
+  if (!registry || !registry.is_active) return 'disabled';
+  const availability = normalizedAvailability(registry);
+  if (availability === 'manual_only' && !manualOnlyAgreed(entry, registry)) return 'disabled';
+  return REGISTRY_STATUS[availability] ?? 'disabled';
 }
 
-export function registryAllowsConfiguration(registry: ConnectorRegistryRow | undefined): boolean {
+/** True only when the registry permits setup and the catalog agrees on how. */
+export function registryAllowsConfiguration(
+  entry: ConnectorCatalogEntry,
+  registry: ConnectorRegistryRow | undefined,
+): boolean {
   if (!registry?.is_active) return false;
-  return CONFIGURABLE_REGISTRY_AVAILABILITY.has(registry.availability.replaceAll('-', '_'));
+  if (entry.availability === 'coming-soon') return false;
+  if (manualOnlyAgreed(entry, registry)) return true;
+  if (entry.availability === 'manual-only') return false;
+  return CONFIGURABLE_REGISTRY_AVAILABILITY.has(normalizedAvailability(registry));
 }

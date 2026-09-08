@@ -20,11 +20,8 @@ export const PLANNED_DEFINITIONS: readonly CatalogDefinition[] = PLANNED.map(
     capabilities: [`${id}.planned`],
     mapping: ['organization'] as const, health: ['auth'] as const,
     logo: logo(slug, color),
-    setup: portalSetup({
-      estimatedMinutes: 0,
-      consoleUrl: 'https://simpleicons.org/',
-      documentationUrl: 'https://simpleicons.org/',
-      steps: [{ text: 'Awaiting sandbox certification. Nothing to configure yet.' }],
-    }),
+    // No console, no documentation and no steps: there is nothing to open yet, so
+    // the store renders no disclosure rather than linking somewhere irrelevant.
+    setup: portalSetup({ estimatedMinutes: 0, steps: [] }),
   }),
 );

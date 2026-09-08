@@ -6,6 +6,7 @@ export {
   OAUTH_CONNECTOR_KEYS,
   connectorAuthorizationUrl,
   connectorCallbackUrl,
+  connectorCredentialEnvKeys,
   connectorProviderReady,
   connectorProviderScopes,
   isOAuthConnectorKey,
@@ -13,10 +14,15 @@ export {
 } from './connector-oauth-config';
 
 export {
+  ConnectorExchangeError,
   exchangeConnectorCode,
-  grantedConnectorScopes,
   type ConnectorToken,
 } from './connector-oauth-exchange';
+
+export {
+  grantedConnectorScopes,
+  resolveGrantedScopes,
+} from './connector-oauth-scopes';
 
 export {
   verifyConnectorIdentity,

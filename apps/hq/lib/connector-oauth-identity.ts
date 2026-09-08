@@ -9,6 +9,22 @@ export type ConnectorIdentity = {
 };
 
 const FAILED = 'Connector identity verification failed.';
+const MAX_ACCOUNT_ID = 256;
+const MAX_ACCOUNT_LABEL = 160;
+
+/**
+ * Bounds a provider-supplied identity before it reaches the database and the UI.
+ *
+ * `external_account_label` is capped at 160 characters by its column, and these
+ * values come from the same untrusted response as the token, so they get the same
+ * treatment: trimmed, collapsed, and length-checked rather than passed through.
+ */
+function boundedIdentity(accountId: string, accountLabel: string): ConnectorIdentity | null {
+  const id = accountId.trim();
+  const label = accountLabel.replace(/\s+/gu, ' ').trim();
+  if (!id || id.length > MAX_ACCOUNT_ID || !label) return null;
+  return { accountId: id, accountLabel: label.slice(0, MAX_ACCOUNT_LABEL) };
+}
 
 async function identityJson(url: string, accessToken: string): Promise<unknown> {
   const response = await fetchWithRetry(url, {
@@ -22,7 +38,7 @@ async function googleIdentity(token: ConnectorToken): Promise<ConnectorIdentity 
   const identity = await identityJson('https://openidconnect.googleapis.com/v1/userinfo', token.access_token);
   const id = stringAt(identity, 'sub');
   const email = stringAt(identity, 'email');
-  return id && email ? { accountId: id, accountLabel: email } : null;
+  return id && email ? boundedIdentity(id, email) : null;
 }
 
 async function youtubeIdentity(token: ConnectorToken): Promise<ConnectorIdentity | null> {
@@ -34,13 +50,13 @@ async function youtubeIdentity(token: ConnectorToken): Promise<ConnectorIdentity
   const channel = Array.isArray(items) ? items[0] as unknown : undefined;
   const id = stringAt(channel, 'id');
   const title = stringAt(objectAt(channel, 'snippet'), 'title');
-  return id ? { accountId: id, accountLabel: title ?? id } : null;
+  return id ? boundedIdentity(id, title ?? id) : null;
 }
 
 async function stripeIdentity(token: ConnectorToken): Promise<ConnectorIdentity | null> {
-  const identity = await identityJson('https://api.stripe.com/v1/account', token.access_token);
-  const id = stringAt(identity, 'id');
-  return id ? { accountId: id, accountLabel: stringAt(identity, 'display_name') ?? id } : null;
+  const account = await identityJson('https://api.stripe.com/v1/account', token.access_token);
+  const id = stringAt(account, 'id');
+  return id ? boundedIdentity(id, stringAt(account, 'display_name') ?? id) : null;
 }
 
 async function slackIdentity(token: ConnectorToken): Promise<ConnectorIdentity | null> {
@@ -48,15 +64,15 @@ async function slackIdentity(token: ConnectorToken): Promise<ConnectorIdentity |
   const id = stringAt(identity, 'team_id');
   const name = stringAt(identity, 'team');
   const ok = Reflect.get(identity ?? {}, 'ok') === true;
-  return ok && id && name ? { accountId: id, accountLabel: name } : null;
+  return ok && id && name ? boundedIdentity(id, name) : null;
 }
 
 async function metaIdentity(token: ConnectorToken): Promise<ConnectorIdentity | null> {
-  const identity = await identityJson(
+  const account = await identityJson(
     'https://graph.facebook.com/v25.0/me?fields=id,name', token.access_token,
   );
-  const id = stringAt(identity, 'id');
-  return id ? { accountId: id, accountLabel: stringAt(identity, 'name') ?? id } : null;
+  const id = stringAt(account, 'id');
+  return id ? boundedIdentity(id, stringAt(account, 'name') ?? id) : null;
 }
 
 async function tiktokIdentity(token: ConnectorToken): Promise<ConnectorIdentity | null> {
@@ -66,7 +82,7 @@ async function tiktokIdentity(token: ConnectorToken): Promise<ConnectorIdentity 
   );
   const user = objectAt(objectAt(identity, 'data'), 'user');
   const id = stringAt(user, 'open_id');
-  return id ? { accountId: id, accountLabel: stringAt(user, 'display_name') ?? id } : null;
+  return id ? boundedIdentity(id, stringAt(user, 'display_name') ?? id) : null;
 }
 
 async function quickbooksIdentity(
@@ -83,8 +99,30 @@ async function quickbooksIdentity(
   const company = objectAt(identity, 'CompanyInfo');
   const id = stringAt(company, 'Id');
   const name = stringAt(company, 'CompanyName');
-  return id && name ? { accountId: id, accountLabel: name } : null;
+  return id && name ? boundedIdentity(id, name) : null;
 }
+
+type IdentityResolver = (
+  token: ConnectorToken,
+  realmId: string | null,
+) => Promise<ConnectorIdentity | null>;
+
+/**
+ * One resolver per provider.
+ *
+ * A `Record` keyed on `OAuthConnectorKey` rather than a ternary chain, so adding
+ * a connector key without a resolver is a compile error. A chain ending in a bare
+ * `else` would instead send the new provider's token to Intuit.
+ */
+const RESOLVERS: Readonly<Record<OAuthConnectorKey, IdentityResolver>> = {
+  'google-suite': (token) => googleIdentity(token),
+  youtube: (token) => youtubeIdentity(token),
+  stripe: (token) => stripeIdentity(token),
+  slack: (token) => slackIdentity(token),
+  'meta-business-suite': (token) => metaIdentity(token),
+  tiktok: (token) => tiktokIdentity(token),
+  'quickbooks-online': (token, realmId) => quickbooksIdentity(token, realmId),
+};
 
 /** Confirms the freshly issued token really belongs to a nameable provider account. */
 export async function verifyConnectorIdentity(
@@ -92,13 +130,9 @@ export async function verifyConnectorIdentity(
   token: ConnectorToken,
   realmId: string | null,
 ): Promise<ConnectorIdentity> {
-  const identity = key === 'google-suite' ? await googleIdentity(token)
-    : key === 'youtube' ? await youtubeIdentity(token)
-    : key === 'stripe' ? await stripeIdentity(token)
-    : key === 'slack' ? await slackIdentity(token)
-    : key === 'meta-business-suite' ? await metaIdentity(token)
-    : key === 'tiktok' ? await tiktokIdentity(token)
-    : await quickbooksIdentity(token, realmId);
-  if (!identity) throw new Error(FAILED);
-  return identity;
+  const resolver = RESOLVERS[key];
+  if (!resolver) throw new Error(FAILED);
+  const resolved = await resolver(token, realmId);
+  if (!resolved) throw new Error(FAILED);
+  return resolved;
 }

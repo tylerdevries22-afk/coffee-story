@@ -4,6 +4,8 @@ import { notFound } from 'next/navigation';
 
 import { ConnectorSetupPanel } from '@/components/connector-setup-panel';
 import { ProviderLogo } from '@/components/provider-logo';
+import { currentSession, hasRole } from '@/lib/auth';
+import { connectorCredentialEnvKeys } from '@/lib/connector-oauth-providers';
 import { loadConnectorCards } from '@/lib/integration-data';
 
 export const dynamic = 'force-dynamic';
@@ -18,6 +20,11 @@ export default async function IntegrationDetailPage({ params }: IntegrationDetai
   if (!definition) notFound();
   const card = (await loadConnectorCards()).find((candidate) => candidate.id === provider);
   if (!card) notFound();
+  // Redirect URIs and deployment secret names are operator detail, not tenant
+  // detail, so they are resolved only for an organization owner.
+  const session = await currentSession();
+  const credentialEnvKeys = session && hasRole(session, 'brand_owner')
+    ? connectorCredentialEnvKeys(provider) : [];
   const isComingSoon = definition.availability === 'coming-soon';
   const isUnavailable = !card.canConfigure && !card.isInstalled;
   const readinessNote = isComingSoon
@@ -25,8 +32,10 @@ export default async function IntegrationDetailPage({ params }: IntegrationDetai
     : isUnavailable
       ? 'This provider is not available in the active MCP catalog. Existing tenant history remains visible, but new setup is disabled.'
       : card.isManualOnly
-        ? 'This provider publishes no API, so the steps below are the whole setup. Nothing is stored until you upload a report.'
-        : 'Secrets are stored as Vault references and never sent to this browser.';
+        ? 'This provider publishes no API, so the steps below are the whole setup. Ingestion is not wired up yet, so nothing can be imported today.'
+        : card.setup.kind === 'api-key'
+          ? 'Follow the steps below to obtain the key. Storing it against this organization is not wired up yet, so setup cannot be completed today.'
+          : 'Secrets are stored as Vault references and never sent to this browser.';
   return (
     <div className="management-page integration-detail-page">
       <header className="management-heading integration-detail-heading">
@@ -61,6 +70,9 @@ export default async function IntegrationDetailPage({ params }: IntegrationDetai
             <Link className="button" href="/locations">Connect Square by location</Link>
           ) : card.connectHref ? (
             <a className="button" href={card.connectHref}>{card.connectLabel ?? 'Connect'}</a>
+          ) : card.canConfigure && card.setup.consoleUrl ? (
+            <a className="button secondary" href={card.setup.consoleUrl}
+              rel="noreferrer noopener" target="_blank">Open provider console</a>
           ) : (
             <span className="integration-card-disabled">
               {isComingSoon ? 'Awaiting sandbox certification' : 'Awaiting provider configuration'}
@@ -69,7 +81,8 @@ export default async function IntegrationDetailPage({ params }: IntegrationDetai
           <small>Configuration gaps remain explicit and do not interrupt the rest of HQ.</small>
         </aside>
       </div>
-      {isComingSoon ? null : <ConnectorSetupPanel card={card} />}
+      {isComingSoon ? null
+        : <ConnectorSetupPanel card={card} credentialEnvKeys={credentialEnvKeys} />}
     </div>
   );
 }

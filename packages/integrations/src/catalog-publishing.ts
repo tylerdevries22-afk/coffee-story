@@ -21,7 +21,6 @@ export const PUBLISHING_DEFINITIONS: readonly CatalogDefinition[] = [
       estimatedMinutes: 2,
       consoleUrl: 'https://dashboard.transistor.fm/account',
       documentationUrl: 'https://developers.transistor.fm/',
-      credentialEnvKeys: ['TRANSISTOR_API_KEY'],
       steps: [
         { text: 'Open your Transistor account page.', href: 'https://dashboard.transistor.fm/account' },
         { text: 'Copy the API key shown under API keys; reset it there if it was never revealed.' },
@@ -41,7 +40,6 @@ export const PUBLISHING_DEFINITIONS: readonly CatalogDefinition[] = [
       estimatedMinutes: 2,
       consoleUrl: 'https://app.beehiiv.com/settings/workspace/api',
       documentationUrl: 'https://developers.beehiiv.com/welcome/create-an-api-key',
-      credentialEnvKeys: ['BEEHIIV_API_KEY', 'BEEHIIV_PUBLICATION_ID'],
       steps: [
         { text: 'Open beehiiv Settings, then Workspace, then API, then New API Key.', href: 'https://app.beehiiv.com/settings/workspace/api' },
         { text: 'Copy the key, then copy the publication ID that starts with pub_ from the same screen.' },

@@ -5,7 +5,7 @@ import { MESSAGING_DEFINITIONS } from './catalog-messaging';
 import { PLANNED_DEFINITIONS } from './catalog-planned';
 import { PLATFORM_DEFINITIONS } from './catalog-platform';
 import { PUBLISHING_DEFINITIONS } from './catalog-publishing';
-import type { ConnectorAvailability, ConnectorCatalogEntry, ConnectorSetupKind } from './contracts';
+import type { ConnectorAvailability, ConnectorCatalogEntry } from './contracts';
 
 export { API_VERSION } from './catalog-definition';
 
@@ -33,11 +33,4 @@ export function listConnectorsByAvailability(
   availability: ConnectorAvailability,
 ): readonly ConnectorCatalogEntry[] {
   return OPERATIONS_CONNECTOR_CATALOG.filter((catalogEntry) => catalogEntry.availability === availability);
-}
-
-/** Returns the connectors an owner finishes the same way, for grouped onboarding. */
-export function listConnectorsBySetupKind(
-  kind: ConnectorSetupKind,
-): readonly ConnectorCatalogEntry[] {
-  return OPERATIONS_CONNECTOR_CATALOG.filter((catalogEntry) => catalogEntry.setup.kind === kind);
 }

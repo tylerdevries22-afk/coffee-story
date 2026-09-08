@@ -75,37 +75,58 @@ export function initialsLogo(
   };
 }
 
-/** Builds the one-press OAuth setup block shared by every hosted-client provider. */
+/**
+ * Builds the one-press OAuth setup block shared by every hosted-client provider.
+ *
+ * `redirectPath` must be passed explicitly and only when a route actually serves
+ * it. Deriving it from the connector id would publish a callback URL that 404s
+ * for any provider without a `/api/connectors/<id>/callback` handler, and would
+ * override the real callback for a provider that serves one elsewhere.
+ */
 export function oauthSetup(
   input: Readonly<{
-    id: string;
     consoleUrl: string;
     documentationUrl: string;
-    credentialEnvKeys: readonly string[];
     operatorSteps: readonly ConnectorSetup['steps'][number][];
     estimatedMinutes?: number;
+    redirectPath?: string;
+    /** Set when no adapter is wired yet, so the steps promise nothing false. */
+    awaitingRuntime?: boolean;
   }>,
 ): ConnectorSetup {
+  const opening = input.awaitingRuntime
+    ? 'Adapter certification is pending, so Connect activates once this provider is certified.'
+    : 'Press Connect and approve the requested scopes.';
   return Object.freeze({
     kind: 'one-click-oauth' as const,
     estimatedMinutes: input.estimatedMinutes ?? 1,
     consoleUrl: input.consoleUrl,
     documentationUrl: input.documentationUrl,
-    credentialEnvKeys: Object.freeze([...input.credentialEnvKeys]),
-    redirectPath: `/api/connectors/${input.id}/callback`,
+    ...(input.redirectPath === undefined ? {} : { redirectPath: input.redirectPath }),
     steps: Object.freeze([
-      Object.freeze({ text: 'Press Connect and approve the requested scopes.' }),
+      Object.freeze({ text: opening }),
       ...input.operatorSteps.map((step) => Object.freeze({ ...step })),
     ]),
   });
 }
 
+/** The callback path served by the shared connector OAuth route. */
+export function connectorCallbackPath(id: string): string {
+  return `/api/connectors/${id}/callback`;
+}
+
 /** Builds a copy-a-key setup block for providers that issue no OAuth client to us. */
+/**
+ * Builds a copy-a-key setup block for providers that issue no OAuth client to us.
+ *
+ * The key belongs to one organization and is stored against its
+ * `credential_references` row in Vault, so there is nothing for an operator to
+ * put in the environment.
+ */
 export function apiKeySetup(
   input: Readonly<{
     consoleUrl: string;
     documentationUrl: string;
-    credentialEnvKeys: readonly string[];
     steps: readonly ConnectorSetup['steps'][number][];
     estimatedMinutes?: number;
   }>,
@@ -115,7 +136,6 @@ export function apiKeySetup(
     estimatedMinutes: input.estimatedMinutes ?? 3,
     consoleUrl: input.consoleUrl,
     documentationUrl: input.documentationUrl,
-    credentialEnvKeys: Object.freeze([...input.credentialEnvKeys]),
     steps: Object.freeze(input.steps.map((step) => Object.freeze({ ...step }))),
   });
 }
@@ -123,8 +143,8 @@ export function apiKeySetup(
 /** Builds a guided manual block for providers that publish no API at all. */
 export function portalSetup(
   input: Readonly<{
-    consoleUrl: string;
-    documentationUrl: string;
+    consoleUrl?: string;
+    documentationUrl?: string;
     steps: readonly ConnectorSetup['steps'][number][];
     estimatedMinutes?: number;
   }>,
@@ -132,9 +152,8 @@ export function portalSetup(
   return Object.freeze({
     kind: 'operator-portal' as const,
     estimatedMinutes: input.estimatedMinutes ?? 5,
-    consoleUrl: input.consoleUrl,
-    documentationUrl: input.documentationUrl,
-    credentialEnvKeys: Object.freeze([]),
+    ...(input.consoleUrl === undefined ? {} : { consoleUrl: input.consoleUrl }),
+    ...(input.documentationUrl === undefined ? {} : { documentationUrl: input.documentationUrl }),
     steps: Object.freeze(input.steps.map((step) => Object.freeze({ ...step }))),
   });
 }

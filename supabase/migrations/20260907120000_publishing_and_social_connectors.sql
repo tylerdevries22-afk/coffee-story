@@ -83,7 +83,7 @@ values
     'https://developers.facebook.com/docs/facebook-login/guides/advanced/manual-flow', true
   ),
   (
-    'youtube', 'YouTube', 'marketing', 'setup_required',
+    'youtube', 'YouTube', 'marketing', 'available',
     'Channel uploads, video metadata, playlists, and YouTube Analytics reporting.',
     '/integrations/youtube.svg', 'https://simpleicons.org/?q=youtube',
     'CC0-1.0 Simple Icons', '#FF0000',
@@ -97,13 +97,13 @@ values
     'https://developers.tiktok.com/doc/login-kit-web', true
   ),
   (
-    'transistor', 'Transistor', 'marketing', 'setup_required',
+    'transistor', 'Transistor', 'marketing', 'available',
     'Podcast shows, episode publishing, and per-episode download analytics.',
     '/integrations/transistor.svg', 'https://transistor.fm/about/press/',
     'Brand guidelines, initials only', '#5B5BD6', 'https://developers.transistor.fm/', true
   ),
   (
-    'beehiiv', 'beehiiv', 'marketing', 'setup_required',
+    'beehiiv', 'beehiiv', 'marketing', 'available',
     'Newsletter posts, subscriber counts, segments, and send performance.',
     '/integrations/beehiiv.svg', 'https://www.beehiiv.com/press',
     'Brand guidelines, initials only', '#FFCC33',
@@ -143,15 +143,15 @@ select registry.id, seed.capability_key, seed.display_name, seed.access_mode,
        seed.oauth_scopes, seed.description
 from (values
   ('meta-business-suite', 'pages.read', 'Pages', 'read', array['pages_show_list']::text[], 'List the Pages this organization manages.'),
-  ('meta-business-suite', 'pages.publish', 'Publish to Pages', 'write', array['pages_read_engagement']::text[], 'Publish reviewed posts to a selected Page.'),
-  ('meta-business-suite', 'instagram.read', 'Instagram', 'read', array['pages_show_list']::text[], 'Read the linked Instagram professional account.'),
+  ('meta-business-suite', 'pages.publish', 'Publish to Pages', 'write', array['pages_manage_posts']::text[], 'Publish reviewed posts to a selected Page.'),
+  ('meta-business-suite', 'instagram.read', 'Instagram', 'read', array['instagram_basic']::text[], 'Read the linked Instagram professional account.'),
   ('meta-business-suite', 'insights.read', 'Post insights', 'read', array['read_insights']::text[], 'Read organic post and Page insights.'),
   ('meta-business-suite', 'ads.reporting', 'Ad reporting', 'read', array['ads_read']::text[], 'Read ad spend and performance for reconciliation.'),
-  ('meta-business-suite', 'leadgen.read', 'Lead forms', 'read', array['business_management']::text[], 'Read lead form submissions for follow-up.'),
+  ('meta-business-suite', 'leadgen.read', 'Lead forms', 'read', array['leads_retrieval']::text[], 'Read lead form submissions for follow-up.'),
   ('youtube', 'channel.read', 'Channel', 'read', array['https://www.googleapis.com/auth/youtube.readonly']::text[], 'Identify the connected channel.'),
   ('youtube', 'videos.read', 'Videos', 'read', array['https://www.googleapis.com/auth/youtube.readonly']::text[], 'Read video metadata and status.'),
   ('youtube', 'videos.upload', 'Upload videos', 'write', array['https://www.googleapis.com/auth/youtube.upload']::text[], 'Upload a video as private until published.'),
-  ('youtube', 'playlists.write', 'Playlists', 'write', array['https://www.googleapis.com/auth/youtube.upload']::text[], 'Organize uploads into playlists.'),
+  ('youtube', 'playlists.write', 'Playlists', 'write', array['https://www.googleapis.com/auth/youtube']::text[], 'Organize uploads into playlists.'),
   ('youtube', 'analytics.reporting', 'Analytics', 'read', array['https://www.googleapis.com/auth/yt-analytics.readonly']::text[], 'Read channel and video analytics.'),
   ('tiktok', 'profile.read', 'Creator profile', 'read', array['user.info.basic']::text[], 'Identify the connected creator account.'),
   ('tiktok', 'videos.read', 'Videos', 'read', array['video.list']::text[], 'Read the published video list.'),
@@ -320,6 +320,8 @@ returns void language plpgsql stable security invoker set search_path = '' as $$
 declare
   registered integer;
   uncovered integer;
+  mislabelled integer;
+  unadmittable integer;
 begin
   select count(*) into registered
   from public.connector_registry
@@ -346,6 +348,56 @@ begin
 
   if app.connector_onboarding_status('manual_only') <> 'manual_import' then
     raise exception 'manual-only onboarding does not resolve to manual import';
+  end if;
+
+  -- Each row must carry the availability its code catalog entry declares. A
+  -- divergence is silent and expensive: begin_connector_oauth_state admits only
+  -- 'available' and 'provider_approval_required', so a mislabelled OAuth
+  -- connector renders a Connect button that can only ever answer 503.
+  select count(*) into mislabelled
+  from public.connector_registry registry
+  join (values
+    ('meta-business-suite', 'provider_approval_required'),
+    ('youtube', 'available'),
+    ('tiktok', 'provider_approval_required'),
+    ('transistor', 'available'),
+    ('beehiiv', 'available'),
+    ('kindle-direct-publishing', 'manual_only'),
+    ('acx-audiobooks', 'manual_only')
+  ) as expected(provider_key, availability)
+    on expected.provider_key = registry.provider_key
+  where registry.availability <> expected.availability;
+  if mislabelled > 0 then
+    raise exception 'a connector registry row disagrees with the code catalog';
+  end if;
+
+  -- Every OAuth connector must be admissible by the authorize RPC, or its
+  -- Connect button is decorative.
+  select count(*) into unadmittable
+  from public.connector_registry
+  where provider_key in ('meta-business-suite', 'youtube', 'tiktok')
+    and availability not in ('available', 'provider_approval_required');
+  if unadmittable > 0 then
+    raise exception 'an OAuth connector is registered in a state the authorize RPC rejects';
+  end if;
+
+  -- The three CHECK constraints this migration re-added must still accept the
+  -- values the application writes.
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.connector_registry'::regclass
+      and conname = 'connector_registry_availability_check'
+      and pg_get_constraintdef(oid) like '%manual_only%'
+  ) then
+    raise exception 'the registry availability constraint does not accept manual_only';
+  end if;
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.connector_installations'::regclass
+      and conname = 'connector_installations_status_check'
+      and pg_get_constraintdef(oid) like '%manual_import%'
+  ) then
+    raise exception 'the installation status constraint does not accept manual_import';
   end if;
 end $$;
 revoke all on function app.assert_publishing_social_connectors()
