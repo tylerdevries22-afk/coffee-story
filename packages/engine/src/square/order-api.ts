@@ -102,10 +102,23 @@ export async function deletePaymentLink(
   config: SquareConfig,
   token: string,
   paymentLinkId: string,
-): Promise<void> {
+): Promise<{ id?: string; cancelled_order_id?: string }> {
   if (!paymentLinkId.trim()) throw new RangeError('Square payment link id is required.');
-  await call(config, `/v2/online-checkout/payment-links/${encodeURIComponent(paymentLinkId)}`, {
+  return call(config, `/v2/online-checkout/payment-links/${encodeURIComponent(paymentLinkId)}`, {
     method: 'DELETE',
+    token,
+  });
+}
+
+/** Read provider state when a deletion response was lost and a retry returns 404. */
+export function retrieveSquareOrder(
+  config: SquareConfig,
+  token: string,
+  squareOrderId: string,
+): Promise<{ order?: { id?: string; state?: string; tenders?: unknown[] } }> {
+  if (!squareOrderId.trim()) throw new RangeError('Square order id is required.');
+  return call(config, `/v2/orders/${encodeURIComponent(squareOrderId)}`, {
+    method: 'GET',
     token,
   });
 }

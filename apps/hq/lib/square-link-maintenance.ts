@@ -2,6 +2,7 @@ import {
   decryptToken,
   deletePaymentLink,
   loadTokenKey,
+  retrieveSquareOrder,
   SquareApiError,
   type SquareConfig,
 } from '@platform/engine';
@@ -22,6 +23,7 @@ type LinkOrder = {
   status: string;
   tender_type: string;
   square_payment_link_id: string | null;
+  square_order_id: string | null;
 };
 
 type Connection = {
@@ -32,6 +34,7 @@ type Connection = {
 
 export type DueSquareLink = DueQuote & {
   paymentLinkId: string | null;
+  squareOrderId: string | null;
   accessTokenEncrypted: string | null;
 };
 
@@ -45,7 +48,7 @@ export type SquareLinkExpirySummary = {
 
 type MaintenanceDeps = {
   load?: (db: SupabaseClient, now: Date) => Promise<DueSquareLink[]>;
-  cancel?: (square: SquareConfig, row: DueSquareLink) => Promise<void>;
+  cancel?: (square: SquareConfig, row: DueSquareLink) => Promise<boolean>;
   finalize?: (db: SupabaseClient, row: DueSquareLink) => Promise<boolean>;
 };
 
@@ -64,7 +67,7 @@ async function loadDueLinks(db: SupabaseClient, now: Date): Promise<DueSquareLin
   const locationIds = [...new Set(due.map((row) => row.location_id))];
   const [orders, connections] = await Promise.all([
     db.from('orders')
-      .select('id, status, tender_type, square_payment_link_id')
+      .select('id, status, tender_type, square_payment_link_id, square_order_id')
       .in('id', orderIds)
       .returns<LinkOrder[]>(),
     db.from('square_connections')
@@ -85,18 +88,28 @@ async function loadDueLinks(db: SupabaseClient, now: Date): Promise<DueSquareLin
     return {
       ...quote,
       paymentLinkId: eligible ? order.square_payment_link_id : null,
+      squareOrderId: eligible ? order.square_order_id : null,
       accessTokenEncrypted: connection?.access_token_encrypted ?? null,
     };
   });
 }
 
-async function cancelLink(square: SquareConfig, row: DueSquareLink): Promise<void> {
-  if (!row.paymentLinkId || !row.accessTokenEncrypted) throw new Error('Checkout cancellation data is incomplete.');
-  await deletePaymentLink(
-    square,
-    decryptToken(row.accessTokenEncrypted, loadTokenKey()),
-    row.paymentLinkId,
-  );
+async function cancelLink(square: SquareConfig, row: DueSquareLink): Promise<boolean> {
+  if (!row.paymentLinkId || !row.squareOrderId || !row.accessTokenEncrypted) {
+    throw new Error('Checkout cancellation data is incomplete.');
+  }
+  const token = decryptToken(row.accessTokenEncrypted, loadTokenKey());
+  try {
+    const deleted = await deletePaymentLink(square, token, row.paymentLinkId);
+    return deleted.id === row.paymentLinkId
+      && deleted.cancelled_order_id === row.squareOrderId;
+  } catch (error) {
+    if (!(error instanceof SquareApiError && error.status === 404)) throw error;
+    const retrieved = await retrieveSquareOrder(square, token, row.squareOrderId);
+    return retrieved.order?.id === row.squareOrderId
+      && retrieved.order.state === 'CANCELED'
+      && (retrieved.order.tenders?.length ?? 0) === 0;
+  }
 }
 
 async function finalizeExpiry(db: SupabaseClient, row: DueSquareLink): Promise<boolean> {
@@ -131,16 +144,13 @@ export async function expireDueSquareCheckoutLinks(
   };
   for (let offset = 0; offset < rows.length; offset += CONCURRENCY) {
     const results = await Promise.all(rows.slice(offset, offset + CONCURRENCY).map(async (row) => {
-      if (!row.paymentLinkId || !row.accessTokenEncrypted) return 'failed' as const;
-      try {
-        await (deps.cancel ?? cancelLink)(square, row);
-      } catch (error) {
-        // A stored provider id that is already absent is the retry case after
-        // Square succeeded and the database response was lost. It cannot be
-        // payable, so finalization is safe; every other provider error keeps
-        // the reservation in place.
-        if (!(error instanceof SquareApiError && error.status === 404)) return 'failed' as const;
+      if (!row.paymentLinkId || !row.squareOrderId || !row.accessTokenEncrypted) {
+        return 'failed' as const;
       }
+      try {
+        const providerCancelled = await (deps.cancel ?? cancelLink)(square, row);
+        if (!providerCancelled) return 'failed' as const;
+      } catch { return 'failed' as const; }
       try {
         return await (deps.finalize ?? finalizeExpiry)(db, row)
           ? 'cancelled' as const
