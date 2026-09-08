@@ -87,7 +87,10 @@ export function OrderCard({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={`${actionLabel} for order ${order.shortCode}`}
-            onPress={() => onAdvance(action.to)}
+            onPress={(event) => {
+              event.stopPropagation();
+              onAdvance(action.to);
+            }}
             style={({ pressed }) => [styles.advance, pressed && styles.pressed]}
           >
             <Text style={styles.advanceText}>{actionLabel}</Text>
