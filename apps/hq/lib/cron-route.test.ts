@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { it } from 'node:test';
 
-import { POST } from '../app/api/jobs/run/route';
+import { GET, POST } from '../app/api/jobs/run/route';
 
 const ENV = {
   CRON_SECRET: 'test-cron-secret',
@@ -11,6 +11,18 @@ const ENV = {
 const MUTATED_ENV_KEYS = [
   ...Object.keys(ENV), 'OPENAI_API_KEY', 'OPENAI_RESEARCH_MODEL', 'SQUARE_APP_ID',
 ];
+
+it('uses the authenticated maintenance handler for scheduled GET requests', async (t) => {
+  const original = process.env.CRON_SECRET;
+  process.env.CRON_SECRET = ENV.CRON_SECRET;
+  t.after(() => {
+    if (original === undefined) delete process.env.CRON_SECRET;
+    else process.env.CRON_SECRET = original;
+  });
+
+  const response = await GET(new Request('https://hq.example.test/api/jobs/run'));
+  assert.equal(response.status, 401);
+});
 
 it('runs healthy maintenance stages when the drops stage fails', async (t) => {
   const originalEnv = Object.fromEntries(MUTATED_ENV_KEYS.map((key) => [key, process.env[key]]));
