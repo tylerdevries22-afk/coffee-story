@@ -22,7 +22,6 @@ export async function listSquareLocations(
   });
   return body.locations ?? [];
 }
-
 export type SquareLocationRefusal = 'no_active_location' | 'unsupported_currency' | 'several_locations';
 
 export type SquareLocationChoice =
@@ -56,4 +55,3 @@ export function chooseSquareLocation(
   if (!only) return { ok: false, reason: 'no_active_location' };
   return { ok: true, location: only };
 }
-

@@ -60,7 +60,6 @@ export function squareConfigFromEnv(env: NodeJS.ProcessEnv = process.env): Squar
     ...(env.SQUARE_API_BASE ? { apiBase: env.SQUARE_API_BASE } : {}),
   };
 }
-
 export class SquareApiError extends Error {
   readonly status: number;
   readonly body: unknown;
@@ -93,4 +92,3 @@ export async function call<T>(
   }
   return body;
 }
-

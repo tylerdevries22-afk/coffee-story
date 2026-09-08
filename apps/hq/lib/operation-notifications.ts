@@ -12,7 +12,6 @@ function snapshotTitle(value: unknown): string {
   const title = (value as Record<string, unknown>).title;
   return typeof title === 'string' && title.trim() ? title : 'Scheduled operation';
 }
-
 function recipientKey(brandId: string, recipientId: string): string {
   return `${brandId}:${recipientId}`;
 }
@@ -94,4 +93,3 @@ export async function deliverOperationNotifications(db: SupabaseClient, now: Dat
     uncertain: results.filter((result) => result.outcome === 'uncertain').length,
   };
 }
-

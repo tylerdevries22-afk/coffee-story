@@ -280,18 +280,21 @@ describe('platform API routes', { skip: skipUnlessConfigured }, () => {
     }
   });
 
-  it('records a paid webhook once, including the fee when customer_id is null', async () => {
+  it('settles a hosted payment once and resolves its later refund by payment id', async () => {
     const paymentId = `pay-${randomUUID()}`;
+    const squareOrderId = `square-order-${randomUUID()}`;
     const order = await sql<{ id: string }>(
       `insert into public.orders
-        (brand_id, location_id, customer_id, status, subtotal_cents, total_cents, square_payment_id, tender_type)
+        (brand_id, location_id, customer_id, status, subtotal_cents, total_cents, square_order_id, tender_type)
        values ($1, $2, null, 'created', 2200, 2200, $3, 'square_link') returning id`,
-      [brandId, locationId, paymentId],
+      [brandId, locationId, squareOrderId],
     );
     const event = {
       event_id: `event-${randomUUID()}`,
       type: 'payment.updated',
-      data: { object: { payment: { id: paymentId, status: 'COMPLETED' } } },
+      data: { object: { payment: {
+        id: paymentId, order_id: squareOrderId, status: 'COMPLETED',
+      } } },
     };
     assert.equal((await squareWebhook(event)).status, 200);
     assert.equal((await squareWebhook(event)).status, 200, 'Square may replay the same event id');
@@ -306,6 +309,27 @@ describe('platform API routes', { skip: skipUnlessConfigured }, () => {
     );
     assert.equal(fee.rows[0]!.count, '1', 'a replay writes no second platform fee');
     assert.equal(earn.rows[0]!.count, '0', 'a guestless payment still records its fee without inventing loyalty');
+
+    const settled = await sql<{ square_payment_id: string | null; status: string }>(
+      `select square_payment_id, status from public.orders where id = $1`, [order.rows[0]!.id],
+    );
+    assert.deepEqual(settled.rows[0], { square_payment_id: paymentId, status: 'paid' });
+
+    const refund = {
+      event_id: `refund-event-${randomUUID()}`,
+      type: 'refund.updated',
+      data: { object: { refund: {
+        id: `refund-${randomUUID()}`,
+        status: 'COMPLETED',
+        payment_id: paymentId,
+        amount_money: { amount: 2200, currency: 'USD' },
+      } } },
+    };
+    assert.equal((await squareWebhook(refund)).status, 200);
+    const refunded = await sql<{ status: string }>(
+      `select status from public.orders where id = $1`, [order.rows[0]!.id],
+    );
+    assert.equal(refunded.rows[0]!.status, 'refunded');
   });
 
   it('replays a customer payment without a second earn or fee', async () => {

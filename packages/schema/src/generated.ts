@@ -9923,6 +9923,16 @@ export type Database = {
         Args: { p_brand_id: string; p_modules: Json }
         Returns: number
       }
+      record_square_payment_settlement: {
+        Args: {
+          settled_fee_cents: number
+          square_event: string
+          square_event_type: string
+          square_payment: string
+          target_order: string
+        }
+        Returns: boolean
+      }
       record_organization_readiness: {
         Args: {
           p_brand_id: string

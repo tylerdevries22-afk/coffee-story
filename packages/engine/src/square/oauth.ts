@@ -11,7 +11,6 @@ export function oauthAuthorizeUrl(config: SquareConfig, state: string): string {
   });
   return `${HOSTS[config.env]}/oauth2/authorize?${params}`;
 }
-
 export type OAuthTokens = {
   access_token: string;
   refresh_token: string;
@@ -102,4 +101,3 @@ export function squareTokenState(
   if (nowMs >= expiry) return 'expired';
   return nowMs >= expiry - marginMs ? 'refresh_soon' : 'fresh';
 }
-

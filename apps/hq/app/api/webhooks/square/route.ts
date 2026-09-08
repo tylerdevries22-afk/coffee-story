@@ -1,6 +1,5 @@
 import {
   mapSquareEvent,
-  recordPlatformFee,
   verifySquareSignature,
   type SquareEvent,
 } from '@platform/engine';
@@ -110,6 +109,7 @@ export async function POST(request: Request): Promise<Response> {
   const grossCents = order.total_cents - order.stored_value_applied_cents;
   if (mapped.orderStatus === 'paid' && (
     !Number.isSafeInteger(grossCents) || grossCents < 0
+    || !mapped.squarePaymentId
     || mapped.settledFeeCents === undefined || mapped.settledFeeCents > grossCents
   )) return new Response('Invalid payment settlement amounts', { status: 422 });
 
@@ -141,46 +141,40 @@ export async function POST(request: Request): Promise<Response> {
     return new Response(processed.data ? 'OK' : 'Already handled', { status: 200 });
   }
 
-  // The order-event insert is idempotent. Loyalty follows that event in the
-  // same database transaction; the fee remains an external-settlement
-  // receipt and has its own unique payment constraint.
-  const { data: written, error: insertError } = await db.from('order_events').upsert(
-    {
-      brand_id: order.brand_id,
-      order_id: order.id,
-      type: mapped.orderStatus,
-      snapshot: {
-        square_event: event.type,
-        square_event_id: mapped.squareEventId,
-        ...(mapped.refundedCents !== null ? { refunded_cents: mapped.refundedCents } : {}),
-      },
-      square_event_id: mapped.squareEventId,
-      source: 'webhook',
-    },
-    { onConflict: 'square_event_id', ignoreDuplicates: true },
-  ).select('id');
-  if (insertError) return failure('order_event', insertError, 'Event rejected', 409, order);
-  const isNewDelivery = (written?.length ?? 0) > 0;
-
-  // A hosted-checkout order earns nothing until the money actually lands:
-  // createSquareCheckoutLink deliberately leaves the order 'created'. The
-  // event trigger grants points atomically; this route records the platform's
-  // fee so the volume tier and platform revenue stay complete (rule 3).
-  try {
-    if (mapped.orderStatus === 'paid') {
-      if (mapped.squarePaymentId && mapped.settledFeeCents !== undefined) {
-        await recordPlatformFee(db, {
-          brandId: order.brand_id,
-          locationId: order.location_id,
-          orderId: order.id,
-          squarePaymentId: mapped.squarePaymentId,
-          grossCents,
-          settledFeeCents: mapped.settledFeeCents,
-        });
-      }
+  let isNewDelivery = false;
+  if (mapped.orderStatus === 'paid') {
+    // Payment identity, paid transition, loyalty side effects, and the fee
+    // receipt commit together. Refunds resolve through the persisted payment
+    // id, so none of this settlement may be acknowledged in isolation.
+    const settled = await db.rpc('record_square_payment_settlement', {
+      target_order: order.id,
+      square_event: mapped.squareEventId,
+      square_payment: mapped.squarePaymentId,
+      settled_fee_cents: mapped.settledFeeCents,
+      square_event_type: event.type ?? 'payment.updated',
+    });
+    if (settled.error) {
+      return failure('platform_fee', settled.error, 'Payment settlement failed', 503, order);
     }
-  } catch (error) {
-    return failure('platform_fee', error, 'Event processing failed', 503, order);
+    isNewDelivery = settled.data === true;
+  } else {
+    const { data: written, error: insertError } = await db.from('order_events').upsert(
+      {
+        brand_id: order.brand_id,
+        order_id: order.id,
+        type: mapped.orderStatus,
+        snapshot: {
+          square_event: event.type,
+          square_event_id: mapped.squareEventId,
+          ...(mapped.refundedCents !== null ? { refunded_cents: mapped.refundedCents } : {}),
+        },
+        square_event_id: mapped.squareEventId,
+        source: 'webhook',
+      },
+      { onConflict: 'square_event_id', ignoreDuplicates: true },
+    ).select('id');
+    if (insertError) return failure('order_event', insertError, 'Event rejected', 409, order);
+    isNewDelivery = (written?.length ?? 0) > 0;
   }
 
   // Stamped only once the money and points work above has actually run, so
