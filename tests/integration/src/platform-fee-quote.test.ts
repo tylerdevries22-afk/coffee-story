@@ -154,10 +154,13 @@ describe('platform fee quote serialization', { skip: skipUnlessConfigured }, () 
     const settledLinkId = `link-${randomUUID()}`;
     await sql(
       `update public.orders set tender_type = 'square_link', square_payment_link_id = $2
-         where id = $1;
-       update public.platform_fee_quotes set expires_at = now() - interval '1 second'
-         where order_id = $1`,
+         where id = $1`,
       [order.rows[0]!.id, settledLinkId],
+    );
+    await sql(
+      `update public.platform_fee_quotes set expires_at = now() - interval '1 second'
+         where order_id = $1`,
+      [order.rows[0]!.id],
     );
     const settledRelease = await serviceClient().rpc('release_platform_fee_quote', {
       p_order_id: order.rows[0]!.id,

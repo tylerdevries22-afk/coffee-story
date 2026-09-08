@@ -12,7 +12,10 @@ const config: SquareConfig = {
 
 test('deletePaymentLink disables the exact hosted link with merchant auth', async (t) => {
   let request: { url: string; init?: RequestInit } | undefined;
-  t.mock.method(globalThis, 'fetch', async (input, init) => {
+  t.mock.method(globalThis, 'fetch', async (
+    input: string | URL | Request,
+    init?: RequestInit,
+  ) => {
     request = { url: String(input), init };
     return new Response('{}', { status: 200 });
   });
