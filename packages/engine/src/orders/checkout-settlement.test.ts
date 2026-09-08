@@ -95,3 +95,41 @@ it('records the exact checkout fees when payments settle out of order across a t
   // Settlement never reads mutable monthly totals or the current contract.
   assert.equal(quoteCalls, callsBeforeSettlement);
 });
+
+it('releases a checkout quote when Square definitively rejects the link', async (t) => {
+  let releases = 0;
+  const response = (value: unknown, status = 200) => new Response(JSON.stringify(value), {
+    status, headers: { 'Content-Type': 'application/json' },
+  });
+  const db = createClient('https://database.example', 'test-key', {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { fetch: async (request, init) => {
+      const table = new URL(String(request)).pathname.split('/').at(-1);
+      if (table === 'orders') return response({
+        id: 'order-a', brand_id: 'brand-a', location_id: 'location-a', status: 'created',
+        tender_type: 'square_link', tax_cents: 0, tip_cents: 0, total_cents: 1_000,
+        stored_value_applied_cents: 0, square_checkout_url: null,
+        totals: { lines: [{ name: 'Coffee', quantity: 1, unit_price_cents: 1_000 }] },
+      });
+      if (table === 'claim_platform_fee_quote') {
+        return response({ quoted_fee_cents: 30, quoted_fee_bps_applied: 300 });
+      }
+      if (table === 'release_platform_fee_quote') {
+        releases += 1;
+        assert.deepEqual(JSON.parse(String(init?.body)), { p_order_id: 'order-a' });
+        return response(true);
+      }
+      throw new Error(`Unexpected table: ${table}`);
+    } },
+  });
+  t.mock.method(globalThis, 'fetch', async () => response({ errors: [] }, 402));
+  const deps = {
+    db, square: { env: 'sandbox' as const, applicationId: 'app', applicationSecret: 'secret',
+      apiBase: 'https://square.example' },
+    locationAccessToken: 'token', squareLocationId: 'sq-location', locationTimezone: 'America/Denver',
+    feeConfig: { feeBps: 300, feeBpsTier2: 150, tierThresholdCents: 100_000 },
+  };
+  await assert.rejects(createSquareCheckoutLink(deps, { orderId: 'order-a' }),
+    /Square POST \/v2\/online-checkout\/payment-links -> 402/);
+  assert.equal(releases, 1);
+});

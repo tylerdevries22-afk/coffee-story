@@ -59,5 +59,88 @@ describe('platform fee quote serialization', { skip: skipUnlessConfigured }, () 
       [orders.rows.map((order) => order.id)],
     );
     assert.equal(saved.rows[0]!.count, '2');
+    await sql(`delete from public.platform_fee_quotes where order_id = any($1::uuid[])`,
+      [orders.rows.map((order) => order.id)]);
+  });
+
+  it('removes abandoned reservations and excludes cancelled orders from volume', async () => {
+    const orders = await sql<{ id: string }>(
+      `insert into public.orders (brand_id, location_id, total_cents, subtotal_cents)
+       values ($1, $2, 100000, 100000), ($1, $2, 100000, 100000),
+              ($1, $2, 1000, 1000) returning id`,
+      [brandId, locationId],
+    );
+    const now = new Date();
+    const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+    const monthEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+    const quote = (orderId: string, chargeCents: number) =>
+      serviceClient().rpc('claim_platform_fee_quote', {
+        p_order_id: orderId, p_location_id: locationId, p_charge_cents: chargeCents,
+        p_fee_bps: 300, p_fee_bps_tier2: 150, p_tier_threshold_cents: 100_000,
+        p_month_start: monthStart.toISOString(), p_month_end: monthEnd.toISOString(),
+      });
+
+    assert.equal((await quote(orders.rows[0]!.id, 100_000)).error, null);
+    await sql(`update public.platform_fee_quotes set expires_at = now() - interval '1 second'
+               where order_id = $1`, [orders.rows[0]!.id]);
+    assert.equal((await quote(orders.rows[1]!.id, 100_000)).error, null);
+    await sql(`update public.orders set status = 'cancelled' where id = $1`, [orders.rows[1]!.id]);
+
+    const result = await quote(orders.rows[2]!.id, 1_000);
+    assert.equal(result.error, null);
+    assert.equal(Number((result.data as { quoted_fee_cents: number }[])[0]!.quoted_fee_cents), 30);
+    const abandoned = await sql<{ count: string }>(
+      `select count(*)::text as count from public.platform_fee_quotes where order_id = $1`,
+      [orders.rows[0]!.id],
+    );
+    assert.equal(abandoned.rows[0]!.count, '0');
+  });
+
+  it('releases a rejected attempt but preserves a settled quote', async () => {
+    const order = await sql<{ id: string }>(
+      `insert into public.orders (brand_id, location_id, total_cents, subtotal_cents)
+       values ($1, $2, 1000, 1000) returning id`, [brandId, locationId],
+    );
+    const now = new Date();
+    const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+    const monthEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+    const quote = await serviceClient().rpc('claim_platform_fee_quote', {
+      p_order_id: order.rows[0]!.id, p_location_id: locationId, p_charge_cents: 1_000,
+      p_fee_bps: 300, p_fee_bps_tier2: 150, p_tier_threshold_cents: 100_000,
+      p_month_start: monthStart.toISOString(), p_month_end: monthEnd.toISOString(),
+    });
+    assert.equal(quote.error, null);
+    const released = await serviceClient().rpc('release_platform_fee_quote', {
+      p_order_id: order.rows[0]!.id,
+    });
+    assert.equal(released.error, null);
+    assert.equal(released.data, true);
+    const saved = await sql<{ count: string }>(
+      `select count(*)::text as count from public.platform_fee_quotes where order_id = $1`,
+      [order.rows[0]!.id],
+    );
+    assert.equal(saved.rows[0]!.count, '0');
+
+    assert.equal((await serviceClient().rpc('claim_platform_fee_quote', {
+      p_order_id: order.rows[0]!.id, p_location_id: locationId, p_charge_cents: 1_000,
+      p_fee_bps: 300, p_fee_bps_tier2: 150, p_tier_threshold_cents: 100_000,
+      p_month_start: monthStart.toISOString(), p_month_end: monthEnd.toISOString(),
+    })).error, null);
+    await sql(
+      `insert into public.platform_fees
+         (brand_id, location_id, order_id, gross_cents, fee_cents, fee_bps_applied, square_payment_id)
+       values ($1, $2, $3, 1000, 30, 300, $4)`,
+      [brandId, locationId, order.rows[0]!.id, `settled-${randomUUID()}`],
+    );
+    const settledRelease = await serviceClient().rpc('release_platform_fee_quote', {
+      p_order_id: order.rows[0]!.id,
+    });
+    assert.equal(settledRelease.error, null);
+    assert.equal(settledRelease.data, false);
+    const preserved = await sql<{ count: string }>(
+      `select count(*)::text as count from public.platform_fee_quotes where order_id = $1`,
+      [order.rows[0]!.id],
+    );
+    assert.equal(preserved.rows[0]!.count, '1');
   });
 });

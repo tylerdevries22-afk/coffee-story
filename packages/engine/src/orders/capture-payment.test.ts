@@ -12,7 +12,7 @@ function fixture(t: TestContext) {
       subtotal_cents: 10_000, tip_cents: 500, total_cents: 11_000, stored_value_applied_cents: 1_000,
       square_payment_id: null as string | null },
     missingOrder: false, loadError: false, monthGross: 90_000, failFee: false, failLink: false, failEvent: false,
-    providerStatus: 200, paymentStatus: 'COMPLETED', feeCents: 300,
+    providerStatus: 200, paymentStatus: 'COMPLETED', feeCents: 300, releasedQuotes: 0,
     receipts: [] as Record<string, unknown>[], events: [] as Record<string, unknown>[],
     calls: [] as { path: string; method: string; body: Record<string, unknown> }[],
   };
@@ -38,6 +38,11 @@ function fixture(t: TestContext) {
         assert.equal(body.p_order_id, state.order.id);
         return response({ quoted_fee_cents: 300, quoted_fee_bps_applied: 300 });
       }
+      if (table === 'release_platform_fee_quote') {
+        assert.equal(body.p_order_id, state.order.id);
+        state.releasedQuotes += 1;
+        return response(true);
+      }
       if (table === 'platform_fees' && init?.method === 'POST') {
         if (state.failFee) return response({ code: '08006', message: 'fee unavailable' }, 503);
         if (state.receipts.length) return response({ code: '23505', message: 'existing receipt' }, 409);
@@ -60,7 +65,9 @@ function fixture(t: TestContext) {
     const body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : {};
     state.calls.push({ path, method: init?.method ?? 'GET', body });
     assert.equal(new Headers(init?.headers).get('authorization'), 'Bearer test-token');
-    if (state.providerStatus !== 200) return response({ errors: [] }, state.providerStatus);
+    if (state.providerStatus !== 200 && path.startsWith('/v2/payments')) {
+      return response({ errors: [] }, state.providerStatus);
+    }
     if (path === '/v2/orders') return response({ order: { id: 'square-order-a' } });
     if (path.startsWith('/v2/payments')) return response({ payment: {
       id: 'payment-a', status: state.paymentStatus, total_money: { amount: 10_000, currency: 'USD' },
@@ -139,6 +146,22 @@ test('failed provider recovery retries and leaves all local payment state unchan
   assert.equal(f.state.calls.length, 2);
   assert.equal(f.state.receipts.length, 0);
   assert.equal(f.state.events.length, 0);
+});
+
+test('a definitive provider rejection releases its monthly fee reservation', async (t) => {
+  const f = fixture(t);
+  f.state.providerStatus = 402;
+  await assert.rejects(f.capture(), /Square POST \/v2\/payments -> 402/);
+  assert.equal(f.state.releasedQuotes, 1);
+  assert.equal(f.state.receipts.length, 0);
+  assert.equal(f.state.events.length, 0);
+});
+
+test('an uncertain provider failure keeps its fee reservation for safe replay', async (t) => {
+  const f = fixture(t);
+  f.state.providerStatus = 503;
+  await assert.rejects(f.capture(), /External provider request failed/);
+  assert.equal(f.state.releasedQuotes, 0);
 });
 
 test('non-completed provider receipts never mark an order paid', async (t) => {

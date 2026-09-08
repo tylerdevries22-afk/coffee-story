@@ -2,11 +2,11 @@
  * The square_link tender's back half: a Square-hosted checkout page for an
  * order that is already priced and written.
  */
-import { createPaymentLink } from '../square/client';
+import { createPaymentLink, SquareApiError } from '../square/client';
 
 import type { CapturePaymentDeps } from './capture-payment';
 import type { SnapshotLine } from './internal';
-import { appFeeForCharge } from './platform-fees';
+import { appFeeForCharge, releasePlatformFeeQuote } from './platform-fees';
 import { buildSquareLines } from './square-lines';
 import { OrderError } from './types';
 
@@ -28,6 +28,11 @@ export type CheckoutLinkInput = {
   redirectUrl?: string;
   buyerEmail?: string;
 };
+
+function isDefinitiveRejection(error: unknown): error is SquareApiError {
+  return error instanceof SquareApiError && error.status >= 400 && error.status < 500
+    && ![408, 409, 425, 429].includes(error.status);
+}
 
 /**
  * The square_link tender's back half: a Square-hosted checkout page for an
@@ -80,14 +85,6 @@ export async function createSquareCheckoutLink(
     packContents: line.pack_contents ?? [],
   }));
   const chargeCents = order.total_cents - order.stored_value_applied_cents;
-  const fee = await appFeeForCharge(deps.db, {
-    orderId: order.id,
-    locationId: order.location_id,
-    chargeCents,
-    feeConfig: deps.feeConfig,
-    locationTimezone: deps.locationTimezone,
-  });
-
   // The page must ask for exactly what the order says, or the guest pays one
   // number while the books, the metrics and the platform's fee use another.
   // The first version sent line items alone: tax and tip were simply never
@@ -101,17 +98,31 @@ export async function createSquareCheckoutLink(
     );
   }
 
-  const link = await createPaymentLink(deps.square, deps.locationAccessToken, {
-    squareLocationId: deps.squareLocationId,
-    referenceId: order.id,
-    lines: buildSquareLines(lines),
-    taxCents,
-    taxLabel: taxLabelFor(order.totals),
-    tipCents,
-    appFeeCents: fee.feeCents,
-    ...(input.redirectUrl ? { redirectUrl: input.redirectUrl } : {}),
-    ...(input.buyerEmail ? { buyerEmail: input.buyerEmail } : {}),
+  const fee = await appFeeForCharge(deps.db, {
+    orderId: order.id,
+    locationId: order.location_id,
+    chargeCents,
+    feeConfig: deps.feeConfig,
+    locationTimezone: deps.locationTimezone,
   });
+
+  let link;
+  try {
+    link = await createPaymentLink(deps.square, deps.locationAccessToken, {
+      squareLocationId: deps.squareLocationId,
+      referenceId: order.id,
+      lines: buildSquareLines(lines),
+      taxCents,
+      taxLabel: taxLabelFor(order.totals),
+      tipCents,
+      appFeeCents: fee.feeCents,
+      ...(input.redirectUrl ? { redirectUrl: input.redirectUrl } : {}),
+      ...(input.buyerEmail ? { buyerEmail: input.buyerEmail } : {}),
+    });
+  } catch (error) {
+    if (isDefinitiveRejection(error)) await releasePlatformFeeQuote(deps.db, order.id);
+    throw error;
+  }
   const checkoutUrl = link.payment_link?.url;
   if (!checkoutUrl) throw new Error('Square returned no checkout URL.');
 

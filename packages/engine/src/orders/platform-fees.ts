@@ -102,3 +102,9 @@ export async function appFeeForCharge(
     feeBpsApplied: data.quoted_fee_bps_applied,
   };
 }
+
+/** Release a quote after the provider definitively rejects the payment. */
+export async function releasePlatformFeeQuote(db: SupabaseClient, orderId: string): Promise<void> {
+  const { error } = await db.rpc('release_platform_fee_quote', { p_order_id: orderId });
+  if (error) throw error;
+}

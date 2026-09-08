@@ -8,12 +8,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { FeeConfig } from '../fees';
-import { createSquareOrder, createSquarePayment, getSquarePayment, type SquareConfig } from '../square/client';
+import {
+  createSquareOrder, createSquarePayment, getSquarePayment, SquareApiError, type SquareConfig,
+} from '../square/client';
 
 import { settledPaymentFee } from '../square/payment-receipt';
 
 import type { SnapshotLine } from './internal';
-import { appFeeForCharge, insertPlatformFeeOnce } from './platform-fees';
+import { appFeeForCharge, insertPlatformFeeOnce, releasePlatformFeeQuote } from './platform-fees';
 import { buildSquareLines } from './square-lines';
 import { OrderError } from './types';
 
@@ -31,6 +33,11 @@ export type CapturePaymentInput = {
   /** Card token from the app's payment SDK. */
   sourceId: string;
 };
+
+function isDefinitiveRejection(error: unknown): error is SquareApiError {
+  return error instanceof SquareApiError && error.status >= 400 && error.status < 500
+    && ![408, 409, 425, 429].includes(error.status);
+}
 
 export async function captureSquarePayment(
   deps: CapturePaymentDeps,
@@ -123,14 +130,20 @@ export async function captureSquarePayment(
     locationTimezone: deps.locationTimezone,
   });
 
-  const payment = await createSquarePayment(deps.square, deps.locationAccessToken, {
-    sourceId: input.sourceId,
-    squareOrderId,
-    referenceId: order.id,
-    amountCents: cardChargeCents - order.tip_cents,
-    tipCents: order.tip_cents,
-    appFeeCents: fee.feeCents,
-  });
+  let payment;
+  try {
+    payment = await createSquarePayment(deps.square, deps.locationAccessToken, {
+      sourceId: input.sourceId,
+      squareOrderId,
+      referenceId: order.id,
+      amountCents: cardChargeCents - order.tip_cents,
+      tipCents: order.tip_cents,
+      appFeeCents: fee.feeCents,
+    });
+  } catch (error) {
+    if (isDefinitiveRejection(error)) await releasePlatformFeeQuote(deps.db, order.id);
+    throw error;
+  }
   const paymentId = payment.payment?.id;
   if (!paymentId) throw new Error('Square returned no payment id.');
   const settledFee = settledPaymentFee(payment.payment, paymentId, cardChargeCents);
