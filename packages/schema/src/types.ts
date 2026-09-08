@@ -1,6 +1,5 @@
 /**
  * Row types for every table, in the shape `supabase gen types` emits.
- *
  * Hand-authored against the migrations until a live project exists to
  * generate from; regenerate with
  * `npx supabase gen types typescript --db-url "$SUPABASE_DB_URL" > src/generated.ts`

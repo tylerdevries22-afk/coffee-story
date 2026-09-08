@@ -20,7 +20,7 @@ describe('merged coverage gate', () => {
 
   it('keeps tracked TypeScript source and rejects generated browser entries', () => {
     const source = `${ROOT}/apps/customer/src/lib/runtime-config.ts`;
-    const component = `${ROOT}/apps/customer/src/screens/order.tsx`;
+    const component = `${ROOT}/apps/customer/src/screens/client/order-screen.tsx`;
     const chunk = `${ROOT}/127.0.0.1-4383/_next/static/chunks/app.js`;
     const dependencyAlias = `${ROOT}/apps/customer/src/ExpoFileSystem.web.ts`;
     assert.equal(isCountedBrowserFile(source), true);
