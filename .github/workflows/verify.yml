@@ -459,7 +459,7 @@ jobs:
 
   coverage:
     if: github.event_name != 'pull_request'
-    needs: hosted-integration
+    needs: [hosted-integration, security]
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -477,12 +477,18 @@ jobs:
         with:
           name: browser-coverage
           path: browser-coverage
+      - name: Download database integration coverage
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: integration-coverage
+          path: coverage/integration
       - name: Measure tracked TypeScript logic
         run: pnpm coverage:unit
-      - name: Merge unit and browser execution and enforce 70 percent
+      - name: Merge unit, database, and browser execution and enforce 70 percent
         run: >-
           pnpm --filter @platform/e2e-tests merge-coverage
           "$GITHUB_WORKSPACE/coverage/unit/coverage-final.json"
+          "$GITHUB_WORKSPACE/coverage/integration/coverage-final.json"
           "$GITHUB_WORKSPACE/browser-coverage/coverage-final.json"
           "$GITHUB_WORKSPACE/coverage/merged"
       - name: Keep the auditable coverage maps
@@ -623,7 +629,20 @@ jobs:
           # exactly like a pass. In the job whose entire purpose is running
           # them, a missing variable must fail at import instead.
           export REQUIRE_DATABASE_TESTS=1
-          pnpm --filter @platform/integration-tests test
+          pnpm exec c8 \
+            --temp-directory coverage/integration/tmp \
+            --reports-dir coverage/integration \
+            --reporter=json \
+            --reporter=json-summary \
+            pnpm --filter @platform/integration-tests test
+
+      - name: Keep database integration coverage
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: integration-coverage
+          path: coverage/integration/
+          if-no-files-found: error
 
       - name: Advisors, on the schema this branch actually produces
         run: supabase db lint --level warning --fail-on warning --db-url "$SUPABASE_TEST_DB_URL"

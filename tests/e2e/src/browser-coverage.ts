@@ -16,12 +16,10 @@ const appByPort: Record<string, string> = {
 let report: CoverageReport | null = null;
 
 function appRoot(distFile = ''): string | null {
-  try {
-    const port = new URL(distFile).port;
-    return appByPort[port] ? resolve(workspaceRoot, 'apps', appByPort[port]) : null;
-  } catch {
-    return null;
-  }
+  const port = distFile.match(/127\.0\.0\.1(?::|-)(438[1-5])/)?.[1];
+  return port && appByPort[port]
+    ? resolve(workspaceRoot, 'apps', appByPort[port])
+    : null;
 }
 
 export function normalizeCoveragePath(filePath: string, distFile = ''): string {
@@ -33,13 +31,13 @@ export function normalizeCoveragePath(filePath: string, distFile = ''): string {
     const markerIndex = clean.indexOf(marker);
     if (markerIndex >= 0) return resolve(workspaceRoot, clean.slice(markerIndex));
   }
-  if (isAbsolute(clean)) return clean;
   const root = appRoot(distFile);
-  if (!root) return resolve(workspaceRoot, clean);
   const sourceMatch = clean.match(/(?:^|\/)(src|app|components|lib)\/(.+)$/);
   const sourceDir = sourceMatch?.[1];
   const sourceTail = sourceMatch?.[2];
-  return sourceDir && sourceTail ? resolve(root, sourceDir, sourceTail) : resolve(root, clean);
+  if (root && sourceDir && sourceTail) return resolve(root, sourceDir, sourceTail);
+  if (isAbsolute(clean)) return clean;
+  return resolve(root ?? workspaceRoot, clean);
 }
 
 export function isProjectSource(filePath: string): boolean {

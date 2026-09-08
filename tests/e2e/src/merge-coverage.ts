@@ -1,11 +1,15 @@
 import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { dirname, isAbsolute, relative, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { CoverageReport } from 'monocart-coverage-reports';
 
 type CoverageSummary = {
   total?: { lines?: { pct?: unknown } };
 };
+
+type IstanbulMap = Record<string, object>;
+const workspaceRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 
 export function coverageLinePercent(summary: CoverageSummary): number {
   const percent = summary.total?.lines?.pct;
@@ -23,20 +27,36 @@ async function readJson(path: string): Promise<object> {
   return parsed;
 }
 
+export function isCountedBrowserFile(file: string): boolean {
+  const clean = file.replaceAll('\\', '/');
+  const fromRoot = relative(workspaceRoot, clean).replaceAll('\\', '/');
+  if (!isAbsolute(clean) || fromRoot.startsWith('../') || isAbsolute(fromRoot)) return false;
+  if (!/^(?:apps|packages|scripts)\//.test(fromRoot) || !clean.endsWith('.ts')) return false;
+  return !/(?:\.d|\.test|\.config|\.generated)\.ts$|\/(?:dist[^/]*|node_modules|tests?)\//.test(clean);
+}
+
+export function filterBrowserCoverage(input: object): IstanbulMap {
+  return Object.fromEntries(
+    Object.entries(input).filter(([file]) => isCountedBrowserFile(file)),
+  );
+}
+
 export async function mergeCoverage(
   unitPath: string,
+  integrationPath: string,
   browserPath: string,
   outputDir: string,
   threshold = 70,
 ): Promise<number> {
   const report = new CoverageReport({
-    name: 'Unit and hosted browser coverage',
+    name: 'Unit, database integration, and hosted browser coverage',
     outputDir,
     reports: ['json', 'json-summary', 'text-summary'],
     logging: 'info',
   });
   await report.add(await readJson(unitPath));
-  await report.add(await readJson(browserPath));
+  await report.add(await readJson(integrationPath));
+  await report.add(filterBrowserCoverage(await readJson(browserPath)));
   await report.generate();
   const summary = await readJson(resolve(outputDir, 'coverage-summary.json')) as CoverageSummary;
   const percent = coverageLinePercent(summary);
@@ -47,9 +67,11 @@ export async function mergeCoverage(
 }
 
 if (process.argv[1]?.endsWith('merge-coverage.ts')) {
-  const [unitPath, browserPath, outputDir] = process.argv.slice(2);
-  if (!unitPath || !browserPath || !outputDir) {
-    throw new Error('Usage: merge-coverage.ts <unit.json> <browser.json> <output-dir>');
+  const [unitPath, integrationPath, browserPath, outputDir] = process.argv.slice(2);
+  if (!unitPath || !integrationPath || !browserPath || !outputDir) {
+    throw new Error(
+      'Usage: merge-coverage.ts <unit.json> <integration.json> <browser.json> <output-dir>',
+    );
   }
-  await mergeCoverage(unitPath, browserPath, outputDir);
+  await mergeCoverage(unitPath, integrationPath, browserPath, outputDir);
 }

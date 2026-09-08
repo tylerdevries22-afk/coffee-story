@@ -13,7 +13,7 @@
     "**/*.d.ts",
     "**/*.test.*",
     "**/*.config.*",
-    "**/generated.ts",
+    "**/*.generated.ts",
     "**/dist*/**",
     "**/node_modules/**",
     "**/test/**",

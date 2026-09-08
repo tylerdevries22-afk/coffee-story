@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
+import { dirname, resolve } from 'node:path';
 import { describe, it } from 'node:test';
+import { fileURLToPath } from 'node:url';
 
-import { coverageLinePercent } from './merge-coverage.ts';
+import { coverageLinePercent, filterBrowserCoverage, isCountedBrowserFile } from './merge-coverage.ts';
+
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 
 describe('merged coverage gate', () => {
   it('reads a finite line percentage at the report boundary', () => {
@@ -12,5 +16,14 @@ describe('merged coverage gate', () => {
     assert.throws(() => coverageLinePercent({}), /no numeric/);
     assert.throws(() => coverageLinePercent({ total: { lines: { pct: '70' } } }), /no numeric/);
     assert.throws(() => coverageLinePercent({ total: { lines: { pct: Number.NaN } } }), /no numeric/);
+  });
+
+  it('keeps tracked TypeScript source and rejects generated browser entries', () => {
+    const source = `${ROOT}/apps/customer/src/lib/runtime-config.ts`;
+    const chunk = `${ROOT}/127.0.0.1-4383/_next/static/chunks/app.js`;
+    assert.equal(isCountedBrowserFile(source), true);
+    assert.equal(isCountedBrowserFile(chunk), false);
+    assert.equal(isCountedBrowserFile(`${ROOT}/apps/customer/src/data.generated.ts`), false);
+    assert.deepEqual(filterBrowserCoverage({ [source]: {}, [chunk]: {} }), { [source]: {} });
   });
 });

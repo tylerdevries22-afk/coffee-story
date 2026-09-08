@@ -30,14 +30,21 @@ const HQ_ROUTES = [
 
 async function visitRoutes(page: Page, baseUrl: string, routes: readonly string[]): Promise<void> {
   for (const route of routes) {
-    const response = await page.goto(`${baseUrl}${route}`, {
-      waitUntil: 'domcontentloaded',
-      timeout: 45_000,
-    });
+    const url = `${baseUrl}${route}`;
+    let response = null;
+    for (let attempt = 0; attempt < 2 && !response; attempt += 1) {
+      try {
+        response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45_000 });
+      } catch (error) {
+        if (attempt > 0 || !String(error).includes('ERR_ABORTED')) throw error;
+        await page.waitForTimeout(250);
+      }
+    }
     assert.ok(response?.ok(), `${route} returned HTTP ${response?.status() ?? 'no response'}`);
     const body = await page.locator('body').innerText({ timeout: 20_000 });
     assert.ok(body.trim().length > 0, `${route} rendered an empty document`);
     assert.doesNotMatch(body, /Application error|Internal Server Error/i, `${route} rendered a fatal error`);
+    await page.waitForTimeout(100);
   }
 }
 

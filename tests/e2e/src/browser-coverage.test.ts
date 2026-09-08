@@ -25,6 +25,13 @@ describe('browser coverage source mapping', () => {
       normalizeCoveragePath('../../node_modules/@platform/domain/src/orders.ts'),
       `${ROOT}/packages/domain/src/orders.ts`,
     );
+    assert.equal(
+      normalizeCoveragePath(
+        '/home/runner/work/coffee-story/coffee-story/src/lib/runtime-config.ts',
+        `${ROOT}/127.0.0.1-4381`,
+      ),
+      `${ROOT}/apps/customer/src/lib/runtime-config.ts`,
+    );
   });
 
   it('keeps application source and rejects dependencies and generated output', () => {
