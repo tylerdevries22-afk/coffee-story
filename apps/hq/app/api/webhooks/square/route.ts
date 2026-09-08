@@ -113,6 +113,15 @@ export async function POST(request: Request): Promise<Response> {
     || mapped.settledFeeCents === undefined || mapped.settledFeeCents > grossCents
   )) return new Response('Invalid payment settlement amounts', { status: 422 });
 
+  // Never acknowledge money on a locally cancelled order. New hosted-card
+  // orders cannot be guest-cancelled, but this also protects older rows and
+  // staff/provider races: the delivery remains unresolved and diagnosed for
+  // reconciliation instead of being stamped processed with no paid event.
+  if (mapped.orderStatus === 'paid' && order.status === 'cancelled') {
+    return failure('order_event', new Error('Square settled a cancelled order'),
+      'Cancelled order requires payment reconciliation', 409, order);
+  }
+
   if (mapped.orderStatus === 'refunded') {
     if (!mapped.squareRefundId || mapped.refundedCents === null || mapped.refundedCents <= 0) {
       return new Response('Completed refund is missing its id or amount', { status: 422 });

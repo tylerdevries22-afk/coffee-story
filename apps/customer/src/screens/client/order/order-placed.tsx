@@ -22,6 +22,7 @@ import type { OrderStatus } from '@platform/schema';
 import { AppIcon, disabledState, useTokens as useBrandTokens } from '@platform/ui';
 
 import { createStyles } from './order-styles';
+import { orderPlacedCopy } from './order-placed-copy';
 /* ----------------------------------------------------------- confirmation */
 
 export function OrderPlaced({
@@ -77,6 +78,9 @@ export function OrderPlaced({
     return simulateProgress(setStatus);
   }, [demoSyncSessionId, demoSynced, orderId]);
   const tracking = trackingView(status);
+  const copy = orderPlacedCopy({
+    status, isDelivery, guestName, window, pointsEarned, pointsLabel: POINTS_LABEL,
+  });
 
   // Calling it off is only offered while it is still true: once the shop
   // starts the drink the button disappears rather than failing on tap.
@@ -116,23 +120,26 @@ export function OrderPlaced({
     >
       <View style={styles.placedCard}>
         <View style={styles.placedMark}>
-          <AppIcon name="checkmark" size={26} tintColor={tokens.surfaceElevated} weight="bold" />
+          <AppIcon
+            name={status === 'cancelled' || status === 'refunded' ? 'xmark' : 'checkmark'}
+            size={26}
+            tintColor={tokens.surfaceElevated}
+            weight="bold"
+          />
         </View>
         <Text style={styles.placedTitle}>
-          {isDelivery ? 'On its way' : 'We’ll have it ready'}
+          {copy.title}
         </Text>
         <Text style={styles.placedDetail}>
-          {window
-            ? `${isDelivery ? 'Delivering' : 'Ready for'} ${guestName || 'you'} ${window.dayLabel.toLowerCase()}, ${window.timeLabel}.`
-            : `Thanks, ${guestName || 'friend'}.`}
+          {copy.detail}
         </Text>
         {summary ? <Text style={styles.placedSummary}>{summary}</Text> : null}
         <View style={styles.placedTotalRow}>
-          <Text style={styles.placedTotalLabel}>{status === 'created' ? 'Due at counter' : 'Paid'}</Text>
+          <Text style={styles.placedTotalLabel}>{copy.paymentLabel}</Text>
           <Text style={styles.placedTotalValue}>{formatMoney(totalCents)}</Text>
         </View>
         <Text style={styles.placedNote}>
-          {pointsEarned} {POINTS_LABEL} land on your account once the shop confirms the order.
+          {copy.pointsNote}
         </Text>
       </View>
 

@@ -362,7 +362,7 @@ class PaidCashCancellationQuery {
     return {
       data: {
         id: 'order-1', brand_id: 'brand-1', customer_id: 'customer-1', status: 'paid',
-        total_cents: 500, square_payment_id: null,
+        tender_type: 'pay_at_pickup', total_cents: 500, square_payment_id: null,
       } as T,
       error: null,
     };
@@ -379,6 +379,22 @@ describe('cancelOrder', () => {
       }),
       (error: unknown) => error instanceof OrderError && error.code === 'cancel_unavailable',
     );
+    assert.equal(query.insertCalls, 0);
+  });
+
+  it('refuses a hosted checkout that can still settle without a payment id', async () => {
+    const query = new PaidCashCancellationQuery();
+    query.maybeSingle = async <T>() => ({
+      data: {
+        id: 'order-1', brand_id: 'brand-1', customer_id: 'customer-1', status: 'created',
+        tender_type: 'square_link', total_cents: 500, square_payment_id: null,
+      } as T,
+      error: null,
+    });
+    const db = { from: () => query } as unknown as SupabaseClient;
+    await assert.rejects(cancelOrder({ db }, {
+      orderId: 'order-1', customerId: 'customer-1', actorUserId: 'user-1', reason: 'Changed mind',
+    }), (error: unknown) => error instanceof OrderError && error.code === 'cancel_unavailable');
     assert.equal(query.insertCalls, 0);
   });
 });

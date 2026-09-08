@@ -21,7 +21,7 @@ export async function placeLiveOrderCore(
 ): Promise<void> {
   const {
     order, setOverlay, setPaying, placing, setPayError, setRedeemCents,
-    setUseGiftBalance, setPlaced, checkoutKey, cartSignatureRef,
+    setUseGiftBalance, setPlaced, checkoutKey, cartSignatureRef, pointsPerDollar,
   } = state;
   const {
     submittedFulfillment, submittedWindowValue, submittedCart,
@@ -58,7 +58,7 @@ export async function placeLiveOrderCore(
     setPlaced({
       summary,
       totalCents: result.totalCents,
-      points: Math.floor(result.subtotalCents / 10),
+      points: Math.floor((result.subtotalCents * pointsPerDollar) / 100),
       status: result.status,
       orderId: result.orderId,
     });

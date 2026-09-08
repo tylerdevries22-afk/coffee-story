@@ -34,6 +34,10 @@ function fixture(t: TestContext) {
         if (state.loadError) return response({ code: '08006', message: 'load unavailable' }, 503);
         return response(state.missingOrder ? null : state.order);
       }
+      if (table === 'claim_platform_fee_quote') {
+        assert.equal(body.p_order_id, state.order.id);
+        return response({ quoted_fee_cents: 300, quoted_fee_bps_applied: 300 });
+      }
       if (table === 'platform_fees' && init?.method === 'POST') {
         if (state.failFee) return response({ code: '08006', message: 'fee unavailable' }, 503);
         if (state.receipts.length) return response({ code: '23505', message: 'existing receipt' }, 409);

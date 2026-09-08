@@ -268,7 +268,7 @@ export async function seedBrand(slug: string): Promise<{ brandId: string; locati
       'training_bootstrap_runs', 'availability_blockouts',
       'calendar_entry_assignments', 'calendar_entries',
       'workforce_role_assignments', 'workforce_profiles', 'workforce_roles',
-      'order_events', 'platform_fees', 'orders',
+      'order_events', 'platform_fee_quotes', 'platform_fees', 'orders',
       'loyalty_events', 'loyalty_accounts', 'stored_value_ledger', 'referrals', 'customers',
       'prep_batches', 'recipes', 'crew_task_completions', 'crew_tasks', 'shifts', 'devices',
       'campaigns', 'drops', 'menu_items', 'menu_categories', 'menus',

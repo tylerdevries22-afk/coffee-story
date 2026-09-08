@@ -33,7 +33,8 @@ it('records the exact checkout fees when payments settle out of order across a t
 
   const receipts: Record<string, unknown>[] = [];
   let monthGross = 90_000;
-  let monthReads = 0;
+  let reservedGross = 90_000;
+  let quoteCalls = 0;
   const db = createClient('https://database.example', 'test-key', {
     auth: { persistSession: false, autoRefreshToken: false },
     global: { fetch: async (request, init) => {
@@ -49,6 +50,12 @@ it('records the exact checkout fees when payments settle out of order across a t
           totals: { lines: [{ name: 'Coffee box', quantity: 1, unit_price_cents: 10_000 }] },
         };
         if (init?.method === 'PATCH') assert.equal('totals' in JSON.parse(String(init.body)), false);
+      } else if (table === 'claim_platform_fee_quote') {
+        const input = JSON.parse(String(init?.body)) as { p_order_id: string; p_charge_cents: number };
+        const feeCents = reservedGross >= 100_000 ? 150 : 300;
+        reservedGross += input.p_charge_cents;
+        quoteCalls += 1;
+        data = { quoted_fee_cents: feeCents, quoted_fee_bps_applied: feeCents };
       } else if (table === 'locations') {
         assert.equal(url.searchParams.get('brand_id'), 'eq.brand-a');
         data = { id: 'location-a', timezone: 'America/Denver' };
@@ -59,9 +66,6 @@ it('records the exact checkout fees when payments settle out of order across a t
         receipts.push(row);
         monthGross += Number(row.gross_cents);
         data = null;
-      } else if (table === 'platform_fees') {
-        monthReads += 1;
-        data = url.searchParams.has('id') ? [] : [{ id: 'prior', gross_cents: monthGross }];
       } else throw new Error(`Unexpected table: ${table}`);
       return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json' } });
     } },
@@ -74,9 +78,9 @@ it('records the exact checkout fees when payments settle out of order across a t
   };
   for (const orderId of ['first', 'second']) {
     await createSquareCheckoutLink(deps, { orderId });
-    assert.equal(quoted.get(orderId), 300);
   }
-  const readsBeforeSettlement = monthReads;
+  assert.deepEqual([...quoted.values()], [300, 150]);
+  const callsBeforeSettlement = quoteCalls;
   for (const orderId of ['second', 'first']) {
     const mapped = mapSquareEvent({ event_id: `event-${orderId}`, type: 'payment.updated',
       data: { object: { payment: { id: `pay-${orderId}`, order_id: `sq-${orderId}`, status: 'COMPLETED',
@@ -87,7 +91,7 @@ it('records the exact checkout fees when payments settle out of order across a t
   }
   assert.equal(monthGross, 110_000);
   assert.deepEqual(receipts.map(row => [row.order_id, row.fee_cents, row.fee_bps_applied]),
-    [['second', 300, 300], ['first', 300, 300]]);
+    [['second', 150, 150], ['first', 300, 300]]);
   // Settlement never reads mutable monthly totals or the current contract.
-  assert.equal(monthReads, readsBeforeSettlement);
+  assert.equal(quoteCalls, callsBeforeSettlement);
 });

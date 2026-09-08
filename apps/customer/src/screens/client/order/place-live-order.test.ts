@@ -32,6 +32,7 @@ const SUBMITTED = {
 
 function stateFixture(signature = 'cart-a') {
   const events: string[] = [];
+  const placed: { points: number }[] = [];
   const state = {
     order: {
       clearBag: () => events.push('clear-bag'),
@@ -43,11 +44,15 @@ function stateFixture(signature = 'cart-a') {
     setPayError: (value: string) => events.push(`error:${value}`),
     setRedeemCents: (value: number) => events.push(`redeem:${value}`),
     setUseGiftBalance: (value: boolean) => events.push(`gift:${value}`),
-    setPlaced: (value: PlaceOrderResponse) => events.push(`placed:${value.orderId}`),
+    setPlaced: (value: PlaceOrderResponse & { points: number }) => {
+      events.push(`placed:${value.orderId}`);
+      placed.push({ points: value.points });
+    },
     checkoutKey: { current: null as string | null },
     cartSignatureRef: { current: signature },
+    pointsPerDollar: 11,
   } as unknown as OrderState;
-  return { events, state };
+  return { events, placed, state };
 }
 
 function dependencies(placeOrder: LiveOrderDependencies['placeOrder']): LiveOrderDependencies {
@@ -86,8 +91,9 @@ describe('live order placement', () => {
   });
 
   it('clears only the submitted cart after a successful placement', async () => {
-    const { events, state } = stateFixture();
+    const { events, placed, state } = stateFixture();
     await placeLiveOrderCore(state, SUBMITTED, dependencies(async () => RESPONSE));
+    assert.deepEqual(placed, [{ points: 66 }]);
     assert.deepEqual(events.filter((event) => ['clear-bag', 'tip:0', 'redeem:0', 'gift:false'].includes(event)), [
       'clear-bag', 'tip:0', 'redeem:0', 'gift:false',
     ]);

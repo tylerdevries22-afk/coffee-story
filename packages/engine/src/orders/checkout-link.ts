@@ -81,6 +81,7 @@ export async function createSquareCheckoutLink(
   }));
   const chargeCents = order.total_cents - order.stored_value_applied_cents;
   const fee = await appFeeForCharge(deps.db, {
+    orderId: order.id,
     locationId: order.location_id,
     chargeCents,
     feeConfig: deps.feeConfig,

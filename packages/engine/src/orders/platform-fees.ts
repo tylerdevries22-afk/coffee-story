@@ -5,15 +5,12 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import {
-  computeAppFeeCents, feeMonthRange, type FeeConfig,
-} from '../fees';
+import { feeMonthRange, type FeeConfig } from '../fees';
 
 /**
  * The platform's cut for one settled card payment (rule 3), written once.
  *
- * platform_fees is both the revenue record and the input to the volume tier —
- * appFeeForCharge sums the month's rows to decide which rate applies — so a
+ * platform_fees is both the revenue record and an input to the volume tier, so a
  * payment that never writes one is billed at tier 1 forever and quietly
  * under-reports the platform's own revenue. `square_payment_id` is UNIQUE, so
  * a replayed settlement lands on the conflict rather than a second row.
@@ -74,37 +71,34 @@ export async function insertPlatformFeeOnce(db: SupabaseClient, row: PlatformFee
 }
 
 /**
- * Rule 3's tiering needs the month's gross before this charge, per location.
- * Both money paths ask the same question, so they ask it in one place.
+ * Atomically reserve this order's place in the location's monthly volume.
+ * Square is an external call, so it cannot share the database transaction;
+ * the durable quote keeps concurrent checkouts from consuming the same tier.
  */
 export async function appFeeForCharge(
   db: SupabaseClient,
-  input: { locationId: string; chargeCents: number; feeConfig: FeeConfig; locationTimezone: string },
+  input: {
+    orderId: string;
+    locationId: string;
+    chargeCents: number;
+    feeConfig: FeeConfig;
+    locationTimezone: string;
+  },
 ): Promise<{ feeCents: number; feeBpsApplied: number }> {
-  // The location's own month, as UTC instants: a bare date string resolves
-  // at UTC midnight, which is not when the month starts anywhere but UTC.
   const { startIso, endIso } = feeMonthRange(new Date(), input.locationTimezone);
-  let monthGrossBefore = 0;
-  let afterId: string | undefined;
-  // A REST response is capped independently of the requested limit. Advance
-  // by the last immutable key and stop only on an empty page, so a lower
-  // deployment cap cannot silently move a busy location back to tier one.
-  while (true) {
-    let query = db.from('platform_fees')
-      .select('id, gross_cents')
-      .eq('location_id', input.locationId)
-      .gte('created_at', startIso)
-      .lt('created_at', endIso)
-      .order('id', { ascending: true })
-      .limit(1_000);
-    if (afterId) query = query.gt('id', afterId);
-    const { data, error } = await query.returns<{ id: string; gross_cents: number }[]>();
-    if (error) throw error;
-    const last = data?.at(-1);
-    if (!last) break;
-    if (last.id === afterId) throw new Error('Monthly fee pagination did not advance.');
-    monthGrossBefore += data.reduce((sum, row) => sum + row.gross_cents, 0);
-    afterId = last.id;
-  }
-  return computeAppFeeCents(input.feeConfig, monthGrossBefore, input.chargeCents);
+  const { data, error } = await db.rpc('claim_platform_fee_quote', {
+    p_order_id: input.orderId,
+    p_location_id: input.locationId,
+    p_charge_cents: input.chargeCents,
+    p_fee_bps: input.feeConfig.feeBps,
+    p_fee_bps_tier2: input.feeConfig.feeBpsTier2,
+    p_tier_threshold_cents: input.feeConfig.tierThresholdCents,
+    p_month_start: startIso,
+    p_month_end: endIso,
+  }).single<{ quoted_fee_cents: number; quoted_fee_bps_applied: number }>();
+  if (error) throw error;
+  return {
+    feeCents: Number(data.quoted_fee_cents),
+    feeBpsApplied: data.quoted_fee_bps_applied,
+  };
 }

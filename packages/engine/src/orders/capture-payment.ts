@@ -116,6 +116,7 @@ export async function captureSquarePayment(
 
   // Rule 3: the month's gross so far decides the tier for this payment.
   const fee = await appFeeForCharge(deps.db, {
+    orderId: order.id,
     locationId: order.location_id,
     chargeCents: cardChargeCents,
     feeConfig: deps.feeConfig,
