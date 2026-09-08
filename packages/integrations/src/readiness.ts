@@ -15,6 +15,7 @@ export const CONNECTOR_INSTALLATION_STATUSES = [
   'disabled',
   'revoked',
   'uncertified',
+  'manual-import',
 ] as const;
 
 export type ConnectorInstallationStatus =

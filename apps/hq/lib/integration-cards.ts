@@ -4,14 +4,18 @@ import {
   type ConnectorCatalogEntry,
   type ConnectorCategory,
   type ConnectorInstallationStatus,
+  type ConnectorSetup,
 } from '@platform/integrations';
 
-export type ConnectorRegistryRow = {
-  readonly id: string;
-  readonly provider_key: string;
-  readonly availability: string;
-  readonly is_active: boolean;
-};
+import {
+  normalizedStatus,
+  registryAllowsConfiguration,
+  registryStatus,
+  STATUS_LABELS,
+  type ConnectorRegistryRow,
+} from './integration-card-status';
+
+export type { ConnectorRegistryRow } from './integration-card-status';
 
 export type ConnectorInstallationRow = {
   readonly id: string;
@@ -33,14 +37,28 @@ export type ConnectorCard = {
   readonly status: ConnectorInstallationStatus;
   readonly statusLabel: string;
   readonly accountLabel: string | null;
-  readonly capabilityCount: number;
+  /**
+   * Capabilities this deployment could enable, given the scopes it actually
+   * requests. Narrower than the catalog's list whenever a scope is deliberately
+   * withheld — Meta's publishing permissions pending App Review, for instance — so
+   * it is the only honest denominator for "did the user grant everything".
+   *
+   * Zero means the askable set is not known: no capability rows have loaded, or
+   * the read failed. Callers must treat zero as "no gap known" rather than as an
+   * answer, because the numerator comes from a different source and comparing the
+   * two would report a gap on every connector.
+   */
+  readonly authorizableCapabilityCount: number;
   readonly enabledCapabilityCount: number;
   readonly connectedAt: string | null;
   readonly lastSyncedAt: string | null;
   readonly logo: ConnectorCatalogEntry['logo'];
+  readonly setup: ConnectorSetup;
   readonly isInstalled: boolean;
   readonly isConnected: boolean;
   readonly canConfigure: boolean;
+  /** True when the provider publishes no API and setup is a guided upload. */
+  readonly isManualOnly: boolean;
   readonly connectHref: string | null;
   readonly connectLabel: string | null;
 };
@@ -55,64 +73,36 @@ export type IntegrationActivity = {
   readonly createdAt: string;
 };
 
-const INSTALLATION_STATES = new Set<ConnectorInstallationStatus>([
-  'available',
-  'setup-required',
-  'provider-approval-required',
-  'connecting',
-  'connected-healthy',
-  'connected-degraded',
-  'reauthorization-required',
-  'disabled',
-  'revoked',
-  'uncertified',
-]);
-
-const STATUS_LABELS: Readonly<Record<ConnectorInstallationStatus, string>> = {
-  available: 'Available',
-  'setup-required': 'Setup required',
-  'provider-approval-required': 'Provider approval required',
-  connecting: 'Connecting',
-  'connected-healthy': 'Connected and healthy',
-  'connected-degraded': 'Connected but degraded',
-  'reauthorization-required': 'Reauthorization required',
-  disabled: 'Disabled',
-  revoked: 'Revoked',
-  uncertified: 'Uncertified',
-};
-
-const CONFIGURABLE_REGISTRY_AVAILABILITY = new Set([
-  'available', 'setup_required', 'provider_approval_required',
-]);
-
-function normalizedStatus(status: string | undefined): ConnectorInstallationStatus | undefined {
-  if (!status) return undefined;
-  const candidate = status.replaceAll('_', '-') as ConnectorInstallationStatus;
-  return INSTALLATION_STATES.has(candidate) ? candidate : undefined;
-}
-
-function fallbackStatus(entry: ConnectorCatalogEntry): ConnectorInstallationStatus {
-  if (entry.availability === 'provider-approval-required') return 'provider-approval-required';
-  if (entry.availability === 'coming-soon') return 'uncertified';
-  return 'setup-required';
-}
-
-function registryStatus(
+function cardOf(
   entry: ConnectorCatalogEntry,
   registry: ConnectorRegistryRow | undefined,
-): ConnectorInstallationStatus {
-  if (!registry) return 'disabled';
-  const availability = registry.availability.replaceAll('-', '_');
-  if (availability === 'coming_soon' || availability === 'uncertified') {
-    return 'uncertified';
-  }
-  if (!registry.is_active || availability === 'disabled') return 'disabled';
-  return fallbackStatus(entry);
-}
-
-function registryAllowsConfiguration(registry: ConnectorRegistryRow | undefined): boolean {
-  if (!registry?.is_active) return false;
-  return CONFIGURABLE_REGISTRY_AVAILABILITY.has(registry.availability.replaceAll('-', '_'));
+  installation: ConnectorInstallationRow | undefined,
+): ConnectorCard {
+  const isManualOnly = entry.availability === 'manual-only';
+  const status = normalizedStatus(installation?.status) ?? registryStatus(entry, registry);
+  const isConnected = status === 'connected-healthy' || status === 'connected-degraded';
+  return Object.freeze({
+    id: entry.descriptor.id,
+    displayName: entry.displayName,
+    summary: entry.summary,
+    category: entry.category,
+    availability: entry.availability,
+    status,
+    statusLabel: STATUS_LABELS[status],
+    accountLabel: installation?.external_account_label || null,
+    authorizableCapabilityCount: 0,
+    enabledCapabilityCount: installation?.enabled_capabilities.length ?? 0,
+    connectedAt: installation?.connected_at ?? null,
+    lastSyncedAt: installation?.last_synced_at ?? null,
+    logo: entry.logo,
+    setup: entry.setup,
+    isInstalled: Boolean(installation),
+    isConnected,
+    isManualOnly,
+    canConfigure: registryAllowsConfiguration(entry, registry),
+    connectHref: null,
+    connectLabel: null,
+  });
 }
 
 /** Resolves the immutable catalog and tenant installation rows into safe UI cards. */
@@ -124,30 +114,7 @@ export function connectorCardsOf(
   const installationByProvider = new Map(installationRows.map((row) => [row.provider_id, row]));
   return listConnectorCatalog().map((entry) => {
     const registry = registryByKey.get(entry.descriptor.id);
-    const installation = registry ? installationByProvider.get(registry.id) : undefined;
-    const status = normalizedStatus(installation?.status) ?? registryStatus(entry, registry);
-    const isConnected = status === 'connected-healthy' || status === 'connected-degraded';
-    return Object.freeze({
-      id: entry.descriptor.id,
-      displayName: entry.displayName,
-      summary: entry.summary,
-      category: entry.category,
-      availability: entry.availability,
-      status,
-      statusLabel: STATUS_LABELS[status],
-      accountLabel: installation?.external_account_label || null,
-      capabilityCount: entry.descriptor.capabilities.length,
-      enabledCapabilityCount: installation?.enabled_capabilities.length ?? 0,
-      connectedAt: installation?.connected_at ?? null,
-      lastSyncedAt: installation?.last_synced_at ?? null,
-      logo: entry.logo,
-      isInstalled: Boolean(installation),
-      isConnected,
-      canConfigure: entry.availability !== 'coming-soon'
-        && registryAllowsConfiguration(registry),
-      connectHref: null,
-      connectLabel: null,
-    });
+    return cardOf(entry, registry, registry ? installationByProvider.get(registry.id) : undefined);
   });
 }
 
@@ -177,8 +144,9 @@ export function demoConnectorCards(selectedIds: readonly string[]): readonly Con
   const installationRows = registryRows.filter((row) => selected.has(row.provider_key)).map((row) => ({
     id: `demo-${row.id}`,
     provider_id: row.id,
-    status: row.availability === 'provider-approval-required'
-      ? 'provider_approval_required' : 'setup_required',
+    status: row.availability === 'manual-only' ? 'manual_import'
+      : row.availability === 'provider-approval-required' ? 'provider_approval_required'
+      : 'setup_required',
     external_account_label: '', enabled_capabilities: [], connected_at: null,
     last_synced_at: null, updated_at: new Date(0).toISOString(),
   }));

@@ -54,7 +54,7 @@ describe('connector OAuth providers', { concurrency: false }, () => {
 
     await assert.rejects(
       exchangeConnectorCode('slack', 'one-time-code', 'v'.repeat(43), 'https://hq.example/callback'),
-      /could not complete/i,
+      /token exchange failed/i,
     );
     assert.equal(fetchMock.mock.callCount(), 1);
   });
@@ -79,7 +79,7 @@ describe('connector OAuth providers', { concurrency: false }, () => {
 
   it('deduplicates provider-reported granted scopes', () => {
     assert.deepEqual(
-      grantedConnectorScopes('slack', { access_token: 'token', scope: 'chat:write,channels:read chat:write' }),
+      grantedConnectorScopes({ access_token: 'token', scope: 'chat:write,channels:read chat:write' }),
       ['chat:write', 'channels:read'],
     );
   });
