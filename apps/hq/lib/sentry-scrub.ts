@@ -114,7 +114,7 @@ export function scrubBreadcrumb<T>(breadcrumb: T): T {
 }
 
 type Scrubbable = {
-  request?: { url?: string } | undefined;
+  request?: { url?: string; query_string?: unknown } | undefined;
   breadcrumbs?: readonly { data?: Bag | undefined }[] | undefined;
   spans?: readonly { data?: Bag | undefined }[] | undefined;
   contexts?: Record<string, Bag | undefined> | undefined;
@@ -126,12 +126,22 @@ type Scrubbable = {
  *
  * `contexts.trace.data` carries the root span's attributes, which for the OAuth
  * callback route itself means `url.full`, `http.url` and `http.target` all hold
- * the single-use authorization code. Walking only `request` and `spans` misses it.
+ * the single-use authorization code, and `request.query_string` holds it again.
+ * Walking only `request.url` and `spans` misses both.
  */
 export function scrubEvent<T>(event: T): T {
   const target = event as T & Scrubbable;
-  if (target.request && typeof target.request.url === 'string') {
-    target.request.url = redactUrl(target.request.url);
+  if (target.request) {
+    if (typeof target.request.url === 'string') {
+      target.request.url = redactUrl(target.request.url);
+    }
+    // Sentry's requestdata integration copies the raw query string onto the
+    // event separately from the URL, so redacting only `url` leaves the callback
+    // route's single-use authorization code in `query_string`.
+    if (typeof target.request.query_string === 'string'
+      && queryIsSensitive(target.request.query_string)) {
+      target.request.query_string = 'REDACTED';
+    }
   }
   for (const breadcrumb of target.breadcrumbs ?? []) redactBag(breadcrumb.data);
   for (const span of target.spans ?? []) redactBag(span.data);

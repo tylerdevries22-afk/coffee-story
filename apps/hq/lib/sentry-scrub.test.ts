@@ -49,6 +49,21 @@ describe('OAuth telemetry scrubbing', () => {
     assert.ok(!serialized.includes('AQD-secret-code'), 'no authorization code anywhere in the event');
   });
 
+  it('redacts request.query_string, which Sentry records apart from the URL', () => {
+    const event = scrubEvent({
+      request: {
+        url: 'https://hq.example.com/api/connectors/meta-business-suite/callback?code=AQD-real&state=abc.sig',
+        query_string: 'code=AQD-real&state=abc.sig',
+      },
+    });
+    assert.ok(!JSON.stringify(event).includes('AQD-real'), 'the code must not survive');
+  });
+
+  it('leaves an unrelated query_string intact', () => {
+    const event = scrubEvent({ request: { url: 'https://hq.example.com/integrations?tab=connected', query_string: 'tab=connected' } });
+    assert.equal(event.request.query_string, 'tab=connected');
+  });
+
   it('scrubs the trace context, where the callback route\'s own code lands', () => {
     // The root span's attributes serialize to contexts.trace.data, so a callback
     // request carries the single-use authorization code there.

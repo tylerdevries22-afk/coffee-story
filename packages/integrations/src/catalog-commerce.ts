@@ -65,7 +65,7 @@ export const COMMERCE_DEFINITIONS: readonly CatalogDefinition[] = [
       steps: [
         { text: 'Open Plaid Dashboard, then Developers, then Keys.', href: 'https://dashboard.plaid.com/developers/keys' },
         { text: 'Copy the client ID and the secret for the environment you are launching in.' },
-        { text: 'Paste both into this connector and choose the matching Plaid environment.' },
+        { text: 'Note which Plaid environment the keys belong to; they are not interchangeable.' },
       ],
     }),
   },

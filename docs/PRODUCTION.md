@@ -201,7 +201,32 @@ Provider owner actions still required before activation:
 - Slack channel authorization, Twilio sender verification, and a verified
   Resend domain.
 - Supabase, Vercel, and Sentry provider credentials with least-privilege read
-  scopes.
+  scopes. These three declare OAuth as their intended mechanism but have no
+  adapter wired yet, so their catalog entries say certification is pending and
+  publish no callback URL.
+- Meta Business Suite: a Facebook app with the Business portfolio and Pages the
+  organization owns, plus App Review for `pages_read_engagement`, `read_insights`,
+  `ads_read` and `business_management`. Sandbox works immediately; live data does
+  not. `pages_manage_posts` is seeded as the scope for publishing and is
+  deliberately not requested, so that capability stays excluded until App Review
+  covers it.
+- YouTube: a Google OAuth client whose consent screen carries
+  `youtube.readonly`, `youtube.upload` and `yt-analytics.readonly`, authorized by
+  the account that owns the channel rather than a viewer.
+- TikTok: a TikTok for Developers app, and the content-posting audit before
+  anything publishes publicly — an unaudited app can only post private drafts.
+  TikTok names the credential a client *key*, not a client id.
+- Transistor and beehiiv: no OAuth client is issued to us, so each organization
+  supplies its own API key. beehiiv also needs its `pub_`-prefixed publication id.
+  Neither is a deployment environment variable: both belong in Vault against that
+  organization's `credential_references` row, and the route that stores them is
+  not built yet.
+- Kindle Direct Publishing and ACX: no provider setup at all, because Amazon
+  publishes no API for either — the Selling Partner API explicitly excludes KDP.
+  Both are guided report imports, and the upload route is not built yet.
+- Every OAuth connector additionally needs a passed sandbox certification row in
+  `connector_certifications`; the catalog seeds them `not_started`, and no Connect
+  button appears until one passes. Correct credentials alone are not enough.
 - Production webhook URLs and signature secrets for every enabled provider.
 
 No Docker or local daemon participates in production ingestion, aggregation,

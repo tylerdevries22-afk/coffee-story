@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { afterEach, describe, it, mock } from 'node:test';
 
 import {
+  connectorCredentialEnvKeys,
+  visibleCredentialEnvKeys,
   ConnectorExchangeError,
   connectorAuthorizationUrl,
   connectorProviderReady,
@@ -14,6 +16,9 @@ import {
 const ENV = [
   'META_APP_ID', 'META_APP_SECRET',
   'STRIPE_CONNECT_CLIENT_ID', 'STRIPE_SECRET_KEY',
+  'SLACK_CLIENT_ID', 'SLACK_CLIENT_SECRET',
+  'QUICKBOOKS_CLIENT_ID', 'QUICKBOOKS_CLIENT_SECRET',
+  'GOOGLE_OAUTH_CLIENT_ID', 'GOOGLE_OAUTH_CLIENT_SECRET',
   'YOUTUBE_OAUTH_CLIENT_ID', 'YOUTUBE_OAUTH_CLIENT_SECRET',
   'TIKTOK_CLIENT_KEY', 'TIKTOK_CLIENT_SECRET',
 ] as const;
@@ -38,6 +43,36 @@ afterEach(() => {
 });
 
 describe('publishing and social OAuth providers', { concurrency: false }, () => {
+  it('shows deployment secret names only to an organization owner', () => {
+    // These names are operator reconnaissance, so the gate is asserted here rather
+    // than left inline in a server component where inverting it is a green build.
+    assert.deepEqual(
+      visibleCredentialEnvKeys('meta-business-suite', { isOrganizationOwner: true }),
+      ['META_APP_ID', 'META_APP_SECRET'],
+    );
+    for (const viewer of [null, { isOrganizationOwner: false }]) {
+      assert.deepEqual(
+        visibleCredentialEnvKeys('meta-business-suite', viewer), [],
+        'a non-owner sees nothing',
+      );
+    }
+  });
+
+  it('lists env names only for providers whose adapter reads them', () => {
+    for (const key of ['meta-business-suite', 'youtube', 'tiktok', 'square']) {
+      assert.ok(
+        connectorCredentialEnvKeys(key).length > 0, `${key} is wired and needs secrets`,
+      );
+    }
+    for (const key of ['transistor', 'beehiiv', 'supabase', 'vercel', 'sentry',
+      'kindle-direct-publishing', 'acx-audiobooks', 'github']) {
+      assert.deepEqual(
+        connectorCredentialEnvKeys(key), [],
+        `${key} has no adapter reading an environment variable`,
+      );
+    }
+  });
+
   it('registers the three new providers as OAuth connector keys', () => {
     for (const key of ['meta-business-suite', 'youtube', 'tiktok']) {
       assert.ok(isOAuthConnectorKey(key), `${key} should be an OAuth key`);
@@ -193,18 +228,43 @@ describe('publishing and social OAuth providers', { concurrency: false }, () => 
     assert.deepEqual(await resolveGrantedScopes('meta-business-suite', { access_token: 't' }), []);
   });
 
-  it('never assumes the requested list for any provider that reports no scope', async () => {
+  it('never assumes the requested list for a provider that normally reports scope', async () => {
     configure();
     const fetchMock = mock.method(globalThis, 'fetch', async () => Response.json({}));
-    // The Meta fix generalizes: assuming the request would record declined
+    // These providers return `scope` and let a user decline part of it, so an
+    // absent field is anomalous. Assuming the request would record declined
     // consent for TikTok and Slack exactly as it would for Meta.
-    for (const key of ['tiktok', 'slack', 'youtube', 'stripe'] as const) {
+    for (const key of ['tiktok', 'slack', 'youtube', 'stripe', 'google-suite'] as const) {
       assert.equal(
         await resolveGrantedScopes(key, { access_token: 't' }), null,
         `${key} must not assume its requested scopes were granted`,
       );
     }
     assert.equal(fetchMock.mock.callCount(), 0, 'and must not call out to find out');
+  });
+
+  it('accepts the requested list for a provider that omits scope by design', async () => {
+    process.env.QUICKBOOKS_CLIENT_ID = 'qb-client';
+    process.env.QUICKBOOKS_CLIENT_SECRET = 'qb-secret';
+    const fetchMock = mock.method(globalThis, 'fetch', async () => Response.json({}));
+    // Intuit's token response carries no `scope`, and RFC 6749 section 5.1 defines
+    // that as "identical to the scope requested". Treating it as unknown would make
+    // QuickBooks impossible to connect at all.
+    assert.deepEqual(
+      await resolveGrantedScopes('quickbooks-online', { access_token: 'qb-token' }),
+      ['com.intuit.quickbooks.accounting'],
+    );
+    assert.equal(fetchMock.mock.callCount(), 0, 'no verification call is needed');
+  });
+
+  it('still prefers a reported scope over the requested list', async () => {
+    process.env.QUICKBOOKS_CLIENT_ID = 'qb-client';
+    process.env.QUICKBOOKS_CLIENT_SECRET = 'qb-secret';
+    assert.deepEqual(
+      await resolveGrantedScopes('quickbooks-online',
+        { access_token: 't', scope: 'com.intuit.quickbooks.accounting' }),
+      ['com.intuit.quickbooks.accounting'],
+    );
   });
 
   it('trusts a reported scope string when the provider sends one', async () => {

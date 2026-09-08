@@ -9,6 +9,14 @@ export type ConnectorIdentity = {
 };
 
 const FAILED = 'Connector identity verification failed.';
+
+/** Raised so the callback can name the identity stage rather than guess storage. */
+export class ConnectorIdentityError extends Error {
+  constructor() {
+    super(FAILED);
+    this.name = 'ConnectorIdentityError';
+  }
+}
 const MAX_ACCOUNT_ID = 256;
 const MAX_ACCOUNT_LABEL = 160;
 
@@ -30,7 +38,7 @@ async function identityJson(url: string, accessToken: string): Promise<unknown> 
   const response = await fetchWithRetry(url, {
     headers: { Accept: 'application/json', Authorization: `Bearer ${accessToken}` },
   });
-  if (!response.ok) throw new Error(FAILED);
+  if (!response.ok) throw new ConnectorIdentityError();
   return response.json();
 }
 
@@ -131,8 +139,8 @@ export async function verifyConnectorIdentity(
   realmId: string | null,
 ): Promise<ConnectorIdentity> {
   const resolver = RESOLVERS[key];
-  if (!resolver) throw new Error(FAILED);
+  if (!resolver) throw new ConnectorIdentityError();
   const resolved = await resolver(token, realmId);
-  if (!resolved) throw new Error(FAILED);
+  if (!resolved) throw new ConnectorIdentityError();
   return resolved;
 }

@@ -43,6 +43,10 @@ export function sharedStatus(card: ConnectorCard, mode: StoreMode): McpStoreStat
  * renders no disclosure rather than an empty or misleading one.
  */
 export function sharedSetup(card: ConnectorCard): McpStoreSetup | undefined {
+  // A connector the tenant cannot set up must not teach setup. Without this, a
+  // transient registry error renders every row as "Unavailable" beside a live
+  // "Press Connect" walkthrough — the contradiction this projection exists to end.
+  if (!card.canConfigure) return undefined;
   if (card.availability === 'coming-soon' || card.setup.steps.length === 0) return undefined;
   return {
     kind: card.setup.kind,

@@ -1,7 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import {
-  connectorCardsOf,
   defaultConnectorCards,
   demoConnectorCards,
   type ConnectorCard,
@@ -9,13 +8,12 @@ import {
   type ConnectorRegistryRow,
   type IntegrationActivity,
 } from './integration-cards';
+import { connectorCardsFromQueries } from './integration-query';
 import { serverClient } from './supabase-server';
 import { currentSession } from './auth';
-import {
-  certifiedOAuthProviders,
-  type ConnectorCapabilityRow,
-  type ConnectorCertificationRow,
-  withConnectorAuthorization,
+import type {
+  ConnectorCapabilityRow,
+  ConnectorCertificationRow,
 } from './connector-auth-readiness';
 
 async function selectedBrandId(): Promise<string | null> {
@@ -55,14 +53,7 @@ export async function loadConnectorCards(
       .select('capability_id, environment, status, certified_at, valid_until')
       .returns<ConnectorCertificationRow[]>(),
   ]);
-  if (registry.error || installations.error) return defaultConnectorCards();
-  const certified = capabilities.error || certifications.error ? new Set<string>()
-    : certifiedOAuthProviders(
-      registry.data ?? [], capabilities.data ?? [], certifications.data ?? [],
-    );
-  return withConnectorAuthorization(
-    connectorCardsOf(registry.data ?? [], installations.data ?? []), certified,
-  );
+  return connectorCardsFromQueries(registry, installations, capabilities, certifications);
 }
 
 type SyncRunRow = {

@@ -119,7 +119,34 @@ describe('connector setup guidance', () => {
           && setup.steps.some((step) => step.href === setup.consoleUrl),
         `${descriptor.id} must link its credential console from a step`,
       );
-      assert.ok(setup.steps.length <= 4, `${descriptor.id} setup must stay skimmable`);
+      assert.ok(setup.steps.length <= 5, `${descriptor.id} setup must stay skimmable`);
+    }
+  });
+
+  it('never tells a reader to paste or upload where nothing accepts it yet', () => {
+    // The store row shows the step list with no other commentary, so a walkthrough
+    // that ends at "paste it here" would send an owner hunting for a field that
+    // does not exist. Every unfinished last mile says so in its own last step.
+    for (const { descriptor, setup } of listConnectorCatalog()) {
+      if (setup.steps.length === 0) continue;
+      const body = setup.steps.map((step) => step.text).join(' ');
+      if (setup.kind === 'api-key') {
+        assert.match(
+          setup.steps.at(-1)?.text ?? '', /not enabled yet/u,
+          `${descriptor.id} must close by saying storage is not enabled`,
+        );
+      }
+      if (setup.kind === 'operator-portal' && descriptor.authentication === 'operator-portal') {
+        assert.match(
+          setup.steps.at(-1)?.text ?? '', /not enabled yet/u,
+          `${descriptor.id} must close by saying upload is not enabled`,
+        );
+      }
+      assert.ok(
+        !/\bpaste (?:it|both|them|the key)\b.{0,12}here/iu.test(body),
+        `${descriptor.id} promises an in-app field`,
+      );
+      assert.ok(!/upload it here/iu.test(body), `${descriptor.id} promises an upload`);
     }
   });
 

@@ -5,7 +5,7 @@ import { notFound } from 'next/navigation';
 import { ConnectorSetupPanel } from '@/components/connector-setup-panel';
 import { ProviderLogo } from '@/components/provider-logo';
 import { currentSession, hasRole } from '@/lib/auth';
-import { connectorCredentialEnvKeys } from '@/lib/connector-oauth-providers';
+import { visibleCredentialEnvKeys } from '@/lib/connector-oauth-providers';
 import { loadConnectorCards } from '@/lib/integration-data';
 
 export const dynamic = 'force-dynamic';
@@ -23,8 +23,9 @@ export default async function IntegrationDetailPage({ params }: IntegrationDetai
   // Redirect URIs and deployment secret names are operator detail, not tenant
   // detail, so they are resolved only for an organization owner.
   const session = await currentSession();
-  const credentialEnvKeys = session && hasRole(session, 'brand_owner')
-    ? connectorCredentialEnvKeys(provider) : [];
+  const credentialEnvKeys = visibleCredentialEnvKeys(
+    provider, session ? { isOrganizationOwner: hasRole(session, 'brand_owner') } : null,
+  );
   const isComingSoon = definition.availability === 'coming-soon';
   const isUnavailable = !card.canConfigure && !card.isInstalled;
   const readinessNote = isComingSoon

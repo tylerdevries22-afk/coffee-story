@@ -51,7 +51,7 @@ export const MESSAGING_DEFINITIONS: readonly CatalogDefinition[] = [
       steps: [
         { text: 'Open Twilio Console, then Account, then API keys and tokens.', href: 'https://console.twilio.com/us1/account/keys-credentials/api-keys' },
         { text: 'Create a standard API key and copy the SID and secret before closing the dialog.' },
-        { text: 'Paste the key, its secret, and your Account SID into this connector.' },
+        { text: 'You need all three: the key SID, its secret, and your Account SID.' },
       ],
     }),
   },

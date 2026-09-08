@@ -6,12 +6,17 @@ export {
   OAUTH_CONNECTOR_KEYS,
   connectorAuthorizationUrl,
   connectorCallbackUrl,
-  connectorCredentialEnvKeys,
+  connectorScopeSource,
+  isOAuthConnectorKey,
   connectorProviderReady,
   connectorProviderScopes,
-  isOAuthConnectorKey,
   type OAuthConnectorKey,
 } from './connector-oauth-config';
+
+export {
+  connectorCredentialEnvKeys,
+  visibleCredentialEnvKeys,
+} from './connector-credential-env';
 
 export {
   ConnectorExchangeError,
@@ -25,6 +30,7 @@ export {
 } from './connector-oauth-scopes';
 
 export {
+  ConnectorIdentityError,
   verifyConnectorIdentity,
   type ConnectorIdentity,
 } from './connector-oauth-identity';

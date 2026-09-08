@@ -1,6 +1,10 @@
 import { fetchWithRetry } from '@platform/api-client';
 
-import { type OAuthConnectorKey } from './connector-oauth-config';
+import {
+  connectorProviderScopes,
+  connectorScopeSource,
+  type OAuthConnectorKey,
+} from './connector-oauth-config';
 import { stringAt, type ConnectorToken } from './connector-oauth-exchange';
 
 const META_PERMISSIONS = 'https://graph.facebook.com/v25.0/me/permissions';
@@ -50,6 +54,17 @@ async function metaGrantedScopes(token: ConnectorToken): Promise<readonly string
  * Resolves the scopes the user actually granted, or `null` if that cannot be
  * established. A caller must fail the connection on `null` rather than storing an
  * installation whose capability set would be silently empty.
+ *
+ * What an absent `scope` field means is a per-provider fact, not a guess:
+ *
+ * - A `token`-reporting provider supports declining individual permissions and
+ *   always returns the field, so its absence is anomalous and stays unknown.
+ * - A `request` provider omits it by design. RFC 6749 section 5.1 defines that as
+ *   "the scope of the access token is identical to the scope requested", and the
+ *   provider offers no way to decline part of it, so the request is the answer.
+ *   Intuit is the one here; treating its silence as a failure would make
+ *   QuickBooks impossible to connect at all.
+ * - A `verify` provider omits it but does allow declining, so it must be asked.
  */
 export async function resolveGrantedScopes(
   key: OAuthConnectorKey,
@@ -57,5 +72,7 @@ export async function resolveGrantedScopes(
 ): Promise<readonly string[] | null> {
   const reported = grantedConnectorScopes(token);
   if (reported) return reported;
-  return key === 'meta-business-suite' ? metaGrantedScopes(token) : null;
+  const source = connectorScopeSource(key);
+  if (source === 'request') return connectorProviderScopes(key);
+  return source === 'verify' ? metaGrantedScopes(token) : null;
 }

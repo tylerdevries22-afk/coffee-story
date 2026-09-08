@@ -4,6 +4,10 @@ export const OAUTH_CONNECTOR_KEYS = [
 ] as const;
 export type OAuthConnectorKey = (typeof OAUTH_CONNECTOR_KEYS)[number];
 
+export function isOAuthConnectorKey(candidate: string): candidate is OAuthConnectorKey {
+  return (OAUTH_CONNECTOR_KEYS as readonly string[]).includes(candidate);
+}
+
 export type ProviderConfig = {
   readonly authorizeUrl: string;
   readonly clientId: string;
@@ -24,37 +28,21 @@ export type ProviderConfig = {
   readonly tokenMethod?: 'GET' | 'POST';
   /** Extra authorize-only parameters the provider requires. */
   readonly authorizeParams?: Readonly<Record<string, string>>;
+  /**
+   * Where the granted scope list comes from.
+   *
+   * - `token`: the provider returns `scope` and supports declining individual
+   *   permissions, so an absent field is anomalous and must not be assumed.
+   * - `request`: the provider omits `scope`, which RFC 6749 section 5.1 defines
+   *   as "identical to the scope requested", and offers no partial consent.
+   * - `verify`: the provider omits `scope` but does allow declining, so the
+   *   grant has to be read back from the provider.
+   */
+  readonly scopeSource: 'token' | 'request' | 'verify';
 };
 
 function value(name: string): string {
   return process.env[name]?.trim() ?? '';
-}
-
-/**
- * The deployment environment variables each wired provider reads.
- *
- * This lives host-side, not in the shared catalog: the catalog is bundled to the
- * browser through the store's client component, and a list of this deployment's
- * secret names is operator reconnaissance rather than tenant data.
- */
-const CREDENTIAL_ENV_KEYS: Readonly<Record<OAuthConnectorKey, readonly string[]>> = {
-  'google-suite': ['GOOGLE_OAUTH_CLIENT_ID', 'GOOGLE_OAUTH_CLIENT_SECRET'],
-  youtube: ['YOUTUBE_OAUTH_CLIENT_ID', 'YOUTUBE_OAUTH_CLIENT_SECRET'],
-  stripe: ['STRIPE_CONNECT_CLIENT_ID', 'STRIPE_SECRET_KEY'],
-  'quickbooks-online': ['QUICKBOOKS_CLIENT_ID', 'QUICKBOOKS_CLIENT_SECRET', 'QUICKBOOKS_ENV'],
-  slack: ['SLACK_CLIENT_ID', 'SLACK_CLIENT_SECRET'],
-  'meta-business-suite': ['META_APP_ID', 'META_APP_SECRET'],
-  tiktok: ['TIKTOK_CLIENT_KEY', 'TIKTOK_CLIENT_SECRET'],
-};
-
-/** Env names an operator sets for this provider, or none if it is not wired. */
-export function connectorCredentialEnvKeys(key: string): readonly string[] {
-  if (isOAuthConnectorKey(key)) return CREDENTIAL_ENV_KEYS[key];
-  return key === 'square' ? ['SQUARE_APP_ID', 'SQUARE_APP_SECRET', 'SQUARE_TOKEN_KEY'] : [];
-}
-
-export function isOAuthConnectorKey(candidate: string): candidate is OAuthConnectorKey {
-  return (OAUTH_CONNECTOR_KEYS as readonly string[]).includes(candidate);
 }
 
 const GOOGLE_AUTHORIZE = 'https://accounts.google.com/o/oauth2/v2/auth';
@@ -66,6 +54,7 @@ const META_VERSION = 'v25.0';
 
 const CONFIGS: Readonly<Record<OAuthConnectorKey, () => ProviderConfig>> = {
   'google-suite': () => ({
+    scopeSource: 'token',
     authorizeUrl: GOOGLE_AUTHORIZE, tokenUrl: GOOGLE_TOKEN, usePkce: true,
     clientId: value('GOOGLE_OAUTH_CLIENT_ID'), clientSecret: value('GOOGLE_OAUTH_CLIENT_SECRET'),
     authorizeParams: GOOGLE_OFFLINE,
@@ -73,6 +62,7 @@ const CONFIGS: Readonly<Record<OAuthConnectorKey, () => ProviderConfig>> = {
       'https://www.googleapis.com/auth/calendar.events', 'https://www.googleapis.com/auth/gmail.compose'],
   }),
   youtube: () => ({
+    scopeSource: 'token',
     authorizeUrl: GOOGLE_AUTHORIZE, tokenUrl: GOOGLE_TOKEN, usePkce: true,
     clientId: value('YOUTUBE_OAUTH_CLIENT_ID'), clientSecret: value('YOUTUBE_OAUTH_CLIENT_SECRET'),
     authorizeParams: GOOGLE_OFFLINE,
@@ -81,23 +71,27 @@ const CONFIGS: Readonly<Record<OAuthConnectorKey, () => ProviderConfig>> = {
       'https://www.googleapis.com/auth/yt-analytics.readonly'],
   }),
   stripe: () => ({
+    scopeSource: 'token',
     authorizeUrl: 'https://connect.stripe.com/oauth/authorize',
     tokenUrl: 'https://connect.stripe.com/oauth/token', useBasic: true, scopes: [],
     clientId: value('STRIPE_CONNECT_CLIENT_ID'), clientSecret: value('STRIPE_SECRET_KEY'),
   }),
   'quickbooks-online': () => ({
+    scopeSource: 'request',
     authorizeUrl: 'https://appcenter.intuit.com/connect/oauth2',
     tokenUrl: 'https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer',
     useBasic: true, scopes: ['com.intuit.quickbooks.accounting'],
     clientId: value('QUICKBOOKS_CLIENT_ID'), clientSecret: value('QUICKBOOKS_CLIENT_SECRET'),
   }),
   slack: () => ({
+    scopeSource: 'token',
     authorizeUrl: 'https://slack.com/oauth/v2/authorize',
     tokenUrl: 'https://slack.com/api/oauth.v2.access', usePkce: true, scopeSeparator: ',',
     clientId: value('SLACK_CLIENT_ID'), clientSecret: value('SLACK_CLIENT_SECRET'),
     scopes: ['channels:read', 'chat:write'],
   }),
   'meta-business-suite': () => ({
+    scopeSource: 'verify',
     authorizeUrl: `https://www.facebook.com/${META_VERSION}/dialog/oauth`,
     tokenUrl: `https://graph.facebook.com/${META_VERSION}/oauth/access_token`,
     tokenMethod: 'GET', scopeSeparator: ',',
@@ -106,6 +100,7 @@ const CONFIGS: Readonly<Record<OAuthConnectorKey, () => ProviderConfig>> = {
       'pages_read_engagement', 'read_insights', 'ads_read'],
   }),
   tiktok: () => ({
+    scopeSource: 'token',
     authorizeUrl: 'https://www.tiktok.com/v2/auth/authorize/',
     tokenUrl: 'https://open.tiktokapis.com/v2/oauth/token/',
     usePkce: true, scopeSeparator: ',', clientIdParam: 'client_key',
@@ -113,6 +108,11 @@ const CONFIGS: Readonly<Record<OAuthConnectorKey, () => ProviderConfig>> = {
     scopes: ['user.info.basic', 'user.info.profile', 'video.list'],
   }),
 };
+
+/** Where this provider's granted scope list must be read from. */
+export function connectorScopeSource(key: OAuthConnectorKey): ProviderConfig['scopeSource'] {
+  return CONFIGS[key]().scopeSource;
+}
 
 /** Returns the provider configuration only when both credentials are present. */
 export function connectorProviderConfig(key: OAuthConnectorKey): ProviderConfig | null {

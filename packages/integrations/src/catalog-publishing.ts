@@ -24,7 +24,7 @@ export const PUBLISHING_DEFINITIONS: readonly CatalogDefinition[] = [
       steps: [
         { text: 'Open your Transistor account page.', href: 'https://dashboard.transistor.fm/account' },
         { text: 'Copy the API key shown under API keys; reset it there if it was never revealed.' },
-        { text: 'Paste the key here — Transistor sends it as the x-api-key header, so no OAuth app is needed.' },
+        { text: 'Transistor sends the key as an x-api-key header, so no OAuth app is needed.' },
       ],
     }),
   },
@@ -43,7 +43,7 @@ export const PUBLISHING_DEFINITIONS: readonly CatalogDefinition[] = [
       steps: [
         { text: 'Open beehiiv Settings, then Workspace, then API, then New API Key.', href: 'https://app.beehiiv.com/settings/workspace/api' },
         { text: 'Copy the key, then copy the publication ID that starts with pub_ from the same screen.' },
-        { text: 'Paste both here. beehiiv also offers OAuth, but that client must be requested from their support team.', href: 'https://support.beehiiv.com/hc/en-us' },
+        { text: 'beehiiv also offers OAuth, but that client must be requested from their support team.', href: 'https://support.beehiiv.com/hc/en-us' },
       ],
     }),
   },
@@ -61,7 +61,7 @@ export const PUBLISHING_DEFINITIONS: readonly CatalogDefinition[] = [
       steps: [
         { text: 'Amazon publishes no KDP API — the Selling Partner API excludes KDP — so royalties arrive by export.', href: 'https://kdp.amazon.com/en_US/help/topic/GVTTXHKHVPAPBEDQ' },
         { text: 'Open KDP Reports and choose the period you want.', href: 'https://kdpreports.amazon.com/' },
-        { text: 'Download the royalties spreadsheet, then upload it here; columns map automatically.' },
+        { text: 'Download the royalties spreadsheet for that period.' },
       ],
     }),
   },
@@ -79,7 +79,7 @@ export const PUBLISHING_DEFINITIONS: readonly CatalogDefinition[] = [
       steps: [
         { text: 'ACX, like Audible, publishes no developer API, so statements arrive by export.', href: 'https://help.acx.com/s/' },
         { text: 'Sign in to ACX and open Reports for the royalty period.', href: 'https://www.acx.com/' },
-        { text: 'Download the sales and royalty report, then upload it here alongside your KDP export.' },
+        { text: 'Download the sales and royalty report for that period.' },
       ],
     }),
   },

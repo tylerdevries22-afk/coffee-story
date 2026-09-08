@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 
 import {
   ConnectorExchangeError,
+  ConnectorIdentityError,
   connectorCallbackUrl,
   exchangeConnectorCode,
   isOAuthConnectorKey,
@@ -42,7 +43,8 @@ function finish(request: Request, provider: OAuthConnectorKey, outcome: string):
  */
 function reportFailure(provider: OAuthConnectorKey, error: unknown): 'connection_failed' {
   const stage = error instanceof ConnectorExchangeError ? error.stage
-    : error instanceof ConnectorScopeError ? 'scope' : 'storage';
+    : error instanceof ConnectorScopeError ? 'scope'
+    : error instanceof ConnectorIdentityError ? 'identity' : 'storage';
   const status = error instanceof ConnectorExchangeError && error.status !== null
     ? ` status=${error.status}` : '';
   console.error(`connector.oauth.callback provider=${provider} stage=${stage}${status}`);

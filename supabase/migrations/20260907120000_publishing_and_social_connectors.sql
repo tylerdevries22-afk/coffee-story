@@ -136,6 +136,16 @@ on conflict (provider_key) do update set
   is_active = excluded.is_active,
   updated_at = now();
 
+-- Stripe, QuickBooks Online and Slack shipped as `setup_required`, which
+-- begin_connector_oauth_state rejects, so certifying them would have produced a
+-- Connect button that could only answer 503. Same defect class as the YouTube row
+-- corrected above; the assertion below now covers every OAuth connector, not just
+-- the ones this migration introduces.
+update public.connector_registry
+set availability = 'available', updated_at = now()
+where provider_key in ('stripe', 'quickbooks-online', 'slack')
+  and availability = 'setup_required';
+
 insert into public.connector_capabilities (
   provider_id, capability_key, display_name, access_mode, oauth_scopes, description
 )
@@ -322,6 +332,7 @@ declare
   uncovered integer;
   mislabelled integer;
   uncertified integer;
+  unadmittable integer;
 begin
   select count(*) into registered
   from public.connector_registry
@@ -393,9 +404,31 @@ begin
     raise exception 'a connector registry row disagrees with the code catalog';
   end if;
 
-  -- Note: OAuth admissibility needs no separate check. The expected
-  -- availabilities pinned above are exactly the two states
-  -- begin_connector_oauth_state admits, so the check above subsumes it.
+  -- Every connector the app can start an OAuth flow for must be in a state the
+  -- authorize RPC admits. The pinned list above covers only the seven rows this
+  -- migration seeds; this covers the ones that shipped earlier too.
+  select count(*) into unadmittable
+  from public.connector_registry
+  where provider_key in (
+    'google-suite', 'stripe', 'quickbooks-online', 'slack',
+    'meta-business-suite', 'youtube', 'tiktok'
+  ) and is_active
+    and availability not in ('available', 'provider_approval_required');
+  if unadmittable > 0 then
+    raise exception 'an OAuth connector is registered in a state the authorize RPC rejects';
+  end if;
+
+  -- The category check is re-added here too, and its value set must keep the
+  -- categories rows already use.
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.connector_registry'::regclass
+      and conname = 'connector_registry_category_check'
+      and pg_get_constraintdef(oid) like '%marketing%'
+      and pg_get_constraintdef(oid) like '%distribution%'
+  ) then
+    raise exception 'the registry category constraint lost a category rows depend on';
+  end if;
 
   -- The three CHECK constraints this migration re-added must still accept the
   -- values the application writes.

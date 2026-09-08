@@ -75,6 +75,17 @@ describe('mcp store projection', () => {
     assert.equal(sharedStatus(cardFor('youtube', { canConfigure: false }), 'select'), 'unavailable');
   });
 
+  it('never teaches setup for a connector the tenant cannot set up', () => {
+    // The fail-closed projection: a transient registry error must not render
+    // "Unavailable" beside a live "Press Connect and approve the scopes" walkthrough.
+    for (const card of connectorCardsOf([], [])) {
+      assert.equal(card.canConfigure, false, `${card.id} is not configurable`);
+      assert.equal(sharedStatus(card, 'manage'), 'unavailable');
+      assert.equal(sharedSetup(card), undefined, `${card.id} must show no guidance`);
+      assert.equal(sharedEntry(card, 'manage').setup, undefined);
+    }
+  });
+
   it('omits setup guidance where a reader has nothing to act on', () => {
     const planned = connectorCardsOf([], []).find((card) => card.id === 'github');
     assert.ok(planned);
