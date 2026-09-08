@@ -9,7 +9,13 @@ import { APP_MODE_STORAGE_KEY as OPERATOR_APP_MODE_KEY }
 
 import { clickLabel, clickText, fillLabel, openApp, waitText } from './driver.ts';
 import { smokeCustomerRoutes, smokeHqRoutes, smokeOperatorRoutes } from './route-smoke.ts';
-import { createGuestAccount, createStaffAccount, onboardedBrand, seedRivalBrandOrder } from './seed.ts';
+import {
+  createGuestAccount,
+  createStaffAccount,
+  onboardedBrand,
+  seedLiveDrop,
+  seedRivalBrandOrder,
+} from './seed.ts';
 import { sql } from './stack.ts';
 
 const CUSTOMER_URL = 'http://127.0.0.1:4381';
@@ -51,6 +57,7 @@ async function clickOperatorAction(page: Page, orderCode: number, actionText: st
 
 export async function runThreeAppsFullLoop(): Promise<void> {
   const brand = await onboardedBrand();
+  const dropTitle = await seedLiveDrop(brand);
   const staff = await createStaffAccount(brand, 'location_manager');
   const guest = await createGuestAccount();
   const customer = await openApp(CUSTOMER_URL, IPHONE, { storageKey: CUSTOMER_APP_MODE_KEY, value: 'live' });
@@ -70,6 +77,7 @@ export async function runThreeAppsFullLoop(): Promise<void> {
     await fillLabel(customer.page, 'Password', guest.password);
     await clickText(customer.page, 'Sign in');
     await waitText(customer.page, 'Weekly Drops', 45_000);
+    await customer.page.getByLabel(`${dropTitle}. Order the drop`).waitFor({ timeout: 45_000 });
     await customer.shot('01-customer-signed-in');
     await customer.page.goto(`${CUSTOMER_URL}/client/book`, { waitUntil: 'load' });
     await clickLabel(customer.page, 'Pickup order');
