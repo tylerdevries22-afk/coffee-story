@@ -43,6 +43,23 @@ describe('Square checkout link expiry', () => {
     }
   });
 
+  it('drains every due page in one maintenance run', async () => {
+    const due = Array.from({ length: 11 }, (_, index) => row(String(index).padStart(2, '0')));
+    const cursors: Array<string | undefined> = [];
+    const result = await expireDueSquareCheckoutLinks(db, square, new Date(), {
+      load: async (_db, _now, afterOrderId) => {
+        cursors.push(afterOrderId);
+        const start = afterOrderId ? due.findIndex((item) => item.order_id === afterOrderId) + 1 : 0;
+        return due.slice(start, start + 10);
+      },
+      cancel: async () => true,
+      finalize: async () => true,
+    });
+    assert.deepEqual(cursors, [undefined, '09']);
+    assert.deepEqual(result,
+      { scanned: 11, cancelled: 11, failed: 0, stale: 0, scanFailed: false });
+  });
+
   it('keeps capacity when Square rejects cancellation', async () => {
     let finalized = false;
     const result = await expireDueSquareCheckoutLinks(db, square, new Date(), {

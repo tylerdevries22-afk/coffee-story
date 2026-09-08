@@ -47,18 +47,23 @@ export type SquareLinkExpirySummary = {
 };
 
 type MaintenanceDeps = {
-  load?: (db: SupabaseClient, now: Date) => Promise<DueSquareLink[]>;
+  load?: (db: SupabaseClient, now: Date, afterOrderId?: string) => Promise<DueSquareLink[]>;
   cancel?: (square: SquareConfig, row: DueSquareLink) => Promise<boolean>;
   finalize?: (db: SupabaseClient, row: DueSquareLink) => Promise<boolean>;
 };
 
-async function loadDueLinks(db: SupabaseClient, now: Date): Promise<DueSquareLink[]> {
-  const quotes = await db.from('platform_fee_quotes')
+async function loadDueLinks(
+  db: SupabaseClient,
+  now: Date,
+  afterOrderId?: string,
+): Promise<DueSquareLink[]> {
+  let query = db.from('platform_fee_quotes')
     .select('order_id, brand_id, location_id, expires_at')
     .lte('expires_at', now.toISOString())
-    .order('expires_at', { ascending: true })
-    .limit(BATCH_SIZE)
-    .returns<DueQuote[]>();
+    .order('order_id', { ascending: true })
+    .limit(BATCH_SIZE);
+  if (afterOrderId) query = query.gt('order_id', afterOrderId);
+  const quotes = await query.returns<DueQuote[]>();
   if (quotes.error) throw quotes.error;
   const due = quotes.data ?? [];
   if (due.length === 0) return [];
@@ -129,37 +134,48 @@ export async function expireDueSquareCheckoutLinks(
   now: Date,
   deps: MaintenanceDeps = {},
 ): Promise<SquareLinkExpirySummary> {
-  let rows: DueSquareLink[];
-  try {
-    rows = await (deps.load ?? loadDueLinks)(db, now);
-  } catch (error) {
-    console.error('Square checkout expiry scan failed.', {
-      error: error instanceof Error ? error.message : 'database query failed',
-    });
-    return { scanned: 0, cancelled: 0, failed: 0, stale: 0, scanFailed: true };
-  }
-
   const summary: SquareLinkExpirySummary = {
-    scanned: rows.length, cancelled: 0, failed: 0, stale: 0, scanFailed: false,
+    scanned: 0, cancelled: 0, failed: 0, stale: 0, scanFailed: false,
   };
-  for (let offset = 0; offset < rows.length; offset += CONCURRENCY) {
-    const results = await Promise.all(rows.slice(offset, offset + CONCURRENCY).map(async (row) => {
-      if (!row.paymentLinkId || !row.squareOrderId || !row.accessTokenEncrypted) {
-        return 'failed' as const;
-      }
-      try {
-        const providerCancelled = await (deps.cancel ?? cancelLink)(square, row);
-        if (!providerCancelled) return 'failed' as const;
-      } catch { return 'failed' as const; }
-      try {
-        return await (deps.finalize ?? finalizeExpiry)(db, row)
-          ? 'cancelled' as const
-          : 'stale' as const;
-      } catch {
-        return 'failed' as const;
-      }
-    }));
-    for (const result of results) summary[result] += 1;
+  let afterOrderId: string | undefined;
+  while (true) {
+    let rows: DueSquareLink[];
+    try {
+      rows = await (deps.load ?? loadDueLinks)(db, now, afterOrderId);
+    } catch (error) {
+      console.error('Square checkout expiry scan failed.', {
+        error: error instanceof Error ? error.message : 'database query failed',
+      });
+      summary.scanFailed = true;
+      break;
+    }
+    summary.scanned += rows.length;
+    for (let offset = 0; offset < rows.length; offset += CONCURRENCY) {
+      const results = await Promise.all(rows.slice(offset, offset + CONCURRENCY).map(async (row) => {
+        if (!row.paymentLinkId || !row.squareOrderId || !row.accessTokenEncrypted) {
+          return 'failed' as const;
+        }
+        try {
+          const providerCancelled = await (deps.cancel ?? cancelLink)(square, row);
+          if (!providerCancelled) return 'failed' as const;
+        } catch { return 'failed' as const; }
+        try {
+          return await (deps.finalize ?? finalizeExpiry)(db, row)
+            ? 'cancelled' as const
+            : 'stale' as const;
+        } catch {
+          return 'failed' as const;
+        }
+      }));
+      for (const result of results) summary[result] += 1;
+    }
+    if (rows.length < BATCH_SIZE) break;
+    const nextOrderId = rows.at(-1)?.order_id;
+    if (!nextOrderId || nextOrderId === afterOrderId) {
+      summary.scanFailed = true;
+      break;
+    }
+    afterOrderId = nextOrderId;
   }
   return summary;
 }
