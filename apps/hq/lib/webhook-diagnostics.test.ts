@@ -5,7 +5,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { POST } from '../app/api/webhooks/square/route';
 import { recordWebhookFailure } from './webhook-diagnostics';
 
-for (const stage of ['refund', 'order_event'] as const) {
+for (const stage of ['refund', 'platform_fee'] as const) {
 for (const persistenceFails of [false, true]) {
   test(`${stage} failure keeps safe context when diagnostic persistence ${persistenceFails ? 'fails' : 'succeeds'}`, async () => {
     const env = { SQUARE_WEBHOOK_SIGNATURE_KEY: 'test-signature-key',
@@ -20,7 +20,8 @@ for (const persistenceFails of [false, true]) {
     console.error = (...args: unknown[]) => { logs.push(args); };
     globalThis.fetch = async (input, init) => {
       const url = new URL(String(input));
-      if (url.pathname.endsWith('/rpc/process_square_refund') || url.pathname.endsWith('/order_events')) {
+      if (url.pathname.endsWith('/rpc/process_square_refund')
+        || url.pathname.endsWith('/rpc/record_square_payment_settlement')) {
         return Response.json({ code: '23514', message: 'sensitive database detail' }, { status: 400 });
       }
       if (url.pathname.endsWith('/orders')) return Response.json({ id: 'order', brand_id: 'brand',
@@ -47,8 +48,10 @@ for (const persistenceFails of [false, true]) {
       const response = await POST(new Request(env.SQUARE_WEBHOOK_URL, {
         method: 'POST', body, headers: { 'x-square-hmacsha256-signature': signature },
       }));
-      assert.equal(response.status, 409);
-      assert.equal(await response.text(), stage === 'refund' ? 'Refund processing failed' : 'Event rejected');
+      assert.equal(response.status, stage === 'refund' ? 409 : 503);
+      assert.equal(await response.text(), stage === 'refund'
+        ? 'Refund processing failed'
+        : 'Payment settlement failed');
       assert.deepEqual(writes, [{ error: JSON.stringify({ stage, code: '23514' }) }]);
       assert.deepEqual(logs[0]?.[1], { level: 'error', provider: 'square', stage, code: '23514',
         diagnosticStored: !persistenceFails, eventId: 'refund-event', orderId: 'order', brandId: 'brand' });
