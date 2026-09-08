@@ -40,7 +40,8 @@ for (const persistenceFails of [false, true]) {
     try {
       const object = stage === 'refund'
         ? { refund: { id: 'refund', status: 'COMPLETED', payment_id: 'payment', amount_money: { amount: 200, currency: 'USD' } } }
-        : { payment: { id: 'payment', status: 'COMPLETED' } };
+        : { payment: { id: 'payment', status: 'COMPLETED',
+          total_money: { amount: 1000, currency: 'USD' } } };
       const body = JSON.stringify({ event_id: 'refund-event',
         type: stage === 'refund' ? 'refund.updated' : 'payment.updated', data: { object } });
       const signature = createHmac('sha256', env.SQUARE_WEBHOOK_SIGNATURE_KEY)

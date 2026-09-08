@@ -14,7 +14,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 
 import type { OrderStatus } from '@platform/schema';
 
-import { squareAppFeeCents } from './payment-receipt';
+import { squareAppFeeCents, squareUsdCents } from './payment-receipt';
 
 export function verifySquareSignature(
   signatureKey: string,
@@ -40,6 +40,7 @@ export type SquareEvent = {
     object?: {
       payment?: {
         id?: string; status?: string; order_id?: string;
+        total_money?: { amount?: number; currency?: string };
         app_fee_money?: { amount?: number; currency?: string };
       };
       refund?: {
@@ -69,6 +70,8 @@ export type MappedEvent = {
   refundedCents: number | null;
   /** Actual fee collected by this application; absent Square fees mean zero. */
   settledFeeCents?: number;
+  /** Provider-confirmed total collected for a completed payment. */
+  settledGrossCents?: number;
   kind: 'payment' | 'refund' | 'order' | 'ignored';
 };
 
@@ -88,11 +91,13 @@ export function mapSquareEvent(event: SquareEvent): MappedEvent | null {
     // Missing app_fee_money means no fee; malformed money is rejected.
     const settledFeeCents = squareAppFeeCents(object.payment.app_fee_money);
     if (settledFeeCents === null) return null;
-    if (object.payment.status === 'COMPLETED' && !object.payment.id) return null;
+    const completed = object.payment.status === 'COMPLETED';
+    const settledGrossCents = completed ? squareUsdCents(object.payment.total_money) : undefined;
+    if (completed && (!object.payment.id || settledGrossCents === null)) return null;
     return {
-      settledFeeCents,
+      settledFeeCents, settledGrossCents: settledGrossCents ?? undefined,
       squareEventId: id,
-      orderStatus: object.payment.status === 'COMPLETED' ? 'paid' : null,
+      orderStatus: completed ? 'paid' : null,
       squareOrderId: object.payment.order_id ?? null,
       squarePaymentId: object.payment.id ?? null,
       squareRefundId: null,

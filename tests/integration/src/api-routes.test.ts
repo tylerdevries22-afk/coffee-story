@@ -294,6 +294,7 @@ describe('platform API routes', { skip: skipUnlessConfigured }, () => {
       type: 'payment.updated',
       data: { object: { payment: {
         id: paymentId, order_id: squareOrderId, status: 'COMPLETED',
+        total_money: { amount: 2200, currency: 'USD' },
       } } },
     };
     assert.equal((await squareWebhook(event)).status, 200);
@@ -347,7 +348,8 @@ describe('platform API routes', { skip: skipUnlessConfigured }, () => {
     const event = {
       event_id: `event-${randomUUID()}`,
       type: 'payment.updated',
-      data: { object: { payment: { id: paymentId, status: 'COMPLETED' } } },
+      data: { object: { payment: { id: paymentId, status: 'COMPLETED',
+        total_money: { amount: 2200, currency: 'USD' } } } },
     };
     await squareWebhook(event);
     await squareWebhook(event);

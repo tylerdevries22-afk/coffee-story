@@ -30,11 +30,13 @@ describe('mapSquareEvent', () => {
     const mapped = mapSquareEvent({
       event_id: 'e-pay',
       type: 'payment.updated',
-      data: { object: { payment: { id: 'PAY1', status: 'COMPLETED', order_id: 'SQORD1' } } },
+      data: { object: { payment: { id: 'PAY1', status: 'COMPLETED', order_id: 'SQORD1',
+        total_money: { amount: 1_000, currency: 'USD' } } } },
     });
     assert.deepEqual(mapped, {
       squareEventId: 'e-pay', orderStatus: 'paid', squareOrderId: 'SQORD1', squarePaymentId: 'PAY1',
       squareRefundId: null, refundedCents: null, kind: 'payment', settledFeeCents: 0,
+      settledGrossCents: 1_000,
     });
   });
 
@@ -84,7 +86,8 @@ describe('Square application fee settlement', () => {
   it('carries the collected fee and rejects malformed or non-USD money', () => {
     const payload = (money: unknown) => JSON.parse(JSON.stringify({
       event_id: 'fee-event', type: 'payment.updated',
-      data: { object: { payment: { id: 'PAY1', status: 'COMPLETED', app_fee_money: money } } },
+      data: { object: { payment: { id: 'PAY1', status: 'COMPLETED',
+        total_money: { amount: 1_000, currency: 'USD' }, app_fee_money: money } } },
     }));
     assert.equal(mapSquareEvent(payload({ amount: 300, currency: 'USD' }))?.settledFeeCents, 300);
     assert.equal(mapSquareEvent(payload({ amount: 0, currency: 'USD' }))?.settledFeeCents, 0);
@@ -98,6 +101,20 @@ describe('Square application fee settlement', () => {
 
   it('rejects a completed payment without the id required for its receipt', () => {
     assert.equal(mapSquareEvent({ event_id: 'missing-payment', type: 'payment.updated',
-      data: { object: { payment: { status: 'COMPLETED' } } } }), null);
+      data: { object: { payment: { status: 'COMPLETED',
+        total_money: { amount: 1_000, currency: 'USD' } } } } }), null);
+  });
+
+  it('rejects a completed payment without a valid USD provider total', () => {
+    const payload = (money: unknown) => JSON.parse(JSON.stringify({
+      event_id: 'total-event', type: 'payment.updated',
+      data: { object: { payment: { id: 'PAY1', status: 'COMPLETED', total_money: money } } },
+    }));
+    for (const money of [undefined, null, {}, 1_000, { amount: 1_000 },
+      { amount: '1000', currency: 'USD' }, { amount: -1, currency: 'USD' },
+      { amount: 0.5, currency: 'USD' }, { amount: 1_000, currency: 'CAD' },
+      { amount: Number.MAX_SAFE_INTEGER + 1, currency: 'USD' }]) {
+      assert.equal(mapSquareEvent(payload(money)), null);
+    }
   });
 });

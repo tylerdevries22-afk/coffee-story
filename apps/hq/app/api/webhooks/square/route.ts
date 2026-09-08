@@ -110,6 +110,7 @@ export async function POST(request: Request): Promise<Response> {
   if (mapped.orderStatus === 'paid' && (
     !Number.isSafeInteger(grossCents) || grossCents < 0
     || !mapped.squarePaymentId
+    || mapped.settledGrossCents !== grossCents
     || mapped.settledFeeCents === undefined || mapped.settledFeeCents > grossCents
   )) return new Response('Invalid payment settlement amounts', { status: 422 });
 

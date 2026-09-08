@@ -90,6 +90,7 @@ it('records the exact checkout fees when payments settle out of order across a t
   for (const orderId of ['second', 'first']) {
     const mapped = mapSquareEvent({ event_id: `event-${orderId}`, type: 'payment.updated',
       data: { object: { payment: { id: `pay-${orderId}`, order_id: `sq-${orderId}`, status: 'COMPLETED',
+        total_money: { amount: 10_000, currency: 'USD' },
         app_fee_money: { amount: quoted.get(orderId), currency: 'USD' } } } } });
     assert.ok(mapped?.squarePaymentId && mapped.settledFeeCents !== undefined);
     await recordPlatformFee(db, { brandId: 'brand-a', locationId: 'location-a', orderId,
