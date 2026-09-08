@@ -16,6 +16,7 @@ import {
 } from 'react';
 
 import { MENU_CATEGORY_META, MENU_ITEMS } from '@/data/catalog';
+import { demoDrops } from '@/data/drops';
 import { catalogAddOns, customerCatalogFromTree, type CustomerCatalog } from '@/data/live-catalog';
 import { liveBrand } from '@/lib/live-portal';
 import { supabase } from '@/lib/supabase';
@@ -34,9 +35,11 @@ const BUNDLED_CATALOG: CustomerCatalog = {
   categories: [...MENU_CATEGORY_META],
   items: [...MENU_ITEMS],
   addOns: catalogAddOns(MENU_ITEMS),
+  drops: [],
 };
 const DEMO_CATALOG: CustomerCatalogValue = {
   ...BUNDLED_CATALOG,
+  drops: demoDrops(),
   status: 'demo',
   orderingPaused: false,
   refresh: () => {},

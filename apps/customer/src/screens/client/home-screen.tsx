@@ -27,7 +27,6 @@ import { useAppState } from '@/state/app-context';
 import { useAuth } from '@/state/auth-context';
 import { useCustomerCatalog } from '@/state/catalog-context';
 import { openWebPath } from '@/lib/web-navigation';
-import { demoDrops } from '@/data/drops';
 import { dropStatus, dropWindowLabel, weeklyDrops, type Drop } from '@/features/drops';
 import { cutoutFeatureLineup, formatMoney, resolveProductMedia } from '@platform/domain';
 import { MenuImage } from '@/components/menu-image';
@@ -87,7 +86,7 @@ export function HomeScreen() {
   const styles = createStyles(tokens);
   const { openMore, setClientTab, startOrder } = useAppState();
   const { portal } = useAuth();
-  const { items: menuItems, categories: menuCategories, addOns: menuAddOns } = useCustomerCatalog();
+  const { items: menuItems, categories: menuCategories, addOns: menuAddOns, drops } = useCustomerCatalog();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const tabBarClearance = useTabBarClearance(24);
@@ -118,10 +117,10 @@ export function HomeScreen() {
   // plus what's about to land, each row mapped onto its catalog item.
   const weekly = useMemo(() => {
     if (!tenantFeature('drops')) return [];
-    return weeklyDrops(demoDrops(), new Date())
+    return weeklyDrops(drops, new Date())
       .map((entry) => ({ drop: entry, item: menuItems.find((item) => item.id === entry.itemId) ?? null }))
       .filter((entry): entry is { drop: Drop; item: MenuItem } => entry.item !== null);
-  }, [menuItems]);
+  }, [drops, menuItems]);
 
   /**
    * The Tea & Matcha shelf: the curated six, narrowed to the ones this build

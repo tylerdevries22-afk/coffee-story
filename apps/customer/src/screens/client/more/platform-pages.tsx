@@ -10,7 +10,6 @@ import { Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { CollapsingScreen } from '@/components/collapsing-screen';
 import { MenuImage } from '@/components/menu-image';
 import { Body, Button, Card } from '@/components/ui';
-import { demoDrops } from '@/data/drops';
 import { BUSINESS } from '@/data/business';
 import { dropArchive, dropStatus, type Drop } from '@/features/drops';
 import { referralCodeFor, referralMessage } from '@/features/referrals';
@@ -27,7 +26,8 @@ import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
 export function DropsArchive({ onBack }: { onBack: () => void }) {
   const { setClientTab } = useAppState();
-  const drops = useMemo(() => dropArchive(demoDrops(), new Date()), []);
+  const { drops: catalogDrops } = useCustomerCatalog();
+  const drops = useMemo(() => dropArchive(catalogDrops, new Date()), [catalogDrops]);
   return (
     <CollapsingScreen title="Drops" eyebrow="Limited runs" onBack={onBack}>
       <Body muted>
