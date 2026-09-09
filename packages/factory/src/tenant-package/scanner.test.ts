@@ -52,6 +52,20 @@ describe('tenant package scanner', () => {
     assert.equal(collisionKey('Logos/Caf\u00e9.PNG'), collisionKey('logos/Cafe\u0301.png'));
   });
 
+  it('revalidates compatibility-normalized storage keys', () => {
+    for (const path of [
+      'safe/\uff0e\uff0e/file.json',
+      'safe\uff0f\uff0ffile.json',
+      'safe\uff3cfile.json',
+    ]) {
+      assert.throws(() => collisionKey(path), { code: 'unsafe_path' });
+    }
+    const expandingPath = '\u3300'.repeat(86);
+    assert.ok(Buffer.byteLength(expandingPath, 'utf8') <= 1_024);
+    assert.ok(Buffer.byteLength(expandingPath.normalize('NFKC'), 'utf8') > 1_024);
+    assert.throws(() => collisionKey(expandingPath), { code: 'path_too_long' });
+  });
+
   it('rejects malformed and traversal ZIPs', () => {
     assert.throws(() => rejectUnsafeZip(Buffer.from('not a zip')), { code: 'archive_invalid' });
     const name = Buffer.from('../secret.txt');
