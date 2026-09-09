@@ -141,6 +141,8 @@ export function captureFixture(t: TestContext) {
     db, square: { env: 'sandbox' as const, applicationId: 'app', applicationSecret: 'secret',
       apiBase: 'https://square.example' }, locationAccessToken: 'test-token',
     squareLocationId: 'sq-location', locationTimezone: 'America/Denver',
+    connectionId: '44444444-4444-4444-8444-444444444444',
+    connectionGeneration: '55555555-5555-4555-8555-555555555555',
     feeConfig: { feeBps: 300, feeBpsTier2: 150, tierThresholdCents: 100_000 },
   };
   return { state, deps,

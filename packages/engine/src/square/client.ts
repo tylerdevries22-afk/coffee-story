@@ -15,5 +15,7 @@ export type {
   SquareOrderLine, SquareOrderSnapshot, SquarePaymentLinkResponse,
 } from './order-api';
 export {
-  cancelSquarePaymentByIdempotencyKey, createSquarePayment, getSquarePayment, refundSquarePayment,
+  cancelSquarePaymentByIdempotencyKey, createSquarePayment, getSquarePayment, getSquareRefund,
+  refundSquarePayment,
 } from './payment-api';
+export type { SquareRefundReceipt } from './payment-api';

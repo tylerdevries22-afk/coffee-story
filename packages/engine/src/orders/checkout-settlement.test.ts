@@ -93,6 +93,8 @@ it('records the exact checkout fees when payments settle out of order across a t
     db, square: { env: 'sandbox' as const, applicationId: 'app', applicationSecret: 'test-secret',
       apiBase: `http://127.0.0.1:${address.port}` },
     locationAccessToken: 'test-token', squareLocationId: 'sq-location', locationTimezone: 'America/Denver',
+    connectionId: '44444444-4444-4444-8444-444444444444',
+    connectionGeneration: '55555555-5555-4555-8555-555555555555',
     feeConfig: { feeBps: 300, feeBpsTier2: 150, tierThresholdCents: 100_000 },
   };
   for (const orderId of ['first', 'second']) {
@@ -155,6 +157,8 @@ it('releases a checkout quote when Square definitively rejects the link', async 
     db, square: { env: 'sandbox' as const, applicationId: 'app', applicationSecret: 'secret',
       apiBase: 'https://square.example' },
     locationAccessToken: 'token', squareLocationId: 'sq-location', locationTimezone: 'America/Denver',
+    connectionId: '44444444-4444-4444-8444-444444444444',
+    connectionGeneration: '55555555-5555-4555-8555-555555555555',
     feeConfig: { feeBps: 300, feeBpsTier2: 150, tierThresholdCents: 100_000 },
   };
   await assert.rejects(createSquareCheckoutLink(deps, { orderId: 'order-a' }), {

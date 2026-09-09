@@ -1,5 +1,5 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { encryptToken, loadTokenKey } from '@platform/engine';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { squareRuntimeFor, type BrandFeeRow } from './square-runtime';
 
@@ -10,6 +10,8 @@ export const DAY = 24 * 60 * 60 * 1000;
 const brand: BrandFeeRow = { fee_bps: 250, fee_bps_tier2: 150, tier_threshold_cents: 500_000 };
 
 export type ConnectionRow = {
+  id: string;
+  connection_generation: string;
   square_location_id: string | null;
   access_token_encrypted: string;
   refresh_token_encrypted: string | null;
@@ -18,22 +20,22 @@ export type ConnectionRow = {
   oauth_scope_contract_version: number;
 };
 
+type RpcResult = { data: Record<string, unknown> | null; error: { message: string } | null };
+export type RpcCall = { name: string; args: Record<string, unknown> };
+
 export type DbState = {
   connection: ConnectionRow | null;
-  updates: Record<string, unknown>[];
+  rpcCalls: RpcCall[];
   retirementWrites?: Record<string, unknown>[];
-  updateFilters?: Record<string, unknown>[];
-  updateResults?: {
-    data: { location_id: string } | null;
-    error: { message: string } | null;
-  }[];
+  rpcResults?: RpcResult[];
 };
 
 function runtimeDb(state: DbState): SupabaseClient {
   const location = {
     select: () => location, eq: () => location,
     maybeSingle: async () => ({
-      data: { id: LOCATION, timezone: 'America/Denver', fee_bps: null, fee_bps_tier2: null, tier_threshold_cents: null },
+      data: { id: LOCATION, timezone: 'America/Denver', fee_bps: null,
+        fee_bps_tier2: null, tier_threshold_cents: null },
       error: null,
     }),
   };
@@ -42,26 +44,47 @@ function runtimeDb(state: DbState): SupabaseClient {
     eq: () => connection,
     gte: () => connection,
     maybeSingle: async () => ({ data: state.connection, error: null }),
-    update: (values: Record<string, unknown>) => {
-      state.updates.push(values);
-      const update = {
-        eq: (column: string, value: unknown) => { state.updateFilters?.push({ [column]: value }); return update; },
-        is: (column: string, value: unknown) => { state.updateFilters?.push({ [column]: value }); return update; },
-        select: () => update,
-        maybeSingle: async () => state.updateResults?.shift() ?? {
-          data: { location_id: LOCATION }, error: null,
-        },
-      };
-      return update;
-    },
   };
   const retirement = {
-    insert: (values: Record<string, unknown>) => { state.retirementWrites?.push(values); return retirement; },
+    insert: (values: Record<string, unknown>) => {
+      state.retirementWrites?.push(values);
+      return retirement;
+    },
     select: () => retirement,
     maybeSingle: async () => ({ data: { id: 'retirement' }, error: null }),
   };
-  return { from: (table: string) => table === 'locations' ? location
-    : table === 'square_access_token_retirements' ? retirement : connection } as unknown as SupabaseClient;
+  const rpc = (name: string, args: Record<string, unknown>) => {
+    state.rpcCalls.push({ name, args });
+    const single = async () => {
+      const queued = state.rpcResults?.shift();
+      if (queued?.data === null) return {
+        data: null,
+        error: queued.error ?? { message: 'square_connection_changed' },
+      };
+      if (name === 'claim_square_connection_mutation') {
+        const row = state.connection;
+        return { data: row ? {
+          mutation_generation: args.p_mutation_generation,
+          mutation_state: 'claimed',
+          mutation_claim_created: true,
+          connection_id: row.id,
+          connection_generation: row.connection_generation,
+          access_token_encrypted: row.access_token_encrypted,
+          refresh_token_encrypted: row.refresh_token_encrypted,
+        } : null, error: null };
+      }
+      return { data: {
+        connection_id: state.connection?.id,
+        connection_generation: '66666666-6666-4666-8666-666666666666',
+      }, error: null };
+    };
+    return { single, data: true, error: null };
+  };
+  return {
+    from: (table: string) => table === 'locations' ? location
+      : table === 'square_access_token_retirements' ? retirement : connection,
+    rpc,
+  } as unknown as SupabaseClient;
 }
 
 export const at = (offsetMs: number): string => new Date(Date.now() + offsetMs).toISOString();
@@ -82,6 +105,8 @@ export function stubSquare(response: { ok: boolean; body?: unknown }): void {
 export function connectionRow(over: Partial<ConnectionRow> = {}): ConnectionRow {
   const key = loadTokenKey();
   return {
+    id: '44444444-4444-4444-8444-444444444444',
+    connection_generation: '55555555-5555-4555-8555-555555555555',
     square_location_id: 'SQ-LOC',
     access_token_encrypted: encryptToken('stored-access', key),
     refresh_token_encrypted: encryptToken('stored-refresh', key),

@@ -39,7 +39,7 @@ async function withEnv(run: () => Promise<void>): Promise<void> {
     }
   }
 }
-function databaseFetch(settlements: Record<string, unknown>[]) {
+function databaseFetch(settlements: Record<string, unknown>[], orderStatus = 'created') {
   return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const path = new URL(String(input)).pathname;
     if (path.endsWith('/webhook_events')) {
@@ -48,7 +48,7 @@ function databaseFetch(settlements: Record<string, unknown>[]) {
       return Response.json({ processed_at: null });
     }
     if (path.endsWith('/orders')) return Response.json({
-      id: 'order', brand_id: 'brand', location_id: 'location', status: 'created',
+      id: 'order', brand_id: 'brand', location_id: 'location', status: orderStatus,
       total_cents: 1_000, stored_value_applied_cents: 0,
     });
     if (path.endsWith('/square_connections')) {
@@ -87,5 +87,21 @@ test('paid webhook rejects a provider gross mismatch before settlement', async (
     assert.equal(response.status, 422);
     assert.equal(await response.text(), 'Invalid payment settlement amounts');
     assert.deepEqual(settlements, []);
+  } finally { globalThis.fetch = original; }
+}));
+
+test('late paid webhook reconciles a locally cancelled order', async () => withEnv(async () => {
+  const settlements: Record<string, unknown>[] = [];
+  const original = globalThis.fetch;
+  globalThis.fetch = databaseFetch(settlements, 'cancelled');
+  try {
+    const response = await POST(request(event()));
+    assert.equal(response.status, 200);
+    assert.equal(await response.text(), 'OK');
+    assert.deepEqual(settlements, [{
+      target_order: 'order', square_event: 'payment-event', square_order: 'square-order',
+      square_payment: 'square-payment', settled_fee_cents: 30,
+      square_event_type: 'payment.updated',
+    }]);
   } finally { globalThis.fetch = original; }
 }));

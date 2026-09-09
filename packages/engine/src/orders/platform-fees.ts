@@ -14,6 +14,8 @@ export async function appFeeForCharge(
   input: {
     orderId: string;
     locationId: string;
+    connectionId: string;
+    connectionGeneration: string;
     chargeCents: number;
     feeConfig: FeeConfig;
     locationTimezone: string;
@@ -35,6 +37,8 @@ export async function appFeeForCharge(
   const { data, error } = await db.rpc('claim_platform_fee_quote', {
     p_order_id: input.orderId,
     p_location_id: input.locationId,
+    p_connection_id: input.connectionId,
+    p_connection_generation: input.connectionGeneration,
     p_charge_cents: input.chargeCents,
     p_fee_bps: input.feeConfig.feeBps,
     p_fee_bps_tier2: input.feeConfig.feeBpsTier2,

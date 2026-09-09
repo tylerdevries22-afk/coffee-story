@@ -47,7 +47,7 @@ export function refundSquarePayment(
   config: SquareConfig,
   token: string,
   input: { paymentId: string; amountCents: number; referenceId: string; reason: string },
-): Promise<{ refund?: { id?: string; status?: string } }> {
+): Promise<{ refund?: SquareRefundReceipt }> {
   return call(config, '/v2/refunds', {
     method: 'POST',
     token,
@@ -58,6 +58,20 @@ export function refundSquarePayment(
       reason: input.reason,
     },
   });
+}
+
+export type SquareRefundReceipt = {
+  id?: string;
+  payment_id?: string;
+  status?: string;
+  amount_money?: { amount?: number; currency?: string };
+};
+
+/** Retrieve a submitted refund by its immutable provider identity. */
+export function getSquareRefund(config: SquareConfig, token: string, refundId: string)
+: Promise<{ refund?: SquareRefundReceipt }> {
+  if (!refundId.trim()) throw new RangeError('Square refund id is required.');
+  return call(config, `/v2/refunds/${encodeURIComponent(refundId)}`, { method: 'GET', token });
 }
 
 /** Retrieve immutable collected amounts when repairing a linked payment. */

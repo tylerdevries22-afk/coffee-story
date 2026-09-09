@@ -103,6 +103,8 @@ function fixture(t: TestContext, options: {
       apiBase: 'https://square.example' },
     locationAccessToken: 'token',
     squareLocationId: 'square-location',
+    connectionId: '44444444-4444-4444-8444-444444444444',
+    connectionGeneration: '55555555-5555-4555-8555-555555555555',
     locationTimezone: 'America/Denver',
     feeConfig: { feeBps: 300, feeBpsTier2: 150, tierThresholdCents: 100_000 },
   };
@@ -113,7 +115,6 @@ function fixture(t: TestContext, options: {
     create: () => createSquareCheckoutLink(deps, { orderId: 'order-a' }),
   };
 }
-
 test('stored checkout links replay without reclaiming their finalized quote', async (t) => {
   const f = fixture(t, { storedUrl: 'https://checkout.example/existing' });
   assert.deepEqual(await f.create(), {
@@ -137,7 +138,6 @@ test('a live checkout owner is not displaced by a replay', async (t) => {
   assert.equal(f.calls.some(call => call.rpc === 'bind_square_checkout_link_replay'), true);
   assert.equal(f.calls.some(call => call.rpc === 'release_platform_fee_quote'), false);
 });
-
 test('a lost provider response recovers through the identical deterministic replay', async (t) => {
   const f = fixture(t, { lostProviderResponses: 2 });
   await assert.rejects(f.create(), { code: 'payment_unavailable' });

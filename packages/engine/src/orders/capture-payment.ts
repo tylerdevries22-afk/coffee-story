@@ -1,9 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { FeeConfig } from '../fees';
-import {
-  createSquareOrder, createSquarePayment, type SquareConfig,
-} from '../square/client';
+import { createSquareOrder, createSquarePayment, type SquareConfig } from '../square/client';
 import { settledPaymentFee, squareUsdCents } from '../square/payment-receipt';
 
 import type { SnapshotLine } from './internal';
@@ -13,9 +11,7 @@ import {
 import {
   recoverBoundSquarePayment, recoverPreboundSquareOrder, type BoundPaymentOrder,
 } from './capture-payment-recovery';
-import {
-  appFeeForCharge,
-} from './platform-fees';
+import { appFeeForCharge } from './platform-fees';
 import { isDefinitiveSquareRejection, safeSquarePaymentError } from './provider-error';
 import { squareCardFundingAmounts } from './square-card-funding';
 import { buildSquareBalanceLine } from './square-lines';
@@ -25,6 +21,8 @@ export type CapturePaymentDeps = {
   db: SupabaseClient;
   square: SquareConfig;
   locationAccessToken: string;
+  connectionId: string;
+  connectionGeneration: string;
   squareLocationId: string;
   feeConfig: FeeConfig;
   locationTimezone: string;
@@ -107,6 +105,8 @@ export async function captureSquarePayment(
   const fee = await appFeeForCharge(deps.db, {
     orderId: order.id,
     locationId: order.location_id,
+    connectionId: deps.connectionId,
+    connectionGeneration: deps.connectionGeneration,
     chargeCents: cardChargeCents,
     feeConfig: deps.feeConfig,
     locationTimezone: deps.locationTimezone,

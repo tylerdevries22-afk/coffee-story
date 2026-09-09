@@ -126,12 +126,6 @@ export async function POST(request: Request): Promise<Response> {
     }
   }
 
-  // Leave money settled on a locally cancelled order for reconciliation.
-  if (mapped.orderStatus === 'paid' && order.status === 'cancelled') {
-    return failure('order_event', new Error('Square settled a cancelled order'),
-      'Cancelled order requires payment reconciliation', 409, order);
-  }
-
   if (mapped.orderStatus === 'refunded') {
     if (!mapped.squareRefundId || mapped.refundedCents === null || mapped.refundedCents <= 0) {
       return new Response('Completed refund is missing its id or amount', { status: 422 });

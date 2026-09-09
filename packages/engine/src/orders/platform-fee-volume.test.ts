@@ -8,6 +8,8 @@ import { appFeeForCharge } from './platform-fees';
 
 const INPUT = {
   orderId: 'order-a', locationId: 'location-a', chargeCents: 10_000,
+  connectionId: '44444444-4444-4444-8444-444444444444',
+  connectionGeneration: '55555555-5555-4555-8555-555555555555',
   locationTimezone: 'America/Denver',
   feeConfig: { feeBps: 300, feeBpsTier2: 150, tierThresholdCents: 1_500_000 },
 };
@@ -49,6 +51,7 @@ describe('monthly fee volume reservation', () => {
     const range = feeMonthRange(new Date(), INPUT.locationTimezone);
     assert.deepEqual(calls[0]?.body, {
       p_order_id: 'order-a', p_location_id: 'location-a', p_charge_cents: 10_000,
+      p_connection_id: INPUT.connectionId, p_connection_generation: INPUT.connectionGeneration,
       p_fee_bps: 300, p_fee_bps_tier2: 150, p_tier_threshold_cents: 1_500_000,
       p_month_start: range.startIso, p_month_end: range.endIso, p_require_existing: false,
     });

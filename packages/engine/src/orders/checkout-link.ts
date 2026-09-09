@@ -106,6 +106,8 @@ export async function createSquareCheckoutLink(
   const fee = await appFeeForCharge(deps.db, {
     orderId: order.id,
     locationId: order.location_id,
+    connectionId: deps.connectionId,
+    connectionGeneration: deps.connectionGeneration,
     chargeCents,
     feeConfig: deps.feeConfig,
     locationTimezone: deps.locationTimezone,
