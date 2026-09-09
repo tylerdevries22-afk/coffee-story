@@ -19,16 +19,19 @@
 import { canManageLocation, type TenantClaims } from '@platform/schema';
 import {
   decryptToken,
-  encryptToken,
   loadTokenKey,
-  revokeOAuthToken,
   squareConfigFromEnv,
-  type OAuthTokens,
   type SquareConfig,
 } from '@platform/engine';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { queueSquareAccessTokenRetirement } from './square-renewal';
+import { revokeSquareAccessToken } from './square-connection-replacement';
+
+export {
+  replaceSquareConnection,
+  revokeSquareAccessToken,
+  type SquareConnectionReplacement,
+} from './square-connection-replacement';
 
 export class SquareAdminError extends Error {
   constructor(readonly code: 'forbidden' | 'invalid_request' | 'not_connected', message: string) {
@@ -52,121 +55,6 @@ export type SquareDisconnectOutcome = 'revoked' | 'local_only' | 'stranded';
 export type SquareDisconnectResult = { outcome: SquareDisconnectOutcome };
 
 type ConnectionRow = { access_token_encrypted: string };
-
-export type SquareConnectionReplacement =
-  | { ok: true; connectionId: string; previousRetirementFailed: boolean }
-  | { ok: false; cleanupFailed: boolean };
-
-/** Revoke the seller authorization before removing the local connection. */
-export async function revokeSquareAccessToken(
-  config: SquareConfig,
-  accessToken: string,
-): Promise<boolean> {
-  try {
-    await revokeOAuthToken(config, accessToken);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Atomically replaces the local connection and retires superseded credentials.
- *
- * A callback has already exchanged its one-time code by the time it reaches
- * this function. If persistence fails, the newly issued access token must be
- * revoked or it becomes an untracked merchant credential. On success, the
- * prior access token is queued for retirement after one cron interval. That
- * grace window lets a checkout/refund request which already resolved the old
- * runtime finish, while keeping a durable record for the authenticated worker.
- */
-export async function replaceSquareConnection(
-  db: SupabaseClient,
-  config: SquareConfig,
-  input: {
-    brandId: string;
-    locationId: string;
-    squareLocationId: string;
-    tokens: OAuthTokens;
-    previousConnection: {
-      access_token_encrypted: string;
-      refresh_token_encrypted: string;
-    } | null;
-  },
-): Promise<SquareConnectionReplacement> {
-  let key: ReturnType<typeof loadTokenKey>;
-  try {
-    key = loadTokenKey();
-  } catch {
-    return {
-      ok: false,
-      cleanupFailed: !await revokeSquareAccessToken(config, input.tokens.access_token),
-    };
-  }
-  let previousAccessToken: string | null = null;
-  let previousRetirementFailed = false;
-  if (input.previousConnection) {
-    try {
-      previousAccessToken = decryptToken(input.previousConnection.access_token_encrypted, key);
-    } catch {
-      previousRetirementFailed = true;
-    }
-  }
-
-  let stored: { data: { id: string } | null; error: { code?: string } | null };
-  try {
-    const values = {
-      brand_id: input.brandId,
-      location_id: input.locationId,
-      merchant_id: input.tokens.merchant_id,
-      square_location_id: input.squareLocationId,
-      access_token_encrypted: encryptToken(input.tokens.access_token, key),
-      refresh_token_encrypted: encryptToken(input.tokens.refresh_token, key),
-      expires_at: input.tokens.expires_at,
-    };
-    if (input.previousConnection) {
-      stored = await db
-        .from('square_connections')
-        .update(values)
-        .eq('location_id', input.locationId)
-        .eq('brand_id', input.brandId)
-        .eq('access_token_encrypted', input.previousConnection.access_token_encrypted)
-        .eq('refresh_token_encrypted', input.previousConnection.refresh_token_encrypted)
-        .select('id')
-        .maybeSingle<{ id: string }>();
-    } else {
-      stored = await db
-        .from('square_connections')
-        .insert(values)
-        .select('id')
-        .single<{ id: string }>();
-    }
-  } catch {
-    return {
-      ok: false,
-      cleanupFailed: !await revokeSquareAccessToken(config, input.tokens.access_token),
-    };
-  }
-  if (stored.error || !stored.data?.id) {
-    return {
-      ok: false,
-      cleanupFailed: !await revokeSquareAccessToken(config, input.tokens.access_token),
-    };
-  }
-
-  if (previousAccessToken && previousAccessToken !== input.tokens.access_token) {
-    previousRetirementFailed = !await queueSquareAccessTokenRetirement(db, {
-      brandId: input.brandId,
-      locationId: input.locationId,
-      accessTokenEncrypted: input.previousConnection!.access_token_encrypted,
-    });
-  }
-  return {
-    ok: true,
-    connectionId: stored.data.id,
-    previousRetirementFailed,
-  };
-}
 
 /**
  * Records the console-facing pointer only after the authoritative connection

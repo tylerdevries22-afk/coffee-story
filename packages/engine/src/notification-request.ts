@@ -16,7 +16,8 @@ export async function requestNotification(input: string, init: RequestInit): Pro
     if (response.status >= 500) throw new NotificationDeliveryUncertainError();
     return response;
   } catch (error) {
-    if (error instanceof ExternalRequestError && (error.code === 'network' || error.code === 'timeout')) {
+    if (error instanceof ExternalRequestError
+      && ['network', 'timeout', 'response_too_large'].includes(error.code)) {
       throw new NotificationDeliveryUncertainError(error);
     }
     throw error;

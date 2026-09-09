@@ -4,6 +4,7 @@ import { jsonError, matchesSecret, notConfigured, serverEnv, serviceDb } from '.
 import { analyticsMaintenanceCutoffs } from '../../../../lib/analytics-maintenance';
 import { runIndependentCronStages } from '../../../../lib/cron-stage-runner';
 import { delegatedGrantRetentionCutoff } from '../../../../lib/delegated-grant-maintenance';
+import { reconcileConnectorCredentials } from '../../../../lib/connector-credential-maintenance';
 import { runSquareMaintenance } from '../../../../lib/square-job-maintenance';
 import { runTrainingMaintenance } from '../../../../lib/training-maintenance';
 import { deliverOperationNotifications } from '../../../../lib/operation-notifications';
@@ -94,6 +95,7 @@ export async function POST(request: Request): Promise<Response> {
       if (result.error) throw result.error;
       return result.data;
     },
+    connectors: () => reconcileConnectorCredentials(db, now),
     square: () => runSquareMaintenance(db, now),
   });
 

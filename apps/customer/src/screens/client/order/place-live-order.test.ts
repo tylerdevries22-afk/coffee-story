@@ -74,6 +74,8 @@ describe('live order placement', () => {
     const pending = placeLiveOrderCore(state, SUBMITTED, dependencies(async (body, key) => {
       started = true;
       assert.equal(body.lines[0]?.itemSlug, 'latte-12oz');
+      assert.equal(body.maximumTotalCents, SUBMITTED.submittedTotals.totalCents);
+      assert.equal(body.guestLabel, SUBMITTED.submittedGuestLabel);
       assert.equal(key, 'attempt-1');
       return request;
     }));

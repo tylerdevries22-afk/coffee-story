@@ -8,6 +8,10 @@ const deploy = readFileSync(join(ROOT, '.github', 'workflows', 'deploy-hosted.ym
 const bootstrap = readFileSync(join(ROOT, '.github', 'workflows', 'bootstrap-tenant.yml'), 'utf8');
 const verify = readFileSync(join(ROOT, '.github', 'workflows', 'verify.yml'), 'utf8');
 const simulators = readFileSync(join(ROOT, '.github', 'workflows', 'simulators.yml'), 'utf8');
+const retention = readFileSync(
+  join(ROOT, '.github', 'workflows', 'tenant-package-retention.yml'),
+  'utf8',
+);
 const migrationRunner = readFileSync(join(ROOT, 'scripts', 'hosted-migrations.ts'), 'utf8');
 const releaseSurfaces = readFileSync(join(ROOT, 'scripts', 'release-surfaces.ts'), 'utf8');
 const ciActivation = readFileSync(join(ROOT, 'scripts', 'activate-coffee-story-ci.sql'), 'utf8');
@@ -21,14 +25,30 @@ describe('hosted database promotion gate', () => {
     assert.match(migrationRunner, /const latestVersion = local\.at\(-1\)\?\.version/);
     assert.match(migrationRunner, /Release readiness must match the newest local migration version/);
     assert.match(deploy, /stage-tenant-package:[\s\S]*?needs: \[migrate-database, release-policy\]/);
-    assert.match(deploy, /stage-tenant-package:[\s\S]*?if: inputs\.deploy_web \|\| inputs\.publish_native/);
-    assert.match(deploy, /deploy-hq:[\s\S]*?needs: \[stage-tenant-package, release-policy\]/);
-    assert.match(deploy, /publish-native:[\s\S]*?needs: \[migrate-database, deploy-hq, release-policy\]/);
+    assert.match(deploy, /stage-tenant-package:[\s\S]*?if: \(inputs\.environment \|\| 'production'\) == 'production'/);
+    assert.match(deploy, /stage-tenant-package:[\s\S]*?release_id: \$\{\{ steps\.package\.outputs\.release_id \}\}/);
+    assert.match(deploy, /deploy-hq:[\s\S]*?needs: \[migrate-database, stage-tenant-package, release-policy\]/);
+    assert.match(
+      deploy,
+      /\(\(inputs\.environment \|\| 'production'\) == 'preview'[\s\S]*?\|\| needs\.stage-tenant-package\.result == 'success'\)/,
+    );
+    assert.match(deploy, /publish-native:[\s\S]*?needs: \[migrate-database, deploy-hq, deploy-web, release-policy\]/);
     assert.match(deploy, /publish-native:[\s\S]*?inputs\.publish_native && inputs\.deploy_web && inputs\.environment == 'production'/);
     assert.match(deploy, /Native publishing requires the same-run hosted application release/);
     assert.match(deploy, /Native publishing is supported only for production releases/);
     assert.match(deploy, /EXPO_TOKEN: \$\{\{ secrets\.EXPO_TOKEN \|\| secrets\.EXPO_GO_COFFEE \}\}/);
-    assert.match(deploy, /API_URL: \$\{\{ needs\.deploy-hq\.outputs\.url \}\}/);
+    assert.match(deploy, /API_URL="https:\/\/\$\{PROJECT_PREFIX\}-hq\.vercel\.app"/);
+    assert.match(
+      deploy,
+      /promote-vercel:[\s\S]*?needs: \[stage-tenant-package, deploy-hq, deploy-web, publish-native, release-policy\]/,
+    );
+    assert.match(deploy, /pattern: vercel-stage-\*/);
+    assert.match(deploy, /pattern: eas-stage-\*/);
+    assert.match(deploy, /bash scripts\/vercel-promote-deployment\.sh/);
+    assert.doesNotMatch(deploy, /^  publish-tenant-package:/m);
+    assert.match(deploy, /rest\/v1\/rpc\/publish_tenant_package/);
+    assert.match(deploy, /release_reference="release-set:sha256:\$\{release_digest\}"/);
+    assert.match(deploy, /test "\$published_id" = "\$RELEASE_ID"/);
   });
 
   it('bootstraps through the passwordless Management API promotion path', () => {
@@ -99,6 +119,7 @@ describe('hosted database promotion gate', () => {
       ['deploy-hosted.yml', deploy],
       ['verify.yml', verify],
       ['simulators.yml', simulators],
+      ['tenant-package-retention.yml', retention],
     ];
     let pinned = 0;
     for (const [name, source] of workflows) {

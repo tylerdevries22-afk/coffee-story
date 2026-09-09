@@ -2,12 +2,15 @@
  * The square_link tender's back half: a Square-hosted checkout page for an
  * order that is already priced and written.
  */
-import { createPaymentLink, SquareApiError } from '../square/client';
+import { createPaymentLink } from '../square/client';
 
 import type { CapturePaymentDeps } from './capture-payment';
 import type { SnapshotLine } from './internal';
-import { appFeeForCharge, releasePlatformFeeQuote } from './platform-fees';
+import {
+  appFeeForCharge, bindSquareCheckoutLink, releasePlatformFeeQuote,
+} from './platform-fees';
 import { buildSquareLines } from './square-lines';
+import { isDefinitiveSquareRejection } from './provider-error';
 import { OrderError } from './types';
 
 /**
@@ -28,11 +31,6 @@ export type CheckoutLinkInput = {
   redirectUrl?: string;
   buyerEmail?: string;
 };
-
-function isDefinitiveRejection(error: unknown): error is SquareApiError {
-  return error instanceof SquareApiError && error.status >= 400 && error.status < 500
-    && ![408, 409, 425, 429].includes(error.status);
-}
 
 /**
  * The square_link tender's back half: a Square-hosted checkout page for an
@@ -74,10 +72,6 @@ export async function createSquareCheckoutLink(
   if (order.status !== 'created') {
     throw new OrderError('invalid_request', `Order is ${order.status}; only a created order can be sent to checkout.`);
   }
-  if (order.square_checkout_url) {
-    return { orderId: order.id, checkoutUrl: order.square_checkout_url, replayed: true };
-  }
-
   const lines = (order.totals.lines ?? []).map((line) => ({
     name: line.name,
     quantity: line.quantity,
@@ -105,7 +99,11 @@ export async function createSquareCheckoutLink(
     chargeCents,
     feeConfig: deps.feeConfig,
     locationTimezone: deps.locationTimezone,
+    requireExisting: Boolean(order.square_checkout_url),
   });
+  if (order.square_checkout_url) {
+    return { orderId: order.id, checkoutUrl: order.square_checkout_url, replayed: true };
+  }
 
   let link;
   try {
@@ -121,7 +119,9 @@ export async function createSquareCheckoutLink(
       ...(input.buyerEmail ? { buyerEmail: input.buyerEmail } : {}),
     });
   } catch (error) {
-    if (isDefinitiveRejection(error)) await releasePlatformFeeQuote(deps.db, order.id);
+    if (fee.claimCreated && isDefinitiveSquareRejection(error)) {
+      await releasePlatformFeeQuote(deps.db, order.id, fee.claimGeneration);
+    }
     throw error;
   }
   const checkoutUrl = link.payment_link?.url;
@@ -130,15 +130,19 @@ export async function createSquareCheckoutLink(
     throw new Error('Square returned an incomplete checkout link.');
   }
 
-  const { error: saveError } = await deps.db
-    .from('orders')
-    .update({
-      square_checkout_url: checkoutUrl,
-      square_payment_link_id: paymentLinkId,
-      ...(link.payment_link?.order_id ? { square_order_id: link.payment_link.order_id } : {}),
-    })
-    .eq('id', order.id);
-  if (saveError) throw saveError;
+  try {
+    await bindSquareCheckoutLink(deps.db, {
+      orderId: order.id,
+      claimGeneration: fee.claimGeneration,
+      checkoutUrl,
+      paymentLinkId,
+      squareOrderId: link.payment_link?.order_id ?? null,
+    });
+  } catch (error) {
+    throw new Error(
+      `Square checkout link ${paymentLinkId} was created but could not be recorded on order ${order.id}: ${String(error)}`,
+    );
+  }
 
   return { orderId: order.id, checkoutUrl, replayed: false };
 }

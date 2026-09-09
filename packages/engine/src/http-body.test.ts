@@ -65,3 +65,32 @@ test('parent cancellation during a response body prevents another attempt', asyn
     setTimeout(() => controller.abort(), 20);
   });
 });
+
+test('rejects a declared oversized response without retrying', async () => {
+  let calls = 0;
+  await withProvider(async (url) => {
+    await assert.rejects(fetchExternalWithRetry(url, {}, {
+      maxResponseBytes: 4, retryDelayMs: 0,
+    }), /too large/);
+    assert.equal(calls, 1);
+  }, (response) => {
+    calls += 1;
+    response.writeHead(200, { 'Content-Length': '5' });
+    response.end('12345');
+  });
+});
+
+test('rejects an oversized chunked response without retrying', async () => {
+  let calls = 0;
+  await withProvider(async (url) => {
+    await assert.rejects(fetchExternalWithRetry(url, {}, {
+      maxResponseBytes: 4, retryDelayMs: 0,
+    }), /too large/);
+    assert.equal(calls, 1);
+  }, (response) => {
+    calls += 1;
+    response.writeHead(200);
+    response.write('123');
+    response.end('45');
+  });
+});

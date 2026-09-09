@@ -40,6 +40,7 @@ it('runs healthy maintenance stages when the drops stage fails', async (t) => {
   t.mock.method(globalThis, 'fetch', async (input: string | URL | Request) => {
     const path = new URL(String(input)).pathname;
     paths.push(path);
+    if (path === '/rest/v1/rpc/reconcile_connector_credential_status') return Response.json(0);
     return path === '/rest/v1/rpc/advance_due_drop_batch'
       ? Response.json({ message: 'drops unavailable' }, { status: 400 })
       : Response.json([]);
@@ -63,6 +64,7 @@ it('runs healthy maintenance stages when the drops stage fails', async (t) => {
     '/rest/v1/rpc/claim_operation_notification_batch',
     '/rest/v1/rpc/apply_operation_retention',
     '/rest/v1/rpc/prune_delegated_access_grants',
+    '/rest/v1/rpc/reconcile_connector_credential_status',
   ]));
 });
 
@@ -86,6 +88,7 @@ it('advances due drops through the atomic hosted batch', async (t) => {
     const request = new Request(input, init);
     requests.push({ method: request.method, url: request.url, body: await request.text() || null });
     const path = new URL(request.url).pathname;
+    if (path === '/rest/v1/rpc/reconcile_connector_credential_status') return Response.json(0);
     if (path === '/rest/v1/rpc/advance_due_drop_batch') {
       return Response.json([{ id: 'drop-scheduled' }, { id: 'drop-revealed' }]);
     }
@@ -120,7 +123,9 @@ it('caps each cron tick at five full drop batches', async (t) => {
   t.mock.method(console, 'warn', () => undefined);
   let dropCalls = 0;
   t.mock.method(globalThis, 'fetch', async (input: string | URL | Request) => {
-    if (new URL(String(input)).pathname === '/rest/v1/rpc/advance_due_drop_batch') {
+    const path = new URL(String(input)).pathname;
+    if (path === '/rest/v1/rpc/reconcile_connector_credential_status') return Response.json(0);
+    if (path === '/rest/v1/rpc/advance_due_drop_batch') {
       dropCalls += 1;
       return Response.json(Array.from({ length: 200 }, (_, index) => ({ id: `drop-${index}` })));
     }

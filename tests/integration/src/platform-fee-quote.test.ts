@@ -129,8 +129,23 @@ describe('platform fee quote serialization', { skip: skipUnlessConfigured }, () 
       p_month_start: monthStart.toISOString(), p_month_end: monthEnd.toISOString(),
     });
     assert.equal(quote.error, null);
+    const firstGeneration = (quote.data as { quote_claim_generation: string }[])[0]!.quote_claim_generation;
+    const renewed = await serviceClient().rpc('claim_platform_fee_quote', {
+      p_order_id: order.rows[0]!.id, p_location_id: locationId, p_charge_cents: 1_000,
+      p_fee_bps: 300, p_fee_bps_tier2: 150, p_tier_threshold_cents: 100_000,
+      p_month_start: monthStart.toISOString(), p_month_end: monthEnd.toISOString(),
+    });
+    assert.equal(renewed.error, null);
+    const renewedGeneration = (renewed.data as { quote_claim_generation: string }[])[0]!.quote_claim_generation;
+    assert.notEqual(renewedGeneration, firstGeneration);
+    const staleRelease = await serviceClient().rpc('release_platform_fee_quote', {
+      p_order_id: order.rows[0]!.id, p_claim_generation: firstGeneration,
+    });
+    assert.equal(staleRelease.error, null);
+    assert.equal(staleRelease.data, false);
     const released = await serviceClient().rpc('release_platform_fee_quote', {
       p_order_id: order.rows[0]!.id,
+      p_claim_generation: renewedGeneration,
     });
     assert.equal(released.error, null);
     assert.equal(released.data, true);
@@ -140,11 +155,13 @@ describe('platform fee quote serialization', { skip: skipUnlessConfigured }, () 
     );
     assert.equal(saved.rows[0]!.count, '0');
 
-    assert.equal((await serviceClient().rpc('claim_platform_fee_quote', {
+    const settledClaim = await serviceClient().rpc('claim_platform_fee_quote', {
       p_order_id: order.rows[0]!.id, p_location_id: locationId, p_charge_cents: 1_000,
       p_fee_bps: 300, p_fee_bps_tier2: 150, p_tier_threshold_cents: 100_000,
       p_month_start: monthStart.toISOString(), p_month_end: monthEnd.toISOString(),
-    })).error, null);
+    });
+    assert.equal(settledClaim.error, null);
+    const settledGeneration = (settledClaim.data as { quote_claim_generation: string }[])[0]!.quote_claim_generation;
     await sql(
       `insert into public.platform_fees
          (brand_id, location_id, order_id, gross_cents, fee_cents, fee_bps_applied, square_payment_id)
@@ -164,6 +181,7 @@ describe('platform fee quote serialization', { skip: skipUnlessConfigured }, () 
     );
     const settledRelease = await serviceClient().rpc('release_platform_fee_quote', {
       p_order_id: order.rows[0]!.id,
+      p_claim_generation: settledGeneration,
     });
     assert.equal(settledRelease.error, null);
     assert.equal(settledRelease.data, false);

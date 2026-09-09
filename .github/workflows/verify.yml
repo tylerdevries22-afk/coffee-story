@@ -650,6 +650,9 @@ jobs:
             exit 1
           }
 
+      - name: Run the pgTAP schema suites
+        run: supabase test db --db-url "$SUPABASE_TEST_DB_URL"
+
       - name: Run the RLS and authorization suites
         run: |
           set -euo pipefail

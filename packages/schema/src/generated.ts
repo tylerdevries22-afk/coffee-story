@@ -7370,6 +7370,80 @@ export type Database = {
           },
         ]
       }
+      platform_fee_quotes: {
+        Row: {
+          brand_id: string
+          claim_generation: string
+          cleanup_claimed_at: string | null
+          created_at: string
+          expires_at: string
+          fee_bps_applied: number
+          fee_cents: number
+          gross_cents: number
+          location_id: string
+          month_end: string
+          month_start: string
+          order_id: string
+        }
+        Insert: {
+          brand_id: string
+          claim_generation?: string
+          cleanup_claimed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          fee_bps_applied: number
+          fee_cents: number
+          gross_cents: number
+          location_id: string
+          month_end: string
+          month_start: string
+          order_id: string
+        }
+        Update: {
+          brand_id?: string
+          claim_generation?: string
+          cleanup_claimed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          fee_bps_applied?: number
+          fee_cents?: number
+          gross_cents?: number
+          location_id?: string
+          month_end?: string
+          month_start?: string
+          order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_fee_quotes_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_fee_quotes_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_fee_quotes_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_fee_quotes_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: true
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       platform_fees: {
         Row: {
           brand_id: string
@@ -8109,6 +8183,7 @@ export type Database = {
           id: string
           location_id: string
           merchant_id: string
+          oauth_scope_contract_version: number
           refresh_token_encrypted: string
           square_location_id: string | null
           updated_at: string
@@ -8121,6 +8196,7 @@ export type Database = {
           id?: string
           location_id: string
           merchant_id: string
+          oauth_scope_contract_version?: number
           refresh_token_encrypted: string
           square_location_id?: string | null
           updated_at?: string
@@ -8133,6 +8209,7 @@ export type Database = {
           id?: string
           location_id?: string
           merchant_id?: string
+          oauth_scope_contract_version?: number
           refresh_token_encrypted?: string
           square_location_id?: string | null
           updated_at?: string
@@ -8298,6 +8375,484 @@ export type Database = {
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_package_access_events: {
+        Row: {
+          action: string
+          actor_id: string | null
+          brand_id: string
+          file_id: string | null
+          id: number
+          ip_hash: string | null
+          metadata: Json
+          occurred_at: string
+          outcome: string
+          package_release_id: string
+          request_id: string
+          user_agent_hash: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          brand_id: string
+          file_id?: string | null
+          id?: never
+          ip_hash?: string | null
+          metadata?: Json
+          occurred_at?: string
+          outcome: string
+          package_release_id: string
+          request_id: string
+          user_agent_hash?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          brand_id?: string
+          file_id?: string | null
+          id?: never
+          ip_hash?: string | null
+          metadata?: Json
+          occurred_at?: string
+          outcome?: string
+          package_release_id?: string
+          request_id?: string
+          user_agent_hash?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_package_access_events_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_package_access_events_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_package_access_events_file_id_brand_id_fkey"
+            columns: ["file_id", "brand_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_package_files"
+            referencedColumns: ["id", "brand_id"]
+          },
+          {
+            foreignKeyName: "tenant_package_access_events_file_release_brand_fkey"
+            columns: ["file_id", "package_release_id", "brand_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_package_files"
+            referencedColumns: ["id", "package_release_id", "brand_id"]
+          },
+          {
+            foreignKeyName: "tenant_package_access_events_package_release_id_brand_id_fkey"
+            columns: ["package_release_id", "brand_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_package_releases"
+            referencedColumns: ["id", "brand_id"]
+          },
+        ]
+      }
+      tenant_package_files: {
+        Row: {
+          brand_id: string
+          byte_size: number
+          content_sha256: string
+          created_at: string
+          id: string
+          mime_type: string
+          object_path: string
+          package_release_id: string
+          path_key: string
+          preview_byte_size: number | null
+          preview_content_sha256: string | null
+          preview_kind: string
+          preview_mime_type: string | null
+          preview_object_path: string | null
+          relative_path: string
+        }
+        Insert: {
+          brand_id: string
+          byte_size: number
+          content_sha256: string
+          created_at?: string
+          id?: string
+          mime_type: string
+          object_path: string
+          package_release_id: string
+          path_key: string
+          preview_byte_size?: number | null
+          preview_content_sha256?: string | null
+          preview_kind: string
+          preview_mime_type?: string | null
+          preview_object_path?: string | null
+          relative_path: string
+        }
+        Update: {
+          brand_id?: string
+          byte_size?: number
+          content_sha256?: string
+          created_at?: string
+          id?: string
+          mime_type?: string
+          object_path?: string
+          package_release_id?: string
+          path_key?: string
+          preview_byte_size?: number | null
+          preview_content_sha256?: string | null
+          preview_kind?: string
+          preview_mime_type?: string | null
+          preview_object_path?: string | null
+          relative_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_package_files_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_package_files_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_package_files_package_release_id_brand_id_fkey"
+            columns: ["package_release_id", "brand_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_package_releases"
+            referencedColumns: ["id", "brand_id"]
+          },
+        ]
+      }
+      tenant_package_publication_compensations: {
+        Row: {
+          brand_id: string
+          compensated_at: string
+          failed_deployment_commit_sha: string
+          failed_release_id: string
+          id: number
+          publication_event_id: number
+          restored_deployment_commit_sha: string | null
+          restored_release_id: string | null
+          rollback_approval_reference: string
+          rollback_canary_reference: string
+        }
+        Insert: {
+          brand_id: string
+          compensated_at?: string
+          failed_deployment_commit_sha: string
+          failed_release_id: string
+          id?: never
+          publication_event_id: number
+          restored_deployment_commit_sha?: string | null
+          restored_release_id?: string | null
+          rollback_approval_reference: string
+          rollback_canary_reference: string
+        }
+        Update: {
+          brand_id?: string
+          compensated_at?: string
+          failed_deployment_commit_sha?: string
+          failed_release_id?: string
+          id?: never
+          publication_event_id?: number
+          restored_deployment_commit_sha?: string | null
+          restored_release_id?: string | null
+          rollback_approval_reference?: string
+          rollback_canary_reference?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_package_publication_co_publication_event_id_brand_i_fkey"
+            columns: ["publication_event_id", "brand_id"]
+            isOneToOne: true
+            referencedRelation: "tenant_package_publication_events"
+            referencedColumns: ["id", "brand_id"]
+          },
+          {
+            foreignKeyName: "tenant_package_publication_co_restored_release_id_brand_id_fkey"
+            columns: ["restored_release_id", "brand_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_package_releases"
+            referencedColumns: ["id", "brand_id"]
+          },
+          {
+            foreignKeyName: "tenant_package_publication_comp_failed_release_id_brand_id_fkey"
+            columns: ["failed_release_id", "brand_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_package_releases"
+            referencedColumns: ["id", "brand_id"]
+          },
+          {
+            foreignKeyName: "tenant_package_publication_compensations_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_package_publication_compensations_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_package_publication_events: {
+        Row: {
+          approval_reference: string
+          artifact_digest: string
+          brand_id: string
+          canary_reference: string
+          deployment_commit_sha: string
+          id: number
+          package_release_id: string
+          previous_artifact_digest: string | null
+          previous_deployment_commit_sha: string | null
+          previous_package_release_id: string | null
+          previous_published_at: string | null
+          previous_updated_at: string | null
+          promoted_at: string
+          snapshot_version: number | null
+          target_previous_deployment_commit_sha: string | null
+          target_previous_object_retention_until: string | null
+          target_previous_objects_purged_at: string | null
+          target_previous_published_at: string | null
+          target_previous_purge_claim_id: string | null
+          target_previous_purge_lease_until: string | null
+          target_previous_purge_started_at: string | null
+          target_previous_status: string | null
+          target_previous_superseded_at: string | null
+        }
+        Insert: {
+          approval_reference: string
+          artifact_digest: string
+          brand_id: string
+          canary_reference: string
+          deployment_commit_sha: string
+          id?: never
+          package_release_id: string
+          previous_artifact_digest?: string | null
+          previous_deployment_commit_sha?: string | null
+          previous_package_release_id?: string | null
+          previous_published_at?: string | null
+          previous_updated_at?: string | null
+          promoted_at?: string
+          snapshot_version?: number | null
+          target_previous_deployment_commit_sha?: string | null
+          target_previous_object_retention_until?: string | null
+          target_previous_objects_purged_at?: string | null
+          target_previous_published_at?: string | null
+          target_previous_purge_claim_id?: string | null
+          target_previous_purge_lease_until?: string | null
+          target_previous_purge_started_at?: string | null
+          target_previous_status?: string | null
+          target_previous_superseded_at?: string | null
+        }
+        Update: {
+          approval_reference?: string
+          artifact_digest?: string
+          brand_id?: string
+          canary_reference?: string
+          deployment_commit_sha?: string
+          id?: never
+          package_release_id?: string
+          previous_artifact_digest?: string | null
+          previous_deployment_commit_sha?: string | null
+          previous_package_release_id?: string | null
+          previous_published_at?: string | null
+          previous_updated_at?: string | null
+          promoted_at?: string
+          snapshot_version?: number | null
+          target_previous_deployment_commit_sha?: string | null
+          target_previous_object_retention_until?: string | null
+          target_previous_objects_purged_at?: string | null
+          target_previous_published_at?: string | null
+          target_previous_purge_claim_id?: string | null
+          target_previous_purge_lease_until?: string | null
+          target_previous_purge_started_at?: string | null
+          target_previous_status?: string | null
+          target_previous_superseded_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_package_publication_eve_package_release_id_brand_id_fkey"
+            columns: ["package_release_id", "brand_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_package_releases"
+            referencedColumns: ["id", "brand_id"]
+          },
+          {
+            foreignKeyName: "tenant_package_publication_events_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_package_publication_events_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_package_publication_events_previous_release_fkey"
+            columns: ["previous_package_release_id", "brand_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_package_releases"
+            referencedColumns: ["id", "brand_id"]
+          },
+        ]
+      }
+      tenant_package_publications: {
+        Row: {
+          artifact_digest: string
+          brand_id: string
+          current_release_id: string
+          deployment_commit_sha: string
+          published_at: string
+          updated_at: string
+        }
+        Insert: {
+          artifact_digest: string
+          brand_id: string
+          current_release_id: string
+          deployment_commit_sha: string
+          published_at: string
+          updated_at?: string
+        }
+        Update: {
+          artifact_digest?: string
+          brand_id?: string
+          current_release_id?: string
+          deployment_commit_sha?: string
+          published_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_package_publications_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: true
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_package_publications_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: true
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_package_publications_current_release_id_brand_id_fkey"
+            columns: ["current_release_id", "brand_id"]
+            isOneToOne: true
+            referencedRelation: "tenant_package_releases"
+            referencedColumns: ["id", "brand_id"]
+          },
+        ]
+      }
+      tenant_package_releases: {
+        Row: {
+          archive_object_path: string
+          archive_sha256: string
+          artifact_digest: string
+          brand_id: string
+          created_at: string
+          deployment_commit_sha: string | null
+          envelope_sha256: string
+          file_count: number
+          id: string
+          object_retention_until: string | null
+          objects_purged_at: string | null
+          published_at: string | null
+          purge_claim_id: string | null
+          purge_lease_until: string | null
+          purge_reason: string | null
+          purge_started_at: string | null
+          release_key: string
+          source_commit_sha: string
+          status: string
+          superseded_at: string | null
+          total_bytes: number
+          verified_at: string
+        }
+        Insert: {
+          archive_object_path: string
+          archive_sha256: string
+          artifact_digest: string
+          brand_id: string
+          created_at?: string
+          deployment_commit_sha?: string | null
+          envelope_sha256: string
+          file_count: number
+          id?: string
+          object_retention_until?: string | null
+          objects_purged_at?: string | null
+          published_at?: string | null
+          purge_claim_id?: string | null
+          purge_lease_until?: string | null
+          purge_reason?: string | null
+          purge_started_at?: string | null
+          release_key: string
+          source_commit_sha: string
+          status?: string
+          superseded_at?: string | null
+          total_bytes: number
+          verified_at?: string
+        }
+        Update: {
+          archive_object_path?: string
+          archive_sha256?: string
+          artifact_digest?: string
+          brand_id?: string
+          created_at?: string
+          deployment_commit_sha?: string | null
+          envelope_sha256?: string
+          file_count?: number
+          id?: string
+          object_retention_until?: string | null
+          objects_purged_at?: string | null
+          published_at?: string | null
+          purge_claim_id?: string | null
+          purge_lease_until?: string | null
+          purge_reason?: string | null
+          purge_started_at?: string | null
+          release_key?: string
+          source_commit_sha?: string
+          status?: string
+          superseded_at?: string | null
+          total_bytes?: number
+          verified_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_package_releases_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_package_releases_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
             referencedColumns: ["id"]
           },
         ]
@@ -9262,6 +9817,7 @@ export type Database = {
           expires_at: string | null
           location_id: string | null
           merchant_id: string | null
+          oauth_scope_contract_version: number | null
         }
         Relationships: []
       }
@@ -9394,6 +9950,52 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      begin_connector_oauth_state: {
+        Args: {
+          p_actor_user_id: string
+          p_brand_id: string
+          p_cookie_binding_hash: string
+          p_expires_at: string
+          p_provider_key: string
+          p_redirect_uri: string
+          p_requested_scopes: string[]
+          p_state_hash: string
+        }
+        Returns: Json
+      }
+      begin_tenant_package_upload: {
+        Args: {
+          p_archive_sha256: string
+          p_artifact_digest: string
+          p_brand_id: string
+          p_commit_sha: string
+          p_envelope_sha256: string
+          p_file_count: number
+          p_object_prefix: string
+          p_release_key: string
+          p_total_bytes: number
+        }
+        Returns: string
+      }
+      bind_square_checkout_link: {
+        Args: {
+          p_checkout_url: string
+          p_claim_generation: string
+          p_order_id: string
+          p_payment_link_id: string
+          p_square_order_id: string
+        }
+        Returns: boolean
+      }
+      bind_square_payment: {
+        Args: {
+          p_claim_generation: string
+          p_order_id: string
+          p_square_order_id: string
+          p_square_payment_id: string
+        }
+        Returns: boolean
+      }
       brand_storefront_capabilities: {
         Args: { p_slug?: string }
         Returns: {
@@ -9514,6 +10116,24 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      claim_platform_fee_quote: {
+        Args: {
+          p_charge_cents: number
+          p_fee_bps: number
+          p_fee_bps_tier2: number
+          p_location_id: string
+          p_month_end: string
+          p_month_start: string
+          p_order_id: string
+          p_require_existing?: boolean
+          p_tier_threshold_cents: number
+        }
+        Returns: {
+          quote_claim_generation: string
+          quoted_fee_bps_applied: number
+          quoted_fee_cents: number
+        }[]
+      }
       claim_refund_request: {
         Args: {
           p_brand_id: string
@@ -9551,6 +10171,15 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      claim_tenant_package_cleanup_candidates: {
+        Args: { p_limit?: number }
+        Returns: {
+          claim_id: string
+          object_path: string
+          reason: string
+          target_id: string
+        }[]
+      }
       commit_order: {
         Args: {
           p_actor_user_id: string
@@ -9573,6 +10202,35 @@ export type Database = {
           p_totals: Json
         }
         Returns: Json
+      }
+      compensate_tenant_package_publication: {
+        Args: {
+          p_approval_reference: string
+          p_brand_id: string
+          p_canary_reference: string
+          p_commit_sha: string
+          p_previous_artifact_digest: string | null
+          p_previous_commit_sha: string | null
+          p_previous_published_at: string | null
+          p_previous_release_id: string | null
+          p_release_id: string
+          p_rollback_approval_reference: string
+          p_rollback_canary_reference: string
+        }
+        Returns: string
+      }
+      complete_connector_oauth_connection: {
+        Args: {
+          p_account_label: string
+          p_actor_user_id: string
+          p_brand_id: string
+          p_credential: Json
+          p_expires_at: string | null
+          p_granted_scopes: string[]
+          p_installation_id: string
+          p_provider_key: string
+        }
+        Returns: string
       }
       complete_operation_occurrence: {
         Args: {
@@ -9610,9 +10268,24 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      confirm_tenant_package_object_purge: {
+        Args: { p_release_ids: string[] }
+        Returns: number
+      }
+      confirm_tenant_package_purge_claim: {
+        Args: { p_claim_id: string }
+        Returns: boolean
+      }
       consume_menu_extraction_budget: {
         Args: { p_brand_id: string }
         Returns: boolean
+      }
+      consume_tenant_package_download_budget: {
+        Args: { p_brand_id: string; p_scope_key: string }
+        Returns: {
+          allowed: boolean
+          retry_after_seconds: number
+        }[]
       }
       create_franchise_network: {
         Args: { p_name: string; p_slug: string }
@@ -9686,6 +10359,14 @@ export type Database = {
           p_slug: string
         }
         Returns: string
+      }
+      disconnect_connector_oauth_connection: {
+        Args: {
+          p_actor_user_id: string
+          p_brand_id: string
+          p_provider_key: string
+        }
+        Returns: boolean
       }
       enroll_brand_in_network: {
         Args: { p_brand_id: string; p_network_id: string }
@@ -9764,6 +10445,14 @@ export type Database = {
             }
             Returns: string
           }
+      list_tenant_package_cleanup_candidates: {
+        Args: { p_limit?: number }
+        Returns: {
+          object_path: string
+          reason: string
+          release_id: string
+        }[]
+      }
       loyalty_adjust: {
         Args: { account: string; delta: number }
         Returns: number
@@ -9894,6 +10583,17 @@ export type Database = {
         }
         Returns: string
       }
+      publish_tenant_package: {
+        Args: {
+          p_approval_reference: string
+          p_artifact_digest: string
+          p_brand_id: string
+          p_canary_reference: string
+          p_commit_sha: string
+          p_release_key: string
+        }
+        Returns: string
+      }
       publish_training_release: {
         Args: {
           release_answer_key: Json
@@ -9921,6 +10621,10 @@ export type Database = {
       }
       reconcile_brand_modules: {
         Args: { p_brand_id: string; p_modules: Json }
+        Returns: number
+      }
+      reconcile_connector_credential_status: {
+        Args: { p_limit?: number; p_now?: string }
         Returns: number
       }
       record_square_payment_settlement: {
@@ -9952,6 +10656,21 @@ export type Database = {
           p_metadata?: Json
         }
         Returns: undefined
+      }
+      record_tenant_package_access: {
+        Args: {
+          p_action: string
+          p_actor_id: string
+          p_brand_id: string
+          p_file_id: string
+          p_ip_hash: string
+          p_metadata?: Json
+          p_outcome: string
+          p_release_id: string
+          p_request_id: string
+          p_user_agent_hash: string
+        }
+        Returns: number
       }
       refresh_analytics_rollups: {
         Args: { rebuild_from?: string }
@@ -10023,6 +10742,14 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      release_platform_fee_quote: {
+        Args: { p_claim_generation: string; p_order_id: string }
+        Returns: boolean
+      }
+      renew_tenant_package_upload: {
+        Args: { p_session_id: string }
+        Returns: string
       }
       report_operation_issue: {
         Args: {
@@ -10152,6 +10879,38 @@ export type Database = {
         }
         Returns: string
       }
+      stage_tenant_package:
+        | {
+            Args: {
+              p_archive_object_path: string
+              p_archive_sha256: string
+              p_artifact_digest: string
+              p_brand_id: string
+              p_commit_sha: string
+              p_envelope_sha256: string
+              p_file_count: number
+              p_files: Json
+              p_release_key: string
+              p_total_bytes: number
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_archive_object_path: string
+              p_archive_sha256: string
+              p_artifact_digest: string
+              p_brand_id: string
+              p_commit_sha: string
+              p_envelope_sha256: string
+              p_file_count: number
+              p_files: Json
+              p_release_key: string
+              p_total_bytes: number
+              p_upload_session_id: string
+            }
+            Returns: string
+          }
       store_connector_secret: {
         Args: {
           plaintext_secret: string

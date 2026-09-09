@@ -39,7 +39,6 @@
     "apps/hq/lib/demo-data.ts": 226,
     "apps/hq/lib/demo-order-sync.ts": 416,
     "apps/hq/lib/live-mappers.ts": 299,
-    "apps/hq/lib/square-admin.ts": 274,
     "apps/hq/lib/square-renewal.ts": 365,
     "apps/kiosk/src/app/(flow)/checkout/processing.tsx": 289,
     "apps/kiosk/src/components/cart-drawer.tsx": 308,

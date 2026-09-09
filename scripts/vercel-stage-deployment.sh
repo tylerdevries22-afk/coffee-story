@@ -35,8 +35,18 @@ set -euo pipefail
   exit 1
 }
 
-vc=(pnpm exec vercel)
+vc=(pnpm exec -- vercel)
 scope=(--scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN")
+
+retry_command() {
+  local timeout_value="$1"
+  shift
+  for attempt in 1 2 3; do
+    timeout "$timeout_value" "$@" && return 0
+    if (( attempt < 3 )); then sleep $((attempt * 2)); fi
+  done
+  return 1
+}
 
 [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]] || {
   echo '::error::The checked-out source does not match the requested deployment commit.'
@@ -46,7 +56,7 @@ scope=(--scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN")
   echo '::error::Exact-commit deployment requires a clean checkout.'
   exit 1
 }
-timeout 2m "${vc[@]}" link --yes --project "$PROJECT" "${scope[@]}" >/dev/null
+retry_command 60s "${vc[@]}" link --yes --project "$PROJECT" "${scope[@]}" >/dev/null
 
 deploy=(deploy --force --no-wait --no-color
   --meta "githubCommitSha=$GITHUB_SHA"
@@ -60,7 +70,14 @@ else
   exit 1
 fi
 
-deployment_url=$(timeout 10m "${vc[@]}" "${deploy[@]}" "${scope[@]}" | tail -1)
+deployment_url=''
+for attempt in 1 2 3; do
+  deployment_url=$(timeout 3m "${vc[@]}" "${deploy[@]}" "${scope[@]}" | tail -1) \
+    && [[ "$deployment_url" == https://*.vercel.app || "$deployment_url" == *.vercel.app ]] \
+    && break
+  deployment_url=''
+  if (( attempt < 3 )); then sleep $((attempt * 2)); fi
+done
 [[ "$deployment_url" == https://*.vercel.app || "$deployment_url" == *.vercel.app ]] || {
   echo '::error::Vercel did not return a deployment URL.'
   exit 1
@@ -68,8 +85,12 @@ deployment_url=$(timeout 10m "${vc[@]}" "${deploy[@]}" "${scope[@]}" | tail -1)
 [[ "$deployment_url" == https://* ]] || deployment_url="https://${deployment_url}"
 deployment_host="${deployment_url#https://}"
 
-inspection=$(timeout 9m "${vc[@]}" inspect "$deployment_url" --wait --timeout 8m \
-  --json "${scope[@]}")
+inspection=''
+for attempt in 1 2 3; do
+  inspection=$(timeout 3m "${vc[@]}" inspect "$deployment_url" --wait --timeout 2m \
+    --json "${scope[@]}") && break
+  if (( attempt < 3 )); then sleep $((attempt * 2)); fi
+done
 [[ "$(jq -r '.readyState // empty' <<<"$inspection")" == READY ]] || {
   echo '::error::The staged Vercel deployment did not become READY.'
   exit 1
@@ -83,7 +104,7 @@ fi
 
 deployment_record() {
   curl --silent --show-error --fail-with-body --retry 2 --retry-all-errors \
-    --connect-timeout 10 --max-time 45 \
+    --connect-timeout 5 --max-time 15 \
     -H "Authorization: Bearer $VERCEL_TOKEN" \
     "https://api.vercel.com/v13/deployments/${deployment_host}?${scope_query}"
 }
@@ -93,7 +114,8 @@ for _attempt in $(seq 1 6); do
   deployment=$(deployment_record || true)
   valid=$(jq -r --arg host "$deployment_host" --arg sha "$GITHUB_SHA" \
     --arg digest "$FACTORY_ARTIFACT_DIGEST" --arg target "$DEPLOY_ENVIRONMENT" \
-    '(.url == $host) and
+    --arg project "$PROJECT" \
+    '(.url == $host) and (.name == $project) and
       ((($target == "preview") and (.target == null)) or (.target == $target)) and
       ((.readyState // .state) == "READY") and
       (.meta.githubCommitSha == $sha) and (.meta.factoryArtifactDigest == $digest)' \
@@ -108,21 +130,23 @@ deployment_id=$(jq -r '.uid // .id // empty' <<<"$deployment")
   exit 1
 }
 
-curl_args=(--deployment "$deployment_url" --fail-with-body --retry 2 --retry-all-errors
-  --connect-timeout 10 --max-time 45 "${scope[@]}")
+vercel_curl=("${vc[@]}" curl)
+vercel_target=(--deployment "$deployment_url" "${scope[@]}")
+curl_flags=(--fail-with-body --retry 1 --retry-all-errors --connect-timeout 5 --max-time 30)
 if [[ "$SURFACE" == hq ]]; then
   : "${HEALTH_CHECK_TOKEN:?HEALTH_CHECK_TOKEN is required for HQ canary verification}"
-  canary=$("${vc[@]}" curl '/api/health?deep=1' -H \
-    "x-health-check-token: $HEALTH_CHECK_TOKEN" "${curl_args[@]}")
+  canary=$(timeout 75s "${vercel_curl[@]}" '/api/health?deep=1' "${vercel_target[@]}" -- \
+    "${curl_flags[@]}" --header "x-health-check-token: $HEALTH_CHECK_TOKEN")
   jq -e --arg tenant "$TENANT" --arg commit "$GITHUB_SHA" \
     '.version as $version | .ok == true and .tenant == $tenant
-      and ($version | type) == "string" and ($commit | startswith($version))' \
+      and ($version | type) == "string" and ($version | length) >= 7
+      and ($commit | startswith($version))' \
     <<<"$canary" >/dev/null || {
       echo '::error::The staged HQ canary did not match tenant and commit identity.'
       exit 1
     }
 else
-  canary=$("${vc[@]}" curl / "${curl_args[@]}")
+  canary=$(timeout 75s "${vercel_curl[@]}" / "${vercel_target[@]}" -- "${curl_flags[@]}")
   meta_pattern='<meta[^>]*('
   meta_pattern+="name=[\"']platform-tenant[\"'][^>]*content=[\"']${TENANT}[\"']"
   meta_pattern+="|content=[\"']${TENANT}[\"'][^>]*name=[\"']platform-tenant[\"'])"
@@ -132,37 +156,17 @@ else
   }
 fi
 
-status=canary-passed
-public_url="$deployment_url"
-if [[ "$DEPLOY_ENVIRONMENT" == production ]]; then
-  timeout 6m "${vc[@]}" promote "$deployment_url" --yes --timeout 5m "${scope[@]}"
-  promoted=''
-  for _attempt in $(seq 1 6); do
-    deployment=$(deployment_record || true)
-    if [[ "$(jq -r '.readySubstate // empty' <<<"$deployment")" == PROMOTED \
-      && "$(jq -r '.target // empty' <<<"$deployment")" == production ]]; then
-      promoted=1
-      break
-    fi
-    sleep 5
-  done
-  [[ -n "$promoted" ]] || {
-    echo '::error::Vercel did not confirm production promotion for the attested deployment.'
-    exit 1
-  }
-  status=promoted
-  public_url="https://${PROJECT}.vercel.app"
-fi
-
 evidence=$(jq -cn --arg deploymentId "$deployment_id" --arg deploymentUrl "$deployment_url" \
   --arg commitSha "$GITHUB_SHA" --arg artifactDigest "$FACTORY_ARTIFACT_DIGEST" \
-  --arg status "$status" '{provider:"vercel",deploymentId:$deploymentId,
-    deploymentUrl:$deploymentUrl,commitSha:$commitSha,artifactDigest:$artifactDigest,status:$status}')
+  --arg project "$PROJECT" --arg surface "$SURFACE" \
+  '{provider:"vercel",project:$project,surface:$surface,deploymentId:$deploymentId,
+    deploymentUrl:$deploymentUrl,commitSha:$commitSha,artifactDigest:$artifactDigest,
+    status:"canary-passed"}')
 {
-  echo "url=$public_url"
+  echo "url=$deployment_url"
   echo "deployment_id=$deployment_id"
   echo "deployment_url=$deployment_url"
   echo "provider_evidence=$evidence"
 } >> "${GITHUB_OUTPUT:?GITHUB_OUTPUT is required}"
-printf '### %s Vercel evidence\n\n```json\n%s\n```\n' "$PROJECT" "$evidence" \
+printf '### %s Vercel evidence\n\n\140\140\140json\n%s\n\140\140\140\n' "$PROJECT" "$evidence" \
   >> "${GITHUB_STEP_SUMMARY:?GITHUB_STEP_SUMMARY is required}"

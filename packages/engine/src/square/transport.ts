@@ -73,7 +73,13 @@ export class SquareApiError extends Error {
 export async function call<T>(
   config: SquareConfig,
   path: string,
-  init: { method: string; token?: string; clientAuthorization?: boolean; body?: unknown },
+  init: {
+    method: string;
+    token?: string;
+    clientAuthorization?: boolean;
+    body?: unknown;
+    attempts?: number;
+  },
 ): Promise<T> {
   const response = await fetchExternalWithRetry(`${config.apiBase ?? HOSTS[config.env]}${path}`, {
     method: init.method,
@@ -85,7 +91,7 @@ export async function call<T>(
         : init.token ? { Authorization: `Bearer ${init.token}` } : {}),
     },
     body: init.body === undefined ? undefined : JSON.stringify(init.body),
-  });
+  }, { attempts: init.attempts });
   const body = (await response.json().catch(() => ({}))) as T;
   if (!response.ok) {
     throw new SquareApiError(`Square ${init.method} ${path} -> ${response.status}`, response.status, body);

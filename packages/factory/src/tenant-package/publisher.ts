@@ -10,14 +10,46 @@ export type TenantPackagePublication = {
   readonly files: readonly TenantPackageManifestFile[];
 };
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+async function rpc(
+  endpoint: URL,
+  serviceKey: string,
+  name: string,
+  body: unknown,
+): Promise<unknown> {
+  const response = await requestWithRetry(new URL(`/rest/v1/rpc/${name}`, endpoint), {
+    method: 'POST',
+    headers: { ...serviceHeaders(serviceKey), 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return response.json() as Promise<unknown>;
+}
+
+export function tenantPackageObjectPrefix(
+  brandId: string,
+  artifactDigest: string,
+  envelopeSha256: string,
+): string {
+  if (!UUID.test(brandId)
+    || !/^sha256:[0-9a-f]{64}$/.test(artifactDigest)
+    || !/^sha256:[0-9a-f]{64}$/.test(envelopeSha256)) {
+    throw new Error('Tenant package object identity is invalid.');
+  }
+  return `${brandId}/${artifactDigest.slice(7)}/${envelopeSha256.slice(7)}`;
+}
+
 export async function publishTenantPackageObjects(input: {
   endpoint: string;
   serviceKey: string;
   brandId: string;
   build: TenantPackageBuild;
 }): Promise<TenantPackagePublication> {
-  const digest = input.build.artifactDigest.slice('sha256:'.length);
-  const prefix = `${input.brandId}/${digest}`;
+  const prefix = tenantPackageObjectPrefix(
+    input.brandId,
+    input.build.artifactDigest,
+    input.build.envelopeSha256,
+  );
   const archiveObjectPath = `${prefix}/archive.zip`;
   const files = input.build.files.map((file) => ({
     relativePath: file.relativePath,
@@ -34,7 +66,26 @@ export async function publishTenantPackageObjects(input: {
       previewByteSize: file.preview.byteSize,
     } : {}),
   }));
-  const storage = new TenantPackageStorageClient(input.endpoint, input.serviceKey);
+  const endpoint = safeEndpoint(input.endpoint);
+  const sessionId = await rpc(endpoint, input.serviceKey, 'begin_tenant_package_upload', {
+    p_brand_id: input.brandId,
+    p_release_key: input.build.releaseKey,
+    p_artifact_digest: input.build.artifactDigest,
+    p_commit_sha: input.build.commitSha,
+    p_envelope_sha256: input.build.envelopeSha256,
+    p_archive_sha256: input.build.archiveSha256,
+    p_object_prefix: prefix,
+    p_file_count: input.build.fileCount,
+    p_total_bytes: input.build.totalBytes,
+  });
+  if (typeof sessionId !== 'string' || !UUID.test(sessionId)) {
+    throw new Error('Supabase returned an invalid tenant upload session.');
+  }
+  const storage = new TenantPackageStorageClient(input.endpoint, input.serviceKey, async () => {
+    await rpc(endpoint, input.serviceKey, 'renew_tenant_package_upload', {
+      p_session_id: sessionId,
+    });
+  });
   await uploadFiles(storage, input.build, files);
   const archiveSize = (await stat(input.build.archivePath)).size;
   await storage.upload({
@@ -42,21 +93,17 @@ export async function publishTenantPackageObjects(input: {
     byteSize: archiveSize, mimeType: 'application/zip',
   });
   await storage.verify(archiveObjectPath, archiveSize, input.build.archiveSha256);
-  const response = await requestWithRetry(
-    new URL('/rest/v1/rpc/stage_tenant_package', safeEndpoint(input.endpoint)),
-    {
-      method: 'POST', headers: { ...serviceHeaders(input.serviceKey), 'content-type': 'application/json' },
-      body: JSON.stringify({
-        p_brand_id: input.brandId, p_release_key: input.build.releaseKey,
-        p_artifact_digest: input.build.artifactDigest, p_commit_sha: input.build.commitSha,
-        p_envelope_sha256: input.build.envelopeSha256,
-        p_archive_sha256: input.build.archiveSha256, p_archive_object_path: archiveObjectPath,
-        p_file_count: input.build.fileCount, p_total_bytes: input.build.totalBytes, p_files: files,
-      }),
-    },
-  );
-  const releaseId = await response.json() as unknown;
-  if (typeof releaseId !== 'string') throw new Error('Supabase returned an invalid tenant release.');
+  const releaseId = await rpc(endpoint, input.serviceKey, 'stage_tenant_package', {
+    p_brand_id: input.brandId, p_release_key: input.build.releaseKey,
+    p_artifact_digest: input.build.artifactDigest, p_commit_sha: input.build.commitSha,
+    p_envelope_sha256: input.build.envelopeSha256,
+    p_archive_sha256: input.build.archiveSha256, p_archive_object_path: archiveObjectPath,
+    p_file_count: input.build.fileCount, p_total_bytes: input.build.totalBytes,
+    p_files: files, p_upload_session_id: sessionId,
+  });
+  if (typeof releaseId !== 'string' || !UUID.test(releaseId)) {
+    throw new Error('Supabase returned an invalid tenant release.');
+  }
   return { releaseId, archiveObjectPath, files };
 }
 

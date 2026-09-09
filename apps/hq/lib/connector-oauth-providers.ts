@@ -26,6 +26,7 @@ export {
 
 export {
   grantedConnectorScopes,
+  hasCompleteConnectorGrant,
   resolveGrantedScopes,
 } from './connector-oauth-scopes';
 
@@ -34,3 +35,5 @@ export {
   verifyConnectorIdentity,
   type ConnectorIdentity,
 } from './connector-oauth-identity';
+
+export { revokeConnectorToken } from './connector-oauth-revoke';

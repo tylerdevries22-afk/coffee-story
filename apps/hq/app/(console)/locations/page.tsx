@@ -4,6 +4,8 @@ import { DevicePanel, type DevicePanelDevice } from '@/components/device-panel';
 import { currentClaims, currentSession, hasRole } from '@/lib/auth';
 import { loadDevices, loadLocations, loadMultiLocationEnabled } from '@/lib/data';
 import { squareConnectNotice } from '@/lib/square-connect-notice';
+import { loadSquareConnectionStatuses } from '@/lib/square-connection-status';
+import { squareLocationUiStatus } from '@/lib/square-connection-status-result';
 import { mayManageWorkspaceLocation } from '@/lib/workspace-location-access';
 import { selectedOrganizationId } from '@/lib/workspace-scope';
 
@@ -30,8 +32,9 @@ const CREATED_NOTICE: Record<string, { message: string; failed: boolean }> = {
 };
 
 export default async function LocationsPage({ searchParams }: LocationsPageProps) {
-  const [locations, devices, claims, session, multiLocation, params] = await Promise.all([
+  const [locations, devices, claims, session, multiLocation, params, squareStatuses] = await Promise.all([
     loadLocations(), loadDevices(), currentClaims(), currentSession(), loadMultiLocationEnabled(), searchParams,
+    loadSquareConnectionStatuses(),
   ]);
   // Square consent redirects back here, and it can come back refused.
   const notice = squareConnectNotice(params);
@@ -68,8 +71,11 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
             <tr><th>Location</th><th>Hours</th><th>Square</th><th>Ordering</th><th /></tr>
           </thead>
           <tbody>
-            {locations.map((location) => (
-              <tr key={location.id}>
+            {locations.map((location) => {
+              const squareStatus = squareLocationUiStatus(
+                squareStatuses, location.id, location.squareConnected,
+              );
+              return <tr key={location.id}>
                 <td>
                   <strong>{location.name}</strong>
                   <br />
@@ -77,9 +83,11 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
                 </td>
                 <td>{location.hours}</td>
                 <td>
-                  {location.squareConnected
+                  {squareStatus === 'connected'
                     ? <span className="pill success">Connected</span>
-                    : <span className="pill warning">Not connected</span>}
+                    : squareStatus === 'reauthorization-required'
+                      ? <span className="pill warning">Reauthorization required</span>
+                      : <span className="pill warning">Not connected</span>}
                 </td>
                 <td>
                   {location.orderingPaused
@@ -87,7 +95,7 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
                     : <span className="pill success">Taking orders</span>}
                 </td>
                 <td className="num">
-                  {!manages(location.id) ? null : location.squareConnected ? (
+                  {!manages(location.id) ? null : squareStatus === 'connected' ? (
                     // Drawn only for a manager of this shop, and checked again
                     // in lib/square-admin against the same claims. A shop that
                     // changes hands, or a merchant account that is compromised,
@@ -97,6 +105,16 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
                       <input type="hidden" name="locationId" value={location.id} />
                       <button type="submit" className="button danger">Disconnect Square</button>
                     </form>
+                  ) : squareStatus === 'reauthorization-required' ? (
+                    <div className="button-row">
+                      <a className="button" href={`/api/square/connect?location_id=${location.id}`}>
+                        Reauthorize Square
+                      </a>
+                      <form action={disconnectSquareAction}>
+                        <input type="hidden" name="locationId" value={location.id} />
+                        <button type="submit" className="button danger">Disconnect Square</button>
+                      </form>
+                    </div>
                   ) : (
                     // Phase 7's engine serves this route: it redirects into
                     // Square's OAuth consent and stores the tokens encrypted.
@@ -105,8 +123,8 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
                     </a>
                   )}
                 </td>
-              </tr>
-            ))}
+              </tr>;
+            })}
           </tbody>
         </table>
       </div>

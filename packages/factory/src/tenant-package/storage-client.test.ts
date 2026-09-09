@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { afterEach, describe, it } from 'node:test';
 
 import { safeEndpoint } from './http';
-import { TenantPackageStorageClient } from './storage-client';
+import { TenantPackageStorageClient, verificationDeadlineMs } from './storage-client';
 
 const originalFetch = globalThis.fetch;
 const roots: string[] = [];
@@ -33,7 +33,7 @@ describe('TenantPackageStorageClient', () => {
 
   it('uploads small objects without upsert and verifies their complete digest', async () => {
     const bytes = Buffer.from('verified tenant object');
-    const calls: Array<{ url: string; init?: RequestInit }> = [];
+    const calls: { url: string; init?: RequestInit }[] = [];
     globalThis.fetch = async (input, init) => {
       calls.push({ url: String(input), init });
       return init?.method === 'POST'
@@ -58,6 +58,7 @@ describe('TenantPackageStorageClient', () => {
     const bytes = Buffer.alloc(6 * 1024 * 1024 + 2, 7);
     const chunkSizes: number[] = [];
     let offset = 0;
+    let mutations = 0;
     globalThis.fetch = async (input, init) => {
       const url = String(input);
       if (init?.method === 'POST') {
@@ -74,12 +75,17 @@ describe('TenantPackageStorageClient', () => {
       }
       throw new Error('unexpected request');
     };
-    const client = new TenantPackageStorageClient('https://demo.supabase.co', 'service-secret');
+    const client = new TenantPackageStorageClient(
+      'https://demo.supabase.co',
+      'service-secret',
+      async () => { mutations += 1; },
+    );
     await client.upload({
       path: file(bytes), objectPath: 'brand/digest/archive.zip',
       byteSize: bytes.length, mimeType: 'application/zip',
     });
     assert.deepEqual(chunkSizes, [6 * 1024 * 1024, 2]);
+    assert.equal(mutations, 3);
   });
 
   it('fails closed when a downloaded object does not match', async () => {
@@ -87,5 +93,51 @@ describe('TenantPackageStorageClient', () => {
     const client = new TenantPackageStorageClient('https://demo.supabase.co', 'service-secret');
     await assert.rejects(client.verify('brand/digest/file', 4, `sha256:${'a'.repeat(64)}`),
       { code: 'object_verification_failed' });
+  });
+
+  it('uses a bounded size-aware deadline while allowing an active slow stream', async () => {
+    const bytes = Buffer.from('slow-response');
+    let heartbeats = 0;
+    globalThis.fetch = async () => {
+      await new Promise((resolve) => setTimeout(resolve, 12));
+      return new Response(new ReadableStream({
+      async start(controller) {
+        for (const byte of bytes) {
+          await new Promise((resolve) => setTimeout(resolve, 3));
+          controller.enqueue(Uint8Array.of(byte));
+        }
+        controller.close();
+      },
+    }));
+    };
+    const client = new TenantPackageStorageClient(
+      'https://demo.supabase.co', 'service-secret', async () => { heartbeats += 1; },
+      { heartbeatMs: 5, inactivityMs: 10, totalMs: () => 100 },
+    );
+    await client.verify('brand/digest/slow', bytes.length,
+      `sha256:${createHash('sha256').update(bytes).digest('hex')}`);
+    assert.ok(verificationDeadlineMs(1024 ** 3) > verificationDeadlineMs(1024));
+    assert.ok(verificationDeadlineMs(Number.MAX_SAFE_INTEGER) <= 30 * 60_000);
+    assert.ok(heartbeats > 1);
+  });
+
+  it('retries and fails closed when a response becomes inactive', async () => {
+    let attempts = 0;
+    let cancellations = 0;
+    globalThis.fetch = async () => {
+      attempts += 1;
+      return new Response(new ReadableStream({
+        start(controller) { controller.enqueue(Uint8Array.of(1)); },
+        cancel() { cancellations += 1; },
+      }));
+    };
+    const client = new TenantPackageStorageClient(
+      'https://demo.supabase.co', 'service-secret', async () => undefined,
+      { inactivityMs: 5, totalMs: () => 100 },
+    );
+    await assert.rejects(client.verify('brand/digest/stalled', 2, `sha256:${'a'.repeat(64)}`),
+      { code: 'object_verification_failed' });
+    assert.equal(attempts, 3);
+    assert.equal(cancellations, 3);
   });
 });

@@ -2,7 +2,10 @@ import { call, HOSTS, type SquareConfig } from './transport';
 
 /** The consent URL Locations' "Connect Square" sends a browser to. */
 export function oauthAuthorizeUrl(config: SquareConfig, state: string): string {
-  const scopes = ['MERCHANT_PROFILE_READ', 'ORDERS_WRITE', 'ORDERS_READ', 'PAYMENTS_WRITE', 'PAYMENTS_READ'];
+  const scopes = [
+    'MERCHANT_PROFILE_READ', 'ORDERS_WRITE', 'ORDERS_READ', 'PAYMENTS_WRITE',
+    'PAYMENTS_WRITE_ADDITIONAL_RECIPIENTS', 'PAYMENTS_READ',
+  ];
   const params = new URLSearchParams({
     client_id: config.applicationId,
     scope: scopes.join(' '),
@@ -27,6 +30,7 @@ export function exchangeOAuthCode(config: SquareConfig, code: string): Promise<O
       grant_type: 'authorization_code',
       code,
     },
+    attempts: 1,
   });
 }
 

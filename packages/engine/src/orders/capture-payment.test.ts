@@ -8,9 +8,10 @@ import { captureSquarePayment } from './capture-payment';
 function fixture(t: TestContext) {
   const state = {
     order: { id: 'order-a', brand_id: 'brand-a', location_id: 'location-a', customer_id: null,
-      status: 'created', totals: { lines: [{ name: 'Coffee', quantity: 1, unit_price_cents: 10_000 }] },
+      status: 'created', tender_type: 'square_card',
+      totals: { lines: [{ name: 'Coffee', quantity: 1, unit_price_cents: 10_000 }] },
       subtotal_cents: 10_000, tip_cents: 500, total_cents: 11_000, stored_value_applied_cents: 1_000,
-      square_payment_id: null as string | null },
+      square_order_id: null as string | null, square_payment_id: null as string | null },
     missingOrder: false, loadError: false, monthGross: 90_000, failFee: false, failLink: false, failEvent: false,
     providerStatus: 200, paymentStatus: 'COMPLETED', feeCents: 300, releasedQuotes: 0,
     receipts: [] as Record<string, unknown>[], events: [] as Record<string, unknown>[],
@@ -25,22 +26,38 @@ function fixture(t: TestContext) {
       const url = new URL(String(request));
       const table = url.pathname.split('/').at(-1);
       const body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : {};
-      if (table === 'orders' && init?.method === 'PATCH') {
-        if (state.failLink) return response({ code: '08006', message: 'link unavailable' }, 503);
-        Object.assign(state.order, body);
-        return response(null);
-      }
       if (table === 'orders') {
         if (state.loadError) return response({ code: '08006', message: 'load unavailable' }, 503);
         return response(state.missingOrder ? null : state.order);
       }
       if (table === 'claim_platform_fee_quote') {
         assert.equal(body.p_order_id, state.order.id);
-        return response({ quoted_fee_cents: 300, quoted_fee_bps_applied: 300 });
+        return response({
+          quoted_fee_cents: 300,
+          quoted_fee_bps_applied: 300,
+          quote_claim_generation: 'claim-a',
+          quote_claim_created: true,
+        });
       }
       if (table === 'release_platform_fee_quote') {
         assert.equal(body.p_order_id, state.order.id);
+        assert.equal(body.p_claim_generation, 'claim-a');
         state.releasedQuotes += 1;
+        return response(true);
+      }
+      if (table === 'bind_square_payment') {
+        assert.equal(body.p_order_id, state.order.id);
+        assert.equal(body.p_claim_generation, 'claim-a');
+        if (state.failLink) return response({ code: '08006', message: 'link unavailable' }, 503);
+        Object.assign(state.order, {
+          square_order_id: body.p_square_order_id,
+          square_payment_id: body.p_square_payment_id,
+        });
+        return response(true);
+      }
+      if (table === 'bind_square_payment_attempt') {
+        assert.equal(body.p_claim_generation, 'claim-a');
+        state.order.square_order_id = String(body.p_square_order_id);
         return response(true);
       }
       if (table === 'platform_fees' && init?.method === 'POST') {
@@ -122,8 +139,7 @@ test('capture surfaces a post-charge linkage failure without publishing success'
   const f = fixture(t);
   f.state.failLink = true;
   await assert.rejects(f.capture(), /could not be recorded/);
-  assert.equal(f.state.receipts.length, 0);
-  assert.equal(f.state.events.length, 0);
+  assert.deepEqual([f.state.receipts.length, f.state.events.length], [0, 0]);
 });
 
 test('capture repairs an event failure without duplicating the receipt or charge', async (t) => {
@@ -168,8 +184,7 @@ test('non-completed provider receipts never mark an order paid', async (t) => {
   const f = fixture(t);
   f.state.paymentStatus = 'APPROVED';
   await assert.rejects(f.capture(), /invalid settlement receipt/);
-  assert.equal(f.state.receipts.length, 0);
-  assert.equal(f.state.events.length, 0);
+  assert.deepEqual([f.state.receipts.length, f.state.events.length], [0, 0]);
 });
 
 test('invalid orders and read failures stop before any provider charge', async (t) => {
@@ -182,6 +197,5 @@ test('invalid orders and read failures stop before any provider charge', async (
   f.state.loadError = false;
   f.state.order.status = 'cancelled';
   await assert.rejects(f.capture(), /only a created order/);
-  assert.equal(f.state.calls.length, 0);
-  assert.equal(f.state.events.length, 0);
+  assert.deepEqual([f.state.calls.length, f.state.events.length], [0, 0]);
 });

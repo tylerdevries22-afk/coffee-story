@@ -83,8 +83,14 @@ export async function appFeeForCharge(
     chargeCents: number;
     feeConfig: FeeConfig;
     locationTimezone: string;
+    requireExisting?: boolean;
   },
-): Promise<{ feeCents: number; feeBpsApplied: number }> {
+): Promise<{
+  feeCents: number;
+  feeBpsApplied: number;
+  claimGeneration: string;
+  claimCreated: boolean;
+}> {
   const { startIso, endIso } = feeMonthRange(new Date(), input.locationTimezone);
   const { data, error } = await db.rpc('claim_platform_fee_quote', {
     p_order_id: input.orderId,
@@ -95,16 +101,87 @@ export async function appFeeForCharge(
     p_tier_threshold_cents: input.feeConfig.tierThresholdCents,
     p_month_start: startIso,
     p_month_end: endIso,
-  }).single<{ quoted_fee_cents: number; quoted_fee_bps_applied: number }>();
+    p_require_existing: input.requireExisting ?? false,
+  }).single<{
+    quoted_fee_cents: number;
+    quoted_fee_bps_applied: number;
+    quote_claim_generation: string;
+    quote_claim_created: boolean;
+  }>();
   if (error) throw error;
+  if (typeof data.quote_claim_generation !== 'string') {
+    throw new Error('Platform fee quote returned no claim generation.');
+  }
   return {
     feeCents: Number(data.quoted_fee_cents),
     feeBpsApplied: data.quoted_fee_bps_applied,
+    claimGeneration: data.quote_claim_generation,
+    claimCreated: data.quote_claim_created === true,
   };
 }
 
 /** Release a quote after the provider definitively rejects the payment. */
-export async function releasePlatformFeeQuote(db: SupabaseClient, orderId: string): Promise<void> {
-  const { error } = await db.rpc('release_platform_fee_quote', { p_order_id: orderId });
+export async function releasePlatformFeeQuote(
+  db: SupabaseClient,
+  orderId: string,
+  claimGeneration: string,
+): Promise<void> {
+  const { error } = await db.rpc('release_platform_fee_quote', {
+    p_order_id: orderId,
+    p_claim_generation: claimGeneration,
+  });
   if (error) throw error;
+}
+
+export async function bindSquareCheckoutLink(
+  db: SupabaseClient,
+  input: {
+    orderId: string;
+    claimGeneration: string;
+    checkoutUrl: string;
+    paymentLinkId: string;
+    squareOrderId: string | null;
+  },
+): Promise<void> {
+  const { data, error } = await db.rpc('bind_square_checkout_link', {
+    p_order_id: input.orderId,
+    p_claim_generation: input.claimGeneration,
+    p_checkout_url: input.checkoutUrl,
+    p_payment_link_id: input.paymentLinkId,
+    p_square_order_id: input.squareOrderId,
+  });
+  if (error) throw error;
+  if (data !== true) throw new Error('The Square checkout quote changed before the link was saved.');
+}
+
+export async function bindSquarePayment(
+  db: SupabaseClient,
+  input: {
+    orderId: string;
+    claimGeneration: string;
+    squareOrderId: string;
+    squarePaymentId: string;
+  },
+): Promise<void> {
+  const { data, error } = await db.rpc('bind_square_payment', {
+    p_order_id: input.orderId,
+    p_claim_generation: input.claimGeneration,
+    p_square_order_id: input.squareOrderId,
+    p_square_payment_id: input.squarePaymentId,
+  });
+  if (error) throw error;
+  if (data !== true) throw new Error('The Square fee quote changed before the payment was saved.');
+}
+
+export async function bindSquarePaymentAttempt(
+  db: SupabaseClient,
+  input: { orderId: string; claimGeneration: string; squareOrderId: string },
+): Promise<void> {
+  const { data, error } = await db.rpc('bind_square_payment_attempt', {
+    p_order_id: input.orderId,
+    p_claim_generation: input.claimGeneration,
+    p_square_order_id: input.squareOrderId,
+  });
+  if (error) throw error;
+  if (data !== true) throw new Error('The Square fee quote changed before the payment attempt was saved.');
 }

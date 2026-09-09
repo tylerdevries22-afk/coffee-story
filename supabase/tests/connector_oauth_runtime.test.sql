@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = extensions, public, pg_catalog;
-select plan(24);
+select plan(28);
 
 select has_function('public', 'begin_connector_oauth_state',
   array['uuid','text','uuid','text','text','text[]','text','timestamptz'],
@@ -78,12 +78,42 @@ select lives_ok($test$select public.begin_connector_oauth_state(
   now() + interval '10 minutes')$test$, 'a new grant safely supersedes the prior state');
 select is((select count(*) from app_private.connector_oauth_states where consumed_at is not null),
   1::bigint, 'the prior state is invalidated');
+select is((select count(*) from app_private.connector_oauth_states where superseded_at is not null),
+  1::bigint, 'the prior state is distinguished from a callback-consumed state');
+select throws_ok($test$select public.complete_connector_oauth_connection(
+  '61616161-6161-4616-8616-616161616161',
+  (select id from public.connector_installations where brand_id = '61616161-6161-4616-8616-616161616161'),
+  'oauth-runtime-test', '51515151-5151-4515-8515-515151515151',
+  '{"access_token":"test-access-token","refresh_token":"test-refresh-token"}',
+  'Test Account', array['profile.read'], now() + interval '1 hour')$test$,
+  '22023', 'connector_oauth_state_incomplete',
+  'a superseded consumed state cannot authorize the current grant');
 select is((select count(*) from public.consume_connector_oauth_state(
   'oauth-runtime-test', '51515151-5151-4515-8515-515151515151', repeat('b', 64))),
   1::bigint, 'the current state is consumed once');
 select is((select count(*) from public.consume_connector_oauth_state(
   'oauth-runtime-test', '51515151-5151-4515-8515-515151515151', repeat('b', 64))),
   0::bigint, 'a replay cannot consume the state again');
+update public.connector_registry set availability = 'disabled'
+where provider_key = 'oauth-runtime-test';
+select throws_ok($test$select public.complete_connector_oauth_connection(
+  '61616161-6161-4616-8616-616161616161',
+  (select id from public.connector_installations where brand_id = '61616161-6161-4616-8616-616161616161'),
+  'oauth-runtime-test', '51515151-5151-4515-8515-515151515151',
+  '{"access_token":"test-access-token","refresh_token":"test-refresh-token"}',
+  'Test Account', array['profile.read'], now() + interval '1 hour')$test$,
+  '22023', 'connector_provider_unavailable',
+  'completion honors a provider disabled after authorization began');
+update public.connector_registry set availability = 'available'
+where provider_key = 'oauth-runtime-test';
+select throws_ok($test$select public.complete_connector_oauth_connection(
+  '61616161-6161-4616-8616-616161616161',
+  (select id from public.connector_installations where brand_id = '61616161-6161-4616-8616-616161616161'),
+  'oauth-runtime-test', '51515151-5151-4515-8515-515151515151',
+  '{"access_token":"test-access-token","refresh_token":"test-refresh-token"}',
+  'Test Account', '{}', now() + interval '1 hour')$test$,
+  '22023', 'connector_oauth_scope_grant_incomplete',
+  'a partial grant cannot be reported as healthy');
 select lives_ok($test$select public.complete_connector_oauth_connection(
   '61616161-6161-4616-8616-616161616161',
   (select id from public.connector_installations where brand_id = '61616161-6161-4616-8616-616161616161'),

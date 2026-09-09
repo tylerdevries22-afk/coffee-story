@@ -25,7 +25,7 @@ export async function placeLiveOrderCore(
   } = state;
   const {
     submittedFulfillment, submittedWindowValue, submittedCart,
-    submittedTipCents, submittedSignature, summary,
+    submittedTipCents, submittedTotals, submittedSignature, submittedGuestLabel, summary,
   } = submitted;
   try {
     if (!dependencies.configured) {
@@ -51,8 +51,10 @@ export async function placeLiveOrderCore(
         } : {}),
       })),
       tipCents: submittedTipCents,
+      maximumTotalCents: submittedTotals.totalCents,
       note: submittedCart.note,
       tenderType: 'pay_at_pickup',
+      guestLabel: submittedGuestLabel,
     }, checkoutKey.current);
     checkoutKey.current = null;
     setPlaced({

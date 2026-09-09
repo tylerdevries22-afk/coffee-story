@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { createReadStream, statSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
-import { assertImmutableCheckout } from './checkout';
+import { assertCleanCheckout, assertImmutableCheckout } from './checkout';
 import type { MalwareScanner } from './malware';
 import { validateReleaseEnvelope } from './release-envelope';
 import { payloadDigest, scanTenantPackage } from './scanner';
@@ -32,6 +32,7 @@ export async function buildTenantPackage(input: {
   if (!input.malwareScanner) {
     throw new TenantPackageError('malware_scanner_required', 'A malware scanner is required.');
   }
+  assertCleanCheckout(input);
   input.malwareScanner(input.tenantRoot);
   const scannedFiles = scanTenantPackage(input.tenantRoot);
   const files = await generateRasterPreviews(

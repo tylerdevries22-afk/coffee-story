@@ -37,7 +37,7 @@ function centralHeader(entry: CentralEntry): Buffer {
   output.writeUInt32LE(entry.file.byteSize, 20);
   output.writeUInt32LE(entry.file.byteSize, 24);
   output.writeUInt16LE(entry.name.length, 28);
-  output.writeUInt32LE(0o100644 << 16, 38);
+  output.writeUInt32LE((0o100644 << 16) >>> 0, 38);
   output.writeUInt32LE(entry.offset, 42);
   return output;
 }

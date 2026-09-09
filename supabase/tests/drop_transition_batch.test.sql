@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = extensions, public, pg_catalog;
-select plan(9);
+select plan(13);
 
 select ok(not has_function_privilege(
   'anon', 'public.advance_due_drop_batch(timestamptz,integer)', 'EXECUTE'
@@ -55,6 +55,30 @@ insert into public.drops (
    null, '2029-12-30', '2029-12-31', 'cancelled');
 
 set local role service_role;
+select throws_ok(
+  $$select * from public.advance_due_drop_batch(null, 200)$$,
+  'P0001',
+  'invalid drop transition batch inputs',
+  'the batch rejects a null transition timestamp'
+);
+select throws_ok(
+  $$select * from public.advance_due_drop_batch('2030-01-01', null)$$,
+  'P0001',
+  'invalid drop transition batch inputs',
+  'the batch rejects a null limit'
+);
+select throws_ok(
+  $$select * from public.advance_due_drop_batch('2030-01-01', 0)$$,
+  'P0001',
+  'invalid drop transition batch inputs',
+  'the batch rejects a zero limit'
+);
+select throws_ok(
+  $$select * from public.advance_due_drop_batch('2030-01-01', 201)$$,
+  'P0001',
+  'invalid drop transition batch inputs',
+  'the batch rejects limits above the hard maximum'
+);
 select results_eq($test$
   select id, from_status, to_status
   from public.advance_due_drop_batch('2030-01-01', 200)

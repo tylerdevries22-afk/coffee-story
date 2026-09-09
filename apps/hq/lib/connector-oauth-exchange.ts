@@ -71,6 +71,29 @@ function exchangeParams(
   return params;
 }
 
+async function readTokenBody(response: Response): Promise<string> {
+  const declared = Number(response.headers.get('content-length'));
+  if (Number.isFinite(declared) && declared > MAX_TOKEN_PAYLOAD) {
+    try { await response.body?.cancel(); } catch { /* preserve the size failure */ }
+    throw new ConnectorExchangeError('payload', response.status, 'the token payload was oversized');
+  }
+  if (!response.body) return '';
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let text = '';
+  let bytes = 0;
+  while (true) {
+    const result = await reader.read();
+    if (result.done) return text + decoder.decode();
+    bytes += result.value.byteLength;
+    if (bytes > MAX_TOKEN_PAYLOAD) {
+      try { await reader.cancel(); } catch { /* preserve the size failure */ }
+      throw new ConnectorExchangeError('payload', response.status, 'the token payload was oversized');
+    }
+    text += decoder.decode(result.value, { stream: true });
+  }
+}
+
 /**
  * Sends the token request exactly once.
  *
@@ -83,25 +106,41 @@ async function requestToken(
   key: OAuthConnectorKey,
   config: ProviderConfig,
   params: URLSearchParams,
-): Promise<Response> {
+  timeoutMs: number,
+): Promise<{ readonly ok: boolean; readonly status: number; readonly payload: unknown }> {
   const headers: Record<string, string> = { Accept: 'application/json' };
   if (config.useBasic) headers.Authorization = basicHeader(key, config);
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), EXCHANGE_TIMEOUT_MS);
+  const deadline = Number.isFinite(timeoutMs)
+    ? Math.min(EXCHANGE_TIMEOUT_MS, Math.max(1, Math.trunc(timeoutMs)))
+    : EXCHANGE_TIMEOUT_MS;
+  const timeout = setTimeout(() => controller.abort(), deadline);
   try {
+    let response: Response;
     if (config.tokenMethod === 'GET') {
       const url = new URL(config.tokenUrl);
       for (const [name, entry] of params) url.searchParams.set(name, entry);
-      return await fetch(url.toString(), { headers, signal: controller.signal });
+      response = await fetch(url.toString(), { headers, signal: controller.signal });
+    } else {
+      response = await fetch(config.tokenUrl, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: params,
+        signal: controller.signal,
+      });
     }
-    return await fetch(config.tokenUrl, {
-      method: 'POST',
-      headers: { ...headers, 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: params,
-      signal: controller.signal,
-    });
+    const text = await readTokenBody(response);
+    let payload: unknown;
+    try {
+      payload = JSON.parse(text) as unknown;
+    } catch {
+      throw new ConnectorExchangeError('payload', response.status, 'the response was not JSON');
+    }
+    return { ok: response.ok, status: response.status, payload };
   } catch (error) {
-    const timedOut = error instanceof Error && error.name === 'AbortError';
+    if (error instanceof ConnectorExchangeError) throw error;
+    const timedOut = controller.signal.aborted
+      || (error instanceof Error && error.name === 'AbortError');
     throw new ConnectorExchangeError(
       'transport', null, timedOut ? 'the provider did not answer in time' : 'the request failed',
     );
@@ -125,27 +164,19 @@ export async function exchangeConnectorCode(
   code: string,
   verifier: string,
   callbackUrl: string,
+  timeoutMs = EXCHANGE_TIMEOUT_MS,
 ): Promise<ConnectorToken> {
   const config = connectorProviderConfig(key);
   if (!config) throw new ConnectorExchangeError('unconfigured', null, 'no client credentials');
   const response = await requestToken(
-    key, config, exchangeParams(config, code, verifier, callbackUrl),
+    key, config, exchangeParams(config, code, verifier, callbackUrl), timeoutMs,
   );
-  // A throttled or blocked provider answers with HTML, so parse before trusting
-  // the body and never let a SyntaxError escape this function's contract.
-  let payload: unknown;
-  try {
-    payload = await response.json();
-  } catch {
-    throw new ConnectorExchangeError('payload', response.status, 'the response was not JSON');
-  }
   if (!response.ok) {
     throw new ConnectorExchangeError(
-      'provider', response.status,
-      stringAt(payload, 'error_description') ?? stringAt(payload, 'error') ?? 'the provider rejected it',
+      'provider', response.status, 'the provider rejected the exchange',
     );
   }
-  const token = tokenBody(key, payload);
+  const token = tokenBody(key, response.payload);
   const accessToken = stringAt(token, 'access_token');
   const encoded = token && typeof token === 'object' ? JSON.stringify(token) : '';
   if (!accessToken) throw new ConnectorExchangeError('payload', response.status, 'no access token');

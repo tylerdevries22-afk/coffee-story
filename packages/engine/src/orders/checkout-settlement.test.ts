@@ -45,23 +45,27 @@ it('records the exact checkout fees when payments settle out of order across a t
       let data: unknown;
       if (table === 'orders') {
         const id = url.searchParams.get('id')?.replace('eq.', '');
-        data = init?.method === 'PATCH' ? null : {
+        data = {
           id, brand_id: 'brand-a', location_id: 'location-a', status: 'created',
           tender_type: 'square_link', tax_cents: 0, tip_cents: 0,
           total_cents: 10_000, stored_value_applied_cents: 0, square_checkout_url: null,
           totals: { lines: [{ name: 'Coffee box', quantity: 1, unit_price_cents: 10_000 }] },
         };
-        if (init?.method === 'PATCH') {
-          const update = JSON.parse(String(init.body)) as Record<string, unknown>;
-          assert.equal('totals' in update, false);
-          assert.equal(update.square_payment_link_id, `link-${id}`);
-        }
       } else if (table === 'claim_platform_fee_quote') {
         const input = JSON.parse(String(init?.body)) as { p_order_id: string; p_charge_cents: number };
         const feeCents = reservedGross >= 100_000 ? 150 : 300;
         reservedGross += input.p_charge_cents;
         quoteCalls += 1;
-        data = { quoted_fee_cents: feeCents, quoted_fee_bps_applied: feeCents };
+        data = {
+          quoted_fee_cents: feeCents,
+          quoted_fee_bps_applied: feeCents,
+          quote_claim_generation: `claim-${input.p_order_id}`,
+        };
+      } else if (table === 'bind_square_checkout_link') {
+        const input = JSON.parse(String(init?.body)) as Record<string, unknown>;
+        assert.equal(input.p_payment_link_id, `link-${input.p_order_id}`);
+        assert.equal(input.p_claim_generation, `claim-${input.p_order_id}`);
+        data = true;
       } else if (table === 'locations') {
         assert.equal(url.searchParams.get('brand_id'), 'eq.brand-a');
         data = { id: 'location-a', timezone: 'America/Denver' };
@@ -119,11 +123,17 @@ it('releases a checkout quote when Square definitively rejects the link', async 
         totals: { lines: [{ name: 'Coffee', quantity: 1, unit_price_cents: 1_000 }] },
       });
       if (table === 'claim_platform_fee_quote') {
-        return response({ quoted_fee_cents: 30, quoted_fee_bps_applied: 300 });
+        return response({
+          quoted_fee_cents: 30,
+          quoted_fee_bps_applied: 300,
+          quote_claim_generation: 'claim-a',
+        });
       }
       if (table === 'release_platform_fee_quote') {
         releases += 1;
-        assert.deepEqual(JSON.parse(String(init?.body)), { p_order_id: 'order-a' });
+        assert.deepEqual(JSON.parse(String(init?.body)), {
+          p_order_id: 'order-a', p_claim_generation: 'claim-a',
+        });
         return response(true);
       }
       throw new Error(`Unexpected table: ${table}`);

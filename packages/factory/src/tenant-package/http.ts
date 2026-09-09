@@ -23,13 +23,17 @@ export async function requestWithRetry(
   url: string | URL,
   init: RequestInit,
   accepted: readonly number[] = [200],
+  timeoutMs = TIMEOUT_MS,
 ): Promise<Response> {
   let lastStatus = 0;
   for (let attempt = 0; attempt < ATTEMPTS; attempt += 1) {
     try {
-      const response = await fetch(url, { ...init, signal: AbortSignal.timeout(TIMEOUT_MS) });
+      const timeout = AbortSignal.timeout(timeoutMs);
+      const signal = init.signal ? AbortSignal.any([init.signal, timeout]) : timeout;
+      const response = await fetch(url, { ...init, signal });
       if (accepted.includes(response.status)) return response;
       lastStatus = response.status;
+      await response.body?.cancel().catch(() => undefined);
       if (response.status < 500 && response.status !== 408 && response.status !== 429) break;
     } catch {
       // Network and timeout failures follow the same bounded retry path.

@@ -2,15 +2,19 @@ import { mcpCookieBindingMatches, mcpSha256 } from 'franchise-mcp-store-ui/oauth
 import { NextResponse } from 'next/server';
 
 import { AppNetworkError } from '@platform/api-client';
+import { ExternalRequestError } from '@platform/engine';
 
 import {
   ConnectorExchangeError,
   ConnectorIdentityError,
   connectorCallbackUrl,
   exchangeConnectorCode,
+  hasCompleteConnectorGrant,
   isOAuthConnectorKey,
   resolveGrantedScopes,
+  revokeConnectorToken,
   verifyConnectorIdentity,
+  type ConnectorToken,
   type OAuthConnectorKey,
 } from '@/lib/connector-oauth-providers';
 import {
@@ -19,6 +23,10 @@ import {
   parseConnectorCookie,
   verifyConnectorState,
 } from '@/lib/connector-oauth-route';
+import {
+  completeConnectorOAuth,
+  ConnectorCompletionError,
+} from '@/lib/connector-oauth-completion';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -47,10 +55,13 @@ function reportFailure(provider: OAuthConnectorKey, error: unknown): 'connection
   const stage = error instanceof ConnectorExchangeError ? error.stage
     : error instanceof ConnectorScopeError ? 'scope'
     : error instanceof ConnectorIdentityError ? 'identity'
-    // fetchWithRetry raises this for a timeout or network failure on the identity
+    : error instanceof ConnectorCompletionError
+      ? error.cleanupSucceeded ? 'storage' : 'cleanup'
+    // Bounded provider transport raises this for identity timeouts and failures.
     // call, which is a provider problem rather than a storage one. The permissions
     // call catches its own failures and surfaces as `scope`, above.
-    : error instanceof AppNetworkError ? 'transport' : 'storage';
+    : error instanceof AppNetworkError || error instanceof ExternalRequestError
+      ? 'transport' : 'storage';
   const status = error instanceof ConnectorExchangeError && error.status !== null
     ? ` status=${error.status}` : '';
   console.error(`connector.oauth.callback provider=${provider} stage=${stage}${status}`);
@@ -105,25 +116,34 @@ export async function GET(
   }
   const callbackUrl = connectorCallbackUrl(provider, url.origin);
   if (!callbackUrl || callbackUrl !== record.redirect_uri) return finish(request, provider, 'invalid_state');
+  let exchangedToken: ConnectorToken | null = null;
   try {
     const token = await exchangeConnectorCode(provider, code, cookie.verifier, callbackUrl);
+    exchangedToken = token;
     const grantedScopes = await resolveGrantedScopes(provider, token);
-    if (grantedScopes === null) throw new ConnectorScopeError();
+    if (grantedScopes === null || !hasCompleteConnectorGrant(provider, grantedScopes)) {
+      throw new ConnectorScopeError();
+    }
     const identity = await verifyConnectorIdentity(provider, token, url.searchParams.get('realmId'));
     const credential = { ...token, external_account_id: identity.accountId, acquired_at: new Date().toISOString() };
-    const completed = await context.db.rpc('complete_connector_oauth_connection', {
-      p_brand_id: record.brand_id,
-      p_installation_id: record.installation_id,
-      p_provider_key: provider,
-      p_actor_user_id: context.userId,
-      p_credential: credential,
-      p_account_label: identity.accountLabel,
-      p_granted_scopes: grantedScopes,
-      p_expires_at: expiryOf(token),
+    await completeConnectorOAuth(context.db, {
+      brandId: record.brand_id,
+      installationId: record.installation_id,
+      provider,
+      actorUserId: context.userId,
+      credential,
+      accountId: identity.accountId,
+      accountLabel: identity.accountLabel,
+      grantedScopes,
+      expiresAt: expiryOf(token),
     });
-    if (completed.error) throw new Error('Connector storage failed.');
     return finish(request, provider, 'connected');
   } catch (error) {
-    return finish(request, provider, reportFailure(provider, error));
+    let reported = error;
+    if (exchangedToken && !(error instanceof ConnectorCompletionError)) {
+      const cleaned = await revokeConnectorToken(provider, exchangedToken);
+      if (!cleaned) reported = new ConnectorCompletionError(false);
+    }
+    return finish(request, provider, reportFailure(provider, reported));
   }
 }
