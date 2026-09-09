@@ -1,5 +1,4 @@
 import type { Session } from '@supabase/supabase-js';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type PropsWithChildren } from 'react';
 
@@ -8,18 +7,16 @@ import type { TenantClaims } from '@platform/schema';
 import {
   createRequestSequence,
   recoveryCodeFromUrl,
-  recoveryRedirectUrl,
   type PortalBundle,
 } from '@platform/domain';
 import { resolveBusiness, setCurrentBusiness } from '@/data/business';
 import { SELECTED_DEMO_TENANT } from '@/data/demo-tenant';
-import { wipePrintOutboxes } from '@/features/operator/print-outbox-storage';
-import { printSecureStorage } from '@/features/operator/print-secure-store';
 import { DEMO_OPERATIONS_ENABLED } from '@/features/operations/demo';
 import { loadStaffContext, type StaffLocation } from '@/lib/live-portal';
 import { hasSupabaseConfig, supabase } from '@/lib/supabase';
 import { EMPTY_PORTAL, type AuthState } from '@/state/auth-state';
 import { useDemo } from '@/state/demo-context';
+import { useAuthActions } from './auth-actions';
 
 const AuthContext = createContext<AuthState | null>(null);
 
@@ -151,41 +148,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return () => subscription.remove();
   }, []);
 
-  const signIn = useCallback(async (email: string, password: string) => {
-    if (!supabase) throw new Error('Supabase is not configured.');
-    setError(null);
-    setIsLoading(true);
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-    if (signInError) {
-      setIsLoading(false);
-      throw new Error(signInError.message);
-    }
-  }, []);
+  const { requestPasswordReset, signIn, signOut, updatePassword } = useAuthActions({
+    setError, setIsLoading, setIsPasswordRecovery,
+  });
 
-  const requestPasswordReset = useCallback(async (email: string) => {
-    if (!supabase) throw new Error('Supabase is not configured.');
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: recoveryRedirectUrl(Linking.createURL),
-    });
-    if (resetError) throw new Error(resetError.message);
-  }, []);
-
-  const signOut = useCallback(async () => {
-    if (!supabase) throw new Error('Supabase is not configured.');
-    // Queued tickets carry the guest's name and their whole order, and this is
-    // a shared tablet. They go before the session does, so a sign-out that
-    // fails on the network still leaves nothing behind for the next person.
-    await wipePrintOutboxes(AsyncStorage, printSecureStorage);
-    const { error: signOutError } = await supabase.auth.signOut();
-    if (signOutError) throw new Error(signOutError.message);
-  }, []);
-
-  const updatePassword = useCallback(async (password: string) => {
-    if (!supabase) throw new Error('Supabase is not configured.');
-    const { error: updateError } = await supabase.auth.updateUser({ password });
-    if (updateError) throw new Error(updateError.message);
-    setIsPasswordRecovery(false);
-  }, []);
 
   const value = useMemo<AuthState>(() => ({
     session,
@@ -195,12 +161,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
     tenant: isDemo ? null : tenant,
     liveLocations: isDemo ? [] : liveLocations,
     brandName: isDemo ? demoTenant?.brandName ?? null : brandName,
-    // Demo DEFAULTS the capability; it does not replace the check. `isDemo ||
-    // operationsEnabled` read as "demo, or else ask", which is the same
-    // sentence a fail-open gate is written in: any future path that set
-    // isDemo without meaning "fixtures only" would have granted operations
-    // outright. `operationsEnabled` itself initialises false and is reset to
-    // false on every load failure, so the live branch stays fail-closed.
     operationsEnabled: isDemo ? DEMO_OPERATIONS_ENABLED : operationsEnabled,
     brandUserId: isDemo ? 'demo-member' : brandUserId,
     brandConfig: isDemo ? demoTenant?.brandConfig ?? null : brandConfig,
@@ -218,9 +178,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
     refresh: () => loadPortal(session),
   }), [brandConfig, brandName, brandUserId, demo.isHydrating, demo.portal, demoTenant, error, isDemo, isLoading, isPasswordRecovery, livePortal, liveLocations, loadPortal, operationsEnabled, requestPasswordReset, session, signIn, signOut, tenant, updatePassword]);
 
-  // Publish the resolved shop for the plain helpers that cannot hold a hook
-  // (openWebPath is called from module-level functions). Components read
-  // useBusiness() instead and re-render when this changes.
   useEffect(() => {
     setCurrentBusiness(resolveBusiness({
       isDemo,
