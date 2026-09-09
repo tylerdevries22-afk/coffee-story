@@ -3,8 +3,7 @@ import { isAbsolute, relative, sep } from 'node:path';
 import { isSafeTenantPackageRelativePath } from './object-path';
 import { TenantPackageError } from './types';
 
-export function portablePath(root: string, path: string): string {
-  const name = relative(root, path).split(sep).join('/').normalize('NFC');
+function validatedPortablePath(name: string): string {
   if (Buffer.byteLength(name, 'utf8') > 1024) {
     throw new TenantPackageError('path_too_long', 'Tenant package path exceeds 1,024 bytes.');
   }
@@ -14,6 +13,10 @@ export function portablePath(root: string, path: string): string {
   return name;
 }
 
+export function portablePath(root: string, path: string): string {
+  return validatedPortablePath(relative(root, path).split(sep).join('/').normalize('NFC'));
+}
+
 export function collisionKey(relativePath: string): string {
-  return relativePath.normalize('NFKC').toLocaleLowerCase('en-US');
+  return validatedPortablePath(relativePath.normalize('NFKC').toLocaleLowerCase('en-US'));
 }
