@@ -1,6 +1,5 @@
 {
   "$comment": "Files already over the 200-line rule when the guard was added, with the length each had. The guard's only job is to stop the list growing: a new file over 200 lines fails, and a file here that grows fails. Splitting any of these is optional and always allowed -- shrink past 200 and delete the entry. Per the roadmap decision, files are split when a phase touches them, not on a schedule, so this is a debt ledger and not a work queue.",
-  "limit": 200,
   "grandfathered": {
     "apps/customer/src/screens/client/more/profile-and-preferences.tsx": 312,
     "apps/customer/src/screens/client/order/bag-step.tsx": 326,
@@ -31,5 +30,6 @@
     "packages/ui/src/components.tsx": 302,
     "packages/ui/src/menu-image.ts": 222,
     "packages/ui/src/product-cutout.ts": 352
-  }
+  },
+  "limit": 200
 }
