@@ -16,8 +16,9 @@ test('CollapsingScreen pins the shared header and tracks scroll position', () =>
 });
 
 test('shared headers support edge-to-edge pages and screen-centered compact titles', () => {
-  const header = source('components', 'collapsing-page-header.tsx');
-  const gifts = source('components', 'gift', 'gift-shelves.tsx');
+  const header = source('components', 'collapsing-page-header.tsx')
+    + source('components', 'collapsing-page-header.styles.ts');
+  const gifts = source('components', 'gift', 'gift-gallery.tsx');
   assert.match(header, /flush && styles\.containerFlush/);
   assert.match(header, /minimumFontScale=\{0\.72\}\s+numberOfLines=\{2\}/);
   assert.match(header, /left: 0/);
@@ -42,7 +43,13 @@ test('navigable client pages use the sticky header contract', () => {
     ['screens', 'notifications-screen.tsx'],
   ];
   for (const file of files) {
-    assert.match(source(...file), /<CollapsingScreen/, `${file.join('/')} bypasses CollapsingScreen`);
+    const fileSource = source(...file);
+    const routeSource = file.at(-1) === 'gift-screen.tsx'
+      ? fileSource + source('screens', 'client', 'gift-purchase.tsx')
+        + source('screens', 'client', 'gift-recipient.tsx')
+        + source('screens', 'client', 'gift-wallet.tsx')
+      : fileSource;
+    assert.match(routeSource, /<CollapsingScreen/, `${file.join('/')} bypasses CollapsingScreen`);
   }
 });
 
