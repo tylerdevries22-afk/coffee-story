@@ -83,11 +83,6 @@
     "packages/ui/src/components.tsx": 302,
     "packages/ui/src/menu-image.ts": 222,
     "packages/ui/src/product-cutout.ts": 352,
-    "scripts/capture-surfaces.mjs": 370,
-    "scripts/hosted-migrations.ts": 407,
-    "scripts/mutate.ts": 278,
-    "scripts/normalize-menu-images.ts": 250,
-    "scripts/normalize-product-cutouts.ts": 495,
     "tests/integration/src/stack.ts": 302
   }
 }
