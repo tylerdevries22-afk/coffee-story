@@ -28,12 +28,6 @@
     "apps/customer/src/state/auth-context.tsx": 306,
     "apps/customer/src/state/demo-context.tsx": 219,
     "apps/customer/src/state/demo-state.ts": 318,
-    "apps/display/app/board/[location]/board-view.tsx": 289,
-    "apps/kiosk/src/app/(flow)/checkout/processing.tsx": 289,
-    "apps/kiosk/src/components/cart-drawer.tsx": 308,
-    "apps/kiosk/src/data/menu-store.tsx": 260,
-    "apps/kiosk/src/features/step-flow.ts": 262,
-    "apps/kiosk/src/state/device.tsx": 269,
     "apps/operator/src/app/_layout.tsx": 269,
     "apps/operator/src/components/bottom-nav.tsx": 213,
     "apps/operator/src/components/collapsing-page-header.tsx": 216,
@@ -71,7 +65,6 @@
     "packages/schema/src/types.ts": 522,
     "packages/ui/src/components.tsx": 302,
     "packages/ui/src/menu-image.ts": 222,
-    "packages/ui/src/product-cutout.ts": 352,
-    "tests/integration/src/stack.ts": 302
+    "packages/ui/src/product-cutout.ts": 352
   }
 }
