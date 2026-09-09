@@ -7,6 +7,7 @@ export function createSquarePayment(
   input: {
     sourceId: string;             // card nonce / payment token from the app
     squareOrderId: string;
+    squareLocationId: string;
     referenceId: string;
     amountCents: number;
     tipCents: number;
@@ -20,10 +21,25 @@ export function createSquarePayment(
       idempotency_key: `pay-${input.referenceId}`,
       source_id: input.sourceId,
       order_id: input.squareOrderId,
+      location_id: input.squareLocationId,
       amount_money: { amount: input.amountCents, currency: PLATFORM_CURRENCY },
       ...(input.tipCents > 0 ? { tip_money: { amount: input.tipCents, currency: PLATFORM_CURRENCY } } : {}),
       app_fee_money: { amount: input.appFeeCents, currency: PLATFORM_CURRENCY },
     },
+  });
+}
+
+/** Fence an unknown CreatePayment outcome under its original provider key. */
+export async function cancelSquarePaymentByIdempotencyKey(
+  config: SquareConfig,
+  token: string,
+  referenceId: string,
+): Promise<void> {
+  if (!referenceId.trim()) throw new RangeError('Square payment reference is required.');
+  await call(config, '/v2/payments/cancel', {
+    method: 'POST',
+    token,
+    body: { idempotency_key: `pay-${referenceId}` },
   });
 }
 

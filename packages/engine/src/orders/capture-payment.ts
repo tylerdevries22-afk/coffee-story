@@ -2,18 +2,23 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { FeeConfig } from '../fees';
 import {
-  createSquareOrder, createSquarePayment, getSquarePayment, type SquareConfig,
+  createSquareOrder, createSquarePayment, type SquareConfig,
 } from '../square/client';
-
-import { settledPaymentFee } from '../square/payment-receipt';
+import { settledPaymentFee, squareUsdCents } from '../square/payment-receipt';
 
 import type { SnapshotLine } from './internal';
 import {
-  appFeeForCharge, bindSquarePayment, bindSquarePaymentAttempt,
-  insertPlatformFeeOnce, releasePlatformFeeQuote,
+  bindSquarePaymentAttempt, finalizeSquareCardPayment, releasePlatformFeeQuote,
+} from './platform-fee-bindings';
+import {
+  recoverBoundSquarePayment, recoverPreboundSquareOrder, type BoundPaymentOrder,
+} from './capture-payment-recovery';
+import {
+  appFeeForCharge,
 } from './platform-fees';
-import { isDefinitiveSquareRejection } from './provider-error';
-import { buildSquareLines } from './square-lines';
+import { isDefinitiveSquareRejection, safeSquarePaymentError } from './provider-error';
+import { squareCardFundingAmounts } from './square-card-funding';
+import { buildSquareBalanceLine } from './square-lines';
 import { OrderError } from './types';
 
 export type CapturePaymentDeps = {
@@ -37,7 +42,7 @@ export async function captureSquarePayment(
 ): Promise<{ orderId: string; squarePaymentId: string }> {
   const loaded = await deps.db
     .from('orders')
-    .select('id, brand_id, location_id, customer_id, status, tender_type, totals, subtotal_cents, tip_cents, total_cents, stored_value_applied_cents, square_order_id, square_payment_id')
+    .select('id, brand_id, location_id, customer_id, status, tender_type, totals, subtotal_cents, tax_cents, tip_cents, total_cents, stored_value_applied_cents, square_order_id, square_payment_id')
     .eq('id', input.orderId)
     .maybeSingle<{
       id: string;
@@ -48,6 +53,7 @@ export async function captureSquarePayment(
       tender_type: string;
       totals: { lines?: SnapshotLine[] } & Record<string, unknown>;
       subtotal_cents: number;
+      tax_cents: number;
       tip_cents: number;
       total_cents: number;
       stored_value_applied_cents: number;
@@ -61,34 +67,7 @@ export async function captureSquarePayment(
     throw new OrderError('invalid_request', `Order is a ${order.tender_type} order; only square_card orders can be captured.`);
   }
   if (order.square_payment_id) {
-    const cardChargeCents = order.total_cents - order.stored_value_applied_cents;
-    const receipt = await getSquarePayment(deps.square, deps.locationAccessToken, order.square_payment_id);
-    const fee = settledPaymentFee(receipt.payment, order.square_payment_id, cardChargeCents);
-    await insertPlatformFeeOnce(deps.db, {
-      brand_id: order.brand_id,
-      location_id: order.location_id,
-      order_id: order.id,
-      gross_cents: cardChargeCents,
-      fee_cents: fee.feeCents,
-      fee_bps_applied: fee.feeBpsApplied,
-      square_payment_id: order.square_payment_id,
-    });
-    if (order.status === 'created') {
-      const { error } = await deps.db.from('order_events').insert({
-        brand_id: order.brand_id,
-        order_id: order.id,
-        type: 'paid',
-        snapshot: {
-          ...order.totals,
-          square_payment_id: order.square_payment_id,
-          card_charge_cents: cardChargeCents,
-          recovered: true,
-        },
-        source: 'system',
-      });
-      if (error) throw error;
-    }
-    return { orderId: order.id, squarePaymentId: order.square_payment_id };
+    return recoverBoundSquarePayment(deps, order as BoundPaymentOrder);
   }
   if (order.status !== 'created') {
     throw new OrderError('invalid_request', `Order is ${order.status}; only a created order can be captured.`);
@@ -102,6 +81,29 @@ export async function captureSquarePayment(
     packContents: line.pack_contents ?? [],
   }));
   const cardChargeCents = order.total_cents - order.stored_value_applied_cents;
+  const linesTotal = lines.reduce(
+    (sum, line) => sum + line.unitPriceCents * line.quantity, 0,
+  );
+  if (![order.subtotal_cents, order.tax_cents, order.tip_cents,
+    order.total_cents, order.stored_value_applied_cents, linesTotal,
+    cardChargeCents].every(Number.isSafeInteger)
+    || order.subtotal_cents < 0 || order.tax_cents < 0 || order.tip_cents < 0
+    || order.stored_value_applied_cents < 0 || linesTotal !== order.subtotal_cents
+    || order.total_cents !== order.subtotal_cents + order.tax_cents + order.tip_cents
+    || cardChargeCents <= 0) {
+    throw new OrderError('invalid_request', 'This order has invalid payment totals.');
+  }
+  const { providerTipCents, providerOrderTotalCents: squareOrderTotalCents }
+    = squareCardFundingAmounts(cardChargeCents, order.tip_cents);
+  let squareOrderId = order.square_order_id;
+  if (squareOrderId) {
+    const recovered = await recoverPreboundSquareOrder(deps, {
+      ...order, square_order_id: squareOrderId, square_payment_id: null,
+    });
+    if (recovered) return recovered;
+    throw new OrderError('payment_unavailable',
+      'This card attempt is being reconciled. Create a new order if it is later cancelled.');
+  }
   const fee = await appFeeForCharge(deps.db, {
     orderId: order.id,
     locationId: order.location_id,
@@ -109,32 +111,46 @@ export async function captureSquarePayment(
     feeConfig: deps.feeConfig,
     locationTimezone: deps.locationTimezone,
   });
-  let squareOrderId = order.square_order_id;
+  if (!fee.claimCreated) {
+    throw new OrderError('payment_unavailable',
+      'Card payment is already being prepared. Wait briefly before checking this order again.');
+  }
   if (!squareOrderId) {
-    if (!fee.claimCreated) {
-      throw new OrderError('invalid_request', 'A card payment attempt is already in progress. Retry shortly.');
-    }
     try {
       const squareOrder = await createSquareOrder(deps.square, deps.locationAccessToken, {
         squareLocationId: deps.squareLocationId,
         referenceId: order.id,
-        lines: buildSquareLines(lines),
+        lines: buildSquareBalanceLine(squareOrderTotalCents),
+        taxCents: 0,
+        taxLabel: 'Sales Tax',
+        storedValueCents: 0,
       });
       squareOrderId = squareOrder.order?.id ?? null;
+      if (squareOrder.order?.location_id !== deps.squareLocationId
+        || squareOrder.order.reference_id !== order.id
+        || squareUsdCents(squareOrder.order.total_money) !== squareOrderTotalCents) {
+        throw new Error('provider order identity mismatch');
+      }
     } catch (error) {
       if (isDefinitiveSquareRejection(error)) {
-        await releasePlatformFeeQuote(deps.db, order.id, fee.claimGeneration);
+        await releasePlatformFeeQuote(deps.db, {
+          orderId: order.id, claimGeneration: fee.claimGeneration,
+        }).catch(() => false);
       }
-      throw error;
+      throw safeSquarePaymentError(error);
     }
-    if (!squareOrderId) throw new Error('Square returned no order id.');
-    try {
-      await bindSquarePaymentAttempt(deps.db, {
-        orderId: order.id, claimGeneration: fee.claimGeneration, squareOrderId,
-      });
-    } catch (error) {
-      throw new Error(`Square order ${squareOrderId} could not be secured before payment: ${String(error)}`);
+    if (!squareOrderId) {
+      throw new OrderError('payment_unavailable', 'Card payment could not be prepared. Retry this order.');
     }
+  }
+  try {
+    const bound = await bindSquarePaymentAttempt(deps.db, {
+      orderId: order.id, claimGeneration: fee.claimGeneration, squareOrderId,
+    });
+    if (!bound) throw new Error('stale payment attempt');
+  } catch {
+    throw new OrderError('payment_unavailable',
+      'Card payment could not be authorized. Check this order before trying again.');
   }
 
   let payment;
@@ -142,52 +158,42 @@ export async function captureSquarePayment(
     payment = await createSquarePayment(deps.square, deps.locationAccessToken, {
       sourceId: input.sourceId,
       squareOrderId,
+      squareLocationId: deps.squareLocationId,
       referenceId: order.id,
-      amountCents: cardChargeCents - order.tip_cents,
-      tipCents: order.tip_cents,
+      amountCents: squareOrderTotalCents,
+      tipCents: providerTipCents,
       appFeeCents: fee.feeCents,
     });
   } catch (error) {
-    if (fee.claimCreated && isDefinitiveSquareRejection(error)) {
-      await releasePlatformFeeQuote(deps.db, order.id, fee.claimGeneration);
-    }
-    throw error;
+    throw safeSquarePaymentError(error, 'new_order');
   }
   const paymentId = payment.payment?.id;
-  if (!paymentId) throw new Error('Square returned no payment id.');
-  const settledFee = settledPaymentFee(payment.payment, paymentId, cardChargeCents);
+  if (!paymentId || payment.payment?.order_id !== squareOrderId) {
+    throw new OrderError('payment_unavailable',
+      'Card payment could not be confirmed. Retry this order; the same payment reference will be reused.');
+  }
+  let settledFee;
+  try {
+    settledFee = settledPaymentFee(
+      payment.payment, paymentId, cardChargeCents, fee.feeCents, deps.squareLocationId,
+    );
+  } catch {
+    throw new OrderError('payment_unavailable', 'Card payment settlement could not be confirmed.');
+  }
 
   try {
-    await bindSquarePayment(deps.db, {
+    const finalized = await finalizeSquareCardPayment(deps.db, {
       orderId: order.id,
       claimGeneration: fee.claimGeneration,
       squareOrderId,
       squarePaymentId: paymentId,
+      settledFeeCents: settledFee.feeCents,
     });
-  } catch (error) {
-    throw new Error(
-      `Square payment ${paymentId} was taken but could not be recorded on order ${order.id}: ${String(error)}`,
-    );
+    if (!finalized) throw new Error('payment settlement conflict');
+  } catch {
+    throw new OrderError('payment_unavailable',
+      'Card payment was confirmed but local settlement is still pending. Retry this order.');
   }
-
-  await insertPlatformFeeOnce(deps.db, {
-    brand_id: order.brand_id,
-    location_id: order.location_id,
-    order_id: order.id,
-    gross_cents: cardChargeCents,
-    fee_cents: settledFee.feeCents,
-    fee_bps_applied: settledFee.feeBpsApplied,
-    square_payment_id: paymentId,
-  });
-
-  const { error: eventError } = await deps.db.from('order_events').insert({
-    brand_id: order.brand_id,
-    order_id: order.id,
-    type: 'paid',
-    snapshot: { ...order.totals, square_payment_id: paymentId, card_charge_cents: cardChargeCents },
-    source: 'system',
-  });
-  if (eventError) throw eventError;
 
   return { orderId: order.id, squarePaymentId: paymentId };
 }

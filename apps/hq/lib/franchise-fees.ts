@@ -36,11 +36,11 @@ export function parseLocationFeeOverrides(input: {
   feeBpsTier2: unknown;
   tierThresholdCents: unknown;
 }): FeeDraftResult {
-  const feeBps = optionalInteger(input.feeBps, 10_000);
-  const feeBpsTier2 = optionalInteger(input.feeBpsTier2, 10_000);
+  const feeBps = optionalInteger(input.feeBps, 9_000);
+  const feeBpsTier2 = optionalInteger(input.feeBpsTier2, 9_000);
   const tierThresholdCents = optionalInteger(input.tierThresholdCents, Number.MAX_SAFE_INTEGER);
   if (feeBps === undefined || feeBpsTier2 === undefined || tierThresholdCents === undefined) {
-    return { ok: false, error: 'Rates must be whole basis points from 0–10,000 and the threshold must be non-negative cents.' };
+    return { ok: false, error: 'Rates must be whole basis points from 0–9,000 and the threshold must be non-negative cents.' };
   }
   return { ok: true, draft: { feeBps, feeBpsTier2, tierThresholdCents } };
 }
@@ -66,6 +66,10 @@ function isInteger(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
 }
 
+function isRate(value: unknown): value is number {
+  return isInteger(value) && value <= 9_000;
+}
+
 /** Read private commercial terms through a service-only, actor-checked RPC. */
 export async function readPlatformFeeTerms(
   db: SupabaseClient,
@@ -80,14 +84,16 @@ export async function readPlatformFeeTerms(
   const data = result.data as { brand?: unknown; locations?: unknown };
   if (!data.brand || typeof data.brand !== 'object' || !Array.isArray(data.locations)) return null;
   const brand = data.brand as Record<string, unknown>;
-  if (![brand.feeBps, brand.feeBpsTier2, brand.tierThresholdCents].every(isInteger)) return null;
+  if (![brand.feeBps, brand.feeBpsTier2].every(isRate)
+    || !isInteger(brand.tierThresholdCents)) return null;
   const locations: FeeTermsLocation[] = [];
   for (const raw of data.locations) {
     if (!raw || typeof raw !== 'object') return null;
     const location = raw as Record<string, unknown>;
     if (typeof location.id !== 'string' || typeof location.name !== 'string') return null;
     const terms = [location.feeBps, location.feeBpsTier2, location.tierThresholdCents];
-    if (!terms.every((value) => value === null || isInteger(value))) return null;
+    if (!terms.every((value, index) => value === null
+      || (index < 2 ? isRate(value) : isInteger(value)))) return null;
     locations.push({
       feeBps: location.feeBps as number | null,
       feeBpsTier2: location.feeBpsTier2 as number | null,

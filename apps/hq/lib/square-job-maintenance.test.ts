@@ -32,6 +32,7 @@ it('reports optional Square maintenance as unconfigured without credentials', as
 
   assert.equal(result.configured, false);
   assert.equal(result.checkoutLinks.scanned, 0);
+  assert.equal(result.cardPayments.scanned, 0);
   assert.equal(result.retirements.scanned, 0);
 });
 
@@ -67,8 +68,10 @@ it('runs every configured Square lifecycle scan and combines its results', async
     'square_connections',
     'square_access_token_retirements',
     'claim_due_square_checkout_quotes',
+    'claim_due_square_card_quotes',
   ]);
   assert.equal(result.scanned, 0);
   assert.equal(result.retirements.scanned, 0);
   assert.equal(result.checkoutLinks.scanned, 0);
+  assert.equal(result.cardPayments.scanned, 0);
 });

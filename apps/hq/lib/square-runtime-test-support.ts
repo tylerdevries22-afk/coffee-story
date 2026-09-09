@@ -23,10 +23,10 @@ export type DbState = {
   updates: Record<string, unknown>[];
   retirementWrites?: Record<string, unknown>[];
   updateFilters?: Record<string, unknown>[];
-  updateResults?: Array<{
+  updateResults?: {
     data: { location_id: string } | null;
     error: { message: string } | null;
-  }>;
+  }[];
 };
 
 function runtimeDb(state: DbState): SupabaseClient {

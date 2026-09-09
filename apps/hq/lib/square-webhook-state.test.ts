@@ -135,4 +135,39 @@ describe('Square webhook delivery state', () => {
       assert.deepEqual(paths, ['/rest/v1/webhook_events', '/rest/v1/webhook_events']);
     });
   });
+
+  it('rejects a completed payment from a different Square location', async () => {
+    await withWebhookEnv(async () => {
+      const paths: string[] = [];
+      globalThis.fetch = async (input, init) => {
+        const url = new URL(String(input));
+        paths.push(url.pathname);
+        if (url.pathname.endsWith('/webhook_events')) {
+          return init?.method === 'POST'
+            ? Response.json(null, { status: 201 }) : Response.json({ processed_at: null });
+        }
+        if (url.pathname.endsWith('/orders')) return Response.json({
+          id: 'order', brand_id: 'brand', location_id: 'location', status: 'created',
+          total_cents: 1_000, stored_value_applied_cents: 0,
+        });
+        if (url.pathname.endsWith('/square_connections')) {
+          assert.equal(url.searchParams.get('brand_id'), 'eq.brand');
+          assert.equal(url.searchParams.get('location_id'), 'eq.location');
+          return Response.json({ square_location_id: 'expected-square-location' });
+        }
+        throw new Error(`Unexpected request: ${url.pathname}`);
+      };
+      const response = await POST(requestFor({
+        event_id: 'wrong-location', type: 'payment.updated',
+        data: { object: { payment: {
+          id: 'payment', order_id: 'square-order', location_id: 'other-square-location',
+          status: 'COMPLETED', total_money: { amount: 1_000, currency: 'USD' },
+          app_fee_money: { amount: 30, currency: 'USD' },
+        } } },
+      }));
+      assert.equal(response.status, 422);
+      assert.equal(await response.text(), 'Invalid payment settlement location');
+      assert.ok(paths.includes('/rest/v1/square_connections'));
+    });
+  });
 });

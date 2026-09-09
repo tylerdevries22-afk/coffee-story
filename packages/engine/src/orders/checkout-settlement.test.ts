@@ -8,7 +8,7 @@ import { createClient } from '@supabase/supabase-js';
 import { mapSquareEvent } from '../square/webhooks';
 
 import { createSquareCheckoutLink } from './checkout-link';
-import { recordPlatformFee } from './platform-fees';
+import { recordReconciledSquarePayment } from './platform-fee-bindings';
 
 it('records the exact checkout fees when payments settle out of order across a tier change', async (t) => {
   const quoted = new Map<string, number>();
@@ -23,9 +23,15 @@ it('records the exact checkout fees when payments settle out of order across a t
     const id = body.order.reference_id;
     quoted.set(id, body.checkout_options.app_fee_money.amount);
     res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify({ payment_link: {
-      id: `link-${id}`, url: `https://checkout.example/${id}`, order_id: `sq-${id}`,
-    } }));
+    res.end(JSON.stringify({
+      payment_link: {
+        id: `link-${id}`, url: `https://checkout.example/${id}`, order_id: `sq-${id}`,
+      },
+      related_resources: { orders: [{
+        id: `sq-${id}`, location_id: 'sq-location', reference_id: id,
+        total_money: { amount: 10_000, currency: 'USD' },
+      }] },
+    }));
   });
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');
@@ -49,6 +55,7 @@ it('records the exact checkout fees when payments settle out of order across a t
           id, brand_id: 'brand-a', location_id: 'location-a', status: 'created',
           tender_type: 'square_link', tax_cents: 0, tip_cents: 0,
           total_cents: 10_000, stored_value_applied_cents: 0, square_checkout_url: null,
+          square_payment_link_id: null, square_order_id: null,
           totals: { lines: [{ name: 'Coffee box', quantity: 1, unit_price_cents: 10_000 }] },
         };
       } else if (table === 'claim_platform_fee_quote') {
@@ -60,22 +67,24 @@ it('records the exact checkout fees when payments settle out of order across a t
           quoted_fee_cents: feeCents,
           quoted_fee_bps_applied: feeCents,
           quote_claim_generation: `claim-${input.p_order_id}`,
+          quote_claim_created: true,
         };
       } else if (table === 'bind_square_checkout_link') {
         const input = JSON.parse(String(init?.body)) as Record<string, unknown>;
         assert.equal(input.p_payment_link_id, `link-${input.p_order_id}`);
         assert.equal(input.p_claim_generation, `claim-${input.p_order_id}`);
         data = true;
-      } else if (table === 'locations') {
-        assert.equal(url.searchParams.get('brand_id'), 'eq.brand-a');
-        data = { id: 'location-a', timezone: 'America/Denver' };
-      } else if (table === 'brands') {
-        data = { fee_bps: 300, fee_bps_tier2: 150, tier_threshold_cents: 100_000 };
-      } else if (table === 'platform_fees' && init?.method === 'POST') {
-        const row = JSON.parse(String(init.body)) as Record<string, unknown>;
+      } else if (table === 'record_square_payment_settlement') {
+        const input = JSON.parse(String(init?.body)) as Record<string, unknown>;
+        const row = {
+          order_id: input.target_order, gross_cents: 10_000,
+          fee_cents: input.settled_fee_cents,
+          fee_bps_applied: input.settled_fee_cents,
+          square_payment_id: input.square_payment,
+        };
         receipts.push(row);
         monthGross += Number(row.gross_cents);
-        data = null;
+        data = true;
       } else throw new Error(`Unexpected table: ${table}`);
       return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json' } });
     } },
@@ -93,12 +102,12 @@ it('records the exact checkout fees when payments settle out of order across a t
   const callsBeforeSettlement = quoteCalls;
   for (const orderId of ['second', 'first']) {
     const mapped = mapSquareEvent({ event_id: `event-${orderId}`, type: 'payment.updated',
-      data: { object: { payment: { id: `pay-${orderId}`, order_id: `sq-${orderId}`, status: 'COMPLETED',
-        total_money: { amount: 10_000, currency: 'USD' },
+      data: { object: { payment: { id: `pay-${orderId}`, order_id: `sq-${orderId}`,
+        location_id: 'sq-location', status: 'COMPLETED', total_money: { amount: 10_000, currency: 'USD' },
         app_fee_money: { amount: quoted.get(orderId), currency: 'USD' } } } } });
     assert.ok(mapped?.squarePaymentId && mapped.settledFeeCents !== undefined);
-    await recordPlatformFee(db, { brandId: 'brand-a', locationId: 'location-a', orderId,
-      squarePaymentId: mapped.squarePaymentId, grossCents: 10_000, settledFeeCents: mapped.settledFeeCents });
+    await recordReconciledSquarePayment(db, { orderId, squareOrderId: `sq-${orderId}`,
+      squarePaymentId: mapped.squarePaymentId, settledFeeCents: mapped.settledFeeCents });
   }
   assert.equal(monthGross, 110_000);
   assert.deepEqual(receipts.map(row => [row.order_id, row.fee_cents, row.fee_bps_applied]),
@@ -120,6 +129,7 @@ it('releases a checkout quote when Square definitively rejects the link', async 
         id: 'order-a', brand_id: 'brand-a', location_id: 'location-a', status: 'created',
         tender_type: 'square_link', tax_cents: 0, tip_cents: 0, total_cents: 1_000,
         stored_value_applied_cents: 0, square_checkout_url: null,
+        square_payment_link_id: null, square_order_id: null,
         totals: { lines: [{ name: 'Coffee', quantity: 1, unit_price_cents: 1_000 }] },
       });
       if (table === 'claim_platform_fee_quote') {
@@ -127,6 +137,7 @@ it('releases a checkout quote when Square definitively rejects the link', async 
           quoted_fee_cents: 30,
           quoted_fee_bps_applied: 300,
           quote_claim_generation: 'claim-a',
+          quote_claim_created: true,
         });
       }
       if (table === 'release_platform_fee_quote') {
@@ -146,7 +157,8 @@ it('releases a checkout quote when Square definitively rejects the link', async 
     locationAccessToken: 'token', squareLocationId: 'sq-location', locationTimezone: 'America/Denver',
     feeConfig: { feeBps: 300, feeBpsTier2: 150, tierThresholdCents: 100_000 },
   };
-  await assert.rejects(createSquareCheckoutLink(deps, { orderId: 'order-a' }),
-    /Square POST \/v2\/online-checkout\/payment-links -> 402/);
+  await assert.rejects(createSquareCheckoutLink(deps, { orderId: 'order-a' }), {
+    code: 'payment_unavailable',
+  });
   assert.equal(releases, 1);
 });

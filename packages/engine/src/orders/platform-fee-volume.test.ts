@@ -12,7 +12,9 @@ const INPUT = {
   feeConfig: { feeBps: 300, feeBpsTier2: 150, tierThresholdCents: 1_500_000 },
 };
 
-function database(options: { error?: boolean; fee?: number; bps?: number } = {}) {
+function database(options: {
+  error?: boolean; fee?: number; bps?: number; created?: boolean | null;
+} = {}) {
   const calls: { url: URL; body: Record<string, unknown> }[] = [];
   const db = createClient('https://database.example.com', 'test-key', {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -28,7 +30,8 @@ function database(options: { error?: boolean; fee?: number; bps?: number } = {})
       return Response.json({
         quoted_fee_cents: options.fee ?? 300,
         quoted_fee_bps_applied: options.bps ?? 300,
-        quote_claim_generation: 'claim-a',
+        quote_claim_generation: options.created === false ? null : 'claim-a',
+        quote_claim_created: options.created === null ? undefined : options.created ?? true,
       });
     } },
   });
@@ -39,7 +42,7 @@ describe('monthly fee volume reservation', () => {
   it('claims one durable quote with the order, terms, and local month', async () => {
     const { db, calls } = database({ fee: 225, bps: 225 });
     assert.deepEqual(await appFeeForCharge(db, INPUT), {
-      feeCents: 225, feeBpsApplied: 225, claimGeneration: 'claim-a',
+      feeCents: 225, feeBpsApplied: 225, claimGeneration: 'claim-a', claimCreated: true,
     });
     assert.equal(calls.length, 1);
     assert.equal(calls[0]?.url.pathname, '/rest/v1/rpc/claim_platform_fee_quote');
@@ -55,5 +58,24 @@ describe('monthly fee volume reservation', () => {
     const { db, calls } = database({ error: true });
     await assert.rejects(appFeeForCharge(db, INPUT), { code: '40001' });
     assert.equal(calls.length, 1);
+  });
+
+  it('requires the lifecycle flag that distinguishes a fresh claim from replay', async () => {
+    await assert.rejects(appFeeForCharge(database({ created: null }).db, INPUT),
+      /invalid data/);
+    assert.deepEqual(await appFeeForCharge(database({ created: false }).db, INPUT), {
+      feeCents: 300, feeBpsApplied: 300, claimGeneration: null, claimCreated: false,
+    });
+  });
+
+  it('rejects out-of-range rates and provider-ineligible fee quotes before charging', async () => {
+    const invalidConfig = { ...INPUT, feeConfig: { ...INPUT.feeConfig, feeBps: 9_001 } };
+    const invalidDb = database();
+    await assert.rejects(appFeeForCharge(invalidDb.db, invalidConfig), /Invalid platform fee/);
+    assert.equal(invalidDb.calls.length, 0);
+
+    const small = { ...INPUT, chargeCents: 499 };
+    await assert.rejects(appFeeForCharge(database({ fee: 300 }).db, small), /invalid data/);
+    assert.equal((await appFeeForCharge(database({ fee: 299 }).db, small)).feeCents, 299);
   });
 });
