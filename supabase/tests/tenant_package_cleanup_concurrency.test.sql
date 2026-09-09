@@ -2,7 +2,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 create extension if not exists dblink with schema extensions;
 set search_path = extensions, public, pg_catalog;
-select plan(5);
+select plan(11);
 
 select dblink_connect('package_worker_a', 'dbname=' || current_database());
 select dblink_connect('package_worker_b', 'dbname=' || current_database());
@@ -74,16 +74,52 @@ $test$, $expected$
   select claim_id from public.tenant_package_cleanup_concurrency_results where worker = 'a'
 $expected$, 'the durable session still belongs to the first worker');
 
-select dblink_exec('package_worker_b', $cleanup$
-  delete from storage.objects where name like
-    'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee/%';
-  delete from app_private.tenant_package_upload_sessions
-    where brand_id = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
-  delete from public.brands where id = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
-  drop table public.tenant_package_cleanup_concurrency_results;
-$cleanup$);
+select is(dblink_exec('package_worker_b', format($expire$
+  update app_private.tenant_package_upload_sessions
+  set purge_lease_until = clock_timestamp() - interval '1 second'
+  where id = 'eeeeeeee-0000-4000-8000-000000000001'
+    and purge_claim_id = %L
+$expire$, (select claim_id::text
+  from public.tenant_package_cleanup_concurrency_results where worker = 'a'))),
+  'UPDATE 1', 'the first lease can expire after its worker loses contact');
+select is(dblink_exec('package_worker_b', $reclaim$
+  insert into public.tenant_package_cleanup_concurrency_results (worker, claim_id)
+  select 'b', claim_id
+  from public.claim_tenant_package_cleanup_candidates(500)
+  limit 1
+$reclaim$), 'INSERT 0 1', 'a new worker can reclaim an expired namespace lease');
+select isnt(
+  (select claim_id from public.tenant_package_cleanup_concurrency_results where worker = 'b'),
+  (select claim_id from public.tenant_package_cleanup_concurrency_results where worker = 'a'),
+  'reclaiming rotates the cleanup ownership token');
+select set_config('test.old_claim_id', (select claim_id::text
+  from public.tenant_package_cleanup_concurrency_results where worker = 'a'), true);
+select set_config('test.new_claim_id', (select claim_id::text
+  from public.tenant_package_cleanup_concurrency_results where worker = 'b'), true);
+set local role service_role;
+select throws_ok(format($test$ select public.renew_tenant_package_purge_claim(%L) $test$,
+  current_setting('test.old_claim_id')), '23514', 'tenant_package_cleanup_claim_invalid',
+  'a stale worker cannot renew ownership after claim rotation');
+select cmp_ok(public.renew_tenant_package_purge_claim(
+  current_setting('test.new_claim_id')::uuid), '>',
+  clock_timestamp() + interval '9 minutes',
+  'the current worker can renew a live cleanup lease');
+reset role;
+select is((select upload_session.purge_claim_id
+  from app_private.tenant_package_upload_sessions upload_session
+  where upload_session.id = 'eeeeeeee-0000-4000-8000-000000000001'),
+  current_setting('test.new_claim_id')::uuid,
+  'heartbeat failure never transfers ownership back to a stale worker');
+
 select dblink_disconnect('package_worker_a');
 select dblink_disconnect('package_worker_b');
 
 select * from finish();
 rollback;
+
+delete from storage.objects where name like
+  'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee/%';
+delete from app_private.tenant_package_upload_sessions
+  where brand_id = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
+delete from public.brands where id = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
+drop table public.tenant_package_cleanup_concurrency_results;
