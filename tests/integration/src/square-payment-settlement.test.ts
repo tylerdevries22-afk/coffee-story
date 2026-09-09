@@ -13,37 +13,51 @@ describe('atomic Square payment settlement', { skip: skipUnlessConfigured }, () 
     ({ brandId, locationId } = await seedBrand('square-payment-settlement'));
   });
 
-  async function createOrder(): Promise<string> {
+  async function createOrder(): Promise<{ orderId: string; squareOrderId: string }> {
+    const squareOrderId = `order-${randomUUID()}`;
     const created = await sql<{ id: string }>(
       `insert into public.orders
-         (brand_id, location_id, status, tender_type, subtotal_cents, total_cents)
-       values ($1, $2, 'created', 'square_link', 1000, 1000) returning id`,
-      [brandId, locationId],
+         (brand_id, location_id, status, tender_type, subtotal_cents, total_cents,
+          square_order_id)
+       values ($1, $2, 'created', 'square_link', 1000, 1000, $3) returning id`,
+      [brandId, locationId, squareOrderId],
     );
-    return created.rows[0]!.id;
+    const orderId = created.rows[0]!.id;
+    await sql(
+      `insert into public.platform_fee_quotes
+         (order_id, brand_id, location_id, month_start, month_end, gross_cents,
+          fee_cents, fee_bps_applied, expires_at)
+       values ($1, $2, $3, date_trunc('month', now()),
+         date_trunc('month', now()) + interval '1 month', 1000, 30, 300,
+         now() + interval '1 hour')`,
+      [orderId, brandId, locationId],
+    );
+    return { orderId, squareOrderId };
   }
 
   async function settle(
     orderId: string,
+    squareOrderId: string,
     eventId: string,
     paymentId: string,
     feeCents = 30,
   ): Promise<boolean> {
     const result = await sql<{ recorded: boolean }>(
-      `select public.record_square_payment_settlement($1, $2, $3, $4, 'payment.updated')
+      `select public.record_square_payment_settlement($1, $2, $3, $4, $5, 'payment.updated')
          as recorded`,
-      [orderId, eventId, paymentId, feeCents],
+      [orderId, eventId, squareOrderId, paymentId, feeCents],
     );
     return result.rows[0]!.recorded;
   }
 
   it('commits the payment identity, paid event, and fee receipt together', async () => {
-    const orderId = await createOrder();
+    const { orderId, squareOrderId } = await createOrder();
     const eventId = `event-${randomUUID()}`;
     const paymentId = `payment-${randomUUID()}`;
 
-    assert.equal(await settle(orderId, eventId, paymentId), true);
-    assert.equal(await settle(orderId, eventId, paymentId), false, 'the settlement is replayable');
+    assert.equal(await settle(orderId, squareOrderId, eventId, paymentId), true);
+    assert.equal(await settle(orderId, squareOrderId, eventId, paymentId), false,
+      'the settlement is replayable');
 
     const state = await sql<{
       status: string;
@@ -65,18 +79,18 @@ describe('atomic Square payment settlement', { skip: skipUnlessConfigured }, () 
   });
 
   it('rejects conflicting payment identities without partial writes', async () => {
-    const firstOrderId = await createOrder();
-    const secondOrderId = await createOrder();
+    const first = await createOrder();
+    const second = await createOrder();
     const paymentId = `payment-${randomUUID()}`;
-    await settle(firstOrderId, `event-${randomUUID()}`, paymentId);
+    await settle(first.orderId, first.squareOrderId, `event-${randomUUID()}`, paymentId);
 
     await assert.rejects(
-      settle(firstOrderId, `event-${randomUUID()}`, `payment-${randomUUID()}`),
+      settle(first.orderId, first.squareOrderId, `event-${randomUUID()}`, `payment-${randomUUID()}`),
       /different Square payment/,
     );
     await assert.rejects(
-      settle(secondOrderId, `event-${randomUUID()}`, paymentId),
-      /duplicate key|unique constraint/,
+      settle(second.orderId, second.squareOrderId, `event-${randomUUID()}`, paymentId),
+      /different fee receipt/,
     );
 
     const untouched = await sql<{
@@ -89,7 +103,7 @@ describe('atomic Square payment settlement', { skip: skipUnlessConfigured }, () 
               (select count(*) from public.order_events where order_id = target.id)::text as events,
               (select count(*) from public.platform_fees where order_id = target.id)::text as fees
        from public.orders target where target.id = $1`,
-      [secondOrderId],
+      [second.orderId],
     );
     assert.deepEqual(untouched.rows[0], {
       status: 'created', square_payment_id: null, events: '0', fees: '0',
