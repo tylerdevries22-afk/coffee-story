@@ -42,7 +42,12 @@ function allSql(): string {
 }
 
 function typesSource(): string {
-  return readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'types.ts'), 'utf8');
+  const sourceDirectory = dirname(fileURLToPath(import.meta.url));
+  return readdirSync(sourceDirectory)
+    .filter((name) => /^types(?:-[a-z]+)?\.ts$/.test(name))
+    .sort()
+    .map((name) => readFileSync(join(sourceDirectory, name), 'utf8'))
+    .join('\n');
 }
 
 /** The last CREATE OR REPLACE body is what PostgreSQL keeps after migrations. */
