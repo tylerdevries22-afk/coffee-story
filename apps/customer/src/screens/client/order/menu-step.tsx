@@ -12,7 +12,6 @@ import {
   Animated,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   View,
   type LayoutChangeEvent,
@@ -21,32 +20,21 @@ import {
 } from 'react-native';
 
 import { CollapsingPageHeader } from '@/components/collapsing-page-header';
-import { MenuImage } from '@/components/menu-image';
 import { CategoryStrip } from '@/components/order/category-strip';
-import { CartPill, Ribbon } from '@/components/order/order-chrome';
-import { disabledState, useTabBarClearance, AppIcon } from '@platform/ui';
+import { CartPill } from '@/components/order/order-chrome';
+import { useTabBarClearance, useTokens as useBrandTokens } from '@platform/ui';
 import type { MenuItem } from '@/data/catalog';
 import {
-  fulfillmentDetail, fulfillmentLabel, describePickupWindow, menuPriceLabel,
+  fulfillmentDetail, fulfillmentLabel, describePickupWindow,
   type OrderFulfillment,
 } from '@platform/domain';
 import { TENANT } from '@/tenant';
 import { useCustomerCatalog } from '@/state/catalog-context';
 
 import { menuSections } from './menu-data';
-import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
-
-/** How far below the strip a section has to reach before it counts as current. */
-const SECTION_ACTIVATION_OFFSET = 140;
-
-/**
- * Height of the pinned category strip: a 48pt row plus its hairline.
- *
- * A tap used to scroll to `top - 8`, which parked the section heading under
- * the strip -- the control the guest had just used to ask for it covered the
- * top half of the answer.
- */
-const STRIP_HEIGHT = 49;
+import { SECTION_ACTIVATION_OFFSET, STRIP_HEIGHT } from './menu-step-config';
+import { ContextPill, MenuRow } from './menu-step-rows';
+import { createStyles } from './menu-step-styles';
 
 export function MenuStep({
   fulfillment,
@@ -207,131 +195,3 @@ export function MenuStep({
     </View>
   );
 }
-
-function ContextPill({
-  icon,
-  label,
-  detail,
-  action,
-  onPress,
-}: {
-  icon: 'clock' | 'mappin';
-  label: string;
-  detail?: string;
-  action?: string;
-  onPress: () => void;
-}) {
-  const tokens = useBrandTokens();
-  const styles = createStyles(tokens);
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={detail ? `${label}, ${detail}. Change` : `${label}. Change`}
-      onPress={onPress}
-      style={({ pressed }) => [styles.pill, pressed && styles.pressed]}
-    >
-      <AppIcon name={icon} size={16} tintColor={tokens.primary} />
-      <Text numberOfLines={1} style={styles.pillLabel}>
-        {label}
-        {detail ? <Text style={styles.pillDetail}>{`  ${detail}`}</Text> : null}
-      </Text>
-      <Text style={styles.pillAction}>{action ?? 'Change'}</Text>
-    </Pressable>
-  );
-}
-
-function MenuRow({
-  item,
-  orderingPaused,
-  highlighted,
-  onPress,
-}: {
-  item: MenuItem;
-  orderingPaused: boolean;
-  highlighted: boolean;
-  onPress: () => void;
-}) {
-  const tokens = useBrandTokens();
-  const styles = createStyles(tokens);
-  const price = menuPriceLabel(item.sizes);
-  const soldOut = Boolean(item.soldOutToday);
-  const unavailable = soldOut || orderingPaused;
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={soldOut
-        ? `${item.name}, sold out today`
-        : orderingPaused
-          ? `${item.name}, ordering is temporarily paused`
-          : `${item.name}, ${price}. ${item.description}`}
-      {...disabledState(unavailable)}
-      disabled={unavailable}
-      onPress={onPress}
-      style={({ pressed }) => [styles.row, highlighted && styles.rowHighlighted, pressed && styles.pressed, soldOut && styles.rowSoldOut]}
-    >
-      <MenuImage source={item.image} variant="row" alt="" />
-      <View style={styles.rowCopy}>
-        {soldOut ? <Ribbon label="Sold out today" tone="danger" /> : null}
-        {highlighted && !soldOut ? <Ribbon label="From your tap" tone="quiet" /> : null}
-        <Text style={styles.rowName}>{item.name}</Text>
-        <Text style={styles.rowPrice}>{price}</Text>
-        <Text numberOfLines={2} style={styles.rowDescription}>{item.description}</Text>
-      </View>
-      <AppIcon name="chevron.right" size={16} tintColor={tokens.textMuted} />
-    </Pressable>
-  );
-}
-
-const createStyles = (tokens: BrandTokens) => StyleSheet.create({
-  shell: { flex: 1, backgroundColor: tokens.surface },
-  pressed: { opacity: 0.72 },
-
-  pills: {
-    gap: tokens.spacing.sm,
-    paddingHorizontal: tokens.spacing.xl,
-    paddingBottom: tokens.spacing.md,
-    backgroundColor: tokens.surface,
-  },
-  pausedBanner: {
-    paddingHorizontal: tokens.spacing.xl,
-    paddingVertical: tokens.spacing.md,
-    backgroundColor: tokens.surface,
-  },
-  pausedText: { color: tokens.danger, fontFamily: tokens.fontBody, fontSize: 14 },
-  pill: {
-    minHeight: 46,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: tokens.spacing.md,
-    paddingHorizontal: tokens.spacing.lg,
-    borderRadius: tokens.radius.lg,
-    backgroundColor: tokens.surfaceElevated,
-  },
-  pillLabel: { flex: 1, color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 13 },
-  pillDetail: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 12 },
-  pillAction: { color: tokens.primary, fontFamily: tokens.fontBody, fontSize: 13 },
-
-  scroll: { paddingBottom: tokens.spacing.xxl },
-
-  section: { paddingTop: tokens.spacing.xl },
-  sectionHeader: { paddingHorizontal: tokens.spacing.xl, paddingBottom: tokens.spacing.md, gap: 2 },
-  sectionTitle: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 22, lineHeight: 28 },
-  sectionTagline: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 13 },
-
-  rowSoldOut: { opacity: 0.55 },
-  row: {
-    minHeight: 96,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: tokens.spacing.lg,
-    paddingHorizontal: tokens.spacing.xl,
-    paddingVertical: tokens.spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: tokens.secondary,
-  },
-  rowHighlighted: { backgroundColor: tokens.surface },
-  rowCopy: { flex: 1, gap: 2 },
-  rowName: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 16 },
-  rowPrice: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 13 },
-  rowDescription: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 13, lineHeight: 18 },
-});

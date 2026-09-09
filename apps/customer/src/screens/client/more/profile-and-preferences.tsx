@@ -1,75 +1,18 @@
 import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
-import { Alert, Platform, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 
 import { ProfileAvatar } from '@/components/profile-avatar';
 import { CollapsingScreen } from '@/components/collapsing-screen';
 import { Body, Button, Card, SectionTitle } from '@/components/ui';
 import { mobileApi } from '@/lib/mobile-api';
-import { requestKey } from '@platform/domain';
-import { STRENGTH_OPTIONS, strengthLabel } from '@/features/setup/setup';
 import { useAuth } from '@/state/auth-context';
 import { useDemo } from '@/state/demo-context';
-import type { GuestPreferences, PortalProfile } from '@platform/domain';
-
-import { useInformationStyles } from './information-page';
+import type { PortalProfile } from '@platform/domain';
 import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
-const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
-
-function avatarExtension(mimeType: string | null | undefined): 'jpg' | 'png' | 'webp' {
-  if (mimeType === 'image/png') return 'png';
-  if (mimeType === 'image/webp') return 'webp';
-  return 'jpg';
-}
-
-async function webDemoAvatarDataUrl(sourceUri: string): Promise<string> {
-  const image = new window.Image();
-  await new Promise<void>((resolve, reject) => {
-    image.onload = () => resolve();
-    image.onerror = () => reject(new Error('The selected photo could not be read.'));
-    image.src = sourceUri;
-  });
-  const canvas = document.createElement('canvas');
-  canvas.width = 512;
-  canvas.height = 512;
-  const context = canvas.getContext('2d');
-  if (!context) throw new Error('The selected photo could not be processed.');
-  const sourceSize = Math.min(image.naturalWidth, image.naturalHeight);
-  if (sourceSize <= 0) throw new Error('The selected photo has no readable dimensions.');
-  context.drawImage(
-    image,
-    (image.naturalWidth - sourceSize) / 2,
-    (image.naturalHeight - sourceSize) / 2,
-    sourceSize,
-    sourceSize,
-    0,
-    0,
-    512,
-    512,
-  );
-  return canvas.toDataURL('image/jpeg', 0.82);
-}
-
-async function durableDemoAvatarUri(
-  asset: ImagePicker.ImagePickerAsset,
-  previousAvatarUrl: string | null,
-): Promise<string> {
-  if (Platform.OS === 'web') return webDemoAvatarDataUrl(asset.uri);
-  const { File, Paths } = await import('expo-file-system');
-  const extension = avatarExtension(asset.mimeType);
-  const destination = new File(Paths.document, `demo-profile-avatar-${Date.now()}.${extension}`);
-  await new File(asset.uri).copy(destination);
-  if (previousAvatarUrl?.startsWith(Paths.document.uri) && previousAvatarUrl.includes('demo-profile-avatar')) {
-    const previous = new File(previousAvatarUrl);
-    if (previous.exists) previous.delete();
-  }
-  for (const candidateExtension of ['jpg', 'png', 'webp'] as const) {
-    const candidate = new File(Paths.document, `demo-profile-avatar.${candidateExtension}`);
-    if (candidate.exists) candidate.delete();
-  }
-  return destination.uri;
-}
+import { Field } from './preferences-screen';
+import { durableDemoAvatarUri, MAX_AVATAR_BYTES } from './profile-avatar-storage';
 
 export function Profile({
   onBack,
@@ -238,75 +181,11 @@ export function Profile({
   );
 }
 
-export function Preferences({ onBack }: { onBack: () => void }) {
-  const styles = useInformationStyles();
-  const { portal, isDemo, refresh } = useAuth();
-  const demo = useDemo();
-  const initial: GuestPreferences = portal.preferences
-    ?? { completed: false, notes: '', strength: 'medium', updatedAt: null };
-  const [preferences, setPreferences] = useState(initial);
-  const [saving, setSaving] = useState(false);
-
-  async function persist() {
-    setSaving(true);
-    try {
-      const next = { ...preferences, completed: true, updatedAt: new Date().toISOString() };
-      if (isDemo) {
-        demo.updatePreferences(next);
-      } else {
-        const idempotencyKey = requestKey('preferences');
-        // Only the fields the server accepts. The previous shape posted the
-        // local-only `completed` and `updatedAt` too and was rejected 400 every
-        // time; a Pick<> does not prevent that, because it is erased at runtime
-        // and TypeScript skips excess-property checks on a variable.
-        await mobileApi.updatePreferences({ notes: next.notes, strength: next.strength }, idempotencyKey);
-        await refresh();
-      }
-      setPreferences(next);
-      Alert.alert('Saved', 'The team can see your saved preferences.');
-    } catch (error) {
-      Alert.alert('Not saved', error instanceof Error ? error.message : 'Try again later.');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <CollapsingScreen title="My usual" eyebrow="Saved for next time" onBack={onBack} keyboardShouldPersistTaps="handled">
-      <Field
-        label="What should the bar know?"
-        value={preferences.notes}
-        multiline
-        onChangeText={(notes) => setPreferences({ ...preferences, notes })}
-      />
-      <SectionTitle>Coffee strength</SectionTitle>
-      <View style={styles.options}>{STRENGTH_OPTIONS.map((strength) => (
-        <Button
-          key={strength}
-          label={strengthLabel(strength)}
-          variant={preferences.strength === strength ? 'primary' : 'secondary'}
-          style={styles.option}
-          onPress={() => setPreferences({ ...preferences, strength })}
-        />
-      ))}</View>
-      <Button label="Save" loading={saving} disabled={saving} onPress={() => void persist()} />
-    </CollapsingScreen>
-  );
-}
-export function Field({ label, ...props }: React.ComponentProps<typeof TextInput> & { label: string }) {
-  const styles = useInformationStyles();
-  const tokens = useBrandTokens();
-  return (
-    <View style={styles.field}>
-      <Text style={styles.fieldLabel}>{label}</Text>
-      <TextInput accessibilityLabel={`${label} input`} {...props} placeholderTextColor={tokens.textMuted} style={[styles.input, props.multiline && styles.multiline]} />
-    </View>
-  );
-}
-
 const createProfileStyles = (tokens: BrandTokens) => StyleSheet.create({
   avatarHeader: { flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.xl, paddingVertical: tokens.spacing.md },
   avatarCopy: { flex: 1, gap: tokens.spacing.sm },
   profileName: { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: 25, lineHeight: 30 },
   accessCard: { gap: tokens.spacing.lg },
 });
+
+export { Field, Preferences } from './preferences-screen';

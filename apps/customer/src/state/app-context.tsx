@@ -1,11 +1,8 @@
-import * as Haptics from 'expo-haptics';
-import * as Linking from 'expo-linking';
-import { router, usePathname, type Href } from 'expo-router';
+import { router, usePathname } from 'expo-router';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type PropsWithChildren } from 'react';
 
 import { useAuth } from '@/state/auth-context';
 import { useDemo } from '@/state/demo-context';
-import { destinationForIntentUrl, giftTokenFromUrl } from '@platform/domain';
 import {
   clientMoreHref,
   clientMoreViewFromPathname,
@@ -19,67 +16,14 @@ import {
 import type { AppRole } from '@platform/domain';
 
 import type { ClientTab, MoreView, StaffTab } from '@/state/navigation-state';
+import { go, selectionFeedback } from './app-navigation';
+import type { AppState } from './app-state-types';
+import { useAppIntents } from './use-app-intents';
 
 export type { AppRole } from '@platform/domain';
 export type { ClientTab, MoreView, StaffTab } from '@/state/navigation-state';
 
-type AppState = {
-  role: AppRole;
-  isStaffMode: boolean;
-  clientTab: ClientTab;
-  staffTab: StaffTab;
-  selectedServiceId: string | null;
-  giftClaimToken: string | null;
-  moreView: MoreView;
-  staffDetailPath: string | null;
-  /** Everything seen so far this session; drives the header badge count. */
-  readNotificationIds: ReadonlySet<string>;
-  /**
-   * What was still unread the moment the page opened. Instagram keeps those
-   * rows highlighted for the duration of the order even though the badge
-   * clears immediately, so the highlight reads from this snapshot rather than
-   * from the live read set.
-   */
-  unreadNotificationIds: ReadonlySet<string>;
-  openNotifications: (visibleIds: readonly string[]) => void;
-  /**
-   * True while a full-screen flow page covers the tab bar (the order flow's
-   * setup and checkout pages). Native pages simply draw over the native bar;
-   * the web bar is a sibling layer that cannot be painted over from inside
-   * the screen subtree (react-native-web gives every View z-index: 0), so it
-   * hides itself on this signal instead.
-   */
-  barCovered: boolean;
-  setBarCovered: (covered: boolean) => void;
-  closeNotifications: () => void;
-  setClientTab: (tab: ClientTab) => void;
-  setStaffTab: (tab: StaffTab) => void;
-  startOrder: (itemId?: string) => void;
-  consumeGiftClaimToken: () => void;
-  openMore: (view: MoreView) => void;
-  enterStaff: () => void;
-  exitStaff: () => void;
-  selectRole: (role: AppRole) => void;
-  openStaffDestination: (path: string) => void;
-  closeStaffDestination: () => void;
-};
-
 const AppContext = createContext<AppState | null>(null);
-
-function selectionFeedback() {
-  void Haptics.selectionAsync().catch(() => undefined);
-}
-
-/**
- * `typedRoutes` narrows `Href` to a union of the literal paths in `src/app`.
- * These hrefs are assembled at runtime from tab keys and admin paths, so they
- * cannot be proven members of that union at compile time. `navigation-state`
- * is the only place that builds them and its tests pin every value it emits,
- * so the assertion is checked there rather than by the compiler.
- */
-function go(href: string, mode: 'navigate' | 'push' | 'replace' | 'dismissTo' = 'navigate') {
-  router[mode](href as Href);
-}
 
 export function AppStateProvider({ children }: PropsWithChildren) {
   const { isDemo, role } = useAuth();
@@ -162,24 +106,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     else go(clientMoreHref(view), 'push');
   }, []);
 
-  // Siri / App Intents deep links (coffeestory://book|orders|rewards|gift).
-  useEffect(() => {
-    const dispatch = (url: string | null) => {
-      const giftToken = giftTokenFromUrl(url);
-      if (giftToken) {
-        openGiftClaim(giftToken);
-        return;
-      }
-      const destination = destinationForIntentUrl(url);
-      if (!destination) return;
-      if (destination === 'book') startOrder();
-      else if (destination === 'orders') openMore('orders');
-      else setClientTab(destination);
-    };
-    void Linking.getInitialURL().then(dispatch);
-    const subscription = Linking.addEventListener('url', ({ url }) => dispatch(url));
-    return () => subscription.remove();
-  }, [openGiftClaim, startOrder, openMore, setClientTab]);
+  useAppIntents({ openGiftClaim, openMore, setClientTab, startOrder });
 
   const openStaffDestination = useCallback((path: string) => {
     selectionFeedback();

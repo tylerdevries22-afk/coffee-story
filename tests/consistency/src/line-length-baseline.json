@@ -1,19 +1,5 @@
 {
   "$comment": "Files already over the 200-line rule when the guard was added, with the length each had. The guard's only job is to stop the list growing: a new file over 200 lines fails, and a file here that grows fails. Splitting any of these is optional and always allowed -- shrink past 200 and delete the entry. Per the roadmap decision, files are split when a phase touches them, not on a schedule, so this is a debt ledger and not a work queue.",
-  "grandfathered": {
-    "apps/customer/src/screens/client/more/profile-and-preferences.tsx": 312,
-    "apps/customer/src/screens/client/order/bag-step.tsx": 326,
-    "apps/customer/src/screens/client/order/checkout-step.tsx": 436,
-    "apps/customer/src/screens/client/order/fulfillment-steps.tsx": 531,
-    "apps/customer/src/screens/client/order/item-sheet.tsx": 271,
-    "apps/customer/src/screens/client/order/menu-step.tsx": 337,
-    "apps/customer/src/screens/client/rewards-screen.tsx": 256,
-    "apps/customer/src/screens/client/rewards/sheets.tsx": 280,
-    "apps/customer/src/screens/client/rewards/styles.ts": 304,
-    "apps/customer/src/screens/client/rewards/tabs/status-tab.tsx": 258,
-    "apps/customer/src/state/app-context.tsx": 270,
-    "apps/customer/src/state/auth-context.tsx": 306,
-    "apps/customer/src/state/demo-state.ts": 318
-  },
+  "grandfathered": {},
   "limit": 200
 }
