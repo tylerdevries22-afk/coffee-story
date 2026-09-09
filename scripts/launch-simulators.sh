@@ -178,7 +178,7 @@ fi
 HOST_IP="127.0.0.1"
 
 open_app() {
-  local udid="$1" port="$2" name="$3" try
+  local udid="$1" port="$2" name="$3"
   if [ -z "$GO_APP" ]; then
     say "⚠️  Expo Go isn't cached yet — in the $name Metro window press shift+i and pick the simulator."
     return
@@ -200,7 +200,7 @@ open_app() {
   # not retrying, it is hanging, and a hang here looks like a stuck terminal
   # rather than a failure worth reading. macOS has no GNU `timeout`.
   local pid waited
-  for try in 1 2 3; do
+  for _ in 1 2 3; do
     xcrun simctl openurl "$udid" "exp://$HOST_IP:$port" >/dev/null 2>&1 &
     pid=$!
     waited=0
