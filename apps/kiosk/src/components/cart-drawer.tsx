@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo } from 'react';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 import {
@@ -13,7 +13,9 @@ import { EASING, duration, useCopy, useReducedMotion, useTokens, withAlpha } fro
 
 import { KioskPressable } from '@/components/chrome/kiosk-pressable';
 import { KioskStepper } from '@/components/chrome/kiosk-stepper';
+import { styles } from '@/components/cart-drawer-styles';
 import { KioskMenuImage } from '@/components/menu-image';
+import { useCartDrawerFocus } from '@/components/use-cart-drawer-focus';
 import { useKioskMenu } from '@/data/menu-store';
 import { checkoutEntryStep } from '@/features/cart-drawer';
 import * as haptics from '@/lib/haptics';
@@ -21,34 +23,6 @@ import { useFlow } from '@/state/flow';
 import { useKioskSession } from '@/state/session';
 import { TENANT } from '@/tenant';
 import { TENANT_TAX } from '@/tenant/tax';
-
-const FOCUSABLE_SELECTOR = [
-  'button:not([disabled])',
-  '[href]',
-  'input:not([disabled])',
-  'select:not([disabled])',
-  'textarea:not([disabled])',
-  '[tabindex]:not([tabindex="-1"])',
-].join(', ');
-
-function asWebElement(value: unknown): HTMLElement | null {
-  if (typeof HTMLElement === 'undefined' || !(value instanceof HTMLElement)) return null;
-  return value;
-}
-
-function focusWebElement(value: unknown): boolean {
-  const element = asWebElement(value);
-  if (!element) return false;
-  element.focus();
-  return true;
-}
-
-function focusableElements(root: HTMLElement): HTMLElement[] {
-  return Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter((element) => (
-    element.getAttribute('aria-disabled') !== 'true'
-    && element.getAttribute('aria-hidden') !== 'true'
-  ));
-}
 
 /** A transient cart surface that preserves the menu underneath it. */
 export function KioskCartDrawer() {
@@ -58,8 +32,6 @@ export function KioskCartDrawer() {
   const { cart, changeQuantity, removeLine } = useKioskSession();
   const { menu } = useKioskMenu();
   const { flow, closeCart, goTo, learn } = useFlow();
-  const drawerRef = useRef<View>(null);
-  const previousFocusRef = useRef<HTMLElement | null>(null);
   const progress = useSharedValue(reduced ? 1 : 0);
   const imageUrlBySlug = useMemo(
     () => new Map(menu.items.map((item) => [item.id, item.imageUrl] as const)),
@@ -71,17 +43,6 @@ export function KioskCartDrawer() {
   });
   const count = orderItemCount(cart);
 
-  const dismissCart = useCallback(() => {
-    const previousFocus = previousFocusRef.current;
-    closeCart();
-    if (Platform.OS !== 'web') return;
-    window.requestAnimationFrame(() => {
-      const cartButton = document.querySelector('[data-testid="kiosk-cart-button"]');
-      if (focusWebElement(cartButton)) return;
-      if (previousFocus?.isConnected) previousFocus.focus();
-    });
-  }, [closeCart]);
-
   useEffect(() => {
     progress.value = withTiming(1, {
       duration: duration(tokens.motion.base, reduced),
@@ -89,47 +50,7 @@ export function KioskCartDrawer() {
     });
   }, [progress, reduced, tokens.motion.base]);
 
-  useEffect(() => {
-    if (Platform.OS !== 'web') return;
-    previousFocusRef.current = asWebElement(document.activeElement);
-
-    const focusFrame = window.requestAnimationFrame(() => {
-      const drawer = asWebElement(drawerRef.current);
-      focusWebElement(drawer?.querySelector('[data-testid="kiosk-cart-close-button"]'));
-    });
-
-    const containKeyboardFocus = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        dismissCart();
-        return;
-      }
-      if (event.key !== 'Tab') return;
-
-      const drawer = asWebElement(drawerRef.current);
-      if (!drawer) return;
-      const focusable = focusableElements(drawer);
-      if (focusable.length === 0) {
-        event.preventDefault();
-        return;
-      }
-
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      const active = asWebElement(document.activeElement);
-      const leavingBack = event.shiftKey && (active === first || !active || !drawer.contains(active));
-      const leavingForward = !event.shiftKey && (active === last || !active || !drawer.contains(active));
-      if (!leavingBack && !leavingForward) return;
-      event.preventDefault();
-      (event.shiftKey ? last : first)?.focus();
-    };
-
-    document.addEventListener('keydown', containKeyboardFocus);
-    return () => {
-      window.cancelAnimationFrame(focusFrame);
-      document.removeEventListener('keydown', containKeyboardFocus);
-    };
-  }, [dismissCart]);
+  const { dismissCart, drawerRef } = useCartDrawerFocus(closeCart);
 
   const backdrop = useAnimatedStyle(() => ({ opacity: progress.value }));
   const drawer = useAnimatedStyle(() => ({
@@ -272,37 +193,3 @@ function MoneyRow({ label, amount, muted = false }: { label: string; amount: num
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: { ...StyleSheet.absoluteFillObject, zIndex: 20, flexDirection: 'row', justifyContent: 'flex-end' },
-  backdrop: { ...StyleSheet.absoluteFillObject },
-  backdropPress: { flex: 1 },
-  drawer: {
-    width: 480, maxWidth: '88%', height: '100%', padding: 28,
-    shadowRadius: 24, shadowOffset: { width: -8, height: 0 }, elevation: 16,
-  },
-  drawerContents: { flex: 1, gap: 18 },
-  heading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16 },
-  headingCopy: { flex: 1, gap: 2 },
-  title: {},
-  countText: {},
-  close: { minWidth: 84, minHeight: 60, paddingHorizontal: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 2 },
-  closeLabel: { fontWeight: '700' },
-  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 24 },
-  emptyText: {},
-  lines: { paddingBottom: 18 },
-  line: { flexDirection: 'row', alignItems: 'flex-start', gap: 14, paddingVertical: 18, borderBottomWidth: 1 },
-  lineBody: { flex: 1, gap: 12 },
-  lineTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  lineCopy: { flex: 1, gap: 3 },
-  lineName: { fontWeight: '700' },
-  lineMeta: {},
-  linePrice: { fontWeight: '700', textAlign: 'right' },
-  summary: { borderTopWidth: 1, paddingTop: 16, gap: 10 },
-  moneyRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16 },
-  moneyLabel: { flex: 1 },
-  moneyAmount: { fontWeight: '600' },
-  totalRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 },
-  totalLabel: { fontWeight: '700' },
-  totalAmount: { fontWeight: '700' },
-});

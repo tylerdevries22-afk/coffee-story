@@ -1,12 +1,10 @@
 import { useEffect, useReducer, useRef, useState } from 'react';
-import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
+import { Platform } from 'react-native';
 
 import { newIdempotencyKey } from '@platform/api-client';
-import { formatMoney, orderSubtotalCents, orderTotals, ticketCallout } from '@platform/domain';
-import { useTokens } from '@platform/ui';
+import { orderSubtotalCents, orderTotals, ticketCallout } from '@platform/domain';
 
-import { KioskPressable } from '@/components/chrome/kiosk-pressable';
-import { CheckDraw } from '@/components/feedback/check-draw';
+import { ProcessingView } from '@/components/checkout/processing-view';
 import { IDLE_CHECKOUT, checkoutReducer, recoveryAdvice } from '@/features/checkout';
 import {
   checkoutAttemptKey, checkoutPreflight, demoReplayOutcome, paymentAmountCents,
@@ -26,19 +24,8 @@ import { TENANT_TAX } from '@/tenant/tax';
 /** A kiosk with a hung request and a queue behind it has to say something. */
 const TIMEOUT_MS = 20_000;
 
-/**
- * Placing the order, then taking the money.
- *
- * That order matters: authorising first means a timeout can leave a charge with
- * no order behind it, which is the strictly worse failure -- an order with no
- * payment is a row a shop can see and settle, a payment with no order is a
- * refund nobody knows to make.
- *
- * Nothing here is cancellable. `backStep` already returns null for this step,
- * so the chrome hides its own chevron; this screen does not have to remember to.
- */
+/** Places the order before taking payment, so every authorization has an order. */
 export default function ProcessingStep() {
-  const tokens = useTokens();
   const { goNext, goTo } = useFlow();
   const { cart, reset: resetCheckout, setCommitted, tender, tipCents } = useKioskSession();
   const device = useDevice();
@@ -190,100 +177,17 @@ export default function ProcessingStep() {
   const done = state.phase === 'succeeded';
 
   return (
-    <View style={styles.root}>
-      <Text style={[styles.total, { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: tokens.type.mega }]}>
-        {formatMoney(displayTotalCents)}
-      </Text>
-
-      {displayTotalCents < totals.totalCents ? (
-        <Text accessibilityRole="alert" style={[styles.repriced, { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: tokens.type.md }]}>
-          Your total decreased to the current menu price.
-        </Text>
-      ) : null}
-
-      {blockedCode !== null ? (
-        <>
-          <Text accessibilityRole="alert" style={[styles.status, { color: tokens.danger, fontFamily: tokens.fontBody, fontSize: tokens.type.xl }]}>
-            Checkout is not ready on this kiosk. No order was sent and no payment was taken.
-          </Text>
-          <KioskPressable label="Back to payment" onPress={() => goTo('pay')} />
-        </>
-      ) : terminalReplay ? (
-        <>
-          <Text accessibilityRole="alert" style={[styles.status, { color: tokens.danger, fontFamily: tokens.fontBody, fontSize: tokens.type.xl }]}>
-            This checkout was already cancelled or refunded. No new payment was taken.
-          </Text>
-          <KioskPressable label="Staff: clear checkout" onPress={resetCheckout} />
-        </>
-      ) : priceIncrease ? (
-        <>
-          <Text accessibilityRole="alert" style={[styles.status, { color: tokens.danger, fontFamily: tokens.fontBody, fontSize: tokens.type.xl }]}>
-            The menu price changed. No payment was taken; please ask staff to clear this checkout.
-          </Text>
-          <KioskPressable label="Staff: clear checkout" onPress={resetCheckout} />
-        </>
-      ) : placementRejected ? (
-        <>
-          <Text accessibilityRole="alert" style={[styles.status, { color: tokens.danger, fontFamily: tokens.fontBody, fontSize: tokens.type.xl }]}>
-            We could not place this order. No payment was taken.
-          </Text>
-          <KioskPressable label="Review order" onPress={() => goTo('bag')} />
-        </>
-      ) : done ? (
-        <>
-          <CheckDraw />
-          <Text style={[styles.status, { color: tokens.success, fontFamily: tokens.fontBody, fontSize: tokens.type.xl }]}>
-            {recoveredPayment
-              ? 'Payment already confirmed'
-              : (tender === 'cash' ? 'Order sent — pay at the counter' : 'Payment complete')}
-          </Text>
-          {ticket !== null ? (
-            <>
-              <Text style={[styles.status, { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: tokens.type.lg }]}>
-                Your order call-out
-              </Text>
-              {/* The number the DATABASE assigned, not one this screen invented.
-                  `app.assign_daily_number` restarts it per location per service
-                  date, which is what lets the board and the barista agree. */}
-              <Text style={[styles.total, { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: tokens.type.ticket }]}>
-                {ticket}
-              </Text>
-            </>
-          ) : null}
-          <KioskPressable label="Continue" onPress={() => goNext({ placed: true })} />
-        </>
-      ) : advice === 'none' ? (
-        <>
-          <ActivityIndicator size="large" color={tokens.accent} />
-          <Text style={[styles.status, { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: tokens.type.xl }]}>
-            {tender === 'cash' ? 'Sending your order…' : 'Taking your payment…'}
-          </Text>
-        </>
-      ) : (
-        <>
-          <Text style={[styles.status, { color: tokens.danger, fontFamily: tokens.fontBody, fontSize: tokens.type.xl }]}>
-            {advice === 'see-staff'
-              ? 'Please speak to someone at the counter.'
-              : advice === 'retry'
-                ? 'We did not hear back. Nothing has been charged twice.'
-                : 'That payment was declined.'}
-          </Text>
-          {advice === 'retry-payment' ? (
-            <KioskPressable label="Try card again" onPress={() => { dispatch({ type: 'retry' }); rerun(); }} />
-          ) : advice === 'retry' ? (
-            <KioskPressable label="Try again" onPress={() => { dispatch({ type: 'retry' }); rerun(); }} />
-          ) : advice === 'see-staff' ? (
-            <KioskPressable label="Staff: clear checkout" onPress={resetCheckout} />
-          ) : null}
-        </>
-      )}
-    </View>
+    <ProcessingView
+      model={{
+        advice, blocked: blockedCode !== null, displayTotalCents, done,
+        originalTotalCents: totals.totalCents, placementRejected, priceIncrease,
+        recoveredPayment, tender, terminalReplay, ticket,
+      }}
+      onBackToPayment={() => goTo('pay')}
+      onClear={resetCheckout}
+      onContinue={() => goNext({ placed: true })}
+      onRetry={() => { dispatch({ type: 'retry' }); rerun(); }}
+      onReviewOrder={() => goTo('bag')}
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  root: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 28 },
-  total: {},
-  repriced: { textAlign: 'center' },
-  status: { textAlign: 'center', maxWidth: 720 },
-});
