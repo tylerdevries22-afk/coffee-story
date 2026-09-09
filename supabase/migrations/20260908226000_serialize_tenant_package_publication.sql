@@ -60,12 +60,21 @@ create index tenant_package_publication_events_release_idx
 revoke all on table public.tenant_package_publication_events
   from public, anon, authenticated, service_role;
 grant select on table public.tenant_package_publication_events to service_role;
+revoke all on sequence public.tenant_package_publication_events_id_seq
+  from public, anon, authenticated, service_role;
 create trigger tenant_package_publication_events_immutable
 before update or delete on public.tenant_package_publication_events
 for each row execute function app_private.reject_tenant_package_event_mutation();
-revoke insert, update, delete on table public.tenant_package_releases from service_role;
-revoke insert, update, delete on table public.tenant_package_files from service_role;
-revoke insert, update, delete on table public.tenant_package_publications from service_role;
+revoke all on table
+  public.tenant_package_releases,
+  public.tenant_package_files,
+  public.tenant_package_publications
+from service_role;
+grant select on table
+  public.tenant_package_releases,
+  public.tenant_package_files,
+  public.tenant_package_publications
+to service_role;
 
 create or replace function public.publish_tenant_package(
   p_brand_id uuid,
@@ -288,6 +297,9 @@ grant execute on function public.confirm_tenant_package_purge_claim(uuid)
 
 create or replace function app.assert_tenant_package_publication_serialized()
 returns void language plpgsql stable set search_path = '' as $$
+declare
+  relation_name text;
+  privilege_name text;
 begin
   if not exists (
     select 1 from pg_catalog.pg_indexes
@@ -320,9 +332,38 @@ begin
      )
      or pg_catalog.has_table_privilege(
        'service_role', 'public.tenant_package_publication_events', 'TRIGGER'
+     )
+     or pg_catalog.has_sequence_privilege(
+       'service_role', 'public.tenant_package_publication_events_id_seq', 'USAGE'
+     )
+     or pg_catalog.has_sequence_privilege(
+       'service_role', 'public.tenant_package_publication_events_id_seq', 'SELECT'
+     )
+     or pg_catalog.has_sequence_privilege(
+       'service_role', 'public.tenant_package_publication_events_id_seq', 'UPDATE'
      ) then
     raise exception 'tenant package publication audit privileges are unsafe';
   end if;
+  foreach relation_name in array array[
+    'public.tenant_package_releases',
+    'public.tenant_package_files',
+    'public.tenant_package_publications'
+  ] loop
+    if not pg_catalog.has_table_privilege(
+      'service_role', relation_name, 'SELECT'
+    ) then
+      raise exception 'tenant package state is unreadable: %', relation_name;
+    end if;
+    foreach privilege_name in array array[
+      'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER'
+    ] loop
+      if pg_catalog.has_table_privilege(
+        'service_role', relation_name, privilege_name
+      ) then
+        raise exception 'tenant package state is directly writable: %', relation_name;
+      end if;
+    end loop;
+  end loop;
 end $$;
 
 revoke all on function app.assert_tenant_package_publication_serialized()

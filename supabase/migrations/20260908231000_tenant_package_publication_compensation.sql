@@ -131,6 +131,21 @@ create trigger tenant_package_publication_compensation_confirmations_immutable
 before update or delete on public.tenant_package_publication_compensation_confirmations
 for each row execute function app_private.reject_tenant_package_event_mutation();
 
+-- Service workers observe publication state and mutate it only through the
+-- audited SECURITY DEFINER functions below.
+revoke all on table
+  public.tenant_package_releases,
+  public.tenant_package_files,
+  public.tenant_package_publications,
+  public.organization_readiness_checks
+from service_role;
+grant select on table
+  public.tenant_package_releases,
+  public.tenant_package_files,
+  public.tenant_package_publications,
+  public.organization_readiness_checks
+to service_role;
+
 create or replace function public.publish_tenant_package(
   p_brand_id uuid,
   p_release_key text,
@@ -171,10 +186,15 @@ begin
   where release.brand_id = p_brand_id and release.release_key = p_release_key for update;
   if not found or release_row.status not in ('verified', 'published', 'superseded')
      or release_row.artifact_digest <> p_artifact_digest
+     or release_row.objects_purged_at is not null
+     or release_row.purge_started_at is not null
+     or release_row.purge_claim_id is not null
+     or release_row.purge_lease_until is not null
+     or release_row.purge_reason is not null
+     or release_row.purge_blocked_at is not null
+     or release_row.purge_blocked_reason is not null
      or (release_row.status = 'superseded' and (
-       release_row.objects_purged_at is not null
-       or release_row.purge_started_at is not null
-       or release_row.object_retention_until <= statement_timestamp()
+       release_row.object_retention_until <= statement_timestamp()
        or not exists (
          select 1 from storage.objects object_row
          where object_row.bucket_id = 'tenant-packages'
@@ -220,7 +240,10 @@ begin
        or previous_release.objects_purged_at is not null
        or previous_release.purge_started_at is not null
        or previous_release.purge_claim_id is not null
-       or previous_release.purge_lease_until is not null then
+       or previous_release.purge_lease_until is not null
+       or previous_release.purge_reason is not null
+       or previous_release.purge_blocked_at is not null
+       or previous_release.purge_blocked_reason is not null then
       raise exception using errcode = '23514', message = 'tenant_package_release_mismatch';
     end if;
   end if;
@@ -282,7 +305,8 @@ begin
     deployment_commit_sha = p_commit_sha,
     superseded_at = null, object_retention_until = null,
     objects_purged_at = null, purge_started_at = null,
-    purge_claim_id = null, purge_lease_until = null
+    purge_claim_id = null, purge_lease_until = null,
+    purge_reason = null, purge_blocked_at = null, purge_blocked_reason = null
   where release.id = release_row.id;
   insert into public.tenant_package_publications (
     brand_id, current_release_id, artifact_digest, deployment_commit_sha, published_at
@@ -306,9 +330,7 @@ begin
 end $$;
 
 revoke all on function public.publish_tenant_package(uuid, text, text, text, text, text)
-  from public, anon, authenticated;
-grant execute on function public.publish_tenant_package(uuid, text, text, text, text, text)
-  to service_role;
+  from public, anon, authenticated, service_role;
 
 create function public.publish_tenant_package_if_current(
   p_brand_id uuid,
@@ -346,13 +368,24 @@ begin
   select * into current_publication
   from public.tenant_package_publications publication
   where publication.brand_id = p_brand_id for update;
+  if exists (
+    select 1
+    from public.tenant_package_publication_compensations compensation
+    left join public.tenant_package_publication_compensation_confirmations confirmation
+      on confirmation.compensation_id = compensation.id
+    where compensation.brand_id = p_brand_id
+      and confirmation.id is null
+  ) then
+    raise exception using
+      errcode = '23514', message = 'tenant_package_publication_conflict';
+  end if;
   if (expected_previous_count = 0 and current_publication.brand_id is not null)
      or (expected_previous_count = 4 and (
        current_publication.brand_id is null
-       or current_publication.current_release_id <> p_previous_release_id
-       or current_publication.artifact_digest <> p_previous_artifact_digest
-       or current_publication.deployment_commit_sha <> p_previous_commit_sha
-       or current_publication.published_at <> p_previous_published_at
+       or current_publication.current_release_id is distinct from p_previous_release_id
+       or current_publication.artifact_digest is distinct from p_previous_artifact_digest
+       or current_publication.deployment_commit_sha is distinct from p_previous_commit_sha
+       or current_publication.published_at is distinct from p_previous_published_at
      )) then
     raise exception using errcode = '23514', message = 'tenant_package_publication_conflict';
   end if;
@@ -388,6 +421,7 @@ declare
   current_publication public.tenant_package_publications%rowtype;
   target_release public.tenant_package_releases%rowtype;
   previous_release public.tenant_package_releases%rowtype;
+  artifact_readiness public.organization_readiness_checks%rowtype;
   compensation_id bigint;
   expected_previous_count integer;
 begin
@@ -433,12 +467,25 @@ begin
     and event_row.approval_reference = p_approval_reference;
 
   if publication_event.id is null then
-    if (expected_previous_count = 0 and current_publication.brand_id is null)
-       or (expected_previous_count = 4
-         and current_publication.current_release_id = p_previous_release_id
-         and current_publication.artifact_digest = p_previous_artifact_digest
-         and current_publication.deployment_commit_sha = p_previous_commit_sha
-         and current_publication.published_at = p_previous_published_at) then
+    if (
+      (expected_previous_count = 0 and current_publication.brand_id is null)
+      or (expected_previous_count = 4
+        and current_publication.current_release_id
+          is not distinct from p_previous_release_id
+        and current_publication.artifact_digest
+          is not distinct from p_previous_artifact_digest
+        and current_publication.deployment_commit_sha
+          is not distinct from p_previous_commit_sha
+        and current_publication.published_at
+          is not distinct from p_previous_published_at)
+    ) and not exists (
+      select 1
+      from public.tenant_package_publication_compensations compensation_row
+      left join public.tenant_package_publication_compensation_confirmations confirmation
+        on confirmation.compensation_id = compensation_row.id
+      where compensation_row.brand_id = p_brand_id
+        and confirmation.id is null
+    ) then
       return 'not_committed';
     end if;
     raise exception using errcode = '23514', message = 'tenant_package_compensation_conflict';
@@ -452,9 +499,26 @@ begin
     raise exception using errcode = '23514', message = 'tenant_package_compensation_conflict';
   end if;
 
+  if exists (
+    select 1 from public.tenant_package_publication_events later_event
+    where later_event.brand_id = p_brand_id
+      and later_event.id > publication_event.id
+  ) then
+    raise exception using errcode = '23514', message = 'tenant_package_compensation_conflict';
+  end if;
+
   select * into compensation
   from public.tenant_package_publication_compensations compensation_row
   where compensation_row.publication_event_id = publication_event.id;
+
+  select * into artifact_readiness
+  from public.organization_readiness_checks readiness
+  where readiness.brand_id = p_brand_id
+    and readiness.check_key = 'tenant_artifacts'
+  for update;
+  if not found then
+    raise exception using errcode = '23514', message = 'tenant_package_compensation_conflict';
+  end if;
 
   select * into target_release from public.tenant_package_releases release
   where release.id = p_release_id and release.brand_id = p_brand_id for update;
@@ -472,59 +536,74 @@ begin
   end if;
 
   if compensation.id is not null then
-    if compensation.brand_id <> p_brand_id
-       or compensation.failed_release_id <> p_release_id
+    if compensation.brand_id is distinct from p_brand_id
+       or compensation.failed_release_id is distinct from p_release_id
        or compensation.restored_release_id is distinct from p_previous_release_id
-       or compensation.failed_deployment_commit_sha <> p_commit_sha
+       or compensation.failed_deployment_commit_sha is distinct from p_commit_sha
        or compensation.restored_deployment_commit_sha
          is distinct from p_previous_commit_sha
-       or compensation.rollback_canary_reference <> p_rollback_canary_reference
-       or compensation.rollback_approval_reference <> p_rollback_approval_reference
+       or compensation.rollback_canary_reference
+         is distinct from p_rollback_canary_reference
+       or compensation.rollback_approval_reference
+         is distinct from p_rollback_approval_reference
+       or artifact_readiness.status is distinct from 'passed'
+       or artifact_readiness.evidence->>'artifactDigest' is distinct from
+         coalesce(p_previous_artifact_digest, publication_event.artifact_digest)
        or (p_previous_release_id is null and current_publication.brand_id is not null)
        or (p_previous_release_id is not null and (
          current_publication.brand_id is null
-         or current_publication.current_release_id <> p_previous_release_id
-         or current_publication.artifact_digest <> p_previous_artifact_digest
-         or current_publication.deployment_commit_sha <> p_previous_commit_sha
-         or current_publication.published_at <> p_previous_published_at
+         or current_publication.current_release_id is distinct from p_previous_release_id
+         or current_publication.artifact_digest is distinct from p_previous_artifact_digest
+         or current_publication.deployment_commit_sha is distinct from p_previous_commit_sha
+         or current_publication.published_at is distinct from p_previous_published_at
+         or current_publication.updated_at
+           is distinct from publication_event.previous_updated_at
        ))
-       or target_release.status is distinct from publication_event.target_previous_status
-       or target_release.deployment_commit_sha
-         is distinct from publication_event.target_previous_deployment_commit_sha
-       or target_release.published_at
-         is distinct from publication_event.target_previous_published_at
-       or target_release.superseded_at
-         is distinct from publication_event.target_previous_superseded_at
-       or target_release.object_retention_until
-         is distinct from publication_event.target_previous_object_retention_until
-       or target_release.objects_purged_at
-         is distinct from publication_event.target_previous_objects_purged_at
-       or target_release.purge_started_at
-         is distinct from publication_event.target_previous_purge_started_at
-       or target_release.purge_claim_id
-         is distinct from publication_event.target_previous_purge_claim_id
-       or target_release.purge_lease_until
-         is distinct from publication_event.target_previous_purge_lease_until then
+       or (p_previous_release_id is not null and (
+         previous_release.id is null
+         or previous_release.status is distinct from 'published'
+         or previous_release.artifact_digest is distinct from p_previous_artifact_digest
+         or previous_release.deployment_commit_sha is distinct from p_previous_commit_sha
+         or previous_release.published_at is distinct from p_previous_published_at
+         or previous_release.superseded_at is not null
+         or previous_release.object_retention_until is not null
+         or previous_release.objects_purged_at is not null
+         or previous_release.purge_started_at is not null
+         or previous_release.purge_claim_id is not null
+         or previous_release.purge_lease_until is not null
+         or previous_release.purge_reason is not null
+         or previous_release.purge_blocked_at is not null
+         or previous_release.purge_blocked_reason is not null
+       )) then
       raise exception using errcode = '23514', message = 'tenant_package_compensation_conflict';
     end if;
     return 'compensated';
   end if;
 
+  if artifact_readiness.status is distinct from 'passed'
+     or artifact_readiness.evidence->>'artifactDigest'
+       is distinct from publication_event.artifact_digest then
+    raise exception using errcode = '23514', message = 'tenant_package_compensation_conflict';
+  end if;
+
   if current_publication.brand_id is null
-     or current_publication.current_release_id <> p_release_id
-     or current_publication.artifact_digest <> publication_event.artifact_digest
-     or current_publication.deployment_commit_sha <> p_commit_sha
-     or current_publication.published_at <> publication_event.promoted_at
-     or target_release.status <> 'published'
-     or target_release.artifact_digest <> publication_event.artifact_digest
-     or target_release.deployment_commit_sha <> p_commit_sha
-     or target_release.published_at <> publication_event.promoted_at
+     or current_publication.current_release_id is distinct from p_release_id
+     or current_publication.artifact_digest is distinct from publication_event.artifact_digest
+     or current_publication.deployment_commit_sha is distinct from p_commit_sha
+     or current_publication.published_at is distinct from publication_event.promoted_at
+     or target_release.status is distinct from 'published'
+     or target_release.artifact_digest is distinct from publication_event.artifact_digest
+     or target_release.deployment_commit_sha is distinct from p_commit_sha
+     or target_release.published_at is distinct from publication_event.promoted_at
      or target_release.superseded_at is not null
      or target_release.object_retention_until is not null
      or target_release.objects_purged_at is not null
      or target_release.purge_started_at is not null
      or target_release.purge_claim_id is not null
-     or target_release.purge_lease_until is not null then
+     or target_release.purge_lease_until is not null
+     or target_release.purge_reason is not null
+     or target_release.purge_blocked_at is not null
+     or target_release.purge_blocked_reason is not null then
     raise exception using errcode = '23514', message = 'tenant_package_compensation_conflict';
   end if;
 
@@ -538,14 +617,17 @@ begin
   end if;
 
   if p_previous_release_id is not null and p_previous_release_id <> p_release_id then
-    if previous_release.status <> 'superseded'
-       or previous_release.artifact_digest <> p_previous_artifact_digest
-       or previous_release.deployment_commit_sha <> p_previous_commit_sha
-       or previous_release.published_at <> p_previous_published_at
+    if previous_release.status is distinct from 'superseded'
+       or previous_release.artifact_digest is distinct from p_previous_artifact_digest
+       or previous_release.deployment_commit_sha is distinct from p_previous_commit_sha
+       or previous_release.published_at is distinct from p_previous_published_at
        or previous_release.objects_purged_at is not null
        or previous_release.purge_started_at is not null
        or previous_release.purge_claim_id is not null
        or previous_release.purge_lease_until is not null
+       or previous_release.purge_reason is not null
+       or previous_release.purge_blocked_at is not null
+       or previous_release.purge_blocked_reason is not null
        or not exists (
          select 1 from storage.objects object_row
          where object_row.bucket_id = 'tenant-packages'
@@ -590,7 +672,8 @@ begin
         status = 'published', deployment_commit_sha = p_previous_commit_sha,
         published_at = p_previous_published_at, superseded_at = null,
         object_retention_until = null, objects_purged_at = null,
-        purge_started_at = null, purge_claim_id = null, purge_lease_until = null
+        purge_started_at = null, purge_claim_id = null, purge_lease_until = null,
+        purge_reason = null, purge_blocked_at = null, purge_blocked_reason = null
       where release.id = p_previous_release_id;
     end if;
     update public.tenant_package_publications publication set
@@ -611,6 +694,13 @@ begin
     p_commit_sha, p_previous_commit_sha,
     p_rollback_canary_reference, p_rollback_approval_reference
   ) returning id into compensation_id;
+
+  if p_previous_artifact_digest is not null then
+    perform public.record_organization_readiness(
+      p_brand_id, 'tenant_artifacts', true,
+      jsonb_build_object('artifactDigest', p_previous_artifact_digest)
+    );
+  end if;
 
   perform public.record_organization_readiness(
     p_brand_id, 'release_approval', false,
@@ -647,10 +737,13 @@ declare
   publication_event public.tenant_package_publication_events%rowtype;
   compensation public.tenant_package_publication_compensations%rowtype;
   current_publication public.tenant_package_publications%rowtype;
-  target_release public.tenant_package_releases%rowtype;
+  restored_release public.tenant_package_releases%rowtype;
+  readiness public.organization_readiness_checks%rowtype;
+  artifact_readiness public.organization_readiness_checks%rowtype;
   confirmation_id bigint;
 begin
-  if p_brand_id is null or p_release_id is null
+  if p_brand_id is null or p_release_id is null or p_commit_sha is null
+     or p_canary_reference is null or p_approval_reference is null
      or p_commit_sha !~ '^[0-9a-f]{40}$'
      or p_canary_reference
        !~ '^[a-z][a-z0-9_-]{1,31}:[A-Za-z0-9][A-Za-z0-9._:/-]{2,255}$'
@@ -674,47 +767,90 @@ begin
   if not found or publication_event.snapshot_version is distinct from 1 then
     raise exception using errcode = '23514', message = 'tenant_package_compensation_conflict';
   end if;
+  if exists (
+    select 1 from public.tenant_package_publication_events later_event
+    where later_event.brand_id = p_brand_id
+      and later_event.id > publication_event.id
+  ) then
+    raise exception using errcode = '23514', message = 'tenant_package_compensation_conflict';
+  end if;
   select * into compensation
   from public.tenant_package_publication_compensations compensation_row
   where compensation_row.publication_event_id = publication_event.id;
   if not found then
     raise exception using errcode = '23514', message = 'tenant_package_compensation_conflict';
   end if;
+  if compensation.brand_id is distinct from p_brand_id
+     or compensation.failed_release_id is distinct from p_release_id
+     or compensation.restored_release_id
+       is distinct from publication_event.previous_package_release_id
+     or compensation.failed_deployment_commit_sha is distinct from p_commit_sha
+     or compensation.restored_deployment_commit_sha
+       is distinct from publication_event.previous_deployment_commit_sha then
+    raise exception using errcode = '23514', message = 'tenant_package_compensation_conflict';
+  end if;
+  select * into artifact_readiness
+  from public.organization_readiness_checks artifact
+  where artifact.brand_id = p_brand_id
+    and artifact.check_key = 'tenant_artifacts'
+  for update;
+  if not found
+     or artifact_readiness.status is distinct from 'passed'
+     or artifact_readiness.evidence->>'artifactDigest' is distinct from
+       coalesce(
+         publication_event.previous_artifact_digest,
+         publication_event.artifact_digest
+       ) then
+    raise exception using errcode = '23514', message = 'tenant_package_compensation_conflict';
+  end if;
+  select * into readiness
+  from public.organization_readiness_checks readiness_row
+  where readiness_row.brand_id = p_brand_id
+    and readiness_row.check_key = 'release_approval'
+  for update;
+  if not found then
+    raise exception using errcode = '23514', message = 'tenant_package_compensation_conflict';
+  end if;
   select * into current_publication
   from public.tenant_package_publications publication
   where publication.brand_id = p_brand_id for update;
-  select * into target_release from public.tenant_package_releases release
-  where release.id = p_release_id and release.brand_id = p_brand_id for update;
-  if not found
-     or (publication_event.previous_package_release_id is null
+  if publication_event.previous_package_release_id is not null then
+    select * into restored_release from public.tenant_package_releases release
+    where release.id = publication_event.previous_package_release_id
+      and release.brand_id = p_brand_id for update;
+  end if;
+  if (publication_event.previous_package_release_id is null
        and current_publication.brand_id is not null)
      or (publication_event.previous_package_release_id is not null and (
        current_publication.brand_id is null
        or current_publication.current_release_id
-         <> publication_event.previous_package_release_id
+         is distinct from publication_event.previous_package_release_id
        or current_publication.artifact_digest
-         <> publication_event.previous_artifact_digest
+         is distinct from publication_event.previous_artifact_digest
        or current_publication.deployment_commit_sha
-         <> publication_event.previous_deployment_commit_sha
-       or current_publication.published_at <> publication_event.previous_published_at
-     ))
-     or target_release.status is distinct from publication_event.target_previous_status
-     or target_release.deployment_commit_sha
-       is distinct from publication_event.target_previous_deployment_commit_sha
-     or target_release.published_at
-       is distinct from publication_event.target_previous_published_at
-     or target_release.superseded_at
-       is distinct from publication_event.target_previous_superseded_at
-     or target_release.object_retention_until
-       is distinct from publication_event.target_previous_object_retention_until
-     or target_release.objects_purged_at
-       is distinct from publication_event.target_previous_objects_purged_at
-     or target_release.purge_started_at
-       is distinct from publication_event.target_previous_purge_started_at
-     or target_release.purge_claim_id
-       is distinct from publication_event.target_previous_purge_claim_id
-     or target_release.purge_lease_until
-       is distinct from publication_event.target_previous_purge_lease_until then
+         is distinct from publication_event.previous_deployment_commit_sha
+       or current_publication.published_at
+         is distinct from publication_event.previous_published_at
+       or current_publication.updated_at
+         is distinct from publication_event.previous_updated_at
+       or restored_release.id is null
+       or restored_release.status is distinct from 'published'
+       or restored_release.artifact_digest
+         is distinct from publication_event.previous_artifact_digest
+       or restored_release.deployment_commit_sha
+         is distinct from publication_event.previous_deployment_commit_sha
+       or restored_release.published_at
+         is distinct from publication_event.previous_published_at
+       or restored_release.superseded_at is not null
+       or restored_release.object_retention_until is not null
+       or restored_release.objects_purged_at is not null
+       or restored_release.purge_started_at is not null
+       or restored_release.purge_claim_id is not null
+       or restored_release.purge_lease_until is not null
+       or restored_release.purge_reason is not null
+       or restored_release.purge_blocked_at is not null
+       or restored_release.purge_blocked_reason is not null
+     )) then
     raise exception using errcode = '23514', message = 'tenant_package_compensation_conflict';
   end if;
 
@@ -727,6 +863,26 @@ begin
     select confirmation.id into confirmation_id
     from public.tenant_package_publication_compensation_confirmations confirmation
     where confirmation.compensation_id = compensation.id;
+    if readiness.status is distinct from (
+         case when publication_event.previous_package_release_id is null
+           then 'failed' else 'passed' end
+       )
+       or readiness.evidence->>'compensationId' is distinct from compensation.id::text
+       or readiness.evidence->>'compensationConfirmationId'
+         is distinct from confirmation_id::text
+       or readiness.evidence->>'compensatedPublicationEventId'
+         is distinct from publication_event.id::text
+       or readiness.evidence->>'providerRollbackCompleted' is distinct from 'true' then
+      raise exception using errcode = '23514', message = 'tenant_package_compensation_conflict';
+    end if;
+    return 'confirmed';
+  end if;
+  if readiness.status is distinct from 'failed'
+     or readiness.evidence->>'compensationId' is distinct from compensation.id::text
+     or readiness.evidence->>'compensatedPublicationEventId'
+       is distinct from publication_event.id::text
+     or readiness.evidence->>'providerRollbackPending' is distinct from 'true' then
+    raise exception using errcode = '23514', message = 'tenant_package_compensation_conflict';
   end if;
 
   perform public.record_organization_readiness(
@@ -756,80 +912,329 @@ grant execute on function public.confirm_tenant_package_publication_compensation
   uuid, uuid, text, text, text
 ) to service_role;
 
+create or replace function public.record_organization_readiness(
+  p_brand_id uuid,
+  p_check_key text,
+  p_passed boolean,
+  p_evidence jsonb
+) returns boolean
+language plpgsql security definer set search_path = '' as $$
+declare
+  artifact_readiness public.organization_readiness_checks%rowtype;
+begin
+  if p_brand_id is null or p_check_key is null or p_passed is null
+     or jsonb_typeof(p_evidence) is distinct from 'object'
+     or octet_length(p_evidence::text) > 16384
+     or (p_check_key = 'tenant_artifacts'
+       and coalesce(p_evidence->>'artifactDigest', '')
+         !~ '^sha256:[0-9a-f]{64}$')
+     or (p_check_key = 'release_approval'
+       and coalesce(p_evidence->>'commitSha', '') !~ '^[0-9a-f]{40}$')
+     or (p_check_key = 'release_approval'
+       and coalesce(p_evidence->>'artifactDigest', '')
+         !~ '^sha256:[0-9a-f]{64}$')
+     or (p_check_key = 'release_approval'
+       and coalesce(p_evidence->>'providerReference', '')
+         !~ '^[a-z][a-z0-9_-]{1,31}:[A-Za-z0-9][A-Za-z0-9._:/-]{2,255}$')
+     or (p_check_key = 'payment_provider'
+       and coalesce(p_evidence->>'providerReference', '')
+         !~ '^[a-z][a-z0-9_-]{1,31}:[A-Za-z0-9][A-Za-z0-9._:/-]{2,255}$')
+     or p_check_key not in (
+       'tenant_artifacts', 'release_approval', 'payment_provider'
+     ) then
+    raise exception using
+      errcode = '22023', message = 'immutable_readiness_evidence_required';
+  end if;
+
+  perform 1 from public.brands brand
+  where brand.id = p_brand_id for update;
+  if not found then
+    raise exception using errcode = '23503', message = 'readiness_check_not_found';
+  end if;
+
+  if p_check_key = 'tenant_artifacts' and exists (
+    select 1
+    from public.tenant_package_publication_compensations compensation
+    join public.tenant_package_publication_events publication_event
+      on publication_event.id = compensation.publication_event_id
+    left join public.tenant_package_publication_compensation_confirmations confirmation
+      on confirmation.compensation_id = compensation.id
+    where compensation.brand_id = p_brand_id
+      and confirmation.id is null
+      and (
+        not p_passed
+        or p_evidence->>'artifactDigest' is distinct from coalesce(
+          publication_event.previous_artifact_digest,
+          publication_event.artifact_digest
+        )
+      )
+  ) then
+    raise exception using
+      errcode = '23514', message = 'tenant_package_compensation_pending';
+  end if;
+
+  if p_check_key = 'release_approval' then
+    select * into artifact_readiness
+    from public.organization_readiness_checks artifact
+    where artifact.brand_id = p_brand_id
+      and artifact.check_key = 'tenant_artifacts'
+    for update;
+    if p_passed and (
+      not found
+      or artifact_readiness.status is distinct from 'passed'
+      or artifact_readiness.evidence->>'artifactDigest'
+        is distinct from p_evidence->>'artifactDigest'
+    ) then
+      raise exception using
+        errcode = '23514', message = 'tenant_package_release_artifact_mismatch';
+    end if;
+    if exists (
+      select 1
+      from public.tenant_package_publication_compensations compensation
+      join public.tenant_package_publication_events publication_event
+        on publication_event.id = compensation.publication_event_id
+      left join public.tenant_package_publication_compensation_confirmations confirmation
+        on confirmation.compensation_id = compensation.id
+      where compensation.brand_id = p_brand_id
+        and confirmation.id is null
+        and (
+          p_passed
+          or p_evidence is distinct from jsonb_build_object(
+            'commitSha', publication_event.deployment_commit_sha,
+            'artifactDigest', publication_event.artifact_digest,
+            'providerReference', compensation.rollback_approval_reference,
+            'canaryReference', compensation.rollback_canary_reference,
+            'compensationId', compensation.id,
+            'compensatedPublicationEventId', publication_event.id,
+            'restoredReleaseId', publication_event.previous_package_release_id,
+            'restoredCommitSha', publication_event.previous_deployment_commit_sha,
+            'providerRollbackPending', true
+          )
+        )
+    ) then
+      raise exception using
+        errcode = '23514', message = 'tenant_package_compensation_pending';
+    end if;
+  end if;
+
+  update public.organization_readiness_checks set
+    status = case when p_passed then 'passed' else 'failed' end,
+    evidence = p_evidence, checked_at = now(), checked_by = null
+  where brand_id = p_brand_id and check_key = p_check_key;
+  if not found then
+    raise exception using errcode = '23503', message = 'readiness_check_not_found';
+  end if;
+  if p_check_key = 'tenant_artifacts' and p_passed then
+    update public.organization_readiness_checks approval set
+      status = 'pending', evidence = '{}'::jsonb,
+      checked_at = null, checked_by = null
+    where approval.brand_id = p_brand_id
+      and approval.check_key = 'release_approval'
+      and approval.status = 'passed'
+      and approval.evidence->>'artifactDigest'
+        is distinct from p_evidence->>'artifactDigest';
+  end if;
+  update public.organization_provisioning_runs set stage = case
+    when not exists (
+      select 1 from public.organization_readiness_checks check_row
+      where check_row.brand_id = p_brand_id and check_row.required
+        and check_row.status <> 'passed'
+    ) then 'ready' else 'awaiting_external' end
+  where brand_id = p_brand_id;
+  return true;
+end $$;
+revoke all on function public.record_organization_readiness(
+  uuid, text, boolean, jsonb
+) from public, anon, authenticated;
+grant execute on function public.record_organization_readiness(
+  uuid, text, boolean, jsonb
+) to service_role;
+
 create function app.assert_tenant_package_publication_compensation()
 returns void language plpgsql stable set search_path = '' as $$
+declare
+  relation_name text;
+  privilege_name text;
+  index_name text;
+  sequence_name text;
+  rpc_signature text;
+  rpc_oid oid;
+  role_name text;
 begin
+  perform app.assert_tenant_package_publication_serialized();
   perform app.assert_tenant_package_upload_sessions();
-  if pg_catalog.to_regclass(
-       'public.tenant_package_publication_compensations'
-     ) is null
-     or pg_catalog.to_regclass(
-       'public.tenant_package_publication_compensation_confirmations'
-     ) is null
-     or not exists (
-       select 1 from pg_catalog.pg_class relation
-       where relation.oid =
-         'public.tenant_package_publication_compensations'::regclass
-         and relation.relrowsecurity
-     )
-     or pg_catalog.to_regprocedure(
-       'public.compensate_tenant_package_publication(uuid,uuid,text,text,text,text,text,uuid,text,text,timestamp with time zone)'
-     ) is null
-     or pg_catalog.to_regprocedure(
-       'public.publish_tenant_package_if_current(uuid,text,text,text,text,text,uuid,text,text,timestamp with time zone)'
-     ) is null
-     or pg_catalog.to_regprocedure(
-       'public.confirm_tenant_package_publication_compensation(uuid,uuid,text,text,text)'
-     ) is null
-     or not exists (
-       select 1 from information_schema.columns
-       where table_schema = 'public'
-         and table_name = 'tenant_package_publication_events'
-         and column_name = 'snapshot_version'
-     )
-     or not exists (
-       select 1 from pg_catalog.pg_indexes
-       where schemaname = 'public'
-         and tablename = 'tenant_package_publication_compensations'
-         and indexname = 'tenant_package_publication_compensations_event_brand_idx'
-     )
-     or not exists (
-       select 1 from pg_catalog.pg_indexes
-       where schemaname = 'public'
-         and tablename = 'tenant_package_publication_compensations'
-         and indexname = 'tenant_package_publication_compensations_brand_idx'
-     )
-     or not exists (
-       select 1 from pg_catalog.pg_trigger trigger_row
-       where trigger_row.tgrelid =
-         'public.tenant_package_publication_compensations'::regclass
-         and trigger_row.tgname = 'tenant_package_publication_compensations_immutable'
-         and not trigger_row.tgisinternal
-     )
-     or not exists (
-       select 1 from pg_catalog.pg_trigger trigger_row
-       where trigger_row.tgrelid =
-         'public.tenant_package_publication_compensation_confirmations'::regclass
-         and trigger_row.tgname =
-           'tenant_package_publication_compensation_confirmations_immutable'
-         and not trigger_row.tgisinternal
-     )
-     or pg_catalog.has_function_privilege(
-       'anon',
-       'public.compensate_tenant_package_publication(uuid,uuid,text,text,text,text,text,uuid,text,text,timestamp with time zone)',
-       'execute'
-     )
-     or pg_catalog.has_function_privilege(
-       'authenticated',
-       'public.compensate_tenant_package_publication(uuid,uuid,text,text,text,text,text,uuid,text,text,timestamp with time zone)',
-       'execute'
-     )
-     or not pg_catalog.has_function_privilege(
-       'service_role',
-       'public.compensate_tenant_package_publication(uuid,uuid,text,text,text,text,text,uuid,text,text,timestamp with time zone)',
-       'execute'
-     ) then
-    raise exception 'tenant package publication compensation contract is incomplete';
+
+  foreach index_name in array array[
+    'public.tenant_package_publication_events_release_idx',
+    'public.tenant_package_publication_events_previous_release_idx',
+    'public.tenant_package_publication_compensations_event_brand_idx',
+    'public.tenant_package_publication_compensations_brand_idx',
+    'public.tenant_package_publication_compensations_failed_release_idx',
+    'public.tenant_package_publication_compensations_restored_release_idx',
+    'public.tenant_package_compensation_confirmations_comp_brand_idx',
+    'public.tenant_package_compensation_confirmations_brand_idx'
+  ] loop
+    if pg_catalog.to_regclass(index_name) is null then
+      raise exception 'tenant package publication index is missing: %', index_name;
+    end if;
+  end loop;
+  if exists (
+    select 1
+    from pg_catalog.pg_constraint constraint_row
+    where constraint_row.contype = 'f'
+      and constraint_row.conrelid in (
+        'public.tenant_package_publication_events'::regclass,
+        'public.tenant_package_publication_compensations'::regclass,
+        'public.tenant_package_publication_compensation_confirmations'::regclass
+      )
+      and not exists (
+        select 1 from pg_catalog.pg_index index_row
+        where index_row.indrelid = constraint_row.conrelid
+          and index_row.indisvalid and index_row.indisready
+          and index_row.indpred is null
+          and index_row.indnkeyatts >= cardinality(constraint_row.conkey)
+          and not exists (
+            select 1
+            from unnest(constraint_row.conkey) with ordinality
+              as key_column(attribute_number, position)
+            where (index_row.indkey::smallint[])[key_column.position - 1]
+              is distinct from key_column.attribute_number
+          )
+      )
+  ) then
+    raise exception 'tenant package publication foreign key index is missing';
+  end if;
+
+  foreach relation_name in array array[
+    'public.tenant_package_publication_events',
+    'public.tenant_package_publication_compensations',
+    'public.tenant_package_publication_compensation_confirmations'
+  ] loop
+    if not coalesce((
+      select relation.relrowsecurity
+      from pg_catalog.pg_class relation
+      where relation.oid = pg_catalog.to_regclass(relation_name)
+    ), false)
+       or not pg_catalog.has_table_privilege(
+         'service_role', relation_name, 'SELECT'
+       )
+       or pg_catalog.has_table_privilege('anon', relation_name, 'SELECT')
+       or pg_catalog.has_table_privilege(
+         'authenticated', relation_name, 'SELECT'
+       ) then
+      raise exception 'tenant package audit relation is exposed: %', relation_name;
+    end if;
+    foreach role_name in array array['anon', 'authenticated', 'service_role'] loop
+      foreach privilege_name in array array[
+        'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER'
+      ] loop
+        if pg_catalog.has_table_privilege(
+          role_name, relation_name, privilege_name
+        ) then
+          raise exception 'tenant package audit relation is writable: %', relation_name;
+        end if;
+      end loop;
+    end loop;
+  end loop;
+
+  foreach relation_name in array array[
+    'public.tenant_package_releases',
+    'public.tenant_package_files',
+    'public.tenant_package_publications',
+    'public.organization_readiness_checks'
+  ] loop
+    if not pg_catalog.has_table_privilege(
+      'service_role', relation_name, 'SELECT'
+    ) then
+      raise exception 'tenant package state is unreadable: %', relation_name;
+    end if;
+    foreach privilege_name in array array[
+      'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER'
+    ] loop
+      if pg_catalog.has_table_privilege(
+        'service_role', relation_name, privilege_name
+      ) then
+        raise exception 'tenant package state is directly writable: %', relation_name;
+      end if;
+    end loop;
+  end loop;
+
+  foreach sequence_name in array array[
+    'public.tenant_package_publication_events_id_seq',
+    'public.tenant_package_publication_compensations_id_seq',
+    'public.tenant_package_publication_compensation_confirmations_id_seq'
+  ] loop
+    foreach privilege_name in array array['USAGE', 'SELECT', 'UPDATE'] loop
+      if pg_catalog.has_sequence_privilege(
+        'service_role', sequence_name, privilege_name
+      ) or pg_catalog.has_sequence_privilege(
+        'anon', sequence_name, privilege_name
+      ) or pg_catalog.has_sequence_privilege(
+        'authenticated', sequence_name, privilege_name
+      ) then
+        raise exception 'tenant package audit sequence is exposed: %', sequence_name;
+      end if;
+    end loop;
+  end loop;
+
+  foreach rpc_signature in array array[
+    'public.publish_tenant_package_if_current(uuid,text,text,text,text,text,uuid,text,text,timestamp with time zone)',
+    'public.compensate_tenant_package_publication(uuid,uuid,text,text,text,text,text,uuid,text,text,timestamp with time zone)',
+    'public.confirm_tenant_package_publication_compensation(uuid,uuid,text,text,text)',
+    'public.record_organization_readiness(uuid,text,boolean,jsonb)'
+  ] loop
+    rpc_oid := pg_catalog.to_regprocedure(rpc_signature);
+    if rpc_oid is null
+       or not pg_catalog.has_function_privilege(
+         'service_role', rpc_oid, 'EXECUTE'
+       )
+       or pg_catalog.has_function_privilege('anon', rpc_oid, 'EXECUTE')
+       or pg_catalog.has_function_privilege(
+         'authenticated', rpc_oid, 'EXECUTE'
+       )
+       or not coalesce((
+         select function_row.prosecdef
+          and function_row.proconfig @> array['search_path=""']::text[]
+         from pg_catalog.pg_proc function_row where function_row.oid = rpc_oid
+       ), false) then
+      raise exception 'tenant package service function is unsafe: %', rpc_signature;
+    end if;
+  end loop;
+
+  rpc_oid := pg_catalog.to_regprocedure(
+    'public.publish_tenant_package(uuid,text,text,text,text,text)'
+  );
+  if rpc_oid is null
+     or pg_catalog.has_function_privilege('service_role', rpc_oid, 'EXECUTE')
+     or pg_catalog.has_function_privilege('anon', rpc_oid, 'EXECUTE')
+     or pg_catalog.has_function_privilege('authenticated', rpc_oid, 'EXECUTE')
+     or not coalesce((
+       select function_row.prosecdef
+         and function_row.proconfig @> array['search_path=""']::text[]
+       from pg_catalog.pg_proc function_row where function_row.oid = rpc_oid
+     ), false) then
+    raise exception 'legacy tenant package publication function is exposed';
+  end if;
+
+  if not exists (
+    select 1 from pg_catalog.pg_attribute attribute
+    where attribute.attrelid = 'public.tenant_package_publication_events'::regclass
+      and attribute.attname = 'snapshot_version' and not attribute.attisdropped
+  ) or not exists (
+    select 1 from pg_catalog.pg_trigger trigger_row
+    where trigger_row.tgrelid =
+      'public.tenant_package_publication_compensations'::regclass
+      and trigger_row.tgname = 'tenant_package_publication_compensations_immutable'
+      and not trigger_row.tgisinternal
+  ) or not exists (
+    select 1 from pg_catalog.pg_trigger trigger_row
+    where trigger_row.tgrelid =
+      'public.tenant_package_publication_compensation_confirmations'::regclass
+      and trigger_row.tgname =
+        'tenant_package_publication_compensation_confirmations_immutable'
+      and not trigger_row.tgisinternal
+  ) then
+    raise exception 'tenant package compensation integrity is incomplete';
   end if;
 end $$;
 revoke all on function app.assert_tenant_package_publication_compensation()
