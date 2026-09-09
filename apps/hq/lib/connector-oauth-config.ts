@@ -45,6 +45,18 @@ function value(name: string): string {
   return process.env[name]?.trim() ?? '';
 }
 
+function googleClientMatchesProject(clientId: string): boolean {
+  const project = value('GOOGLE_OAUTH_PROJECT_NUMBER');
+  return /^\d{6,32}$/u.test(project)
+    && clientId.startsWith(`${project}-`)
+    && clientId.endsWith('.apps.googleusercontent.com');
+}
+
+export function connectorQuickBooksEnvironment(): 'sandbox' | 'production' | null {
+  const environment = value('QUICKBOOKS_ENV');
+  return environment === 'sandbox' || environment === 'production' ? environment : null;
+}
+
 const GOOGLE_AUTHORIZE = 'https://accounts.google.com/o/oauth2/v2/auth';
 const GOOGLE_TOKEN = 'https://oauth2.googleapis.com/token';
 const GOOGLE_OFFLINE = Object.freeze({
@@ -86,7 +98,9 @@ const CONFIGS: Readonly<Record<OAuthConnectorKey, () => ProviderConfig>> = {
   slack: () => ({
     scopeSource: 'token',
     authorizeUrl: 'https://slack.com/oauth/v2/authorize',
-    tokenUrl: 'https://slack.com/api/oauth.v2.access', usePkce: true, scopeSeparator: ',',
+    // The deployed Slack app is a confidential client. Do not mix its secret
+    // exchange with Slack's separate public-client PKCE contract.
+    tokenUrl: 'https://slack.com/api/oauth.v2.access', scopeSeparator: ',',
     clientId: value('SLACK_CLIENT_ID'), clientSecret: value('SLACK_CLIENT_SECRET'),
     scopes: ['channels:read', 'chat:write'],
   }),
@@ -117,11 +131,15 @@ export function connectorScopeSource(key: OAuthConnectorKey): ProviderConfig['sc
 /** Returns the provider configuration only when both credentials are present. */
 export function connectorProviderConfig(key: OAuthConnectorKey): ProviderConfig | null {
   const config = CONFIGS[key]();
+  if ((key === 'google-suite' || key === 'youtube')
+    && !googleClientMatchesProject(config.clientId)) return null;
+  if (key === 'quickbooks-online' && !connectorQuickBooksEnvironment()) return null;
   return config.clientId && config.clientSecret ? config : null;
 }
 
 export function connectorProviderReady(key: OAuthConnectorKey): boolean {
-  return connectorProviderConfig(key) !== null;
+  return connectorProviderConfig(key) !== null
+    && (key !== 'slack' || value('SLACK_TOKEN_ROTATION_ENABLED').toLowerCase() === 'true');
 }
 
 export function connectorProviderScopes(key: OAuthConnectorKey): readonly string[] {

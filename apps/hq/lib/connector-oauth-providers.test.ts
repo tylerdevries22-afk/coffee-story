@@ -4,6 +4,7 @@ import { afterEach, describe, it, mock } from 'node:test';
 import {
   connectorAuthorizationUrl,
   connectorCallbackUrl,
+  connectorProviderReady,
   exchangeConnectorCode,
   grantedConnectorScopes,
   verifyConnectorIdentity,
@@ -11,7 +12,9 @@ import {
 
 const ENV = [
   'CONNECTOR_PUBLIC_ORIGIN', 'GOOGLE_OAUTH_CLIENT_ID', 'GOOGLE_OAUTH_CLIENT_SECRET',
-  'SLACK_CLIENT_ID', 'SLACK_CLIENT_SECRET',
+  'GOOGLE_OAUTH_PROJECT_NUMBER', 'YOUTUBE_OAUTH_CLIENT_ID', 'YOUTUBE_OAUTH_CLIENT_SECRET',
+  'SLACK_CLIENT_ID', 'SLACK_CLIENT_SECRET', 'SLACK_TOKEN_ROTATION_ENABLED',
+  'QUICKBOOKS_CLIENT_ID', 'QUICKBOOKS_CLIENT_SECRET', 'QUICKBOOKS_ENV',
 ] as const;
 const ORIGINAL = Object.fromEntries(ENV.map((name) => [name, process.env[name]]));
 
@@ -26,8 +29,9 @@ afterEach(() => {
 
 describe('connector OAuth providers', { concurrency: false }, () => {
   it('builds an exact Google PKCE authorization request', () => {
-    process.env.GOOGLE_OAUTH_CLIENT_ID = 'google-client';
+    process.env.GOOGLE_OAUTH_CLIENT_ID = '123456789-google.apps.googleusercontent.com';
     process.env.GOOGLE_OAUTH_CLIENT_SECRET = 'google-secret';
+    process.env.GOOGLE_OAUTH_PROJECT_NUMBER = '123456789';
     const url = connectorAuthorizationUrl(
       'google-suite', 'signed-state', 'challenge',
       'https://hq.example.com/api/connectors/google-suite/callback',
@@ -40,6 +44,31 @@ describe('connector OAuth providers', { concurrency: false }, () => {
     assert.match(url?.searchParams.get('scope') ?? '', /drive\.file/);
   });
 
+  it('requires Google and YouTube clients to match their shared Cloud project', () => {
+    process.env.GOOGLE_OAUTH_PROJECT_NUMBER = '123456789';
+    process.env.GOOGLE_OAUTH_CLIENT_ID = '123456789-google.apps.googleusercontent.com';
+    process.env.GOOGLE_OAUTH_CLIENT_SECRET = 'google-secret';
+    process.env.YOUTUBE_OAUTH_CLIENT_ID = '987654321-youtube.apps.googleusercontent.com';
+    process.env.YOUTUBE_OAUTH_CLIENT_SECRET = 'youtube-secret';
+    assert.equal(connectorProviderReady('google-suite'), true);
+    assert.equal(connectorProviderReady('youtube'), false);
+    process.env.YOUTUBE_OAUTH_CLIENT_ID = '123456789-youtube.apps.googleusercontent.com';
+    assert.equal(connectorProviderReady('youtube'), true);
+  });
+
+  it('requires an explicit supported QuickBooks environment', () => {
+    process.env.QUICKBOOKS_CLIENT_ID = 'quickbooks-client';
+    process.env.QUICKBOOKS_CLIENT_SECRET = 'quickbooks-secret';
+    delete process.env.QUICKBOOKS_ENV;
+    assert.equal(connectorProviderReady('quickbooks-online'), false);
+    process.env.QUICKBOOKS_ENV = 'sandobx';
+    assert.equal(connectorProviderReady('quickbooks-online'), false);
+    process.env.QUICKBOOKS_ENV = 'sandbox';
+    assert.equal(connectorProviderReady('quickbooks-online'), true);
+    process.env.QUICKBOOKS_ENV = 'production';
+    assert.equal(connectorProviderReady('quickbooks-online'), true);
+  });
+
   it('fails closed on insecure or path-bearing production origins', () => {
     process.env.CONNECTOR_PUBLIC_ORIGIN = 'http://hq.example.com';
     assert.equal(connectorCallbackUrl('slack', 'https://ignored.example'), null);
@@ -47,16 +76,27 @@ describe('connector OAuth providers', { concurrency: false }, () => {
     assert.equal(connectorCallbackUrl('slack', 'https://ignored.example'), null);
   });
 
-  it('never retries the non-idempotent authorization-code exchange', async () => {
+  it('uses Slack confidential-client OAuth and bounds explicit response retries', async () => {
     process.env.SLACK_CLIENT_ID = 'slack-client';
     process.env.SLACK_CLIENT_SECRET = 'slack-secret';
-    const fetchMock = mock.method(globalThis, 'fetch', async () => new Response('{}', { status: 503 }));
+    process.env.SLACK_TOKEN_ROTATION_ENABLED = 'true';
+    const authorize = connectorAuthorizationUrl(
+      'slack', 'signed-state', 'unused-challenge', 'https://hq.example/callback',
+    );
+    assert.equal(authorize?.searchParams.has('code_challenge'), false);
+    const fetchMock = mock.method(globalThis, 'fetch', async () => new Response('{}', { status: 429 }));
 
     await assert.rejects(
       exchangeConnectorCode('slack', 'one-time-code', 'v'.repeat(43), 'https://hq.example/callback'),
       /token exchange failed/i,
     );
-    assert.equal(fetchMock.mock.callCount(), 1);
+    assert.equal(fetchMock.mock.callCount(), 2);
+    const target = fetchMock.mock.calls[0]?.arguments[0];
+    assert.ok(target);
+    const request = new Request(target, fetchMock.mock.calls[0]?.arguments[1]);
+    const body = new URLSearchParams(await request.text());
+    assert.equal(body.get('client_secret'), 'slack-secret');
+    assert.equal(body.has('code_verifier'), false);
   });
 
   it('verifies the live Google account before accepting a grant', async () => {
