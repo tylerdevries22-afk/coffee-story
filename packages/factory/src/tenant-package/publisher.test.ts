@@ -56,12 +56,22 @@ describe('tenantPackageObjectPrefix', () => {
   it('rejects malformed identity values before constructing an object path', () => {
     assert.throws(
       () => tenantPackageObjectPrefix('bad', `sha256:${'b'.repeat(64)}`, `sha256:${'c'.repeat(64)}`),
-      /identity is invalid/,
+      { code: 'object_identity_invalid' },
     );
     assert.throws(
       () => tenantPackageObjectPrefix('-'.repeat(36), `sha256:${'b'.repeat(64)}`, `sha256:${'c'.repeat(64)}`),
-      /identity is invalid/,
+      { code: 'object_identity_invalid' },
     );
+    assert.throws(() => tenantPackageObjectPrefix(
+      'AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA',
+      `sha256:${'b'.repeat(64)}`,
+      `sha256:${'c'.repeat(64)}`,
+    ), { code: 'object_identity_invalid' });
+    assert.match(tenantPackageObjectPrefix(
+      'ffffffff-ffff-ffff-ffff-ffffffffffff',
+      `sha256:${'b'.repeat(64)}`,
+      `sha256:${'c'.repeat(64)}`,
+    ), /^ffffffff-/);
   });
 
   it('begins and renews a bound session before object mutations, then stages it', async () => {
@@ -110,7 +120,7 @@ describe('tenantPackageObjectPrefix', () => {
     await assert.rejects(() => publishTenantPackageObjects({
       endpoint: 'https://demo.supabase.co', serviceKey: 'secret',
       brandId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', build: build(),
-    }), /invalid tenant upload session/);
+    }), { code: 'upload_session_invalid' });
     assert.equal(calls, 1);
   });
 });
