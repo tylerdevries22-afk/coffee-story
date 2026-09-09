@@ -75,6 +75,36 @@ jobs:
           } >> "$GITHUB_WORKSPACE/expo-go-diag.log"
           CUSTOMER_UDID=$(xcrun simctl create "$CUSTOMER_SIM" "$PHONE" "$RUNTIME")
           OPERATOR_UDID=$(xcrun simctl create "$OPERATOR_SIM" "$TABLET" "$RUNTIME")
+          # A fresh simulator asks the host to confirm the first exp:// handoff.
+          # No person can accept that LaunchServices sheet on a CI runner, so
+          # authorize only Expo Go's documented scheme before either device is
+          # booted. Preserve any approvals the runner image already carries.
+          approve_expo_scheme() {
+            local udid="$1"
+            local plist="$HOME/Library/Developer/CoreSimulator/Devices/$udid/data/Library/Preferences/com.apple.launchservices.schemeapproval.plist"
+            mkdir -p "$(dirname "$plist")"
+            python3 - "$plist" <<'PY'
+          import os
+          import plistlib
+          import sys
+
+          path = sys.argv[1]
+          try:
+              with open(path, "rb") as handle:
+                  approvals = plistlib.load(handle)
+          except FileNotFoundError:
+              approvals = {}
+          if not isinstance(approvals, dict):
+              raise SystemExit(f"LaunchServices approvals are not a dictionary: {path}")
+          approvals["com.apple.CoreSimulator.CoreSimulatorBridge-->exp"] = "host.exp.Exponent"
+          temporary = f"{path}.tmp"
+          with open(temporary, "wb") as handle:
+              plistlib.dump(approvals, handle)
+          os.replace(temporary, path)
+          PY
+          }
+          approve_expo_scheme "$CUSTOMER_UDID"
+          approve_expo_scheme "$OPERATOR_UDID"
           echo "CUSTOMER_UDID=$CUSTOMER_UDID" >> "$GITHUB_ENV"
           echo "OPERATOR_UDID=$OPERATOR_UDID" >> "$GITHUB_ENV"
           xcrun simctl list devices available
@@ -408,6 +438,8 @@ jobs:
           # LAN address; a simulator is not that case.)
           HOST_IP=127.0.0.1
           WEDGED=0
+          open_ok=1
+          rm -f /tmp/open-customer.ok /tmp/open-operator.ok
           echo "host address for the dev servers: $HOST_IP"
           echo "HOST_IP=$HOST_IP" >> "$GITHUB_ENV"
           # Report the address before handing it to a device. Two runs were
@@ -424,17 +456,27 @@ jobs:
           done
           warm_up "$CUSTOMER_UDID" "Customer app" || true
           warm_up "$OPERATOR_UDID" "Operator app" || true
-          open_app "$CUSTOMER_UDID" "$CUSTOMER_PORT" "Customer app" || true
-          open_app "$OPERATOR_UDID" "$OPERATOR_PORT" "Operator app" || true
+          if open_app "$CUSTOMER_UDID" "$CUSTOMER_PORT" "Customer app"; then
+            touch /tmp/open-customer.ok
+          else
+            open_ok=0
+          fi
+          if open_app "$OPERATOR_UDID" "$OPERATOR_PORT" "Operator app"; then
+            touch /tmp/open-operator.ok
+          else
+            open_ok=0
+          fi
           # Distinguish "the apps did not render" from "this runner's
           # CoreSimulator stopped answering". They are different failures and
           # only one of them is the repo's problem.
           if [ "$WEDGED" -ne 0 ]; then
             echo "CoreSimulator stopped answering simctl on this runner."
           fi
+          [ "$open_ok" -eq 1 ] || exit 1
 
       - name: Wait for each app to actually load its JavaScript
         timeout-minutes: 15
+        if: always()
         run: |
           set -uo pipefail
           exec >> "$GITHUB_WORKSPACE/expo-go-diag.log" 2>&1
@@ -490,13 +532,15 @@ jobs:
             fi
             return 1
           }
-          device_ok=0
-          device_says_running "$CUSTOMER_UDID" customer && device_says_running "$OPERATOR_UDID" operator && device_ok=1
-          echo "device-side evidence: $([ "$device_ok" = 1 ] && echo "both apps started" || echo "inconclusive")"
+          device_ok=1
+          device_says_running "$CUSTOMER_UDID" customer || device_ok=0
+          device_says_running "$OPERATOR_UDID" operator || device_ok=0
+          echo "device-side evidence: $([ "$device_ok" = 1 ] && echo "both apps started" || echo "missing")"
 
-          ok=1
-          for pair in "$CUSTOMER_PORT|Customer|metro-customer.log" "$OPERATOR_PORT|Operator|metro-operator.log"; do
-            port="${pair%%|*}"; rest="${pair#*|}"; label="${rest%%|*}"; log="${rest##*|}"
+          bundle_ok=1
+          for pair in "$CUSTOMER_PORT|customer|Customer|metro-customer.log" "$OPERATOR_PORT|operator|Operator|metro-operator.log"; do
+            port="${pair%%|*}"; rest="${pair#*|}"; slug="${rest%%|*}"; rest="${rest#*|}"
+            label="${rest%%|*}"; log="${rest##*|}"
             # Ask for the bundle Expo Go ACTUALLY loads, with the parameters
             # it actually sends. Both were guesses before, and both were wrong.
             #
@@ -514,31 +558,32 @@ jobs:
             q="$q&transform.bytecode=1&transform.routerRoot=src%2Fapp"
             q="$q&transform.reactCompiler=true&unstable_transformProfile=hermes-stable"
             url="http://$HOST_IP:$port/index.bundle?$q"
-            bytes=$(curl -s --max-time 300 -o /tmp/bundle.js -w '%{size_download}' "$url" || echo 0)
-            if [ "${bytes:-0}" -gt 100000 ]; then
+            body="/tmp/bundle-$slug.js"
+            if bytes=$(curl --fail-with-body --silent --show-error --max-time 300 \
+              --output "$body" --write-out '%{size_download}' "$url") \
+              && [ "${bytes:-0}" -gt 100000 ]; then
               echo "$label: Metro served $bytes bytes of JavaScript at $url"
-              head -c 120 /tmp/bundle.js | tr -d '\0'; echo
+              head -c 120 "$body" | tr -d '\0'; echo
             else
               echo "$label: Metro would not serve a bundle at $url (got ${bytes:-0} bytes)."
               # The response body IS the diagnosis when Metro refuses: it
               # carries the bundler's own error. Printing the server log
               # instead threw that away.
               echo "  --- what Metro actually returned ---"
-              head -c 600 /tmp/bundle.js | tr -d '\0'; echo
+              head -c 600 "$body" 2>/dev/null | tr -d '\0'; echo
               echo "  --- its log ---"
               tail -25 "$GITHUB_WORKSPACE/$log"
-              ok=0
+              bundle_ok=0
             fi
           done
           # Whatever the log does say is still worth keeping.
           grep -hE "Bundled|Bundling|/index\.bundle" "$GITHUB_WORKSPACE"/metro-*.log | head -5 || echo "(no bundle lines in the logs, as expected in CI mode)"
-          # Either kind of evidence is enough: the device saying a JS app
-          # started, or the bundler serving that app's JavaScript to the
-          # address the device holds.
-          if [ "$device_ok" = 1 ] || [ "$ok" = 1 ]; then
-            exit 0
-          fi
-          exit 1
+          handoff_ok=1
+          [ -f /tmp/open-customer.ok ] || { echo "Customer URL handoff did not succeed."; handoff_ok=0; }
+          [ -f /tmp/open-operator.ok ] || { echo "Operator URL handoff did not succeed."; handoff_ok=0; }
+          # All three facts are mandatory for both apps. A host-side bundle
+          # build cannot substitute for a device that never opened or ran it.
+          [ "$handoff_ok" = 1 ] && [ "$device_ok" = 1 ] && [ "$bundle_ok" = 1 ]
 
       # Does a device on this runner reach the host at all? Everything rests
       # on it and nothing has tested it. Metro logged exactly ONE bundle build
@@ -550,7 +595,7 @@ jobs:
       # problem, and if it does not, the address is.
       - name: Can a device reach the dev server at all?
         timeout-minutes: 5
-        if: always()
+        if: failure()
         run: |
           set -uo pipefail
           exec >> "$GITHUB_WORKSPACE/expo-go-diag.log" 2>&1
@@ -604,6 +649,29 @@ jobs:
           done
           ls -la sim-shots/ || true
 
+      - name: Assert both apps rendered on their devices
+        timeout-minutes: 3
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import runpy
+
+          sample = runpy.run_path("scripts/ci/screen-to-text.py")["sample"]
+          screens = (
+              ("/tmp/customer-coffee-story-cust.bmp", "customer"),
+              ("/tmp/operator-coffee-story-ops.bmp", "operator"),
+          )
+          for path, label in screens:
+              rows, width, height = sample(path)
+              tones = set("".join(rows))
+              if width < 300 or height < 500 or len(tones) < 4:
+                  raise SystemExit(
+                      f"{label} screen is missing, undersized, or visually blank "
+                      f"({width}x{height}, {len(tones)} tones)"
+                  )
+              print(f"{label}: rendered {width}x{height} with {len(tones)} sampled tones")
+          PY
+
       - name: Keep the screenshots and the Metro logs
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -617,6 +685,8 @@ jobs:
             expo-go-diag.log
             /tmp/device-customer.log
             /tmp/device-operator.log
+            /tmp/customer-coffee-story-cust.bmp
+            /tmp/operator-coffee-story-ops.bmp
           if-no-files-found: warn
 
       - name: Replay the diagnostics at the end of the log
