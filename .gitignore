@@ -60,6 +60,7 @@ next-env.d.ts
 
 # Local package-manager cache
 .pnpm-store/
+/.vercel/
 
 # per-app metro caches
 .metro-cache/
