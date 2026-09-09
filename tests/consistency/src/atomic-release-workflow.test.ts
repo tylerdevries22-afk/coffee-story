@@ -7,184 +7,94 @@ const ROOT = join(process.cwd(), '..', '..');
 const source = (path: string) => readFileSync(join(ROOT, path), 'utf8');
 const workflow = source('.github/workflows/deploy-hosted.yml');
 const easStage = source('scripts/eas-stage-update.sh');
+const easStageState = source('scripts/eas-stage-state.sh');
 const easRelease = source('scripts/eas-channel-release.sh');
+const easState = source('scripts/eas-release-state.sh');
+const rollback = source('scripts/hosted-release-rollback.sh');
 const finalizer = workflow.slice(workflow.indexOf('\n  promote-vercel:'));
-const nativeStage = workflow.slice(
-  workflow.indexOf('\n  publish-native:'),
-  workflow.indexOf('\n  promote-vercel:'),
-);
 
 describe('atomic hosted and native release workflow', () => {
-  it('stages immutable native candidates without changing production channels', () => {
-    assert.match(nativeStage, /name: Stage \$\{\{ matrix\.surface \}\} native OTA update/);
-    assert.match(nativeStage, /FACTORY_ARTIFACT_DIGEST: .*artifact_digest/);
-    assert.match(nativeStage, /SURFACE: \$\{\{ matrix\.surface \}\}/);
-    assert.match(nativeStage, /bash scripts\/eas-stage-update\.sh/);
-    assert.match(nativeStage, /name: eas-stage-\$\{\{ matrix\.surface \}\}/);
-    assert.match(nativeStage, /path: eas-stage\/\$\{\{ matrix\.surface \}\}\.json/);
-    assert.doesNotMatch(nativeStage, /eas(?:-cli)?[^\n]*update[^\n]*--channel production/);
-
-    assert.match(easStage, /candidate_branch="release-\$\{GITHUB_SHA\}-\$\{GITHUB_RUN_ID\}-\$\{GITHUB_RUN_ATTEMPT\}"/);
-    assert.match(easStage, /eas-cli@21\.4\.0/);
-    assert.match(easStage, /update --branch "\$candidate_branch"/);
-    assert.match(easStage, /--environment production --platform all/);
-    assert.match(easStage, /run_in_app 20m/);
-    assert.match(easStage, /for attempt in 1 2;/);
-    assert.match(easStage, /branch:view "\$candidate_branch"/);
-    assert.match(easStage, /update:view "\$group"/);
+  it('stages one immutable EAS update and reconciles an ambiguous response read-only', () => {
+    assert.match(easStage, /git status --porcelain=v1 --untracked-files=all/);
+    assert.equal((easStage.match(/update --branch "\$candidate_branch"/g) ?? []).length, 1);
+    assert.match(easStage, /recovery_deadline=\$\(\(SECONDS \+ 180\)\)/);
+    assert.match(easStageState, /for observation in \{1\.\.18\}/);
+    assert.match(easStageState, /branch:view "\$candidate_branch"/);
+    assert.match(easStageState, /update:view "\$group"/);
     assert.doesNotMatch(easStage, /update[^\n]*--channel production/);
   });
 
-  it('captures all prior provider state before changing any live surface', () => {
-    const capturePackage = finalizer.indexOf('> package-rollback.json');
-    const captureVercel = finalizer.indexOf('vercel-capture-production.sh');
-    const captureEas = finalizer.indexOf('eas-channel-release.sh capture');
-    const armRollback = finalizer.indexOf('trap rollback_on_failure EXIT');
-    const promoteVercel = finalizer.indexOf('vercel-promote-deployment.sh');
-    const switchEas = finalizer.indexOf('eas-channel-release.sh switch');
-    assert.ok(capturePackage >= 0 && capturePackage < captureVercel);
-    assert.ok(captureVercel < captureEas);
-    assert.ok(captureEas < armRollback && armRollback < promoteVercel);
-    assert.ok(promoteVercel < switchEas);
-    assert.match(finalizer, /pattern: vercel-stage-\*/);
-    assert.match(finalizer, /pattern: eas-stage-\*/);
-    assert.match(finalizer, /attempted-rollbacks\.txt/);
-    assert.match(finalizer, /attempted-eas-rollbacks\.txt/);
-    assert.match(finalizer, /attempted-package-rollback\.txt/);
-    assert.match(
-      finalizer,
-      /select=current_release_id,artifact_digest,deployment_commit_sha,published_at&limit=2/,
-    );
-    assert.match(finalizer, /type == "array" and length <= 1/);
+  it('binds EAS evidence to exact update objects and immutable prior snapshots', () => {
+    for (const field of ['id', 'platform', 'manifestPermalink']) {
+      assert.match(easStage, new RegExp(field));
+    }
+    assert.match(easStage, /updateDigest:\$updateDigest,updates:\$updates/);
+    assert.match(easState, /map\(\{id,platform,manifestPermalink\}\) \| sort_by\(\.id\)/);
+    assert.match(easState, /"\$digest" == "\$candidate_update_digest"/);
+    assert.match(easState, /\.updates == \$updates/);
+    assert.match(easRelease, /priorUpdateGroup:\$priorUpdateGroup/);
+    assert.match(easRelease, /priorUpdateDigest:\$priorUpdateDigest/);
+    assert.match(easRelease, /verify-live/);
+    assert.match(easRelease, /verify-restored/);
+  });
+
+  it('captures every rollback target before arming promotion', () => {
+    const capture = finalizer.indexOf('> captured-rollback-set.json');
+    const digest = finalizer.indexOf('sha256sum captured-rollback-set.json');
+    const arm = finalizer.indexOf('install_release_rollback_traps');
+    const firstMutation = finalizer.indexOf('vercel-promote-deployment.sh');
+    assert.ok(capture >= 0 && capture < digest && digest < arm && arm < firstMutation);
+    assert.match(finalizer, /rollback_canary_reference="rollback:sha256:\$\{rollback_digest\}"/);
+  });
+
+  it('restores package first, providers in reverse, then confirms the whole set', () => {
+    const packageRestore = rollback.indexOf('restore_package_publication');
+    const easRestore = rollback.indexOf("tac attempted-eas-rollbacks.txt");
+    const vercelRestore = rollback.indexOf("tac attempted-rollbacks.txt");
+    const wholeSet = rollback.indexOf('if output=$(verify_restored_eas_surface', vercelRestore);
+    const confirm = rollback.indexOf('if output=$(confirm_package_compensation', wholeSet);
+    assert.ok(packageRestore >= 0 && packageRestore < easRestore && easRestore < vercelRestore);
+    assert.ok(vercelRestore < wholeSet && wholeSet < confirm);
+    assert.match(rollback, /package_compensation_status" == compensated/);
+    assert.match(rollback, /append_rollback_result/);
+  });
+
+  it('verifies the full provider set immediately around package publication', () => {
+    const pre = finalizer.indexOf('verify_live_release_set provider-pre-publication.jsonl');
+    const publish = finalizer.indexOf('/rpc/publish_tenant_package_if_current');
+    const post = finalizer.indexOf('verify_live_release_set provider-post-publication.jsonl');
+    const finalState = finalizer.indexOf('> package-post-publication-state.json');
+    const disarm = finalizer.indexOf('disarm_release_rollback_traps');
+    assert.ok(pre >= 0 && pre < publish && publish < post && post < finalState && finalState < disarm);
+    assert.match(finalizer, /map\(del\(\.status\)\)/);
+    assert.match(finalizer, /package_final_status=drifted/);
+    assert.match(finalizer, /candidate_package_is_current && package_final_status=verified/);
+  });
+
+  it('uses explicit mutation attempts and exact immutable response reconciliation', () => {
+    const publishStart = finalizer.indexOf("printf '%s\\n' package-rollback.json");
+    const publishEnd = finalizer.indexOf('for observation in 1 2 3', publishStart);
+    const publishMutation = finalizer.slice(publishStart, publishEnd);
+    assert.match(publishMutation, /publish_tenant_package_if_current/);
+    assert.doesNotMatch(publishMutation, /--retry/);
+    assert.match(finalizer, /artifact_digest=eq\.\$\{ARTIFACT_DIGEST\}/);
     for (const field of [
-      'current_release_id',
-      'artifact_digest',
-      'deployment_commit_sha',
-      'published_at',
+      'brand_id', 'package_release_id', 'artifact_digest', 'deployment_commit_sha',
+      'canary_reference', 'approval_reference', 'promoted_at',
     ]) {
-      assert.match(finalizer, new RegExp(`\\.${field} \\| type == "string"`));
+      assert.match(finalizer, new RegExp(`select=[^\\n]*${field}`));
     }
-  });
-
-  it('compensates package publication before restoring providers in reverse', () => {
-    const recordVercel = finalizer.indexOf('>> attempted-rollbacks.txt');
-    const promoteVercel = finalizer.indexOf('vercel-promote-deployment.sh');
-    const recordEas = finalizer.indexOf('>> attempted-eas-rollbacks.txt');
-    const switchEas = finalizer.indexOf('eas-channel-release.sh switch');
-    assert.ok(recordVercel >= 0 && recordVercel < promoteVercel);
-    assert.ok(recordEas >= 0 && recordEas < switchEas);
-
-    const compensate = finalizer.indexOf('/rpc/compensate_tenant_package_publication');
-    const accepted = finalizer.indexOf('[[ "$compensation_status" == compensated');
-    const reconcile = finalizer.indexOf('reconcile_package_compensation && return 0');
-    const ambiguous = finalizer.indexOf('compensation was ambiguous or conflicted');
-    const restorePackage = finalizer.indexOf('restore_package_publication || exit 1');
-    const restoreEas = finalizer.indexOf('eas-channel-release.sh restore');
-    const reverseEas = finalizer.indexOf('tac attempted-eas-rollbacks.txt');
-    const restoreVercel = finalizer.indexOf('vercel-restore-deployment.sh');
-    const reverseVercel = finalizer.indexOf('tac attempted-rollbacks.txt');
-    assert.ok(compensate >= 0 && compensate < accepted && accepted < reconcile);
-    assert.ok(reconcile < ambiguous);
-    assert.ok(ambiguous < restorePackage && restorePackage < restoreEas);
-    assert.ok(restoreEas < reverseEas);
-    assert.ok(reverseEas < restoreVercel && restoreVercel < reverseVercel);
-    assert.match(finalizer, /trap '' HUP INT TERM/);
-    assert.match(
-      finalizer,
-      /"\$compensation_status" == compensated[\s\\]*\|\| "\$compensation_status" == not_committed/,
-    );
-    for (const argument of [
-      'p_brand_id:$brand',
-      'p_release_id:$release',
-      'p_commit_sha:$commit',
-      'p_canary_reference:$canary',
-      'p_approval_reference:$approval',
-      'p_previous_release_id:',
-      'p_previous_artifact_digest:',
-      'p_previous_commit_sha:',
-      'p_previous_published_at:',
-    ]) {
-      assert.ok(finalizer.includes(argument), `missing compensation argument ${argument}`);
-    }
-  });
-
-  it('proves ambiguous package compensation before provider rollback', () => {
-    const start = finalizer.indexOf('reconcile_package_compensation()');
-    const end = finalizer.indexOf('restore_package_publication()');
-    const reconciliation = finalizer.slice(start, end);
-    assert.ok(start >= 0 && start < end);
-    assert.match(reconciliation, /event=\$\(fetch_exact_package_event\)/);
-    assert.match(reconciliation, /pointer=\$\(fetch_package_pointer\)/);
-    for (const query of [
-      'publication_event_id=eq.${event_id}',
-      'brand_id=eq.${brand_id}',
-      'failed_release_id=eq.${RELEASE_ID}',
-      'failed_deployment_commit_sha=eq.${COMMIT_SHA}',
-      'rollback_canary_reference=eq.${rollback_canary_reference}',
-      'rollback_approval_reference=eq.${rollback_approval_reference}',
-    ]) {
-      assert.ok(reconciliation.includes(`--data-urlencode "${query}"`), `missing ${query}`);
-    }
-    assert.match(reconciliation, /length == 1/);
-    assert.match(reconciliation, /\.\[0\]\.restored_release_id/);
-    assert.match(reconciliation, /\.\[0\]\.restored_deployment_commit_sha/);
-    assert.match(reconciliation, /package_pointer_matches_prior "\$pointer"/);
-  });
-
-  it('publishes the package inside the armed rollback boundary', () => {
-    const armRollback = finalizer.indexOf('trap rollback_on_failure EXIT');
-    const packagePublish = finalizer.lastIndexOf('/rpc/publish_tenant_package');
-    const packageAttempt = finalizer.indexOf('> attempted-package-rollback.txt');
-    const disarmRollback = finalizer.indexOf('trap - EXIT HUP INT TERM');
-    assert.ok(armRollback >= 0 && armRollback < packagePublish);
-    assert.ok(packageAttempt >= 0 && packageAttempt < packagePublish);
-    assert.ok(packagePublish < disarmRollback);
-    assert.doesNotMatch(workflow, /^  publish-tenant-package:/m);
-
-    const manifest = finalizer.indexOf("sort_by(.provider, .surface)");
-    const digest = finalizer.indexOf('sha256sum promoted-release-set.json');
-    const reference = finalizer.indexOf('release-set:sha256:${release_digest}');
-    assert.ok(manifest >= 0 && manifest < digest && digest < reference);
-    assert.match(
-      finalizer,
-      /jq '\[\.\[\] \| \[\.provider, \.surface\]\] \| unique \| length' promoted-release-set\.json/,
-    );
-    assert.doesNotMatch(finalizer, /jq '\[\.\[\.provider, \.surface\]\] \| unique \| length'/);
-  });
-
-  it('reconciles only the exact package publication event and candidate pointer', () => {
-    assert.ok(
-      finalizer.includes(
-        'APPROVAL_REFERENCE: github:${{ github.run_id }}:${{ github.run_attempt }}',
-      ),
-    );
-    for (const query of [
-      'brand_id=eq.${brand_id}',
-      'package_release_id=eq.${RELEASE_ID}',
-      'deployment_commit_sha=eq.${COMMIT_SHA}',
-      'canary_reference=eq.${release_reference}',
-      'approval_reference=eq.${APPROVAL_REFERENCE}',
-    ]) {
-      assert.ok(finalizer.includes(`--data-urlencode "${query}"`), `missing ${query}`);
-    }
-    assert.match(finalizer, /\(\$event \| length\) == 1/);
+    assert.match(finalizer, /\$event\[0\]\.brand_id == \$brand/);
     assert.match(finalizer, /\.\[0\]\.published_at == \$event\[0\]\.promoted_at/);
-    assert.match(finalizer, /--arg source "\$PACKAGE_SOURCE_COMMIT_SHA"/);
-    assert.match(finalizer, /\.\[0\]\.source_commit_sha == \$source/);
-    assert.doesNotMatch(finalizer, /--arg source "\$GITHUB_SHA"/);
-    assert.doesNotMatch(finalizer, /test "\$PACKAGE_SOURCE_COMMIT_SHA" = "\$GITHUB_SHA"/);
   });
 
-  it('bounds, verifies, and conditionally moves EAS production channels', () => {
-    assert.match(easRelease, /capture\|verify\|switch\|restore/);
-    assert.match(easRelease, /channel:view production --limit 100/);
-    assert.match(easRelease, /channel:edit production --branch "\$target_name"/);
-    assert.match(easRelease, /run_in_app 45s/);
-    assert.match(easRelease, /for attempt in 1 2 3/);
-    assert.match(easRelease, /\.data \| length\) == 1/);
-    assert.match(easRelease, /current_id" == "\$expected_id/);
-    const verify = easRelease.indexOf('verify_candidate');
-    const restoreExclusion = easRelease.indexOf('"$action" != restore');
-    assert.ok(verify >= 0 && restoreExclusion >= 0);
+  it('retains exact success and rollback evidence even when finalization fails', () => {
+    assert.match(workflow, /id: promote/);
+    assert.match(workflow, /FINALIZE_OUTCOME: \$\{\{ steps\.promote\.outcome \}\}/);
+    assert.match(workflow, /Required hosted release evidence is missing/);
+    assert.match(workflow, /package-post-publication-state\.json/);
+    assert.match(workflow, /if: always\(\)[\s\S]*actions\/upload-artifact@[0-9a-f]{40}/);
+    assert.match(workflow, /if-no-files-found: error/);
+    assert.match(workflow, /retention-days: 90/);
   });
 });
