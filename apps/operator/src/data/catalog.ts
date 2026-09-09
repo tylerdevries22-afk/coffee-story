@@ -1,4 +1,3 @@
-import type { CatalogSize } from '@platform/domain';
 // Coffee Story menu — the complete menu from coffeestoryco.com, organized by
 // category. The MenuItem type keeps its original shape; `minutes` is repurposed
 // as drink size in ounces (12/16/20) — the order flow renders it as "oz"
@@ -68,50 +67,8 @@ import veggieImg from '../../assets/menu/sandwich-veggie.webp';
 import wrapCaesarImg from '../../assets/menu/wrap-chicken-caesar.webp';
 
 
-export type MenuCategoryId =
-  | 'coffee'
-  | 'signature'
-  | 'tea-matcha'
-  | 'boba'
-  | 'ades-smoothies'
-  | 'sandwiches'
-  | 'sweets';
-
-export type MenuItem = {
-  id: string;
-  name: string;
-  description: string;
-  image: number;
-  category: MenuCategoryId;
-  /**
-   * Each size carries the slug an order is actually made against.
-   */
-  sizes: readonly CatalogSize[];
-};
-
-export const MENU_CATEGORY_META: readonly { id: MenuCategoryId; title: string; tagline: string }[] = [
-  { id: 'coffee', title: 'Coffee & Espresso', tagline: 'Corvus Coffee, pulled with care' },
-  { id: 'signature', title: 'Signature Lattes', tagline: 'The drinks that made us famous' },
-  { id: 'tea-matcha', title: 'Tea & Matcha', tagline: 'Whisked, brewed, and spiced' },
-  { id: 'boba', title: 'Boba', tagline: 'Bubble tea with brown sugar boba' },
-  { id: 'ades-smoothies', title: 'Sparkling Ades & Smoothies', tagline: 'Bright, cold, and refreshing' },
-  { id: 'sandwiches', title: 'Sandwiches', tagline: 'Halal-friendly, made to order' },
-  { id: 'sweets', title: 'Sweets & Desserts', tagline: 'Late-night cravings, sorted' },
-] as const;
-
-/** Standard three-size drink ladder around a 16 oz base price. */
-function drinkSizes(id: string, base: number) {
-  return [
-    { slug: `${id}-12`, ounces: 12, priceCents: (base - 1) * 100 },
-    { slug: `${id}-16`, ounces: 16, priceCents: base * 100 },
-    { slug: `${id}-20`, ounces: 20, priceCents: (base + 1) * 100 },
-  ] as const;
-}
-
-/** Food and single-serve items. */
-function eachSize(id: string, dollars: number) {
-  return [{ slug: id, priceCents: dollars * 100 }] as const;
-}
+export * from './catalog-types';
+import { drinkSizes, eachSize, type MenuItem } from './catalog-types';
 
 export const MENU_ITEMS: readonly MenuItem[] = [
   // ---- Coffee & Espresso ----
