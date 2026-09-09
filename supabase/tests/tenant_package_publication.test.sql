@@ -36,9 +36,9 @@ select ok(has_table_privilege('service_role',
   and not has_table_privilege('service_role',
     'public.tenant_package_publication_events', 'TRIGGER'),
   'service credentials can read but cannot forge publication evidence');
-select ok(not has_function_privilege('authenticated',
-  'public.stage_tenant_package(uuid,text,text,text,text,text,text,integer,bigint,jsonb)', 'EXECUTE'),
-  'only the service role can stage a package');
+select ok(to_regprocedure(
+  'public.stage_tenant_package(uuid,text,text,text,text,text,text,integer,bigint,jsonb)'
+) is null, 'the sessionless stage RPC is absent');
 select ok(not exists (select 1 from pg_policies where schemaname = 'storage'
   and tablename = 'objects' and coalesce(qual, '') like '%tenant-packages%'),
   'the private bucket has no authenticated object policy');
@@ -235,8 +235,10 @@ select throws_ok($test$ select public.publish_tenant_package(
   '7777777777777777777777777777777777777777', 'vercel:canary-after-claim', 'github:approval-after-claim'
 ) $test$, '23514', 'tenant_package_release_mismatch',
   'a claimed release cannot be restored while cleanup owns it');
+reset role;
 delete from storage.objects where name like
   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/%/1111111111111111111111111111111111111111111111111111111111111111/%';
+set local role service_role;
 select is(public.confirm_tenant_package_purge_claim(
   current_setting('test.cleanup_claim_id')::uuid), true,
   'cleanup confirmation records complete object removal');
