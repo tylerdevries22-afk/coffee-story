@@ -24,6 +24,7 @@ import {
   resolveWall,
   type WallSurface,
 } from './preview-wall-config';
+import { wallDocumentWithOrganizations } from './wall-org-hosts';
 
 type LaunchConfig = { name: string; runtimeArgs?: string[]; port?: number };
 
@@ -177,7 +178,7 @@ async function main(): Promise<void> {
   copyFileSync(join(WALL_DIR, 'wall-model.mjs'), join(HOST_DIST, 'wall-model.mjs'));
   writeFileSync(
     join(HOST_DIST, 'wall-surfaces.json'),
-    `${JSON.stringify(publishedWall, null, 2)}\n`,
+    `${JSON.stringify(wallDocumentWithOrganizations(publishedWall), null, 2)}\n`,
   );
 
   const host = surfaces.find((s) => s.launch.startsWith(HOST_APP));

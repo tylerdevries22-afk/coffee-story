@@ -6,7 +6,9 @@ import {
 
 const wall = document.getElementById('wall');
 const heading = document.getElementById('wall-title');
+const orgSelect = document.getElementById('wall-org');
 const fits = new WeakMap();
+const framesByLaunch = new Map();
 const resizeObserver = new ResizeObserver((entries) => {
   for (const { target } of entries) fits.get(target)?.();
 });
@@ -26,7 +28,10 @@ function fault(message, detail) {
   wall.appendChild(note);
 }
 
-function surfaceUrl(surface) {
+function surfaceUrl(surface, organization) {
+  const fromOrg = organization?.surfaces?.[surface.launch];
+  if (typeof fromOrg === 'string' && fromOrg.length > 0) return fromOrg;
+  if (typeof surface.url === 'string' && surface.url.length > 0) return surface.url;
   const hostname = window.location.hostname.includes(':')
     ? `[${window.location.hostname}]`
     : window.location.hostname;
@@ -57,7 +62,7 @@ function createCell(surface, url) {
   const caption = document.createElement('figcaption');
   const name = element('span', 'name', surface.name);
   const meta = element('span', 'meta');
-  const link = element('a', '', `:${surface.port}`);
+  const link = element('a', '', new URL(url, window.location.href).host || url);
   const note = element('span', 'note');
   const stage = element('div', 'stage');
   const device = element('div', 'device');
@@ -76,16 +81,17 @@ function createCell(surface, url) {
   caption.appendChild(name);
   cell.append(caption, stage);
   cell.dataset.span = String(surface.span);
-  return { caption, cell, device, frame, meta, note, stage };
+  return { caption, cell, device, frame, link, meta, note, stage };
 }
 
-function mount(surface, presetsById) {
-  const url = surfaceUrl(surface);
+function mount(surface, presetsById, organization) {
+  const url = surfaceUrl(surface, organization);
   let selected = surface.activeDevice;
   let preset = presetsById.get(selected);
   const available = surface.devices.map((id) => presetsById.get(id));
   if (!preset || available.some((item) => !item)) return fault('Invalid device profile for', surface.name);
   const view = createCell(surface, url);
+  framesByLaunch.set(surface.launch, view);
 
   const fit = () => {
     const hardware = HARDWARE[preset.frame];
@@ -124,13 +130,60 @@ function mount(surface, presetsById) {
   apply(selected);
 }
 
+function retarget(data, organization) {
+  heading.textContent = `${organization.organizationName} · five apps`;
+  for (const surface of data.surfaces) {
+    const view = framesByLaunch.get(surface.launch);
+    if (!view) continue;
+    const url = surfaceUrl(surface, organization);
+    if (view.frame.src !== url) view.frame.src = url;
+    view.link.href = url;
+    view.link.textContent = new URL(url, window.location.href).host || url;
+  }
+}
+
 fetch('./wall-surfaces.json')
   .then((response) => (response.ok ? response.json() : Promise.reject(new Error(`HTTP ${response.status}`))))
   .then((data) => {
     if (!validWallData(data)) throw new Error('Invalid wall data');
-    heading.textContent = `${data.context.organizationName} · five apps`;
+    const organizations = Array.isArray(data.organizations) && data.organizations.length > 0
+      ? data.organizations
+      : [{
+        tenantKey: data.context.tenantKey,
+        organizationName: data.context.organizationName,
+        surfaces: Object.fromEntries(data.surfaces.map((surface) => [surface.launch, surfaceUrl(surface)])),
+      }];
+    let current = organizations.find((org) => org.tenantKey === data.context.tenantKey) ?? organizations[0];
+    heading.textContent = `${current.organizationName} · five apps`;
+    if (orgSelect) {
+      orgSelect.replaceChildren();
+      for (const org of organizations) {
+        const option = document.createElement('option');
+        option.value = org.tenantKey;
+        option.textContent = org.organizationName;
+        option.selected = org.tenantKey === current.tenantKey;
+        orgSelect.appendChild(option);
+      }
+      orgSelect.hidden = organizations.length < 2;
+      orgSelect.addEventListener('change', () => {
+        const next = organizations.find((org) => org.tenantKey === orgSelect.value);
+        if (!next) return;
+        current = next;
+        retarget(data, current);
+      });
+    }
     const presetsById = presetMap(data);
-    data.surfaces.forEach((surface) => mount(surface, presetsById));
+    data.surfaces.forEach((surface) => mount(surface, presetsById, current));
+    window.addEventListener('message', (event) => {
+      const payload = event.data;
+      if (!payload || payload.type !== 'platform-org-changed') return;
+      const next = organizations.find((org) => org.tenantKey === payload.tenantKey
+        || org.organizationId === payload.organizationId);
+      if (!next) return;
+      current = next;
+      if (orgSelect) orgSelect.value = next.tenantKey;
+      retarget(data, current);
+    });
   })
   .catch(() => fault('Could not read the surface list — re-publish the wall with', 'pnpm preview'));
 

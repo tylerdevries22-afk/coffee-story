@@ -7,7 +7,7 @@ import { squareConnectNotice } from '@/lib/square-connect-notice';
 import { mayManageWorkspaceLocation } from '@/lib/workspace-location-access';
 import { selectedOrganizationId } from '@/lib/workspace-scope';
 
-import { disconnectSquareAction } from './actions';
+import { deleteLocationAction, disconnectSquareAction } from './actions';
 
 // The console is live data behind a session: never prerender a fixture
 // snapshot at build time and serve it as if it were today's numbers.
@@ -15,7 +15,7 @@ export const dynamic = 'force-dynamic';
 
 
 type LocationsPageProps = {
-  searchParams: Promise<{ connected?: string; square?: string; disconnect?: string; created?: string }>;
+  searchParams: Promise<{ connected?: string; square?: string; disconnect?: string; created?: string; deleted?: string }>;
 };
 
 const CREATED_NOTICE: Record<string, { message: string; failed: boolean }> = {
@@ -29,6 +29,14 @@ const CREATED_NOTICE: Record<string, { message: string; failed: boolean }> = {
   },
 };
 
+const DELETED_NOTICE: Record<string, { message: string; failed: boolean }> = {
+  '1': { message: 'Location deleted.', failed: false },
+  denied: { message: 'Only a brand owner can delete a location.', failed: true },
+  last: { message: 'Keep at least one location. Suspend or offboard the organization instead.', failed: true },
+  failed: { message: 'That location could not be deleted. Try again.', failed: true },
+  demo: { message: 'Location delete needs a configured database.', failed: true },
+};
+
 export default async function LocationsPage({ searchParams }: LocationsPageProps) {
   const [locations, devices, claims, session, multiLocation, params] = await Promise.all([
     loadLocations(), loadDevices(), currentClaims(), currentSession(), loadMultiLocationEnabled(), searchParams,
@@ -36,6 +44,7 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
   // Square consent redirects back here, and it can come back refused.
   const notice = squareConnectNotice(params);
   const createdNotice = params.created ? CREATED_NOTICE[params.created] ?? null : null;
+  const deletedNotice = params.deleted ? DELETED_NOTICE[params.deleted] ?? null : null;
   const selectedBrandId = session ? await selectedOrganizationId(session) : null;
   // An owner may add a store only when the brand is licensed for more than one.
   const canAddLocation = hasRole(session, 'brand_owner') && (multiLocation || locations.length === 0);
@@ -62,6 +71,9 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
       {createdNotice ? (
         <div className={createdNotice.failed ? 'notice danger' : 'notice'} role="status">{createdNotice.message}</div>
       ) : null}
+      {deletedNotice ? (
+        <div className={deletedNotice.failed ? 'notice danger' : 'notice'} role="status">{deletedNotice.message}</div>
+      ) : null}
       <div className="card">
         <table>
           <thead>
@@ -86,24 +98,23 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
                     ? <span className="pill danger">Paused</span>
                     : <span className="pill success">Taking orders</span>}
                 </td>
-                <td className="num">
+                <td className="num" style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                   {!manages(location.id) ? null : location.squareConnected ? (
-                    // Drawn only for a manager of this shop, and checked again
-                    // in lib/square-admin against the same claims. A shop that
-                    // changes hands, or a merchant account that is compromised,
-                    // needs its token revoked from here -- the runbook's manual
-                    // procedure named an engine function nobody could call.
                     <form action={disconnectSquareAction}>
                       <input type="hidden" name="locationId" value={location.id} />
                       <button type="submit" className="button danger">Disconnect Square</button>
                     </form>
                   ) : (
-                    // Phase 7's engine serves this route: it redirects into
-                    // Square's OAuth consent and stores the tokens encrypted.
                     <a className="button secondary" href={`/api/square/connect?location_id=${location.id}`}>
                       Connect Square
                     </a>
                   )}
+                  {hasRole(session, 'brand_owner') && locations.length > 1 ? (
+                    <form action={deleteLocationAction}>
+                      <input type="hidden" name="locationId" value={location.id} />
+                      <button type="submit" className="button danger">Delete</button>
+                    </form>
+                  ) : null}
                 </td>
               </tr>
             ))}

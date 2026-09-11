@@ -6,11 +6,10 @@ import { ProfileAvatar } from '@/components/profile-avatar';
 import { CollapsingScreen } from '@/components/collapsing-screen';
 import { Body, Button, Card, SectionTitle } from '@/components/ui';
 import { mobileApi } from '@/lib/mobile-api';
-import { requestKey } from '@platform/domain';
-import { STRENGTH_OPTIONS, strengthLabel } from '@/features/setup/setup';
+import { downloadMyData as requestMyDataExport } from './download-my-data';
 import { useAuth } from '@/state/auth-context';
 import { useDemo } from '@/state/demo-context';
-import type { GuestPreferences, PortalProfile } from '@platform/domain';
+import type { PortalProfile } from '@platform/domain';
 
 import { useInformationStyles } from './information-page';
 import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
@@ -87,6 +86,7 @@ export function Profile({
   const [profile, setProfile] = useState<PortalProfile>(portal.profile);
   const [saving, setSaving] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   async function chooseProfilePhoto() {
@@ -174,6 +174,18 @@ export function Profile({
     }
   }
 
+
+  async function downloadMyData() {
+    setExporting(true);
+    try {
+      await requestMyDataExport();
+    } catch (error) {
+      Alert.alert('Export unavailable', error instanceof Error ? error.message : 'Try again later.');
+    } finally {
+      setExporting(false);
+    }
+  }
+
   function confirmAccountDeletion() {
     Alert.alert(
       'Delete account?',
@@ -213,13 +225,22 @@ export function Profile({
       <Button label="Save profile" loading={saving} onPress={() => void saveProfile()} />
       {!isDemo && role === 'client' ? (
         <Card style={profileStyles.accessCard}>
+          <SectionTitle>Your data</SectionTitle>
+          <Body muted>Download a copy of your profile, orders, loyalty, and notification settings before you leave.</Body>
+          <Button
+            label="Download my data"
+            variant="soft"
+            loading={exporting}
+            disabled={exporting || deleting}
+            onPress={() => void downloadMyData()}
+          />
           <SectionTitle>Delete account</SectionTitle>
           <Body muted>Your personal details and sign-in will be removed. An anonymized order record remains with the shop.</Body>
           <Button
             label="Delete my account"
             variant="secondary"
             loading={deleting}
-            disabled={deleting}
+            disabled={deleting || exporting}
             onPress={confirmAccountDeletion}
           />
         </Card>
@@ -238,61 +259,7 @@ export function Profile({
   );
 }
 
-export function Preferences({ onBack }: { onBack: () => void }) {
-  const styles = useInformationStyles();
-  const { portal, isDemo, refresh } = useAuth();
-  const demo = useDemo();
-  const initial: GuestPreferences = portal.preferences
-    ?? { completed: false, notes: '', strength: 'medium', updatedAt: null };
-  const [preferences, setPreferences] = useState(initial);
-  const [saving, setSaving] = useState(false);
 
-  async function persist() {
-    setSaving(true);
-    try {
-      const next = { ...preferences, completed: true, updatedAt: new Date().toISOString() };
-      if (isDemo) {
-        demo.updatePreferences(next);
-      } else {
-        const idempotencyKey = requestKey('preferences');
-        // Only the fields the server accepts. The previous shape posted the
-        // local-only `completed` and `updatedAt` too and was rejected 400 every
-        // time; a Pick<> does not prevent that, because it is erased at runtime
-        // and TypeScript skips excess-property checks on a variable.
-        await mobileApi.updatePreferences({ notes: next.notes, strength: next.strength }, idempotencyKey);
-        await refresh();
-      }
-      setPreferences(next);
-      Alert.alert('Saved', 'The team can see your saved preferences.');
-    } catch (error) {
-      Alert.alert('Not saved', error instanceof Error ? error.message : 'Try again later.');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <CollapsingScreen title="My usual" eyebrow="Saved for next time" onBack={onBack} keyboardShouldPersistTaps="handled">
-      <Field
-        label="What should the bar know?"
-        value={preferences.notes}
-        multiline
-        onChangeText={(notes) => setPreferences({ ...preferences, notes })}
-      />
-      <SectionTitle>Coffee strength</SectionTitle>
-      <View style={styles.options}>{STRENGTH_OPTIONS.map((strength) => (
-        <Button
-          key={strength}
-          label={strengthLabel(strength)}
-          variant={preferences.strength === strength ? 'primary' : 'secondary'}
-          style={styles.option}
-          onPress={() => setPreferences({ ...preferences, strength })}
-        />
-      ))}</View>
-      <Button label="Save" loading={saving} disabled={saving} onPress={() => void persist()} />
-    </CollapsingScreen>
-  );
-}
 export function Field({ label, ...props }: React.ComponentProps<typeof TextInput> & { label: string }) {
   const styles = useInformationStyles();
   const tokens = useBrandTokens();

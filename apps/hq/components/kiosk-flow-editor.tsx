@@ -8,7 +8,7 @@ import {
   type KioskEntryNode, type KioskMenuFacts, type KioskStepFamily, type KioskTender,
 } from '@platform/domain';
 
-import { saveKioskFlow } from '@/app/(console)/kiosk/actions';
+import { saveKioskFlow } from '@/app/(console)/kiosk-flow/actions';
 import { KioskFlowPreview } from '@/components/kiosk-flow-preview';
 import { ManagedThumbnail } from '@/components/managed-thumbnail';
 

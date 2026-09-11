@@ -19,7 +19,7 @@ import reactHooks from 'eslint-plugin-react-hooks';
  */
 export default [
   {
-    ignores: ['.next/**', '.next-*/**', 'node_modules/**', 'next-env.d.ts', 'app/.well-known/workflow/**'],
+    ignores: ['.next/**', '.next-*/**', 'node_modules/**', 'next-env.d.ts', 'app/.well-known/workflow/**', 'public/**'],
   },
   js.configs.recommended,
   {

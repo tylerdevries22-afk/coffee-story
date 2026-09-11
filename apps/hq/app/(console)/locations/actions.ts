@@ -131,3 +131,35 @@ export async function disconnectSquareAction(formData: FormData): Promise<void> 
   // Outside the try: redirect signals by throwing.
   redirect(`/locations?disconnect=${outcome}`);
 }
+
+
+/**
+ * Delete a location the brand owner no longer operates.
+ * Refuses the last remaining location (delete_location_if_allowed).
+ */
+export async function deleteLocationAction(formData: FormData): Promise<void> {
+  const session = await currentSession();
+  if (!session || !hasRole(session, 'brand_owner')) redirect('/locations?deleted=denied');
+  const locationId = text(formData, 'locationId');
+  if (!locationId) redirect('/locations?deleted=failed');
+
+  const mutation = await authorizeWorkspaceMutation(session, {
+    action: 'locations.delete', locationId,
+  });
+  if (!mutation) redirect('/locations?deleted=denied');
+
+  if (!isConfigured()) {
+    redirect('/locations?deleted=demo');
+  }
+
+  const client = await serverClient();
+  if (!client) redirect('/locations?deleted=failed');
+  const result = await client.rpc('delete_location_if_allowed', { p_location_id: locationId });
+  if (result.error?.message?.includes('last_location_protected')) {
+    redirect('/locations?deleted=last');
+  }
+  if (result.error) redirect('/locations?deleted=failed');
+  revalidatePath('/locations');
+  revalidatePath('/', 'layout');
+  redirect('/locations?deleted=1');
+}

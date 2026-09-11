@@ -151,6 +151,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   experiments: {
     typedRoutes: true,
     reactCompiler: true,
+    ...(process.env.EXPO_BASE_URL?.trim()
+      ? { baseUrl: process.env.EXPO_BASE_URL.trim().replace(/\/$/, '') }
+      : {}),
   },
   extra: {
     router: {},

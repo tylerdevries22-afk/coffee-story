@@ -13,7 +13,8 @@ export type ConnectorAuthentication =
   | 'oauth2'
   | 'api-key-reference'
   | 'service-account-reference'
-  | 'oidc';
+  | 'oidc'
+  | 'operator-portal';
 export type ConnectorMapping = 'organization' | 'account' | 'location';
 export type ConnectorHealthDimension =
   | 'auth'
@@ -75,12 +76,55 @@ export type ConnectorCategory =
 export type ConnectorAvailability =
   | 'available'
   | 'provider-approval-required'
+  | 'manual-only'
   | 'coming-soon';
 
+/**
+ * How an organization owner actually finishes setup.
+ *
+ * - `one-click-oauth`: the deployment holds the client credentials, so the owner
+ *   presses Connect once and the provider handles consent.
+ * - `api-key`: the provider issues no OAuth client to us, so the owner copies a
+ *   key from a named console screen. Steps must stay short and each carry a link.
+ * - `operator-portal`: the provider publishes no API at all. The store links the
+ *   portal and describes the manual export, and never offers a Connect button.
+ */
+export type ConnectorSetupKind = 'one-click-oauth' | 'api-key' | 'operator-portal';
+
+/** One imperative instruction, optionally deep-linked to the exact screen. */
+export interface ConnectorSetupStep {
+  readonly text: string;
+  readonly href?: string;
+}
+
+export interface ConnectorSetup {
+  readonly kind: ConnectorSetupKind;
+  /** Honest wall-clock estimate for the owner-facing work only. */
+  readonly estimatedMinutes: number;
+  /**
+   * Provider console where credentials or exports are obtained. Absent when
+   * there is nothing for a reader to open yet, so no link is rendered.
+   */
+  readonly consoleUrl?: string;
+  readonly documentationUrl?: string;
+  readonly steps: readonly ConnectorSetupStep[];
+  /**
+   * Callback path the operator registers with the provider. Present only when a
+   * route actually serves it, so the panel never publishes a URL that 404s.
+   */
+  readonly redirectPath?: string;
+}
+
 export interface ConnectorLogo {
+  /** Present only when a CC0 Simple Icons mark exists for the provider. */
   readonly simpleIconsSlug?: string;
   readonly sourceUrl: string;
-  readonly license: 'CC0-1.0';
+  /**
+   * `CC0-1.0` covers the Simple Icons set we bundle. Providers with no Simple
+   * Icons entry — Amazon, Transistor and beehiiv among them — fall back to
+   * initials rendered in the brand color, so no third-party asset is shipped.
+   */
+  readonly license: 'CC0-1.0' | 'brand-guidelines-initials';
   readonly attribution: string;
   readonly verifiedAt: string;
   readonly brandColor: `#${string}`;
@@ -94,6 +138,7 @@ export interface ConnectorCatalogEntry {
   readonly category: ConnectorCategory;
   readonly availability: ConnectorAvailability;
   readonly logo: ConnectorLogo;
+  readonly setup: ConnectorSetup;
 }
 
 export interface ConnectorOperationContext {

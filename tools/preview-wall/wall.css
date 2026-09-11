@@ -170,3 +170,25 @@ figcaption {
   .device-option { min-width: 58px; padding: 0 7px; }
 }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition-duration: .01ms !important; } }
+
+.wall-org { margin-left: 8px; }
+.wall-org select {
+  min-height: 36px;
+  padding: 6px 10px;
+  border: 1px solid #464e5a;
+  border-radius: 7px;
+  background: #222731;
+  color: var(--ink);
+  font: inherit;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
