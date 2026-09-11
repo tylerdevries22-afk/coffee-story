@@ -3,7 +3,7 @@
 
 alter table public.square_connections
   add column if not exists oauth_scope_contract_version integer not null default 1;
-do $$ begin
+do $lifecycle$ begin
   if not exists (
     select 1 from pg_catalog.pg_constraint
     where conrelid = 'public.square_connections'::regclass
@@ -13,7 +13,7 @@ do $$ begin
       add constraint square_connections_oauth_scope_contract_version_positive
       check (oauth_scope_contract_version > 0);
   end if;
-end $$;
+end $lifecycle$;
 
 comment on column public.square_connections.oauth_scope_contract_version is
   'Scope contract proven when Square issued this grant. Version 2 includes PAYMENTS_WRITE_ADDITIONAL_RECIPIENTS.';
@@ -70,14 +70,14 @@ revoke all on table app_private.connector_oauth_grant_namespaces
   from public, anon, authenticated, service_role;
 
 create function app.ensure_connector_oauth_grant_namespace()
-returns trigger language plpgsql security definer set search_path = '' as $$
+returns trigger language plpgsql security definer set search_path = '' as $lifecycle$
 begin
   if new.oauth_lifecycle_managed then
     insert into app_private.connector_oauth_grant_namespaces (namespace)
     values (new.oauth_grant_namespace) on conflict (namespace) do nothing;
   end if;
   return new;
-end $$;
+end $lifecycle$;
 revoke all on function app.ensure_connector_oauth_grant_namespace()
   from public, anon, authenticated, service_role;
 create trigger connector_registry_ensure_oauth_grant_namespace
@@ -100,7 +100,7 @@ create function app.connector_external_account_fingerprint(
   p_provider_id uuid,
   p_credential_text text
 ) returns text
-language plpgsql stable security definer set search_path = '' as $$
+language plpgsql stable security definer set search_path = '' as $lifecycle$
 declare
   v_account_id text;
   v_credential jsonb;
@@ -123,13 +123,13 @@ begin
   return pg_catalog.encode(public.digest(
     jsonb_build_array(v_grant_namespace, v_account_id)::text, 'sha256'
   ), 'hex');
-end $$;
+end $lifecycle$;
 revoke all on function app.connector_external_account_fingerprint(uuid, text)
   from public, anon, authenticated, service_role;
 
 create function app.try_connector_credential_json(p_credential_text text)
 returns jsonb
-language plpgsql immutable security invoker set search_path = '' as $$
+language plpgsql immutable security invoker set search_path = '' as $lifecycle$
 declare
   v_credential jsonb;
 begin
@@ -142,7 +142,7 @@ begin
     return null;
   end if;
   return v_credential;
-end $$;
+end $lifecycle$;
 revoke all on function app.try_connector_credential_json(text)
   from public, anon, authenticated, service_role;
 
@@ -307,7 +307,7 @@ create or replace function public.store_connector_secret(
   target_scopes text[] default '{}',
   target_expires_at timestamptz default null
 ) returns uuid
-language plpgsql security definer set search_path = '' as $$
+language plpgsql security definer set search_path = '' as $lifecycle$
 declare
   reference_id uuid;
   stored_secret uuid;
@@ -345,7 +345,7 @@ begin
     target_scopes, target_expires_at
   ) returning id into reference_id;
   return reference_id;
-end $$;
+end $lifecycle$;
 revoke all on function public.store_connector_secret(
   uuid, text, text, text, text[], timestamptz
 ) from service_role;
@@ -363,7 +363,7 @@ create function app.connector_job_credential_valid(
   p_credential_text text,
   p_expected_fingerprint text
 ) returns boolean
-language plpgsql stable security definer set search_path = '' as $$
+language plpgsql stable security definer set search_path = '' as $lifecycle$
 declare
   v_credential jsonb;
   v_revocation_scope text;
@@ -391,13 +391,13 @@ begin
       jsonb_typeof(v_credential->'refresh_token') = 'string'
       and octet_length(v_credential->>'refresh_token') between 8 and 16384
     )), false);
-end $$;
+end $lifecycle$;
 revoke all on function app.connector_job_credential_valid(
   uuid, text, text, text
 ) from public, anon, authenticated, service_role;
 
 create function app.cancel_connector_refresh_on_invalidation()
-returns trigger language plpgsql security definer set search_path = '' as $$
+returns trigger language plpgsql security definer set search_path = '' as $lifecycle$
 begin
   if new.status in (
       'setup_required', 'reauthorization_required', 'disabled', 'revoked'
@@ -420,7 +420,7 @@ begin
       and job.state not in ('succeeded', 'cancelled', 'permanent_failure');
   end if;
   return new;
-end $$;
+end $lifecycle$;
 revoke all on function app.cancel_connector_refresh_on_invalidation()
   from public, anon, authenticated, service_role;
 drop trigger if exists connector_installations_cancel_invalid_refresh
@@ -444,7 +444,7 @@ create function app.queue_connector_oauth_compensation_internal(
   p_payload_fingerprint text,
   p_identity_hint jsonb
 ) returns jsonb
-language plpgsql security definer set search_path = '' as $$
+language plpgsql security definer set search_path = '' as $lifecycle$
 declare
   v_account_fingerprint text;
   v_existing app_private.connector_oauth_lifecycle_jobs%rowtype;
@@ -596,7 +596,7 @@ begin
   return jsonb_build_object(
     'outcome', 'cleanup_queued', 'referenceId', v_reference_id
   );
-end $$;
+end $lifecycle$;
 revoke all on function app.queue_connector_oauth_compensation_internal(
   uuid, uuid, uuid, uuid, uuid, uuid, jsonb, text, text[], timestamptz, text,
   text, jsonb
@@ -616,7 +616,7 @@ create function public.queue_connector_oauth_compensation(
   p_reason text,
   p_identity_hint jsonb
 ) returns jsonb
-language plpgsql security definer set search_path = '' as $$
+language plpgsql security definer set search_path = '' as $lifecycle$
 declare
   v_completion_fingerprint text;
   v_provider_id uuid;
@@ -652,7 +652,7 @@ begin
     v_scopes, p_expires_at,
     p_reason, v_completion_fingerprint, p_identity_hint
   );
-end $$;
+end $lifecycle$;
 revoke all on function public.queue_connector_oauth_compensation(
   uuid, uuid, text, uuid, uuid, uuid, jsonb, text, text[], timestamptz, text,
   jsonb
@@ -666,7 +666,7 @@ create function app.disable_unavailable_connector_credentials(
   p_now timestamptz,
   p_limit integer
 ) returns integer
-language plpgsql security definer set search_path = '' as $$
+language plpgsql security definer set search_path = '' as $lifecycle$
 declare
   v_changed integer;
 begin
@@ -774,7 +774,7 @@ begin
   )
   select count(*)::integer into v_changed from audited;
   return v_changed;
-end $$;
+end $lifecycle$;
 revoke all on function app.disable_unavailable_connector_credentials(
   timestamptz, integer
 ) from public, anon, authenticated, service_role;
@@ -801,7 +801,7 @@ where installation.status in ('connected_healthy', 'connected_degraded')
   and reference.expires_at is not null
 on conflict (credential_reference_id, operation) do nothing;
 
-do $$
+do $lifecycle$
 declare
   v_changed integer;
 begin
@@ -809,7 +809,7 @@ begin
     v_changed := app.disable_unavailable_connector_credentials(now(), 500);
     exit when v_changed < 500;
   end loop;
-end $$;
+end $lifecycle$;
 
 drop view public.location_square_status;
 drop function app.location_square_status_rows();
@@ -824,13 +824,13 @@ returns table (
 )
 language sql stable security definer
 set search_path = ''
-as $$
+as $lifecycle$
   select connection.location_id, connection.brand_id,
          connection.merchant_id, connection.expires_at,
          connection.oauth_scope_contract_version
     from public.square_connections connection
    where app.is_brand_staff(connection.brand_id)
-$$;
+$lifecycle$;
 revoke execute on function app.location_square_status_rows() from public, anon;
 grant execute on function app.location_square_status_rows()
   to authenticated, service_role;
@@ -852,7 +852,7 @@ create or replace function public.begin_connector_oauth_state(
   p_redirect_uri text,
   p_expires_at timestamptz
 ) returns jsonb
-language plpgsql security definer set search_path = '' as $$
+language plpgsql security definer set search_path = '' as $lifecycle$
 declare
   v_contract_version text;
   v_grant_namespace text;
@@ -1014,7 +1014,7 @@ begin
     'installationId', v_installation_id,
     'status', 'authorization_ready'
   );
-end $$;
+end $lifecycle$;
 
 revoke all on function public.begin_connector_oauth_state(
   uuid, text, uuid, text, text, text[], text, timestamptz
@@ -1048,7 +1048,7 @@ create function public.consume_connector_oauth_state(
   processing_acquired boolean,
   exchange_started boolean
 )
-language plpgsql security definer set search_path = '' as $$
+language plpgsql security definer set search_path = '' as $lifecycle$
 declare
   v_state app_private.connector_oauth_states%rowtype;
 begin
@@ -1120,7 +1120,7 @@ begin
     v_state.redirect_uri, v_state.consume_key, false, null::text, null::uuid,
     v_state.processing_lease_token, v_state.processing_lease_expires_at,
     v_state.processing_generation, true, false;
-end $$;
+end $lifecycle$;
 
 revoke all on function public.consume_connector_oauth_state(
   text, uuid, text, text, uuid
@@ -1136,7 +1136,7 @@ create function public.start_connector_oauth_code_exchange(
   p_exchange_attempt_key uuid,
   p_now timestamptz
 ) returns boolean
-language plpgsql security definer set search_path = '' as $$
+language plpgsql security definer set search_path = '' as $lifecycle$
 declare
   v_state app_private.connector_oauth_states%rowtype;
 begin
@@ -1168,7 +1168,7 @@ begin
     and state.processing_lease_token = p_processing_lease_token
     and state.exchange_started_at is null;
   return found;
-end $$;
+end $lifecycle$;
 
 revoke all on function public.start_connector_oauth_code_exchange(
   uuid, uuid, uuid, uuid, timestamptz
@@ -1184,7 +1184,7 @@ create function public.cancel_connector_oauth_code_exchange(
   p_exchange_attempt_key uuid,
   p_now timestamptz
 ) returns boolean
-language plpgsql security definer set search_path = '' as $$
+language plpgsql security definer set search_path = '' as $lifecycle$
 declare
   v_state app_private.connector_oauth_states%rowtype;
 begin
@@ -1211,7 +1211,7 @@ begin
     and state.processing_lease_token = p_processing_lease_token
     and state.exchange_attempt_key = p_exchange_attempt_key;
   return found;
-end $$;
+end $lifecycle$;
 
 revoke all on function public.cancel_connector_oauth_code_exchange(
   uuid, uuid, uuid, uuid, timestamptz
@@ -1235,7 +1235,7 @@ create function public.complete_connector_oauth_connection(
   p_granted_scopes text[],
   p_expires_at timestamptz
 ) returns uuid
-language plpgsql security definer set search_path = '' as $$
+language plpgsql security definer set search_path = '' as $lifecycle$
 declare
   v_contract_version text;
   v_completion_fingerprint text;
@@ -1601,7 +1601,7 @@ begin
     )
   );
   return v_reference_id;
-end $$;
+end $lifecycle$;
 
 revoke all on function public.complete_connector_oauth_connection(
   uuid, uuid, text, uuid, uuid, jsonb, text, text[], timestamptz
@@ -1614,7 +1614,7 @@ create or replace function public.reconcile_connector_credential_status(
   p_now timestamptz default now(),
   p_limit integer default 100
 ) returns integer
-language plpgsql security definer set search_path = '' as $$
+language plpgsql security definer set search_path = '' as $lifecycle$
 declare
   changed_count integer;
   disabled_count integer;
@@ -1749,10 +1749,10 @@ begin
   )
   select count(*)::integer into changed_count from audited;
   return disabled_count + changed_count;
-end $$;
+end $lifecycle$;
 
 create function app.invalidate_connector_provider_availability()
-returns trigger language plpgsql security definer set search_path = '' as $$
+returns trigger language plpgsql security definer set search_path = '' as $lifecycle$
 begin
   if not new.oauth_lifecycle_managed then
     return new;
@@ -1889,7 +1889,7 @@ begin
       'status', 'disabled', 'reason', 'provider_unavailable'
     ) from changed;
   return new;
-end $$;
+end $lifecycle$;
 revoke all on function app.invalidate_connector_provider_availability()
   from public, anon, authenticated, service_role;
 drop trigger if exists connector_registry_invalidate_installations
@@ -1904,7 +1904,7 @@ create trigger connector_registry_invalidate_installations
   ) execute function app.invalidate_connector_provider_availability();
 
 create function app.invalidate_connector_capability_contract()
-returns trigger language plpgsql security definer set search_path = '' as $$
+returns trigger language plpgsql security definer set search_path = '' as $lifecycle$
 declare
   v_capability_key text;
   v_provider_id uuid;
@@ -1964,7 +1964,7 @@ begin
       'status', 'reauthorization_required', 'reason', 'capability_invalidated'
     ) from changed;
   return null;
-end $$;
+end $lifecycle$;
 revoke all on function app.invalidate_connector_capability_contract()
   from public, anon, authenticated, service_role;
 drop trigger if exists connector_capabilities_invalidate_installations
@@ -1974,7 +1974,7 @@ create trigger connector_capabilities_invalidate_installations
   for each row execute function app.invalidate_connector_capability_contract();
 
 create function app.protect_connector_contract_identity()
-returns trigger language plpgsql security invoker set search_path = '' as $$
+returns trigger language plpgsql security invoker set search_path = '' as $lifecycle$
 begin
   if tg_table_name = 'connector_capabilities' and (
     new.provider_id is distinct from old.provider_id
@@ -1992,7 +1992,7 @@ begin
       message = 'connector_certification_identity_immutable';
   end if;
   return new;
-end $$;
+end $lifecycle$;
 revoke all on function app.protect_connector_contract_identity()
   from public, anon, authenticated, service_role;
 drop trigger if exists connector_capabilities_protect_identity
@@ -2002,7 +2002,7 @@ create trigger connector_capabilities_protect_identity
   for each row execute function app.protect_connector_contract_identity();
 
 create function app.invalidate_connector_certification_contract()
-returns trigger language plpgsql security definer set search_path = '' as $$
+returns trigger language plpgsql security definer set search_path = '' as $lifecycle$
 declare
   v_capability_id uuid;
 begin
@@ -2042,7 +2042,7 @@ begin
       'status', 'reauthorization_required', 'reason', 'certification_invalidated'
     ) from changed;
   return null;
-end $$;
+end $lifecycle$;
 revoke all on function app.invalidate_connector_certification_contract()
   from public, anon, authenticated, service_role;
 drop trigger if exists connector_certifications_invalidate_installations
@@ -2059,7 +2059,7 @@ create trigger connector_certifications_protect_identity
   for each row execute function app.protect_connector_contract_identity();
 
 create function app.protect_connector_provider_identity()
-returns trigger language plpgsql security invoker set search_path = '' as $$
+returns trigger language plpgsql security invoker set search_path = '' as $lifecycle$
 begin
   if new.provider_key is distinct from old.provider_key
     or new.oauth_lifecycle_managed is distinct from old.oauth_lifecycle_managed
@@ -2070,7 +2070,7 @@ begin
       message = 'connector_provider_lifecycle_identity_immutable';
   end if;
   return new;
-end $$;
+end $lifecycle$;
 revoke all on function app.protect_connector_provider_identity()
   from public, anon, authenticated, service_role;
 drop trigger if exists connector_registry_protect_identity
@@ -2085,7 +2085,7 @@ create or replace function public.disconnect_connector_oauth_connection(
   p_provider_key text,
   p_actor_user_id uuid
 ) returns boolean
-language plpgsql security definer set search_path = '' as $$
+language plpgsql security definer set search_path = '' as $lifecycle$
 declare
   v_installation public.connector_installations%rowtype;
   v_grant_namespace text;
@@ -2228,10 +2228,10 @@ begin
     );
   end if;
   return true;
-end $$;
+end $lifecycle$;
 
 create function app.connector_identity_credential_valid(p_credential_text text)
-returns boolean language plpgsql stable security invoker set search_path = '' as $$
+returns boolean language plpgsql stable security invoker set search_path = '' as $lifecycle$
 declare
   v_credential jsonb;
 begin
@@ -2240,7 +2240,7 @@ begin
     and pg_column_size(v_credential) <= 24576
     and jsonb_typeof(v_credential->'access_token') = 'string'
     and octet_length(v_credential->>'access_token') between 8 and 16384, false);
-end $$;
+end $lifecycle$;
 revoke all on function app.connector_identity_credential_valid(text)
   from public, anon, authenticated, service_role;
 
@@ -2249,7 +2249,7 @@ create function public.start_connector_oauth_credential_rotation(
   p_lease_token uuid,
   p_now timestamptz
 ) returns boolean
-language plpgsql security definer set search_path = '' as $$
+language plpgsql security definer set search_path = '' as $lifecycle$
 declare
   v_installation_id uuid;
   v_job app_private.connector_oauth_lifecycle_jobs%rowtype;
@@ -2291,14 +2291,14 @@ begin
   where job.id = v_job.id and job.state = 'leased'
     and job.lease_token = p_lease_token;
   return found;
-end $$;
+end $lifecycle$;
 
 create function public.cancel_connector_oauth_credential_rotation(
   p_job_id uuid,
   p_lease_token uuid,
   p_now timestamptz
 ) returns boolean
-language plpgsql security definer set search_path = '' as $$
+language plpgsql security definer set search_path = '' as $lifecycle$
 begin
   if p_job_id is null or p_lease_token is null or p_now is null then
     raise exception using errcode = '22023', message = 'connector_oauth_rotation_invalid';
@@ -2321,7 +2321,7 @@ begin
       and job.lease_rotation_started_at is null
       and job.lease_rotation_fingerprint is null
   );
-end $$;
+end $lifecycle$;
 
 create function public.claim_connector_oauth_identities(
   p_now timestamptz,
@@ -2341,7 +2341,7 @@ create function public.claim_connector_oauth_identities(
   granted_scopes text[],
   identity_hint jsonb
 )
-language plpgsql security definer set search_path = '' as $$
+language plpgsql security definer set search_path = '' as $lifecycle$
 begin
   if p_now is null or p_limit is null or p_limit not between 1 and 100
     or p_lease_seconds is null or p_lease_seconds not between 15 and 600 then
@@ -2443,7 +2443,7 @@ begin
   join public.connector_registry provider on provider.id = leased.provider_id
   join vault.decrypted_secrets secret on secret.id = reference.vault_secret_id
   order by leased.next_attempt_at, leased.created_at, leased.id;
-end $$;
+end $lifecycle$;
 
 create function public.rotate_connector_oauth_identity_credential(
   p_job_id uuid,
@@ -2452,7 +2452,7 @@ create function public.rotate_connector_oauth_identity_credential(
   p_expires_at timestamptz,
   p_now timestamptz
 ) returns boolean
-language plpgsql security definer set search_path = '' as $$
+language plpgsql security definer set search_path = '' as $lifecycle$
 declare
   v_effective_scopes text[];
   v_fingerprint text;
@@ -2588,7 +2588,7 @@ begin
     )
   );
   return true;
-end $$;
+end $lifecycle$;
 
 create function public.complete_connector_oauth_identity(
   p_job_id uuid,
@@ -2596,7 +2596,7 @@ create function public.complete_connector_oauth_identity(
   p_external_account_id text,
   p_now timestamptz
 ) returns boolean
-language plpgsql security definer set search_path = '' as $$
+language plpgsql security definer set search_path = '' as $lifecycle$
 declare
   v_credential jsonb;
   v_fingerprint text;
@@ -2698,7 +2698,7 @@ begin
     jsonb_build_object('credentialGeneration', v_job.credential_generation + 1)
   );
   return true;
-end $$;
+end $lifecycle$;
 
 create function public.fail_connector_oauth_identity(
   p_job_id uuid,
@@ -2707,7 +2707,7 @@ create function public.fail_connector_oauth_identity(
   p_retryable boolean,
   p_now timestamptz
 ) returns boolean
-language plpgsql security definer set search_path = '' as $$
+language plpgsql security definer set search_path = '' as $lifecycle$
 declare
   v_failure_fingerprint text;
   v_job app_private.connector_oauth_lifecycle_jobs%rowtype;
@@ -2770,7 +2770,7 @@ begin
     )
   );
   return true;
-end $$;
+end $lifecycle$;
 
 create function public.claim_connector_oauth_revocations(
   p_now timestamptz,
@@ -2788,7 +2788,7 @@ create function public.claim_connector_oauth_revocations(
   account_label text,
   granted_scopes text[]
 )
-language plpgsql security definer set search_path = '' as $$
+language plpgsql security definer set search_path = '' as $lifecycle$
 declare
   v_local_token uuid;
   v_maintenance_count integer;
@@ -3128,7 +3128,7 @@ begin
   join public.connector_registry provider on provider.id = leased.provider_id
   join vault.decrypted_secrets secret on secret.id = reference.vault_secret_id
   order by leased.next_attempt_at, leased.created_at, leased.id;
-end $$;
+end $lifecycle$;
 
 create function public.rotate_connector_oauth_revocation_credential(
   p_job_id uuid,
@@ -3137,7 +3137,7 @@ create function public.rotate_connector_oauth_revocation_credential(
   p_expires_at timestamptz,
   p_now timestamptz
 ) returns boolean
-language plpgsql security definer set search_path = '' as $$
+language plpgsql security definer set search_path = '' as $lifecycle$
 declare
   v_account_fingerprint text;
   v_effective_scopes text[];
@@ -3254,14 +3254,14 @@ begin
     jsonb_build_object('credentialGeneration', v_job.credential_generation + 1)
   );
   return true;
-end $$;
+end $lifecycle$;
 
 create function public.complete_connector_oauth_revocation(
   p_job_id uuid,
   p_lease_token uuid,
   p_now timestamptz
 ) returns boolean
-language plpgsql security definer set search_path = '' as $$
+language plpgsql security definer set search_path = '' as $lifecycle$
 declare
   v_installation_id uuid;
   v_job app_private.connector_oauth_lifecycle_jobs%rowtype;
@@ -3322,7 +3322,7 @@ begin
     )
   );
   return true;
-end $$;
+end $lifecycle$;
 
 create function public.fail_connector_oauth_revocation(
   p_job_id uuid,
@@ -3331,7 +3331,7 @@ create function public.fail_connector_oauth_revocation(
   p_retryable boolean,
   p_now timestamptz
 ) returns boolean
-language plpgsql security definer set search_path = '' as $$
+language plpgsql security definer set search_path = '' as $lifecycle$
 declare
   v_failure_fingerprint text;
   v_job app_private.connector_oauth_lifecycle_jobs%rowtype;
@@ -3397,7 +3397,7 @@ begin
     )
   );
   return true;
-end $$;
+end $lifecycle$;
 
 create function public.claim_connector_oauth_refreshes(
   p_now timestamptz,
@@ -3416,7 +3416,7 @@ create function public.claim_connector_oauth_refreshes(
   expires_at timestamptz,
   granted_scopes text[]
 )
-language plpgsql security definer set search_path = '' as $$
+language plpgsql security definer set search_path = '' as $lifecycle$
 begin
   if p_now is null or p_limit is null or p_limit not between 1 and 100
     or p_lease_seconds is null or p_lease_seconds not between 15 and 600 then
@@ -3613,7 +3613,7 @@ begin
   join public.connector_registry provider on provider.id = leased.provider_id
   join vault.decrypted_secrets secret on secret.id = reference.vault_secret_id
   order by leased.next_attempt_at, leased.created_at, leased.id;
-end $$;
+end $lifecycle$;
 
 create function public.complete_connector_oauth_refresh(
   p_job_id uuid,
@@ -3622,7 +3622,7 @@ create function public.complete_connector_oauth_refresh(
   p_expires_at timestamptz,
   p_now timestamptz
 ) returns boolean
-language plpgsql security definer set search_path = '' as $$
+language plpgsql security definer set search_path = '' as $lifecycle$
 declare
   v_capabilities_valid boolean;
   v_completion_fingerprint text;
@@ -3892,7 +3892,7 @@ begin
     )
   );
   return true;
-end $$;
+end $lifecycle$;
 
 create function public.fail_connector_oauth_refresh(
   p_job_id uuid,
@@ -3901,7 +3901,7 @@ create function public.fail_connector_oauth_refresh(
   p_retryable boolean,
   p_now timestamptz
 ) returns boolean
-language plpgsql security definer set search_path = '' as $$
+language plpgsql security definer set search_path = '' as $lifecycle$
 declare
   v_failure_fingerprint text;
   v_installation_id uuid;
@@ -4042,7 +4042,7 @@ begin
     )
   );
   return true;
-end $$;
+end $lifecycle$;
 
 create function public.quarantine_connector_oauth_rotation_result(
   p_job_id uuid,
@@ -4052,7 +4052,7 @@ create function public.quarantine_connector_oauth_rotation_result(
   p_reason text,
   p_now timestamptz
 ) returns boolean
-language plpgsql security definer set search_path = '' as $$
+language plpgsql security definer set search_path = '' as $lifecycle$
 declare
   v_external_account_id text;
   v_fingerprint text;
@@ -4210,7 +4210,7 @@ begin
       'credentialGeneration', v_job.credential_generation + 1,
       'revocationQueued', v_job.operation = 'refresh'));
   return true;
-end $$;
+end $lifecycle$;
 
 revoke all on function public.reconcile_connector_credential_status(timestamptz, integer)
   from public, anon, authenticated;
@@ -4300,7 +4300,7 @@ grant execute on function public.fail_connector_oauth_refresh(
 ) to service_role;
 
 create or replace function app.assert_connector_oauth_runtime()
-returns void language plpgsql stable security invoker set search_path = '' as $$
+returns void language plpgsql stable security invoker set search_path = '' as $lifecycle$
 declare
   v_signature text;
 begin
@@ -4337,13 +4337,13 @@ begin
   ) is null then
     raise exception 'connector OAuth active-state index is missing';
   end if;
-end $$;
+end $lifecycle$;
 revoke all on function app.assert_connector_oauth_runtime()
   from public, anon, authenticated;
 grant execute on function app.assert_connector_oauth_runtime() to service_role;
 
 create or replace function app.assert_connector_credential_lifecycle()
-returns void language plpgsql stable security invoker set search_path = '' as $$
+returns void language plpgsql stable security invoker set search_path = '' as $lifecycle$
 declare
   v_signature text;
 begin
@@ -4476,7 +4476,7 @@ begin
     ) then
     raise exception 'connector lifecycle guard or queue index is missing';
   end if;
-end $$;
+end $lifecycle$;
 revoke all on function app.assert_connector_credential_lifecycle()
   from public, anon, authenticated;
 grant execute on function app.assert_connector_credential_lifecycle() to service_role;

@@ -87,6 +87,7 @@ const ALLOWED = new Map<string, string>([
   ['apps/customer/app.config.ts', 'Expo build-time splash: reads brand.tokens first, literal only as the last resort'],
   ['apps/kiosk/app.config.ts', 'as apps/customer/app.config.ts'],
   ['apps/customer/src/components/rewards/glass-cup.tsx', 'the vessel drawing itself: glass is refraction, not brand, and its palettes file is allowed for the same reason'],
+  ['apps/customer/src/components/rewards/glass-cup-scene.tsx', 'scene wrapper around the glass vessel; same refraction shading, not tenant brand'],
   ['apps/operator/src/components/preview-role-picker.tsx', "Apple's system fill for a segmented well -- a platform control's own grey, which no tenant owns"],
   ['apps/customer/src/components/rewards/glass-cup-palettes.ts', 'decorative liquid inside the glass vessel; documented in the file as deliberately outside the token set'],
   ['packages/domain/src/training-artwork.ts', 'generates art written to immutable, content-addressed Storage keys, so it cannot vary by tenant'],
