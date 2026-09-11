@@ -19,6 +19,7 @@ import {
 } from '@/lib/organization-provisioning-helpers';
 import { resolveOrInviteStaffUser } from '@/lib/staff-admin';
 import { runPlatformFactory } from '@/workflows/platform-factory';
+import { recordPlatformAccess } from '@/lib/platform-access-audit';
 import { isConfigured, serverClient } from '@/lib/supabase-server';
 import {
   expiredWorkspaceCookieOptions, LOCATION_COOKIE, ORG_COOKIE, workspaceCookieOptions,
@@ -188,6 +189,26 @@ export async function createOrganizationAction(
     }
   }
 
+  const audited = await recordPlatformAccess(session, {
+    action: 'organizations.provision.select',
+    brandId,
+    locationId,
+    required: true,
+    metadata: { source: 'organization_create', surface: 'hq' },
+  });
+  if (!audited) {
+    return { kind: 'error', message: 'Organization was created but workspace switch could not be audited.' };
+  }
+  const audited = await recordPlatformAccess(session, {
+    action: 'organizations.provision.select',
+    brandId,
+    locationId,
+    required: true,
+    metadata: { source: 'organization_create', surface: 'hq' },
+  });
+  if (!audited) {
+    return { kind: 'error', message: 'Organization was created but workspace switch could not be audited.' };
+  }
   const store = await cookies();
   store.set(ORG_COOKIE, brandId, workspaceCookieOptions());
   store.set(LOCATION_COOKIE, locationId ?? '', locationId
