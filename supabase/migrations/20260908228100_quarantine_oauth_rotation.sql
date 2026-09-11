@@ -8,7 +8,7 @@ create function public.quarantine_connector_oauth_rotation_result(
   p_reason text,
   p_now timestamptz
 ) returns boolean
-language plpgsql security definer set search_path = '' as $lifecycle$
+language plpgsql security definer set search_path = '' as $$
 declare
   v_external_account_id text;
   v_fingerprint text;
@@ -166,7 +166,8 @@ begin
       'credentialGeneration', v_job.credential_generation + 1,
       'revocationQueued', v_job.operation = 'refresh'));
   return true;
-end $lifecycle$;
+end $$;
+
 
 revoke all on function public.quarantine_connector_oauth_rotation_result(uuid, uuid, jsonb, timestamptz, text, timestamptz)
   from public, anon, authenticated;
