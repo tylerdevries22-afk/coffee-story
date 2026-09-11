@@ -2187,7 +2187,7 @@ create or replace function public.process_square_refund(
   refunded_cents bigint,
   square_event_type text
 )
-returns boolean language plpgsql security definer set search_path = '' as $$
+returns boolean language plpgsql security invoker set search_path = '' as $$
 declare
   target public.orders%rowtype;
   queued app_private.square_payment_remediation_outbox%rowtype;
