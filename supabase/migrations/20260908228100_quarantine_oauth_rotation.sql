@@ -22,7 +22,7 @@ declare
   v_stored_credential jsonb;
 begin
   if p_job_id is null or p_lease_token is null or p_now is null
-    or p_reason is null or p_reason !~ '^[a-z][a-z0-9_]{0,63}$'
+    or p_reason is null or p_reason not similar to '[a-z][a-z0-9_]{0,63}'
     or jsonb_typeof(p_credential) is distinct from 'object'
     or pg_column_size(p_credential) > 24576
     or jsonb_typeof(p_credential->'access_token') is distinct from 'string'
