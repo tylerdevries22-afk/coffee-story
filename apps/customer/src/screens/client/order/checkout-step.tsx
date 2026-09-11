@@ -22,11 +22,7 @@ import { AppIcon, useTokens as useBrandTokens } from '@platform/ui';
 import { CheckoutPayment } from './checkout-payment';
 import { CheckoutReceipt } from './checkout-receipt';
 import { createStyles } from './checkout-step-styles';
-import type {
-  CheckoutPaymentMethod,
-  RedeemControl,
-  StoredValueControl,
-} from './checkout-types';
+import type { CheckoutPaymentMethod } from './checkout-types';
 
 export function CheckoutStep({
   totals,
@@ -53,9 +49,20 @@ export function CheckoutStep({
   simulated: boolean;
   error: string | null;
   /** Loyalty redemption control; null hides it (no balance, or feature off). */
-  redeem?: RedeemControl | null;
+  redeem?: {
+    availableCents: number;
+    appliedCents: number;
+    pointsCharged: number;
+    pointsName: string;
+    onToggle: () => void;
+  } | null;
   /** Gift/stored-value tender; null hides it. */
-  storedValue?: StoredValueControl | null;
+  storedValue?: {
+    balanceCents: number;
+    appliedCents: number;
+    enabled: boolean;
+    onToggle: () => void;
+  } | null;
   /** What the card is actually charged once stored value is applied. */
   cardChargeCents?: number;
   onBack: () => void;
