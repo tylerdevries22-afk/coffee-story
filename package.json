@@ -42,9 +42,9 @@
       "@vercel/node>path-to-regexp": "6.3.0",
       "@vercel/python-analysis>js-yaml": "4.3.2",
       "@vercel/python-analysis>minimatch": "10.2.6",
-      "@vercel/python-analysis>smol-toml": "1.6.1",
+      "@vercel/python-analysis>smol-toml": "1.7.1",
       "@vercel/remix-builder>path-to-regexp": "6.3.0",
-      "@vercel/rust>smol-toml": "1.6.1",
+      "@vercel/rust>smol-toml": "1.7.1",
       "@vercel/static-config>ajv": "8.18.0",
       "decode-uri-component": "0.5.0",
       "fast-uri": ">=3.1.6",
@@ -56,9 +56,10 @@
       "qs": ">=6.16.0",
       "sharp": ">=0.35.4",
       "js-yaml": ">=4.3.2",
+      "smol-toml": ">=1.7.1",
       "undici": "7.29.0",
       "uuid": "11.1.1",
-      "vercel>smol-toml": "1.6.1"
+      "vercel>smol-toml": "1.7.1"
     },
     "patchedDependencies": {
       "@expo/cli@54.0.27": "patches/@expo__cli@54.0.27.patch"

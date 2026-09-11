@@ -6,6 +6,7 @@ import { ProfileAvatar } from '@/components/profile-avatar';
 import { CollapsingScreen } from '@/components/collapsing-screen';
 import { Body, Button, Card, SectionTitle } from '@/components/ui';
 import { mobileApi } from '@/lib/mobile-api';
+import { TENANT } from '@/tenant';
 import { requestKey } from '@platform/domain';
 import { STRENGTH_OPTIONS, strengthLabel } from '@/features/setup/setup';
 import { useAuth } from '@/state/auth-context';
@@ -193,7 +194,7 @@ export function Profile({
       } else {
         await Share.share({
           message: json,
-          title: 'My Coffee Story data export',
+          title: `My ${TENANT.identity.name} data export`,
         });
       }
     } catch (error) {

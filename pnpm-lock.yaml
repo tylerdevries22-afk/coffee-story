@@ -14,9 +14,9 @@ overrides:
   '@vercel/node>path-to-regexp': 6.3.0
   '@vercel/python-analysis>js-yaml': 4.3.2
   '@vercel/python-analysis>minimatch': 10.2.6
-  '@vercel/python-analysis>smol-toml': 1.6.1
+  '@vercel/python-analysis>smol-toml': 1.7.1
   '@vercel/remix-builder>path-to-regexp': 6.3.0
-  '@vercel/rust>smol-toml': 1.6.1
+  '@vercel/rust>smol-toml': 1.7.1
   '@vercel/static-config>ajv': 8.18.0
   decode-uri-component: 0.5.0
   fast-uri: '>=3.1.6'
@@ -28,9 +28,10 @@ overrides:
   qs: '>=6.16.0'
   sharp: '>=0.35.4'
   js-yaml: '>=4.3.2'
+  smol-toml: '>=1.7.1'
   undici: 7.29.0
   uuid: 11.1.1
-  vercel>smol-toml: 1.6.1
+  vercel>smol-toml: 1.7.1
 
 patchedDependencies:
   '@expo/cli@54.0.27':
@@ -9607,8 +9608,8 @@ packages:
     resolution: {integrity: sha512-94hK0Hh8rPqQl2xXc3HsaBoOXKV20MToPkcXvwbISWLEs+64sBq5kFgn2kJDHb1Pry9yrP0dxrCI9RRci7RXKg==}
     engines: {node: '>= 6.0.0', npm: '>= 3.0.0'}
 
-  smol-toml@1.6.1:
-    resolution: {integrity: sha512-dWUG8F5sIIARXih1DTaQAX4SsiTXhInKf1buxdY9DIg4ZYPZK5nGM1VRIYmEbDbsHt7USo99xSLFu5Q1IqTmsg==}
+  smol-toml@1.7.1:
+    resolution: {integrity: sha512-PPlsspAZ4jbMBu5DMFhfUGDQLu/vrL4SyBROVS37x8ynnVmFIs1VPBz1Co8Xks3TvpIaZXmU85y4DrQ+UyVFoQ==}
     engines: {node: '>= 18'}
 
   socks-proxy-agent@10.1.0:
@@ -14574,7 +14575,7 @@ snapshots:
       fs-extra: 11.1.1
       js-yaml: 4.3.2
       minimatch: 10.2.6
-      smol-toml: 1.6.1
+      smol-toml: 1.7.1
       zod: 3.22.4
 
   '@vercel/python@13.0.1(@vercel/build-utils@14.9.1)':
@@ -14628,7 +14629,7 @@ snapshots:
       '@vercel/build-utils': 14.9.1
       execa: 5.1.1
       get-port: 5.1.1
-      smol-toml: 1.6.1
+      smol-toml: 1.7.1
 
   '@vercel/sandbox@3.1.0':
     dependencies:
@@ -20188,7 +20189,7 @@ snapshots:
 
   smart-buffer@4.2.0: {}
 
-  smol-toml@1.6.1: {}
+  smol-toml@1.7.1: {}
 
   socks-proxy-agent@10.1.0:
     dependencies:
@@ -20904,7 +20905,7 @@ snapshots:
       jsonc-parser: 3.3.1
       luxon: 3.7.2
       sandbox: 4.1.0
-      smol-toml: 1.6.1
+      smol-toml: 1.7.1
       undici: 7.29.0
       uuid: 11.1.1
       zod: 4.1.11

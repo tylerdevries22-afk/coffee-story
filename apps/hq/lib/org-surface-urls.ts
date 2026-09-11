@@ -37,12 +37,7 @@ export function hostedSurfaceUrlsForSlug(
 }
 
 /** Optional per-tenant overrides (rare). Empty = pure Model B derivation. */
-const HOSTED_OVERRIDES: Readonly<Record<string, OrgSurfaceUrls>> = {
-  // Coffee Story display board path is the demo board until live pairing URLs land.
-  'coffee-story': {
-    display: 'https://coffee-story-display.vercel.app/board/demo',
-  },
-};
+const HOSTED_OVERRIDES: Readonly<Record<string, OrgSurfaceUrls>> = {};
 
 const LOCAL_URLS: Readonly<Record<AppPreviewKey, string>> = {
   hq: '/',
