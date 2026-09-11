@@ -1,6 +1,7 @@
 :root { color-scheme: light; }
 
 .hq-shell {
+  --hq-global-width: 0rem;
   --hq-navigation-width: clamp(17.75rem, 19vw, 20.5rem);
   --hq-topbar-height: 4.5rem;
   /* Exposed so a full-height page can subtract exactly what the shell and main padding take. */
@@ -20,7 +21,14 @@
   box-shadow: 0 1rem 3rem color-mix(in srgb, var(--text) 5%, transparent);
 }
 
-.hq-shell.compact { --hq-navigation-width: 0rem; }
+/* Tablet + desktop: icon primary rail + navigation secondary rail (Elevate/Stillpoint parity). */
+.hq-shell.dual-rail {
+  --hq-global-width: 3.25rem;
+  grid-template-columns: var(--hq-global-width) var(--hq-navigation-width) minmax(0, 1fr);
+}
+
+.hq-shell.dual-rail .hq-navigation { grid-column: 2; }
+.hq-shell.dual-rail .hq-workspace { grid-column: 3; }
 
 .hq-skip-link {
   position: fixed;
