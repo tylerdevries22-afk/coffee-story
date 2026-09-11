@@ -11,7 +11,7 @@ export type WallOrganizationHost = {
 export function modelBWallSurfaces(tenantKey: string): WallHostSurfaces {
   const hq = `https://${tenantKey}-hq.vercel.app`;
   return {
-    display: `https://${tenantKey}-display.vercel.app/board/demo`,
+    display: `https://${tenantKey}-display.vercel.app/`,
     hq: `${hq}/`,
     'kiosk-web': `${hq}/kiosk`,
     'operator-web': `${hq}/operator`,
@@ -19,14 +19,21 @@ export function modelBWallSurfaces(tenantKey: string): WallHostSurfaces {
   };
 }
 
-const COFFEE_STORY: WallOrganizationHost = {
-  tenantKey: 'coffee-story',
-  organizationName: 'Coffee Story',
-  surfaces: modelBWallSurfaces('coffee-story'),
-};
+function titleizeSlug(slug: string): string {
+  return slug.split('-').map((part) => part ? part[0].toUpperCase() + part.slice(1) : part).join(' ');
+}
 
-export function hostedWallOrganizations(): readonly WallOrganizationHost[] {
-  return [COFFEE_STORY];
+/** Hosted wall catalog is env-driven. Unset = empty (never invent Coffee Story). */
+export function hostedWallOrganizations(
+  environment: Readonly<Record<string, string | undefined>> = process.env,
+): readonly WallOrganizationHost[] {
+  const raw = environment.WALL_HOSTED_TENANTS ?? environment.EXPO_PUBLIC_TENANT ?? '';
+  const keys = raw.split(',').map((key) => key.trim()).filter(Boolean);
+  return keys.map((tenantKey) => ({
+    tenantKey,
+    organizationName: titleizeSlug(tenantKey),
+    surfaces: modelBWallSurfaces(tenantKey),
+  }));
 }
 
 export function localWallOrganization(

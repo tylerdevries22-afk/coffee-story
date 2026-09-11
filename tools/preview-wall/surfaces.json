@@ -32,7 +32,7 @@
       "launch": "display",
       "name": "Public display",
       "port": 3200,
-      "path": "/board/demo",
+      "path": "/",
       "span": 3,
       "devices": ["desktop", "tablet", "mobile"],
       "defaultDevice": "desktop",
