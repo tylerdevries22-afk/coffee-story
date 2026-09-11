@@ -33,13 +33,13 @@ select dblink_exec('fee_worker_b', $setup$
   insert into public.square_connections (
     id, brand_id, location_id, merchant_id, square_location_id,
     access_token_encrypted, refresh_token_encrypted, expires_at,
-    connection_generation
+    connection_generation, oauth_scope_contract_version
   ) values (
     'f8880000-0000-4000-8000-000000000099',
     'f8888888-8888-4888-8888-888888888888',
     'f8880000-0000-4000-8000-000000000001', 'merchant-concurrent',
     'location-concurrent', 'ciphertext-access', 'ciphertext-refresh',
-    now() + interval '1 hour', 'f8880000-0000-4000-8000-000000000098');
+    now() + interval '1 hour', 'f8880000-0000-4000-8000-000000000098', 2);
   insert into public.orders (
     id, brand_id, location_id, status, tender_type, subtotal_cents,
     total_cents, square_order_id, square_payment_id

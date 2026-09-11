@@ -13,10 +13,11 @@ insert into public.locations (id, brand_id, name, timezone) values
 
 insert into public.square_connections (
   id, brand_id, location_id, merchant_id, square_location_id,
-  access_token_encrypted, refresh_token_encrypted, expires_at
+  access_token_encrypted, refresh_token_encrypted, expires_at,
+  oauth_scope_contract_version
 )
 select gen_random_uuid(), loc.brand_id, loc.id, 'merchant-test', 'square-test',
-  'ciphertext-access', 'ciphertext-refresh', now() + interval '1 hour'
+  'ciphertext-access', 'ciphertext-refresh', now() + interval '1 hour', 2
 from public.locations loc
 where not exists (
   select 1 from public.square_connections c where c.location_id = loc.id

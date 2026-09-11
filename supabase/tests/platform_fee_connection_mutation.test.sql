@@ -16,12 +16,12 @@ insert into public.locations (id, brand_id, name, timezone) values
 insert into public.square_connections (
   id, brand_id, location_id, merchant_id, square_location_id,
   access_token_encrypted, refresh_token_encrypted, expires_at,
-  connection_generation
+  connection_generation, oauth_scope_contract_version
 ) values ('f9990000-0000-4000-8000-000000000010',
   'f9999999-9999-4999-8999-999999999999',
   'f9990000-0000-4000-8000-000000000001', 'merchant-old', 'square-old',
   'ciphertext-access-old', 'ciphertext-refresh-old', now() + interval '1 hour',
-  'f9990000-0000-4000-8000-000000000011');
+  'f9990000-0000-4000-8000-000000000011', 2);
 insert into public.orders (
   id, brand_id, location_id, status, tender_type, subtotal_cents, total_cents
 ) values ('f9990000-0000-4000-8000-000000000020',

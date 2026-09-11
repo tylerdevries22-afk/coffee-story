@@ -5,8 +5,8 @@ select plan(24);
 
 select has_column('public', 'square_connections', 'oauth_scope_contract_version',
   'Square connections record their scope contract');
-select col_default_is('public', 'square_connections', 'oauth_scope_contract_version', '1',
-  'legacy Square grants default to contract one');
+select col_default_is('public', 'square_connections', 'oauth_scope_contract_version', '2',
+  'new Square grants default to the current scope contract');
 select has_column('public', 'location_square_status', 'oauth_scope_contract_version',
   'owner status exposes the Square contract');
 select has_function('public', 'reconcile_connector_credential_status',

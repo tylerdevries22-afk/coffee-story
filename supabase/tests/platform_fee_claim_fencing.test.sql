@@ -22,11 +22,12 @@ insert into public.locations (
    'f1111111-1111-4111-8111-111111111111', 'Safe Rate Location', 'UTC', 6000, 6000, 100000);
 insert into public.square_connections (
   id, brand_id, location_id, merchant_id, square_location_id,
-  access_token_encrypted, refresh_token_encrypted, expires_at
+  access_token_encrypted, refresh_token_encrypted, expires_at,
+  oauth_scope_contract_version
 )
 select gen_random_uuid(), brand_id, id, 'merchant-' || right(id::text, 4),
   'square-' || right(id::text, 4), 'ciphertext-access', 'ciphertext-refresh',
-  now() + interval '1 hour' from public.locations
+  now() + interval '1 hour', 2 from public.locations
 where brand_id = 'f1111111-1111-4111-8111-111111111111';
 insert into public.orders (
   id, brand_id, location_id, status, tender_type, subtotal_cents, total_cents,
