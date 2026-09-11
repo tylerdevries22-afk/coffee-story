@@ -1,0 +1,60 @@
+name: tenant package retention
+
+on:
+  schedule:
+    - cron: '37 8 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: tenant-package-retention
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup:
+    name: Cleanup ${{ matrix.target }} retained packages
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [production, preview]
+    env:
+      SUPABASE_PROJECT_REF: ${{ matrix.target == 'production' && vars.SUPABASE_PROJECT_REF || vars.SUPABASE_PREVIEW_PROJECT_REF }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: 10.33.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
+        with:
+          version: 2.116.0
+      - run: pnpm install --frozen-lockfile
+      - name: Resolve the bounded cleanup credential
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$SUPABASE_PROJECT_REF" || { echo '::error::Set the Supabase project variable.'; exit 1; }
+          test -n "$SUPABASE_ACCESS_TOKEN" || { echo '::error::Set SUPABASE_ACCESS_TOKEN.'; exit 1; }
+          keys=''
+          for attempt in 1 2 3; do
+            keys=$(timeout 45s supabase projects api-keys \
+              --project-ref "$SUPABASE_PROJECT_REF" -o json) && break
+            sleep $((attempt * 2))
+          done
+          service_role=$(printf '%s' "$keys" | jq -er \
+            '[.[] | select(.name == "service_role")][0].api_key')
+          echo "::add-mask::$service_role"
+          {
+            echo "SUPABASE_URL=https://${SUPABASE_PROJECT_REF}.supabase.co"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$service_role"
+          } >> "$GITHUB_ENV"
+      - name: Drain bounded release retention claims
+        run: pnpm tenant-package:retention

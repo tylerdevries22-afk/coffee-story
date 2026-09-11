@@ -1,16 +1,9 @@
-import { randomUUID } from 'node:crypto';
-
-import { liftTrainingManifest, parseOptionGroups, parseSizes } from '@platform/domain';
-import type { SupabaseClient } from '@supabase/supabase-js';
-
-import type { TrainingAnswerKey, TrainingManifest } from './training-bootstrap';
+import type { TrainingAnswerKey } from './training-bootstrap';
 
 import { currentSession, hasRole } from './auth';
 import {
   restoreTrainingAnswers,
-  starterTrainingManifest,
   type ContentCategory,
-  type ContentMenuItem,
   type ContentWorkspaceData,
 } from './content-model';
 import { serverEnv, serviceDb } from './api-auth';
@@ -21,120 +14,11 @@ import { demoContentWorkspace } from './content-demo-workspace';
 import { demoOrgById } from './demo-orgs';
 import { DEMO_SESSION } from './demo-data';
 
-type BrandRow = { id: string; name: string; brand_config: unknown };
-type MenuRow = { id: string; name: string; is_published: boolean; updated_at: string };
-type CategoryRow = {
-  id: string; title: string; tagline: string; slug: string; parent_id: string | null;
-  image_url: string | null; audience: 'public' | 'staff' | 'manager' | 'owner';
-  archived_at: string | null; sort_order: number;
-};
-type ItemRow = {
-  id: string;
-  name: string;
-  slug: string;
-  description: string;
-  category_id: string;
-  base_price_cents: number | string;
-  sizes: unknown;
-  modifiers: unknown;
-  image_url: string | null;
-  catalog_audience: ContentMenuItem['audience'];
-  is_listed: boolean;
-  is_86d: boolean;
-  sort_order: number;
-  updated_at: string;
-};
-type ReleaseRow = {
-  id: string;
-  version: number;
-  status: 'draft' | 'published';
-  manifest: unknown;
-  updated_at: string;
-};
-type RunRow = { id: string; status: string; stage: string; progress: number; created_at: string };
-type MediaVersionRow = { id: string; entity_type: string; entity_key: string; slot: string; public_url: string; created_at: string };
-type CatalogResourceRow = { id: string; kind: ContentWorkspaceData['catalogResources'][number]['kind']; slug: string; title: string; summary: string; audience: ContentWorkspaceData['catalogResources'][number]['audience']; external_ref: string | null; image_url: string | null };
-type CatalogRelationRow = { id: string; source_key: string; target_key: string; kind: ContentWorkspaceData['catalogRelations'][number]['kind'] };
-type CatalogPlacementRow = { id: string; node_id: string; parent_id: string | null; sort_order: number; is_primary: boolean };
-
-function asManifest(value: unknown, profile: ContentWorkspaceData['trainingProfile']): TrainingManifest {
-  return liftTrainingManifest(value) ?? starterTrainingManifest(profile);
-}
-
-function contentItems(rows: ItemRow[], versions: MediaVersionRow[]): ContentMenuItem[] {
-  const versionsByItem = new Map<string, ContentMenuItem['mediaVersions']>();
-  for (const version of versions) {
-    const itemVersions = versionsByItem.get(version.entity_key) ?? [];
-    itemVersions.push({ id: version.id, url: version.public_url, createdAt: version.created_at, entityKey: version.entity_key, slot: version.slot });
-    versionsByItem.set(version.entity_key, itemVersions);
-  }
-  return rows.map((row) => {
-    const sizes = parseSizes(row.sizes, Number(row.base_price_cents));
-    const optionGroups = parseOptionGroups(row.modifiers);
-    if (optionGroups === null) throw new Error(`content item ${row.id}: invalid modifier groups`);
-    return {
-    id: row.id,
-    name: row.name,
-    slug: row.slug,
-    description: row.description,
-    categoryId: row.category_id,
-    basePriceCents: Number(row.base_price_cents),
-    sizes: sizes.filter((size) => !size.synthetic).map((size) => ({
-      slug: size.slug,
-      label: size.label ?? (typeof size.ounces === 'number' ? `${size.ounces} oz` : size.slug),
-      priceCents: size.priceCents,
-    })),
-    optionGroups: optionGroups.map((group) => ({
-      id: group.id,
-      name: group.name,
-      select: group.select,
-      required: group.required,
-      maxChoices: group.maxChoices,
-      choices: group.choices.map((choice) => ({ ...choice })),
-      ...(group.dependsOn ? { dependsOn: { ...group.dependsOn, choiceIds: [...group.dependsOn.choiceIds] } } : {}),
-    })),
-    imageUrl: row.image_url,
-    audience: row.catalog_audience,
-    isListed: row.is_listed,
-    is86d: row.is_86d,
-    sortOrder: row.sort_order,
-    updatedAt: row.updated_at,
-    mediaVersions: versionsByItem.get(row.id) ?? [],
-    };
-  });
-}
-
-async function loadOrCreateTenantMenu(
-  client: SupabaseClient,
-  brandId: string,
-  createIfMissing: boolean,
-): Promise<MenuRow> {
-  const read = () => client.from('menus').select('id, name, is_published, updated_at')
-    .eq('brand_id', brandId).order('created_at').limit(1).maybeSingle<MenuRow>();
-  const existing = await read();
-  if (existing.error) throw new Error(`content menu: ${existing.error.message}`);
-  if (existing.data) return existing.data;
-  // A platform operator may inspect another organization, but opening its
-  // catalog must remain a read. The home-tenant editor will initialize this
-  // row when its owner first opens it; a foreign empty tenant gets a valid,
-  // inert placeholder so all downstream reads simply return empty sets.
-  if (!createIfMissing) {
-    return { id: brandId, name: 'Menu', is_published: false, updated_at: '' };
-  }
-
-  const menuId = randomUUID();
-  let creationMessage = 'could not create the tenant menu';
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    const created = await client.from('menus').insert({
-      id: menuId, brand_id: brandId, name: 'Menu', is_published: false,
-    }).select('id, name, is_published, updated_at').single<MenuRow>();
-    if (!created.error && created.data) return created.data;
-    creationMessage = created.error?.message ?? creationMessage;
-    const recovered = await read();
-    if (!recovered.error && recovered.data) return recovered.data;
-  }
-  throw new Error(`content menu: ${creationMessage}`);
-}
+import { asManifest, contentItems, loadOrCreateTenantMenu } from './content-data-helpers';
+import type {
+  BrandRow, CatalogPlacementRow, CatalogRelationRow, CatalogResourceRow, CategoryRow,
+  ItemRow, MediaVersionRow, ReleaseRow, RunRow,
+} from './content-data-types';
 
 /** Loads the tenant workspace for exactly the tenant in the verified JWT. */
 export async function loadContentWorkspace(options: { includeDraft?: boolean; includeAnswers?: boolean } = {}): Promise<ContentWorkspaceData> {

@@ -50,7 +50,7 @@ const GOOGLE_TOKEN = 'https://oauth2.googleapis.com/token';
 const GOOGLE_OFFLINE = Object.freeze({
   access_type: 'offline', include_granted_scopes: 'true', prompt: 'consent',
 });
-const META_VERSION = 'v25.0';
+export const META_GRAPH_VERSION = 'v25.0';
 
 const CONFIGS: Readonly<Record<OAuthConnectorKey, () => ProviderConfig>> = {
   'google-suite': () => ({
@@ -92,8 +92,8 @@ const CONFIGS: Readonly<Record<OAuthConnectorKey, () => ProviderConfig>> = {
   }),
   'meta-business-suite': () => ({
     scopeSource: 'verify',
-    authorizeUrl: `https://www.facebook.com/${META_VERSION}/dialog/oauth`,
-    tokenUrl: `https://graph.facebook.com/${META_VERSION}/oauth/access_token`,
+    authorizeUrl: `https://www.facebook.com/${META_GRAPH_VERSION}/dialog/oauth`,
+    tokenUrl: `https://graph.facebook.com/${META_GRAPH_VERSION}/oauth/access_token`,
     tokenMethod: 'GET', scopeSeparator: ',',
     clientId: value('META_APP_ID'), clientSecret: value('META_APP_SECRET'),
     scopes: ['public_profile', 'business_management', 'pages_show_list',
@@ -103,7 +103,7 @@ const CONFIGS: Readonly<Record<OAuthConnectorKey, () => ProviderConfig>> = {
     scopeSource: 'token',
     authorizeUrl: 'https://www.tiktok.com/v2/auth/authorize/',
     tokenUrl: 'https://open.tiktokapis.com/v2/oauth/token/',
-    usePkce: true, scopeSeparator: ',', clientIdParam: 'client_key',
+    scopeSeparator: ',', clientIdParam: 'client_key',
     clientId: value('TIKTOK_CLIENT_KEY'), clientSecret: value('TIKTOK_CLIENT_SECRET'),
     scopes: ['user.info.basic', 'user.info.profile', 'video.list'],
   }),

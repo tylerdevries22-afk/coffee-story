@@ -1,10 +1,14 @@
 import {
   mapSquareEvent,
-  recordPlatformFee,
   verifySquareSignature,
   type SquareEvent,
 } from '@platform/engine';
 import { createClient } from '@supabase/supabase-js';
+
+import {
+  recordWebhookFailure,
+  type WebhookFailureStage,
+} from '../../../../lib/webhook-diagnostics';
 
 const DATABASE_TIMEOUT_MS = 8_000;
 
@@ -54,12 +58,20 @@ export async function POST(request: Request): Promise<Response> {
     return new Response('Body is not JSON', { status: 400 });
   }
   const mapped = mapSquareEvent(event);
-  if (!mapped) return new Response('No event id', { status: 400 });
+  if (!mapped) return new Response('Invalid Square event', { status: 400 });
 
   const db = createClient(serviceUrl, serviceKey, {
     auth: { persistSession: false },
     global: { fetch: resilientFetch },
   });
+
+  const failure = async (stage: WebhookFailureStage, error: unknown, message: string, status: number,
+    order?: { id: string; brand_id: string }) => {
+    await recordWebhookFailure(db, {
+      eventId: mapped.squareEventId, orderId: order?.id, brandId: order?.brand_id, stage,
+    }, error);
+    return new Response(message, { status });
+  };
 
   // The delivery log migration 0011 describes ("the webhook route writes a
   // row per delivery") was never actually written by this route — only the
@@ -70,11 +82,11 @@ export async function POST(request: Request): Promise<Response> {
     provider: 'square', event_id: mapped.squareEventId,
     payload: event as unknown as Record<string, unknown>,
   }, { onConflict: 'event_id', ignoreDuplicates: true });
-  if (logged.error) return new Response('Could not record delivery', { status: 503 });
+  if (logged.error) return failure('record_delivery', logged.error, 'Could not record delivery', 503);
   const delivery = await db.from('webhook_events')
     .select('processed_at').eq('event_id', mapped.squareEventId)
     .single<{ processed_at: string | null }>();
-  if (delivery.error) return new Response('Could not read delivery state', { status: 503 });
+  if (delivery.error) return failure('read_delivery', delivery.error, 'Could not read delivery state', 503);
   if (delivery.data.processed_at) return new Response('Already handled', { status: 200 });
 
   // Non-terminal Square updates are still part of the durable delivery log.
@@ -83,7 +95,7 @@ export async function POST(request: Request): Promise<Response> {
     const stamped = await db.from('webhook_events')
       .update({ processed_at: new Date().toISOString(), error: null })
       .eq('event_id', mapped.squareEventId);
-    if (stamped.error) return new Response('Delivery stamp failed', { status: 503 });
+    if (stamped.error) return failure('stamp_delivery', stamped.error, 'Delivery stamp failed', 503);
     return new Response('Recorded, no transition', { status: 200 });
   }
 
@@ -91,8 +103,25 @@ export async function POST(request: Request): Promise<Response> {
     ? db.from('orders').select('id, brand_id, location_id, status, total_cents, stored_value_applied_cents').eq('square_order_id', mapped.squareOrderId)
     : db.from('orders').select('id, brand_id, location_id, status, total_cents, stored_value_applied_cents').eq('square_payment_id', mapped.squarePaymentId ?? '');
   const { data: order, error: orderError } = await orderQuery.maybeSingle();
-  if (orderError) return new Response('Could not resolve order', { status: 503 });
+  if (orderError) return failure('resolve_order', orderError, 'Could not resolve order', 503);
   if (!order) return new Response('Order not known (yet); Square will retry', { status: 404 });
+
+  const grossCents = order.total_cents - order.stored_value_applied_cents;
+  if (mapped.orderStatus === 'paid' && (
+    !Number.isSafeInteger(grossCents) || grossCents < 0
+    || !mapped.squarePaymentId
+    || mapped.settledGrossCents !== grossCents
+    || mapped.settledFeeCents === undefined || mapped.settledFeeCents > grossCents
+  )) return new Response('Invalid payment settlement amounts', { status: 422 });
+
+  // Never acknowledge money on a locally cancelled order. New hosted-card
+  // orders cannot be guest-cancelled, but this also protects older rows and
+  // staff/provider races: the delivery remains unresolved and diagnosed for
+  // reconciliation instead of being stamped processed with no paid event.
+  if (mapped.orderStatus === 'paid' && order.status === 'cancelled') {
+    return failure('order_event', new Error('Square settled a cancelled order'),
+      'Cancelled order requires payment reconciliation', 409, order);
+  }
 
   if (mapped.orderStatus === 'refunded') {
     if (!mapped.squareRefundId || mapped.refundedCents === null || mapped.refundedCents <= 0) {
@@ -105,55 +134,48 @@ export async function POST(request: Request): Promise<Response> {
       refunded_cents: mapped.refundedCents,
       square_event_type: event.type ?? 'refund.updated',
     });
-    if (processed.error) return new Response('Refund processing failed', { status: 409 });
+    if (processed.error) return failure('refund', processed.error, 'Refund processing failed', 409, order);
     const stamped = await db.from('webhook_events')
       .update({ processed_at: new Date().toISOString(), error: null })
       .eq('event_id', mapped.squareEventId);
-    if (stamped.error) return new Response('Refund processed; delivery stamp failed', { status: 503 });
+    if (stamped.error) return failure('stamp_delivery', stamped.error, 'Refund processed; delivery stamp failed', 503, order);
     return new Response(processed.data ? 'OK' : 'Already handled', { status: 200 });
   }
 
-  // The order-event insert is idempotent. Loyalty follows that event in the
-  // same database transaction; the fee remains an external-settlement
-  // receipt and has its own unique payment constraint.
-  const { data: written, error: insertError } = await db.from('order_events').upsert(
-    {
-      brand_id: order.brand_id,
-      order_id: order.id,
-      type: mapped.orderStatus,
-      snapshot: {
-        square_event: event.type,
-        square_event_id: mapped.squareEventId,
-        ...(mapped.refundedCents !== null ? { refunded_cents: mapped.refundedCents } : {}),
-      },
-      square_event_id: mapped.squareEventId,
-      source: 'webhook',
-    },
-    { onConflict: 'square_event_id', ignoreDuplicates: true },
-  ).select('id');
-  if (insertError) return new Response('Event rejected', { status: 409 });
-  const isNewDelivery = (written?.length ?? 0) > 0;
-
-  // A hosted-checkout order earns nothing until the money actually lands:
-  // createSquareCheckoutLink deliberately leaves the order 'created'. The
-  // event trigger grants points atomically; this route records the platform's
-  // fee so the volume tier and platform revenue stay complete (rule 3).
-  try {
-    if (mapped.orderStatus === 'paid') {
-      if (mapped.squarePaymentId) {
-        await recordPlatformFee(db, {
-          brandId: order.brand_id,
-          locationId: order.location_id,
-          orderId: order.id,
-          squarePaymentId: mapped.squarePaymentId,
-          grossCents: order.total_cents - order.stored_value_applied_cents,
-        });
-      }
+  let isNewDelivery = false;
+  if (mapped.orderStatus === 'paid') {
+    // Payment identity, paid transition, loyalty side effects, and the fee
+    // receipt commit together. Refunds resolve through the persisted payment
+    // id, so none of this settlement may be acknowledged in isolation.
+    const settled = await db.rpc('record_square_payment_settlement', {
+      target_order: order.id,
+      square_event: mapped.squareEventId,
+      square_payment: mapped.squarePaymentId,
+      settled_fee_cents: mapped.settledFeeCents,
+      square_event_type: event.type ?? 'payment.updated',
+    });
+    if (settled.error) {
+      return failure('platform_fee', settled.error, 'Payment settlement failed', 503, order);
     }
-  } catch (error) {
-    const detail = error instanceof Error ? error.message.slice(0, 500) : 'Unknown processing failure';
-    await db.from('webhook_events').update({ error: detail }).eq('event_id', mapped.squareEventId);
-    return new Response('Event processing failed', { status: 503 });
+    isNewDelivery = settled.data === true;
+  } else {
+    const { data: written, error: insertError } = await db.from('order_events').upsert(
+      {
+        brand_id: order.brand_id,
+        order_id: order.id,
+        type: mapped.orderStatus,
+        snapshot: {
+          square_event: event.type,
+          square_event_id: mapped.squareEventId,
+          ...(mapped.refundedCents !== null ? { refunded_cents: mapped.refundedCents } : {}),
+        },
+        square_event_id: mapped.squareEventId,
+        source: 'webhook',
+      },
+      { onConflict: 'square_event_id', ignoreDuplicates: true },
+    ).select('id');
+    if (insertError) return failure('order_event', insertError, 'Event rejected', 409, order);
+    isNewDelivery = (written?.length ?? 0) > 0;
   }
 
   // Stamped only once the money and points work above has actually run, so
@@ -161,7 +183,7 @@ export async function POST(request: Request): Promise<Response> {
   const stamped = await db.from('webhook_events')
     .update({ processed_at: new Date().toISOString(), error: null })
     .eq('event_id', mapped.squareEventId);
-  if (stamped.error) return new Response('Event handled; delivery stamp failed', { status: 503 });
+  if (stamped.error) return failure('stamp_delivery', stamped.error, 'Event handled; delivery stamp failed', 503, order);
 
   return new Response(isNewDelivery ? 'OK' : 'Recovered', { status: 200 });
 }

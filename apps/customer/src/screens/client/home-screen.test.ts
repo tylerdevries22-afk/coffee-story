@@ -3,7 +3,15 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
 
-const home = readFileSync(join(process.cwd(), 'src', 'screens', 'client', 'home-screen.tsx'), 'utf8');
+const homeFiles = [
+  'home-screen.tsx',
+  'home-hero.tsx',
+  'home-hero-controls.tsx',
+  'home-screen.styles.ts',
+];
+const home = homeFiles
+  .map((file) => readFileSync(join(process.cwd(), 'src', 'screens', 'client', file), 'utf8'))
+  .join('\n');
 const content = readFileSync(join(process.cwd(), 'src', 'screens', 'client', 'home-content.ts'), 'utf8');
 
 test('home hero is a three-story paged media carousel', () => {
@@ -24,7 +32,8 @@ test('both retail and project tenants have complete package stories', () => {
 });
 
 test('hero media bleeds into the status bar and parallax respects reduced motion', () => {
-  assert.match(home, /marginTop: -insets\.top/);
+  assert.match(home, /insetTop=\{insets\.top\}/);
+  assert.match(home, /marginTop: -insetTop/);
   assert.match(home, /translateX: reducedMotion \? 0 : parallax/);
   assert.match(home, /contentInsetAdjustmentBehavior="never"/);
 });

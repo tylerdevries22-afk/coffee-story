@@ -121,13 +121,14 @@ export async function loadNetworkReports(
   const client = providedClient === undefined ? await serverClient() : providedClient;
   if (!client) return [];
   const networks = await reachableNetworks(client);
-  const reports: NetworkReport[] = [];
-  for (const [networkId, networkName] of [...networks].slice(0, NETWORK_LIMIT)) {
+  const reports = await Promise.all([...networks].slice(0, NETWORK_LIMIT).map(async (
+    [networkId, networkName],
+  ): Promise<NetworkReport | null> => {
     const result = await client.rpc('caller_network_brand_kpis', { p_network_id: networkId });
     // A refusal is an ordinary answer here: a grant can expire between the
     // listing above and this call, and the database is the authority on that.
-    if (result.error) continue;
-    reports.push({ brands: networkBrandKpisOf(result.data), networkId, networkName });
-  }
-  return reports;
+    if (result.error) return null;
+    return { brands: networkBrandKpisOf(result.data), networkId, networkName };
+  }));
+  return reports.filter((report): report is NetworkReport => report !== null);
 }

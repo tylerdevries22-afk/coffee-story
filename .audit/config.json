@@ -1,0 +1,12 @@
+{
+  "gates": {
+    "build": "pnpm --filter @platform/hq --filter @platform/display run build",
+    "format": null,
+    "coverage": "pnpm coverage:unit && pnpm coverage:check && node -e \"const p=require('./coverage/unit/coverage-summary.json').total.lines.pct; if(typeof p!=='number'||!Number.isFinite(p)) process.exit(2); console.log('Lines : '+p+'%')\""
+  },
+  "reasons": {
+    "build": "No root build script. apps/hq and apps/display are the only workspaces with a real build step; the Expo apps build through EAS, not locally.",
+    "format": "n/a - no formatter is configured anywhere in the repo; ESLint with --max-warnings=0 is the only style gate.",
+    "coverage": "Runs workspace TS/TSX coverage and enforces the measured 38 percent secret-free floor; hosted CI merges database and browser execution and enforces 55 percent."
+  }
+}

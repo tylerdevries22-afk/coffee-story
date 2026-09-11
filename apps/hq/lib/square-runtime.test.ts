@@ -1,134 +1,28 @@
 import assert from 'node:assert/strict';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
-import type { SupabaseClient } from '@supabase/supabase-js';
-import { encryptToken, loadTokenKey } from '@platform/engine';
-
-import { squareRuntimeFor, type BrandFeeRow } from './square-runtime';
-
-const BRAND = '11111111-1111-4111-8111-111111111111';
-const LOCATION = '22222222-2222-4222-8222-222222222222';
-const TOKEN_KEY = Buffer.alloc(32, 7).toString('base64');
-
-const brand: BrandFeeRow = { fee_bps: 250, fee_bps_tier2: 150, tier_threshold_cents: 500_000 };
-
-type ConnectionRow = {
-  square_location_id: string | null;
-  access_token_encrypted: string;
-  refresh_token_encrypted: string | null;
-  expires_at: string | null;
-  updated_at: string | null;
-};
-
-type DbState = {
-  connection: ConnectionRow | null;
-  updates: Record<string, unknown>[];
-  retirementWrites?: Record<string, unknown>[];
-  updateFilters?: Record<string, unknown>[];
-  updateResults?: Array<{
-    data: { location_id: string } | null;
-    error: { message: string } | null;
-  }>;
-};
-
-/**
- * The two rows `squareRuntimeFor` reads, and a record of what it writes back.
- * `from` is dispatched on the table name because the connection and the
- * location are read in parallel from the same client.
- */
-function runtimeDb(state: DbState): SupabaseClient {
-  const location = {
-    select: () => location,
-    eq: () => location,
-    maybeSingle: async () => ({
-      data: { id: LOCATION, timezone: 'America/Denver', fee_bps: null, fee_bps_tier2: null, tier_threshold_cents: null },
-      error: null,
-    }),
-  };
-  const connection = {
-    select: () => connection,
-    eq: () => connection,
-    maybeSingle: async () => ({ data: state.connection, error: null }),
-    update: (values: Record<string, unknown>) => {
-      state.updates.push(values);
-      const update = {
-        eq: (column: string, value: unknown) => {
-          state.updateFilters?.push({ [column]: value });
-          return update;
-        },
-        is: (column: string, value: unknown) => {
-          state.updateFilters?.push({ [column]: value });
-          return update;
-        },
-        select: () => update,
-        maybeSingle: async () => state.updateResults?.shift() ?? {
-          data: { location_id: LOCATION }, error: null,
-        },
-      };
-      return update;
-    },
-  };
-  const retirement = {
-    insert: (values: Record<string, unknown>) => {
-      state.retirementWrites?.push(values);
-      return retirement;
-    },
-    select: () => retirement,
-    maybeSingle: async () => ({ data: { id: 'retirement' }, error: null }),
-  };
-  return {
-    from: (table: string) => table === 'locations'
-      ? location
-      : table === 'square_access_token_retirements'
-        ? retirement
-        : connection,
-  } as unknown as SupabaseClient;
-}
-
-const at = (offsetMs: number): string => new Date(Date.now() + offsetMs).toISOString();
-const DAY = 24 * 60 * 60 * 1000;
-
-let realFetch: typeof globalThis.fetch;
-let refreshCalls: number;
-
-function stubSquare(response: { ok: boolean; body?: unknown }): void {
-  refreshCalls = 0;
-  globalThis.fetch = (async (url: string | URL | Request) => {
-    if (String(url).endsWith('/oauth2/revoke')) {
-      return new Response('{"success":true}', { status: 200 });
-    }
-    refreshCalls += 1;
-    if (!response.ok) throw new Error('Square is unreachable');
-    return new Response(JSON.stringify(response.body ?? {}), {
-      status: 200, headers: { 'content-type': 'application/json' },
-    });
-  }) as typeof globalThis.fetch;
-}
-
-function connectionRow(over: Partial<ConnectionRow> = {}): ConnectionRow {
-  const key = loadTokenKey();
-  return {
-    square_location_id: 'SQ-LOC',
-    access_token_encrypted: encryptToken('stored-access', key),
-    refresh_token_encrypted: encryptToken('stored-refresh', key),
-    expires_at: at(60 * DAY),
-    updated_at: at(-DAY),
-    ...over,
-  };
-}
-
-const resolve = (state: DbState) =>
-  squareRuntimeFor(runtimeDb(state), { brandId: BRAND, locationId: LOCATION, brand });
+import {
+  BRAND,
+  DAY,
+  LOCATION,
+  TOKEN_KEY,
+  at,
+  connectionRow,
+  type DbState,
+  resolve,
+  squareTestState,
+  stubSquare,
+} from './square-runtime-test-support';
 
 describe('squareRuntimeFor', () => {
   beforeEach(() => {
-    realFetch = globalThis.fetch;
+    squareTestState.realFetch = globalThis.fetch;
     process.env.SQUARE_APP_ID = 'app';
     process.env.SQUARE_APP_SECRET = 'secret';
     process.env.SQUARE_TOKEN_KEY = TOKEN_KEY;
   });
   afterEach(() => {
-    globalThis.fetch = realFetch;
+    globalThis.fetch = squareTestState.realFetch;
     delete process.env.SQUARE_APP_ID;
     delete process.env.SQUARE_APP_SECRET;
     delete process.env.SQUARE_TOKEN_KEY;
@@ -147,7 +41,7 @@ describe('squareRuntimeFor', () => {
     const state: DbState = { connection: connectionRow(), updates: [] };
     const runtime = await resolve(state);
     assert.equal(runtime?.locationAccessToken, 'stored-access');
-    assert.equal(refreshCalls, 0, 'a fresh token must not cost a round trip');
+    assert.equal(squareTestState.refreshCalls, 0, 'a fresh token must not cost a round trip');
     assert.equal(state.updates.length, 0);
   });
 
@@ -158,7 +52,7 @@ describe('squareRuntimeFor', () => {
     };
     const runtime = await resolve(state);
     assert.equal(runtime?.locationAccessToken, 'renewed');
-    assert.equal(refreshCalls, 1);
+    assert.equal(squareTestState.refreshCalls, 1);
     assert.equal(state.updates.length, 2);
     assert.deepEqual(state.updates[0], { expires_at: state.connection?.expires_at },
       'the first write atomically claims this authorization snapshot');
@@ -204,7 +98,7 @@ describe('squareRuntimeFor', () => {
     };
     const runtime = await resolve(state);
     assert.equal(runtime?.locationAccessToken, 'stored-access');
-    assert.equal(refreshCalls, 0, 'the losing worker must not call Square');
+    assert.equal(squareTestState.refreshCalls, 0, 'the losing worker must not call Square');
   });
 
   it('does not use an expired token when another worker owns renewal', async () => {
@@ -215,7 +109,7 @@ describe('squareRuntimeFor', () => {
       updateResults: [{ data: null, error: null }],
     };
     assert.equal(await resolve(state), null);
-    assert.equal(refreshCalls, 0);
+    assert.equal(squareTestState.refreshCalls, 0);
   });
 
   it('refuses an expired token when its refresh write loses a reconnect race', async () => {
@@ -260,7 +154,7 @@ describe('squareRuntimeFor', () => {
     };
     const runtime = await resolve(state);
     assert.equal(runtime?.locationAccessToken, 'stored-access');
-    assert.equal(refreshCalls, 0);
+    assert.equal(squareTestState.refreshCalls, 0);
     assert.equal(state.updates.length, 0);
   });
 

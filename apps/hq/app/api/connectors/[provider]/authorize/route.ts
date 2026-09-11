@@ -13,6 +13,10 @@ import {
   connectorCookieName,
   connectorStateSecret,
 } from '@/lib/connector-oauth-route';
+import {
+  disconnectConnectorOAuth,
+  sameOriginConnectorMutation,
+} from '@/lib/connector-oauth-disconnect';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -56,4 +60,27 @@ export async function GET(
   })).toString('base64url');
   response.headers.append('Set-Cookie', `${connectorCookieName(provider)}=${cookie}; Path=/api/connectors/${provider}/callback; Max-Age=600; HttpOnly; SameSite=Lax${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`);
   return response;
+}
+
+export async function DELETE(
+  request: Request,
+  { params }: { readonly params: Promise<{ readonly provider: string }> },
+): Promise<Response> {
+  const provider = (await params).provider;
+  if (!isOAuthConnectorKey(provider)) return new Response('Unknown connector.', { status: 404 });
+  return sameOriginConnectorMutation(request, async () => {
+    const context = await authorizeConnectorOAuth(request);
+    if (context instanceof Response) return context;
+    try {
+      await disconnectConnectorOAuth(context.db, {
+        brandId: context.brandId,
+        providerKey: provider,
+        actorUserId: context.userId,
+      });
+      return Response.json({ ok: true });
+    } catch {
+      console.error(`connector.oauth.disconnect provider=${provider} stage=disconnect code=disconnect_failed status=503`);
+      return Response.json({ code: 'disconnect_failed', message: 'Connector disconnect failed.' }, { status: 503 });
+    }
+  });
 }

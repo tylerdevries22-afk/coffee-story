@@ -92,6 +92,7 @@ const ORDER: OrderRow = {
   loyalty_redeemed_points: 0, stored_value_applied_cents: 0, note: '',
   service_date: '2026-08-24', daily_number: 47, guest_label: 'Sara D.', arrived_at: null,
   client_key: null, tender_type: 'square_card', square_checkout_url: null,
+  square_payment_link_id: null,
   square_order_id: null, square_payment_id: null,
   created_at: '2026-08-24T10:00:00Z', updated_at: '2026-08-24T10:00:00Z',
 };

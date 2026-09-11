@@ -11,6 +11,24 @@ import type {
 
 import { TENANT } from '@/tenant';
 
+import {
+  CLIENT_GOAL_OPTIONS,
+  DAY_OPTIONS,
+  PREFERRED_TIME_OPTIONS,
+  STAFF_SPECIALTY_OPTIONS,
+  STRENGTH_OPTIONS,
+} from './setup-options';
+
+export {
+  CLIENT_GOAL_OPTIONS,
+  DAY_OPTIONS,
+  PREFERRED_TIME_OPTIONS,
+  STAFF_SPECIALTY_OPTIONS,
+  STRENGTH_OPTIONS,
+  strengthLabel,
+} from './setup-options';
+export { setupSummary, toggleListItem } from './setup-summary';
+
 /**
  * Pure setup/onboarding logic for the demo portal — the native counterpart of
  * the web portal's setup flow. Progress lives on the persisted PortalBundle
@@ -21,7 +39,6 @@ import { TENANT } from '@/tenant';
 
 export const SETUP_STEP_COUNT = 3;
 export const SETUP_AUTO_PROMPT_DELAY_MS = 3_000;
-const IS_PROJECT_BUSINESS = Boolean(TENANT.copy.projectName);
 
 export function shouldScheduleSetupAutoPrompt({
   isDemo,
@@ -42,41 +59,6 @@ export function setupProgressPercent(setup: RoleSetup<unknown>): number {
   if (setup.status === 'not_started') return 0;
   return Math.round(((Math.min(setup.step, SETUP_STEP_COUNT - 1) + 1) / SETUP_STEP_COUNT) * 100);
 }
-
-export const CLIENT_GOAL_OPTIONS: readonly string[] = IS_PROJECT_BUSINESS
-  ? ['Plan a renovation', 'Align scope and budget', 'Track an active project',
-      'Coordinate selections', 'Schedule warranty service', 'Connect with my project team']
-  : ['A reliable morning coffee', 'Somewhere to work or study', 'Trying the signature drinks',
-      'Late-night hours', 'Halal-friendly food', 'Catering for events'];
-
-/**
- * How strong a guest takes their coffee. The field name and wire values are
- * the portal API's (`strength: light|medium|firm`); every label a
- * person reads comes from `strengthLabel`.
- */
-export const STRENGTH_OPTIONS = ['light', 'medium', 'bold'] as const;
-
-export function strengthLabel(value: string): string {
-  switch (value) {
-    case 'light': return 'Light';
-    case 'medium': return 'Medium';
-    case 'bold': return 'Bold';
-    default: return value;
-  }
-}
-
-export const PREFERRED_TIME_OPTIONS = [
-  'Weekday mornings',
-  'Weekday afternoons',
-  'Weekday evenings',
-  'Saturday',
-] as const;
-
-export const STAFF_SPECIALTY_OPTIONS: readonly string[] = IS_PROJECT_BUSINESS
-  ? ['Estimating', 'Project management', 'Site supervision', 'Carpentry', 'Electrical', 'Plumbing']
-  : ['Espresso bar', 'Latte art', 'Matcha & tea', 'Boba', 'Pastry & bakes', 'Coffee cart catering'];
-
-export const DAY_OPTIONS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
@@ -204,33 +186,4 @@ export function withRoleSetup(
     };
   }
   return next;
-}
-
-/** Facts for the "already set up" review card. */
-export function setupSummary(role: AppRole, setup: PortalSetupState): { label: string; value: string }[] {
-  if (role === 'client') {
-    const { answers } = setup.client;
-    return [
-      { label: 'Goals', value: answers.goals.length ? answers.goals.slice(0, 2).join(', ') : '—' },
-      { label: 'Strength', value: strengthLabel(answers.pressure) },
-      { label: 'Best times', value: answers.preferredTimes.length ? answers.preferredTimes.slice(0, 2).join(', ') : 'Flexible' },
-    ];
-  }
-  if (role === 'staff') {
-    const { answers } = setup.staff;
-    return [
-      { label: 'Specialties', value: answers.specialties.length ? answers.specialties.slice(0, 2).join(', ') : '—' },
-      { label: 'Days available', value: answers.workingDays.length ? `${answers.workingDays.length} of 7` : '—' },
-    ];
-  }
-  const { answers } = setup.admin;
-  return [
-    { label: 'Studio', value: answers.businessName || '—' },
-    { label: 'Open days', value: answers.openDays.length ? `${answers.openDays.length} of 7` : '—' },
-    { label: 'Online ordering', value: answers.onlineOrdering ? 'On' : 'Off' },
-  ];
-}
-
-export function toggleListItem(list: string[], item: string): string[] {
-  return list.includes(item) ? list.filter((entry) => entry !== item) : [...list, item];
 }

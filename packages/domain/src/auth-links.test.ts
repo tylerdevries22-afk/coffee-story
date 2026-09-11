@@ -104,17 +104,13 @@ test('works for the staff app and for a second tenant, not just coffeestory', ()
 });
 
 test('opening the scheme up does not open up the web or the scriptable ones', () => {
-  for (const url of [
-    `https://attacker.example/reset-password?code=${HOST_TEST_CODE}`,
-    `http://reset-password/?code=${HOST_TEST_CODE}`,
-    `javascript://reset-password?code=${HOST_TEST_CODE}`,
-    `data://reset-password?code=${HOST_TEST_CODE}`,
-    `file://reset-password/?code=${HOST_TEST_CODE}`,
-    `intent://reset-password?code=${HOST_TEST_CODE}`,
-    `content://reset-password?code=${HOST_TEST_CODE}`,
-    `blob://reset-password?code=${HOST_TEST_CODE}`,
-    `ws://reset-password/?code=${HOST_TEST_CODE}`,
-  ]) {
+  const untrustedUrl = (protocol: string, host: string) =>
+    `${protocol}://${host}/reset-password?code=${HOST_TEST_CODE}`;
+  const urls = [untrustedUrl('https', 'attacker.example')];
+  for (const protocol of ['http', 'javascript', 'data', 'file', 'intent', 'content', 'blob', 'ws']) {
+    urls.push(untrustedUrl(protocol, 'reset-password'));
+  }
+  for (const url of urls) {
     assert.equal(recoveryCodeFromUrl(url), null, url);
     assert.throws(() => recoveryRedirectUrl(() => url), /not configured/, url);
   }

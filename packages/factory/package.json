@@ -11,7 +11,8 @@
     "verify": "pnpm lint && pnpm typecheck && pnpm test"
   },
   "dependencies": {
-    "@platform/engine": "workspace:*"
+    "@platform/engine": "workspace:*",
+    "sharp": "^0.35.4"
   },
   "devDependencies": {
     "@types/node": "~24.6.2",

@@ -7,7 +7,11 @@ import { catalogAddOns, customerCatalogFromTree } from './live-catalog';
 
 const TREE = {
   menuId: 'menu',
-  drops: [],
+  drops: [{
+    id: 'drop-id', brand_id: 'brand', item_id: 'item-id', reveal_at: '2026-01-08',
+    starts_at: '2026-01-09', ends_at: '2026-01-16', status: 'revealed',
+    hero_asset_url: null, created_at: '2026-01-01', updated_at: '2026-01-01',
+  }],
   categories: [{
     id: 'category-id', brand_id: 'brand', menu_id: 'menu', title: 'Coffee & Espresso',
     tagline: 'Pulled with care', sort_order: 0, created_at: '2026-01-01',
@@ -36,6 +40,10 @@ describe('live customer catalog', () => {
     assert.deepEqual(catalog.items[0]?.image, { uri: 'https://assets.example.com/latte.webp', fallback: 42 });
     assert.equal(catalog.items[0]?.sizes[0]?.slug, 'latte-12');
     assert.equal(catalog.addOns[0]?.slug, 'oat');
+    assert.deepEqual(catalog.drops, [{
+      id: 'drop-id', itemId: 'latte', title: 'House Latte',
+      blurb: 'Espresso and milk.', startsAt: '2026-01-09', endsAt: '2026-01-16',
+    }]);
   });
 
   it('deduplicates paid choices across menu items', () => {

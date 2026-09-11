@@ -26,6 +26,7 @@ import {
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { renewSquareConnection, squareRenewalBackoffActive } from './square-renewal';
+import { SQUARE_OAUTH_SCOPE_CONTRACT_VERSION } from './square-oauth-contract';
 
 export type SquareRuntime = {
   square: SquareConfig;
@@ -81,6 +82,7 @@ export async function squareRuntimeFor(
       .select('square_location_id, access_token_encrypted, refresh_token_encrypted, expires_at, updated_at')
       .eq('location_id', input.locationId)
       .eq('brand_id', input.brandId)
+      .gte('oauth_scope_contract_version', SQUARE_OAUTH_SCOPE_CONTRACT_VERSION)
       .maybeSingle<ConnectionRow>(),
   ]);
   if (location.error) throw location.error;

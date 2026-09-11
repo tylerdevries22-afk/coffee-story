@@ -7,6 +7,8 @@
     "test": "tsx --test --test-timeout=300000 \"src/**/*.test.ts\"",
     "lint": "echo 'e2e tests: lint covered by typecheck'",
     "typecheck": "tsc --noEmit",
+    "merge-coverage": "tsx src/merge-coverage.ts",
+    "check-coverage": "tsx src/check-coverage.ts",
     "verify": "pnpm typecheck && pnpm test"
   },
   "dependencies": {
@@ -19,6 +21,7 @@
   "devDependencies": {
     "@types/node": "~24.6.2",
     "@types/pg": "^8.15.0",
+    "monocart-coverage-reports": "2.13.0",
     "tsx": "^4.20.6",
     "typescript": "~5.9.2"
   }

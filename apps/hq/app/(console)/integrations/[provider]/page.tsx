@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import { ConnectorSetupPanel } from '@/components/connector-setup-panel';
+import { ConnectorDisconnectButton } from '@/components/connector-disconnect-button';
 import { hasScopeGap } from '@/lib/mcp-store-projection';
 import { ProviderLogo } from '@/components/provider-logo';
 import { currentSession, hasRole } from '@/lib/auth';
@@ -91,6 +92,8 @@ export default async function IntegrationDetailPage({ params }: IntegrationDetai
               {isComingSoon ? 'Awaiting sandbox certification' : 'Awaiting provider configuration'}
             </span>
           )}
+          {(card.isConnected || card.status === 'reauthorization-required')
+            && provider !== 'square' ? <ConnectorDisconnectButton provider={provider} /> : null}
           <small>Configuration gaps remain explicit and do not interrupt the rest of HQ.</small>
         </aside>
       </div>
