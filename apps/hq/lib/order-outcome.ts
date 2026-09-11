@@ -24,6 +24,7 @@ const ERROR_STATUS: Record<OrderError['code'], number> = {
   idempotency_conflict: 409,
   price_changed: 409,
   item_unavailable: 409,
+  payment_unavailable: 503,
   refund_unavailable: 409,
   cancel_unavailable: 409,
 };

@@ -1,6 +1,8 @@
 import type { MenuTree } from '@platform/data';
 import { parseOptionGroups, parseSizes, slugify } from '@platform/domain';
 
+import type { Drop } from '@/features/drops';
+
 import type { MenuAddOn } from './catalog-data';
 import type { MenuCategory, MenuImageSource, MenuItem } from './catalog';
 
@@ -8,6 +10,7 @@ export type CustomerCatalog = {
   categories: MenuCategory[];
   items: MenuItem[];
   addOns: MenuAddOn[];
+  drops: Drop[];
 };
 
 function stableCategoryId(title: string, bundled: readonly MenuCategory[], used: Set<string>): string {
@@ -61,7 +64,21 @@ export function customerCatalogFromTree(
       image: liveImage(row.image_url, bundledImages[row.slug]),
     } satisfies MenuItem];
   }));
-  return { categories, items, addOns: catalogAddOns(items) };
+  const rowsById = new Map(tree.categories.flatMap((category) => category.items)
+    .map((row) => [row.id, row] as const));
+  const drops = tree.drops.flatMap((drop) => {
+    const item = rowsById.get(drop.item_id);
+    if (!item) return [];
+    return [{
+      id: drop.id,
+      itemId: item.slug,
+      title: item.name,
+      blurb: item.description,
+      startsAt: drop.starts_at,
+      endsAt: drop.ends_at,
+    } satisfies Drop];
+  });
+  return { categories, items, addOns: catalogAddOns(items), drops };
 }
 
 export function catalogAddOns(items: readonly MenuItem[]): MenuAddOn[] {

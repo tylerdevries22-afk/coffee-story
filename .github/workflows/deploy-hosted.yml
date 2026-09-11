@@ -114,8 +114,23 @@ jobs:
       native_count: ${{ steps.surface-plan.outputs.native_count }}
     steps:
       - name: Enforce deployment and database isolation
+        env:
+          DEPLOY_WEB: ${{ inputs.deploy_web }}
+          PUBLISH_NATIVE: ${{ inputs.publish_native }}
         run: |
           set -euo pipefail
+          if [ "$DEPLOY_WEB" != true ] && [ "$PUBLISH_NATIVE" != true ]; then
+            echo '::error::Select at least one web or native release surface.'
+            exit 1
+          fi
+          if [ "$PUBLISH_NATIVE" = true ] && [ "$DEPLOY_WEB" != true ]; then
+            echo '::error::Native publishing requires the same-run hosted application release.'
+            exit 1
+          fi
+          if [ "$PUBLISH_NATIVE" = true ] && [ "$DEPLOY_ENVIRONMENT" != production ]; then
+            echo '::error::Native publishing is supported only for production releases.'
+            exit 1
+          fi
           test "$PROJECT_PREFIX" = "$TENANT" || {
             echo '::error::The Vercel project prefix must exactly match the immutable tenant slug.'
             exit 1
@@ -217,7 +232,10 @@ jobs:
     uses: ./.github/workflows/verify.yml
     with:
       supabase_project_ref: ${{ inputs.supabase_project_ref || (inputs.environment == 'preview' && vars.SUPABASE_PREVIEW_PROJECT_REF) || vars.SUPABASE_PROJECT_REF }}
-    secrets: inherit
+    secrets:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EXPO_GO_COFFEE: ${{ secrets.EXPO_GO_COFFEE }}
 
   migrate-database:
     name: Promote verified database migrations
@@ -243,12 +261,108 @@ jobs:
           test -n "$SUPABASE_PROJECT_REF" || { echo '::error::Set SUPABASE_PROJECT_REF.'; exit 1; }
           pnpm supabase:promote
 
+  stage-tenant-package:
+    name: Verify and stage immutable tenant package
+    needs: [migrate-database, release-policy]
+    if: (inputs.environment || 'production') == 'production' && (inputs.deploy_web || inputs.publish_native)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    outputs:
+      release_id: ${{ steps.package.outputs.release_id }}
+      release_key: ${{ steps.package.outputs.release_key }}
+      artifact_digest: ${{ steps.package.outputs.artifact_digest }}
+      source_commit_sha: ${{ steps.package.outputs.source_commit_sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: 10.33.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
+        with:
+          version: 2.116.0
+      - run: pnpm install --frozen-lockfile
+      - name: Install current malware signatures
+        run: |
+          set -euo pipefail
+          timeout 5m sudo apt-get -o Acquire::Retries=3 update
+          timeout 10m sudo apt-get -o Acquire::Retries=3 install --yes clamav
+          sudo systemctl stop clamav-freshclam 2>/dev/null || true
+          for attempt in 1 2 3; do
+            timeout 3m sudo freshclam && exit 0
+            sleep $((attempt * 2))
+          done
+          echo '::error::ClamAV signatures could not be refreshed.'
+          exit 1
+      - name: Resolve authoritative organization and service credential
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          [[ "$TENANT" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]] || {
+            echo '::error::Tenant slug is invalid.'
+            exit 1
+          }
+          test -n "$SUPABASE_ACCESS_TOKEN" || { echo '::error::Set SUPABASE_ACCESS_TOKEN.'; exit 1; }
+          test -n "$SUPABASE_PROJECT_REF" || { echo '::error::Set SUPABASE_PROJECT_REF.'; exit 1; }
+          keys=''
+          for attempt in 1 2 3; do
+            keys=$(timeout 45s supabase projects api-keys --project-ref "$SUPABASE_PROJECT_REF" -o json) && break
+            sleep $((attempt * 2))
+          done
+          service_role=$(printf '%s' "$keys" | jq -er '[.[] | select(.name == "service_role")][0].api_key')
+          supabase_url="https://${SUPABASE_PROJECT_REF}.supabase.co"
+          echo "::add-mask::$service_role"
+          response=$(curl --fail-with-body --silent --show-error --retry 2 --retry-all-errors \
+            --connect-timeout 10 --max-time 45 \
+            -H "apikey: $service_role" -H "authorization: Bearer $service_role" \
+            "$supabase_url/rest/v1/brands?slug=eq.${TENANT}&status=in.(provisioning,active)&select=id&limit=2")
+          brand_id=$(printf '%s' "$response" | jq -er 'if length == 1 then .[0].id else error("organization_not_unique") end')
+          {
+            echo "SUPABASE_URL=$supabase_url"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$service_role"
+            echo "TENANT_PACKAGE_BRAND_ID=$brand_id"
+          } >> "$GITHUB_ENV"
+      - name: Build, scan, upload, verify, and stage package
+        id: package
+        env:
+          TENANT_SLUG: ${{ env.TENANT }}
+        run: |
+          set -euo pipefail
+          package_json=$(pnpm exec tsx scripts/publish-tenant-package.ts)
+          printf '%s\n' "$package_json"
+          release_id=$(jq -er '.releaseId' <<<"$package_json")
+          release_key=$(jq -er '.releaseKey' <<<"$package_json")
+          artifact_digest=$(jq -er '.artifactDigest' <<<"$package_json")
+          source_commit_sha=$(jq -er '.commitSha' <<<"$package_json")
+          test "$artifact_digest" = "${{ needs.release-policy.outputs.artifact_digest }}" || {
+            echo '::error::The staged tenant package digest differs from release policy.'
+            exit 1
+          }
+          {
+            echo "release_id=$release_id"
+            echo "release_key=$release_key"
+            echo "artifact_digest=$artifact_digest"
+            echo "source_commit_sha=$source_commit_sha"
+          } >> "$GITHUB_OUTPUT"
+
   deploy-hq:
     name: Deploy HQ API and console
-    needs: [migrate-database, release-policy]
-    if: inputs.deploy_web
+    needs: [migrate-database, stage-tenant-package, release-policy]
+    if: >-
+      always()
+      && inputs.deploy_web
+      && needs.migrate-database.result == 'success'
+      && needs.release-policy.result == 'success'
+      && ((inputs.environment || 'production') == 'preview'
+        || needs.stage-tenant-package.result == 'success')
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 120
     outputs:
       url: ${{ steps.deploy.outputs.url }}
       deployment_id: ${{ steps.deploy.outputs.deployment_id }}
@@ -274,7 +388,11 @@ jobs:
           set -euo pipefail
           test -n "$SUPABASE_ACCESS_TOKEN" || { echo '::error::Set SUPABASE_ACCESS_TOKEN.'; exit 1; }
           test -n "$SUPABASE_PROJECT_REF" || { echo '::error::Set SUPABASE_PROJECT_REF.'; exit 1; }
-          keys=$(supabase projects api-keys --project-ref "$SUPABASE_PROJECT_REF" -o json)
+          keys=''
+          for attempt in 1 2 3; do
+            keys=$(timeout 45s supabase projects api-keys --project-ref "$SUPABASE_PROJECT_REF" -o json) && break
+            sleep $((attempt * 2))
+          done
           publishable=$(printf '%s' "$keys" | jq -r '[.[] | select(.type == "publishable")][0].api_key // [.[] | select(.name == "anon")][0].api_key')
           service_role=$(printf '%s' "$keys" | jq -r '[.[] | select(.name == "service_role")][0].api_key')
           test -n "$publishable" && test "$publishable" != null
@@ -312,17 +430,24 @@ jobs:
         run: |
           set -euo pipefail
           project="${PROJECT_PREFIX}-hq"
+          retry_vercel() {
+            for attempt in 1 2 3; do
+              timeout 60s pnpm exec -- vercel "$@" && return 0
+              if (( attempt < 3 )); then sleep $((attempt * 2)); fi
+            done
+            return 1
+          }
           add_secret() {
             local name="$1" value="$2"
             test -n "$value" || return 0
-            pnpm exec vercel env add "$name" "$DEPLOY_ENVIRONMENT" \
+            retry_vercel env add "$name" "$DEPLOY_ENVIRONMENT" \
               --project "$project" --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN" \
               --value "$value" --sensitive --force --yes >/dev/null
           }
           add_public() {
             local name="$1" value="$2"
             test -n "$value" || return 0
-            pnpm exec vercel env add "$name" "$DEPLOY_ENVIRONMENT" \
+            retry_vercel env add "$name" "$DEPLOY_ENVIRONMENT" \
               --project "$project" --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN" \
               --value "$value" --no-sensitive --force --yes >/dev/null
           }
@@ -354,7 +479,7 @@ jobs:
           add_public OPENAI_MENU_MODEL "$OPENAI_MENU_MODEL"
           add_public OPENAI_RESEARCH_MODEL "$OPENAI_RESEARCH_MODEL"
           add_public OPENAI_EVALUATION_MODEL "$OPENAI_EVALUATION_MODEL"
-      - name: Stage, verify, and promote the exact HQ commit
+      - name: Stage and verify the exact HQ commit
         id: deploy
         env:
           FACTORY_ARTIFACT_DIGEST: ${{ needs.release-policy.outputs.artifact_digest }}
@@ -363,13 +488,25 @@ jobs:
           SURFACE: hq
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: bash scripts/vercel-stage-deployment.sh
+      - name: Save immutable HQ deployment evidence
+        env:
+          PROVIDER_EVIDENCE: ${{ steps.deploy.outputs.provider_evidence }}
+        run: |
+          mkdir -p vercel-stage
+          printf '%s\n' "$PROVIDER_EVIDENCE" > vercel-stage/hq.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: vercel-stage-hq
+          path: vercel-stage/hq.json
+          if-no-files-found: error
+          retention-days: 7
 
   deploy-web:
     name: Deploy ${{ matrix.surface }} web app
     needs: [deploy-hq, release-policy]
     if: inputs.deploy_web && needs.release-policy.outputs.web_count != '0'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.release-policy.outputs.web_matrix) }}
@@ -392,7 +529,11 @@ jobs:
         run: |
           set -euo pipefail
           test -n "$SUPABASE_ACCESS_TOKEN" || { echo '::error::Set SUPABASE_ACCESS_TOKEN.'; exit 1; }
-          keys=$(supabase projects api-keys --project-ref "$SUPABASE_PROJECT_REF" -o json)
+          keys=''
+          for attempt in 1 2 3; do
+            keys=$(timeout 45s supabase projects api-keys --project-ref "$SUPABASE_PROJECT_REF" -o json) && break
+            sleep $((attempt * 2))
+          done
           publishable=$(printf '%s' "$keys" | jq -r '[.[] | select(.type == "publishable")][0].api_key // [.[] | select(.name == "anon")][0].api_key')
           test -n "$publishable" && test "$publishable" != null
           {
@@ -407,17 +548,24 @@ jobs:
           PREVIEW_DIRECTORY: ${{ vars.PREVIEW_DIRECTORY }}
         run: |
           set -euo pipefail
+          retry_vercel() {
+            for attempt in 1 2 3; do
+              timeout 60s pnpm exec -- vercel "$@" && return 0
+              if (( attempt < 3 )); then sleep $((attempt * 2)); fi
+            done
+            return 1
+          }
           add_public() {
             local name="$1" value="$2"
             test -n "$value" || return 0
-            pnpm exec vercel env add "$name" "$DEPLOY_ENVIRONMENT" \
+            retry_vercel env add "$name" "$DEPLOY_ENVIRONMENT" \
               --project "${PROJECT_PREFIX}-${{ matrix.surface }}" --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN" \
               --value "$value" --no-sensitive --force --yes >/dev/null
           }
           add_secret() {
             local name="$1" value="$2"
             test -n "$value" || return 0
-            pnpm exec vercel env add "$name" "$DEPLOY_ENVIRONMENT" \
+            retry_vercel env add "$name" "$DEPLOY_ENVIRONMENT" \
               --project "${PROJECT_PREFIX}-${{ matrix.surface }}" --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN" \
               --value "$value" --sensitive --force --yes >/dev/null
           }
@@ -430,7 +578,7 @@ jobs:
             local name="$1" project="${PROJECT_PREFIX}-${{ matrix.surface }}" listing
             # Listed, not piped into grep: an unreadable listing must fail the
             # deploy rather than read as an absence.
-            listing=$(pnpm exec vercel env ls production \
+            listing=$(retry_vercel env ls production \
               --project "$project" --scope "$VERCEL_SCOPE" --token "$VERCEL_TOKEN")
             awk -v name="$name" '$1 == name { hit = 1 } END { exit hit ? 0 : 1 }' <<<"$listing" || return 0
             echo "::error::$name is set on the production environment of $project. The preview tenant directory must never reach production; remove it in the Vercel dashboard and redeploy."
@@ -438,7 +586,11 @@ jobs:
           }
           if [ "${{ matrix.surface }}" = display ]; then
             add_public NEXT_PUBLIC_SUPABASE_URL "$SUPABASE_URL"
-            add_public HQ_ORIGIN "${{ needs.deploy-hq.outputs.url }}"
+            hq_origin="${{ needs.deploy-hq.outputs.url }}"
+            if [ "$DEPLOY_ENVIRONMENT" = production ]; then
+              hq_origin="https://${PROJECT_PREFIX}-hq.vercel.app"
+            fi
+            add_public HQ_ORIGIN "$hq_origin"
             add_public TENANT "$TENANT"
             if [ "$DEPLOY_ENVIRONMENT" = production ]; then
               # Either credential keeps the screen up, so the two can be rolled
@@ -459,6 +611,9 @@ jobs:
             add_secret DISPLAY_DEVICE_REFRESH_SECRET "$DISPLAY_DEVICE_REFRESH_SECRET"
           else
             api_url="${{ needs.deploy-hq.outputs.url }}"
+            if [ "$DEPLOY_ENVIRONMENT" = production ]; then
+              api_url="https://${PROJECT_PREFIX}-hq.vercel.app"
+            fi
             api_host="${api_url#https://}"
             api_host="${api_host%%/*}"
             case "$api_host" in
@@ -481,7 +636,7 @@ jobs:
               assert_absent EXPO_PUBLIC_PREVIEW_DIRECTORY
             fi
           fi
-      - name: Stage, verify, and promote the exact web commit
+      - name: Stage and verify the exact web commit
         id: deploy
         env:
           FACTORY_ARTIFACT_DIGEST: ${{ needs.release-policy.outputs.artifact_digest }}
@@ -489,13 +644,26 @@ jobs:
           SURFACE: ${{ matrix.surface }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: bash scripts/vercel-stage-deployment.sh
+      - name: Save immutable web deployment evidence
+        env:
+          PROVIDER_EVIDENCE: ${{ steps.deploy.outputs.provider_evidence }}
+          SURFACE: ${{ matrix.surface }}
+        run: |
+          mkdir -p vercel-stage
+          printf '%s\n' "$PROVIDER_EVIDENCE" > "vercel-stage/${SURFACE}.json"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: vercel-stage-${{ matrix.surface }}
+          path: vercel-stage/${{ matrix.surface }}.json
+          if-no-files-found: error
+          retention-days: 7
 
   publish-native:
-    name: Publish ${{ matrix.surface }} native OTA update
-    needs: [migrate-database, deploy-hq, release-policy]
+    name: Stage ${{ matrix.surface }} native OTA update
+    needs: [migrate-database, deploy-hq, deploy-web, release-policy]
     if: inputs.publish_native && inputs.deploy_web && inputs.environment == 'production' && needs.release-policy.outputs.native_count != '0'
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 75
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.release-policy.outputs.native_matrix) }}
@@ -520,7 +688,11 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
           set -euo pipefail
-          keys=$(supabase projects api-keys --project-ref "$SUPABASE_PROJECT_REF" -o json)
+          keys=''
+          for attempt in 1 2 3; do
+            keys=$(timeout 45s supabase projects api-keys --project-ref "$SUPABASE_PROJECT_REF" -o json) && break
+            sleep $((attempt * 2))
+          done
           publishable=$(printf '%s' "$keys" | jq -r '[.[] | select(.type == "publishable")][0].api_key // [.[] | select(.name == "anon")][0].api_key')
           test -n "$publishable" && test "$publishable" != null
           {
@@ -530,17 +702,17 @@ jobs:
       - name: Require EAS credentials and a verified HQ deployment
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN || secrets.EXPO_GO_COFFEE }}
-          API_URL: ${{ needs.deploy-hq.outputs.url }}
         run: |
           test -n "$EXPO_TOKEN" || { echo '::error::Set EXPO_TOKEN.'; exit 1; }
-          test -n "$API_URL" || { echo '::error::The verified HQ deployment did not return a URL.'; exit 1; }
-      - name: Publish the exact declared native surface
-        working-directory: apps/${{ matrix.surface }}
+          test -n "${{ needs.deploy-hq.outputs.url }}" || { echo '::error::The verified HQ deployment did not return a URL.'; exit 1; }
+      - name: Stage the exact declared native surface on an unlinked EAS branch
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN || secrets.EXPO_GO_COFFEE }}
-          API_URL: ${{ needs.deploy-hq.outputs.url }}
+          FACTORY_ARTIFACT_DIGEST: ${{ needs.release-policy.outputs.artifact_digest }}
+          SURFACE: ${{ matrix.surface }}
         run: |
           set -euo pipefail
+          API_URL="https://${PROJECT_PREFIX}-hq.vercel.app"
           api_host="${API_URL#https://}"
           api_host="${api_host%%/*}"
           if [ "${{ matrix.surface }}" = customer ] || [ "${{ matrix.surface }}" = kiosk ]; then
@@ -550,4 +722,601 @@ jobs:
           export EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY"
           export EXPO_PUBLIC_API_URL="$API_URL"
           export EXPO_PUBLIC_ALLOWED_API_HOST="$api_host"
-          npx --yes eas-cli@21.4.0 update --channel production --environment production --platform all --non-interactive
+          bash scripts/eas-stage-update.sh
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: eas-stage-${{ matrix.surface }}
+          path: eas-stage/${{ matrix.surface }}.json
+          if-no-files-found: error
+          retention-days: 7
+
+  promote-vercel:
+    name: Commit the complete verified hosted release set
+    needs: [stage-tenant-package, deploy-hq, deploy-web, publish-native, release-policy]
+    if: >-
+      always()
+      && (inputs.environment || 'production') == 'production'
+      && inputs.deploy_web
+      && needs.stage-tenant-package.result == 'success'
+      && needs.deploy-hq.result == 'success'
+      && (needs.release-policy.outputs.web_count == '0' || needs.deploy-web.result == 'success')
+      && (!inputs.publish_native || needs.release-policy.outputs.native_count == '0'
+        || needs.publish-native.result == 'success')
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    outputs:
+      release_reference: ${{ steps.promote.outputs.release_reference }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: 10.33.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
+        with:
+          version: 2.116.0
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          pattern: vercel-stage-*
+          path: vercel-stage
+          merge-multiple: true
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        if: inputs.publish_native && needs.release-policy.outputs.native_count != '0'
+        with:
+          pattern: eas-stage-*
+          path: eas-stage
+          merge-multiple: true
+      - name: Promote and commit only the complete attested release set
+        id: promote
+        env:
+          FACTORY_ARTIFACT_DIGEST: ${{ needs.release-policy.outputs.artifact_digest }}
+          HEALTH_CHECK_TOKEN: ${{ secrets.HEALTH_CHECK_TOKEN }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          EXPECTED_WEB_COUNT: ${{ needs.release-policy.outputs.web_count }}
+          EXPECTED_WEB_MATRIX: ${{ needs.release-policy.outputs.web_matrix }}
+          EXPECTED_NATIVE_COUNT: ${{ needs.release-policy.outputs.native_count }}
+          EXPECTED_NATIVE_MATRIX: ${{ needs.release-policy.outputs.native_matrix }}
+          PUBLISH_NATIVE: ${{ inputs.publish_native }}
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN || secrets.EXPO_GO_COFFEE }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          RELEASE_ID: ${{ needs.stage-tenant-package.outputs.release_id }}
+          RELEASE_KEY: ${{ needs.stage-tenant-package.outputs.release_key }}
+          ARTIFACT_DIGEST: ${{ needs.stage-tenant-package.outputs.artifact_digest }}
+          PACKAGE_SOURCE_COMMIT_SHA: ${{ needs.stage-tenant-package.outputs.source_commit_sha }}
+          COMMIT_SHA: ${{ github.sha }}
+          APPROVAL_REFERENCE: github:${{ github.run_id }}:${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          mapfile -t evidence_files < <(find vercel-stage -type f -name '*.json' | sort)
+          expected_count=$((EXPECTED_WEB_COUNT + 1))
+          test "${#evidence_files[@]}" -eq "$expected_count" || {
+            echo '::error::The staged Vercel evidence set is incomplete.'
+            exit 1
+          }
+          jq -s -e --argjson expected "$expected_count" \
+            'length == $expected
+              and ([.[].surface] | unique | length) == $expected
+              and ([.[].surface] | index("hq")) != null' \
+            "${evidence_files[@]}" >/dev/null || {
+              echo '::error::The staged Vercel evidence has missing or duplicate surfaces.'
+              exit 1
+            }
+          expected_web_surfaces=$(jq -cn --argjson matrix "$EXPECTED_WEB_MATRIX" \
+            '$matrix.include | map(.surface) + ["hq"] | sort')
+          actual_web_surfaces=$(jq -s -c 'map(.surface) | sort' "${evidence_files[@]}")
+          test "$actual_web_surfaces" = "$expected_web_surfaces" || {
+            echo '::error::The staged Vercel evidence does not match the release surface plan.'
+            exit 1
+          }
+          expected_native_count=0
+          if [[ "$PUBLISH_NATIVE" == true ]]; then
+            expected_native_count=$EXPECTED_NATIVE_COUNT
+          fi
+          native_evidence_files=()
+          if (( expected_native_count > 0 )); then
+            mapfile -t native_evidence_files < <(find eas-stage -type f -name '*.json' | sort)
+          fi
+          test "${#native_evidence_files[@]}" -eq "$expected_native_count" || {
+            echo '::error::The staged EAS evidence set is incomplete.'
+            exit 1
+          }
+          if (( expected_native_count > 0 )); then
+            jq -s -e --argjson expected "$expected_native_count" \
+              'length == $expected and ([.[].surface] | unique | length) == $expected' \
+              "${native_evidence_files[@]}" >/dev/null || {
+                echo '::error::The staged EAS evidence has missing or duplicate surfaces.'
+                exit 1
+              }
+            expected_native_surfaces=$(jq -cn --argjson matrix "$EXPECTED_NATIVE_MATRIX" \
+              '$matrix.include | map(.surface) | sort')
+            actual_native_surfaces=$(jq -s -c 'map(.surface) | sort' \
+              "${native_evidence_files[@]}")
+            test "$actual_native_surfaces" = "$expected_native_surfaces" || {
+              echo '::error::The staged EAS evidence does not match the release surface plan.'
+              exit 1
+            }
+          fi
+
+          test -n "$SUPABASE_ACCESS_TOKEN" || { echo '::error::Set SUPABASE_ACCESS_TOKEN.'; exit 1; }
+          test -n "$SUPABASE_PROJECT_REF" || { echo '::error::Set SUPABASE_PROJECT_REF.'; exit 1; }
+          test "$COMMIT_SHA" = "$GITHUB_SHA" || { echo '::error::Package commit drifted.'; exit 1; }
+          test "$ARTIFACT_DIGEST" = "$FACTORY_ARTIFACT_DIGEST" || {
+            echo '::error::Package artifact digest drifted.'
+            exit 1
+          }
+          [[ "$RELEASE_ID" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$ \
+            && "$PACKAGE_SOURCE_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]] || {
+            echo '::error::Package release identity is invalid.'
+            exit 1
+          }
+          keys=''
+          for attempt in 1 2 3; do
+            keys=$(timeout 45s supabase projects api-keys --project-ref "$SUPABASE_PROJECT_REF" -o json) && break
+            sleep $((attempt * 2))
+          done
+          service_role=$(printf '%s' "$keys" | jq -er '[.[] | select(.name == "service_role")][0].api_key')
+          echo "::add-mask::$service_role"
+          api_base="https://${SUPABASE_PROJECT_REF}.supabase.co/rest/v1"
+          auth_headers=(-H "apikey: $service_role" -H "authorization: Bearer $service_role")
+          brand_response=$(curl --fail-with-body --silent --show-error --retry 2 --retry-all-errors \
+            --connect-timeout 10 --max-time 45 "${auth_headers[@]}" \
+            "$api_base/brands?slug=eq.${TENANT}&status=in.(provisioning,active)&select=id&limit=2")
+          brand_id=$(printf '%s' "$brand_response" | jq -er 'if length == 1 then .[0].id else error("organization_not_unique") end')
+          candidate_release=$(curl --fail-with-body --silent --show-error --retry 2 --retry-all-errors \
+            --connect-timeout 10 --max-time 45 "${auth_headers[@]}" \
+            "$api_base/tenant_package_releases?id=eq.${RELEASE_ID}&brand_id=eq.${brand_id}&select=id,release_key,artifact_digest,source_commit_sha,status&limit=2")
+          jq -e --arg id "$RELEASE_ID" --arg key "$RELEASE_KEY" \
+            --arg digest "$ARTIFACT_DIGEST" --arg source "$PACKAGE_SOURCE_COMMIT_SHA" \
+            'length == 1 and .[0].id == $id and .[0].release_key == $key
+              and .[0].artifact_digest == $digest and .[0].source_commit_sha == $source
+              and (.[0].status == "verified" or .[0].status == "published"
+                or .[0].status == "superseded")' <<<"$candidate_release" >/dev/null
+          publication=$(curl --fail-with-body --silent --show-error --retry 2 --retry-all-errors \
+            --connect-timeout 10 --max-time 45 "${auth_headers[@]}" \
+            "$api_base/tenant_package_publications?brand_id=eq.${brand_id}&select=current_release_id,artifact_digest,deployment_commit_sha,published_at&limit=2")
+          jq -e 'type == "array" and length <= 1
+            and all(.[]; (.current_release_id | type == "string")
+              and (.artifact_digest | type == "string")
+              and (.deployment_commit_sha | type == "string")
+              and (.published_at | type == "string"))' \
+            <<<"$publication" >/dev/null
+          prior_release_id=$(jq -r '.[0].current_release_id // empty' <<<"$publication")
+          prior_artifact_digest=$(jq -r '.[0].artifact_digest // empty' <<<"$publication")
+          prior_deployment_commit=$(jq -r '.[0].deployment_commit_sha // empty' <<<"$publication")
+          prior_published_at=$(jq -r '.[0].published_at // empty' <<<"$publication")
+          jq -n --arg brandId "$brand_id" --arg candidateReleaseId "$RELEASE_ID" \
+            --arg candidateCommit "$COMMIT_SHA" --argjson priorPublication "$publication" \
+            '{schemaVersion:1,status:"rollback-ready",brandId:$brandId,
+              priorPublication:($priorPublication[0] // null),
+              candidateReleaseId:$candidateReleaseId,candidateCommit:$candidateCommit}' \
+            > package-rollback.json
+
+          mkdir -p vercel-rollback
+          : > rollback-files.txt
+          for evidence_file in "${evidence_files[@]}"; do
+            rollback_file="vercel-rollback/$(basename "$evidence_file")"
+            bash scripts/vercel-capture-production.sh "$evidence_file" > "$rollback_file"
+            printf '%s\n' "$rollback_file" >> rollback-files.txt
+          done
+          mkdir -p eas-state
+          : > eas-state-files.txt
+          for native_evidence in "${native_evidence_files[@]}"; do
+            surface=$(jq -er '.surface' "$native_evidence")
+            state_file="eas-state/${surface}.json"
+            bash scripts/eas-channel-release.sh capture "$native_evidence" "$state_file"
+            printf '%s\t%s\n' "$native_evidence" "$state_file" >> eas-state-files.txt
+          done
+
+          mapfile -t vercel_rollback_files < <(find vercel-rollback -type f -name '*.json' | sort)
+          jq -s 'sort_by(.provider, .surface)' "${vercel_rollback_files[@]}" \
+            > vercel-rollback-set.json
+          if (( expected_native_count > 0 )); then
+            mapfile -t eas_state_files < <(find eas-state -type f -name '*.json' | sort)
+            jq -s 'sort_by(.provider, .surface)' "${eas_state_files[@]}" > eas-rollback-set.json
+          else
+            printf '[]\n' > eas-rollback-set.json
+          fi
+          jq -n --slurpfile package package-rollback.json \
+            --slurpfile vercel vercel-rollback-set.json --slurpfile eas eas-rollback-set.json \
+            '{schemaVersion:1,package:$package[0],
+              providers:($vercel[0] + $eas[0] | sort_by(.provider, .surface))}' \
+            > captured-rollback-set.json
+          rollback_digest=$(sha256sum captured-rollback-set.json | cut -d' ' -f1)
+          printf '%s  captured-rollback-set.json\n' "$rollback_digest" \
+            > captured-rollback-set.sha256
+
+          : > attempted-rollbacks.txt
+          : > attempted-eas-rollbacks.txt
+          : > attempted-package-rollback.txt
+          ROLLBACK_RESULTS_PATH=rollback-results.jsonl
+          : > "$ROLLBACK_RESULTS_PATH"
+          rollback_canary_reference="rollback:sha256:${rollback_digest}"
+          rollback_approval_reference="rollback:${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          package_compensation_status=''
+          fetch_exact_package_event() {
+            curl --fail-with-body --silent --show-error --retry 2 --retry-all-errors \
+              --connect-timeout 10 --max-time 45 "${auth_headers[@]}" --get \
+              --data-urlencode "brand_id=eq.${brand_id}" \
+              --data-urlencode "package_release_id=eq.${RELEASE_ID}" \
+              --data-urlencode "artifact_digest=eq.${ARTIFACT_DIGEST}" \
+              --data-urlencode "deployment_commit_sha=eq.${COMMIT_SHA}" \
+              --data-urlencode "canary_reference=eq.${release_reference}" \
+              --data-urlencode "approval_reference=eq.${APPROVAL_REFERENCE}" \
+              --data-urlencode 'select=id,brand_id,package_release_id,artifact_digest,deployment_commit_sha,canary_reference,approval_reference,promoted_at' \
+              --data-urlencode 'limit=2' \
+              "$api_base/tenant_package_publication_events"
+          }
+          fetch_package_pointer() {
+            curl --fail-with-body --silent --show-error --retry 2 --retry-all-errors \
+              --connect-timeout 10 --max-time 45 "${auth_headers[@]}" \
+              "$api_base/tenant_package_publications?brand_id=eq.${brand_id}&select=current_release_id,artifact_digest,deployment_commit_sha,published_at&limit=2"
+          }
+          package_pointer_matches_prior() {
+            local pointer="$1"
+            if [[ -z "$prior_release_id" ]]; then
+              jq -e 'length == 0' <<<"$pointer" >/dev/null
+            else
+              jq -e --arg release "$prior_release_id" --arg digest "$prior_artifact_digest" \
+                --arg commit "$prior_deployment_commit" --arg publishedAt "$prior_published_at" \
+                'length == 1 and .[0].current_release_id == $release
+                  and .[0].artifact_digest == $digest and .[0].deployment_commit_sha == $commit
+                  and .[0].published_at == $publishedAt' <<<"$pointer" >/dev/null
+            fi
+          }
+          package_compensation_evidence() {
+            local event event_id compensation_audit pointer
+            event=$(fetch_exact_package_event) || return 1
+            pointer=$(fetch_package_pointer) || return 1
+            event_id=$(jq -er 'if length == 1 then .[0].id else error("event_not_unique") end' \
+              <<<"$event") || return 1
+            compensation_audit=$(curl --fail-with-body --silent --show-error \
+              --retry 2 --retry-all-errors --connect-timeout 10 --max-time 45 \
+              "${auth_headers[@]}" --get \
+              --data-urlencode "publication_event_id=eq.${event_id}" \
+              --data-urlencode "brand_id=eq.${brand_id}" \
+              --data-urlencode "failed_release_id=eq.${RELEASE_ID}" \
+              --data-urlencode "failed_deployment_commit_sha=eq.${COMMIT_SHA}" \
+              --data-urlencode "rollback_canary_reference=eq.${rollback_canary_reference}" \
+              --data-urlencode "rollback_approval_reference=eq.${rollback_approval_reference}" \
+              --data-urlencode 'select=id,restored_release_id,restored_deployment_commit_sha' \
+              --data-urlencode 'limit=2' \
+              "$api_base/tenant_package_publication_compensations") || return 1
+            jq -e --arg release "$prior_release_id" --arg commit "$prior_deployment_commit" \
+              'length == 1
+                and .[0].restored_release_id == (if $release == "" then null else $release end)
+                and .[0].restored_deployment_commit_sha ==
+                  (if $commit == "" then null else $commit end)' \
+              <<<"$compensation_audit" >/dev/null || return 1
+            package_pointer_matches_prior "$pointer" || return 1
+            jq -cn --argjson event "$event" --argjson compensation "$compensation_audit" \
+              --argjson pointer "$pointer" \
+              '{schemaVersion:1,status:"compensated",event:$event[0],
+                compensation:$compensation[0],restoredPointer:($pointer[0] // null)}'
+          }
+          reconcile_package_compensation() {
+            local evidence
+            evidence=$(package_compensation_evidence) || return 1
+            printf '%s\n' "$evidence" > package-compensation.json
+            package_compensation_status=compensated
+          }
+          restore_package_publication() {
+            local state rollback_payload compensation compensation_status event pointer
+            state=$(cat package-rollback.json) || return 1
+            jq -e --arg brand "$brand_id" --arg candidate "$RELEASE_ID" \
+              --arg commit "$COMMIT_SHA" \
+              '.schemaVersion == 1 and .status == "rollback-ready" and .brandId == $brand
+                and .candidateReleaseId == $candidate and .candidateCommit == $commit
+                and (.priorPublication == null or (.priorPublication | type == "object"))' \
+              <<<"$state" >/dev/null || return 1
+            rollback_payload=$(jq -cn --arg brand "$brand_id" --arg release "$RELEASE_ID" \
+              --arg commit "$COMMIT_SHA" --arg canary "$release_reference" \
+              --arg approval "$APPROVAL_REFERENCE" --arg rollbackCanary "$rollback_canary_reference" \
+              --arg rollbackApproval "$rollback_approval_reference" \
+              --arg previousRelease "$prior_release_id" \
+              --arg previousDigest "$prior_artifact_digest" \
+              --arg previousCommit "$prior_deployment_commit" \
+              --arg previousPublishedAt "$prior_published_at" \
+              '{p_brand_id:$brand,p_release_id:$release,p_commit_sha:$commit,
+                p_canary_reference:$canary,p_approval_reference:$approval,
+                p_rollback_canary_reference:$rollbackCanary,
+                p_rollback_approval_reference:$rollbackApproval,
+                p_previous_release_id:(if $previousRelease == "" then null else $previousRelease end),
+                p_previous_artifact_digest:(if $previousDigest == "" then null else $previousDigest end),
+                p_previous_commit_sha:(if $previousCommit == "" then null else $previousCommit end),
+                p_previous_published_at:(if $previousPublishedAt == "" then null else $previousPublishedAt end)}')
+            for attempt in 1 2; do
+              reconcile_package_compensation && return 0
+              compensation=''
+              if compensation=$(curl --fail-with-body --silent --show-error \
+                --connect-timeout 10 --max-time 45 "${auth_headers[@]}" \
+                -H 'content-type: application/json' -d "$rollback_payload" \
+                "$api_base/rpc/compensate_tenant_package_publication"); then
+                compensation_status=$(jq -r '. // empty' \
+                  <<<"${compensation:-null}" 2>/dev/null || true)
+                if [[ "$compensation_status" == not_committed ]]; then
+                  event=$(fetch_exact_package_event) || return 1
+                  pointer=$(fetch_package_pointer) || return 1
+                  jq -e 'length == 0' <<<"$event" >/dev/null \
+                    && package_pointer_matches_prior "$pointer" || return 1
+                  package_compensation_status=not_committed
+                  jq -cn --argjson pointer "$pointer" \
+                    '{schemaVersion:1,status:"not_committed",
+                      restoredPointer:($pointer[0] // null)}' > package-compensation.json
+                  return 0
+                fi
+              fi
+              reconcile_package_compensation && return 0
+              if (( attempt < 2 )); then sleep $((attempt * 2)); fi
+            done
+            reconcile_package_compensation && return 0
+            echo '::error::Tenant package compensation was ambiguous or conflicted; provider rollback is disarmed for reconciliation.'
+            return 1
+          }
+          reconcile_package_confirmation() {
+            local evidence compensation_id confirmation pointer
+            evidence=$(package_compensation_evidence) || return 1
+            compensation_id=$(jq -er '.compensation.id' <<<"$evidence") || return 1
+            confirmation=$(curl --fail-with-body --silent --show-error --retry 2 \
+              --retry-all-errors --connect-timeout 10 --max-time 45 \
+              "${auth_headers[@]}" --get \
+              --data-urlencode "compensation_id=eq.${compensation_id}" \
+              --data-urlencode "brand_id=eq.${brand_id}" \
+              --data-urlencode 'select=id,compensation_id,brand_id,completed_at' \
+              --data-urlencode 'limit=2' \
+              "$api_base/tenant_package_publication_compensation_confirmations") || return 1
+            jq -e --argjson compensationId "$compensation_id" --arg brand "$brand_id" \
+              'length == 1 and .[0].compensation_id == $compensationId
+                and .[0].brand_id == $brand and (.completed_at | type == "string")' \
+              <<<"$confirmation" >/dev/null || return 1
+            pointer=$(fetch_package_pointer) || return 1
+            package_pointer_matches_prior "$pointer" || return 1
+            jq -cn --argjson compensation "$evidence" --argjson confirmation "$confirmation" \
+              --argjson pointer "$pointer" \
+              '{schemaVersion:1,status:"confirmed",compensation:$compensation,
+                confirmation:$confirmation[0],restoredPointer:($pointer[0] // null)}' \
+              > package-compensation-confirmation.json
+            jq -cn --arg compensationId "$compensation_id" \
+              '{schemaVersion:1,provider:"tenant-package",surface:"publication",
+                status:"restoration-confirmed",compensationId:$compensationId}'
+          }
+          confirm_package_compensation() {
+            local confirmation_payload output
+            confirmation_payload=$(jq -cn --arg brand "$brand_id" --arg release "$RELEASE_ID" \
+              --arg commit "$COMMIT_SHA" --arg canary "$release_reference" \
+              --arg approval "$APPROVAL_REFERENCE" \
+              '{p_brand_id:$brand,p_release_id:$release,p_commit_sha:$commit,
+                p_canary_reference:$canary,p_approval_reference:$approval}')
+            for attempt in 1 2; do
+              output=$(reconcile_package_confirmation || true)
+              [[ -z "$output" ]] || { printf '%s\n' "$output"; return 0; }
+              curl --fail-with-body --silent --show-error \
+                --connect-timeout 10 --max-time 45 \
+                "${auth_headers[@]}" -H 'content-type: application/json' \
+                -d "$confirmation_payload" \
+                "$api_base/rpc/confirm_tenant_package_publication_compensation" >/dev/null || true
+              output=$(reconcile_package_confirmation || true)
+              [[ -z "$output" ]] || { printf '%s\n' "$output"; return 0; }
+              if (( attempt < 2 )); then sleep $((attempt * 2)); fi
+            done
+            for attempt in 1 2 3; do
+              output=$(reconcile_package_confirmation || true)
+              [[ -z "$output" ]] || { printf '%s\n' "$output"; return 0; }
+              if (( attempt < 3 )); then sleep $((attempt * 2)); fi
+            done
+            return 1
+          }
+          source scripts/hosted-release-rollback.sh
+          install_release_rollback_traps
+
+          : > promoted.jsonl
+          for index in "${!evidence_files[@]}"; do
+            evidence_file="${evidence_files[$index]}"
+            rollback_file=$(sed -n "$((index + 1))p" rollback-files.txt)
+            printf '%s\n' "$rollback_file" >> attempted-rollbacks.txt
+            bash scripts/vercel-promote-deployment.sh "$evidence_file" "$rollback_file" \
+              >> promoted.jsonl
+          done
+          while IFS=$'\t' read -r native_evidence state_file; do
+            test -n "$state_file" || continue
+            printf '%s\t%s\n' "$native_evidence" "$state_file" >> attempted-eas-rollbacks.txt
+            bash scripts/eas-channel-release.sh switch "$native_evidence" "$state_file" \
+              >> promoted.jsonl
+          done < eas-state-files.txt
+          jq -s 'sort_by(.provider, .surface)' promoted.jsonl > promoted-release-set.json
+          total_count=$((expected_count + expected_native_count))
+          test "$(jq 'length' promoted-release-set.json)" -eq "$total_count"
+          test "$(jq '[.[] | [.provider, .surface]] | unique | length' promoted-release-set.json)" \
+            -eq "$total_count"
+          release_digest=$(sha256sum promoted-release-set.json | cut -d' ' -f1)
+          release_reference="release-set:sha256:${release_digest}"
+          echo "release_reference=$release_reference" >> "$GITHUB_OUTPUT"
+          cat promoted-release-set.json >> "$GITHUB_STEP_SUMMARY"
+          verify_live_release_set() {
+            local destination="$1" index evidence_file rollback_file native_evidence state_file
+            : > "$destination"
+            for index in "${!evidence_files[@]}"; do
+              evidence_file="${evidence_files[$index]}"
+              rollback_file=$(sed -n "$((index + 1))p" rollback-files.txt)
+              bash scripts/vercel-promote-deployment.sh \
+                "$evidence_file" "$rollback_file" verify-current >> "$destination"
+            done
+            while IFS=$'\t' read -r native_evidence state_file; do
+              test -n "$state_file" || continue
+              bash scripts/eas-channel-release.sh verify-live \
+                "$native_evidence" "$state_file" >> "$destination"
+            done < eas-state-files.txt
+            jq -s -e --argjson expected "$total_count" \
+              --slurpfile promoted promoted-release-set.json \
+              'sort_by(.provider, .surface) as $verified
+                | ($promoted[0] | sort_by(.provider, .surface)) as $released
+                | ($verified | length) == $expected
+                and ([$verified[] | [.provider, .surface]] | unique | length) == $expected
+                and all($verified[]; .status == "verified")
+                and ($verified | map(del(.status))) == ($released | map(del(.status)))' \
+              "$destination" >/dev/null
+          }
+
+          read_package_publication_state() {
+            publication=$(fetch_package_pointer) || return 1
+            package_event=$(fetch_exact_package_event) || return 1
+          }
+          candidate_package_is_current() {
+            jq -e --arg release "$RELEASE_ID" --arg digest "$ARTIFACT_DIGEST" \
+              --arg commit "$COMMIT_SHA" --arg brand "$brand_id" \
+              --arg canary "$release_reference" --arg approval "$APPROVAL_REFERENCE" \
+              --argjson event "$package_event" \
+              'length == 1 and .[0].current_release_id == $release
+                and .[0].artifact_digest == $digest and .[0].deployment_commit_sha == $commit
+                and ($event | length) == 1 and $event[0].brand_id == $brand
+                and $event[0].package_release_id == $release
+                and $event[0].artifact_digest == $digest
+                and $event[0].deployment_commit_sha == $commit
+                and $event[0].canary_reference == $canary
+                and $event[0].approval_reference == $approval
+                and .[0].published_at == $event[0].promoted_at' \
+              <<<"$publication" >/dev/null
+          }
+          prior_package_is_current() {
+            package_pointer_matches_prior "$publication" \
+              && jq -e 'length == 0' <<<"$package_event" >/dev/null
+          }
+          read_package_publication_state
+          candidate_package_is_current || prior_package_is_current || {
+            echo '::error::Tenant package publication changed concurrently; refusing to overwrite it.'
+            exit 1
+          }
+          payload=$(jq -cn --arg brand "$brand_id" --arg release "$RELEASE_KEY" \
+            --arg digest "$ARTIFACT_DIGEST" --arg commit "$COMMIT_SHA" \
+            --arg canary "$release_reference" --arg approval "$APPROVAL_REFERENCE" \
+            --arg previousRelease "$prior_release_id" \
+            --arg previousDigest "$prior_artifact_digest" \
+            --arg previousCommit "$prior_deployment_commit" \
+            --arg previousPublishedAt "$prior_published_at" \
+            '{p_brand_id:$brand,p_release_key:$release,p_artifact_digest:$digest,
+              p_commit_sha:$commit,p_canary_reference:$canary,p_approval_reference:$approval,
+              p_previous_release_id:(if $previousRelease == "" then null else $previousRelease end),
+              p_previous_artifact_digest:(if $previousDigest == "" then null else $previousDigest end),
+              p_previous_commit_sha:(if $previousCommit == "" then null else $previousCommit end),
+              p_previous_published_at:(if $previousPublishedAt == "" then null else $previousPublishedAt end)}')
+          published_id=''
+          verify_live_release_set provider-pre-publication.jsonl
+          for attempt in 1 2; do
+            read_package_publication_state || {
+              if (( attempt < 2 )); then sleep $((attempt * 2)); continue; fi
+              break
+            }
+            if candidate_package_is_current; then published_id=$RELEASE_ID; break; fi
+            prior_package_is_current || break
+            printf '%s\n' package-rollback.json > attempted-package-rollback.txt
+            curl --fail-with-body --silent --show-error \
+              --connect-timeout 10 --max-time 45 \
+              "${auth_headers[@]}" \
+              -H 'content-type: application/json' -d "$payload" \
+              "https://${SUPABASE_PROJECT_REF}.supabase.co/rest/v1/rpc/publish_tenant_package_if_current" \
+              >/dev/null || true
+            for observation in 1 2 3; do
+              if read_package_publication_state && candidate_package_is_current; then
+                published_id=$RELEASE_ID
+                break
+              fi
+              (( observation < 3 )) && sleep $((observation * 2))
+            done
+            [[ "$published_id" == "$RELEASE_ID" ]] && break
+            if (( attempt < 2 )); then sleep $((attempt * 2)); fi
+          done
+          if [[ "$published_id" != "$RELEASE_ID" ]] \
+            && read_package_publication_state && candidate_package_is_current; then
+            published_id=$RELEASE_ID
+          fi
+          test "$published_id" = "$RELEASE_ID" || {
+            echo '::error::Supabase published a different tenant package release.'
+            exit 1
+          }
+          verify_live_release_set provider-post-publication.jsonl
+          read_package_publication_state || {
+            echo '::error::The final tenant package state could not be read.'
+            exit 1
+          }
+          package_final_status=drifted
+          candidate_package_is_current && package_final_status=verified
+          jq -cn --argjson pointer "$publication" --argjson event "$package_event" \
+            --arg status "$package_final_status" \
+            '{schemaVersion:1,status:$status,pointer:$pointer,event:$event}' \
+            > package-post-publication-state.json
+          [[ "$package_final_status" == verified ]] || {
+            echo '::error::The tenant package changed during final provider verification.'
+            exit 1
+          }
+          disarm_release_rollback_traps
+      - name: Inventory retained release evidence
+        if: always()
+        env:
+          FINALIZE_OUTCOME: ${{ steps.promote.outcome }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$FINALIZE_OUTCOME" == success ]]; then
+            required=(captured-rollback-set.json captured-rollback-set.sha256
+              package-rollback.json vercel-rollback-set.json eas-rollback-set.json
+              rollback-files.txt eas-state-files.txt attempted-rollbacks.txt
+              attempted-eas-rollbacks.txt attempted-package-rollback.txt
+              promoted.jsonl promoted-release-set.json provider-pre-publication.jsonl
+              provider-post-publication.jsonl package-post-publication-state.json
+              rollback-results.jsonl)
+            for evidence in "${required[@]}"; do
+              test -f "$evidence" || {
+                echo "::error::Required hosted release evidence is missing: $evidence"
+                exit 1
+              }
+            done
+          fi
+          : > hosted-release-evidence.sha256
+          while IFS= read -r -d '' evidence; do
+            sha256sum "$evidence" >> hosted-release-evidence.sha256
+          done < <(find vercel-stage eas-stage vercel-rollback eas-state \
+            -type f -print0 2>/dev/null | sort -z)
+          for evidence in captured-rollback-set.json captured-rollback-set.sha256 \
+            package-rollback.json vercel-rollback-set.json eas-rollback-set.json \
+            rollback-files.txt eas-state-files.txt attempted-rollbacks.txt \
+            attempted-eas-rollbacks.txt attempted-package-rollback.txt promoted.jsonl \
+            promoted-release-set.json provider-pre-publication.jsonl \
+            provider-post-publication.jsonl package-post-publication-state.json \
+            package-compensation.json \
+            package-compensation-confirmation.json rollback-results.jsonl; do
+            test -f "$evidence" && sha256sum "$evidence" >> hosted-release-evidence.sha256
+          done
+      - name: Retain exact release and rollback evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: hosted-release-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            vercel-stage/
+            eas-stage/
+            vercel-rollback/
+            eas-state/
+            captured-rollback-set.json
+            captured-rollback-set.sha256
+            package-rollback.json
+            vercel-rollback-set.json
+            eas-rollback-set.json
+            rollback-files.txt
+            eas-state-files.txt
+            attempted-rollbacks.txt
+            attempted-eas-rollbacks.txt
+            attempted-package-rollback.txt
+            promoted.jsonl
+            promoted-release-set.json
+            provider-pre-publication.jsonl
+            provider-post-publication.jsonl
+            package-post-publication-state.json
+            package-compensation.json
+            package-compensation-confirmation.json
+            rollback-results.jsonl
+            hosted-release-evidence.sha256
+          if-no-files-found: error
+          retention-days: 90

@@ -1,16 +1,15 @@
-import { useState } from 'react';
-import { Alert, View } from 'react-native';
+import { useState, type ComponentProps } from 'react';
+import { Alert, Text, TextInput, View } from 'react-native';
 
 import { CollapsingScreen } from '@/components/collapsing-screen';
 import { Button, SectionTitle } from '@/components/ui';
-import { mobileApi } from '@/lib/mobile-api';
-import { requestKey } from '@platform/domain';
 import { STRENGTH_OPTIONS, strengthLabel } from '@/features/setup/setup';
+import { mobileApi } from '@/lib/mobile-api';
 import { useAuth } from '@/state/auth-context';
 import { useDemo } from '@/state/demo-context';
-import type { GuestPreferences } from '@platform/domain';
+import { requestKey, type GuestPreferences } from '@platform/domain';
+import { useTokens as useBrandTokens } from '@platform/ui';
 
-import { Field } from './profile-and-preferences';
 import { useInformationStyles } from './information-page';
 
 export function Preferences({ onBack }: { onBack: () => void }) {
@@ -66,5 +65,15 @@ export function Preferences({ onBack }: { onBack: () => void }) {
       ))}</View>
       <Button label="Save" loading={saving} disabled={saving} onPress={() => void persist()} />
     </CollapsingScreen>
+  );
+}
+export function Field({ label, ...props }: ComponentProps<typeof TextInput> & { label: string }) {
+  const styles = useInformationStyles();
+  const tokens = useBrandTokens();
+  return (
+    <View style={styles.field}>
+      <Text style={styles.fieldLabel}>{label}</Text>
+      <TextInput accessibilityLabel={`${label} input`} {...props} placeholderTextColor={tokens.textMuted} style={[styles.input, props.multiline && styles.multiline]} />
+    </View>
   );
 }

@@ -60,6 +60,7 @@ next-env.d.ts
 
 # Local package-manager cache
 .pnpm-store/
+/.vercel/
 
 # per-app metro caches
 .metro-cache/
@@ -97,7 +98,9 @@ stack.env
 readiness.err
 
 # Audit run artifacts (see ~/.agents/skills/audit)
-.audit/
+# config.json is tracked; run dirs are ignored
+.audit/*
+!.audit/config.json
 
 # Model B org-web static surfaces (generated into HQ public/)
 apps/hq/public/customer/

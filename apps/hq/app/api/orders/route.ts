@@ -1,12 +1,12 @@
 import type { PlaceOrderRequest, PlaceOrderResponse } from '@platform/api-client';
 import {
+  canPlaceOrders,
   createOrder,
   createSquareCheckoutLink,
   OrderError,
 } from '@platform/engine';
 
 import { resolveOrderChannel } from '@platform/domain';
-import { canPlaceOrders } from '@platform/engine';
 
 import { orderErrorResponse, placeOrderResponseOf } from '../../../lib/order-outcome';
 import { validateOrderRequest } from '../../../lib/order-request';
@@ -110,11 +110,7 @@ export async function POST(request: Request): Promise<Response> {
       // one cart never yields two checkout pages.
       const link = await createSquareCheckoutLink(
         { db, ...square },
-        {
-          orderId: result.orderId,
-          ...(body.redirectUrl ? { redirectUrl: body.redirectUrl } : {}),
-          ...(caller.kind === 'user' && caller.email ? { buyerEmail: caller.email } : {}),
-        },
+        { orderId: result.orderId, redirectUrl: body.redirectUrl },
       );
       response.checkoutUrl = link.checkoutUrl;
     }

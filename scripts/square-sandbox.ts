@@ -77,6 +77,7 @@ async function run() {
   if (orderError) throw orderError;
   const squareOrder = await createSquareOrder(config, token, {
     squareLocationId, referenceId: order.id, lines: buildSquareLines(lines),
+    taxCents: 0, taxLabel: 'Tax', storedValueCents: 0,
   });
   const squareOrderId = squareOrder.order?.id;
   if (!squareOrderId) throw new Error('No Square order id came back.');
@@ -91,6 +92,7 @@ async function run() {
   const payment = await createSquarePayment(config, token, {
     sourceId: 'cnon:card-nonce-ok',
     squareOrderId,
+    squareLocationId,
     referenceId: order.id,
     amountCents: 450,
     tipCents: 0,

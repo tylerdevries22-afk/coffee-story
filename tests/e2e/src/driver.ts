@@ -9,6 +9,7 @@ import { mkdirSync } from 'node:fs';
 
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
 
+import { startBrowserCoverage, stopBrowserCoverage, writeBrowserCoverage } from './browser-coverage.ts';
 import { stack } from './stack.ts';
 
 /** Etc/GMT zones have inverted signs: Etc/GMT+5 means UTC-5. */
@@ -29,8 +30,12 @@ export async function launchBrowser(): Promise<Browser> {
 }
 
 export async function closeBrowser(): Promise<void> {
-  await browser?.close();
-  browser = null;
+  try {
+    await writeBrowserCoverage();
+  } finally {
+    await browser?.close();
+    browser = null;
+  }
 }
 
 export type AppPage = {
@@ -62,6 +67,8 @@ export async function openApp(
     }, appMode);
   }
   const page = await context.newPage();
+  const coverageStarted = await startBrowserCoverage(page);
+  let coverageStopped = false;
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(String(error).slice(0, 300)));
   await page.goto(url, { waitUntil: 'load', timeout: 60_000 });
@@ -89,7 +96,14 @@ export async function openApp(
     shot,
     dump,
     close: async () => {
-      await context.close();
+      try {
+        if (!coverageStopped) {
+          coverageStopped = true;
+          await stopBrowserCoverage(page, coverageStarted);
+        }
+      } finally {
+        await context.close();
+      }
     },
   };
 }

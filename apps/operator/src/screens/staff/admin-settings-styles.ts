@@ -1,0 +1,51 @@
+import { StyleSheet } from 'react-native';
+import { hairline, type BrandTokens } from '@platform/ui';
+
+export const createStyles = (tokens: BrandTokens) => StyleSheet.create({
+  // The rail runs edge to edge: a negative margin cancels the Screen's own
+  // horizontal padding, and the content pads itself back so the first and last
+  // pill still line up with the copy above them. Without this the pills were
+  // sheared off at the content inset rather than running off the screen.
+  tabRailScroll: { marginHorizontal: -tokens.spacing.xl },
+  tabRail: { gap: tokens.spacing.md, paddingVertical: tokens.spacing.sm, paddingHorizontal: tokens.spacing.xl },
+  tab: { minHeight: 44, justifyContent: 'center', paddingHorizontal: tokens.spacing.lg, borderRadius: tokens.radius.pill, borderWidth: 1, borderColor: tokens.surface, backgroundColor: tokens.surfaceElevated },
+  tabActive: { backgroundColor: tokens.primary, borderColor: tokens.primary },
+  tabText: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 13 },
+  tabTextActive: { color: tokens.surfaceElevated, fontFamily: tokens.fontBody },
+  panel: { gap: tokens.spacing.lg },
+  heading: { gap: tokens.spacing.sm, paddingTop: tokens.spacing.md },
+  panelTitle: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 22 },
+  panelDetail: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 14, lineHeight: 20 },
+  toggleRow: { minHeight: 76, flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.lg, paddingVertical: tokens.spacing.md, borderBottomWidth: 1, borderBottomColor: hairline(tokens) },
+  flex: { flex: 1 },
+  rowTitle: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 16 },
+  rowDetail: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 12, lineHeight: 18, marginTop: 3 },
+  dayRow: { gap: tokens.spacing.md, paddingVertical: tokens.spacing.lg, borderBottomWidth: 1, borderBottomColor: hairline(tokens) },
+  dayHeading: { flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.lg },
+  timeGrid: { flexDirection: 'row', gap: tokens.spacing.md },
+  timeStepper: { flex: 1, gap: tokens.spacing.sm },
+  stepperControls: { minHeight: 48, flexDirection: 'row', alignItems: 'center', borderRadius: tokens.radius.lg, borderWidth: 1, borderColor: tokens.secondary, backgroundColor: tokens.surfaceElevated },
+  stepperButton: { width: 44, minHeight: 46, alignItems: 'center', justifyContent: 'center' },
+  stepperText: { color: tokens.primary, fontFamily: tokens.fontBody, fontSize: 22 },
+  timeValue: { flex: 1, color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 12, textAlign: 'center' },
+  field: { gap: tokens.spacing.sm },
+  fieldLabel: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 12 },
+  input: { minHeight: 52, borderRadius: tokens.radius.lg, borderWidth: 1, borderColor: tokens.textMuted, paddingHorizontal: tokens.spacing.lg, color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 16, backgroundColor: tokens.surfaceElevated },
+  multiline: { minHeight: 90, paddingTop: tokens.spacing.lg, textAlignVertical: 'top' },
+  integrationCard: { gap: tokens.spacing.md, backgroundColor: tokens.surface },
+  connected: { alignSelf: 'flex-start', color: tokens.success, fontFamily: tokens.fontBody, fontSize: 12, paddingVertical: tokens.spacing.sm, paddingHorizontal: tokens.spacing.md, borderRadius: tokens.radius.pill, backgroundColor: tokens.surfaceElevated },
+  formSummary: { gap: tokens.spacing.sm },
+  formHeader: { flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.md, minHeight: 64, paddingVertical: tokens.spacing.md },
+  formHeaderPressed: { opacity: 0.72 },
+  formHeaderCopy: { flex: 1, gap: 2 },
+  formFields: { gap: tokens.spacing.md, paddingBottom: tokens.spacing.md },
+  viewOnSite: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44 },
+  viewOnSiteLabel: { color: tokens.primary, fontFamily: tokens.fontBody, fontSize: 14 },
+  formRow: { gap: 2, paddingTop: tokens.spacing.md, borderTopWidth: 1, borderTopColor: hairline(tokens) },
+  formTitle: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 15 },
+  helper: { color: tokens.warning, fontFamily: tokens.fontBody, fontSize: 12, lineHeight: 18 },
+  controlDisabled: { opacity: 0.55 },
+  error: { color: tokens.danger, fontFamily: tokens.fontBody, fontSize: 13, lineHeight: 19 },
+  notice: { color: tokens.success, fontFamily: tokens.fontBody, fontSize: 13, lineHeight: 19 },
+  pressed: { opacity: 0.7, transform: [{ scale: 0.98 }] },
+});

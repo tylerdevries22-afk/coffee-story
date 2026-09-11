@@ -130,6 +130,7 @@ const ALLOWED = new Map<string, string>([
   ['apps/operator/src/data/business.ts', 'the documented demo fallback; the file itself says reading it in a screen is a bug'],
   ['apps/operator/src/data/catalog.ts', 'as apps/operator/src/data/business.ts'],
   ['apps/operator/src/data/demo.ts', 'as apps/operator/src/data/business.ts'],
+  ['apps/operator/src/data/demo-helpers.ts', 'as apps/operator/src/data/business.ts'],
   ['apps/operator/src/data/demo-tenant.ts', 'the build-time demo tenant registry; live tenancy still comes from login'],
   ['apps/operator/src/features/operations/stillpoint-demo.ts', 'a tenant-selected operations fixture used only in demo mode'],
   ['apps/hq/lib/device-wall-policy.ts', 'the per-tenant device-wall manifest registry: tenants/*/modules/device-wall.json ships with the console until module installations move to the database (modular plan phase 2)'],
@@ -191,10 +192,7 @@ for (const { file, line, needle, text } of violations) {
   console.error(`  ${file}:${line}  (${needle.tenant} ${needle.field})\n    ${text.slice(0, 120)}`);
 }
 console.error(
-  '\nRead the value from the tenant config the surface already holds --'
-  + '\nTENANT_BRAND_CONFIG in the guest apps, the signed-in brand row in'
-  + '\napps/operator and apps/hq, brand_storefront on the display. If this file'
-  + '\nis a fixture standing in for tenant data, add it to ALLOWED in'
-  + '\nscripts/audit-brand-strings.ts with the reason written beside it.',
+  '\nRead the tenant config the surface already holds (TENANT_BRAND_CONFIG, '
+  + 'signed-in brand, brand_storefront). Fixtures: add the path to ALLOWED.',
 );
 process.exit(1);

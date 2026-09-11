@@ -31,13 +31,14 @@ export async function cancelOrder(
 ): Promise<{ orderId: string; status: string; alreadyCancelled: boolean }> {
   const loaded = await deps.db
     .from('orders')
-    .select('id, brand_id, customer_id, status, total_cents, square_payment_id')
+    .select('id, brand_id, customer_id, status, tender_type, total_cents, square_payment_id')
     .eq('id', input.orderId)
     .maybeSingle<{
       id: string;
       brand_id: string;
       customer_id: string | null;
       status: string;
+      tender_type: string;
       total_cents: number;
       square_payment_id: string | null;
     }>();
@@ -55,6 +56,10 @@ export async function cancelOrder(
     throw new OrderError('cancel_unavailable',
       'This order is already paid by card. Ask the shop to cancel and refund it.');
   }
+  if (order.tender_type === 'square_link') {
+    throw new OrderError('cancel_unavailable',
+      'This card checkout may still complete. Ask the shop to cancel it safely.');
+  }
   if (!GUEST_CANCELLABLE.has(order.status)) {
     throw new OrderError('cancel_unavailable',
       order.status === 'in_progress' || order.status === 'ready'
@@ -71,6 +76,10 @@ export async function cancelOrder(
     source: 'customer',
   });
   if (error) {
+    if (/square_card_payment_in_flight/i.test(error.message)) {
+      throw new OrderError('cancel_unavailable',
+        'This card payment may still complete. Retry shortly or ask the shop to cancel it safely.');
+    }
     // The barista started it between the read and the write: the trigger
     // refuses the transition. Only that gets the counter sentence — every
     // other failure is an infrastructure problem, and claiming the shop

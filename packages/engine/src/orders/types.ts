@@ -20,6 +20,7 @@ export class OrderError extends Error {
     | 'idempotency_conflict'
     | 'price_changed'
     | 'item_unavailable'
+    | 'payment_unavailable'
     | 'refund_unavailable'
     | 'cancel_unavailable'
     | MenuPricingError['code'];

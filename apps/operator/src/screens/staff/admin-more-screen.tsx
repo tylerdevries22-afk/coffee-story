@@ -1,16 +1,15 @@
 import * as Haptics from 'expo-haptics';
 import { router, type Href } from 'expo-router';
-import { useMemo, useState, type ReactNode } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { useMemo, useState } from 'react';
+import { Alert, Text, View, useWindowDimensions } from 'react-native';
 
 import { MoreSearchTakeover } from '@/components/more-search-takeover';
 import { PreviewRolePicker } from '@/components/preview-role-picker';
 import { ProfileAvatar } from '@/components/profile-avatar';
-import { Body, PillRow, Screen } from '@/components/ui';
+import { Screen } from '@/components/ui';
 import {
   adminNavigationGroupsForRole,
   searchAdminWorkspace,
-  type AdminSearchResult,
 } from '@/features/admin/admin-navigation';
 import { portalSetup, setupProgressPercent } from '@/features/setup/setup';
 import { openWebPath } from '@/lib/web-navigation';
@@ -20,14 +19,22 @@ import { useAppState } from '@/state/app-context';
 import { useAuth } from '@/state/auth-context';
 import { useOperations } from '@/state/operations-store';
 import { buildStaffNotifications, type StaffDashboard } from '@platform/domain';
-import { useAppTokens, type AppTokens, AppIcon, type AppIconName } from '@platform/ui';
+import { useAppTokens } from '@platform/ui';
+
+import {
+  destinationSymbol,
+  MoreGroup,
+  MoreRow,
+  WorkspaceSearchResults,
+} from './admin-more-components';
+import { createAdminMoreStyles } from './admin-more-styles';
 
 type HeaderSurface = 'profile' | null;
 
 /** Compact role-aware directory, matching the reference More hierarchy. */
 export function AdminMoreScreen({ dashboard }: { dashboard: StaffDashboard }) {
   const appTokens = useAppTokens();
-  const styles = createStyles(appTokens);
+  const styles = createAdminMoreStyles(appTokens);
   const { width, height } = useWindowDimensions();
   const layout = operatorLayout(width, height);
   const {
@@ -159,69 +166,4 @@ export function AdminMoreScreen({ dashboard }: { dashboard: StaffDashboard }) {
       </Screen>
     </MoreSearchTakeover>
   );
-}
-
-function MoreGroup({ label, children }: { label?: string; children: ReactNode }) {
-  const styles = createStyles(useAppTokens());
-  return <View style={styles.groupWrap}>{label ? <Text style={styles.groupLabel}>{label}</Text> : null}<View style={styles.group}>{children}</View></View>;
-}
-
-function MoreRow({ title, subtitle, symbol, leading, onPress, first = false }: {
-  title: string;
-  subtitle?: string;
-  symbol?: AppIconName;
-  leading?: ReactNode;
-  onPress: () => void;
-  first?: boolean;
-}) {
-  const appTokens = useAppTokens();
-  const { colors } = appTokens;
-  const styles = createStyles(appTokens);
-  return (
-    <Pressable accessibilityRole="button" accessibilityLabel={subtitle ? `${title}, ${subtitle}` : title} onPress={onPress} style={({ pressed }) => [styles.row, !first && styles.rowDivider, pressed && styles.pressed]}>
-      {leading ?? (symbol ? <View style={styles.rowIcon}><AppIcon name={symbol} size={19} tintColor={colors.ink700} /></View> : null)}
-      <View style={styles.rowCopy}><Text numberOfLines={1} style={styles.rowTitle}>{title}</Text>{subtitle ? <Text numberOfLines={1} style={styles.rowSubtitle}>{subtitle}</Text> : null}</View>
-      <AppIcon name="chevron.right" size={16} tintColor={colors.ink400} />
-    </Pressable>
-  );
-}
-
-function WorkspaceSearchResults({ query, results, onResult }: { query: string; results: readonly AdminSearchResult[]; onResult: (result: AdminSearchResult) => void }) {
-  return (
-    <Screen keyboardShouldPersistTaps="handled">
-      {!query.trim() ? <Body muted>Search guests, schedule, reports and settings.</Body> : null}
-      {query.trim() && !results.length ? <Body muted>Nothing matches “{query.trim()}”.</Body> : null}
-      {results.map((result) => <PillRow key={result.id} title={result.title} subtitle={result.subtitle} symbol={result.kind === 'client' ? 'person.crop.circle' : 'doc.text'} onPress={() => onResult(result)} />)}
-    </Screen>
-  );
-}
-
-function destinationSymbol(path: string): AppIconName {
-  if (path.includes('calendar')) return 'calendar';
-  if (path.includes('client') || path.includes('staff') || path.includes('talent')) return 'person.crop.circle';
-  if (path.includes('pos')) return 'creditcard';
-  if (path.includes('review')) return 'star';
-  if (path.includes('settings')) return 'gearshape';
-  if (path.includes('dashboard')) return 'square.grid.2x2';
-  if (path.includes('marketing') || path.includes('analytics') || path.includes('ads')) return 'message';
-  return 'doc.text';
-}
-
-function createStyles({ colors, fonts, radius, spacing }: AppTokens) {
-  return StyleSheet.create({
-    content: { gap: spacing.md, paddingHorizontal: spacing.md, paddingBottom: spacing.xxl, backgroundColor: colors.warm },
-    pageTitle: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 24, marginBottom: spacing.xs },
-    groupWrap: { gap: spacing.xs },
-    groupLabel: { color: colors.ink700, fontFamily: fonts.sansBold, fontSize: 13, paddingHorizontal: spacing.xs },
-    group: { overflow: 'hidden', borderWidth: 1, borderColor: colors.ink200, borderRadius: radius.sm, backgroundColor: colors.white },
-    row: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md, backgroundColor: colors.white },
-    rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.ink200 },
-    rowIcon: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
-    rowCopy: { flex: 1, minWidth: 0 },
-    rowTitle: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 16 },
-    rowSubtitle: { color: colors.ink600, fontFamily: fonts.sans, fontSize: 13, marginTop: 2 },
-    pressed: { backgroundColor: colors.brand50 },
-    previewPicker: { padding: spacing.sm },
-    version: { color: colors.ink400, fontFamily: fonts.sans, fontSize: 12, paddingHorizontal: spacing.xs },
-  });
 }

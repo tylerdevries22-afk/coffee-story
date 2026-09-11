@@ -4,19 +4,13 @@ import { Inter_600SemiBold } from '@expo-google-fonts/inter/600SemiBold';
 import { Inter_700Bold } from '@expo-google-fonts/inter/700Bold';
 import { fontGateReady } from '@platform/domain';
 import { initMobileMonitoring } from '@platform/monitoring';
-import {
-  createAnalyticsSurfaceObserver,
-  createAnalyticsTransport,
-  screenKeyFor,
-} from '@platform/analytics';
 import { liveConfigFromEnv, missingLiveConfig, type MobileLiveConfig } from '@/lib/runtime-config';
-import Constants from 'expo-constants';
 import { useFonts } from 'expo-font';
-import { Stack, usePathname } from 'expo-router';
+import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useMemo, useRef, type PropsWithChildren } from 'react';
-import { AppState, Platform, Text, View } from 'react-native';
+import { useEffect, type PropsWithChildren } from 'react';
+import { Platform, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -26,11 +20,12 @@ import { InstallPrompt } from '@/components/install-prompt';
 import { OperatorDevicePresence } from '@/features/device-wall/operator-presence';
 import { brandCache } from '@/lib/brand-cache';
 import { useOperationNotificationObserver } from '@/features/operations/push';
-import { analyticsQueueStore } from '@platform/expo-storage';
 import { AppStateProvider } from '@/state/app-context';
 import { AuthProvider, useAuth } from '@/state/auth-context';
 import { DemoProvider, useDemo } from '@/state/demo-context';
 import { ThemeProvider, useTokens, useTokens as useBrandTokens } from '@platform/ui';
+
+import { OperatorTelemetry } from './operator-telemetry';
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
@@ -128,100 +123,6 @@ function BrandedShell({ children }: PropsWithChildren) {
       {children}
     </ThemeProvider>
   );
-}
-
-const OPERATOR_SCREENS: Readonly<Record<string, string>> = {
-  '/': 'entry',
-  '/notifications': 'notifications',
-  '/staff': 'operator_shell',
-  '/staff/calendar': 'calendar',
-  '/staff/calendar/:id': 'calendar_item',
-  '/staff/crew': 'crew',
-  '/staff/crew/:occurrence': 'operation_detail',
-  '/staff/more': 'more',
-  '/staff/more/:path': 'management_detail',
-  '/staff/orders': 'orders',
-  '/staff/prep': 'prep',
-  '/staff/training': 'training',
-  '/staff/training/:module': 'training_module',
-  '/staff/training/:module/:lesson': 'training_lesson',
-};
-
-function operatorRoute(pathname: string): string {
-  if (pathname.startsWith('/staff/calendar/')) return '/staff/calendar/:id';
-  if (pathname.startsWith('/staff/crew/')) return '/staff/crew/:occurrence';
-  if (pathname.startsWith('/staff/more/')) return '/staff/more/:path';
-  if (pathname.startsWith('/staff/training/')) {
-    const depth = pathname.split('/').filter(Boolean).length;
-    return depth >= 4 ? '/staff/training/:module/:lesson' : '/staff/training/:module';
-  }
-  return pathname;
-}
-
-function operatorAnalyticsPolicy(value: unknown): boolean {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
-  const privacy = (value as { privacy?: unknown }).privacy;
-  return Boolean(privacy && typeof privacy === 'object'
-    && !Array.isArray(privacy)
-    && (privacy as { analyticsBehavioral?: unknown }).analyticsBehavioral === true);
-}
-
-/** Staff journeys require both tenant policy and an explicit account opt-in. */
-function OperatorTelemetry() {
-  const pathname = usePathname();
-  const { brandConfig, session, tenant } = useAuth();
-  const accessToken = session?.access_token ?? null;
-  const brandId = tenant?.brand_id ?? null;
-  const behavioralConsent = operatorAnalyticsPolicy(brandConfig)
-    && session?.user.user_metadata?.analytics_consent === true;
-  const consentUpdatedAt = useRef(new Date().toISOString());
-  const endpoint = useMemo(() => {
-    const baseUrl = process.env.EXPO_PUBLIC_API_URL;
-    if (!baseUrl) return null;
-    try { return new URL('/api/analytics/events', baseUrl).toString(); }
-    catch { return null; }
-  }, []);
-  // Brand-keyed so a tablet that signs into a second tenant starts clean.
-  const store = useMemo(() => brandId ? analyticsQueueStore(brandId) : undefined, [brandId]);
-  const transport = useMemo(() => {
-    if (!endpoint) return null;
-    try {
-      return createAnalyticsTransport({ endpoint, getAccessToken: async () => accessToken, store });
-    } catch {
-      return null;
-    }
-  }, [accessToken, endpoint, store]);
-  const observer = useMemo(() => transport ? createAnalyticsSurfaceObserver(transport) : null, [transport]);
-
-  useEffect(() => () => transport?.dispose(), [transport]);
-  useEffect(() => {
-    if (!transport) return undefined;
-    const subscription = AppState.addEventListener('change', (state) => {
-      if (state === 'active') void transport.flush();
-    });
-    return () => subscription.remove();
-  }, [transport]);
-  useEffect(() => {
-    if (!observer || !session || !brandId) return;
-    const consentKey = `${session.user.id}:${behavioralConsent ? 'allowed' : 'essential'}`;
-    const screenKey = screenKeyFor(operatorRoute(pathname), OPERATOR_SCREENS);
-    observer.observe({
-      sessionIdentity: consentKey,
-      screenKey,
-      context: {
-        brandId,
-        surface: 'operator',
-        appVersion: Constants.expoConfig?.version ?? 'unknown',
-        consent: {
-          essential: true,
-          behavioral: behavioralConsent,
-          source: 'user',
-          updatedAt: consentUpdatedAt.current,
-        },
-      },
-    });
-  }, [behavioralConsent, brandId, observer, pathname, session]);
-  return null;
 }
 
 function OperatorStack() {

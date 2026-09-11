@@ -22,6 +22,24 @@ export async function onboardedBrand(slug = 'coffee-story'): Promise<SeededBrand
   return { brandId, locationId };
 }
 
+/** A real, currently orderable drop for the live customer storefront. */
+export async function seedLiveDrop(brand: SeededBrand, itemSlug = 'latte'): Promise<string> {
+  const item = await sql<{ id: string; name: string }>(
+    `select id, name from public.menu_items where brand_id = $1 and slug = $2 limit 1`,
+    [brand.brandId, itemSlug],
+  );
+  const row = item.rows[0];
+  if (!row) throw new Error(`Brand has no menu item with slug "${itemSlug}".`);
+  await sql(
+    `insert into public.drops
+       (brand_id, item_id, reveal_at, starts_at, ends_at, status)
+     values ($1, $2, now() - interval '2 hours', now() - interval '1 hour',
+       now() + interval '7 days', 'live')`,
+    [brand.brandId, row.id],
+  );
+  return row.name;
+}
+
 export type StaffAccount = { email: string; password: string; userId: string };
 
 /** A confirmed customer account that exercises hosted Auth without external email delivery. */

@@ -15,13 +15,16 @@ describe('parseLocationFeeOverrides', () => {
       ok: true,
       draft: { feeBps: 0, feeBpsTier2: null, tierThresholdCents: 2_000_000 },
     });
+    assert.equal(parseLocationFeeOverrides({
+      feeBps: '9000', feeBpsTier2: '9000', tierThresholdCents: '0',
+    }).ok, true);
   });
 
   it('rejects fractions, negatives, and rates above one hundred percent', () => {
     for (const input of [
       { feeBps: '1.5', feeBpsTier2: '', tierThresholdCents: '' },
       { feeBps: '-1', feeBpsTier2: '', tierThresholdCents: '' },
-      { feeBps: '10001', feeBpsTier2: '', tierThresholdCents: '' },
+      { feeBps: '9001', feeBpsTier2: '', tierThresholdCents: '' },
     ]) assert.equal(parseLocationFeeOverrides(input).ok, false);
   });
 });
@@ -78,5 +81,9 @@ describe('readPlatformFeeTerms', () => {
       return { data: { brand: { feeBps: -1 }, locations: [] }, error: null };
     } };
     assert.equal(await readPlatformFeeTerms(db as never, 'actor-1', 'brand-1'), null);
+    const tooHigh = { async rpc() { return { data: {
+      brand: { feeBps: 9001, feeBpsTier2: 100, tierThresholdCents: 10 }, locations: [],
+    }, error: null }; } };
+    assert.equal(await readPlatformFeeTerms(tooHigh as never, 'actor-1', 'brand-1'), null);
   });
 });

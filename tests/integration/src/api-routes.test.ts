@@ -11,7 +11,10 @@ import { POST as pushTokensPost } from '../../../apps/hq/app/api/push-tokens/rou
 import { POST as referralsPost } from '../../../apps/hq/app/api/referrals/route.ts';
 import { POST as squareWebhookPost } from '../../../apps/hq/app/api/webhooks/square/route.ts';
 
+import { seedSquareConnection } from './platform-fee-test-support.ts';
 import { createSignedInUser, seedBrand, skipUnlessConfigured, sql, stack } from './stack.ts';
+
+const SQUARE_LOCATION_ID = 'SQ-API-ROUTES-LOC';
 
 /**
  * The platform API, in process: each handler is a plain function taking a
@@ -94,6 +97,13 @@ describe('platform API routes', { skip: skipUnlessConfigured }, () => {
   before(async function setup() {
     if (skipUnlessConfigured) return;
     ({ brandId, locationId } = await seedBrand(SLUG));
+    await seedSquareConnection(brandId, locationId);
+    await sql(
+      `update public.square_connections set square_location_id = $2 where location_id = $1`,
+      [locationId, SQUARE_LOCATION_ID],
+    );
+    await sql(`update public.brands set fee_bps = 300, fee_bps_tier2 = 150,
+      tier_threshold_cents = 2500000 where id = $1`, [brandId]);
     await sql(
       `update public.brands set brand_config = $2 where id = $1`,
       [brandId, JSON.stringify({
@@ -280,18 +290,41 @@ describe('platform API routes', { skip: skipUnlessConfigured }, () => {
     }
   });
 
-  it('records a paid webhook once, including the fee when customer_id is null', async () => {
+  it('settles a hosted payment once and resolves its later refund by payment id', async () => {
     const paymentId = `pay-${randomUUID()}`;
+    const squareOrderId = `square-order-${randomUUID()}`;
     const order = await sql<{ id: string }>(
       `insert into public.orders
-        (brand_id, location_id, customer_id, status, subtotal_cents, total_cents, square_payment_id, tender_type)
+        (brand_id, location_id, customer_id, status, subtotal_cents, total_cents, square_order_id, tender_type)
        values ($1, $2, null, 'created', 2200, 2200, $3, 'square_link') returning id`,
-      [brandId, locationId, paymentId],
+      [brandId, locationId, squareOrderId],
+    );
+    const period = await sql<{ month_start: string; month_end: string }>(
+      `select timezone(location.timezone,
+         date_trunc('month', timezone(location.timezone, now())))::text month_start,
+         timezone(location.timezone,
+         date_trunc('month', timezone(location.timezone, now())) + interval '1 month')::text month_end
+       from public.locations location where location.id = $1`,
+      [locationId],
+    );
+    await sql(
+      `insert into public.platform_fee_quotes
+         (order_id, brand_id, location_id, month_start, month_end, gross_cents,
+          fee_cents, fee_bps_applied, expires_at)
+       values ($1, $2, $3, $4::timestamptz, $5::timestamptz, 2200, 66, 300,
+         now() + interval '1 hour')`,
+      [order.rows[0]!.id, brandId, locationId,
+        period.rows[0]!.month_start, period.rows[0]!.month_end],
     );
     const event = {
       event_id: `event-${randomUUID()}`,
       type: 'payment.updated',
-      data: { object: { payment: { id: paymentId, status: 'COMPLETED' } } },
+      data: { object: { payment: {
+        id: paymentId, order_id: squareOrderId, status: 'COMPLETED',
+        location_id: SQUARE_LOCATION_ID,
+        total_money: { amount: 2200, currency: 'USD' },
+        app_fee_money: { amount: 66, currency: 'USD' },
+      } } },
     };
     assert.equal((await squareWebhook(event)).status, 200);
     assert.equal((await squareWebhook(event)).status, 200, 'Square may replay the same event id');
@@ -306,6 +339,27 @@ describe('platform API routes', { skip: skipUnlessConfigured }, () => {
     );
     assert.equal(fee.rows[0]!.count, '1', 'a replay writes no second platform fee');
     assert.equal(earn.rows[0]!.count, '0', 'a guestless payment still records its fee without inventing loyalty');
+
+    const settled = await sql<{ square_payment_id: string | null; status: string }>(
+      `select square_payment_id, status from public.orders where id = $1`, [order.rows[0]!.id],
+    );
+    assert.deepEqual(settled.rows[0], { square_payment_id: paymentId, status: 'paid' });
+
+    const refund = {
+      event_id: `refund-event-${randomUUID()}`,
+      type: 'refund.updated',
+      data: { object: { refund: {
+        id: `refund-${randomUUID()}`,
+        status: 'COMPLETED',
+        payment_id: paymentId,
+        amount_money: { amount: 2200, currency: 'USD' },
+      } } },
+    };
+    assert.equal((await squareWebhook(refund)).status, 200);
+    const refunded = await sql<{ status: string }>(
+      `select status from public.orders where id = $1`, [order.rows[0]!.id],
+    );
+    assert.equal(refunded.rows[0]!.status, 'refunded');
   });
 
   it('replays a customer payment without a second earn or fee', async () => {
@@ -314,16 +368,40 @@ describe('platform API routes', { skip: skipUnlessConfigured }, () => {
       [brandId],
     );
     const paymentId = `pay-${randomUUID()}`;
+    const squareOrderId = `square-order-${randomUUID()}`;
     const order = await sql<{ id: string }>(
       `insert into public.orders
-        (brand_id, location_id, customer_id, status, subtotal_cents, total_cents, square_payment_id, tender_type)
+        (brand_id, location_id, customer_id, status, subtotal_cents, total_cents,
+         square_order_id, tender_type)
        values ($1, $2, $3, 'created', 2200, 2200, $4, 'square_link') returning id`,
-      [brandId, locationId, customer.rows[0]!.id, paymentId],
+      [brandId, locationId, customer.rows[0]!.id, squareOrderId],
+    );
+    const period = await sql<{ month_start: string; month_end: string }>(
+      `select timezone(location.timezone,
+         date_trunc('month', timezone(location.timezone, now())))::text month_start,
+         timezone(location.timezone,
+         date_trunc('month', timezone(location.timezone, now())) + interval '1 month')::text month_end
+       from public.locations location where location.id = $1`,
+      [locationId],
+    );
+    await sql(
+      `insert into public.platform_fee_quotes
+         (order_id, brand_id, location_id, month_start, month_end, gross_cents,
+          fee_cents, fee_bps_applied, expires_at)
+       values ($1, $2, $3, $4::timestamptz, $5::timestamptz, 2200, 66, 300,
+         now() + interval '1 hour')`,
+      [order.rows[0]!.id, brandId, locationId,
+        period.rows[0]!.month_start, period.rows[0]!.month_end],
     );
     const event = {
       event_id: `event-${randomUUID()}`,
       type: 'payment.updated',
-      data: { object: { payment: { id: paymentId, status: 'COMPLETED' } } },
+      data: { object: { payment: {
+        id: paymentId, order_id: squareOrderId, status: 'COMPLETED',
+        location_id: SQUARE_LOCATION_ID,
+        total_money: { amount: 2200, currency: 'USD' },
+        app_fee_money: { amount: 66, currency: 'USD' },
+      } } },
     };
     await squareWebhook(event);
     await squareWebhook(event);

@@ -1,15 +1,14 @@
-import { createElement, useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, Share, Text, View } from 'react-native';
+import { createElement } from 'react';
+import { ScrollView, Text, View } from 'react-native';
 
 import { SheetModal } from '@/components/sheet-modal';
 import { Button } from '@/components/ui';
-import { POINTS_LABEL, demoReferralCode, referralShareUrl } from '@/features/rewards/presentation';
-import { mobileApi } from '@/lib/mobile-api';
+import { POINTS_LABEL } from '@/features/rewards/presentation';
 import { TENANT } from '@/tenant';
-import type { RewardCatalogItem, RewardReferral } from '@platform/domain';
+import type { RewardCatalogItem } from '@platform/domain';
 
-import { hapticError, hapticSuccess } from './haptics';
 import { RewardMark } from './reward-mark';
+import { CloseButton } from './sheet-close-button';
 import { useRewardStyles } from './styles';
 import type { PerkDetail, RewardDetail } from './types';
 import { useTokens as useBrandTokens, AppIcon } from '@platform/ui';
@@ -116,99 +115,6 @@ export function RewardSheet({
   );
 }
 
-export function ReferralSheet({
-  open,
-  isDemo,
-  profileId,
-  onClose,
-}: {
-  open: boolean;
-  isDemo: boolean;
-  profileId: string;
-  onClose: () => void;
-}) {
-  const styles = useRewardStyles();
-  const tokens = useBrandTokens();
-  const demoCode = demoReferralCode(profileId);
-  const [code, setCode] = useState(demoCode);
-  const [shareUrl, setShareUrl] = useState(referralShareUrl(TENANT.business.website, demoCode));
-  const [referrals, setReferrals] = useState<RewardReferral[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (!open || isDemo) return;
-    const timer = setTimeout(() => {
-      setLoading(true);
-      void mobileApi.rewardReferral()
-        .then((payload) => {
-          setCode(payload.code);
-          setShareUrl(payload.shareUrl);
-          setReferrals(payload.referrals);
-        })
-        .catch((error) => {
-          Alert.alert('Referral link unavailable', error instanceof Error ? error.message : 'Try again in a moment.');
-        })
-        .finally(() => setLoading(false));
-    }, 0);
-    return () => clearTimeout(timer);
-  }, [isDemo, open]);
-
-  if (!open) return null;
-
-  async function shareReferral() {
-    try {
-      await Share.share({
-        title: 'A little care, shared',
-        message: `I think you’ll love ${TENANT.identity.name}. Use my invitation to get started: ${shareUrl}`,
-        url: shareUrl,
-      });
-      hapticSuccess();
-    } catch {
-      hapticError();
-      Alert.alert('Could not open sharing', 'Copy the invitation link and try again.');
-    }
-  }
-
-  return (
-    <SheetModal
-      visible
-      onRequestClose={onClose}
-      dismissLabel="Close referral sheet"
-      sheetStyle={styles.referralSheet}
-    >
-      <View style={styles.sheetTop}>
-        <View style={styles.referralPointsBadge}><Text style={styles.referralPointsText}>+20 {POINTS_LABEL}</Text></View>
-        <CloseButton onPress={onClose} />
-      </View>
-      <Text style={styles.referralTitle}>Refer a Friend</Text>
-      <Text style={styles.referralBody}>
-        Share the invitation below. You’ll receive 20 {POINTS_LABEL} after your friend joins and places their first eligible order.
-      </Text>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`Share referral code ${code}`}
-        disabled={loading}
-        onPress={() => void shareReferral()}
-        style={({ pressed }) => [styles.referralLinkCard, pressed && styles.rowPressed]}
-      >
-        <Text numberOfLines={1} style={styles.referralLink}>{loading ? 'Preparing your invitation…' : shareUrl}</Text>
-        <AppIcon name="square.and.arrow.up" size={24} tintColor={tokens.textPrimary} />
-      </Pressable>
-      <Text style={styles.referralFootnote}>New guests only. Beans are awarded after the first completed, paid order.</Text>
-      <View style={styles.referralDivider} />
-      <Text style={styles.referralPendingTitle}>Pending Referrals ({referrals.filter((item) => item.status === 'pending').length})</Text>
-      {referrals.length ? referrals.map((referral) => (
-        <View key={referral.id} style={styles.pendingReferral}>
-          <Text style={styles.pendingReferralCode}>{referral.referralCode}</Text>
-          <Text style={styles.pendingReferralStatus}>{referral.status}</Text>
-        </View>
-      )) : (
-        <View style={styles.referralEmpty}><Text style={styles.referralEmptyText}>No pending referrals</Text></View>
-      )}
-    </SheetModal>
-  );
-}
-
 export function HelpSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const styles = useRewardStyles();
   if (!open) return null;
@@ -250,22 +156,6 @@ export function HelpSheet({ open, onClose }: { open: boolean; onClose: () => voi
   );
 }
 
-function CloseButton({ onPress }: { onPress: () => void }) {
-  const styles = useRewardStyles();
-  const tokens = useBrandTokens();
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel="Close"
-      hitSlop={8}
-      onPress={onPress}
-      style={({ pressed }) => [styles.closeButton, pressed && styles.pressed]}
-    >
-      <AppIcon name="xmark" size={25} tintColor={tokens.textPrimary} weight="medium" />
-    </Pressable>
-  );
-}
-
 export function perkDescription(label: string): string {
   if (label.includes('priority')) {
     return 'Save 5% and skip the line with priority pickup during select early-access windows. Eligible windows are shown before checkout.';
@@ -278,3 +168,5 @@ export function perkDescription(label: string): string {
   }
   return `Receive thoughtful offers selected for your current ${TENANT.identity.name} rewards status.`;
 }
+
+export { ReferralSheet } from './referral-sheet';

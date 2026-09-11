@@ -1,13 +1,10 @@
-import { createHash } from 'node:crypto';
-
 import type { FactoryReleaseDependencies, ContentEvidence, DeploymentEvidence } from './factory-release';
+import { publicationApplied, publicationExpectation, UUID } from './factory-publication';
 import { database, updateRun, updateTask, type FactoryRunRow } from './factory-runtime';
 
-type ArtifactRow = {
-  id: string;
-  artifact_kind: string;
-  source_fingerprint: string;
-};
+export { publicationApplied, publicationExpectation } from './factory-publication';
+
+type ArtifactRow = { id: string; artifact_kind: string; source_fingerprint: string };
 
 const FINGERPRINT = /^[0-9a-f]{64}$/;
 const DIGEST = /^sha256:[0-9a-f]{64}$/;
@@ -60,14 +57,24 @@ export async function completedFactoryTasks(runId: string): Promise<ReadonlySet<
   return new Set((result.data ?? []).map((row) => row.task_key));
 }
 
-export async function loadContentEvidence(runId: string): Promise<ContentEvidence | null> {
+export async function loadContentEvidence(
+  runId: string,
+  brandId: string,
+): Promise<ContentEvidence | null> {
   'use step';
-  const result = await database().from('platform_artifact_manifests')
+  const [result, packageResult] = await Promise.all([
+    database().from('platform_artifact_manifests')
     .select('id,artifact_kind,source_fingerprint,version')
     .eq('run_id', runId).eq('validation_state', 'valid')
     .in('artifact_kind', ['application', 'catalog', 'training'])
-    .order('version', { ascending: false });
+    .order('version', { ascending: false }),
+    database().from('tenant_package_releases')
+      .select('release_key,artifact_digest,source_commit_sha')
+      .eq('brand_id', brandId).in('status', ['verified', 'published'])
+      .order('verified_at', { ascending: false }).limit(1).maybeSingle(),
+  ]);
   if (result.error) throw new Error(`Factory content lookup failed: ${result.error.code}`);
+  if (packageResult.error) throw new Error(`Tenant package lookup failed: ${packageResult.error.code}`);
   const latest = new Map<string, ArtifactRow>();
   for (const row of result.data ?? []) {
     if (!latest.has(row.artifact_kind) && FINGERPRINT.test(row.source_fingerprint)) {
@@ -77,12 +84,13 @@ export async function loadContentEvidence(runId: string): Promise<ContentEvidenc
   const artifacts = ['application', 'catalog', 'training'].map((kind) => latest.get(kind));
   if (artifacts.some((artifact) => !artifact)) return null;
   const complete = artifacts as ArtifactRow[];
-  const digest = createHash('sha256');
-  for (const artifact of complete) {
-    digest.update(`${artifact.artifact_kind}:${artifact.source_fingerprint}\n`);
-  }
+  const packageRelease = packageResult.data;
+  if (!packageRelease || !DIGEST.test(packageRelease.artifact_digest)
+    || !COMMIT.test(packageRelease.source_commit_sha)) return null;
   return {
-    artifactDigest: `sha256:${digest.digest('hex')}`,
+    releaseKey: packageRelease.release_key,
+    sourceCommitSha: packageRelease.source_commit_sha,
+    artifactDigest: packageRelease.artifact_digest,
     artifactIds: complete.map((artifact) => artifact.id),
   };
 }
@@ -98,7 +106,7 @@ async function publishContent(evidence: ContentEvidence): Promise<void> {
   }
 }
 
-async function organizationBrandId(tenantSlug: string): Promise<string | null> {
+export async function organizationBrandId(tenantSlug: string): Promise<string | null> {
   'use step';
   const brand = await database().from('brands').select('id')
     .eq('slug', tenantSlug).in('status', ['provisioning', 'active']).maybeSingle();
@@ -110,16 +118,55 @@ async function organizationBrandId(tenantSlug: string): Promise<string | null> {
   return run.data ? brand.data.id : null;
 }
 
-async function recordReadiness(
+async function promoteTenantPackage(
   brandId: string,
-  check: 'tenant_artifacts' | 'release_approval',
-  evidence: Record<string, string>,
+  content: ContentEvidence,
+  deployment: DeploymentEvidence,
 ): Promise<void> {
   'use step';
-  const result = await database().rpc('record_organization_readiness', {
-    p_brand_id: brandId, p_check_key: check, p_passed: true, p_evidence: evidence,
+  if (!deployment.promotionReference) {
+    throw new Error('Tenant package promotion failed: promotion_evidence_required');
+  }
+  const client = database();
+  const release = await client.from('tenant_package_releases').select('id')
+    .eq('brand_id', brandId).eq('release_key', content.releaseKey)
+    .eq('artifact_digest', content.artifactDigest).maybeSingle();
+  if (release.error || !release.data || !UUID.test(release.data.id)) {
+    throw new Error(`Tenant package release lookup failed: ${release.error?.code ?? 'not_found'}`);
+  }
+  const current = await client.from('tenant_package_publications')
+    .select('current_release_id,artifact_digest,deployment_commit_sha,published_at')
+    .eq('brand_id', brandId).maybeSingle();
+  if (current.error) {
+    throw new Error(`Tenant package publication lookup failed: ${current.error.code}`);
+  }
+  const result = await client.rpc('publish_tenant_package_if_current', {
+    p_brand_id: brandId, p_release_key: content.releaseKey,
+    p_artifact_digest: content.artifactDigest, p_commit_sha: deployment.commitSha,
+    p_canary_reference: deployment.canaryReference,
+    p_approval_reference: deployment.promotionReference,
+    ...publicationExpectation(current.data),
   });
-  if (result.error) throw new Error(`Factory readiness recording failed: ${result.error.code}`);
+  if (!result.error && result.data === release.data.id) return;
+  const target = {
+    releaseId: release.data.id, artifactDigest: content.artifactDigest,
+    commitSha: deployment.commitSha, canaryReference: deployment.canaryReference,
+    approvalReference: deployment.promotionReference,
+  };
+  const [events, pointer] = await Promise.all([
+    client.from('tenant_package_publication_events')
+      .select('package_release_id,artifact_digest,deployment_commit_sha,canary_reference,approval_reference,promoted_at')
+      .eq('brand_id', brandId).eq('package_release_id', target.releaseId)
+      .eq('deployment_commit_sha', target.commitSha)
+      .eq('canary_reference', target.canaryReference)
+      .eq('approval_reference', target.approvalReference).limit(2),
+    client.from('tenant_package_publications')
+      .select('current_release_id,artifact_digest,deployment_commit_sha,published_at')
+      .eq('brand_id', brandId).limit(2),
+  ]);
+  if (events.error || pointer.error || !publicationApplied(events.data, pointer.data, target)) {
+    throw new Error(`Tenant package promotion failed: ${result.error?.code ?? 'response_mismatch'}`);
+  }
 }
 
 async function loadDeploymentEvidence(
@@ -140,7 +187,7 @@ export function factoryReleaseDependencies(run: FactoryRunRow): FactoryReleaseDe
     loadContentEvidence,
     publishContent,
     organizationBrandId,
-    recordReadiness,
+    promoteTenantPackage,
     loadDeploymentEvidence,
     updateTask: (task, state, code = null) => updateTask(run.id, task, state, code),
     updateRun: (values) => updateRun(run.id, values),

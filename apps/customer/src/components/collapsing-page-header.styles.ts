@@ -1,0 +1,77 @@
+import { StyleSheet } from 'react-native';
+
+import type { BrandTokens } from '@platform/ui';
+
+export const createCollapsingPageHeaderStyles = (tokens: BrandTokens) => StyleSheet.create({
+  container: {
+    position: 'relative',
+    overflow: 'hidden',
+    marginHorizontal: -tokens.spacing.xl,
+    borderBottomWidth: 1,
+    justifyContent: 'flex-end',
+    zIndex: 20,
+    elevation: 8,
+  },
+  containerFlush: { marginHorizontal: 0 },
+  largeTitleRow: {
+    position: 'absolute',
+    left: tokens.spacing.xl,
+    right: tokens.spacing.xl,
+    bottom: tokens.spacing.lg,
+    gap: 2,
+  },
+  largeTitleWithActions: { paddingRight: 136 },
+  largeTitle: {
+    fontFamily: tokens.fontDisplay,
+    fontSize: 36,
+    lineHeight: 42,
+    letterSpacing: -1,
+  },
+  compactTitleRow: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 56,
+    paddingHorizontal: 112,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  compactTitle: {
+    width: '100%',
+    textAlign: 'center',
+    fontFamily: tokens.fontBody,
+    fontSize: 17,
+  },
+  eyebrow: {
+    fontFamily: tokens.fontBody,
+    fontSize: 11,
+    letterSpacing: 1.7,
+    lineHeight: 16,
+    textTransform: 'uppercase',
+  },
+  backButton: {
+    position: 'absolute',
+    left: tokens.spacing.md,
+    zIndex: 4,
+    minWidth: 44,
+    maxWidth: 108,
+    height: 56,
+    borderRadius: tokens.radius.pill,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    paddingHorizontal: tokens.spacing.md,
+  },
+  backLabel: { flexShrink: 1, fontFamily: tokens.fontBody, fontSize: 16 },
+  actions: {
+    position: 'absolute',
+    right: tokens.spacing.lg,
+    height: 56,
+    zIndex: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: tokens.spacing.md,
+  },
+  pressed: { opacity: 0.58 },
+});
