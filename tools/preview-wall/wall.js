@@ -142,7 +142,7 @@ function retarget(data, organization) {
   }
 }
 
-fetch('./wall-surfaces.json')
+fetch('./wall-surfaces.json', { signal: AbortSignal.timeout(10_000) })
   .then((response) => (response.ok ? response.json() : Promise.reject(new Error(`HTTP ${response.status}`))))
   .then((data) => {
     if (!validWallData(data)) throw new Error('Invalid wall data');

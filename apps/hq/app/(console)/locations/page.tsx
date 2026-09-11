@@ -33,6 +33,7 @@ const DELETED_NOTICE: Record<string, { message: string; failed: boolean }> = {
   '1': { message: 'Location deleted.', failed: false },
   denied: { message: 'Only a brand owner can delete a location.', failed: true },
   last: { message: 'Keep at least one location. Suspend or offboard the organization instead.', failed: true },
+  history: { message: 'This location still has order history. Offboard or archive it instead of deleting.', failed: true },
   failed: { message: 'That location could not be deleted. Try again.', failed: true },
   demo: { message: 'Location delete needs a configured database.', failed: true },
 };

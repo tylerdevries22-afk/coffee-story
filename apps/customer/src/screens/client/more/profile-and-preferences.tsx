@@ -115,7 +115,7 @@ export function Profile({
         demo.updateProfile({ ...portal.profile, avatarUrl });
         setProfile((current) => ({ ...current, avatarUrl }));
       } else {
-        const localResponse = await fetch(asset.uri);
+        const localResponse = await fetch(asset.uri, { signal: AbortSignal.timeout(15_000) });
         if (!localResponse.ok) throw new Error('The selected photo could not be read.');
         const photo = await localResponse.blob();
         if (photo.size > MAX_AVATAR_BYTES) throw new Error('Choose a profile photo smaller than 5 MB.');
