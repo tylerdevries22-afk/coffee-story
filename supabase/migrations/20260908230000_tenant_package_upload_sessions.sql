@@ -7,7 +7,7 @@ create table app_private.tenant_package_upload_sessions (
   source_commit_sha text not null check (source_commit_sha ~ '^[0-9a-f]{40}$'),
   envelope_sha256 text not null check (envelope_sha256 ~ '^sha256:[0-9a-f]{64}$'),
   archive_sha256 text not null check (archive_sha256 ~ '^sha256:[0-9a-f]{64}$'),
-  object_prefix text not null check (length(object_prefix) = 166),
+  object_prefix text not null check (octet_length(object_prefix) = 166),
   file_count integer not null check (file_count between 1 and 100000),
   total_bytes bigint not null check (total_bytes between 1 and 1073741824),
   status text not null default 'open' check (status in ('open', 'staged', 'purged')),
@@ -56,10 +56,23 @@ alter table app_private.tenant_package_purge_claim_outcomes enable row level sec
 revoke all on table app_private.tenant_package_purge_claim_outcomes
   from public, anon, authenticated, service_role;
 
-create function app_private.is_deletable_tenant_package_object(
+create or replace function app_private.is_canonical_tenant_package_prefix(p_prefix text)
+returns boolean language sql immutable set search_path = '' as $$
+  select coalesce(
+    octet_length(p_prefix) in (101, 166)
+    and p_prefix ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[0-9a-f]{64}(/[0-9a-f]{64})?$',
+    false
+  )
+$$;
+revoke all on function app_private.is_canonical_tenant_package_prefix(text)
+  from public, anon, authenticated, service_role;
+
+create or replace function app_private.is_deletable_tenant_package_object(
   p_name text, p_prefix text
 ) returns boolean language sql immutable set search_path = '' as $$
-  select octet_length(p_name) <= 1500
+  select coalesce(
+    app_private.is_canonical_tenant_package_prefix(p_prefix)
+    and octet_length(p_name) <= 1500
     and p_name !~ '(\\|[[:cntrl:]]|(^|/)\.{1,2}(/|$)|//|/$)'
     and (
       p_name = p_prefix || '/archive.zip'
@@ -67,17 +80,23 @@ create function app_private.is_deletable_tenant_package_object(
         and length(p_name) > length(p_prefix) + 7)
       or (p_name like p_prefix || '/previews/%'
         and length(p_name) > length(p_prefix) + 10)
-    )
+    ),
+    false
+  )
 $$;
 revoke all on function app_private.is_deletable_tenant_package_object(text, text)
   from public, anon, authenticated, service_role;
 
-create function app_private.is_tenant_package_namespace_object(
+create or replace function app_private.is_tenant_package_namespace_object(
   p_name text, p_prefix text
 ) returns boolean language sql immutable set search_path = '' as $$
-  select (p_name = p_prefix or p_name like p_prefix || '/%')
+  select coalesce(
+    app_private.is_canonical_tenant_package_prefix(p_prefix)
+    and (p_name = p_prefix or p_name like p_prefix || '/%')
     and (array_length(regexp_split_to_array(p_prefix, '/'), 1) <> 2
-      or substring(p_name from length(p_prefix) + 2) !~ '^[0-9a-f]{64}(/|$)')
+      or substring(p_name from length(p_prefix) + 2) !~ '^[0-9a-f]{64}(/|$)'),
+    false
+  )
 $$;
 revoke all on function app_private.is_tenant_package_namespace_object(text, text)
   from public, anon, authenticated, service_role;
@@ -157,7 +176,7 @@ begin
       raise exception using errcode = '23514', message = 'tenant_package_upload_closed';
     end if;
     update app_private.tenant_package_upload_sessions upload_session set
-      expires_at = statement_timestamp() + interval '15 minutes',
+      expires_at = clock_timestamp() + interval '15 minutes',
       updated_at = statement_timestamp()
     where upload_session.id = session_row.id;
     return session_row.id;
@@ -169,7 +188,7 @@ begin
   ) values (
     p_brand_id, p_release_key, p_artifact_digest, p_commit_sha, p_envelope_sha256,
     p_archive_sha256, p_object_prefix, p_file_count, p_total_bytes,
-    statement_timestamp() + interval '15 minutes'
+    clock_timestamp() + interval '15 minutes'
   ) returning id into session_row.id;
   return session_row.id;
 end $$;
@@ -184,7 +203,7 @@ grant execute on function public.begin_tenant_package_upload(
 create or replace function public.renew_tenant_package_upload(p_session_id uuid)
 returns timestamptz language plpgsql security definer set search_path = '' as $$
 declare
-  renewed_until timestamptz := statement_timestamp() + interval '15 minutes';
+  renewed_until timestamptz;
   session_row app_private.tenant_package_upload_sessions%rowtype;
 begin
   if p_session_id is null then
@@ -206,6 +225,7 @@ begin
     end if;
     return session_row.expires_at;
   end if;
+  renewed_until := clock_timestamp() + interval '15 minutes';
   update app_private.tenant_package_upload_sessions upload_session set
     expires_at = renewed_until, updated_at = statement_timestamp()
   where upload_session.id = p_session_id;
@@ -222,18 +242,6 @@ alter function public.stage_tenant_package_without_session(
   uuid, text, text, text, text, text, text, integer, bigint, jsonb
 ) set schema app_private;
 revoke all on function app_private.stage_tenant_package_without_session(
-  uuid, text, text, text, text, text, text, integer, bigint, jsonb
-) from public, anon, authenticated, service_role;
-
-create or replace function public.stage_tenant_package(
-  p_brand_id uuid, p_release_key text, p_artifact_digest text, p_commit_sha text,
-  p_envelope_sha256 text, p_archive_sha256 text, p_archive_object_path text,
-  p_file_count integer, p_total_bytes bigint, p_files jsonb
-) returns uuid language plpgsql security definer set search_path = '' as $$
-begin
-  raise exception using errcode = '23514', message = 'tenant_package_upload_session_required';
-end $$;
-revoke all on function public.stage_tenant_package(
   uuid, text, text, text, text, text, text, integer, bigint, jsonb
 ) from public, anon, authenticated, service_role;
 
@@ -275,29 +283,29 @@ begin
     raise exception using errcode = '23514', message = 'tenant_package_upload_mismatch';
   end if;
   if session_row.status = 'staged' and session_row.purge_started_at is null then
-    select release.id into release_id from public.tenant_package_releases release
-    where release.id = session_row.staged_release_id
-      and release.brand_id = p_brand_id and release.release_key = p_release_key
-      and release.artifact_digest = p_artifact_digest
-      and release.source_commit_sha = p_commit_sha
-      and release.envelope_sha256 = p_envelope_sha256
-      and release.archive_sha256 = p_archive_sha256
-      and release.archive_object_path = p_archive_object_path
-      and release.file_count = p_file_count and release.total_bytes = p_total_bytes
-      and release.objects_purged_at is null;
-    if release_id is null then
+    if not app_private.tenant_package_manifest_matches(
+      session_row.staged_release_id, p_files
+    ) then
+      raise exception using errcode = '23514', message = 'tenant_package_upload_mismatch';
+    end if;
+    release_id := app_private.stage_tenant_package_without_session(
+      p_brand_id, p_release_key, p_artifact_digest, p_commit_sha,
+      p_envelope_sha256, p_archive_sha256, p_archive_object_path,
+      p_file_count, p_total_bytes, p_files
+    );
+    if release_id is distinct from session_row.staged_release_id then
       raise exception using errcode = '23514', message = 'tenant_package_upload_mismatch';
     end if;
     return release_id;
   end if;
   if session_row.status <> 'open' or session_row.purge_started_at is not null
-     or session_row.expires_at <= statement_timestamp() then
+     or session_row.expires_at <= clock_timestamp() then
     raise exception using errcode = '23514', message = 'tenant_package_upload_closed';
   end if;
   if pg_catalog.jsonb_typeof(p_files) = 'array' and exists (
     select 1 from pg_catalog.jsonb_array_elements(p_files) item
-    where coalesce(item->>'relativePath', '') ~ '(\\|[[:cntrl:]]|(^|/)\.{1,2}(/|$)|//|/$)'
-       or coalesce(item->>'pathKey', '') ~ '(\\|[[:cntrl:]]|(^|/)\.{1,2}(/|$)|//|/$)'
+    where coalesce(item->>'relativePath', '') ~ '(^/|\\|[[:cntrl:]]|(^|/)\.{1,2}(/|$)|//|/$)'
+       or coalesce(item->>'pathKey', '') ~ '(^/|\\|[[:cntrl:]]|(^|/)\.{1,2}(/|$)|//|/$)'
        or octet_length(coalesce(item->>'objectPath', '')) > 1500
        or octet_length(coalesce(item->>'previewObjectPath', '')) > 1500
   ) then
@@ -339,6 +347,7 @@ declare
   target_identifier uuid;
   target_reason text;
   target_claim uuid := gen_random_uuid();
+  claim_lease_until timestamptz;
 begin
   if p_limit is null or p_limit not between 1 and 500 then
     raise exception using errcode = '22023', message = 'tenant_package_cleanup_limit_invalid';
@@ -348,14 +357,15 @@ begin
   into target_brand, target_prefix, target_identifier, target_reason
   from (
     select upload_session.brand_id, upload_session.object_prefix, upload_session.id,
-      'upload_expired'::text as reason, upload_session.expires_at as due_at
+      'upload_expired'::text as reason, upload_session.expires_at as due_at,
+      0 as priority
     from app_private.tenant_package_upload_sessions upload_session
     where upload_session.objects_purged_at is null
       and upload_session.purge_blocked_at is null
       and upload_session.status = 'open'
-      and upload_session.expires_at <= statement_timestamp()
+      and upload_session.expires_at <= clock_timestamp()
       and (upload_session.purge_lease_until is null
-        or upload_session.purge_lease_until <= statement_timestamp())
+        or upload_session.purge_lease_until <= clock_timestamp())
       and not exists (
         select 1 from app_private.tenant_package_upload_sessions active_session
         where active_session.brand_id = upload_session.brand_id
@@ -364,7 +374,7 @@ begin
           and active_session.purge_blocked_at is null
           and active_session.status = 'open'
           and active_session.purge_started_at is null
-          and active_session.expires_at > statement_timestamp()
+          and active_session.expires_at > clock_timestamp()
       )
       and not exists (
         select 1 from app_private.tenant_package_upload_sessions blocked_session
@@ -382,9 +392,9 @@ begin
           and (sibling_publication.current_release_id is not null
             or sibling.purge_blocked_at is not null
             or not ((sibling.status = 'verified'
-                and sibling.verified_at <= statement_timestamp() - interval '24 hours')
+                and sibling.verified_at <= clock_timestamp() - interval '24 hours')
               or (sibling.status = 'superseded'
-                and sibling.object_retention_until <= statement_timestamp())
+                and sibling.object_retention_until <= clock_timestamp())
               or (sibling.status = 'failed' and sibling.purge_started_at is not null)))
       )
     union all
@@ -395,19 +405,27 @@ begin
       case when release.purge_reason = 'stale_verified' or release.status = 'verified'
         then 'stale_verified' else 'retention_expired' end,
       case when release.status = 'verified' then release.verified_at
-        else release.object_retention_until end
+        else release.object_retention_until end,
+      0
     from public.tenant_package_releases release
     left join public.tenant_package_publications publication
       on publication.current_release_id = release.id
     where release.objects_purged_at is null
       and release.purge_blocked_at is null
       and publication.current_release_id is null
+      and pg_catalog.right(release.archive_object_path, 12) = '/archive.zip'
+      and app_private.is_canonical_tenant_package_prefix(
+        pg_catalog.left(
+          release.archive_object_path,
+          pg_catalog.length(release.archive_object_path) - 12
+        )
+      )
       and (release.purge_lease_until is null
-        or release.purge_lease_until <= statement_timestamp())
+        or release.purge_lease_until <= clock_timestamp())
       and ((release.status = 'verified'
-          and release.verified_at <= statement_timestamp() - interval '24 hours')
+          and release.verified_at <= clock_timestamp() - interval '24 hours')
         or (release.status = 'superseded'
-          and release.object_retention_until <= statement_timestamp())
+          and release.object_retention_until <= clock_timestamp())
         or (release.status = 'failed' and release.purge_started_at is not null))
       and not exists (
         select 1 from app_private.tenant_package_upload_sessions active_session
@@ -418,7 +436,7 @@ begin
           and active_session.purge_blocked_at is null
           and active_session.status = 'open'
           and active_session.purge_started_at is null
-          and active_session.expires_at > statement_timestamp()
+          and active_session.expires_at > clock_timestamp()
       )
       and not exists (
         select 1 from app_private.tenant_package_upload_sessions blocked_session
@@ -437,17 +455,80 @@ begin
           and (sibling_publication.current_release_id is not null
             or sibling.purge_blocked_at is not null
             or not ((sibling.status = 'verified'
-                and sibling.verified_at <= statement_timestamp() - interval '24 hours')
+                and sibling.verified_at <= clock_timestamp() - interval '24 hours')
               or (sibling.status = 'superseded'
-                and sibling.object_retention_until <= statement_timestamp())
+                and sibling.object_retention_until <= clock_timestamp())
               or (sibling.status = 'failed' and sibling.purge_started_at is not null)))
       )
+    union all
+    select release.brand_id, null::text, release.id, 'cleanup_blocked'::text,
+      case when release.status = 'verified' then release.verified_at
+        else release.object_retention_until end,
+      1
+    from public.tenant_package_releases release
+    left join public.tenant_package_publications publication
+      on publication.current_release_id = release.id
+    where release.objects_purged_at is null
+      and release.purge_blocked_at is null
+      and publication.current_release_id is null
+      and (release.purge_lease_until is null
+        or release.purge_lease_until <= clock_timestamp())
+      and ((release.status = 'verified'
+          and release.verified_at <= clock_timestamp() - interval '24 hours')
+        or (release.status = 'superseded'
+          and release.object_retention_until <= clock_timestamp())
+        or (release.status = 'failed' and release.purge_started_at is not null))
+      and (pg_catalog.right(release.archive_object_path, 12) <> '/archive.zip'
+        or not app_private.is_canonical_tenant_package_prefix(
+          pg_catalog.left(
+            release.archive_object_path,
+            pg_catalog.length(release.archive_object_path) - 12
+          )
+        ))
   ) candidate
-  order by candidate.due_at nulls first, candidate.id
+  order by candidate.priority, candidate.due_at nulls first, candidate.id
   limit 1;
   if target_identifier is null then return; end if;
 
   perform 1 from public.brands brand where brand.id = target_brand for update;
+
+  if target_reason = 'cleanup_blocked' then
+    update public.tenant_package_releases release set
+      purge_blocked_at = clock_timestamp(),
+      purge_blocked_reason = 'noncanonical_objects',
+      purge_claim_id = null,
+      purge_lease_until = null
+    where release.id = target_identifier
+      and release.brand_id = target_brand
+      and release.objects_purged_at is null
+      and release.purge_blocked_at is null
+      and (release.purge_lease_until is null
+        or release.purge_lease_until <= clock_timestamp())
+      and ((release.status = 'verified'
+          and release.verified_at <= clock_timestamp() - interval '24 hours')
+        or (release.status = 'superseded'
+          and release.object_retention_until <= clock_timestamp())
+        or (release.status = 'failed' and release.purge_started_at is not null))
+      and not exists (
+        select 1 from public.tenant_package_publications publication
+        where publication.current_release_id = release.id
+      )
+      and (pg_catalog.right(release.archive_object_path, 12) <> '/archive.zip'
+        or not app_private.is_canonical_tenant_package_prefix(
+          pg_catalog.left(
+            release.archive_object_path,
+            pg_catalog.length(release.archive_object_path) - 12
+          )
+        ));
+    if not found then return; end if;
+
+    insert into app_private.tenant_package_purge_claim_outcomes (claim_id, result)
+    values (target_claim, false);
+    return query
+      select null::text, target_identifier, target_claim, target_reason;
+    return;
+  end if;
+
   perform 1 from app_private.tenant_package_upload_sessions upload_session
   where upload_session.brand_id = target_brand
     and upload_session.object_prefix = target_prefix
@@ -462,13 +543,13 @@ begin
     where upload_session.brand_id = target_brand
       and upload_session.object_prefix = target_prefix
       and upload_session.purge_claim_id is not null
-      and upload_session.purge_lease_until > statement_timestamp()
+      and upload_session.purge_lease_until > clock_timestamp()
   ) or exists (
     select 1 from public.tenant_package_releases release
     where release.brand_id = target_brand
       and release.archive_object_path = target_prefix || '/archive.zip'
       and release.purge_claim_id is not null
-      and release.purge_lease_until > statement_timestamp()
+      and release.purge_lease_until > clock_timestamp()
   ) or exists (
     select 1 from app_private.tenant_package_upload_sessions upload_session
     where upload_session.brand_id = target_brand
@@ -486,7 +567,7 @@ begin
       and upload_session.objects_purged_at is null
       and upload_session.status = 'open'
       and upload_session.purge_started_at is null
-      and upload_session.expires_at > statement_timestamp()
+      and upload_session.expires_at > clock_timestamp()
   ) or exists (
     select 1 from public.tenant_package_releases release
     left join public.tenant_package_publications publication
@@ -496,9 +577,9 @@ begin
       and release.objects_purged_at is null
       and (publication.current_release_id is not null
         or not ((release.status = 'verified'
-            and release.verified_at <= statement_timestamp() - interval '24 hours')
+            and release.verified_at <= clock_timestamp() - interval '24 hours')
           or (release.status = 'superseded'
-            and release.object_retention_until <= statement_timestamp())
+            and release.object_retention_until <= clock_timestamp())
           or (release.status = 'failed' and release.purge_started_at is not null)))
   ) or (
     not exists (
@@ -508,7 +589,7 @@ begin
         and upload_session.objects_purged_at is null
         and upload_session.purge_blocked_at is null
         and upload_session.status = 'open'
-        and upload_session.expires_at <= statement_timestamp()
+        and upload_session.expires_at <= clock_timestamp()
     ) and not exists (
       select 1 from public.tenant_package_releases release
       where release.brand_id = target_brand
@@ -516,19 +597,20 @@ begin
         and release.objects_purged_at is null
         and release.purge_blocked_at is null
         and ((release.status = 'verified'
-            and release.verified_at <= statement_timestamp() - interval '24 hours')
+            and release.verified_at <= clock_timestamp() - interval '24 hours')
           or (release.status = 'superseded'
-            and release.object_retention_until <= statement_timestamp())
+            and release.object_retention_until <= clock_timestamp())
           or (release.status = 'failed' and release.purge_started_at is not null))
     )
   ) then
     return;
   end if;
 
+  claim_lease_until := clock_timestamp() + interval '10 minutes';
   update app_private.tenant_package_upload_sessions upload_session set
     purge_started_at = coalesce(upload_session.purge_started_at, statement_timestamp()),
     purge_claim_id = target_claim,
-    purge_lease_until = statement_timestamp() + interval '10 minutes',
+    purge_lease_until = claim_lease_until,
     updated_at = statement_timestamp()
   where upload_session.brand_id = target_brand
     and upload_session.object_prefix = target_prefix
@@ -539,12 +621,13 @@ begin
       else coalesce(release.purge_reason, 'retention_expired') end,
     purge_started_at = coalesce(release.purge_started_at, statement_timestamp()),
     purge_claim_id = target_claim,
-    purge_lease_until = statement_timestamp() + interval '10 minutes'
+    purge_lease_until = claim_lease_until
   where release.brand_id = target_brand
     and release.archive_object_path = target_prefix || '/archive.zip'
     and release.objects_purged_at is null;
 
-  if exists (
+  if not app_private.is_canonical_tenant_package_prefix(target_prefix)
+     or exists (
     select 1 from storage.objects object_row
     where object_row.bucket_id = 'tenant-packages'
       and app_private.is_tenant_package_namespace_object(object_row.name, target_prefix)
@@ -570,6 +653,101 @@ end $$;
 revoke all on function public.claim_tenant_package_cleanup_candidates(integer)
   from public, anon, authenticated;
 grant execute on function public.claim_tenant_package_cleanup_candidates(integer)
+  to service_role;
+
+create or replace function public.renew_tenant_package_purge_claim(p_claim_id uuid)
+returns timestamptz language plpgsql security definer set search_path = '' as $$
+declare
+  target_brand uuid;
+  target_prefix text;
+  renewed_until timestamptz;
+begin
+  if p_claim_id is null then
+    raise exception using errcode = '22023', message = 'tenant_package_cleanup_claim_invalid';
+  end if;
+
+  select claimed.brand_id, claimed.object_prefix into target_brand, target_prefix
+  from (
+    select upload_session.brand_id, upload_session.object_prefix
+    from app_private.tenant_package_upload_sessions upload_session
+    where upload_session.purge_claim_id = p_claim_id
+    union all
+    select release.brand_id,
+      substring(release.archive_object_path from 1
+        for length(release.archive_object_path) - 12)
+    from public.tenant_package_releases release
+    where release.purge_claim_id = p_claim_id
+  ) claimed limit 1;
+  if target_brand is null then
+    raise exception using errcode = '23514', message = 'tenant_package_cleanup_claim_invalid';
+  end if;
+
+  perform 1 from public.brands brand where brand.id = target_brand for update;
+  perform 1 from app_private.tenant_package_upload_sessions upload_session
+  where upload_session.brand_id = target_brand
+    and upload_session.object_prefix = target_prefix
+    and upload_session.objects_purged_at is null for update;
+  perform 1 from public.tenant_package_releases release
+  where release.brand_id = target_brand
+    and release.archive_object_path = target_prefix || '/archive.zip'
+    and release.objects_purged_at is null for update;
+
+  if not exists (
+    select 1 from app_private.tenant_package_upload_sessions upload_session
+    where upload_session.purge_claim_id = p_claim_id
+      and upload_session.purge_lease_until > clock_timestamp()
+    union all
+    select 1 from public.tenant_package_releases release
+    where release.purge_claim_id = p_claim_id
+      and release.purge_lease_until > clock_timestamp()
+  ) or exists (
+    select 1 from app_private.tenant_package_upload_sessions upload_session
+    where upload_session.purge_claim_id = p_claim_id
+      and (upload_session.purge_lease_until <= clock_timestamp()
+        or upload_session.objects_purged_at is not null
+        or upload_session.purge_blocked_at is not null)
+    union all
+    select 1 from public.tenant_package_releases release
+    where release.purge_claim_id = p_claim_id
+      and (release.purge_lease_until <= clock_timestamp()
+        or release.objects_purged_at is not null
+        or release.purge_blocked_at is not null)
+  ) or exists (
+    select 1 from app_private.tenant_package_upload_sessions upload_session
+    where upload_session.brand_id = target_brand
+      and upload_session.object_prefix = target_prefix
+      and upload_session.objects_purged_at is null
+      and upload_session.purge_started_at is not null
+      and upload_session.purge_claim_id is distinct from p_claim_id
+    union all
+    select 1 from public.tenant_package_releases release
+    where release.brand_id = target_brand
+      and release.archive_object_path = target_prefix || '/archive.zip'
+      and release.objects_purged_at is null
+      and release.purge_started_at is not null
+      and release.purge_claim_id is distinct from p_claim_id
+  ) or exists (
+    select 1 from public.tenant_package_publications publication
+    join public.tenant_package_releases release
+      on release.id = publication.current_release_id
+    where release.brand_id = target_brand
+      and release.archive_object_path = target_prefix || '/archive.zip'
+  ) then
+    raise exception using errcode = '23514', message = 'tenant_package_cleanup_claim_invalid';
+  end if;
+
+  renewed_until := clock_timestamp() + interval '10 minutes';
+  update app_private.tenant_package_upload_sessions upload_session set
+    purge_lease_until = renewed_until,
+    updated_at = statement_timestamp()
+  where upload_session.purge_claim_id = p_claim_id;
+  update public.tenant_package_releases release set purge_lease_until = renewed_until
+  where release.purge_claim_id = p_claim_id;
+  return renewed_until;
+end $$;
+revoke all on function public.renew_tenant_package_purge_claim(uuid)
+  from public, anon, authenticated;
+grant execute on function public.renew_tenant_package_purge_claim(uuid)
   to service_role;
 
 create or replace function public.confirm_tenant_package_purge_claim(p_claim_id uuid)
@@ -611,6 +789,14 @@ begin
   perform 1 from public.tenant_package_releases release
   where release.purge_claim_id = p_claim_id for update;
   if exists (
+    select 1 from app_private.tenant_package_upload_sessions upload_session
+    where upload_session.purge_claim_id = p_claim_id
+      and upload_session.purge_lease_until <= clock_timestamp()
+    union all
+    select 1 from public.tenant_package_releases release
+    where release.purge_claim_id = p_claim_id
+      and release.purge_lease_until <= clock_timestamp()
+  ) or exists (
     select 1 from public.tenant_package_publications publication
     join public.tenant_package_releases release
       on release.id = publication.current_release_id
@@ -618,7 +804,8 @@ begin
   ) then
     raise exception using errcode = '23514', message = 'tenant_package_cleanup_claim_invalid';
   end if;
-  if exists (
+  if not app_private.is_canonical_tenant_package_prefix(target_prefix)
+     or exists (
     select 1 from storage.objects object_row
     where object_row.bucket_id = 'tenant-packages'
       and app_private.is_tenant_package_namespace_object(object_row.name, target_prefix)
@@ -674,17 +861,143 @@ grant execute on function public.confirm_tenant_package_purge_claim(uuid)
 
 create or replace function app.assert_tenant_package_upload_sessions()
 returns void language plpgsql stable set search_path = '' as $$
+declare
+  staged_release_index text;
+  staged_release_fk boolean;
 begin
   perform app.assert_tenant_package_access_integrity();
+  select index_row.indexdef into staged_release_index
+  from pg_catalog.pg_indexes index_row
+  where index_row.schemaname = 'app_private'
+    and index_row.tablename = 'tenant_package_upload_sessions'
+    and index_row.indexname = 'tenant_package_upload_sessions_staged_release_idx';
+  select exists (
+    select 1
+    from pg_catalog.pg_constraint constraint_row
+    where constraint_row.contype = 'f'
+      and constraint_row.conrelid =
+        'app_private.tenant_package_upload_sessions'::pg_catalog.regclass
+      and constraint_row.confrelid =
+        'public.tenant_package_releases'::pg_catalog.regclass
+      and (select pg_catalog.array_agg(attribute.attname order by key_column.ordinality)
+        from pg_catalog.unnest(constraint_row.conkey)
+          with ordinality key_column(attnum, ordinality)
+        join pg_catalog.pg_attribute attribute
+          on attribute.attrelid = constraint_row.conrelid
+          and attribute.attnum = key_column.attnum)
+        = array['staged_release_id', 'brand_id']::name[]
+      and (select pg_catalog.array_agg(attribute.attname order by key_column.ordinality)
+        from pg_catalog.unnest(constraint_row.confkey)
+          with ordinality key_column(attnum, ordinality)
+        join pg_catalog.pg_attribute attribute
+          on attribute.attrelid = constraint_row.confrelid
+          and attribute.attnum = key_column.attnum)
+        = array['id', 'brand_id']::name[]
+  ) into staged_release_fk;
+
   if pg_catalog.to_regclass('app_private.tenant_package_upload_sessions') is null
      or pg_catalog.to_regclass('app_private.tenant_package_purge_claim_outcomes') is null
+     or not staged_release_fk
+     or staged_release_index is null
+     or staged_release_index !~ '\(staged_release_id, brand_id\)'
+     or pg_catalog.to_regprocedure(
+       'app_private.is_canonical_tenant_package_prefix(text)'
+     ) is null
      or pg_catalog.to_regprocedure(
        'public.begin_tenant_package_upload(uuid,text,text,text,text,text,text,integer,bigint)'
      ) is null
      or pg_catalog.to_regprocedure('public.renew_tenant_package_upload(uuid)') is null
      or pg_catalog.to_regprocedure(
+       'public.renew_tenant_package_purge_claim(uuid)'
+     ) is null
+     or pg_catalog.to_regprocedure(
+       'public.claim_tenant_package_cleanup_candidates(integer)'
+     ) is null
+     or pg_catalog.to_regprocedure(
+       'public.confirm_tenant_package_purge_claim(uuid)'
+     ) is null
+     or pg_catalog.to_regprocedure(
        'public.stage_tenant_package(uuid,text,text,text,text,text,text,integer,bigint,jsonb,uuid)'
-     ) is null then
+     ) is null
+     or pg_catalog.to_regprocedure(
+       'public.stage_tenant_package(uuid,text,text,text,text,text,text,integer,bigint,jsonb)'
+     ) is not null
+     or exists (
+       select 1 from pg_catalog.unnest(array[
+         'public.begin_tenant_package_upload(uuid,text,text,text,text,text,text,integer,bigint)'::pg_catalog.regprocedure,
+         'public.renew_tenant_package_upload(uuid)'::pg_catalog.regprocedure,
+         'public.stage_tenant_package(uuid,text,text,text,text,text,text,integer,bigint,jsonb,uuid)'::pg_catalog.regprocedure,
+         'public.claim_tenant_package_cleanup_candidates(integer)'::pg_catalog.regprocedure,
+         'public.renew_tenant_package_purge_claim(uuid)'::pg_catalog.regprocedure,
+         'public.confirm_tenant_package_purge_claim(uuid)'::pg_catalog.regprocedure
+       ]) rpc(oid)
+       where not pg_catalog.has_function_privilege('service_role', rpc.oid, 'EXECUTE')
+          or pg_catalog.has_function_privilege('anon', rpc.oid, 'EXECUTE')
+          or pg_catalog.has_function_privilege('authenticated', rpc.oid, 'EXECUTE')
+          or exists (
+            select 1 from pg_catalog.pg_proc procedure_row
+            cross join lateral pg_catalog.aclexplode(coalesce(
+              procedure_row.proacl,
+              pg_catalog.acldefault('f', procedure_row.proowner)
+            )) privilege_row
+            where procedure_row.oid = rpc.oid
+              and privilege_row.grantee = 0
+              and privilege_row.privilege_type = 'EXECUTE'
+          )
+     )
+     or exists (
+       select 1 from pg_catalog.unnest(array[
+         'app_private.tenant_package_upload_sessions'::pg_catalog.regclass,
+         'app_private.tenant_package_purge_claim_outcomes'::pg_catalog.regclass
+       ]) private_table(oid)
+       where pg_catalog.has_table_privilege(
+           'service_role', private_table.oid, 'SELECT,INSERT,UPDATE,DELETE'
+         )
+          or pg_catalog.has_table_privilege(
+            'anon', private_table.oid, 'SELECT,INSERT,UPDATE,DELETE'
+          )
+          or pg_catalog.has_table_privilege(
+            'authenticated', private_table.oid, 'SELECT,INSERT,UPDATE,DELETE'
+          )
+          or exists (
+            select 1 from pg_catalog.pg_class table_row
+            cross join lateral pg_catalog.aclexplode(coalesce(
+              table_row.relacl,
+              pg_catalog.acldefault('r', table_row.relowner)
+            )) privilege_row
+            where table_row.oid = private_table.oid
+              and privilege_row.grantee = 0
+              and privilege_row.privilege_type in ('SELECT', 'INSERT', 'UPDATE', 'DELETE')
+          )
+     )
+     or exists (
+       select 1
+       from pg_catalog.pg_class sequence_row
+       join pg_catalog.pg_depend dependency on dependency.objid = sequence_row.oid
+         and dependency.deptype in ('a', 'i')
+       where sequence_row.relkind = 'S'
+         and dependency.refobjid in (
+           'app_private.tenant_package_upload_sessions'::pg_catalog.regclass,
+           'app_private.tenant_package_purge_claim_outcomes'::pg_catalog.regclass
+         )
+         and (pg_catalog.has_sequence_privilege(
+              'service_role', sequence_row.oid, 'USAGE,SELECT,UPDATE'
+            )
+           or pg_catalog.has_sequence_privilege(
+              'anon', sequence_row.oid, 'USAGE,SELECT,UPDATE'
+            )
+           or pg_catalog.has_sequence_privilege(
+              'authenticated', sequence_row.oid, 'USAGE,SELECT,UPDATE'
+            )
+           or exists (
+             select 1
+             from pg_catalog.aclexplode(coalesce(
+               sequence_row.relacl,
+               pg_catalog.acldefault('S', sequence_row.relowner)
+             )) privilege_row
+             where privilege_row.grantee = 0
+           ))
+     ) then
     raise exception 'tenant package upload session contract is incomplete';
   end if;
 end $$;

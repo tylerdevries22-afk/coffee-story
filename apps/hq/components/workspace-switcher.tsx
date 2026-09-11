@@ -64,7 +64,12 @@ function ScopeSwitcher(props: ScopeSwitcherProps) {
     if (state.status !== 'success') return;
     setOpen(false);
     requestAnimationFrame(() => triggerRef.current?.focus());
-  }, [state]);
+    if (state.changed && fieldName === 'orgId') {
+      window.dispatchEvent(new CustomEvent('platform-org-changed', {
+        detail: { organizationId: state.selectedId },
+      }));
+    }
+  }, [state, fieldName]);
 
   useEffect(() => {
     if (!open) return undefined;

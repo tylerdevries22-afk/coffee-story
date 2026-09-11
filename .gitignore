@@ -60,6 +60,7 @@ next-env.d.ts
 
 # Local package-manager cache
 .pnpm-store/
+/.vercel/
 
 # per-app metro caches
 .metro-cache/
@@ -96,6 +97,21 @@ ruvector.db
 stack.env
 readiness.err
 
-# audit skill artifacts (config.json is tracked, run dirs are not)
+# Audit run artifacts (see ~/.agents/skills/audit)
+# config.json is tracked; run dirs are ignored
 .audit/*
 !.audit/config.json
+
+# Model B org-web static surfaces (generated into HQ public/)
+apps/hq/public/customer/
+apps/hq/public/kiosk/
+apps/hq/public/operator/
+apps/*/dist-web-org/
+.vercel
+.env*
+.ui-audit-loop/
+.backend-audit-loop/
+.merge/
+.ruflo/
+.ruvector/
+artifacts/verification/

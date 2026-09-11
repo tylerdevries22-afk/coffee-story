@@ -76,6 +76,12 @@ and `environment`. Coffee Story remains the default, so existing deployment comm
 keep working. Declared surfaces use the applicable `<project_prefix>-hq`, `-customer`,
 `-operator`, `-kiosk`, and `-display` project names.
 
+**Model B (incremental):** the org web host is the HQ project with path-based
+guest surfaces at `/customer`, `/kiosk`, and `/operator` (see
+`docs/ADR-model-b-org-web.md`). Display remains on `<prefix>-display` until
+Vercel Services can co-host two Next.js apps. Prefer path URLs in wall/org
+registries over five separate `*.vercel.app` hosts when both exist.
+
 ## Secret architecture
 
 - Doppler is the authoring/control-plane store for platform and provider secrets.

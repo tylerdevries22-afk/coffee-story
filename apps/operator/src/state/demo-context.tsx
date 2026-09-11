@@ -1,5 +1,4 @@
 import {
-  createContext,
   useCallback,
   useContext,
   useEffect,
@@ -8,7 +7,7 @@ import {
   type PropsWithChildren,
 } from 'react';
 
-import { withRoleSetup, type AnyRoleSetup } from '@/features/setup/setup';
+import { withRoleSetup } from '@/features/setup/setup';
 import Constants from 'expo-constants';
 
 import { hasCompleteLiveConfig } from '@/lib/runtime-config';
@@ -30,7 +29,6 @@ import {
   setDemoMembershipStatus,
   updateDemoIntake,
   updateDemoProfile,
-  type DemoOrderInput,
 } from '@/state/demo-state';
 import {
   loadStoredAppMode,
@@ -42,51 +40,10 @@ import {
 } from '@/state/demo-storage';
 import { demoSyncClient, demoSyncPreview } from '@/lib/demo-sync';
 import { startSerializedPolling } from '@platform/api-client';
-import type {
-  GiftCard,
-  AppRole,
-  GuestPreferences,
-  PortalBundle,
-  PortalOrder,
-  PortalProfile,
-  RewardCatalogItem,
-} from '@platform/domain';
+import type { PortalBundle } from '@platform/domain';
+import { DemoContext, type DemoState, type AppMode } from './demo-context-value';
 
-export type AppMode = 'demo' | 'live';
-
-type DemoState = {
-  mode: AppMode;
-  isHydrating: boolean;
-  portal: PortalBundle;
-  chooseDemo: () => Promise<void>;
-  chooseLive: () => Promise<void>;
-  /**
-   * False unless live mode could actually run. Measured by the same
-   * `missingLiveConfig` the root layout uses -- offering the switch on a
-   * weaker test let a guest persist a mode that immediately swapped the whole
-   * tree for the setup-incomplete screen, with no way back.
-   */
-  canGoLive: boolean;
-  resetDemo: () => Promise<void>;
-  setRole: (role: AppRole) => void;
-  book: (input: Omit<DemoOrderInput, 'id'>) => void;
-  bookSynced: (order: PortalOrder) => void;
-  cancelOrder: (orderId: string) => Promise<void>;
-  rescheduleOrder: (orderId: string, placedAt: string) => void;
-  reviewOrder: (orderId: string, rating: number, note: string) => void;
-  redeemReward: (reward: RewardCatalogItem) => void;
-  completeActivity: (activityKey: string) => void;
-  addGift: (gift: Omit<GiftCard, 'id' | 'createdAt'>) => void;
-  updateProfile: (profile: PortalProfile) => void;
-  updatePreferences: (preferences: GuestPreferences) => void;
-  sendMessage: (body: string) => void;
-  removePaymentMethod: (methodId: string) => void;
-  setMembershipStatus: (status: 'active' | 'paused' | 'cancelled') => void;
-  updateSetup: (role: AppRole, setup: AnyRoleSetup) => void;
-  dismissSetupAutoPrompt: () => void;
-};
-
-const DemoContext = createContext<DemoState | null>(null);
+export type { AppMode } from './demo-context-value';
 
 function uniqueId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;

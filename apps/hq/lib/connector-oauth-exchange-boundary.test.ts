@@ -50,7 +50,7 @@ describe('connector OAuth code exchange', { concurrency: false }, () => {
 
   it('keeps the one-attempt deadline active while reading the token body', async () => {
     configureOauthTestEnv();
-    const fetchMock = mock.method(globalThis, 'fetch', async (_target, init) =>
+    const fetchMock = mock.method(globalThis, 'fetch', async (_target: RequestInfo | URL, init?: RequestInit) =>
       stalledJsonResponse(init?.signal));
     await assert.rejects(
       exchangeConnectorCode('tiktok', 'one-time-code', VERIFIER, CALLBACK, 5),

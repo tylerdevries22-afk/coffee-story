@@ -15,11 +15,6 @@ import { fetchWithRetry, type ApiErrorBody } from '@platform/api-client';
 import { parseTenantClaims, type TenantClaims } from '@platform/schema';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-import {
-  loadActiveDevice, loadDeviceSigningKey, verifyDeviceToken,
-  type DeviceClaims, type DeviceRowLike, type DeviceSigningKey,
-} from '@platform/engine';
-
 export type ServerEnv = {
   url: string;
   serviceRoleKey: string;
@@ -150,49 +145,6 @@ export async function authenticate(
  * the platform should be users-only unless a route says otherwise, and exactly
  * one route (POST /api/orders) says otherwise.
  */
-export type Caller =
-  | { kind: 'user'; userId: string; email: string | null; claims: TenantClaims }
-  | { kind: 'device'; device: DeviceRowLike; claims: DeviceClaims };
-
-export async function authenticateAny(
-  request: Request,
-  db: SupabaseClient,
-): Promise<Caller | Response> {
-  const header = request.headers.get('authorization') ?? '';
-  const token = header.startsWith('Bearer ') ? header.slice('Bearer '.length) : '';
-  if (!token) return jsonError(401, 'unauthorized', 'Send an access token as a Bearer token.');
-
-  // The device path is tried first, but it can only match a token that carries
-  // a device_id AND no `sub` -- `verifyDeviceToken` enforces both. That matters
-  // because a GoTrue staff token is also HS256 with the same project secret, so
-  // a signature check alone does not tell the two issuers apart.
-  let key: DeviceSigningKey | null = null;
-  try {
-    key = loadDeviceSigningKey();
-  } catch {
-    // Device pairing is not configured on this deployment; fall through to the
-    // user path rather than failing a request that never needed it.
-    key = null;
-  }
-  if (key) {
-    const claims = verifyDeviceToken(token, key, Date.now());
-    if (claims) {
-      // Re-read the row. This is the ONLY check on the service-role path, where
-      // RLS does not apply -- without it a revoked kiosk keeps ringing sales
-      // for the remaining life of its token.
-      const device = await loadActiveDevice({ db, key }, claims);
-      if (!device) {
-        return jsonError(401, 'unauthorized', 'This device is no longer paired.');
-      }
-      return { kind: 'device', device, claims };
-    }
-  }
-
-  const user = await authenticate(request, db);
-  if (user instanceof Response) return user;
-  return { kind: 'user', ...user };
-}
-
 /** Body parse that answers 400 instead of throwing on junk. */
 export async function parseJsonBody<T>(request: Request): Promise<T | Response> {
   try {
@@ -216,52 +168,7 @@ export function idempotencyKeyOf(request: Request): string | null | false {
   return UUID.test(key) ? key.toLowerCase() : false;
 }
 
-export type CustomerIdentity = {
-  id: string;
-  full_name: string;
-  email: string | null;
-  phone: string | null;
-  sms_opt_in: boolean;
-};
-
-/**
- * The caller's customers row for their brand, created on first contact so a
- * guest's first order does not require a separate profile step.
- */
-export async function resolveCustomer(
-  db: SupabaseClient,
-  auth: AuthedRequest,
-): Promise<CustomerIdentity> {
-  const existing = await db
-    .from('customers')
-    .select('id, full_name, email, phone, sms_opt_in')
-    .eq('brand_id', auth.claims.brand_id)
-    .eq('user_id', auth.userId)
-    .maybeSingle<CustomerIdentity>();
-  if (existing.error) throw existing.error;
-  if (existing.data) return existing.data;
-  const created = await db
-    .from('customers')
-    .insert({
-      brand_id: auth.claims.brand_id,
-      user_id: auth.userId,
-      full_name: '',
-      email: auth.email,
-    })
-    .select('id, full_name, email, phone, sms_opt_in')
-    .single<CustomerIdentity>();
-  if (created.error) {
-    // Two first-contact requests raced; the UNIQUE (brand_id, user_id) kept one.
-    if (created.error.code === '23505') {
-      const winner = await db
-        .from('customers')
-        .select('id, full_name, email, phone, sms_opt_in')
-        .eq('brand_id', auth.claims.brand_id)
-        .eq('user_id', auth.userId)
-        .single<CustomerIdentity>();
-      if (!winner.error) return winner.data;
-    }
-    throw created.error;
-  }
-  return created.data;
-}
+export { authenticateAny } from './api-device-auth';
+export type { Caller } from './api-device-auth';
+export { resolveCustomer } from './api-customer';
+export type { CustomerIdentity } from './api-customer';

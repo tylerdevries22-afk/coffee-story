@@ -44,6 +44,7 @@ export function tenantClaimsFromSession(session: Session): TenantClaims | null {
     ) as { app_metadata?: unknown };
     return parseTenantClaims(decoded.app_metadata);
   } catch {
+    console.warn(JSON.stringify({ component: 'live-portal', event: 'parse_failed' }));
     return null;
   }
 }

@@ -1,11 +1,5 @@
-/**
- * The platform-model pages behind More: the drop archive, catering requests,
- * and referrals. Feature-flagged per tenant (rule 5); the More screen only
- * offers the rows whose flags are on, and a deep link to a disabled page
- * lands on its empty state rather than a crash.
- */
 import { useMemo, useState } from 'react';
-import { Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Share, Text, TextInput, View } from 'react-native';
 
 import { CollapsingScreen } from '@/components/collapsing-screen';
 import { MenuImage } from '@/components/menu-image';
@@ -19,10 +13,11 @@ import { useAuth } from '@/state/auth-context';
 import { useAppState } from '@/state/app-context';
 import { useCustomerCatalog } from '@/state/catalog-context';
 import { TENANT, tenantFeature } from '@/tenant';
-import { DropCountdown } from '@platform/ui';
+import { DropCountdown, useTokens as useBrandTokens } from '@platform/ui';
 
 import { useInformationStyles } from './information-page';
-import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
+
+import { createPlatformPageStyles } from './platform-page.styles';
 
 export function DropsArchive({ onBack }: { onBack: () => void }) {
   const { setClientTab } = useAppState();
@@ -44,7 +39,7 @@ export function DropsArchive({ onBack }: { onBack: () => void }) {
 function DropRow({ drop, onOrder }: { drop: Drop; onOrder: () => void }) {
   const pageStyles = useInformationStyles();
   const tokens = useBrandTokens();
-  const local = createLocal(tokens);
+  const local = createPlatformPageStyles(tokens);
   const { items } = useCustomerCatalog();
   const item = findMenuItem(items, drop.itemId);
   const live = dropStatus(drop, new Date()) === 'live';
@@ -74,7 +69,7 @@ function DropRow({ drop, onOrder }: { drop: Drop; onOrder: () => void }) {
 export function CateringRequest({ onBack }: { onBack: () => void }) {
   const pageStyles = useInformationStyles();
   const tokens = useBrandTokens();
-  const local = createLocal(tokens);
+  const local = createPlatformPageStyles(tokens);
   const { portal } = useAuth();
   const [eventDate, setEventDate] = useState('');
   const [partySize, setPartySize] = useState('');
@@ -148,7 +143,7 @@ export function CateringRequest({ onBack }: { onBack: () => void }) {
 export function Referrals({ onBack }: { onBack: () => void }) {
   const pageStyles = useInformationStyles();
   const tokens = useBrandTokens();
-  const local = createLocal(tokens);
+  const local = createPlatformPageStyles(tokens);
   const { portal } = useAuth();
 
   if (!tenantFeature('referrals')) {
@@ -198,24 +193,3 @@ export function Referrals({ onBack }: { onBack: () => void }) {
     </CollapsingScreen>
   );
 }
-
-const createLocal = (tokens: BrandTokens) => StyleSheet.create({
-  dropRow: { flexDirection: 'row', gap: tokens.spacing.lg, alignItems: 'center' },
-  dropBody: { flex: 1, gap: tokens.spacing.sm },
-  endedLabel: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 13 },
-  fieldLabel: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 13 },
-  field: {
-    borderWidth: 1,
-    borderColor: tokens.secondary,
-    borderRadius: tokens.radius.lg,
-    paddingHorizontal: tokens.spacing.lg,
-    paddingVertical: tokens.spacing.md,
-    color: tokens.textPrimary,
-    fontFamily: tokens.fontBody,
-    fontSize: 15,
-    backgroundColor: tokens.surfaceElevated,
-  },
-  fieldTall: { minHeight: 88, textAlignVertical: 'top' },
-  codeLabel: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 13 },
-  code: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 24, letterSpacing: 1 },
-});

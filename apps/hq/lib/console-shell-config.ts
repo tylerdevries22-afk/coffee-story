@@ -33,7 +33,7 @@ const PAGE_TITLES: Readonly<Record<string, string>> = {
   '/integrations/activity': 'Integration activity',
   '/integrations/health': 'Integration health',
   '/brand': 'Brand config',
-  '/kiosk': 'Kiosk',
+  '/kiosk-flow': 'Kiosk',
   '/onboarding': 'Onboarding',
   '/apps': 'Apps wall',
   '/apps/customer': 'Customer app',

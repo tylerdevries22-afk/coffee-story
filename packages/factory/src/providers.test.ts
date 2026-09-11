@@ -37,21 +37,17 @@ describe('provider request builders', () => {
     assert.deepEqual(request.region_selection, { type: 'specific', code: 'us-west-1' });
   });
 
-  it('defines one Vercel project per supported surface', () => {
+  it('defines Model B Vercel hosts (HQ + display only)', () => {
     const projects = vercelProjectSpecifications('juniper-coffee', 'platform-owner/juniper-coffee');
-    assert.equal(projects.length, 5);
+    assert.equal(projects.length, 2);
     assert.deepEqual(projects.map((project) => project.name), [
       'juniper-coffee-hq',
       'juniper-coffee-display',
-      'juniper-coffee-customer',
-      'juniper-coffee-operator',
-      'juniper-coffee-kiosk',
     ]);
-    assert.equal(projects[0]?.framework, 'nextjs');
-    assert.equal(projects[2]?.framework, null);
+    assert.ok(projects.every((project) => project.framework === 'nextjs'));
   });
 
-  it('creates all declared projects for the Stillpoint construction tenant', () => {
+  it('still only mints HQ + display when guest surfaces are declared', () => {
     const projects = vercelProjectSpecifications(
       'stillpoint-builders',
       'platform-owner/stillpoint-builders',
@@ -60,9 +56,6 @@ describe('provider request builders', () => {
     assert.deepEqual(projects.map((project) => project.name), [
       'stillpoint-builders-hq',
       'stillpoint-builders-display',
-      'stillpoint-builders-customer',
-      'stillpoint-builders-operator',
-      'stillpoint-builders-kiosk',
     ]);
   });
 

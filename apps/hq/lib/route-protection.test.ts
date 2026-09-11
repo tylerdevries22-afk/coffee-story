@@ -27,12 +27,24 @@ const ALLOWED_PUBLIC_PREFIXES = [
   "'/auth/callback'",
   "'/api/'",
   "'/status/'",
+  // Model B: Expo static shells on the HQ origin. Shells are public; APIs stay
+  // bearer-auth (guest JWT / device JWT / staff). Operator is a public SPA shell
+  // only — credentials never ride cookies on this path.
+  "'/customer'",
+  "'/kiosk'",
+  "'/operator'",
 ];
 
 test('the public allowlist is exactly the reviewed set', () => {
-  const body = middleware.match(/const PUBLIC_PREFIXES = \[([^\]]*)\]/)?.[1];
+  const body = middleware.match(/const PUBLIC_PREFIXES = \[([\s\S]*?)\]/)?.[1];
   if (typeof body !== 'string') throw new Error('PUBLIC_PREFIXES must exist in middleware.ts');
-  const declared = body.split(',').map((entry) => entry.trim()).filter(Boolean);
+  const declared = body
+    .split('\n')
+    .map((line) => line.replace(/\/\/.*$/, '').trim())
+    .join(' ')
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.startsWith("'"));
   assert.deepEqual(
     declared.sort(),
     [...ALLOWED_PUBLIC_PREFIXES].sort(),

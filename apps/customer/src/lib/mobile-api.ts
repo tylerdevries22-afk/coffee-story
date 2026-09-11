@@ -51,6 +51,13 @@ export const mobileApi = {
       rethrow(error);
     }
   },
+  exportProfile: async (): Promise<Record<string, unknown>> => {
+    try {
+      return await requireApi().exportProfile();
+    } catch (error) {
+      rethrow(error);
+    }
+  },
   updateProfile: async (
     payload: Pick<PortalProfile, 'fullName' | 'phone' | 'birthday'>,
     _idempotencyKey: string,

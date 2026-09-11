@@ -5,13 +5,18 @@ import { currentSession, hasRole } from '@/lib/auth';
 import { franchiseConsentReadiness } from '@/lib/franchise-enrollment';
 import { serverClient } from '@/lib/supabase-server';
 
+import {
+  offboardOrganizationAction,
+  restoreOrganizationAction,
+  suspendOrganizationAction,
+} from '../lifecycle-actions';
 import { activateOrganizationAction } from '../readiness-actions';
 
 export const dynamic = 'force-dynamic';
 
 type Props = {
   params: Promise<{ organizationId: string }>;
-  searchParams: Promise<{ activation?: string; factory?: string }>;
+  searchParams: Promise<{ activation?: string; factory?: string; lifecycle?: string }>;
 };
 type Check = { check_key: string; required: boolean; status: string; evidence: unknown; updated_at: string };
 
@@ -25,6 +30,14 @@ const NOTICES: Record<string, string> = {
   'not-ready': 'Activation is blocked until every required readiness check passes.',
   failed: 'Activation was refused. Review the readiness evidence and try again.',
   unavailable: 'Supabase is not configured for activation on this deployment.',
+};
+
+const LIFECYCLE_NOTICES: Record<string, { message: string; failed: boolean }> = {
+  suspended: { message: 'Organization suspended. Devices and delegated grants were revoked.', failed: false },
+  restored: { message: 'Organization restored. Re-pair devices before they can serve again.', failed: false },
+  offboarded: { message: 'Organization offboarded. Access is terminal; data remains for audit.', failed: false },
+  failed: { message: 'Lifecycle change was refused. Confirm platform admin access and try again.', failed: true },
+  unavailable: { message: 'Supabase is not configured for lifecycle actions on this deployment.', failed: true },
 };
 
 function statusClass(status: string): string {
@@ -86,6 +99,14 @@ export default async function OrganizationReadinessPage({ params, searchParams }
           The organization was provisioned, but factory automation did not start. Resume it from Onboarding.
         </div>
       ) : null}
+      {(() => {
+        const lifecycleNotice = query.lifecycle ? LIFECYCLE_NOTICES[query.lifecycle] : undefined;
+        return lifecycleNotice ? (
+          <div className={lifecycleNotice.failed ? 'notice danger' : 'notice'} role="status">
+            {lifecycleNotice.message}
+          </div>
+        ) : null;
+      })()}
       <div className="card readiness-summary">
         <div>
           <span className={statusClass(brand.status)}>{brand.status}</span>
@@ -122,6 +143,44 @@ export default async function OrganizationReadinessPage({ params, searchParams }
           </tbody>
         </table>
       </div>
+
+      <div className="card">
+        <h2>Lifecycle</h2>
+        <p className="muted">
+          Suspend pauses access without deleting data. Offboard is terminal.
+          Hard deletion of provider projects stays a manual operator step.
+        </p>
+        {brand.status === 'active' || brand.status === 'suspended' ? (
+          <div style={{ display: 'grid', gap: '1rem', maxWidth: '32rem' }}>
+            {brand.status === 'active' ? (
+              <form action={suspendOrganizationAction} className="location-form">
+                <input type="hidden" name="brandId" value={brand.id} />
+                <label>
+                  Suspension reason
+                  <input name="reason" required minLength={4} maxLength={500} placeholder="Why this organization is being suspended" />
+                </label>
+                <button type="submit" className="button danger">Suspend organization</button>
+              </form>
+            ) : (
+              <form action={restoreOrganizationAction}>
+                <input type="hidden" name="brandId" value={brand.id} />
+                <button type="submit" className="button">Restore organization</button>
+              </form>
+            )}
+            <form action={offboardOrganizationAction} className="location-form">
+              <input type="hidden" name="brandId" value={brand.id} />
+              <label>
+                Offboard reason
+                <input name="reason" required minLength={4} maxLength={500} placeholder="Why this organization is ending" />
+              </label>
+              <button type="submit" className="button danger">Offboard organization</button>
+            </form>
+          </div>
+        ) : (
+          <p className="muted">Lifecycle controls apply after activation (current status: {brand.status}).</p>
+        )}
+      </div>
+
       <div className="location-form-actions">
         <Link href="/organizations/new" className="button secondary">Create another</Link>
         <Link href="/network" className="button secondary">Manage network</Link>

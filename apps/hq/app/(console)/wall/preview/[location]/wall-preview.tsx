@@ -26,6 +26,7 @@ async function fetchTickets(path: string): Promise<WallPreviewTicket[] | null> {
       const value: unknown = await response.json();
       return isTicketList(value) ? value : null;
     } catch {
+      console.warn(JSON.stringify({ component: 'wall-preview', event: 'tickets_fetch_failed', attempt }));
       if (attempt === 1) return null;
     } finally {
       clearTimeout(timeout);

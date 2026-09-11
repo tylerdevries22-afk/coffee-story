@@ -26,6 +26,17 @@ function validPreset(value) {
     && value.frame === DEVICE_FRAMES[value.id];
 }
 
+function validAbsoluteUrl(value) {
+  if (typeof value !== 'string' || value.length === 0 || value.length > 500) return false;
+  try {
+    const url = new URL(value);
+    return (url.protocol === 'https:' || url.protocol === 'http:')
+      && !url.username && !url.password;
+  } catch {
+    return false;
+  }
+}
+
 function validSurface(value, presetIds) {
   return record(value) && text(value.launch, 64) && text(value.name, 80)
     && integer(value.port, 1, 65_535) && /^\/(?!\/)/.test(value.path)
@@ -33,7 +44,14 @@ function validSurface(value, presetIds) {
     && value.devices.length === DEVICE_IDS.size
     && new Set(value.devices).size === DEVICE_IDS.size
     && value.devices.every((id) => presetIds.has(id))
-    && value.devices.includes(value.activeDevice);
+    && value.devices.includes(value.activeDevice)
+    && (value.url === undefined || validAbsoluteUrl(value.url));
+}
+
+function validOrganization(value, launches) {
+  if (!record(value) || !text(value.tenantKey, 80) || !text(value.organizationName, 120)
+    || !record(value.surfaces)) return false;
+  return launches.every((launch) => validAbsoluteUrl(value.surfaces[launch]));
 }
 
 export function validWallData(value) {
@@ -46,7 +64,12 @@ export function validWallData(value) {
     || value.surfaces.length === 0 || !value.surfaces.every((surface) => validSurface(surface, presetIds))) {
     return false;
   }
-  return new Set(value.surfaces.map(({ launch }) => launch)).size === value.surfaces.length;
+  const launches = value.surfaces.map(({ launch }) => launch);
+  if (new Set(launches).size !== launches.length) return false;
+  if (value.organizations === undefined) return true;
+  return Array.isArray(value.organizations)
+    && value.organizations.length > 0
+    && value.organizations.every((org) => validOrganization(org, launches));
 }
 
 export function presetMap(data) {
