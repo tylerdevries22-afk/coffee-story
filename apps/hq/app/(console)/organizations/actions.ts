@@ -199,16 +199,6 @@ export async function createOrganizationAction(
   if (!audited) {
     return { kind: 'error', message: 'Organization was created but workspace switch could not be audited.' };
   }
-  const audited = await recordPlatformAccess(session, {
-    action: 'organizations.provision.select',
-    brandId,
-    locationId,
-    required: true,
-    metadata: { source: 'organization_create', surface: 'hq' },
-  });
-  if (!audited) {
-    return { kind: 'error', message: 'Organization was created but workspace switch could not be audited.' };
-  }
   const store = await cookies();
   store.set(ORG_COOKIE, brandId, workspaceCookieOptions());
   store.set(LOCATION_COOKIE, locationId ?? '', locationId
