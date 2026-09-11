@@ -179,11 +179,15 @@ select throws_ok($q$select * from public.claim_square_connection_mutation(
 delete from public.platform_fee_quotes where order_id =
   'f9990000-0000-4000-8000-000000000020';
 insert into app_private.square_payment_remediation_outbox (
-  order_id, brand_id, location_id, square_order_id, square_payment_id,
+  order_id, brand_id, location_id, connection_id, connection_generation,
+  square_order_id, square_payment_id,
   settlement_event_id, refund_amount_cents, refund_request_key
 ) values ('f9990000-0000-4000-8000-000000000020',
   'f9999999-9999-4999-8999-999999999999',
-  'f9990000-0000-4000-8000-000000000001', 'remediation-order',
+  'f9990000-0000-4000-8000-000000000001',
+  'f9990000-0000-4000-8000-000000000010',
+  'f9990000-0000-4000-8000-000000000011',
+  'remediation-order',
   'remediation-payment', 'remediation-event', 1000,
   'f9990000-0000-4000-8000-000000000020');
 select throws_ok($q$select * from public.claim_square_connection_mutation(

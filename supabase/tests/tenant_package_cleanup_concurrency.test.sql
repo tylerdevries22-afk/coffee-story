@@ -4,8 +4,12 @@ create extension if not exists dblink with schema extensions;
 set search_path = extensions, public, pg_catalog;
 select plan(11);
 
-select dblink_connect('package_worker_a', 'dbname=' || current_database());
-select dblink_connect('package_worker_b', 'dbname=' || current_database());
+select dblink_connect('package_worker_a', format(
+  'host=127.0.0.1 port=%s dbname=%s user=%s password=postgres',
+  current_setting('port'), current_database(), current_user));
+select dblink_connect('package_worker_b', format(
+  'host=127.0.0.1 port=%s dbname=%s user=%s password=postgres',
+  current_setting('port'), current_database(), current_user));
 select dblink_exec('package_worker_b', $setup$
   create table if not exists public.tenant_package_cleanup_concurrency_results (
     worker text primary key,

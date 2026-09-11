@@ -91,7 +91,7 @@ select is((select status from public.organization_readiness_checks
 select is((select evidence->>'providerRollbackPending' from public.organization_readiness_checks
   where brand_id='c1000000-0000-4000-8000-000000000001' and check_key='release_approval'),'true'::text,'readiness records pending provider restore');
 select is((select evidence->>'artifactDigest' from public.organization_readiness_checks
-  where check_key='tenant_artifacts'),
+  where brand_id='c1000000-0000-4000-8000-000000000001' and check_key='tenant_artifacts'),
   'sha256:1111111111111111111111111111111111111111111111111111111111111111'::text,
   'artifact readiness returns to the restored digest');
 select is(public.compensate_tenant_package_publication(
