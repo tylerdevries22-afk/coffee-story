@@ -29,4 +29,19 @@ describe('requiredTenant', () => {
       else delete process.env.EXPO_PUBLIC_TENANT;
     }
   });
+
+  it('falls back to TENANT when EXPO_PUBLIC_TENANT is unset', () => {
+    const prevT = process.env.EXPO_PUBLIC_TENANT;
+    const prev = process.env.TENANT;
+    delete process.env.EXPO_PUBLIC_TENANT;
+    process.env.TENANT = 'coffee-story';
+    try {
+      assert.equal(requiredTenant(), 'coffee-story');
+    } finally {
+      if (prevT !== undefined) process.env.EXPO_PUBLIC_TENANT = prevT;
+      else delete process.env.EXPO_PUBLIC_TENANT;
+      if (prev !== undefined) process.env.TENANT = prev;
+      else delete process.env.TENANT;
+    }
+  });
 });
