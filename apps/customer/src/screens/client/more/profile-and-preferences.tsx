@@ -1,6 +1,6 @@
 import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
-import { Alert, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Platform, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { ProfileAvatar } from '@/components/profile-avatar';
 import { CollapsingScreen } from '@/components/collapsing-screen';
