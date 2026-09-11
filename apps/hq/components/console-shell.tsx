@@ -7,13 +7,13 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { consoleSectionForPath } from '@/lib/console-navigation';
 
 import { ConsoleCommandMenu } from './console-command-menu';
+import { ConsoleGlobalRail } from './console-global-rail';
 import { ConsoleNavigationRail } from './console-navigation-rail';
 import { FALLBACK_SECTION, SYSTEM_SECTION } from '@/lib/console-shell-config';
 import type { ConsoleShellProps } from './console-shell-types';
 import { ConsoleTopbar } from './console-topbar';
 
 const MOBILE_NAV_QUERY = '(max-width: 760px)';
-const COMPACT_STORAGE_KEY = 'hq.navigation.compact.v1';
 
 function subscribeToMobileNavChange(callback: () => void): () => void {
   const query = window.matchMedia(MOBILE_NAV_QUERY);
@@ -25,14 +25,20 @@ function isMobileNav(): boolean {
   return window.matchMedia(MOBILE_NAV_QUERY).matches;
 }
 
-/** Tenant-aware, pathname-aware chrome for every authenticated HQ surface. */
+/**
+ * Tenant-aware chrome for every authenticated HQ surface.
+ *
+ * Non-mobile (≥761px): Stillpoint/Elevate-style double rail —
+ * ConsoleGlobalRail (icon primary) + ConsoleNavigationRail (section children).
+ * Both stay visible; there is no compact/collapse mode above the mobile breakpoint.
+ * Mobile (≤760px): topbar menu opens the navigation rail as a drawer (global rail hidden).
+ */
 export function ConsoleShell(props: ConsoleShellProps) {
   const pathname = usePathname();
   const reducedMotion = useReducedMotion();
   const mobileNav = useSyncExternalStore(subscribeToMobileNavChange, isMobileNav, () => false);
   const [navigationOpen, setNavigationOpen] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
-  const [compact, setCompact] = useState(false);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const triggerButtonRef = useRef<HTMLButtonElement>(null);
   const navigationWasOpen = useRef(false);
@@ -42,10 +48,6 @@ export function ConsoleShell(props: ConsoleShellProps) {
   const activeSection = pathname.startsWith('/status/')
     ? SYSTEM_SECTION
     : matchedSection ?? props.sections[0] ?? FALLBACK_SECTION;
-
-  useEffect(() => {
-    try { setCompact(window.localStorage.getItem(COMPACT_STORAGE_KEY) === 'true'); } catch { /* Optional preference. */ }
-  }, []);
 
   useEffect(() => {
     const onShortcut = (event: KeyboardEvent) => {
@@ -102,40 +104,41 @@ export function ConsoleShell(props: ConsoleShellProps) {
     setCommandOpen(false);
     window.requestAnimationFrame(() => commandReturnFocus.current?.focus());
   };
-  const toggleCompact = () => {
-    setCompact((current) => {
-      const next = !current;
-      try { window.localStorage.setItem(COMPACT_STORAGE_KEY, String(next)); } catch { /* Optional preference. */ }
-      return next;
-    });
-  };
+  const closeNavigation = () => setNavigationOpen(false);
 
   return (
-    <div className={`hq-shell${compact ? ' compact' : ''}`} style={props.theme}>
+    <div className={`hq-shell${mobileNav ? '' : ' dual-rail'}`} style={props.theme}>
       <a className="hq-skip-link" href="#main-content">Skip to content</a>
       <ConsoleTopbar
         section={activeSection}
         brandName={props.brandName}
         dataMode={props.dataMode}
-        compact={compact}
         mobile={mobileNav}
         navigationOpen={drawerOpen}
         overlayOpen={drawerOpen || commandOpen}
         onOpenNavigation={() => setNavigationOpen(true)}
-        onToggleCompact={toggleCompact}
         triggerButtonRef={triggerButtonRef}
         statusHref={props.statusHref}
         orgSwitcher={props.orgSwitcher}
         locationSwitcher={props.locationSwitcher}
       />
+      {!mobileNav ? (
+        <ConsoleGlobalRail
+          brandName={props.brandName}
+          initials={props.initials}
+          sections={props.sections}
+          section={activeSection}
+          statusHref={props.statusHref}
+          onNavigate={closeNavigation}
+        />
+      ) : null}
       <ConsoleNavigationRail
         {...props}
         section={activeSection}
-        compact={compact}
         mobile={mobileNav}
         isOpen={drawerOpen}
         isHidden={(mobileNav && !drawerOpen) || commandOpen}
-        onClose={() => setNavigationOpen(false)}
+        onClose={closeNavigation}
         onOpenCommand={openCommand}
         closeButtonRef={closeButtonRef}
       />
@@ -157,7 +160,7 @@ export function ConsoleShell(props: ConsoleShellProps) {
             animate={{ opacity: 1 }}
             exit={reducedMotion ? { opacity: 0 } : { opacity: 0 }}
             transition={{ duration: reducedMotion ? 0 : 0.18 }}
-            onClick={() => setNavigationOpen(false)}
+            onClick={closeNavigation}
           />
         ) : null}
       </AnimatePresence>

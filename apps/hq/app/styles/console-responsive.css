@@ -1,6 +1,6 @@
 @media (max-width: 68.75rem) {
   .hq-shell { --hq-navigation-width: 16.5rem; }
-  .hq-shell.compact { --hq-navigation-width: 0rem; }
+  .hq-shell.dual-rail { --hq-navigation-width: 16.5rem; }
   .hq-main { padding-right: 1.5rem; padding-left: 1.5rem; }
   .hq-topbar { padding-inline: .875rem; }
   .hq-topbar .scope-switcher { width: 10.5rem; }
@@ -14,7 +14,8 @@
 
 @media (max-width: 47.5rem) {
   .hq-shell,
-  .hq-shell.compact {
+  .hq-shell.dual-rail {
+    --hq-global-width: 0rem;
     --hq-navigation-width: min(88vw, 20rem);
     --hq-topbar-height: 4rem;
     --hq-shell-inset: 0rem;
@@ -27,6 +28,8 @@
     border: 0;
     border-radius: 0;
   }
+
+  .hq-global-rail { display: none; }
 
   .hq-topbar {
     grid-column: 1;
@@ -59,7 +62,6 @@
   }
 
   .hq-context-panel { width: var(--hq-navigation-width); }
-  .hq-shell.compact .hq-context-panel { opacity: 1; pointer-events: auto; }
 
   .hq-context-mobile-header {
     display: grid;
