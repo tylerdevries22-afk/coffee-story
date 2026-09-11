@@ -9,7 +9,11 @@ export type { KpiDay, ChannelRevenueCents, LocationSummary, DeviceSummary, MenuI
  * Fail closed in production when tenant is unset. Explicit coffee-story stays Coffee Story.
  */
 export function resolveDemoSessionBrandName(
-  env: NodeJS.ProcessEnv = process.env,
+  env: {
+    EXPO_PUBLIC_TENANT?: string;
+    TENANT?: string;
+    NODE_ENV?: string;
+  } = process.env,
 ): string {
   const slug = env.EXPO_PUBLIC_TENANT?.trim() || env.TENANT?.trim() || '';
   if (slug === 'coffee-story') return 'Coffee Story';
