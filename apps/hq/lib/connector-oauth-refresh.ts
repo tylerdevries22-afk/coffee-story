@@ -129,7 +129,8 @@ export async function refreshConnectorToken(
 ): Promise<ConnectorToken | null> {
   const refreshToken = stringAt(credential, 'refresh_token');
   const config = connectorProviderConfig(key);
-  const spec = config && refreshToken ? refreshRequest(key, config, refreshToken) : null;
+  if (!config || !refreshToken) return null;
+  const spec = refreshRequest(key, config, refreshToken);
   if (!spec) return null;
   const deadline = Number.isFinite(timeoutMs)
     ? Math.max(1, Math.min(MAX_TIMEOUT_MS, Math.trunc(timeoutMs))) : MAX_TIMEOUT_MS;

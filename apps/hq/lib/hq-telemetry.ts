@@ -34,7 +34,7 @@ const HQ_SCREENS: Readonly<Record<string, string>> = {
   '/integrations/connected': 'integrations_connected',
   '/integrations/health': 'integrations_health',
   '/integrations/:provider': 'integration_detail',
-  '/kiosk': 'kiosk_content',
+  '/kiosk-flow': 'kiosk_content',
   '/locations': 'locations',
   '/menu': 'menu',
   '/onboarding': 'onboarding',

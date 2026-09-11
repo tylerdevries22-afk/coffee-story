@@ -67,6 +67,7 @@ jobs:
       # not fail a build; lint ran only here, so a warning passed locally.
       # Whatever this gate is, both sides now run all of it.
       - name: Verify all workspaces
+        id: workspace_verification
         run: >-
           pnpm exec c8
           --temp-directory coverage/verification/tmp
@@ -180,7 +181,7 @@ jobs:
           echo "PASS: no competitor name in any tracked file."
 
       - name: Keep verification coverage
-        if: always()
+        if: ${{ always() && steps.workspace_verification.outcome == 'success' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: verification-coverage
@@ -188,6 +189,14 @@ jobs:
             coverage/verification/coverage-final.json
             coverage/verification/coverage-summary.json
           if-no-files-found: error
+
+      - name: Keep partial verification coverage for diagnosis
+        if: ${{ always() && steps.workspace_verification.outcome == 'failure' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: verification-coverage-partial
+          path: coverage/verification/
+          if-no-files-found: ignore
 
   # One disposable hosted branch proves migrations, RLS, Realtime, the five
   # surfaces, and browser journeys without Docker or a developer machine.
@@ -297,15 +306,31 @@ jobs:
       - name: Apply and lint forward-only migrations
         run: |
           set -euo pipefail
-          retry_supabase() {
+          retry_transient_supabase() {
             local attempt=1
             local maximum=5
-            until timeout 15m "$@"; do
-              if [ "$attempt" -ge "$maximum" ]; then
-                echo "::error::Supabase command failed after $maximum attempts."
-                return 1
+            local output status transient
+            while true; do
+              set +e
+              output=$(timeout 15m "$@" 2>&1)
+              status=$?
+              set -e
+              printf '%s\n' "$output"
+              [ "$status" -eq 0 ] && return 0
+              transient=false
+              if [ "$status" -eq 124 ] \
+                || grep -qiE 'SQLSTATE[[:space:]]+57P01|server closed the connection unexpectedly|connection (refused|reset|timed out)|database system is (starting up|shutting down)|terminating connection due to administrator command|TLS handshake timeout|temporary failure|temporarily unavailable|(^|[^0-9])(502|503|504)([^0-9]|$)' <<< "$output"; then
+                transient=true
               fi
-              echo "::warning::Supabase command failed; retrying attempt $((attempt + 1))/$maximum."
+              if [ "$transient" != true ]; then
+                echo "::error::Supabase command reported a deterministic failure; not retrying."
+                return "$status"
+              fi
+              if [ "$attempt" -ge "$maximum" ]; then
+                echo "::error::Supabase command failed after $maximum transient attempts."
+                return "$status"
+              fi
+              echo "::warning::Supabase transport or database lifecycle failure; retrying attempt $((attempt + 1))/$maximum."
               sleep $((attempt * 5))
               attempt=$((attempt + 1))
             done
@@ -314,7 +339,7 @@ jobs:
           # A new hosted branch can briefly recycle its database after the API
           # first reports ACTIVE_HEALTHY. Forward-only migrations are recorded
           # transactionally, so retrying resumes at the first unapplied file.
-          retry_supabase supabase db push --db-url "$SUPABASE_DB_URL" --include-all --yes
+          retry_transient_supabase supabase db push --db-url "$SUPABASE_DB_URL" --include-all --yes
           migrations=(supabase/migrations/*.sql)
           latest_migration="${migrations[$((${#migrations[@]} - 1))]}"
           latest_filename="${latest_migration##*/}"
@@ -323,10 +348,10 @@ jobs:
             'select public.platform_release_readiness()')
           [ "$actual_readiness" = "$expected_readiness" ] \
             || { echo '::error::Hosted release readiness does not match the newest migration.'; exit 1; }
-          retry_supabase supabase db lint --db-url "$SUPABASE_DB_URL" --level warning --fail-on warning
-          retry_supabase supabase db advisors --db-url "$SUPABASE_DB_URL" \
+          timeout 15m supabase db lint --db-url "$SUPABASE_DB_URL" --level warning --fail-on warning
+          timeout 15m supabase db advisors --db-url "$SUPABASE_DB_URL" \
             --type security --level warn --fail-on warn
-          retry_supabase supabase db advisors --db-url "$SUPABASE_DB_URL" \
+          timeout 15m supabase db advisors --db-url "$SUPABASE_DB_URL" \
             --type performance --level warn --fail-on warn
 
       - name: Seed through the production onboarding path
@@ -404,6 +429,7 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
             pnpm --filter @platform/display build
       - name: Run the end-to-end suite
+        id: browser_tests
         run: |
           set -euo pipefail
           export SUPABASE_TEST_URL="$SUPABASE_URL"
@@ -438,12 +464,20 @@ jobs:
           if-no-files-found: ignore
 
       - name: Keep browser coverage for the merged gate
-        if: always()
+        if: ${{ always() && steps.browser_tests.outcome == 'success' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: browser-coverage
           path: browser-coverage/
           if-no-files-found: error
+
+      - name: Keep partial browser coverage for diagnosis
+        if: ${{ always() && steps.browser_tests.outcome == 'failure' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: browser-coverage-partial
+          path: browser-coverage/
+          if-no-files-found: ignore
 
       - name: Replay the failure at the end of the log
         if: failure()
@@ -513,6 +547,7 @@ jobs:
           name: verification-coverage
           path: coverage/verification
       - name: Merge verification, database, and browser execution and enforce 55 percent
+        id: merge_coverage
         run: >-
           pnpm --filter @platform/e2e-tests merge-coverage
           "$GITHUB_WORKSPACE/coverage/verification/coverage-final.json"
@@ -520,12 +555,20 @@ jobs:
           "$GITHUB_WORKSPACE/browser-coverage/coverage-final.json"
           "$GITHUB_WORKSPACE/coverage/merged"
       - name: Keep the auditable coverage maps
-        if: always()
+        if: ${{ always() && steps.merge_coverage.outcome == 'success' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: merged-coverage
           path: coverage/
           if-no-files-found: error
+
+      - name: Keep partial merged coverage for diagnosis
+        if: ${{ always() && steps.merge_coverage.outcome == 'failure' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: merged-coverage-partial
+          path: coverage/
+          if-no-files-found: ignore
 
   # The RLS suite, on a pull request, against a database that exists only for
   # the length of this job.
@@ -654,6 +697,7 @@ jobs:
         run: supabase test db --db-url "$SUPABASE_TEST_DB_URL"
 
       - name: Run the RLS and authorization suites
+        id: database_tests
         run: |
           set -euo pipefail
           # A skipped suite reports `tests 0 / pass 0 / fail 0`, which reads
@@ -668,7 +712,7 @@ jobs:
             pnpm --filter @platform/integration-tests test
 
       - name: Keep database integration coverage
-        if: always()
+        if: ${{ always() && steps.database_tests.outcome == 'success' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: integration-coverage
@@ -676,6 +720,14 @@ jobs:
             coverage/integration/coverage-final.json
             coverage/integration/coverage-summary.json
           if-no-files-found: error
+
+      - name: Keep partial database integration coverage for diagnosis
+        if: ${{ always() && steps.database_tests.outcome == 'failure' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: integration-coverage-partial
+          path: coverage/integration/
+          if-no-files-found: ignore
 
       - name: Advisors, on the schema this branch actually produces
         run: supabase db lint --level warning --fail-on warning --db-url "$SUPABASE_TEST_DB_URL"

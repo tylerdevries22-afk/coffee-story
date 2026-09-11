@@ -41,9 +41,10 @@ export async function POST(request: Request): Promise<Response> {
         const result = await db.rpc('advance_due_drop_batch', {
           target_now: now.toISOString(),
           target_limit: DROP_BATCH_SIZE,
-        }).returns<{ id: string }[]>();
+        });
         if (result.error) throw result.error;
-        const count = result.data?.length ?? 0;
+        const rows = result.data;
+        const count = Array.isArray(rows) ? rows.length : rows == null ? 0 : 1;
         advanced += count;
         if (count < DROP_BATCH_SIZE) break;
       }

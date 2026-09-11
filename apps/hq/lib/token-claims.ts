@@ -23,6 +23,7 @@ export function tokenAppMetadata(accessToken: string): Record<string, unknown> |
       ? (metadata as Record<string, unknown>)
       : null;
   } catch {
+    console.warn(JSON.stringify({ component: 'token-claims', event: 'parse_failed' }));
     return null;
   }
 }

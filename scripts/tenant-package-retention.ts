@@ -1,7 +1,10 @@
 import {
-  requestWithRetry, safeEndpoint, serviceHeaders, TenantPackageError,
+  discardResponse, isCanonicalPostgresUuid, parseTenantPackageObjectPath,
+  readBoundedJson, requestWithRetry, safeEndpoint, serviceHeaders, TenantPackageError,
 } from '@platform/factory';
 import { pathToFileURL } from 'node:url';
+
+import { runWithClaimHeartbeat } from './tenant-package-retention-lease';
 
 type Candidate = {
   object_path: string | null;
@@ -22,44 +25,49 @@ export type RetentionResult = {
 export type RetentionOperations = {
   claim(limit: number): Promise<unknown>;
   confirm(claimId: string): Promise<unknown>;
-  remove(paths: readonly string[]): Promise<void>;
+  renew(claimId: string): Promise<unknown>;
+  remove(paths: readonly string[], signal?: AbortSignal): Promise<void>;
 };
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const DIGEST = /^[0-9a-f]{64}$/i;
-const CONTROL = /[\u0000-\u001f\u007f]/;
+const MAX_CLAIM_ROWS = 500;
+const MAX_PATH_BYTES = 1_500;
+const MAX_ESCAPED_PATH_BYTES = MAX_PATH_BYTES * 2;
+const MAX_ROW_JSON_OVERHEAD_BYTES = 512;
+const MIB = 1024 * 1024;
+export const TENANT_PACKAGE_CLAIM_RESPONSE_BYTES = Math.ceil(
+  MAX_CLAIM_ROWS * (MAX_ESCAPED_PATH_BYTES + MAX_ROW_JSON_OVERHEAD_BYTES) / MIB,
+) * MIB;
+const SCALAR_RESPONSE_BYTES = 4 * 1024;
+const DEFAULT_HEARTBEAT_MS = 2 * 60_000;
 
-function validObjectPath(path: string): boolean {
-  const [brandId, artifactDigest, third, fourth, ...rest] = path.split('/');
-  if (!brandId || !UUID.test(brandId) || !artifactDigest || !DIGEST.test(artifactDigest)
-    || !third || Buffer.byteLength(path) > 1_500 || path.includes('\\')
-    || CONTROL.test(path)) return false;
-  const modern = DIGEST.test(third);
-  const kind = modern ? fourth : third;
-  const tail = modern ? rest : [fourth, ...rest].filter((part): part is string => part !== undefined);
-  if (kind === 'archive.zip') return tail.length === 0;
-  return (kind === 'files' || kind === 'previews')
-    && tail.length > 0 && tail.every((part) => Boolean(part) && part !== '.' && part !== '..');
-}
-
-function candidates(value: unknown): Candidate[] {
+function candidates(value: unknown, requestedLimit: number): Candidate[] {
   if (!Array.isArray(value)) invalidResponse();
   const rows = value as unknown[];
+  if (rows.length > requestedLimit) invalidResponse();
+  const namespaces = new Set<string>();
   for (const row of rows) {
     if (!row || typeof row !== 'object') invalidResponse();
     const item = row as Partial<Candidate>;
-    if (!UUID.test(item.target_id ?? '') || !UUID.test(item.claim_id ?? '')
+    if (!isCanonicalPostgresUuid(item.target_id ?? '')
+      || !isCanonicalPostgresUuid(item.claim_id ?? '')
       || !['cleanup_blocked', 'retention_expired', 'stale_verified', 'upload_expired']
         .includes(item.reason ?? '')
       || (item.object_path !== null && (typeof item.object_path !== 'string'
-        || !validObjectPath(item.object_path)))) {
+        || !parseTenantPackageObjectPath(item.object_path)))) {
       invalidResponse();
+    }
+    if (typeof item.object_path === 'string') {
+      const namespace = parseTenantPackageObjectPath(item.object_path)?.namespace;
+      if (!namespace) invalidResponse();
+      namespaces.add(namespace);
     }
   }
   const typed = rows as Candidate[];
+  const nullPaths = typed.filter((item) => item.object_path === null).length;
   if (new Set(typed.map((item) => item.claim_id)).size > 1
     || new Set(typed.map((item) => item.target_id)).size > 1
-    || new Set(typed.map((item) => item.reason)).size > 1) invalidResponse();
+    || new Set(typed.map((item) => item.reason)).size > 1
+    || namespaces.size > 1 || (nullPaths > 0 && typed.length !== 1)) invalidResponse();
   return typed;
 }
 
@@ -82,11 +90,13 @@ async function rpc(endpoint: URL, headers: Record<string, string>, name: string,
 
 export async function runTenantPackageRetention(
   operations: RetentionOperations,
-  options: { batchSize?: number; maxBatches?: number } = {},
+  options: { batchSize?: number; heartbeatMs?: number; maxBatches?: number } = {},
 ): Promise<RetentionResult> {
-  const batchSize = options.batchSize ?? 500;
+  const batchSize = options.batchSize ?? MAX_CLAIM_ROWS;
+  const heartbeatMs = options.heartbeatMs ?? DEFAULT_HEARTBEAT_MS;
   const maxBatches = options.maxBatches ?? 100;
-  if (!Number.isSafeInteger(batchSize) || batchSize < 1 || batchSize > 500
+  if (!Number.isSafeInteger(batchSize) || batchSize < 1 || batchSize > MAX_CLAIM_ROWS
+    || !Number.isSafeInteger(heartbeatMs) || heartbeatMs < 1 || heartbeatMs > 5 * 60_000
     || !Number.isSafeInteger(maxBatches) || maxBatches < 1 || maxBatches > 100) {
     throw new TenantPackageError('cleanup_configuration_invalid', 'Cleanup bounds are invalid.');
   }
@@ -97,14 +107,20 @@ export async function runTenantPackageRetention(
   let batches = 0;
   let capped = false;
   for (; batches < maxBatches;) {
-    const claimed = candidates(await operations.claim(batchSize));
+    const claimed = candidates(await operations.claim(batchSize), batchSize);
     if (claimed.length === 0) break;
     const paths = claimed.flatMap((candidate) => candidate.object_path ? [candidate.object_path] : []);
     const blocked = claimed[0]?.reason === 'cleanup_blocked';
     if (blocked && paths.length > 0) invalidResponse();
     if (new Set(paths).size !== paths.length) invalidResponse();
     if (paths.length > 0) {
-      await operations.remove(paths);
+      const claimId = claimed[0]?.claim_id;
+      if (!claimId) invalidResponse();
+      await runWithClaimHeartbeat({
+        renew: () => operations.renew(claimId),
+        remove: (signal) => operations.remove(paths, signal),
+        heartbeatMs,
+      });
       removedObjects += paths.length;
     }
     const claimId = claimed[0]?.claim_id;
@@ -129,19 +145,26 @@ export async function main(): Promise<void> {
       const response = await rpc(endpoint, headers, 'claim_tenant_package_cleanup_candidates', {
         p_limit: limit,
       });
-      return response.json();
+      return readBoundedJson(response, TENANT_PACKAGE_CLAIM_RESPONSE_BYTES);
     },
     async confirm(claimId) {
       const response = await rpc(endpoint, headers, 'confirm_tenant_package_purge_claim', {
         p_claim_id: claimId,
       });
-      return response.json();
+      return readBoundedJson(response, SCALAR_RESPONSE_BYTES);
     },
-    async remove(paths) {
-      await requestWithRetry(new URL('/storage/v1/object/tenant-packages', endpoint), {
+    async renew(claimId) {
+      const response = await rpc(endpoint, headers, 'renew_tenant_package_purge_claim', {
+        p_claim_id: claimId,
+      });
+      return readBoundedJson(response, SCALAR_RESPONSE_BYTES);
+    },
+    async remove(paths, signal) {
+      const response = await requestWithRetry(new URL('/storage/v1/object/tenant-packages', endpoint), {
         method: 'DELETE', headers: { ...headers, 'content-type': 'application/json' },
-        body: JSON.stringify({ prefixes: paths }),
+        body: JSON.stringify({ prefixes: paths }), signal,
       }, [200, 404]);
+      await discardResponse(response);
     },
   });
   process.stdout.write(serializeRetentionResult(result));

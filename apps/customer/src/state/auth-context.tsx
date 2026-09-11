@@ -1,58 +1,21 @@
-import type { Session, User } from '@supabase/supabase-js';
+import type { Session } from '@supabase/supabase-js';
 import * as Linking from 'expo-linking';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type PropsWithChildren } from 'react';
 
 import { Platform } from 'react-native';
 
 import { platformApi } from '@/lib/api';
-import { createRequestSequence, recoveryCodeFromUrl, recoveryRedirectUrl } from '@platform/domain';
+import { createRequestSequence, recoveryCodeFromUrl } from '@platform/domain';
 import { loadLivePortal } from '@/lib/live-portal';
 import { registerForPush } from '@/lib/push';
 import { hasSupabaseConfig, supabase } from '@/lib/supabase';
-import { TENANT } from '@/tenant';
 import { useDemo } from '@/state/demo-context';
-import type { AppRole, PortalBundle } from '@platform/domain';
+import type { PortalBundle } from '@platform/domain';
 
-type AuthState = {
-  session: Session | null;
-  user: User | null;
-  role: AppRole;
-  portal: PortalBundle;
-  isLoading: boolean;
-  isAuthenticated: boolean;
-  isDemo: boolean;
-  isPasswordRecovery: boolean;
-  error: string | null;
-  signIn: (email: string, password: string) => Promise<void>;
-  /** Sends the six-digit email code; creates the account on first use. */
-  signInWithEmailOtp: (email: string) => Promise<void>;
-  verifyEmailCode: (email: string, code: string) => Promise<void>;
-  /** Sends the six-digit SMS code. The phone must already be E.164. */
-  signInWithPhone: (phone: string) => Promise<void>;
-  verifyPhoneCode: (phone: string, code: string) => Promise<void>;
-  signUp: (fullName: string, email: string, password: string) => Promise<void>;
-  requestPasswordReset: (email: string) => Promise<void>;
-  updatePassword: (password: string) => Promise<void>;
-  signOut: () => Promise<void>;
-  refresh: () => Promise<void>;
-};
+import { EMPTY_PORTAL, type AuthState } from './customer-auth-state';
+import { useAuthActions } from './use-auth-actions';
 
 const AuthContext = createContext<AuthState | null>(null);
-
-const EMPTY_PORTAL: PortalBundle = {
-  profile: { id: '', fullName: '', email: '', phone: null, birthday: null, avatarUrl: null },
-  role: 'client',
-  orders: [],
-  rewardAccount: { availablePoints: 0, annualPoints: 0, cashCents: 0, annualPeriodStart: `${new Date().getFullYear()}-01-01` },
-  rewardLedger: [],
-  rewardActivities: [],
-  rewardCatalog: [],
-  giftCards: [],
-  paymentMethods: [],
-  messages: [],
-  preferences: { completed: false, notes: '', strength: 'medium', updatedAt: null },
-  membership: null,
-};
 
 export function AuthProvider({ children }: PropsWithChildren) {
   const demo = useDemo();
@@ -166,21 +129,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return () => subscription.remove();
   }, []);
 
-  const signIn = useCallback(async (email: string, password: string) => {
-    if (!supabase) throw new Error('Supabase is not configured.');
-    setError(null);
-    setIsLoading(true);
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-    if (signInError) {
-      setIsLoading(false);
-      throw new Error(signInError.message);
-    }
-  }, []);
-
   // Ask for push permission once a real session exists -- never in Demo,
-  // never in Expo Go (lib/push guards both). The token registers with the
-  // platform API so order-status pushes reach this device; a failed
-  // registration is logged and retried on the next session change.
+  // never in Expo Go (lib/push guards both). A failed registration retries on
+  // the next session change.
   useEffect(() => {
     if (isDemo || !session) return;
     let active = true;
@@ -197,80 +148,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
         console.warn('Push token registration failed', registerError instanceof Error ? registerError.message : registerError);
       }
     });
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, [isDemo, session]);
 
-  // Every OTP path carries brand_slug: the claims hook bootstraps a brand-new
-  // user's tenancy claim from it, validated against brands.slug server-side.
-  const signInWithEmailOtp = useCallback(async (email: string) => {
-    if (!supabase) throw new Error('Live sign-in is not configured in this build.');
-    const { error: otpError } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
-      options: { shouldCreateUser: true, data: { brand_slug: TENANT.identity.slug } },
-    });
-    if (otpError) throw new Error(otpError.message);
-  }, []);
-
-  const verifyEmailCode = useCallback(async (email: string, code: string) => {
-    if (!supabase) throw new Error('Live sign-in is not configured in this build.');
-    const { error: verifyError } = await supabase.auth.verifyOtp({
-      email: email.trim(),
-      token: code,
-      type: 'email',
-    });
-    if (verifyError) throw new Error(verifyError.message);
-  }, []);
-
-  const signInWithPhone = useCallback(async (phone: string) => {
-    if (!supabase) throw new Error('Live sign-in is not configured in this build.');
-    const { error: otpError } = await supabase.auth.signInWithOtp({
-      phone,
-      options: { data: { brand_slug: TENANT.identity.slug } },
-    });
-    if (otpError) throw new Error(otpError.message);
-  }, []);
-
-  const verifyPhoneCode = useCallback(async (phone: string, code: string) => {
-    if (!supabase) throw new Error('Live sign-in is not configured in this build.');
-    const { error: verifyError } = await supabase.auth.verifyOtp({ phone, token: code, type: 'sms' });
-    if (verifyError) throw new Error(verifyError.message);
-  }, []);
-
-  const signUp = useCallback(async (fullName: string, email: string, password: string) => {
-    if (!supabase) throw new Error('Supabase is not configured.');
-    setError(null);
-    setIsLoading(true);
-    const { error: signUpError } = await supabase.auth.signUp({
-      email: email.trim(),
-      password,
-      options: { data: { full_name: fullName.trim(), brand_slug: TENANT.identity.slug } },
-    });
-    setIsLoading(false);
-    if (signUpError) throw new Error(signUpError.message);
-  }, []);
-
-  const requestPasswordReset = useCallback(async (email: string) => {
-    if (!supabase) throw new Error('Supabase is not configured.');
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: recoveryRedirectUrl(Linking.createURL),
-    });
-    if (resetError) throw new Error(resetError.message);
-  }, []);
-
-  const signOut = useCallback(async () => {
-    if (!supabase) throw new Error('Supabase is not configured.');
-    const { error: signOutError } = await supabase.auth.signOut();
-    if (signOutError) throw new Error(signOutError.message);
-  }, []);
-
-  const updatePassword = useCallback(async (password: string) => {
-    if (!supabase) throw new Error('Supabase is not configured.');
-    const { error: updateError } = await supabase.auth.updateUser({ password });
-    if (updateError) throw new Error(updateError.message);
-    setIsPasswordRecovery(false);
-  }, []);
+  const {
+    requestPasswordReset, signIn, signInWithEmailOtp, signInWithPhone, signOut, signUp,
+    updatePassword, verifyEmailCode, verifyPhoneCode,
+  } = useAuthActions({ setError, setIsLoading, setIsPasswordRecovery });
 
   const value = useMemo<AuthState>(() => ({
     session,

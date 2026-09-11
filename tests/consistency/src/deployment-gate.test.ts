@@ -15,6 +15,10 @@ const retention = readFileSync(
 const migrationRunner = readFileSync(join(ROOT, 'scripts', 'hosted-migrations.ts'), 'utf8');
 const releaseSurfaces = readFileSync(join(ROOT, 'scripts', 'release-surfaces.ts'), 'utf8');
 const ciActivation = readFileSync(join(ROOT, 'scripts', 'activate-coffee-story-ci.sql'), 'utf8');
+const factoryRelease = readFileSync(
+  join(ROOT, 'apps', 'hq', 'workflows', 'factory-release-runtime.ts'),
+  'utf8',
+);
 
 describe('hosted database promotion gate', () => {
   it('migrates and verifies the target before every deploy path', () => {
@@ -46,7 +50,10 @@ describe('hosted database promotion gate', () => {
     assert.match(deploy, /pattern: eas-stage-\*/);
     assert.match(deploy, /bash scripts\/vercel-promote-deployment\.sh/);
     assert.doesNotMatch(deploy, /^  publish-tenant-package:/m);
-    assert.match(deploy, /rest\/v1\/rpc\/publish_tenant_package/);
+    assert.match(deploy, /rest\/v1\/rpc\/publish_tenant_package_if_current/);
+    assert.doesNotMatch(deploy, /rpc\/publish_tenant_package(?!_if_current)/);
+    assert.match(factoryRelease, /\.rpc\('publish_tenant_package_if_current'/);
+    assert.doesNotMatch(factoryRelease, /\.rpc\('publish_tenant_package'/);
     assert.match(deploy, /release_reference="release-set:sha256:\$\{release_digest\}"/);
     assert.match(deploy, /test "\$published_id" = "\$RELEASE_ID"/);
   });

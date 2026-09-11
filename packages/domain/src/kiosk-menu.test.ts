@@ -285,7 +285,8 @@ describe('packChoicesOf', () => {
 
   it('never offers a pack inside a pack, or an 86d item', () => {
     for (const source of ['lineup', 'static'] as const) {
-      const slugs = packChoicesOf(menu, { ...pack, choiceSource: source }, NOW).map((i) => i.id);
+      const slugs: string[] = packChoicesOf(menu, { ...pack, choiceSource: source }, NOW)
+        .map((item) => item.id);
       assert.ok(!slugs.includes('a-pack'));
       assert.ok(!slugs.includes('eighty-sixed'));
     }

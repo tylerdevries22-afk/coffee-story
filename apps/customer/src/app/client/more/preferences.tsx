@@ -1,4 +1,4 @@
-import { Preferences } from '@/screens/client/more/profile-and-preferences';
+import { Preferences } from '@/screens/client/more/preferences-screen';
 import { useAppState } from '@/state/app-context';
 
 export default function ClientMorePreferencesRoute() {

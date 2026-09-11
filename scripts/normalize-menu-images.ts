@@ -28,11 +28,17 @@
  * the hash of what this script produced, so an unchanged file is skipped
  * outright and a newly dropped photograph misses the hash and gets normalised.
  */
-import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { writeContactSheet } from './menu-contact-sheet.js';
+import {
+  MENU_CROP_CENTER,
+  MENU_SHEET,
+  hashBytes,
+  measureMenuImage,
+  menuImagePaths,
+} from './menu-image-runtime.js';
 
 import {
   MENU_IMAGE_SPEC,
@@ -55,26 +61,8 @@ if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(tenantSlug)) {
   console.error(`--tenant "${tenantSlug}" is not a kebab-case tenant slug.`);
   process.exit(1);
 }
-const TENANT_DIR = join(process.cwd(), 'tenants', tenantSlug);
-const MENU_DIR = join(TENANT_DIR, 'assets', 'menu');
-const MANIFEST = join(MENU_DIR, '.normalized.json');
-const CONTACT_SHEET = join(TENANT_DIR, 'assets', 'menu-images-contact-sheet.png');
-const brand = JSON.parse(readFileSync(join(TENANT_DIR, 'brand.json'), 'utf8')) as {
-  identity?: { name?: string };
-};
-
-/** Contact sheet layout. The sheet is how a human checks the one thing the
- *  grade cannot measure: whether the subject is framed like its neighbours. */
-const SHEET = { cell: 150, columns: 7, label: 16, pad: 12, header: 34 };
-
-/**
- * Where the square window sits in a portrait source. 0.5 is dead centre; the
- * subject sits below centre in the house shots, so the window is nudged down.
- */
-const CROP_CENTER = 0.55;
-
-/** Analysis resolution for the per-pixel saturation mean. */
-const SAMPLE = 128;
+const { menuDir: MENU_DIR, manifest: MANIFEST, contactSheet: CONTACT_SHEET, brandName } =
+  menuImagePaths(process.cwd(), tenantSlug);
 
 const check = process.argv.includes('--check');
 
@@ -86,47 +74,6 @@ type ManifestEntry = {
   /** Present when the photograph is outside what grading may fix. */
   needsReshoot?: MenuImageAxis[];
 };
-
-const sha = (buffer: Buffer | Uint8Array) => createHash('sha256').update(buffer).digest('hex');
-const round = (n: number, places = 3) => Number(n.toFixed(places));
-
-/**
- * Whole-frame measurement, matching what `menuImageCorrection` expects.
- *
- * Saturation is the mean of per-pixel HSV S over a downsample -- not the
- * saturation of the mean colour, which reads a frame of vivid greens and pinks
- * as near-grey and would invite a correction that turns it neon.
- */
-async function measure(image: import('sharp').Sharp): Promise<MenuImageMeasurement> {
-  const { channels } = await image.clone().stats();
-  const [r, g, b] = channels;
-  if (!r || !g || !b) throw new Error('expected three colour channels');
-
-  const { data } = await image
-    .clone()
-    .resize(SAMPLE, SAMPLE, { fit: 'fill' })
-    .removeAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true });
-
-  let total = 0;
-  const pixels = data.length / 3;
-  for (let i = 0; i < pixels; i++) {
-    const red = data[i * 3] ?? 0;
-    const green = data[i * 3 + 1] ?? 0;
-    const blue = data[i * 3 + 2] ?? 0;
-    const max = Math.max(red, green, blue);
-    const min = Math.min(red, green, blue);
-    total += max === 0 ? 0 : (max - min) / max;
-  }
-
-  return {
-    luminance: round(0.2126 * r.mean + 0.7152 * g.mean + 0.0722 * b.mean, 1),
-    warmth: round(r.mean - b.mean, 1),
-    saturation: round(total / pixels),
-  };
-}
-
 
 async function run() {
   const sharp = (await import('sharp')).default;
@@ -153,7 +100,7 @@ async function run() {
     const current = readFileSync(path);
 
     const cached = manifest[name];
-    if (cached?.hash === sha(current)) {
+    if (cached?.hash === hashBytes(current)) {
       skipped++;
       if (cached.needsReshoot?.length) reshoot.push([name, cached.needsReshoot]);
       continue;
@@ -175,7 +122,7 @@ async function run() {
     const meta = await sharp(current).metadata();
     const { width = 0, height = 0 } = meta;
     const side = Math.min(width, Math.round(height * aspect));
-    const top = Math.round(Math.min(Math.max(height * CROP_CENTER - side / 2, 0), height - side));
+    const top = Math.round(Math.min(Math.max(height * MENU_CROP_CENTER - side / 2, 0), height - side));
     const left = Math.round((width - side) / 2);
 
     const squared = sharp(current)
@@ -183,7 +130,7 @@ async function run() {
       .resize(edge, edge, { fit: 'fill' });
 
     // 2. Grade -- measured on the pixels that actually ship, after the crop.
-    const measured = await measure(squared);
+    const measured = await measureMenuImage(squared);
     const { correction, beyondGrade } = menuImageCorrection(measured);
 
     let out = squared.clone();
@@ -207,7 +154,7 @@ async function run() {
 
     writeFileSync(path, bytes);
     manifest[name] = {
-      hash: sha(bytes),
+      hash: hashBytes(bytes),
       measured,
       correction,
       ...(beyondGrade.length > 0 ? { needsReshoot: beyondGrade } : {}),
@@ -234,7 +181,7 @@ async function run() {
 
   writeFileSync(MANIFEST, `${JSON.stringify(manifest, null, 2)}\n`);
   await writeContactSheet(sharp, files.map((f) => f.replace(/\.webp$/, '')), {
-    menuDir: MENU_DIR, contactSheet: CONTACT_SHEET, brandName: brand.identity?.name ?? tenantSlug, tenantSlug, layout: SHEET,
+    menuDir: MENU_DIR, contactSheet: CONTACT_SHEET, brandName, tenantSlug, layout: MENU_SHEET,
   });
   console.log(
     `Normalised ${files.length - skipped} image(s) to ${edge}x${edge}` +

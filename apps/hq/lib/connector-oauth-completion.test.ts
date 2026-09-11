@@ -52,7 +52,9 @@ describe('completeConnectorOAuth', { concurrency: false }, () => {
 
   it('surfaces a safe cleanup state when both completion and revocation fail', async () => {
     configureOauthTestEnv();
-    const db = { rpc: async () => { throw new Error('database unavailable'); } } as unknown as SupabaseClient;
+    // A rejected completion result (not a thrown transport error) is what allows
+    // safe revocation: a double-throw is treated as ambiguous and must not revoke.
+    const db = { rpc: async () => ({ data: null, error: { message: 'database unavailable' } }) } as unknown as SupabaseClient;
     const fetchMock = mock.method(globalThis, 'fetch', async () => new Response(null, { status: 503 }));
     await assert.rejects(
       completeConnectorOAuth(db, input),

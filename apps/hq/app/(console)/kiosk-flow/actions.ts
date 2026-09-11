@@ -75,6 +75,6 @@ export async function saveKioskFlow(
     return { ok: false, error: 'The kiosk configuration could not be saved.' };
   }
 
-  revalidatePath('/kiosk');
+  revalidatePath('/kiosk-flow');
   return { ok: true, updatedAt: String(data) };
 }

@@ -81,7 +81,7 @@ export function DevicePreviewFrame({ frame, height, loading = 'lazy', orientatio
     <div className="apps-device-stage" ref={stageRef}>
       <motion.div className={`apps-device apps-device--${frame}`} style={{ width: chassis.width, height: chassis.height, transform }}>
         <motion.div className="apps-device-viewport" data-screen={portraitScreen ? 'portrait' : 'landscape'} style={{ width: screen.width, height: screen.height, left: screen.left, top: screen.top, rotate: screen.rotate, opacity: screenOpacity }}>
-          <iframe allow="fullscreen" height={screen.height} loading={loading} referrerPolicy="no-referrer" sandbox="allow-forms allow-popups allow-same-origin allow-scripts" src={src} title={title} width={screen.width} />
+          <iframe allow="fullscreen" height={screen.height} key={src} loading={loading} referrerPolicy="no-referrer" sandbox="allow-forms allow-popups allow-same-origin allow-scripts" src={src} title={title} width={screen.width} />
         </motion.div>
         {art.asset ? <img alt="" aria-hidden="true" className="apps-device-artwork" draggable={false} src={art.asset} /> : null}
       </motion.div>
