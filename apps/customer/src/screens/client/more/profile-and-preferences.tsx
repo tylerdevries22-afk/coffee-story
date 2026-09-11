@@ -1,6 +1,6 @@
 import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
-import { Alert, Platform, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Platform, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { ProfileAvatar } from '@/components/profile-avatar';
 import { CollapsingScreen } from '@/components/collapsing-screen';
@@ -87,6 +87,7 @@ export function Profile({
   const [profile, setProfile] = useState<PortalProfile>(portal.profile);
   const [saving, setSaving] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   async function chooseProfilePhoto() {
@@ -174,6 +175,34 @@ export function Profile({
     }
   }
 
+
+  async function downloadMyData() {
+    setExporting(true);
+    try {
+      const payload = await mobileApi.exportProfile();
+      const json = JSON.stringify(payload, null, 2);
+      if (Platform.OS === 'web' && typeof document !== 'undefined') {
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = 'my-data-export.json';
+        anchor.click();
+        URL.revokeObjectURL(url);
+        Alert.alert('Download started', 'Your data export is downloading as my-data-export.json.');
+      } else {
+        await Share.share({
+          message: json,
+          title: 'My Coffee Story data export',
+        });
+      }
+    } catch (error) {
+      Alert.alert('Export unavailable', error instanceof Error ? error.message : 'Try again later.');
+    } finally {
+      setExporting(false);
+    }
+  }
+
   function confirmAccountDeletion() {
     Alert.alert(
       'Delete account?',
@@ -213,13 +242,22 @@ export function Profile({
       <Button label="Save profile" loading={saving} onPress={() => void saveProfile()} />
       {!isDemo && role === 'client' ? (
         <Card style={profileStyles.accessCard}>
+          <SectionTitle>Your data</SectionTitle>
+          <Body muted>Download a copy of your profile, orders, loyalty, and notification settings before you leave.</Body>
+          <Button
+            label="Download my data"
+            variant="soft"
+            loading={exporting}
+            disabled={exporting || deleting}
+            onPress={() => void downloadMyData()}
+          />
           <SectionTitle>Delete account</SectionTitle>
           <Body muted>Your personal details and sign-in will be removed. An anonymized order record remains with the shop.</Body>
           <Button
             label="Delete my account"
             variant="secondary"
             loading={deleting}
-            disabled={deleting}
+            disabled={deleting || exporting}
             onPress={confirmAccountDeletion}
           />
         </Card>

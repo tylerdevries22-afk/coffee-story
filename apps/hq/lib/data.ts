@@ -259,9 +259,20 @@ export async function loadCustomers(): Promise<CustomerSummary[]> {
   const client = await serverClient();
   if (!client) return demoFixture(DEMO_CUSTOMERS, []);
   const scope = await liveScope(client);
-  if (!scope.orgId) return [];
+  if (!scope.orgId || scope.locationIds.length === 0) return [];
   // RLS already narrows what this role may see (managers brand-wide, shift
-  // staff only guests with orders at their locations).
+  // staff only guests with orders at their locations). When a store is
+  // selected in the workspace chrome, order history is further limited to
+  // that store (or the caller's allowed locations).
+  const orderQuery = client
+    .from('orders')
+    .select('customer_id, total_cents, status, created_at')
+    .eq('brand_id', scope.orgId)
+    .order('created_at', { ascending: false })
+    .limit(2000);
+  const scopedOrders = scope.locationId
+    ? orderQuery.eq('location_id', scope.locationId)
+    : orderQuery.in('location_id', [...scope.locationIds]);
   const [customers, points, orders] = await Promise.all([
     client
       .from('customers')
@@ -271,13 +282,7 @@ export async function loadCustomers(): Promise<CustomerSummary[]> {
       .limit(200)
       .returns<CustomerRowLike[]>(),
     client.from('loyalty_accounts').select('customer_id, points_balance').eq('brand_id', scope.orgId).returns<PointsRow[]>(),
-    client
-      .from('orders')
-      .select('customer_id, total_cents, status, created_at')
-      .eq('brand_id', scope.orgId)
-      .order('created_at', { ascending: false })
-      .limit(2000)
-      .returns<CustomerOrderRow[]>(),
+    scopedOrders.returns<CustomerOrderRow[]>(),
   ]);
   if (customers.error) throw new Error(`customers: ${customers.error.message}`);
   if (points.error) throw new Error(`loyalty_accounts: ${points.error.message}`);

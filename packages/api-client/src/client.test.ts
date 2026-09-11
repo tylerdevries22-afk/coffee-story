@@ -78,6 +78,33 @@ describe('deleteProfile', () => {
   });
 });
 
+describe('exportProfile', () => {
+  it('uses the authenticated GET export endpoint', async () => {
+    const originalFetch = globalThis.fetch;
+    let observed: { method?: string; url?: string; authorization?: string; body?: BodyInit | null } = {};
+    globalThis.fetch = async (input, init) => {
+      observed = {
+        method: init?.method,
+        url: String(input),
+        authorization: new Headers(init?.headers).get('authorization') ?? undefined,
+        body: init?.body ?? null,
+      };
+      return Response.json({ exported_at: '2026-09-11T00:00:00Z', customers: [] });
+    };
+    try {
+      const client = createApiClient({ ...config, getAccessToken: async () => 'guest-token' });
+      const payload = await client.exportProfile();
+      assert.equal(Array.isArray(payload.customers), true);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+    assert.equal(observed.method, 'GET');
+    assert.equal(observed.authorization, 'Bearer guest-token');
+    assert.match(String(observed.url), /\/api\/profile\/export$/);
+    assert.equal(observed.body, null);
+  });
+});
+
 describe('refundOrder', () => {
   it('sends the caller-owned attempt key unchanged', async () => {
     const originalFetch = globalThis.fetch;
