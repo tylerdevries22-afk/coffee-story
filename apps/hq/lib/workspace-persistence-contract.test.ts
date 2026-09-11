@@ -58,8 +58,21 @@ test('the topbar pairs organization and location before the page context', () =>
   const location = source.indexOf('props.locationSwitcher');
   const section = source.indexOf('props.section.home');
   assert.ok(organization >= 0 && location > organization && section > location);
-  assert.match(source, /<Icon name=\{props\.mobile \? 'menu' : 'panel'\}/);
+  // Menu control is mobile-only; tablet/desktop use the persistent dual rail.
+  assert.match(source, /props\.mobile \? \(/);
+  assert.match(source, /aria-label="Open navigation"/);
+  assert.match(source, /<Icon name="menu"/);
+  assert.doesNotMatch(source, /onToggleCompact|name="panel"/);
   assert.doesNotMatch(source, /props\.initials/);
+});
+
+test('console shell wires the global icon rail on non-mobile dual-rail layouts', () => {
+  const source = read('components/console-shell.tsx');
+  assert.match(source, /import \{ ConsoleGlobalRail \} from '\.\/console-global-rail'/);
+  assert.match(source, /!mobileNav \? \(/);
+  assert.match(source, /<ConsoleGlobalRail/);
+  assert.match(source, /className=\{`hq-shell\$\{mobileNav \? '' : ' dual-rail'\}`\}/);
+  assert.doesNotMatch(source, /COMPACT_STORAGE_KEY|onToggleCompact|setCompact/);
 });
 
 test('sign-out expires organization and location workspace cookies', () => {

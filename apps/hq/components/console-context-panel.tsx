@@ -15,7 +15,6 @@ type ContextPanelProps = Pick<
   ConsoleRailProps,
   | 'brandName'
   | 'closeButtonRef'
-  | 'compact'
   | 'dataMode'
   | 'initials'
   | 'isOpen'
@@ -30,15 +29,12 @@ type ContextPanelProps = Pick<
 
 export function ConsoleContextPanel(props: ContextPanelProps) {
   const pathname = usePathname();
-  const contextHidden = props.compact && !props.mobile;
   const modeLabel = props.dataMode === 'hosted' ? 'Live' : 'Preview';
 
   return (
     <aside
       className="hq-context-panel"
       aria-label="Workspace navigation"
-      aria-hidden={contextHidden || undefined}
-      inert={contextHidden || undefined}
     >
       <header className="hq-context-mobile-header">
         <span className="hq-context-mobile-mark" aria-hidden="true">{props.initials}</span>
