@@ -13,6 +13,8 @@ import { addDemoLocation } from '@/lib/demo-locations';
 import {
   authorizeWorkspaceMutation, claimsForWorkspaceMutation,
 } from '@/lib/workspace-mutation';
+import { cookies } from 'next/headers';
+import { expiredWorkspaceCookieOptions, LOCATION_COOKIE } from '@/lib/workspace-cookie';
 function text(formData: FormData, key: string): string {
   const value = formData.get(key);
   return typeof value === 'string' ? value : '';
@@ -158,7 +160,14 @@ export async function deleteLocationAction(formData: FormData): Promise<void> {
   if (result.error?.message?.includes('last_location_protected')) {
     redirect('/locations?deleted=last');
   }
+  if (result.error?.message?.includes('location_has_commerce_history')) {
+    redirect('/locations?deleted=history');
+  }
   if (result.error) redirect('/locations?deleted=failed');
+  const jar = await cookies();
+  if (jar.get(LOCATION_COOKIE)?.value === locationId) {
+    jar.set(LOCATION_COOKIE, '', expiredWorkspaceCookieOptions());
+  }
   revalidatePath('/locations');
   revalidatePath('/', 'layout');
   redirect('/locations?deleted=1');

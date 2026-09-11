@@ -106,3 +106,9 @@ apps/hq/public/operator/
 apps/*/dist-web-org/
 .vercel
 .env*
+.ui-audit-loop/
+.backend-audit-loop/
+.merge/
+.ruflo/
+.ruvector/
+artifacts/verification/
