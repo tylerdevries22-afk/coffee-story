@@ -260,10 +260,6 @@ export async function loadCustomers(): Promise<CustomerSummary[]> {
   if (!client) return demoFixture(DEMO_CUSTOMERS, []);
   const scope = await liveScope(client);
   if (!scope.orgId || scope.locationIds.length === 0) return [];
-  // RLS already narrows what this role may see (managers brand-wide, shift
-  // staff only guests with orders at their locations). When a store is
-  // selected in the workspace chrome, order history is further limited to
-  // that store (or the caller's allowed locations).
   const orderQuery = client
     .from('orders')
     .select('customer_id, total_cents, status, created_at')

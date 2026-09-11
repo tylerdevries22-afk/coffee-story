@@ -42,3 +42,21 @@ export function localWallOrganization(
     ),
   };
 }
+
+/** Attach hosted + local org catalog to a published wall payload. */
+export function wallDocumentWithOrganizations<T extends {
+  context: { tenantKey: string; organizationName: string };
+  surfaces: Parameters<typeof localWallOrganization>[2];
+}>(publishedWall: T): T & { organizations: ReturnType<typeof hostedWallOrganizations> } {
+  const localOrg = localWallOrganization(
+    publishedWall.context.tenantKey,
+    `${publishedWall.context.organizationName} (local)`,
+    publishedWall.surfaces,
+  );
+  const hosted = [...hostedWallOrganizations()];
+  const preferred = hosted.find((org) => org.tenantKey === publishedWall.context.tenantKey);
+  const context = preferred
+    ? { tenantKey: preferred.tenantKey, organizationName: preferred.organizationName }
+    : publishedWall.context;
+  return { ...publishedWall, context, organizations: [...hosted, localOrg] };
+}

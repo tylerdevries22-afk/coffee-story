@@ -24,9 +24,7 @@ import { visibleWorkspaceLocations } from './workspace-location-access';
 export type WorkspaceOrg = {
   readonly id: string;
   readonly name: string;
-  readonly kind: WorkspaceOrgKind;
-  /** Tenant folder / hosted stack slug when known; null until brands.slug is set. */
-  readonly slug: string | null;
+  readonly kind: WorkspaceOrgKind; readonly slug: string | null;
 };
 
 export type WorkspaceLocation = { readonly id: string; readonly name: string; readonly city: string };
@@ -89,12 +87,8 @@ const authorizedOrgs = cache(async function authorizedOrgs(session: SessionInfo)
     .returns<BrandRow[]>();
   if (rows.error || !rows.data?.length) return [home];
   return rows.data.map((row) => ({
-    org: {
-      id: row.id,
-      name: row.name,
-      kind: 'brand' as WorkspaceOrgKind,
-      slug: typeof row.slug === 'string' && row.slug.length > 0 ? row.slug : null,
-    },
+    org: { id: row.id, name: row.name, kind: 'brand' as WorkspaceOrgKind,
+      slug: typeof row.slug === 'string' && row.slug.length > 0 ? row.slug : null },
     brandConfig: row.brand_config ?? null,
   }));
 });

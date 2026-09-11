@@ -1,5 +1,4 @@
 import type { FactorySurface } from '@platform/factory';
-
 import { createOrAdopt } from '../lib/provider-create';
 import { providerFetch, providerJson } from './factory-runtime';
 
@@ -9,25 +8,20 @@ export type VercelRuntimeVariable = Readonly<{
   target: readonly ['production', 'preview'];
   type: 'plain' | 'encrypted';
 }>;
-
 type EnvironmentTarget = 'production' | 'preview';
 type EnvironmentRow = {
   id: string; key: string; value: string; targets: readonly string[]; type: string;
 };
-
 type EnvironmentClient = Readonly<{
   headers: Record<string, string>; request?: typeof providerFetch;
   delay?: (milliseconds: number) => Promise<void>;
 }>;
-
 export function vercelRuntimeVariables(
   surface: FactorySurface,
   tenantSlug: string,
   secrets: Record<string, string>,
 ): VercelRuntimeVariable[] {
   const hqUrl = `https://${tenantSlug}-hq.vercel.app`;
-  // Model B: guest Expo web ships on the HQ host. Legacy per-surface Vercel
-  // env maps remain for native/EAS tooling that still calls this helper.
   const values = surface === 'hq'
     ? {
         TENANT: tenantSlug,
@@ -37,12 +31,7 @@ export function vercelRuntimeVariables(
         SUPABASE_SERVICE_ROLE_KEY: secrets.SUPABASE_SERVICE_ROLE_KEY,
         CRON_SECRET: secrets.CRON_SECRET,
         HEALTH_CHECK_TOKEN: secrets.HEALTH_CHECK_TOKEN,
-        NEXT_PUBLIC_ORG_SURFACE_ORIGIN: hqUrl,
-        NEXT_PUBLIC_HQ_URL: hqUrl,
-        NEXT_PUBLIC_CUSTOMER_URL: `${hqUrl}/customer`,
-        NEXT_PUBLIC_KIOSK_URL: `${hqUrl}/kiosk`,
-        NEXT_PUBLIC_OPERATOR_URL: `${hqUrl}/operator`,
-        NEXT_PUBLIC_DISPLAY_URL: `https://${tenantSlug}-display.vercel.app`,
+        ...modelBHqSurfaceUrls(tenantSlug, hqUrl),
       }
     : surface === 'display'
       ? {
@@ -56,8 +45,7 @@ export function vercelRuntimeVariables(
           EXPO_PUBLIC_SUPABASE_URL: secrets.SUPABASE_URL,
           EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: secrets.SUPABASE_PUBLISHABLE_KEY,
           EXPO_PUBLIC_API_URL: hqUrl,
-          EXPO_PUBLIC_ALLOWED_API_HOST: `${tenantSlug}-hq.vercel.app`,
-          EXPO_BASE_URL: `/${surface}`,
+          EXPO_PUBLIC_ALLOWED_API_HOST: `${tenantSlug}-hq.vercel.app`, EXPO_BASE_URL: `/${surface}`,
         };
   return Object.entries(values).flatMap(([key, value]) => value ? [{
     key, value, target: ['production', 'preview'] as const,
@@ -65,19 +53,16 @@ export function vercelRuntimeVariables(
       || key.startsWith('DISPLAY_DEVICE_') ? 'encrypted' as const : 'plain' as const,
   }] : []);
 }
-
 function record(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? value as Record<string, unknown>
     : null;
 }
-
 function targets(value: unknown): readonly string[] | null {
   if (typeof value === 'string') return [value];
   return Array.isArray(value) && value.length > 0 && value.every((entry) => typeof entry === 'string')
     ? value : null;
 }
-
 function environmentRow(value: unknown): EnvironmentRow | null {
   const row = record(value);
   const rowTargets = targets(row?.target);
@@ -88,13 +73,11 @@ function environmentRow(value: unknown): EnvironmentRow | null {
     || (custom !== undefined && (!Array.isArray(custom) || custom.length > 0))) return null;
   return { id: row.id, key: row.key, value: row.value, targets: rowTargets, type: row.type };
 }
-
 function endpoint(projectId: string, scopeQuery: string, suffix = '', decrypt = false): string {
   const query = new URLSearchParams(scopeQuery);
   if (decrypt) query.set('decrypt', 'true');
   return `https://api.vercel.com/v9/projects/${encodeURIComponent(projectId)}/env${suffix}?${query}`;
 }
-
 async function readEnvironment(
   projectId: string,
   scopeQuery: string,
@@ -113,7 +96,6 @@ async function readEnvironment(
     return [parsed];
   });
 }
-
 function selectedRow(
   rows: readonly EnvironmentRow[],
   key: string,
@@ -126,7 +108,6 @@ function selectedRow(
   if (candidates.length > 1) throw new Error(`Vercel environment has ambiguous ${key} ${target} records.`);
   return candidates[0] ?? null;
 }
-
 async function createVariable(
   projectId: string,
   scopeQuery: string,
@@ -153,7 +134,6 @@ async function createVariable(
     { delay: client.delay },
   );
 }
-
 async function updateVariable(
   projectId: string,
   scopeQuery: string,
@@ -170,7 +150,6 @@ async function updateVariable(
   }, true);
   if (!response.ok) throw new Error(`Vercel environment update failed for ${variable.key}.`);
 }
-
 function verifyEnvironment(
   rows: readonly EnvironmentRow[], variables: readonly VercelRuntimeVariable[],
 ): void {
@@ -183,7 +162,6 @@ function verifyEnvironment(
     }
   }
 }
-
 /** Reconciles both runtime targets and trusts only a decrypted provider readback. */
 export async function synchronizeVercelEnvironment(
   projectId: string,
