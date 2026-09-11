@@ -116,14 +116,16 @@ select throws_ok($q$select public.record_organization_readiness(
   '23514','tenant_package_compensation_pending','generic failure cannot erase pending evidence');
 select is((select evidence->>'compensationId' from public.organization_readiness_checks
   where brand_id='c1000000-0000-4000-8000-000000000001' and check_key='release_approval'),(select id::text
-  from public.tenant_package_publication_compensations),
+  from public.tenant_package_publication_compensations
+  where brand_id='c1000000-0000-4000-8000-000000000001'
+    and failed_release_id='c2000000-0000-4000-8000-000000000002'),
   'a rejected failure preserves the exact compensation binding');
 select throws_ok($q$select public.record_organization_readiness(
   'c1000000-0000-4000-8000-000000000001','tenant_artifacts',true,
   '{"artifactDigest":"sha256:3333333333333333333333333333333333333333333333333333333333333333"}')$q$,
   '23514','tenant_package_compensation_pending','staging cannot drift during provider restore');
 select is((select evidence->>'artifactDigest' from public.organization_readiness_checks
-  where check_key='tenant_artifacts'),
+  where brand_id='c1000000-0000-4000-8000-000000000001' and check_key='tenant_artifacts'),
   'sha256:1111111111111111111111111111111111111111111111111111111111111111'::text,
   'rejected staging leaves restored readiness intact');
 

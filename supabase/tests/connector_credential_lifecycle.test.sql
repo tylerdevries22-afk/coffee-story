@@ -38,12 +38,15 @@ insert into public.brand_users (user_id, brand_id, role) values
    '83838383-8383-4838-8838-838383838383', 'brand_owner');
 insert into public.connector_registry (
   id, provider_key, display_name, category, availability,
-  logo_path, logo_source_url, logo_license
+  logo_path, logo_source_url, logo_license,
+  oauth_lifecycle_managed, oauth_revocation_scope, oauth_grant_namespace
 ) values
   ('84848484-8484-4848-8848-848484848484', 'lifecycle-oauth-test',
-   'Lifecycle OAuth', 'platform', 'available', '/test.svg', 'https://example.test/logo.svg', 'test'),
+   'Lifecycle OAuth', 'platform', 'available', '/test.svg', 'https://example.test/logo.svg', 'test',
+   true, 'credential', 'lifecycle-oauth-test'),
   ('85858585-8585-4858-8858-858585858585', 'lifecycle-stale-test',
-   'Lifecycle Stale', 'platform', 'available', '/test.svg', 'https://example.test/logo.svg', 'test');
+   'Lifecycle Stale', 'platform', 'available', '/test.svg', 'https://example.test/logo.svg', 'test',
+   true, 'credential', 'lifecycle-stale-test');
 insert into public.connector_capabilities (
   id, provider_id, capability_key, display_name, access_mode, oauth_scopes
 ) values ('86868686-8686-4868-8868-868686868686',
@@ -71,7 +74,7 @@ select throws_ok($test$update public.connector_capabilities
   '23514', 'connector_capability_identity_immutable',
   'capability identity cannot move between providers');
 select throws_ok($test$update public.connector_certifications
-  set environment = 'staging'
+  set environment = 'production'
   where id = '89898989-8989-4898-8898-898989898989'$test$,
   '23514', 'connector_certification_identity_immutable',
   'certification identity cannot move between environments');

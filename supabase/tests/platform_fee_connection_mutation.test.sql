@@ -190,6 +190,10 @@ insert into app_private.square_payment_remediation_outbox (
   'remediation-order',
   'remediation-payment', 'remediation-event', 1000,
   'f9990000-0000-4000-8000-000000000020');
+update app_private.square_payment_remediation_outbox set
+  status = 'processing', claimed_at = now(), claim_generation = gen_random_uuid(),
+  available_at = now() + interval '5 minutes'
+where order_id = 'f9990000-0000-4000-8000-000000000020';
 select throws_ok($q$select * from public.claim_square_connection_mutation(
   'f9999999-9999-4999-8999-999999999999',
   'f9990000-0000-4000-8000-000000000001', gen_random_uuid(), 'replace',
@@ -197,7 +201,7 @@ select throws_ok($q$select * from public.claim_square_connection_mutation(
   (select connection_generation from public.square_connections where id =
     'f9990000-0000-4000-8000-000000000010'),
   'ciphertext-access-renewed', 'ciphertext-refresh-new')$q$,
-  '55000', 'square_connection_has_active_payment_state',
+  '55000', 'square_connection_provider_operation_in_progress',
   'an outstanding refund remediation blocks replacement');
 delete from app_private.square_payment_remediation_outbox where order_id =
   'f9990000-0000-4000-8000-000000000020';

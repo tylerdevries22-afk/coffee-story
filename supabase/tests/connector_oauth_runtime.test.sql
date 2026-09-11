@@ -42,7 +42,7 @@ select ok(not has_function_privilege('authenticated',
   'public.complete_connector_oauth_connection(uuid,uuid,text,uuid,uuid,jsonb,text,text[],timestamptz)', 'EXECUTE'));
 select ok(has_function_privilege('service_role',
   'public.complete_connector_oauth_connection(uuid,uuid,text,uuid,uuid,jsonb,text,text[],timestamptz)', 'EXECUTE'));
-select has_index('app_private', 'connector_oauth_states',
+select ok(to_regclass('app_private.connector_oauth_states_active_actor_idx') is not null,
   'connector_oauth_states_active_actor_idx');
 
 insert into auth.users (id, email, raw_app_meta_data, raw_user_meta_data) values
