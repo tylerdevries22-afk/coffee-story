@@ -1,8 +1,5 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
-import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
 import { factoryTasks } from '@platform/factory';
 import { start } from 'workflow/api';
 
@@ -18,12 +15,9 @@ import {
   rollbackInvitationSafely,
 } from '@/lib/organization-provisioning-helpers';
 import { resolveOrInviteStaffUser } from '@/lib/staff-admin';
+import { switchWorkspaceToProvisionedOrg } from '@/lib/organization-workspace-switch';
 import { runPlatformFactory } from '@/workflows/platform-factory';
-import { recordPlatformAccess } from '@/lib/platform-access-audit';
 import { isConfigured, serverClient } from '@/lib/supabase-server';
-import {
-  expiredWorkspaceCookieOptions, LOCATION_COOKIE, ORG_COOKIE, workspaceCookieOptions,
-} from '@/lib/workspace-cookie';
 
 function text(formData: FormData, key: string): string {
   const value = formData.get(key); return typeof value === 'string' ? value : '';
@@ -189,22 +183,8 @@ export async function createOrganizationAction(
     }
   }
 
-  const audited = await recordPlatformAccess(session, {
-    action: 'organizations.provision.select',
-    brandId,
-    locationId,
-    required: true,
-    metadata: { source: 'organization_create', surface: 'hq' },
+  const switched = await switchWorkspaceToProvisionedOrg({
+    session, brandId, locationId, factoryIssue,
   });
-  if (!audited) {
-    return { kind: 'error', message: 'Organization was created but workspace switch could not be audited.' };
-  }
-  const store = await cookies();
-  store.set(ORG_COOKIE, brandId, workspaceCookieOptions());
-  store.set(LOCATION_COOKIE, locationId ?? '', locationId
-    ? workspaceCookieOptions() : expiredWorkspaceCookieOptions());
-  revalidatePath('/', 'layout');
-  redirect(isConfigured()
-    ? `/organizations/${brandId}${factoryIssue ? '?factory=failed' : ''}`
-    : '/locations');
+  return switched;
 }
