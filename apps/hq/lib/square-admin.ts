@@ -1,30 +1,20 @@
-/**
- * Disconnecting a location's Square account.
- *
- * `revokeOAuthToken` shipped in `packages/engine` with zero callers, and
- * `docs/RUNBOOK.md` told an operator to "revoke the token, delete the row,
- * clear the back-pointer" -- three steps none of which anybody could actually
- * perform, because the first is a TypeScript function and the console had no
- * disconnect at all. So a shop that changed hands, or whose Square account was
- * compromised, had no way to sever the connection: the platform kept a live
- * merchant token encrypted in `square_connections` and kept billing to it.
- *
- * Like device administration, the write runs as the service role and that is
- * not a shortcut: no RLS policy exposes `square_connections` to any client
- * role at all, so the signed-in user's own client cannot read the row it would
- * have to delete. Authorization is therefore decided here, against the
- * caller's claims -- the same `canManageLocation` check `/api/square/connect`
- * makes before it mints consent -- and only then is the write handed over.
- */
-import { canManageLocation, type TenantClaims } from '@platform/schema';
+import { randomUUID } from 'node:crypto';
+
 import {
   decryptToken,
   loadTokenKey,
   squareConfigFromEnv,
   type SquareConfig,
 } from '@platform/engine';
+import { canManageLocation, type TenantClaims } from '@platform/schema';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import {
+  claimSquareConnectionMutation,
+  failSquareConnectionMutation,
+  finalizeSquareConnectionDisconnect,
+  type SquareConnectionSnapshot,
+} from './square-connection-mutation';
 import { revokeSquareAccessToken } from './square-connection-replacement';
 
 export {
@@ -40,123 +30,90 @@ export class SquareAdminError extends Error {
   }
 }
 
-/**
- * How a disconnect ended, in the three states it can actually end in.
- *
- * Not a boolean, because they mean different things to the owner standing at
- * the console. `revoked` is dead everywhere. `local_only` leaves a token that
- * stays spendable at Square for the rest of its thirty days and has to be
- * killed from their Square dashboard by hand. `stranded` is the rare inverse
- * -- Square was told and the row survived -- where the shop reads as connected
- * and cannot take a card, and the fix is to disconnect again.
- */
-export type SquareDisconnectOutcome = 'revoked' | 'local_only' | 'stranded';
-
+export type SquareDisconnectOutcome = 'revoked' | 'in_flight' | 'changed' | 'stranded' | 'failed';
 export type SquareDisconnectResult = { outcome: SquareDisconnectOutcome };
 
-type ConnectionRow = { access_token_encrypted: string };
-
-/**
- * Records the console-facing pointer only after the authoritative connection
- * row is complete.
- *
- * `square_connections.location_id` is authoritative for payment resolution
- * and the console status view; `locations.square_connection_id` is a legacy
- * relational back-pointer. The callback keeps it synchronized for diagnostics
- * and compatibility, but a failure cannot make the usable authorization a
- * failed one. Returning false also covers a location deleted between callback
- * authorization and this final write; PostgREST considers a zero-row update
- * successful unless the row is selected back.
- */
+/** Synchronize the legacy location pointer after the authoritative row exists. */
 export async function recordSquareConnectionPointer(
   db: SupabaseClient,
   input: { brandId: string; locationId: string; connectionId: string },
 ): Promise<boolean> {
   try {
-    const linked = await db
-      .from('locations')
+    const linked = await db.from('locations')
       .update({ square_connection_id: input.connectionId })
-      .eq('id', input.locationId)
-      .eq('brand_id', input.brandId)
-      .select('id')
-      .maybeSingle<{ id: string }>();
+      .eq('id', input.locationId).eq('brand_id', input.brandId)
+      .select('id').maybeSingle<{ id: string }>();
     return !linked.error && linked.data?.id === input.locationId;
-  } catch {
-    return false;
-  }
+  } catch { return false; }
 }
 
-/**
- * Severs one location's Square connection, telling Square first.
- *
- * The order is deliberate and is the whole security argument: the stored
- * ciphertext is the only copy of the token the platform has, so deleting it
- * before Square has been told would leave a live merchant token that nothing
- * can ever revoke. Told first, the worst case is a row that outlives a dead
- * token -- which reads as "not connected" on the next order and is fixed by
- * disconnecting again.
- *
- * The local teardown then happens whether or not Square answered. Refusing it
- * would trap an owner disconnecting *because* something is wrong: the platform
- * would keep taking that shop's card payments to a merchant they no longer
- * trust, on the grounds that the merchant could not be reached.
- */
-export async function disconnectSquare(
-  db: SupabaseClient,
-  claims: TenantClaims,
-  locationId: string,
-): Promise<SquareDisconnectResult> {
-  // A guest carries a brand but no role.
+function authorizeDisconnect(claims: TenantClaims, locationId: string): void {
   if (!claims.role) throw new SquareAdminError('forbidden', 'Only staff can disconnect Square.');
   if (!locationId) throw new SquareAdminError('invalid_request', 'locationId is required.');
   if (!canManageLocation(claims, locationId)) {
     throw new SquareAdminError('forbidden', 'That location is not yours to disconnect.');
   }
+}
 
-  const found = await db
-    .from('square_connections')
-    .select('access_token_encrypted')
-    .eq('location_id', locationId)
-    .eq('brand_id', claims.brand_id)
-    .maybeSingle<ConnectionRow>();
-  if (found.error) throw new SquareAdminError('invalid_request', found.error.message);
-  if (!found.data) throw new SquareAdminError('not_connected', 'That location is not connected to Square.');
+async function loadConnection(
+  db: SupabaseClient, brandId: string, locationId: string,
+): Promise<SquareConnectionSnapshot> {
+  const found = await db.from('square_connections')
+    .select('id, connection_generation, access_token_encrypted, refresh_token_encrypted')
+    .eq('location_id', locationId).eq('brand_id', brandId)
+    .maybeSingle<SquareConnectionSnapshot>();
+  if (found.error) throw new SquareAdminError('invalid_request', 'Could not read that connection.');
+  if (!found.data) {
+    throw new SquareAdminError('not_connected', 'That location is not connected to Square.');
+  }
+  return found.data;
+}
 
-  let config: SquareConfig | null = null;
-  let accessToken: string | null = null;
+async function releaseFailedClaim(
+  db: SupabaseClient, brandId: string, locationId: string, generation: string,
+): Promise<SquareDisconnectResult> {
+  const released = await failSquareConnectionMutation(db, {
+    brandId, locationId, generation, code: 'disconnect_not_attempted',
+  });
+  return { outcome: released ? 'failed' : 'stranded' };
+}
+
+/** Fence new charges, revoke the seller grant, then delete the exact snapshot. */
+export async function disconnectSquare(
+  db: SupabaseClient,
+  claims: TenantClaims,
+  locationId: string,
+): Promise<SquareDisconnectResult> {
+  authorizeDisconnect(claims, locationId);
+  const expected = await loadConnection(db, claims.brand_id, locationId);
+  const generation = randomUUID();
+  const claimed = await claimSquareConnectionMutation(db, {
+    brandId: claims.brand_id, locationId, generation, kind: 'disconnect', expected,
+  });
+  if (!claimed.ok) {
+    if (claimed.reason === 'active_payment' || claimed.reason === 'in_progress') {
+      return { outcome: 'in_flight' };
+    }
+    if (claimed.reason === 'changed') return { outcome: 'changed' };
+    if (claimed.reason === 'not_connected') {
+      throw new SquareAdminError('not_connected', 'That location is not connected to Square.');
+    }
+    return releaseFailedClaim(db, claims.brand_id, locationId, generation);
+  }
+
+  let config: SquareConfig;
+  let accessToken: string;
   try {
     config = squareConfigFromEnv();
-    accessToken = decryptToken(found.data.access_token_encrypted, loadTokenKey());
+    accessToken = decryptToken(expected.access_token_encrypted, loadTokenKey());
   } catch {
-    // Missing application credentials, or a token key this deployment cannot
-    // load -- the case docs/RUNBOOK.md already describes for a rotated key.
-    // The row still has to go; Square simply cannot be told from here.
-    config = null;
+    return releaseFailedClaim(db, claims.brand_id, locationId, generation);
   }
-
-  let revokedAtSquare = false;
-  if (config && accessToken) {
-    // Already-revoked, expired, or unreachable all leave the owner with the
-    // same job, and the caller says so in the same sentence.
-    revokedAtSquare = await revokeSquareAccessToken(config, accessToken);
+  if (!await revokeSquareAccessToken(config, accessToken)) {
+    return { outcome: 'stranded' };
   }
-
-  const removed = await db
-    .from('square_connections')
-    .delete()
-    .eq('location_id', locationId)
-    .eq('brand_id', claims.brand_id)
-    // Do not let an older disconnect erase credentials written by a reconnect
-    // while Square was answering the revocation request.
-    .eq('access_token_encrypted', found.data.access_token_encrypted)
-    .select('location_id')
-    .maybeSingle<{ location_id: string }>();
-  // `locations.square_connection_id` references this row `on delete set null`
-  // (0005), so the compatibility back-pointer clears itself.
-
-  // A failed delete is reported, not thrown: by this point the token may
-  // already be dead at Square, and "nothing was changed" would be a lie about
-  // money on the one path where the owner most needs the truth.
-  if (removed.error || removed.data?.location_id !== locationId) return { outcome: 'stranded' };
-  return { outcome: revokedAtSquare ? 'revoked' : 'local_only' };
+  const finalized = await finalizeSquareConnectionDisconnect(db, {
+    brandId: claims.brand_id, locationId, generation, expected,
+  });
+  return { outcome: finalized === 'completed' ? 'revoked' : 'stranded' };
 }

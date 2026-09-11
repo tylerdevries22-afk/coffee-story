@@ -22,3 +22,15 @@ export function buildSquareLines(
     };
   });
 }
+
+/** One exact provider line when another tender already paid part of the order. */
+export function buildSquareBalanceLine(amountCents: number): SquareOrderLine[] {
+  if (!Number.isSafeInteger(amountCents) || amountCents <= 0) {
+    throw new RangeError('Square order balance must be positive integer cents.');
+  }
+  return [{
+    name: 'Card-funded order balance',
+    quantity: '1',
+    base_price_money: { amount: amountCents, currency: 'USD' },
+  }];
+}

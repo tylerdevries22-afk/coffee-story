@@ -32,43 +32,40 @@ describe('squareRuntimeFor', () => {
     // The defect this file exists for: consent stored tokens, nothing recorded
     // which Square location to bill, and every card order answered 503.
     stubSquare({ ok: true });
-    const state: DbState = { connection: connectionRow({ square_location_id: null }), updates: [] };
+    const state: DbState = { connection: connectionRow({ square_location_id: null }), rpcCalls: [] };
     assert.equal(await resolve(state), null);
   });
 
   it('spends a healthy token without calling Square', async () => {
     stubSquare({ ok: true });
-    const state: DbState = { connection: connectionRow(), updates: [] };
+    const state: DbState = { connection: connectionRow(), rpcCalls: [] };
     const runtime = await resolve(state);
     assert.equal(runtime?.locationAccessToken, 'stored-access');
     assert.equal(squareTestState.refreshCalls, 0, 'a fresh token must not cost a round trip');
-    assert.equal(state.updates.length, 0);
+    assert.equal(state.rpcCalls.length, 0);
   });
 
   it('renews a token near its expiry and stores what came back', async () => {
     stubSquare({ ok: true, body: { access_token: 'renewed', refresh_token: 'next-refresh', expires_at: at(30 * DAY) } });
     const state: DbState = {
-      connection: connectionRow({ expires_at: at(DAY) }), updates: [], updateFilters: [], retirementWrites: [],
+      connection: connectionRow({ expires_at: at(DAY) }), rpcCalls: [], retirementWrites: [],
     };
     const runtime = await resolve(state);
     assert.equal(runtime?.locationAccessToken, 'renewed');
+    assert.equal(runtime?.connectionGeneration, '66666666-6666-4666-8666-666666666666');
     assert.equal(squareTestState.refreshCalls, 1);
-    assert.equal(state.updates.length, 2);
-    assert.deepEqual(state.updates[0], { expires_at: state.connection?.expires_at },
-      'the first write atomically claims this authorization snapshot');
-    const written = state.updates[1] ?? {};
-    assert.ok(typeof written.access_token_encrypted === 'string');
-    assert.ok(typeof written.refresh_token_encrypted === 'string', 'a reissued refresh token must be kept');
-    assert.ok(typeof written.expires_at === 'string', 'the new expiry is what stops the next order renewing again');
-    assert.notEqual(written.access_token_encrypted, state.connection?.access_token_encrypted);
-    assert.deepEqual(state.updateFilters?.slice(0, 2), [
-      { location_id: LOCATION }, { brand_id: BRAND },
-    ], 'the service-role write is tenant-scoped');
-    assert.equal(state.updateFilters?.[2]?.access_token_encrypted, state.connection?.access_token_encrypted);
-    assert.equal(state.updateFilters?.[3]?.refresh_token_encrypted, state.connection?.refresh_token_encrypted,
-      'the write may only replace the exact authorization snapshot that was traded');
-    assert.equal(state.updateFilters?.[4]?.updated_at, state.connection?.updated_at,
-      'overlapping workers may only claim the exact version they read');
+    assert.equal(state.rpcCalls.length, 2);
+    assert.equal(state.rpcCalls[0]?.name, 'claim_square_connection_mutation');
+    assert.equal(state.rpcCalls[0]?.args.p_mutation_kind, 'renew');
+    assert.equal(state.rpcCalls[0]?.args.p_expected_connection_id, state.connection?.id);
+    assert.equal(state.rpcCalls[0]?.args.p_expected_connection_generation,
+      state.connection?.connection_generation);
+    assert.equal(state.rpcCalls[1]?.name, 'finalize_square_connection_renewal');
+    const written = state.rpcCalls[1]?.args ?? {};
+    assert.ok(typeof written.p_access_token_encrypted === 'string');
+    assert.ok(typeof written.p_refresh_token_encrypted === 'string');
+    assert.ok(typeof written.p_expires_at === 'string');
+    assert.notEqual(written.p_access_token_encrypted, state.connection?.access_token_encrypted);
     assert.equal(state.retirementWrites?.[0]?.access_token_encrypted, state.connection?.access_token_encrypted,
       'the previous runtime is queued instead of revoked while a payment may still be using it');
     assert.equal(state.retirementWrites?.[0]?.brand_id, BRAND);
@@ -79,8 +76,8 @@ describe('squareRuntimeFor', () => {
     stubSquare({ ok: true, body: { access_token: 'stale-renewal', refresh_token: 'next-refresh', expires_at: at(30 * DAY) } });
     const state: DbState = {
       connection: connectionRow({ expires_at: at(DAY) }),
-      updates: [],
-      updateResults: [
+      rpcCalls: [],
+      rpcResults: [
         { data: { location_id: LOCATION }, error: null },
         { data: null, error: null },
       ],
@@ -93,8 +90,8 @@ describe('squareRuntimeFor', () => {
     stubSquare({ ok: true });
     const state: DbState = {
       connection: connectionRow({ expires_at: at(DAY) }),
-      updates: [],
-      updateResults: [{ data: null, error: null }],
+      rpcCalls: [],
+      rpcResults: [{ data: null, error: null }],
     };
     const runtime = await resolve(state);
     assert.equal(runtime?.locationAccessToken, 'stored-access');
@@ -105,8 +102,8 @@ describe('squareRuntimeFor', () => {
     stubSquare({ ok: true });
     const state: DbState = {
       connection: connectionRow({ expires_at: at(-DAY) }),
-      updates: [],
-      updateResults: [{ data: null, error: null }],
+      rpcCalls: [],
+      rpcResults: [{ data: null, error: null }],
     };
     assert.equal(await resolve(state), null);
     assert.equal(squareTestState.refreshCalls, 0);
@@ -116,8 +113,8 @@ describe('squareRuntimeFor', () => {
     stubSquare({ ok: true, body: { access_token: 'stale-renewal', refresh_token: 'next-refresh', expires_at: at(30 * DAY) } });
     const state: DbState = {
       connection: connectionRow({ expires_at: at(-DAY) }),
-      updates: [],
-      updateResults: [
+      rpcCalls: [],
+      rpcResults: [
         { data: { location_id: LOCATION }, error: null },
         { data: null, error: null },
       ],
@@ -129,10 +126,10 @@ describe('squareRuntimeFor', () => {
     stubSquare({ ok: true, body: { access_token: 'renewed', refresh_token: 'next-refresh', expires_at: at(30 * DAY) } });
     const state: DbState = {
       connection: connectionRow({ expires_at: at(DAY) }),
-      updates: [],
-      updateResults: [
+      rpcCalls: [],
+      rpcResults: [
         { data: { location_id: LOCATION }, error: null },
-        { data: null, error: { message: 'write failed' } },
+        { data: null, error: { message: 'square_connection_changed' } },
       ],
     };
     assert.equal(await resolve(state), null);
@@ -140,34 +137,33 @@ describe('squareRuntimeFor', () => {
 
   it('still takes the sale when a renewal fails but the token has not expired', async () => {
     stubSquare({ ok: false });
-    const state: DbState = { connection: connectionRow({ expires_at: at(DAY) }), updates: [] };
+    const state: DbState = { connection: connectionRow({ expires_at: at(DAY) }), rpcCalls: [] };
     const runtime = await resolve(state);
     assert.equal(runtime?.locationAccessToken, 'stored-access');
-    assert.deepEqual(state.updates, [{ expires_at: state.connection?.expires_at }],
-      'the no-op write starts the shared retry cooldown');
+    assert.deepEqual(state.rpcCalls.map((call) => call.name), ['claim_square_connection_mutation']);
   });
 
   it('does not hammer Square again during the renewal cooldown', async () => {
     stubSquare({ ok: true, body: { access_token: 'renewed', expires_at: at(30 * DAY) } });
     const state: DbState = {
-      connection: connectionRow({ expires_at: at(DAY), updated_at: at(-60_000) }), updates: [],
+      connection: connectionRow({ expires_at: at(DAY), updated_at: at(-60_000) }), rpcCalls: [],
     };
     const runtime = await resolve(state);
     assert.equal(runtime?.locationAccessToken, 'stored-access');
     assert.equal(squareTestState.refreshCalls, 0);
-    assert.equal(state.updates.length, 0);
+    assert.equal(state.rpcCalls.length, 0);
   });
 
   it('refuses rather than send Square a token that has expired', async () => {
     stubSquare({ ok: false });
-    const state: DbState = { connection: connectionRow({ expires_at: at(-DAY) }), updates: [] };
+    const state: DbState = { connection: connectionRow({ expires_at: at(-DAY) }), rpcCalls: [] };
     assert.equal(await resolve(state), null);
   });
 
   it('refuses an expired token with no refresh token to trade', async () => {
     stubSquare({ ok: true });
     const state: DbState = {
-      connection: connectionRow({ expires_at: at(-DAY), refresh_token_encrypted: null }), updates: [],
+      connection: connectionRow({ expires_at: at(-DAY), refresh_token_encrypted: null }), rpcCalls: [],
     };
     assert.equal(await resolve(state), null);
   });
@@ -175,7 +171,7 @@ describe('squareRuntimeFor', () => {
   it('is unavailable, not broken, when this deployment has no Square credentials', async () => {
     delete process.env.SQUARE_APP_ID;
     stubSquare({ ok: true });
-    const state: DbState = { connection: connectionRow(), updates: [] };
+    const state: DbState = { connection: connectionRow(), rpcCalls: [] };
     assert.equal(await resolve(state), null);
   });
 });

@@ -19,29 +19,7 @@ import {
 import { serverClient } from '../../../../lib/supabase-server';
 import { tokenAppMetadata } from '../../../../lib/token-claims';
 
-/**
- * GET /api/square/callback?code=...&state=... — exchanges the consent code,
- * encrypts both tokens, and stores the connection for the location the signed
- * state names. Service role: this route is the trust boundary between Square
- * and the database, so it decides who owns a shop's card payments.
- *
- * State is bound to a user and expiry by `lib/square-oauth-state.ts`. The old
- * callback verified `<location_id>.<mac>` instead, leaving
- * two live defects at once:
- *
- *  - any state minted under the old scheme still verified, with no expiry and
- *    no user binding. Those were issued to unauthenticated callers for any
- *    location id, so replaying one here with the attacker's own consent code
- *    repointed that shop's `square_connections` row at the attacker's merchant
- *    account, and its takings with it;
- *  - a state from the current `connect` route splits to `locationId = 'v1'`,
- *    so every honest attempt died on "State signature mismatch". No location
- *    could connect Square at all.
- *
- * Verify the minted state, then re-check the person who started the request; it
- * cannot prove they still can, or that the browser finishing consent is
- * theirs. Both are checked here against the console's own cookie session.
- */
+/** Exchange a user-bound consent code and atomically replace one connection. */
 export async function GET(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const code = url.searchParams.get('code');
@@ -111,10 +89,15 @@ export async function GET(request: Request): Promise<Response> {
   // token before the callback even reached its guarded upsert.
   const previous = await db
     .from('square_connections')
-    .select('access_token_encrypted, refresh_token_encrypted')
+    .select('id, connection_generation, access_token_encrypted, refresh_token_encrypted')
     .eq('location_id', decision.locationId)
     .eq('brand_id', location!.brand_id)
-    .maybeSingle<{ access_token_encrypted: string; refresh_token_encrypted: string }>();
+    .maybeSingle<{
+      id: string;
+      connection_generation: string;
+      access_token_encrypted: string;
+      refresh_token_encrypted: string;
+    }>();
   if (previous.error) {
     return new Response('Could not prepare the Square connection. Try again from Locations.', { status: 500 });
   }
@@ -127,7 +110,7 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   const refuseIssuedGrant = async (reason: string): Promise<Response> => {
-    const revoked = await revokeSquareAccessToken(config, tokens.access_token);
+    const revoked = await revokeSquareAccessToken(config, tokens.access_token, true);
     const target = new URL(`/locations?square=${reason}`, url.origin);
     if (!revoked) target.searchParams.set('square_warning', 'issued_token_active');
     return Response.redirect(target, 302);
@@ -167,7 +150,7 @@ export async function GET(request: Request): Promise<Response> {
       locationId: decision.locationId,
       cleanupFailed: replacement.cleanupFailed,
     });
-    const target = new URL('/locations?square=storage_failed', url.origin);
+    const target = new URL(`/locations?square=${replacement.reason}`, url.origin);
     if (replacement.cleanupFailed) target.searchParams.set('square_warning', 'issued_token_active');
     return Response.redirect(target, 302);
   }

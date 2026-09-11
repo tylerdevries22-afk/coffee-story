@@ -26,6 +26,9 @@ for (const persistenceFails of [false, true]) {
       }
       if (url.pathname.endsWith('/orders')) return Response.json({ id: 'order', brand_id: 'brand',
         location_id: 'location', total_cents: 1000, stored_value_applied_cents: 0, status: 'paid' });
+      if (url.pathname.endsWith('/square_connections')) {
+        return Response.json({ square_location_id: 'square-location' });
+      }
       assert.ok(url.pathname.endsWith('/webhook_events'));
       if (init?.method === 'POST') return Response.json(null, { status: 201 });
       if (init?.method === 'PATCH') {
@@ -41,7 +44,7 @@ for (const persistenceFails of [false, true]) {
       const object = stage === 'refund'
         ? { refund: { id: 'refund', status: 'COMPLETED', payment_id: 'payment', amount_money: { amount: 200, currency: 'USD' } } }
         : { payment: { id: 'payment', status: 'COMPLETED',
-          total_money: { amount: 1000, currency: 'USD' } } };
+          order_id: 'square-order', location_id: 'square-location', total_money: { amount: 1000, currency: 'USD' } } };
       const body = JSON.stringify({ event_id: 'refund-event',
         type: stage === 'refund' ? 'refund.updated' : 'payment.updated', data: { object } });
       const signature = createHmac('sha256', env.SQUARE_WEBHOOK_SIGNATURE_KEY)

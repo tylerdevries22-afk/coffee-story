@@ -31,12 +31,16 @@ import { SQUARE_OAUTH_SCOPE_CONTRACT_VERSION } from './square-oauth-contract';
 export type SquareRuntime = {
   square: SquareConfig;
   locationAccessToken: string;
+  connectionId: string;
+  connectionGeneration: string;
   squareLocationId: string;
   feeConfig: FeeConfig;
   locationTimezone: string;
 };
 
 type ConnectionRow = {
+  id: string;
+  connection_generation: string;
   square_location_id: string | null;
   access_token_encrypted: string;
   refresh_token_encrypted: string | null;
@@ -79,7 +83,7 @@ export async function squareRuntimeFor(
       .eq('brand_id', input.brandId)
       .maybeSingle<LocationRow>(),
     db.from('square_connections')
-      .select('square_location_id, access_token_encrypted, refresh_token_encrypted, expires_at, updated_at')
+      .select('id, connection_generation, square_location_id, access_token_encrypted, refresh_token_encrypted, expires_at, updated_at')
       .eq('location_id', input.locationId)
       .eq('brand_id', input.brandId)
       .gte('oauth_scope_contract_version', SQUARE_OAUTH_SCOPE_CONTRACT_VERSION)
@@ -90,9 +94,11 @@ export async function squareRuntimeFor(
   const data = location.data;
   const connection = connectionRow.data;
   if (!data || !connection?.square_location_id) return null;
+  if (!connection.id || !connection.connection_generation) return null;
 
   let square: SquareConfig;
   let locationAccessToken: string;
+  let connectionGeneration = connection.connection_generation;
   try {
     square = squareConfigFromEnv();
     locationAccessToken = decryptToken(connection.access_token_encrypted, loadTokenKey());
@@ -116,6 +122,8 @@ export async function squareRuntimeFor(
     && !squareRenewalBackoffActive(connection.updated_at, nowMs)
   ) {
     const renewal = await renewSquareConnection(db, square, {
+      id: connection.id,
+      connection_generation: connection.connection_generation,
       brand_id: input.brandId,
       location_id: input.locationId,
       access_token_encrypted: connection.access_token_encrypted,
@@ -123,7 +131,10 @@ export async function squareRuntimeFor(
       expires_at: connection.expires_at,
       updated_at: connection.updated_at,
     });
-    if (renewal.outcome === 'renewed') locationAccessToken = renewal.accessToken;
+    if (renewal.outcome === 'renewed') {
+      locationAccessToken = renewal.accessToken;
+      connectionGeneration = renewal.connectionGeneration;
+    }
     // Losing the initial claim only means another worker already owns renewal.
     // The token read above is still safe until expiry. Losing persistence is
     // different: a reconnect may have changed both token and merchant location,
@@ -140,6 +151,8 @@ export async function squareRuntimeFor(
   return {
     square,
     locationAccessToken,
+    connectionId: connection.id,
+    connectionGeneration,
     squareLocationId: connection.square_location_id,
     feeConfig: resolveFeeConfig(input.brand, data),
     locationTimezone: data.timezone ?? 'America/Denver',

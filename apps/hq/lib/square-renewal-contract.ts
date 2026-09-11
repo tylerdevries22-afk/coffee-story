@@ -1,13 +1,9 @@
 export const SQUARE_RENEWAL_RETRY_MS = 15 * 60 * 1_000;
 export const SQUARE_RENEWAL_BATCH_SIZE = 10;
-// One scheduled interval is long enough for a checkout or refund request that
-// already resolved the old runtime to finish. The outgoing token is never used
-// for new work after the connection row changes.
-export const SQUARE_ACCESS_TOKEN_RETIREMENT_GRACE_MS = 5 * 60 * 1_000;
-export const SQUARE_ACCESS_TOKEN_RETIREMENT_BATCH_SIZE = 10;
-
 
 export type SquareRenewalConnection = {
+  id: string;
+  connection_generation: string;
   brand_id: string;
   location_id: string;
   access_token_encrypted: string;
@@ -17,7 +13,7 @@ export type SquareRenewalConnection = {
 };
 
 export type SquareRenewalResult =
-  | { outcome: 'renewed'; accessToken: string; cleanupFailed: boolean }
+  | { outcome: 'renewed'; accessToken: string; connectionGeneration: string; cleanupFailed: boolean }
   | { outcome: 'failed'; cleanupFailed: boolean }
   | { outcome: 'stale'; stage: 'claim' | 'persist'; cleanupFailed: boolean };
 
@@ -29,3 +25,12 @@ export type SquareRenewalSummary = {
   scanFailed: boolean;
   cleanupFailed: number;
 };
+
+export function squareRenewalBackoffActive(
+  updatedAt: string | null | undefined,
+  nowMs: number,
+): boolean {
+  if (!updatedAt) return false;
+  const lastAttempt = Date.parse(updatedAt);
+  return Number.isFinite(lastAttempt) && nowMs - lastAttempt < SQUARE_RENEWAL_RETRY_MS;
+}

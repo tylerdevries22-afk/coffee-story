@@ -17,7 +17,8 @@ describe('squareConnectNotice', () => {
   it('explains every refusal the callback can redirect with', () => {
     for (const reason of [
       'several_locations', 'unsupported_currency', 'no_active_location', 'unreachable',
-      'authorization_failed', 'storage_failed',
+      'authorization_failed', 'storage_failed', 'in_flight', 'connection_changed',
+      'storage_ambiguous',
     ]) {
       const notice = squareConnectNotice({ square: reason });
       assert.equal(notice?.failed, true, reason);
@@ -50,16 +51,16 @@ describe('squareConnectNotice', () => {
     assert.match(replaced?.message ?? '', /Square dashboard.*reconnect/i);
   });
 
-  it('reports both endings a disconnect can have, and says which job is left', () => {
+  it('reports terminal and fenced disconnect outcomes', () => {
     const revoked = squareConnectNotice({ disconnect: 'revoked' });
     assert.equal(revoked?.failed, false);
     assert.match(revoked?.message ?? '', /revoked at Square/);
 
-    // The shop IS disconnected here; what is left is a token only the owner
-    // can kill, so this must not read as a confirmation.
-    const partial = squareConnectNotice({ disconnect: 'local_only' });
-    assert.equal(partial?.failed, true);
-    assert.match(partial?.message ?? '', /Square dashboard/);
+    for (const outcome of ['in_flight', 'changed', 'stranded', 'failed']) {
+      const notice = squareConnectNotice({ disconnect: outcome });
+      assert.equal(notice?.failed, true, outcome);
+      assert.ok((notice?.message.length ?? 0) > 20);
+    }
 
     assert.equal(squareConnectNotice({ disconnect: 'failed' })?.failed, true);
   });

@@ -2,9 +2,10 @@ import assert from 'node:assert/strict';
 import { afterEach, describe, it } from 'node:test';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { OAuthTokens, SquareConfig } from '@platform/engine';
+import type { SquareConfig } from '@platform/engine';
 
 import { replaceSquareConnection } from './square-admin';
+import { adminHarness, tokens } from './square-admin-test-support';
 import { SQUARE_OAUTH_SCOPE_CONTRACT_VERSION } from './square-oauth-contract';
 import { squareRuntimeFor } from './square-runtime';
 
@@ -13,28 +14,20 @@ describe('Square OAuth scope contract', () => {
 
   it('records version 2 on every newly authorized merchant connection', async () => {
     process.env.SQUARE_TOKEN_KEY = Buffer.alloc(32, 4).toString('base64');
-    const writes: Record<string, unknown>[] = [];
-    const query = {
-      insert: (value: Record<string, unknown>) => { writes.push(value); return query; },
-      select: () => query,
-      single: async () => ({ data: { id: 'connection' }, error: null }),
-    };
-    const db = { from: () => query } as unknown as SupabaseClient;
+    const h = adminHarness({ connection: null });
     const config: SquareConfig = {
       env: 'sandbox', applicationId: 'app', applicationSecret: 'secret', apiBase: 'https://square.test',
     };
-    const tokens: OAuthTokens = {
-      access_token: 'access', refresh_token: 'refresh', merchant_id: 'merchant',
-      expires_at: '2026-10-08T00:00:00.000Z',
-    };
 
-    const result = await replaceSquareConnection(db, config, {
+    const result = await replaceSquareConnection(h.db, config, {
       brandId: 'brand', locationId: 'location', squareLocationId: 'square-location',
       tokens, previousConnection: null,
     });
 
     assert.equal(result.ok, true);
-    assert.equal(writes[0]?.oauth_scope_contract_version, 2);
+    const finalize = h.calls.find((call) =>
+      call.name === 'finalize_square_connection_replacement');
+    assert.equal(finalize?.args.p_oauth_scope_contract_version, 2);
   });
 
   it('filters payment runtime reads to the application contract version', async () => {

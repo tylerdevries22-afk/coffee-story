@@ -6,7 +6,8 @@ import { hasScopeGap, sharedStatus } from './mcp-store-projection';
 import type { ConnectorInstallationRow, ConnectorRegistryRow } from './integration-cards';
 
 const ENV = ['CONNECTOR_OAUTH_STATE_SECRET', 'CONNECTOR_PUBLIC_ORIGIN',
-  'SLACK_CLIENT_ID', 'SLACK_CLIENT_SECRET', 'META_APP_ID', 'META_APP_SECRET'] as const;
+  'SLACK_CLIENT_ID', 'SLACK_CLIENT_SECRET', 'SLACK_TOKEN_ROTATION_ENABLED',
+  'META_APP_ID', 'META_APP_SECRET'] as const;
 const ORIGINAL = Object.fromEntries(ENV.map((name) => [name, process.env[name]]));
 
 const REGISTRY: readonly ConnectorRegistryRow[] = [
@@ -25,6 +26,7 @@ function configure(): void {
   process.env.CONNECTOR_PUBLIC_ORIGIN = 'https://hq.example.com';
   process.env.SLACK_CLIENT_ID = 'slack-client';
   process.env.SLACK_CLIENT_SECRET = 'slack-secret';
+  process.env.SLACK_TOKEN_ROTATION_ENABLED = 'true';
 }
 
 afterEach(() => {

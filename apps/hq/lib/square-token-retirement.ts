@@ -1,13 +1,18 @@
-import { decryptToken, loadTokenKey, revokeOAuthToken, type SquareConfig } from '@platform/engine';
+import {
+  decryptToken,
+  loadTokenKey,
+  revokeOAuthToken,
+  type SquareConfig,
+} from '@platform/engine';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import {
-  SQUARE_ACCESS_TOKEN_RETIREMENT_BATCH_SIZE,
-  SQUARE_ACCESS_TOKEN_RETIREMENT_GRACE_MS,
-  SQUARE_RENEWAL_RETRY_MS,
-} from './square-renewal-contract';
+import { SQUARE_RENEWAL_RETRY_MS } from './square-renewal-contract';
 
-const SQUARE_RENEWAL_CONCURRENCY = 2;
+// One scheduled interval is long enough for a checkout or refund request that
+// already resolved the old runtime to finish. New work uses the replacement.
+export const SQUARE_ACCESS_TOKEN_RETIREMENT_GRACE_MS = 5 * 60 * 1_000;
+export const SQUARE_ACCESS_TOKEN_RETIREMENT_BATCH_SIZE = 10;
+const RETIREMENT_CONCURRENCY = 2;
 
 type SquareAccessTokenRetirement = {
   id: string;
@@ -25,13 +30,7 @@ export type SquareAccessTokenRetirementSummary = {
   scanFailed: boolean;
 };
 
-/**
- * Retire an outgoing credential after in-flight Square calls have finished.
- *
- * The queue holds only AES-GCM ciphertext and has no client policy. Keeping a
- * durable row is important: a serverless callback cannot safely use a timer,
- * and deleting the source location must not discard the sole revocation handle.
- */
+/** Queue an outgoing credential for durable revocation after a grace period. */
 export async function queueSquareAccessTokenRetirement(
   db: SupabaseClient,
   input: { brandId: string; locationId: string; accessTokenEncrypted: string; nowMs?: number },
@@ -43,19 +42,19 @@ export async function queueSquareAccessTokenRetirement(
         brand_id: input.brandId,
         location_id: input.locationId,
         access_token_encrypted: input.accessTokenEncrypted,
-        retire_after: new Date((input.nowMs ?? Date.now()) + SQUARE_ACCESS_TOKEN_RETIREMENT_GRACE_MS).toISOString(),
+        retire_after: new Date(
+          (input.nowMs ?? Date.now()) + SQUARE_ACCESS_TOKEN_RETIREMENT_GRACE_MS,
+        ).toISOString(),
       })
       .select('id')
       .maybeSingle<{ id: string }>();
-    // The exact ciphertext can only be queued once. A duplicate means a prior
-    // worker already owns its eventual revocation, so it is not a cleanup loss.
     return (!queued.error && Boolean(queued.data?.id)) || queued.error?.code === '23505';
   } catch {
     return false;
   }
 }
 
-async function claimSquareAccessTokenRetirement(
+async function claimRetirement(
   db: SupabaseClient,
   row: SquareAccessTokenRetirement,
   nowMs: number,
@@ -77,18 +76,17 @@ async function claimSquareAccessTokenRetirement(
   }
 }
 
-async function retireSquareAccessToken(
+async function retireToken(
   db: SupabaseClient,
   square: SquareConfig,
   row: SquareAccessTokenRetirement,
   nowMs: number,
 ): Promise<'retired' | 'failed' | 'stale'> {
-  if (!await claimSquareAccessTokenRetirement(db, row, nowMs)) return 'stale';
-
+  if (!await claimRetirement(db, row, nowMs)) return 'stale';
   try {
-      await revokeOAuthToken(square, decryptToken(row.access_token_encrypted, loadTokenKey()), {
-        revokeOnlyAccessToken: true,
-      });
+    await revokeOAuthToken(square, decryptToken(row.access_token_encrypted, loadTokenKey()), {
+      revokeOnlyAccessToken: true,
+    });
   } catch {
     return 'failed';
   }
@@ -145,9 +143,9 @@ export async function retireDueSquareAccessTokens(
     scanFailed: false,
   };
   const rows = due.data ?? [];
-  for (let offset = 0; offset < rows.length; offset += SQUARE_RENEWAL_CONCURRENCY) {
-    const results = await Promise.all(rows.slice(offset, offset + SQUARE_RENEWAL_CONCURRENCY)
-      .map((row) => retireSquareAccessToken(db, square, row, now.getTime())));
+  for (let offset = 0; offset < rows.length; offset += RETIREMENT_CONCURRENCY) {
+    const results = await Promise.all(rows.slice(offset, offset + RETIREMENT_CONCURRENCY)
+      .map((row) => retireToken(db, square, row, now.getTime())));
     for (const result of results) summary[result] += 1;
   }
   return summary;
