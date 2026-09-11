@@ -22,93 +22,35 @@ const VERIFIER = 'v'.repeat(43);
 describe('connector OAuth code exchange', { concurrency: false }, () => {
   it('exchanges the Meta code over GET', async () => {
     configureOauthTestEnv();
-    let call = 0;
-    const fetchMock = mock.method(globalThis, 'fetch', async () => {
-      call += 1;
-      return call === 1 ? Response.json({ access_token: 'short-meta-token' })
-        : Response.json({ access_token: 'long-meta-token', expires_in: 5_184_000 });
-    });
+    const fetchMock = mock.method(globalThis, 'fetch', async () =>
+      Response.json({ access_token: 'meta-token', expires_in: 5_184_000 }));
     const token = await exchangeConnectorCode(
       'meta-business-suite', 'one-time-code', VERIFIER, CALLBACK,
     );
-    assert.equal(token.access_token, 'long-meta-token');
+    assert.equal(token.access_token, 'meta-token');
     const [target, init] = fetchMock.mock.calls[0]?.arguments ?? [];
     assert.equal((init as RequestInit | undefined)?.method, undefined);
     assert.match(String(target), /^https:\/\/graph\.facebook\.com\/v25\.0\/oauth\/access_token\?/);
     assert.match(String(target), /client_secret=meta-secret/);
-    const extendedTarget = String(fetchMock.mock.calls[1]?.arguments[0]);
-    assert.match(extendedTarget, /grant_type=fb_exchange_token/u);
-    assert.match(extendedTarget, /fb_exchange_token=short-meta-token/u);
   });
 
-  it('retries once after an explicit throttling response', async () => {
+  it('never replays a single-use code after a transient provider rejection', async () => {
     configureOauthTestEnv();
-    for (const key of ['stripe', 'tiktok'] as const) {
+    for (const key of ['meta-business-suite', 'tiktok'] as const) {
       mock.restoreAll();
-      let calls = 0;
-      const fetchMock = mock.method(globalThis, 'fetch', async () => {
-        calls += 1;
-        return calls === 1
-          ? new Response('{}', { status: 429 })
-          : Response.json(key === 'tiktok' ? { data: {
-            access_token: `${key}-token`, refresh_token: `${key}-refresh`,
-            expires_in: 86_400, refresh_expires_in: 31_536_000, token_type: 'Bearer',
-            open_id: 'tiktok-user',
-          } } : { access_token: `${key}-token` });
-      });
-      const token = await exchangeConnectorCode(key, 'one-time-code', VERIFIER, CALLBACK);
-      assert.equal(token.access_token, `${key}-token`);
-      assert.equal(fetchMock.mock.callCount(), 2);
+      const fetchMock = mock.method(globalThis, 'fetch', async () =>
+        new Response('{}', { status: 502 }));
+      await assert.rejects(
+        exchangeConnectorCode(key, 'one-time-code', VERIFIER, CALLBACK),
+        ConnectorExchangeError,
+      );
+      assert.equal(fetchMock.mock.callCount(), 1, `${key} must be attempted exactly once`);
     }
-  });
-
-  it('does not replay a code after a bare gateway failure', async () => {
-    configureOauthTestEnv();
-    const fetchMock = mock.method(globalThis, 'fetch', async () =>
-      new Response('{}', { status: 502 }));
-    await assert.rejects(exchangeConnectorCode(
-      'youtube', 'one-time-code', VERIFIER, CALLBACK,
-    ), (error: unknown) => error instanceof ConnectorExchangeError
-      && error.stage === 'provider' && error.status === 502);
-    assert.equal(fetchMock.mock.callCount(), 1);
-  });
-
-  it('retries only a provable pre-delivery transport failure', async () => {
-    configureOauthTestEnv();
-    let calls = 0;
-    const fetchMock = mock.method(globalThis, 'fetch', async () => {
-      calls += 1;
-      if (calls === 1) {
-        throw new TypeError('fetch failed', { cause: { code: 'ENOTFOUND' } });
-      }
-      return Response.json({ access_token: 'delivered-after-dns-recovery',
-        refresh_token: 'durable-refresh-token', expires_in: 3_600 });
-    });
-    const token = await exchangeConnectorCode(
-      'youtube', 'one-time-code', VERIFIER, CALLBACK,
-    );
-    assert.equal(token.access_token, 'delivered-after-dns-recovery');
-    assert.equal(fetchMock.mock.callCount(), 2);
-  });
-
-  it('does not replay an ambiguous transport failure', async () => {
-    configureOauthTestEnv();
-    const fetchMock = mock.method(globalThis, 'fetch', async () => {
-      throw new TypeError('fetch failed', { cause: { code: 'ECONNRESET' } });
-    });
-    await assert.rejects(
-      exchangeConnectorCode('youtube', 'one-time-code', VERIFIER, CALLBACK),
-      (error: unknown) => error instanceof ConnectorExchangeError
-        && error.stage === 'transport',
-    );
-    assert.equal(fetchMock.mock.callCount(), 1);
   });
 
   it('keeps the one-attempt deadline active while reading the token body', async () => {
     configureOauthTestEnv();
-    const fetchMock = mock.method(globalThis, 'fetch', async (
-      _target: string | URL | Request, init?: RequestInit,
-    ) =>
+    const fetchMock = mock.method(globalThis, 'fetch', async (_target: RequestInfo | URL, init?: RequestInit) =>
       stalledJsonResponse(init?.signal));
     await assert.rejects(
       exchangeConnectorCode('tiktok', 'one-time-code', VERIFIER, CALLBACK, 5),
@@ -139,9 +81,9 @@ describe('connector OAuth code exchange', { concurrency: false }, () => {
     assert.equal(fetchMock.mock.callCount(), 1);
   });
 
-  it('bounds retries for a non-JSON transient failure without leaking secrets', async () => {
+  it('names a non-JSON failure without leaking the code or secret', async () => {
     configureOauthTestEnv();
-    const fetchMock = mock.method(globalThis, 'fetch', async () => new Response('<html>throttled</html>', {
+    mock.method(globalThis, 'fetch', async () => new Response('<html>throttled</html>', {
       status: 429, headers: { 'content-type': 'text/html' },
     }));
     await assert.rejects(
@@ -155,7 +97,6 @@ describe('connector OAuth code exchange', { concurrency: false }, () => {
         return true;
       },
     );
-    assert.equal(fetchMock.mock.callCount(), 2);
   });
 
   it('does not include untrusted provider error text in a rejected exchange', async () => {
@@ -179,9 +120,7 @@ describe('connector OAuth code exchange', { concurrency: false }, () => {
   it('accepts TikTok tokens nested under data', async () => {
     configureOauthTestEnv();
     mock.method(globalThis, 'fetch', async () =>
-      Response.json({ data: { access_token: 'tiktok-token', refresh_token: 'tiktok-refresh',
-        expires_in: 86_400, refresh_expires_in: 31_536_000,
-        token_type: 'Bearer', open_id: 'creator-1' } }));
+      Response.json({ data: { access_token: 'tiktok-token', open_id: 'creator-1' } }));
     const token = await exchangeConnectorCode('tiktok', 'one-time-code', VERIFIER, CALLBACK);
     assert.equal(token.access_token, 'tiktok-token');
   });

@@ -7,7 +7,6 @@ import { OAUTH_CONNECTOR_KEYS, connectorProviderScopes } from './connector-oauth
 
 const ENV = [
   'GOOGLE_OAUTH_CLIENT_ID', 'GOOGLE_OAUTH_CLIENT_SECRET',
-  'GOOGLE_OAUTH_PROJECT_NUMBER',
   'YOUTUBE_OAUTH_CLIENT_ID', 'YOUTUBE_OAUTH_CLIENT_SECRET',
   'TIKTOK_CLIENT_KEY', 'TIKTOK_CLIENT_SECRET',
   'META_APP_ID', 'META_APP_SECRET',
@@ -20,9 +19,6 @@ const ORIGINAL = Object.fromEntries(ENV.map((name) => [name, process.env[name]])
 /** A provider only reports its scope list once both credentials are present. */
 function configureEveryProvider(): void {
   for (const name of ENV) process.env[name] = `configured-${name.toLowerCase()}`;
-  process.env.GOOGLE_OAUTH_PROJECT_NUMBER = '123456789';
-  process.env.GOOGLE_OAUTH_CLIENT_ID = '123456789-google.apps.googleusercontent.com';
-  process.env.YOUTUBE_OAUTH_CLIENT_ID = '123456789-youtube.apps.googleusercontent.com';
 }
 
 /**

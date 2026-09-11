@@ -1,7 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { connectorRpc } from './connector-rpc';
-
 export class ConnectorDisconnectError extends Error {
   constructor(readonly code: 'disconnect_failed') {
     super('The connector could not be disconnected.');
@@ -24,21 +22,15 @@ export async function sameOriginConnectorMutation(
   return run();
 }
 
-/** Disable locally and enqueue durable upstream revocation through the service RPC. */
+/** Remove one tenant/provider authorization through the service-only RPC. */
 export async function disconnectConnectorOAuth(
   db: SupabaseClient,
   input: { brandId: string; providerKey: string; actorUserId: string },
 ): Promise<void> {
-  const args = {
+  const result = await db.rpc('disconnect_connector_oauth_connection', {
     p_brand_id: input.brandId,
     p_provider_key: input.providerKey,
     p_actor_user_id: input.actorUserId,
-  };
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    try {
-      const result = await connectorRpc(db, 'disconnect_connector_oauth_connection', args);
-      if (!result.error && result.data === true) return;
-    } catch { /* the idempotent RPC can safely reconcile an ambiguous attempt */ }
-  }
-  throw new ConnectorDisconnectError('disconnect_failed');
+  });
+  if (result.error || result.data !== true) throw new ConnectorDisconnectError('disconnect_failed');
 }

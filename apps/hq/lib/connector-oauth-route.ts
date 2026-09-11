@@ -2,7 +2,6 @@ import 'server-only';
 
 import {
   mcpOAuthCookieName,
-  mcpSha256,
   type McpOAuthState,
   verifyMcpOAuthState,
 } from 'franchise-mcp-store-ui/oauth';
@@ -23,40 +22,33 @@ export type ConnectorOAuthContext = {
 
 export type ConnectorOAuthCookie = {
   readonly binding: string;
-  readonly operationKey: string;
   readonly verifier: string;
 };
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 
 export function connectorStateSecret(): string {
   return process.env.CONNECTOR_OAUTH_STATE_SECRET?.trim() ?? '';
 }
 
-export function connectorCookieName(key: OAuthConnectorKey, nonce: string): string {
-  return `${mcpOAuthCookieName(key, 'hq_connector_oauth')}_${mcpSha256(nonce).slice(0, 24)}`;
+export function connectorCookieName(key: OAuthConnectorKey): string {
+  return mcpOAuthCookieName(key, 'hq_connector_oauth');
 }
 
-export function parseConnectorCookie(
-  request: Request,
-  key: OAuthConnectorKey,
-  nonce: string,
-): ConnectorOAuthCookie | null {
-  const name = connectorCookieName(key, nonce);
+export function parseConnectorCookie(request: Request, key: OAuthConnectorKey): ConnectorOAuthCookie | null {
+  const name = connectorCookieName(key);
   const raw = request.headers.get('cookie')?.split(';').map((item) => item.trim())
     .find((item) => item.startsWith(`${name}=`))?.slice(name.length + 1);
   if (!raw) return null;
   try {
     const value: unknown = JSON.parse(Buffer.from(decodeURIComponent(raw), 'base64url').toString('utf8'));
     if (!value || typeof value !== 'object') return null;
-    const binding = Reflect.get(value, 'binding');
-    const operationKey = Reflect.get(value, 'operationKey');
-    const verifier = Reflect.get(value, 'verifier');
+    const binding = Reflect.get(value, 'binding'); const verifier = Reflect.get(value, 'verifier');
     if (typeof binding !== 'string' || binding.length < 32 || binding.length > 100
-      || typeof operationKey !== 'string' || !UUID.test(operationKey)
       || typeof verifier !== 'string' || verifier.length < 43 || verifier.length > 128) return null;
-    return { binding, operationKey, verifier };
-  } catch { return null; }
+    return { binding, verifier };
+  } catch {
+    console.warn(JSON.stringify({ component: 'connector-oauth-route', event: 'cookie_parse_failed' }));
+    return null;
+  }
 }
 
 export function verifyConnectorState(

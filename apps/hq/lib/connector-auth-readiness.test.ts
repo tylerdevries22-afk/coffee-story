@@ -29,7 +29,6 @@ function activeCards() {
 
 const NAMES = [
   'CONNECTOR_OAUTH_STATE_SECRET', 'GOOGLE_OAUTH_CLIENT_ID', 'GOOGLE_OAUTH_CLIENT_SECRET',
-  'GOOGLE_OAUTH_PROJECT_NUMBER',
   'SQUARE_APP_ID', 'SQUARE_APP_SECRET', 'SQUARE_TOKEN_KEY',
 ] as const;
 const ORIGINAL = Object.fromEntries(NAMES.map((name) => [name, process.env[name]]));
@@ -45,9 +44,8 @@ afterEach(() => {
 describe('withConnectorAuthorization', { concurrency: false }, () => {
   it('advertises only configured routes backed by implemented adapters', () => {
     process.env.CONNECTOR_OAUTH_STATE_SECRET = 's'.repeat(32);
-    process.env.GOOGLE_OAUTH_CLIENT_ID = '123456789-google.apps.googleusercontent.com';
+    process.env.GOOGLE_OAUTH_CLIENT_ID = 'google-client';
     process.env.GOOGLE_OAUTH_CLIENT_SECRET = 'google-secret';
-    process.env.GOOGLE_OAUTH_PROJECT_NUMBER = '123456789';
     const cards = withConnectorAuthorization(activeCards(), new Set(['google-suite']));
 
     assert.equal(cards.find((card) => card.id === 'google-suite')?.connectHref,
@@ -58,9 +56,8 @@ describe('withConnectorAuthorization', { concurrency: false }, () => {
 
   it('links nothing at all when the registry could not be read', () => {
     process.env.CONNECTOR_OAUTH_STATE_SECRET = 's'.repeat(32);
-    process.env.GOOGLE_OAUTH_CLIENT_ID = '123456789-google.apps.googleusercontent.com';
+    process.env.GOOGLE_OAUTH_CLIENT_ID = 'google-client';
     process.env.GOOGLE_OAUTH_CLIENT_SECRET = 'google-secret';
-    process.env.GOOGLE_OAUTH_PROJECT_NUMBER = '123456789';
     // Certified, configured, and still no link: without a registry row there is
     // no tenant permission to act on, so the fail-closed projection stays inert.
     for (const card of withConnectorAuthorization(defaultConnectorCards(), new Set(['google-suite']))) {
@@ -69,9 +66,8 @@ describe('withConnectorAuthorization', { concurrency: false }, () => {
   });
 
   it('requires every enabled adapter capability to have current certification', () => {
-    process.env.GOOGLE_OAUTH_CLIENT_ID = '123456789-google.apps.googleusercontent.com';
+    process.env.GOOGLE_OAUTH_CLIENT_ID = 'google-client';
     process.env.GOOGLE_OAUTH_CLIENT_SECRET = 'google-secret';
-    process.env.GOOGLE_OAUTH_PROJECT_NUMBER = '123456789';
     const registry = [{ id: 'google-id', provider_key: 'google-suite' }];
     const capabilities = [
       { id: 'drive-id', provider_id: 'google-id', oauth_scopes: ['https://www.googleapis.com/auth/drive.file'] },

@@ -3,16 +3,21 @@ import {
   type OAuthConnectorKey,
   type ProviderConfig,
 } from './connector-oauth-config';
-import { isProvablePreDeliveryFailure, stringAt, type ConnectorToken } from './connector-oauth-exchange';
-import { ConnectorRefreshError } from './connector-oauth-refresh-error';
-import { connectorRefreshFailure, refreshedConnectorToken } from './connector-oauth-refresh-payload';
-import { cancelConnectorResponse, readBoundedConnectorResponse } from './connector-oauth-response';
-import { connectorCredentialBytes, MAX_CONNECTOR_CREDENTIAL_BYTES } from './connector-oauth-token-bounds';
+import { objectAt, stringAt, type ConnectorToken } from './connector-oauth-exchange';
 
-const MAX_BODY_BYTES = MAX_CONNECTOR_CREDENTIAL_BYTES;
+const MAX_BODY_BYTES = 20_000;
 const MAX_TIMEOUT_MS = 8_000;
 const ATTEMPTS = 2;
-export { ConnectorRefreshError } from './connector-oauth-refresh-error';
+
+export class ConnectorRefreshError extends Error {
+  constructor(
+    readonly stage: 'unsupported' | 'transport' | 'provider' | 'payload',
+    readonly status: number | null,
+  ) {
+    super(`Connector token refresh failed at ${stage}.`);
+    this.name = 'ConnectorRefreshError';
+  }
+}
 
 function basic(config: ProviderConfig): string {
   return `Basic ${Buffer.from(`${config.clientId}:${config.clientSecret}`).toString('base64')}`;
@@ -61,14 +66,59 @@ function refreshRequest(
   };
 }
 
-async function readBoundedJson(response: Response, maxBytes: number): Promise<unknown> {
-  const text = await readBoundedConnectorResponse(response, maxBytes, () =>
-    new ConnectorRefreshError('payload', response.status, 'payload', false));
-  try {
-    return text ? JSON.parse(text) as unknown : null;
-  } catch {
-    throw new ConnectorRefreshError('payload', response.status, 'payload', false);
+async function readBoundedJson(response: Response): Promise<unknown> {
+  const declared = Number(response.headers.get('content-length'));
+  if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) {
+    await response.body?.cancel();
+    throw new ConnectorRefreshError('payload', response.status);
   }
+  if (!response.body) return null;
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let text = '';
+  let bytes = 0;
+  while (true) {
+    const part = await reader.read();
+    if (part.done) break;
+    bytes += part.value.byteLength;
+    if (bytes > MAX_BODY_BYTES) {
+      await reader.cancel();
+      throw new ConnectorRefreshError('payload', response.status);
+    }
+    text += decoder.decode(part.value, { stream: true });
+  }
+  try {
+    return JSON.parse(text + decoder.decode()) as unknown;
+  } catch {
+    throw new ConnectorRefreshError('payload', response.status);
+  }
+}
+
+function tokenPayload(key: OAuthConnectorKey, payload: unknown): unknown {
+  if (key === 'tiktok') return objectAt(payload, 'data') ?? payload;
+  return payload;
+}
+
+function refreshedToken(
+  key: OAuthConnectorKey,
+  payload: unknown,
+  previousRefreshToken: string,
+): ConnectorToken {
+  if (key === 'slack' && (!payload || typeof payload !== 'object'
+    || Reflect.get(payload, 'ok') !== true)) {
+    throw new ConnectorRefreshError('provider', 200);
+  }
+  const token = tokenPayload(key, payload);
+  const accessToken = stringAt(token, 'access_token');
+  if (!accessToken || !token || typeof token !== 'object') {
+    throw new ConnectorRefreshError('payload', 200);
+  }
+  return {
+    ...(token as Record<string, unknown>),
+    access_token: accessToken,
+    refresh_token: stringAt(token, 'refresh_token') ?? previousRefreshToken,
+    acquired_at: new Date().toISOString(),
+  };
 }
 
 /** Refresh an expiring grant. Stripe and Meta do not expose this token contract. */
@@ -76,121 +126,39 @@ export async function refreshConnectorToken(
   key: OAuthConnectorKey,
   credential: ConnectorToken,
   timeoutMs = MAX_TIMEOUT_MS,
-  settlementReserveBytes = 0,
-  beforeRequest?: () => Promise<void>,
 ): Promise<ConnectorToken | null> {
   const refreshToken = stringAt(credential, 'refresh_token');
-  const reusable = key === 'google-suite' || key === 'youtube' || key === 'quickbooks-online';
   const config = connectorProviderConfig(key);
-  if (refreshToken && !config) {
-    throw new ConnectorRefreshError(
-      'unconfigured', null, 'configuration_unavailable', true,
-    );
-  }
-  const spec = config && refreshToken ? refreshRequest(key, config, refreshToken) : null;
+  if (!config || !refreshToken) return null;
+  const spec = refreshRequest(key, config, refreshToken);
   if (!spec) return null;
-  const stableBytes = connectorCredentialBytes({
-    external_account_id: Reflect.get(credential, 'external_account_id'),
-    metadata: Reflect.get(credential, 'metadata'),
-    ...((key === 'google-suite' || key === 'youtube')
-      ? { refresh_token: refreshToken } : {}),
-    acquired_at: new Date().toISOString(),
-  });
-  const responseLimit = stableBytes === null ? 0
-    : MAX_BODY_BYTES - Math.max(0, settlementReserveBytes) - stableBytes - 256;
-  if (responseLimit < 1_024) {
-    throw new ConnectorRefreshError('payload', null, 'credential_contract_invalid', false);
-  }
   const deadline = Number.isFinite(timeoutMs)
     ? Math.max(1, Math.min(MAX_TIMEOUT_MS, Math.trunc(timeoutMs))) : MAX_TIMEOUT_MS;
-  if (beforeRequest) await beforeRequest();
-  let slackAmbiguousRotation = false;
   for (let attempt = 0; attempt < ATTEMPTS; attempt += 1) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), deadline);
     try {
       const response = await fetch(spec.url, { ...spec.init, signal: controller.signal });
-      if (response.status === 429) {
-        await cancelConnectorResponse(response);
-        if (slackAmbiguousRotation) {
-          throw new ConnectorRefreshError('provider', 429, 'rotation_ambiguous', false);
-        }
-        if (key !== 'tiktok' && attempt + 1 < ATTEMPTS) continue;
-        throw new ConnectorRefreshError(
-          'provider', response.status, 'provider_rejected', true,
-        );
+      if (response.status === 429 || response.status >= 500) {
+        await response.body?.cancel();
+        if (attempt + 1 < ATTEMPTS) continue;
+        throw new ConnectorRefreshError('provider', response.status);
       }
-      if (response.status >= 500) {
-        await cancelConnectorResponse(response);
-        if (key === 'slack' && attempt + 1 < ATTEMPTS) {
-          slackAmbiguousRotation = true;
-          continue;
-        }
-        throw new ConnectorRefreshError(
-          'provider', response.status,
-          key === 'slack' || key === 'tiktok' ? 'rotation_ambiguous' : 'provider_rejected',
-          reusable,
-        );
-      }
-      const payload = await readBoundedJson(response, responseLimit);
-      if (!response.ok || (key === 'slack'
-        && (!payload || typeof payload !== 'object' || Reflect.get(payload, 'ok') !== true))) {
-        const failure = connectorRefreshFailure(key, payload);
-        if (slackAmbiguousRotation) {
-          throw new ConnectorRefreshError('provider', response.status, 'rotation_ambiguous', false);
-        }
-        if (failure.immediate && attempt + 1 < ATTEMPTS) {
-          slackAmbiguousRotation = key === 'slack';
-          continue;
-        }
-        throw new ConnectorRefreshError(
-          'provider', response.status,
-          failure.immediate ? 'rotation_ambiguous' : failure.code, failure.retryable,
-        );
-      }
-      return refreshedConnectorToken(key, payload, credential);
+      const payload = await readBoundedJson(response);
+      if (!response.ok) throw new ConnectorRefreshError('provider', response.status);
+      return refreshedToken(key, payload, refreshToken);
     } catch (error) {
-      if (error instanceof ConnectorRefreshError) {
-        if (error.stage === 'payload' && key === 'slack' && !error.issuedCredential
-          && attempt + 1 < ATTEMPTS) {
-          slackAmbiguousRotation = true;
-          continue;
-        }
-        if (error.stage === 'payload' && (key === 'slack' || key === 'tiktok')) {
-          throw new ConnectorRefreshError(
-            'payload', error.status, 'rotation_ambiguous', false, error.issuedCredential,
-          );
-        }
-        if (error.stage === 'payload' && reusable) {
-          throw new ConnectorRefreshError(
-            'payload', error.status, 'payload', true, error.issuedCredential,
-          );
-        }
-        throw error;
-      }
-      const preDelivery = isProvablePreDeliveryFailure(error);
-      if (key === 'slack' && slackAmbiguousRotation) {
-        throw new ConnectorRefreshError('transport', null, 'rotation_ambiguous', false);
-      }
-      if (attempt + 1 < ATTEMPTS && key !== 'tiktok' && (preDelivery || key === 'slack')) {
-        slackAmbiguousRotation = key === 'slack' && !preDelivery;
-        continue;
-      }
-      throw new ConnectorRefreshError(
-        'transport', null,
-        (key === 'slack' || key === 'tiktok') && !preDelivery ? 'rotation_ambiguous' : 'transport',
-        preDelivery || reusable,
-      );
+      if (error instanceof ConnectorRefreshError) throw error;
+      if (attempt + 1 === ATTEMPTS) throw new ConnectorRefreshError('transport', null);
     } finally {
       clearTimeout(timer);
     }
   }
-  throw new ConnectorRefreshError('provider', null, 'provider_rejected', true);
+  throw new ConnectorRefreshError('provider', null);
 }
 
 export function connectorTokenExpiry(token: ConnectorToken, now: Date): string | null {
   const seconds = Reflect.get(token, 'expires_in');
-  return typeof seconds === 'number' && Number.isSafeInteger(seconds)
-    && seconds > 0 && seconds <= 30 * 24 * 60 * 60
+  return typeof seconds === 'number' && Number.isFinite(seconds) && seconds > 0
     ? new Date(now.getTime() + seconds * 1_000).toISOString() : null;
 }

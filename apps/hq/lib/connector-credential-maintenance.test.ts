@@ -3,10 +3,7 @@ import { describe, it } from 'node:test';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import {
-  ConnectorCredentialMaintenanceError,
-  reconcileConnectorCredentials,
-} from './connector-credential-maintenance';
+import { reconcileConnectorCredentials } from './connector-credential-maintenance';
 
 describe('reconcileConnectorCredentials', () => {
   it('uses a bounded service-only reconciliation request', async () => {
@@ -31,11 +28,7 @@ describe('reconcileConnectorCredentials', () => {
       { data: 1.5, error: null },
     ]) {
       const db = { rpc: async () => result } as unknown as SupabaseClient;
-      await assert.rejects(reconcileConnectorCredentials(db, new Date()), (error: unknown) => {
-        assert.ok(error instanceof ConnectorCredentialMaintenanceError);
-        assert.ok(!error.message.includes('unavailable'));
-        return true;
-      });
+      await assert.rejects(reconcileConnectorCredentials(db, new Date()));
     }
   });
 });

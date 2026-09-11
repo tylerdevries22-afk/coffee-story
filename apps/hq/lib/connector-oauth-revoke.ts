@@ -5,16 +5,12 @@ import {
   type ProviderConfig,
 } from './connector-oauth-config';
 import { stringAt, type ConnectorToken } from './connector-oauth-exchange';
-import {
-  connectorRevocationResponse,
-  type ConnectorRevocationResult,
-} from './connector-oauth-revoke-response';
 
 const REVOKE_TIMEOUT_MS = 5_000;
 const REVOKE_ATTEMPTS = 2;
+const MAX_RESPONSE_BYTES = 16_384;
 
 type RevocationSpec = { readonly url: string; readonly init: RequestInit };
-export type { ConnectorRevocationResult } from './connector-oauth-revoke-response';
 
 function basic(user: string, password: string): string {
   return `Basic ${Buffer.from(`${user}:${password}`).toString('base64')}`;
@@ -37,7 +33,7 @@ function formRequest(body: URLSearchParams, authorization?: string): RequestInit
 
 function revocationSpec(
   key: OAuthConnectorKey,
-  config: ProviderConfig | null,
+  config: ProviderConfig,
   token: ConnectorToken,
   accountId?: string,
 ): RevocationSpec | null {
@@ -51,8 +47,7 @@ function revocationSpec(
         init: formRequest(form({ token: durableToken })),
       };
     case 'stripe': {
-      if (!config) return null;
-      const stripeAccount = accountId ?? stringAt(token, 'stripe_user_id');
+      const stripeAccount = stringAt(token, 'stripe_user_id') ?? accountId;
       return stripeAccount ? {
         url: 'https://connect.stripe.com/oauth/deauthorize',
         init: formRequest(
@@ -62,24 +57,16 @@ function revocationSpec(
       } : null;
     }
     case 'quickbooks-online':
-      if (!config) return null;
       return {
         url: 'https://developer.api.intuit.com/v2/oauth2/tokens/revoke',
-        init: {
-          method: 'POST', body: JSON.stringify({ token: durableToken }),
-          headers: {
-            Accept: 'application/json', 'Content-Type': 'application/json',
-            Authorization: basic(config.clientId, config.clientSecret),
-          },
-        },
+        init: formRequest(
+          form({ token: durableToken }), basic(config.clientId, config.clientSecret),
+        ),
       };
     case 'slack':
-      if (!config) return null;
       return {
-        url: 'https://slack.com/api/apps.uninstall',
-        init: formRequest(form({
-          client_id: config.clientId, client_secret: config.clientSecret, token: accessToken,
-        })),
+        url: 'https://slack.com/api/auth.revoke',
+        init: formRequest(form({ test: 'false' }), `Bearer ${accessToken}`),
       };
     case 'meta-business-suite':
       return {
@@ -87,7 +74,6 @@ function revocationSpec(
         init: { method: 'DELETE', headers: { Accept: 'application/json', Authorization: `Bearer ${accessToken}` } },
       };
     case 'tiktok':
-      if (!config) return null;
       return {
         url: 'https://open.tiktokapis.com/v2/oauth/revoke/',
         init: formRequest(form({
@@ -97,35 +83,60 @@ function revocationSpec(
   }
 }
 
-export async function revokeConnectorTokenDetailed(
+function revocationSpecs(
   key: OAuthConnectorKey,
+  config: ProviderConfig,
   token: ConnectorToken,
   accountId?: string,
-  timeoutMs = REVOKE_TIMEOUT_MS,
-): Promise<ConnectorRevocationResult> {
-  const config = connectorProviderConfig(key);
-  if (!config && !['google-suite', 'youtube', 'meta-business-suite'].includes(key)) {
-    return { revoked: false, retryable: true, code: 'configuration_unavailable' };
+): readonly RevocationSpec[] | null {
+  if (key !== 'slack') {
+    const spec = revocationSpec(key, config, token, accountId);
+    return spec ? [spec] : null;
   }
-  const spec = revocationSpec(key, config, token, accountId);
-  if (!spec) return { revoked: false, retryable: false, code: 'provider_rejected' };
-  const deadline = Number.isFinite(timeoutMs) ? Math.max(1, Math.min(timeoutMs, REVOKE_TIMEOUT_MS)) : REVOKE_TIMEOUT_MS;
-  for (let attempt = 0; attempt < REVOKE_ATTEMPTS; attempt += 1) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), deadline);
-    try {
-      const response = await fetch(spec.url, { ...spec.init, signal: controller.signal });
-      const transient = response.status === 429 || response.status >= 500;
-      if (!transient) {
-        const result = await connectorRevocationResponse(key, response,
-          accountId ?? stringAt(token, 'stripe_user_id') ?? undefined);
-        if (result.code === 'credential_invalid'
-          || !result.retryable || attempt + 1 === REVOKE_ATTEMPTS) return result;
-      } else await response.body?.cancel();
-    } catch { /* revocation is idempotent; one bounded retry is safe */ }
-    finally { clearTimeout(timeout); }
+  const refreshToken = stringAt(token, 'refresh_token');
+  const issuedTokens = refreshToken ? [refreshToken, token.access_token] : [token.access_token];
+  return issuedTokens.map((issuedToken) => ({
+    url: 'https://slack.com/api/auth.revoke',
+    init: formRequest(form({ test: 'false' }), `Bearer ${issuedToken}`),
+  }));
+}
+
+async function readSmallJson(response: Response): Promise<unknown> {
+  const declared = Number(response.headers.get('content-length'));
+  if (Number.isFinite(declared) && declared > MAX_RESPONSE_BYTES) {
+    await response.body?.cancel();
+    throw new Error('oversized revocation response');
   }
-  return { revoked: false, retryable: true, code: 'transport' };
+  if (!response.body) return null;
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let text = '';
+  let bytes = 0;
+  while (true) {
+    const part = await reader.read();
+    if (part.done) break;
+    bytes += part.value.byteLength;
+    if (bytes > MAX_RESPONSE_BYTES) {
+      await reader.cancel();
+      throw new Error('oversized revocation response');
+    }
+    text += decoder.decode(part.value, { stream: true });
+  }
+  text += decoder.decode();
+  return text ? JSON.parse(text) as unknown : null;
+}
+
+async function providerAccepted(key: OAuthConnectorKey, response: Response): Promise<boolean> {
+  if (!response.ok) {
+    await response.body?.cancel();
+    return false;
+  }
+  if (key !== 'slack' && key !== 'meta-business-suite') return true;
+  const payload = await readSmallJson(response);
+  if (!payload || typeof payload !== 'object') return false;
+  return key === 'slack'
+    ? Reflect.get(payload, 'ok') === true && Reflect.get(payload, 'revoked') === true
+    : Reflect.get(payload, 'success') === true;
 }
 
 /** Revoke an exchanged credential that the database did not accept. */
@@ -135,5 +146,27 @@ export async function revokeConnectorToken(
   accountId?: string,
   timeoutMs = REVOKE_TIMEOUT_MS,
 ): Promise<boolean> {
-  return (await revokeConnectorTokenDetailed(key, token, accountId, timeoutMs)).revoked;
+  const config = connectorProviderConfig(key);
+  const specs = config ? revocationSpecs(key, config, token, accountId) : null;
+  if (!specs) return false;
+  const deadline = Number.isFinite(timeoutMs) ? Math.max(1, Math.min(timeoutMs, REVOKE_TIMEOUT_MS)) : REVOKE_TIMEOUT_MS;
+  for (const spec of specs) {
+    let revoked = false;
+    for (let attempt = 0; attempt < REVOKE_ATTEMPTS; attempt += 1) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), deadline);
+      try {
+        const response = await fetch(spec.url, { ...spec.init, signal: controller.signal });
+        const transient = response.status === 429 || response.status >= 500;
+        if (!transient) {
+          revoked = await providerAccepted(key, response);
+          break;
+        }
+        await response.body?.cancel();
+      } catch { /* one bounded retry handles transport and response failures */ }
+      finally { clearTimeout(timeout); }
+    }
+    if (!revoked) return false;
+  }
+  return true;
 }

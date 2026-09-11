@@ -82,8 +82,7 @@ describe('connector OAuth granted scopes', { concurrency: false }, () => {
       access_token: 't',
       scope: 'openid email https://www.googleapis.com/auth/drive.file'
         + ' https://www.googleapis.com/auth/business.manage'
-        + ' https://www.googleapis.com/auth/adwords'
-        + ' https://www.googleapis.com/auth/calendar.readonly',
+        + ' https://www.googleapis.com/auth/adwords',
     });
     assert.ok(granted);
     assert.deepEqual([...granted].sort(), [
@@ -96,7 +95,6 @@ describe('connector OAuth granted scopes', { concurrency: false }, () => {
     mock.method(globalThis, 'fetch', async () => Response.json({ data: [
       { permission: 'pages_show_list', status: 'granted' },
       { permission: 'pages_manage_posts', status: 'granted' },
-      { permission: 'ads_management', status: 'granted' },
     ] }));
     assert.deepEqual(
       await resolveGrantedScopes('meta-business-suite', { access_token: 't' }),

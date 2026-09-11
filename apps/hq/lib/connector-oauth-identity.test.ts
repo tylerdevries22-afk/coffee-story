@@ -50,15 +50,6 @@ describe('connector OAuth identity verification', { concurrency: false }, () => 
 
     mock.restoreAll();
     mock.method(globalThis, 'fetch', async () => Response.json({
-      id: '10000000000', name: '🍵'.repeat(200),
-    }));
-    const astral = await verifyConnectorIdentity(
-      'meta-business-suite', { access_token: 'access-token' }, null,
-    );
-    assert.equal([...astral.accountLabel].length, 160);
-
-    mock.restoreAll();
-    mock.method(globalThis, 'fetch', async () => Response.json({
       id: 'acct_1', display_name: '\n\n  Coffee   Story \t',
     }));
     assert.deepEqual(
@@ -67,13 +58,13 @@ describe('connector OAuth identity verification', { concurrency: false }, () => 
     );
   });
 
-  it('keys YouTube to the shared Google grant and uses the channel as its label', async () => {
-    mock.method(globalThis, 'fetch', async (target) => String(target).includes('userinfo')
-      ? Response.json({ sub: 'google-subject' })
-      : Response.json({ items: [{ id: 'UC_channel', snippet: { title: 'Coffee Story' } }] }));
+  it('identifies the YouTube channel rather than the signed-in person', async () => {
+    mock.method(globalThis, 'fetch', async () => Response.json({
+      items: [{ id: 'UC_channel', snippet: { title: 'Coffee Story' } }],
+    }));
     assert.deepEqual(
       await verifyConnectorIdentity('youtube', { access_token: 'access-token' }, null),
-      { accountId: 'google-subject', accountLabel: 'Coffee Story' },
+      { accountId: 'UC_channel', accountLabel: 'Coffee Story' },
     );
   });
 
@@ -82,9 +73,7 @@ describe('connector OAuth identity verification', { concurrency: false }, () => 
       data: { user: { open_id: 'creator-1', display_name: 'Coffee Story' } },
     }));
     assert.deepEqual(
-      await verifyConnectorIdentity(
-        'tiktok', { access_token: 'access-token', open_id: 'creator-1' }, null,
-      ),
+      await verifyConnectorIdentity('tiktok', { access_token: 'access-token' }, null),
       { accountId: 'creator-1', accountLabel: 'Coffee Story' },
     );
   });
@@ -143,19 +132,5 @@ describe('connector OAuth identity verification', { concurrency: false }, () => 
       verifyConnectorIdentity('youtube', { access_token: 'access-token' }, null),
       /identity verification failed/i,
     );
-  });
-
-  it('measures provider identity limits in UTF-8 bytes', async () => {
-    mock.method(globalThis, 'fetch', async () =>
-      Response.json({ id: '界'.repeat(170), name: 'Bounded account' }));
-    assert.equal((await verifyConnectorIdentity(
-      'meta-business-suite', { access_token: 'access-token' }, null,
-    )).accountId, '界'.repeat(170));
-    mock.restoreAll();
-    mock.method(globalThis, 'fetch', async () =>
-      Response.json({ id: '界'.repeat(171), name: 'Oversized account' }));
-    await assert.rejects(verifyConnectorIdentity(
-      'meta-business-suite', { access_token: 'access-token' }, null,
-    ), /identity verification failed/i);
   });
 });

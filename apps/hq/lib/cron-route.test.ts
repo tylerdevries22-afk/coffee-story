@@ -65,12 +65,6 @@ it('runs healthy maintenance stages when the drops stage fails', async (t) => {
     '/rest/v1/rpc/apply_operation_retention',
     '/rest/v1/rpc/prune_delegated_access_grants',
     '/rest/v1/rpc/reconcile_connector_credential_status',
-    '/rest/v1/rpc/claim_connector_oauth_identities',
-    '/rest/v1/rpc/claim_connector_oauth_refreshes',
-    '/rest/v1/rpc/claim_connector_oauth_revocations',
-    '/rest/v1/rpc/count_square_connection_mutation_alerts',
-    '/rest/v1/rpc/count_square_payment_remediation_alerts',
-    '/rest/v1/rpc/count_square_payment_validation_alerts',
   ]));
 });
 
