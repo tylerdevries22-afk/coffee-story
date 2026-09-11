@@ -9,7 +9,7 @@ export function ConnectorDisconnectButton({ provider }: { readonly provider: str
   const [error, setError] = useState('');
 
   async function disconnect(): Promise<void> {
-    if (!window.confirm('Disconnect this provider from Coffee Story?')) return;
+    if (!window.confirm('Disconnect this provider from this brand?')) return;
     setPending(true);
     setError('');
     try {
@@ -29,7 +29,7 @@ export function ConnectorDisconnectButton({ provider }: { readonly provider: str
   return (
     <div>
       <button className="button danger" disabled={pending} onClick={disconnect} type="button">
-        {pending ? 'Disconnecting…' : 'Disconnect from Coffee Story'}
+        {pending ? 'Disconnecting…' : 'Disconnect provider'}
       </button>
       {error ? <p className="notice" role="alert">{error}</p> : null}
     </div>
