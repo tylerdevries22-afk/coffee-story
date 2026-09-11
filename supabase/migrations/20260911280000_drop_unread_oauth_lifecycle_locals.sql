@@ -381,6 +381,7 @@ CREATE OR REPLACE FUNCTION public.claim_connector_oauth_revocations(p_now timest
 AS $function$
 declare
   v_local_token uuid;
+  v_maintenance_count integer;
   v_shared record;
 begin
   if p_now is null or p_limit is null or p_limit not between 1 and 100
@@ -512,7 +513,8 @@ begin
     where refresh_job.id = candidate.id
     returning refresh_job.id
   )
-  perform 1 from fenced_refreshes;
+  select count(*) into v_maintenance_count from fenced_refreshes;
+  perform v_maintenance_count;
 
   -- A grant-wide credential is retired locally when another live installation
   -- owns the same provider grant. Calling the provider would revoke that owner.
