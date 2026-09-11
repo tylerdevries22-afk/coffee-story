@@ -1,5 +1,3 @@
-'use server';
-
 export { saveMenuItem } from './menu-item-actions';
 export { addMenuCategory, saveMenuCategory } from './category-actions';
 export {

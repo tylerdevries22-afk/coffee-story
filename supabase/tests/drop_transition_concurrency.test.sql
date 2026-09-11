@@ -29,10 +29,10 @@ select dblink_exec('drop_worker_b', $setup$
   insert into public.menus (id, brand_id, name) values
     ('edededed-1000-4000-8000-000000000001',
      'edededed-eded-4ded-8ded-edededededed', 'Concurrency');
-  insert into public.menu_categories (id, brand_id, menu_id, title) values
+  insert into public.menu_categories (id, brand_id, menu_id, title, slug) values
     ('edededed-2000-4000-8000-000000000001',
      'edededed-eded-4ded-8ded-edededededed',
-     'edededed-1000-4000-8000-000000000001', 'Drops');
+     'edededed-1000-4000-8000-000000000001', 'Drops', 'drops');
   insert into public.menu_items (
     id, brand_id, menu_id, category_id, slug, name, base_price_cents
   ) values (

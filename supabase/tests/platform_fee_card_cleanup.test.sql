@@ -8,6 +8,18 @@ insert into public.brands (id, slug, name) values
 insert into public.locations (id, brand_id, name) values
   ('f4440000-0000-4000-8000-000000000001',
    'f4444444-4444-4444-8444-444444444444', 'Cleanup Location');
+
+insert into public.square_connections (
+  id, brand_id, location_id, merchant_id, square_location_id,
+  access_token_encrypted, refresh_token_encrypted, expires_at
+)
+select gen_random_uuid(), loc.brand_id, loc.id, 'merchant-test', 'square-test',
+  'ciphertext-access', 'ciphertext-refresh', now() + interval '1 hour'
+from public.locations loc
+where not exists (
+  select 1 from public.square_connections c where c.location_id = loc.id
+);
+
 insert into public.orders (
   id, brand_id, location_id, status, tender_type, subtotal_cents, total_cents,
   square_order_id, square_payment_id

@@ -8,10 +8,10 @@ insert into public.brands (id, slug, name) values
 insert into public.menus (id, brand_id, name, is_published) values
   ('dddddddd-1000-4000-8000-000000000001',
    'dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'Public menu', true);
-insert into public.menu_categories (id, brand_id, menu_id, title) values
+insert into public.menu_categories (id, brand_id, menu_id, title, slug) values
   ('dddddddd-2000-4000-8000-000000000001',
    'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
-   'dddddddd-1000-4000-8000-000000000001', 'Drops');
+   'dddddddd-1000-4000-8000-000000000001', 'Drops', 'drops');
 insert into public.menu_items (
   id, brand_id, menu_id, category_id, slug, name, base_price_cents
 ) values (
