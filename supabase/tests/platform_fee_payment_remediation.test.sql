@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = extensions, public, pg_catalog;
-\ir helpers/platform_fee_remediation.sql
+\ir helpers/platform_fee_remediation.sql.inc
 select plan(43);
 
 insert into public.brands (id, slug, name) values

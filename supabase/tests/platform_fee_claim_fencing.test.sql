@@ -2,7 +2,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = extensions, public, pg_catalog;
 set local time zone 'UTC';
-\ir helpers/platform_fee_quote.sql
+\ir helpers/platform_fee_quote.sql.inc
 select plan(37);
 
 insert into public.brands (
