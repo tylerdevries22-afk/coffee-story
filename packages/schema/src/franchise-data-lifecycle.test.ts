@@ -8,6 +8,10 @@ const migration = readFileSync(
   join(dirname(fileURLToPath(import.meta.url)), '../../../supabase/migrations/20260911120000_franchise_data_lifecycle.sql'),
   'utf8',
 );
+const brandExport = readFileSync(
+  join(dirname(fileURLToPath(import.meta.url)), '../../../supabase/migrations/20260911130000_brand_organization_export.sql'),
+  'utf8',
+);
 
 describe('franchise data lifecycle', () => {
   it('exports guest data without raw push tokens and keeps the RPC service-role only', () => {
@@ -35,5 +39,18 @@ describe('franchise data lifecycle', () => {
     assert.match(migration, /last_location_protected/);
     assert.match(migration, /app\.is_brand_owner/);
     assert.match(migration, /grant execute on function public\.delete_location_if_allowed\(uuid\) to authenticated/);
+  });
+});
+
+describe('brand organization export', () => {
+  it('exports org data for brand_owner and keeps anon out', () => {
+    assert.match(brandExport, /create or replace function public\.export_brand_organization_data/);
+    assert.match(brandExport, /app\.is_brand_owner/);
+    assert.match(brandExport, /from public\.locations location/);
+    assert.match(brandExport, /from public\.customers customer/);
+    assert.doesNotMatch(brandExport, /access_token|credential_reference|from public\.push_tokens/i);
+    assert.match(brandExport, /revoke all on function public\.export_brand_organization_data\(uuid\) from public, anon/);
+    assert.match(brandExport, /grant execute on function public\.export_brand_organization_data\(uuid\) to authenticated/);
+    assert.match(brandExport, /register_release\(\s*'20260911130000'/);
   });
 });
