@@ -1,6 +1,11 @@
 import { randomBytes } from 'node:crypto';
 
-import { vercelProjectSpecifications, type FactorySurface } from '@platform/factory';
+import {
+  mayMintProductionHosts,
+  squareEnvForPhase,
+  vercelProjectSpecifications,
+  type FactorySurface,
+} from '@platform/factory';
 
 import { createOrAdopt } from '../lib/provider-create';
 import { verifiedVercelResource, verifyExistingAdoption } from './factory-provider-adoption';
@@ -75,8 +80,13 @@ async function findVercelProject(
 export async function provisionVercel(
   run: FactoryRunRow,
   repository: string,
+  options: { goLiveApproved?: boolean } = {},
 ): Promise<readonly SafeResource[]> {
   'use step';
+  if (!mayMintProductionHosts(options.goLiveApproved === true)) {
+    throw new Error('Refusing to mint production Vercel hosts without explicit Go live.');
+  }
+  const squareEnv = squareEnvForPhase(true);
   const scope = requiredEnvironment('VERCEL_SCOPE');
   const specifications = vercelProjectSpecifications(run.tenantSlug, repository, run.surfaces);
   const plans = [] as Array<{
@@ -119,7 +129,7 @@ export async function provisionVercel(
   }
   const resources: SafeResource[] = [];
   for (const plan of plans) {
-    const variables = vercelRuntimeVariables(plan.surface, run.tenantSlug, secrets);
+    const variables = vercelRuntimeVariables(plan.surface, run.tenantSlug, secrets, { squareEnv });
     const payload = plan.resource ? null : await createVercelProject(
       plan.specification,
       variables,

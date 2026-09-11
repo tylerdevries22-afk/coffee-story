@@ -54,7 +54,24 @@ Canary and promotion are fail-closed attestations supplied by the deployment exe
 as a valid `deployment` artifact manifest. The manifest names the tenant, matching
 artifact digest, full Git commit SHA, canary status and provider reference, plus a
 promotion status/reference after promotion. A failed canary keeps the previous release
-active. Only a passed canary with promotion evidence completes `promote-live`, records
+active.
+
+## Go live (explicit)
+
+Go live is **never automatic**. The factory may complete sandbox infrastructure
+(GitHub, Doppler prd-only writes, Supabase), publish content, and verify canary
+while `SQUARE_ENV=sandbox` and preview Supabase remain in force. Completing those
+stages does **not** mint `{slug}-hq.vercel.app` / `{slug}-display.vercel.app` and
+does **not** flip Square live.
+
+An owner or `platform_admin` must tap **Go live** in HQ. That action alone mints
+the Model B hosts (guests stay HQ paths; parked `*-customer|kiosk|operator`
+projects are not created or deleted) and allows `promote-live`.
+
+Human loader steps: **Business saved → Database → Apps → Ready**. Never show
+Coffee Story chrome on a new shop — the loader always names that shop.
+
+Only a passed canary with promotion evidence and explicit Go live completes `promote-live`, records
 `release_approval` through the service-role-only readiness RPC, and marks the factory
 run live. Platform administrators can resume blocked or failed runs from the HQ run
 list after the missing evidence is supplied.

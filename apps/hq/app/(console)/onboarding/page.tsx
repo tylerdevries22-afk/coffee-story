@@ -2,6 +2,7 @@ import { proposalTermsFor } from '@platform/factory';
 import Link from 'next/link';
 
 import { Icon, type IconName } from '@/components/icon';
+import { ProvisioningLoader } from '@/components/provisioning-loader';
 import { currentSession, hasRole } from '@/lib/auth';
 import { loadFactoryOverview } from '@/lib/factory-data';
 import { formatMoney } from '@/lib/kpi';
@@ -163,13 +164,27 @@ export default async function OnboardingPage({ searchParams }: { searchParams: S
                   <div><strong>{run.businessName}</strong><span>{run.tenantSlug}</span></div>
                   <span className={`factory-state factory-state-${run.state}`}>{runStateLabel(run.state)}</span>
                 </div>
+                {run.state !== 'live' ? (
+                  <ProvisioningLoader
+                    run={{
+                      state: run.state,
+                      stage: run.stage,
+                      businessName: run.businessName,
+                      completedTaskKeys: run.completedTaskKeys,
+                      blockedErrorCode: run.lastErrorCode,
+                    }}
+                  />
+                ) : null}
                 <div className="factory-progress" aria-label={`${progress}% complete`}><span style={{ width: `${progress}%` }} /></div>
                 <div className="factory-run-meta">
                   <span>{run.completedTasks} of {run.totalTasks} tasks</span>
                   <span>{run.verifiedCredentials} of {run.requiredCredentials} credentials verified</span>
                   <span>Stage: {runStateLabel(run.stage)}</span>
                 </div>
-                {admin && (run.state === 'blocked' || run.state === 'failed') ? (
+                {admin && run.lastErrorCode === 'go_live_required' ? (
+                  <p className="muted">Awaiting owner/admin Go live on the organization page. Resume will not mint production hosts.</p>
+                ) : null}
+                {admin && (run.state === 'blocked' || run.state === 'failed') && run.lastErrorCode !== 'go_live_required' ? (
                   <form action={resumeOnboardingRun}>
                     <input type="hidden" name="runId" value={run.id} />
                     <button className="button secondary" type="submit">Resume from checkpoint</button>

@@ -75,9 +75,35 @@ describe('advanceFactoryRelease', () => {
     assert.deepEqual(state.promotions, []);
   });
 
-  it('promotes the canonical package only after matching release evidence', async () => {
+  it('blocks promote-live until explicit Go live even with matching release evidence', async () => {
     const state = harness();
     const result = await advanceFactoryRelease(RUN, new Set(), state.dependencies);
+    assert.deepEqual(result, {
+      status: 'blocked', stage: 'canary', code: 'go_live_required',
+    });
+    assert.deepEqual(state.promotions, []);
+    assert.ok(state.tasks.includes('create-vercel-projects:blocked:go_live_required'));
+    assert.ok(state.tasks.includes('promote-live:blocked:go_live_required'));
+  });
+
+  it('blocks promote-live when Go live is approved but hosts are not minted yet', async () => {
+    const state = harness();
+    state.dependencies.goLiveApproved = true;
+    const result = await advanceFactoryRelease(
+      RUN, new Set(['publish-content', 'verify-canary']), state.dependencies,
+    );
+    assert.deepEqual(result, {
+      status: 'blocked', stage: 'canary', code: 'go_live_hosts_required',
+    });
+    assert.deepEqual(state.promotions, []);
+  });
+
+  it('promotes the canonical package only after Go live approval', async () => {
+    const state = harness();
+    state.dependencies.goLiveApproved = true;
+    const result = await advanceFactoryRelease(
+      RUN, new Set(['create-vercel-projects']), state.dependencies,
+    );
     assert.equal(result.status, 'live');
     assert.deepEqual(state.promotions, [{ brandId: 'brand-1', content: CONTENT }]);
   });
@@ -105,10 +131,12 @@ describe('advanceFactoryRelease', () => {
     assert.deepEqual(state.promotions, []);
   });
 
-  it('completes live promotion after a passed canary and provider promotion', async () => {
+  it('completes live promotion after Go live, a passed canary, and provider promotion', async () => {
     const state = harness();
+    state.dependencies.goLiveApproved = true;
     const result = await advanceFactoryRelease(
-      RUN, new Set(['publish-content', 'verify-canary']), state.dependencies,
+      RUN, new Set(['publish-content', 'verify-canary', 'create-vercel-projects']),
+      state.dependencies,
     );
     assert.equal(result.status, 'live');
     assert.deepEqual(state.tasks, ['promote-live:running:', 'promote-live:completed:']);

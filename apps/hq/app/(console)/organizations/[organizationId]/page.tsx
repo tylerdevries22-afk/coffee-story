@@ -1,8 +1,10 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 
+import { ProvisioningLoader } from '@/components/provisioning-loader';
 import { currentSession, hasRole } from '@/lib/auth';
 import { franchiseConsentReadiness } from '@/lib/franchise-enrollment';
+import { canTapGoLive } from '@/lib/go-live-access';
 import { serverClient } from '@/lib/supabase-server';
 
 import {
@@ -10,13 +12,19 @@ import {
   restoreOrganizationAction,
   suspendOrganizationAction,
 } from '../lifecycle-actions';
+import { goLiveOrganizationAction } from '../go-live-actions';
 import { activateOrganizationAction } from '../readiness-actions';
 
 export const dynamic = 'force-dynamic';
 
 type Props = {
   params: Promise<{ organizationId: string }>;
-  searchParams: Promise<{ activation?: string; factory?: string; lifecycle?: string }>;
+  searchParams: Promise<{
+    activation?: string;
+    factory?: string;
+    lifecycle?: string;
+    golive?: string;
+  }>;
 };
 type Check = { check_key: string; required: boolean; status: string; evidence: unknown; updated_at: string };
 
@@ -30,6 +38,17 @@ const NOTICES: Record<string, string> = {
   'not-ready': 'Activation is blocked until every required readiness check passes.',
   failed: 'Activation was refused. Review the readiness evidence and try again.',
   unavailable: 'Supabase is not configured for activation on this deployment.',
+};
+const GOLIVE_NOTICES: Record<string, { message: string; failed: boolean }> = {
+  started: {
+    message: 'Go live started. Production hosts {slug}-hq and {slug}-display will mint now.',
+    failed: false,
+  },
+  'already-live': { message: 'This shop is already live.', failed: false },
+  'no-run': { message: 'No factory run found for this shop. Resume onboarding first.', failed: true },
+  forbidden: { message: 'Only the owner or a platform admin can tap Go live.', failed: true },
+  failed: { message: 'Go live could not start. Check factory credentials and try again.', failed: true },
+  unavailable: { message: 'Supabase is not configured for Go live on this deployment.', failed: true },
 };
 
 const LIFECYCLE_NOTICES: Record<string, { message: string; failed: boolean }> = {
@@ -48,7 +67,8 @@ function statusClass(status: string): string {
 
 export default async function OrganizationReadinessPage({ params, searchParams }: Props) {
   const [{ organizationId }, query, session] = await Promise.all([params, searchParams, currentSession()]);
-  if (!session || !hasRole(session, 'platform_admin')) redirect('/');
+  // Owner or platform_admin: Go live is an owner/admin action.
+  if (!session || !hasRole(session, 'brand_owner')) redirect('/');
   const client = await serverClient();
   if (!client) redirect('/locations');
   const [brandResult, runResult, checksResult, membershipResult, agreementResult] = await Promise.all([
@@ -63,8 +83,22 @@ export default async function OrganizationReadinessPage({ params, searchParams }
     client.from('franchise_agreements').select('network_id,status')
       .eq('franchisee_brand_id', organizationId),
   ]);
+
   if (brandResult.error || !brandResult.data || runResult.error || checksResult.error) notFound();
+
+  const factoryRunResult = await client.from('platform_onboarding_runs')
+    .select('id,state,stage,business_name,last_error_code,tenant_slug')
+    .eq('tenant_slug', brandResult.data.slug)
+    .maybeSingle();
+  const factoryRun = factoryRunResult.error ? null : factoryRunResult.data;
+  let factoryTasks: Array<{ task_key: string; state: string }> = [];
+  if (factoryRun?.id) {
+    const tasks = await client.from('platform_onboarding_tasks').select('task_key,state')
+      .eq('run_id', factoryRun.id).returns<Array<{ task_key: string; state: string }>>();
+    factoryTasks = tasks.error ? [] : (tasks.data ?? []);
+  }
   const brand = brandResult.data;
+  if (session.role !== 'platform_admin' && session.brandId !== brand.id) redirect('/');
   const run = runResult.data;
   const checks = checksResult.data ?? [];
   const consent = franchiseConsentReadiness(
@@ -81,6 +115,20 @@ export default async function OrganizationReadinessPage({ params, searchParams }
   const passed = required.filter((check) => check.status === 'passed').length
     + (consent.required && consent.ready ? 1 : 0);
   const ready = requiredCount > 0 && passed === requiredCount;
+  const completedTaskKeys = factoryTasks
+    .filter((task) => task.state === 'completed')
+    .map((task) => task.task_key);
+  const awaitingGoLive = Boolean(
+    factoryRun
+    && factoryRun.state !== 'live'
+    && (
+      factoryRun.last_error_code === 'go_live_required'
+      || completedTaskKeys.includes('verify-canary')
+    )
+    && !completedTaskKeys.includes('promote-live'),
+  );
+  const showGoLive = canTapGoLive(session) && awaitingGoLive;
+  const goliveNotice = query.golive ? GOLIVE_NOTICES[query.golive] : undefined;
 
   return (
     <>
@@ -99,6 +147,11 @@ export default async function OrganizationReadinessPage({ params, searchParams }
           The organization was provisioned, but factory automation did not start. Resume it from Onboarding.
         </div>
       ) : null}
+      {goliveNotice ? (
+        <div className={goliveNotice.failed ? 'notice danger' : 'notice'} role="status">
+          {goliveNotice.message.replaceAll('{slug}', brand.slug)}
+        </div>
+      ) : null}
       {(() => {
         const lifecycleNotice = query.lifecycle ? LIFECYCLE_NOTICES[query.lifecycle] : undefined;
         return lifecycleNotice ? (
@@ -107,6 +160,36 @@ export default async function OrganizationReadinessPage({ params, searchParams }
           </div>
         ) : null;
       })()}
+
+      {factoryRun && factoryRun.state !== 'live' ? (
+        <ProvisioningLoader
+          run={{
+            state: factoryRun.state,
+            stage: factoryRun.stage,
+            businessName: factoryRun.business_name || brand.name,
+            completedTaskKeys,
+            blockedErrorCode: factoryRun.last_error_code,
+          }}
+        />
+      ) : null}
+
+      {showGoLive ? (
+        <div className="card readiness-summary">
+          <div>
+            <h2>Go live</h2>
+            <p className="muted">
+              Sandbox uses preview Supabase, SQUARE_ENV=sandbox, and factory canary.
+              Tapping Go live mints {brand.slug}-hq.vercel.app and {brand.slug}-display.vercel.app.
+              Guest apps stay paths on HQ. Parked customer/kiosk/operator projects are left alone.
+            </p>
+          </div>
+          <form action={goLiveOrganizationAction}>
+            <input type="hidden" name="brandId" value={brand.id} />
+            <button className="button" type="submit">Go live</button>
+          </form>
+        </div>
+      ) : null}
+
       <div className="card readiness-summary">
         <div>
           <span className={statusClass(brand.status)}>{brand.status}</span>

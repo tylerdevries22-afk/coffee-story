@@ -68,17 +68,23 @@ describe('vercelRuntimeVariables', () => {
     assert.deepEqual(variables.map(({ key }) => key), [
       'TENANT', 'SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_URL',
       'NEXT_PUBLIC_SUPABASE_ANON_KEY', 'SUPABASE_SERVICE_ROLE_KEY',
-      'CRON_SECRET', 'HEALTH_CHECK_TOKEN',
+      'CRON_SECRET', 'HEALTH_CHECK_TOKEN', 'SQUARE_ENV',
       'NEXT_PUBLIC_ORG_SURFACE_ORIGIN', 'NEXT_PUBLIC_HQ_URL',
       'NEXT_PUBLIC_CUSTOMER_URL', 'NEXT_PUBLIC_KIOSK_URL',
       'NEXT_PUBLIC_OPERATOR_URL', 'NEXT_PUBLIC_DISPLAY_URL',
     ]);
     const byKey = Object.fromEntries(variables.map(({ key, value }) => [key, value]));
+    assert.equal(byKey.SQUARE_ENV, 'sandbox');
     assert.equal(byKey.NEXT_PUBLIC_CUSTOMER_URL, 'https://tenant-one-hq.vercel.app/customer');
     assert.equal(byKey.NEXT_PUBLIC_ORG_SURFACE_ORIGIN, 'https://tenant-one-hq.vercel.app');
     assert.ok(variables.every(({ target }) => (
       target.join(',') === 'production,preview'
     )));
+  });
+
+  it('sets SQUARE_ENV=production only when Go live options request it', () => {
+    const live = vercelRuntimeVariables('hq', 'tenant-one', secrets, { squareEnv: 'production' });
+    assert.equal(Object.fromEntries(live.map(({ key, value }) => [key, value])).SQUARE_ENV, 'production');
   });
 
   it('binds each application surface to its tenant and canonical HQ', () => {
