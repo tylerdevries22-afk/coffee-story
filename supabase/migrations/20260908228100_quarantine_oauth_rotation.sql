@@ -8,7 +8,10 @@ create function public.quarantine_connector_oauth_rotation_result(
   p_reason text,
   p_now timestamptz
 ) returns boolean
-language plpgsql security definer set search_path = '' as $$
+language plpgsql
+security definer
+set search_path to pg_catalog, public, app, app_private, vault
+as $q$
 declare
   v_external_account_id text;
   v_fingerprint text;
@@ -166,7 +169,8 @@ begin
       'credentialGeneration', v_job.credential_generation + 1,
       'revocationQueued', v_job.operation = 'refresh'));
   return true;
-end $$;
+end;
+$q$;
 
 
 revoke all on function public.quarantine_connector_oauth_rotation_result(uuid, uuid, jsonb, timestamptz, text, timestamptz)
