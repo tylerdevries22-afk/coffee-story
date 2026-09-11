@@ -1,15 +1,12 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-create extension if not exists dblink with schema extensions;
+-- dblink is created by migrations; recreating it re-runs Supabase's
+-- after-create hook, which revokes dblink_connect_u from postgres.
 set search_path = extensions, public, pg_catalog;
 select plan(5);
 
-select dblink_connect('drop_worker_a', format(
-  'hostaddr=127.0.0.1 port=%s dbname=%s user=postgres password=postgres gssencmode=disable',
-  current_setting('port'), current_database()));
-select dblink_connect('drop_worker_b', format(
-  'hostaddr=127.0.0.1 port=%s dbname=%s user=postgres password=postgres gssencmode=disable',
-  current_setting('port'), current_database()));
+select dblink_connect_u('drop_worker_a', format('dbname=%s', current_database()));
+select dblink_connect_u('drop_worker_b', format('dbname=%s', current_database()));
 
 select dblink_exec('drop_worker_b', $setup$
   create table if not exists public.drop_transition_concurrency_results (
@@ -17,6 +14,9 @@ select dblink_exec('drop_worker_b', $setup$
     drop_id uuid not null
   );
   truncate public.drop_transition_concurrency_results;
+  set session_replication_role = replica;
+  delete from public.catalog_nodes
+  where brand_id = 'edededed-eded-4ded-8ded-edededededed';
   delete from public.drops
   where brand_id = 'edededed-eded-4ded-8ded-edededededed';
   delete from public.menu_items
@@ -27,6 +27,7 @@ select dblink_exec('drop_worker_b', $setup$
   where brand_id = 'edededed-eded-4ded-8ded-edededededed';
   delete from public.brands
   where id = 'edededed-eded-4ded-8ded-edededededed';
+  set session_replication_role = origin;
   insert into public.brands (id, slug, name) values
     ('edededed-eded-4ded-8ded-edededededed',
      'drop-transition-concurrency', 'Drop Transition Concurrency');
@@ -115,6 +116,9 @@ $test$, $expected$
 $expected$, 'both disjoint claims commit exactly one transition');
 
 select dblink_exec('drop_worker_b', $cleanup$
+  set session_replication_role = replica;
+  delete from public.catalog_nodes
+  where brand_id = 'edededed-eded-4ded-8ded-edededededed';
   delete from public.drops
   where brand_id = 'edededed-eded-4ded-8ded-edededededed';
   delete from public.menu_items
@@ -125,7 +129,8 @@ select dblink_exec('drop_worker_b', $cleanup$
   where brand_id = 'edededed-eded-4ded-8ded-edededededed';
   delete from public.brands
   where id = 'edededed-eded-4ded-8ded-edededededed';
-  drop table public.drop_transition_concurrency_results;
+  drop table if exists public.drop_transition_concurrency_results;
+  set session_replication_role = origin;
 $cleanup$);
 select dblink_disconnect('drop_worker_a');
 select dblink_disconnect('drop_worker_b');

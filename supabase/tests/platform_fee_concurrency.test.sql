@@ -1,15 +1,12 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-create extension if not exists dblink with schema extensions;
+-- dblink is created by migrations; recreating it re-runs Supabase's
+-- after-create hook, which revokes dblink_connect_u from postgres.
 set search_path = extensions, public, pg_catalog;
 select plan(21);
 
-select dblink_connect('fee_worker_a', format(
-  'hostaddr=127.0.0.1 port=%s dbname=%s user=postgres password=postgres gssencmode=disable',
-  current_setting('port'), current_database()));
-select dblink_connect('fee_worker_b', format(
-  'hostaddr=127.0.0.1 port=%s dbname=%s user=postgres password=postgres gssencmode=disable',
-  current_setting('port'), current_database()));
+select dblink_connect_u('fee_worker_a', format('dbname=%s', current_database()));
+select dblink_connect_u('fee_worker_b', format('dbname=%s', current_database()));
 select dblink_exec('fee_worker_a', 'set time zone ''UTC''');
 select dblink_exec('fee_worker_b', 'set time zone ''UTC''');
 select dblink_exec('fee_worker_b', $setup$

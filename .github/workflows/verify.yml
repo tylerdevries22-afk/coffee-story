@@ -693,6 +693,18 @@ jobs:
             exit 1
           }
 
+      # supabase's dblink after-create hook revokes connect_u from non-admins.
+      # Concurrency pgTAP needs it; grant as supabase_admin inside the DB container.
+      - name: Allow postgres to use dblink_connect_u for concurrency suites
+        run: |
+          set -euo pipefail
+          db_container=$(docker ps --format '{{.Names}}' | grep -E 'supabase_db_' | head -1)
+          test -n "$db_container" || { echo '::error::No supabase DB container found.'; exit 1; }
+          docker exec "$db_container" psql -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -c \
+            "grant usage on schema extensions to postgres;
+             grant execute on function extensions.dblink_connect_u(text) to postgres, public;
+             grant execute on function extensions.dblink_connect_u(text, text) to postgres, public;"
+
       - name: Run the pgTAP schema suites
         run: supabase test db --db-url "$SUPABASE_TEST_DB_URL"
 

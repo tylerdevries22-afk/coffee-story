@@ -1,15 +1,12 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-create extension if not exists dblink with schema extensions;
+-- dblink is created by migrations; recreating it re-runs Supabase's
+-- after-create hook, which revokes dblink_connect_u from postgres.
 set search_path = extensions, public, pg_catalog;
 select plan(11);
 
-select dblink_connect('package_worker_a', format(
-  'hostaddr=127.0.0.1 port=%s dbname=%s user=postgres password=postgres gssencmode=disable',
-  current_setting('port'), current_database()));
-select dblink_connect('package_worker_b', format(
-  'hostaddr=127.0.0.1 port=%s dbname=%s user=postgres password=postgres gssencmode=disable',
-  current_setting('port'), current_database()));
+select dblink_connect_u('package_worker_a', format('dbname=%s', current_database()));
+select dblink_connect_u('package_worker_b', format('dbname=%s', current_database()));
 select dblink_exec('package_worker_b', $setup$
   create table if not exists public.tenant_package_cleanup_concurrency_results (
     worker text primary key,
@@ -122,10 +119,12 @@ select dblink_disconnect('package_worker_b');
 select * from finish();
 rollback;
 
+begin;
 set local session_replication_role = replica;
 delete from storage.objects where name like
   'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee/%';
 delete from app_private.tenant_package_upload_sessions
   where brand_id = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
 delete from public.brands where id = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
-drop table public.tenant_package_cleanup_concurrency_results;
+drop table if exists public.tenant_package_cleanup_concurrency_results;
+commit;
