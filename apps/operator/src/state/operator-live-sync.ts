@@ -3,7 +3,8 @@ import { useCallback, useEffect, type Dispatch, type MutableRefObject, type SetS
 
 import { fetchActiveLocationOrders, fetchLocationOrderStatuses, orderBoardEntryFromRow,
   subscribeToLocationOrders } from '@platform/data';
-import type { OrderRow, OrderStatus, TenantClaims } from '@platform/schema';
+import type { OrderRow, OrderStatus } from '@platform/schema';
+import type { TenantClaims } from '@platform/schema';
 import type { User } from '@supabase/supabase-js';
 import type { BoardOrder } from '@/features/operator/board';
 import { upsertBoardOrder } from '@/features/operator/live-board';

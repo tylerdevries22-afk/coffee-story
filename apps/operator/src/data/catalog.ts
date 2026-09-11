@@ -65,10 +65,10 @@ import ubeLatteImg from '../../assets/menu/ube-latte.webp';
 import ubeMatchaImg from '../../assets/menu/ube-matcha.webp';
 import veggieImg from '../../assets/menu/sandwich-veggie.webp';
 import wrapCaesarImg from '../../assets/menu/wrap-chicken-caesar.webp';
-import { drinkSizes, eachSize, type MenuItem } from './catalog-types';
 
 
 export * from './catalog-types';
+import { drinkSizes, eachSize, type MenuItem } from './catalog-types';
 
 export const MENU_ITEMS: readonly MenuItem[] = [
   // ---- Coffee & Espresso ----

@@ -13,7 +13,6 @@ import {
 import { taxCentsFor } from '@platform/domain';
 
 import { DEMO_TAX_JURISDICTIONS } from '@/data/business';
-import { isValidIsoSlot } from './demo-order-updates';
 
 export type DemoOrderInput = {
   id: string;
@@ -74,6 +73,7 @@ export function setDemoRole(portal: PortalBundle, role: AppRole): PortalBundle {
 }
 
 export { demoSlotFor, isValidIsoSlot } from './demo-order-updates';
+import { isValidIsoSlot } from './demo-order-updates';
 
 export function addDemoOrder(portal: PortalBundle, input: DemoOrderInput): PortalBundle {
   if (!isValidIsoSlot(input.placedAt)) throw new Error('Choose a valid pickup time.');

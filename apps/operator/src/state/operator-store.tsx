@@ -12,14 +12,14 @@ import {
   type OperatorLocation,
 } from '@/state/operator-locations';
 
+export { DEMO_LOCATIONS, type OperatorLocation } from '@/state/operator-locations';
+
 import { OperatorContext, type OperatorSettings, type OperatorState } from './operator-store-types';
+export { useOperator, type OperatorSettings } from './operator-store-types';
 import { useOperatorLiveSync } from './operator-live-sync';
 import { useOperatorMenu } from './operator-menu';
 import { useOperatorDemoSync } from './operator-demo-sync';
 import { useOperatorActions } from './operator-actions';
-
-export { DEMO_LOCATIONS, type OperatorLocation } from '@/state/operator-locations';
-export { useOperator, type OperatorSettings } from './operator-store-types';
 
 export function OperatorProvider({ children }: PropsWithChildren) {
   const { isDemo, tenant, liveLocations, user } = useAuth();
