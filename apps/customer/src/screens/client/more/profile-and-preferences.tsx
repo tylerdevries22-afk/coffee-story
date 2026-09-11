@@ -8,7 +8,6 @@ import { Body, Button, Card, SectionTitle } from '@/components/ui';
 import { mobileApi } from '@/lib/mobile-api';
 import { downloadMyData as requestMyDataExport } from './download-my-data';
 import { requestKey } from '@platform/domain';
-import { STRENGTH_OPTIONS, strengthLabel } from '@/features/setup/setup';
 import { useAuth } from '@/state/auth-context';
 import { useDemo } from '@/state/demo-context';
 import type { PortalProfile } from '@platform/domain';

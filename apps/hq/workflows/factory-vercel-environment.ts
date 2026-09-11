@@ -1,4 +1,5 @@
 import type { FactorySurface } from '@platform/factory';
+import { modelBHqSurfaceUrls } from './factory-model-b-urls';
 import { createOrAdopt } from '../lib/provider-create';
 import { providerFetch, providerJson } from './factory-runtime';
 
