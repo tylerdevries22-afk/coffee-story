@@ -4,6 +4,7 @@ import { before, describe, it } from 'node:test';
 
 import { POST } from '../../../apps/hq/app/api/webhooks/square/route.ts';
 
+import { currentPeriod } from './platform-fee-test-support.ts';
 import { seedBrand, skipUnlessConfigured, sql, stack } from './stack.ts';
 
 const SIGNATURE_KEY = 'cancelled-settlement-key';
@@ -54,12 +55,14 @@ describe('late Square settlement', { skip: skipUnlessConfigured }, () => {
       [brandId, locationId, squareOrderId],
     );
     const orderId = order.rows[0]!.id;
+    const period = await currentPeriod(locationId);
     await sql(
       `select * from public.claim_platform_fee_quote(
-         $1, $2, 1000, 300, 300, 1000000,
-         date_trunc('month', now()), date_trunc('month', now()) + interval '1 month',
+         $1, $2, 1000, 200, 150, 2500000,
+         $5::timestamptz, $6::timestamptz,
          $3, $4, false)`,
-      [orderId, locationId, connectionId, connectionGeneration],
+      [orderId, locationId, connectionId, connectionGeneration,
+        period.monthStart, period.monthEnd],
     );
     await sql(`update public.platform_fee_quotes set expires_at = now() - interval '1 hour'
       where order_id = $1`, [orderId]);

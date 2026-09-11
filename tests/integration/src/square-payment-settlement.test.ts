@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { before, describe, it } from 'node:test';
 
+import { seedSquareConnection } from './platform-fee-test-support.ts';
 import { seedBrand, skipUnlessConfigured, sql } from './stack.ts';
 
 describe('atomic Square payment settlement', { skip: skipUnlessConfigured }, () => {
@@ -11,6 +12,7 @@ describe('atomic Square payment settlement', { skip: skipUnlessConfigured }, () 
   before(async function setup() {
     if (skipUnlessConfigured) return;
     ({ brandId, locationId } = await seedBrand('square-payment-settlement'));
+    await seedSquareConnection(brandId, locationId);
   });
 
   async function createOrder(): Promise<{ orderId: string; squareOrderId: string }> {

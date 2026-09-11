@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { before, describe, it } from 'node:test';
 
+import { seedSquareConnection } from './platform-fee-test-support.ts';
 import { anonClient, seedBrand, serviceClient, skipUnlessConfigured, sql } from './stack.ts';
 
 type ClaimedQuote = { order_id: string };
@@ -13,6 +14,7 @@ describe('Square checkout cleanup claims', { skip: skipUnlessConfigured }, () =>
   before(async function setup() {
     if (skipUnlessConfigured) return;
     const tenant = await seedBrand(`square-cleanup-claim-${randomUUID()}`);
+    await seedSquareConnection(tenant.brandId, tenant.locationId);
     const orders = await sql<{ id: string }>(
       `insert into public.orders
          (brand_id, location_id, total_cents, subtotal_cents, tender_type,
