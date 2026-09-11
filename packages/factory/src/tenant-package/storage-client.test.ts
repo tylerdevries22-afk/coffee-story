@@ -8,6 +8,7 @@ import { afterEach, describe, it } from 'node:test';
 
 import { safeEndpoint } from './http';
 import { TenantPackageStorageClient, verificationDeadlineMs } from './storage-client';
+import { TenantPackageError } from './types';
 
 const originalFetch = globalThis.fetch;
 const roots: string[] = [];
@@ -28,6 +29,7 @@ function file(bytes: Buffer): string {
 describe('TenantPackageStorageClient', () => {
   it('rejects insecure non-loopback endpoints', () => {
     assert.throws(() => safeEndpoint('http://project.example.test'), { code: 'endpoint_invalid' });
+    assert.throws(() => safeEndpoint('not a URL'), { code: 'endpoint_invalid' });
     assert.equal(safeEndpoint('http://127.0.0.1:54321').port, '54321');
   });
 
@@ -88,6 +90,21 @@ describe('TenantPackageStorageClient', () => {
     assert.equal(mutations, 3);
   });
 
+  it('cancels an accepted standard-upload response body', async () => {
+    let cancellations = 0;
+    globalThis.fetch = async () => new Response(new ReadableStream<Uint8Array>({
+      start(controller) { controller.enqueue(Uint8Array.of(1)); },
+      cancel() { cancellations += 1; },
+    }), { status: 200 });
+    const bytes = Buffer.from('object');
+    const client = new TenantPackageStorageClient('https://demo.supabase.co', 'service-secret');
+    await client.upload({
+      path: file(bytes), objectPath: 'brand/digest/files/brand.json',
+      byteSize: bytes.length, mimeType: 'application/json',
+    });
+    assert.equal(cancellations, 1);
+  });
+
   it('fails closed when a downloaded object does not match', async () => {
     globalThis.fetch = async () => new Response('wrong', { status: 200 });
     const client = new TenantPackageStorageClient('https://demo.supabase.co', 'service-secret');
@@ -112,7 +129,7 @@ describe('TenantPackageStorageClient', () => {
     };
     const client = new TenantPackageStorageClient(
       'https://demo.supabase.co', 'service-secret', async () => { heartbeats += 1; },
-      { heartbeatMs: 5, inactivityMs: 10, totalMs: () => 100 },
+      { heartbeatMs: 5, inactivityMs: 50, totalMs: () => 500 },
     );
     await client.verify('brand/digest/slow', bytes.length,
       `sha256:${createHash('sha256').update(bytes).digest('hex')}`);
@@ -139,5 +156,31 @@ describe('TenantPackageStorageClient', () => {
       { code: 'object_verification_failed' });
     assert.equal(attempts, 3);
     assert.equal(cancellations, 3);
+  });
+
+  it('aborts verification immediately when the upload lease heartbeat fails', async () => {
+    let renewals = 0;
+    let cancellations = 0;
+    globalThis.fetch = async () => new Response(new ReadableStream({
+      start(controller) { controller.enqueue(Uint8Array.of(1)); },
+      cancel() { cancellations += 1; },
+    }));
+    const client = new TenantPackageStorageClient(
+      'https://demo.supabase.co',
+      'service-secret',
+      async () => {
+        renewals += 1;
+        if (renewals > 1) {
+          throw new TenantPackageError('upload_lease_lost', 'Tenant upload lease was lost.');
+        }
+      },
+      { heartbeatMs: 2, inactivityMs: 100, totalMs: () => 200 },
+    );
+    await assert.rejects(
+      client.verify('brand/digest/stalled', 2, `sha256:${'a'.repeat(64)}`),
+      { code: 'upload_lease_lost' },
+    );
+    assert.equal(renewals, 2);
+    assert.equal(cancellations, 1);
   });
 });

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 
-import type { AppPreview } from '@/lib/app-previews';
+import type { AppPreview, OrgPreviewCatalogEntry } from '@/lib/app-previews';
 import type { DeviceWallView } from '@/lib/device-wall-data';
 
 import { DevicePreviewFrame } from './device-preview-frame';
@@ -36,10 +36,29 @@ function PreviewFrame({ preview }: PreviewProps) {
 }
 
 /** The Apps root: a navigable overview of every operational application. */
-export function AppsPreviewWall({ constructionOperator, deviceWall, previews }: { readonly constructionOperator: boolean; readonly deviceWall: DeviceWallView; readonly previews: readonly AppPreview[] }) {
+export function AppsPreviewWall({
+  catalog,
+  constructionOperator,
+  deviceWall,
+  organizationId,
+  previews,
+}: {
+  readonly catalog: readonly OrgPreviewCatalogEntry[];
+  readonly constructionOperator: boolean;
+  readonly deviceWall: DeviceWallView;
+  readonly organizationId: string | null;
+  readonly previews: readonly AppPreview[];
+}) {
   return (
     <div className="apps-page apps-wall-page">
-      <DeviceWallModule constructionOperator={constructionOperator} key={deviceWall.brandId} previews={previews} view={deviceWall} />
+      <DeviceWallModule
+        catalog={catalog}
+        constructionOperator={constructionOperator}
+        key={deviceWall.brandId}
+        organizationId={organizationId}
+        previews={previews}
+        view={deviceWall}
+      />
     </div>
   );
 }

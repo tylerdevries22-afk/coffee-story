@@ -5,30 +5,16 @@ import {
   type AppStateStatus,
 } from 'react-native';
 import {
-  createContext,
   useCallback,
-  useContext,
   useEffect,
-  useMemo,
   useRef,
   useState,
   type PropsWithChildren,
 } from 'react';
 
-import { newIdempotencyKey } from '@platform/api-client';
-import {
-  OPERATION_INTENT_VERSION,
-  createOperationIntentQueue,
-  enqueueOperationIntent,
-  removeOperationIntent,
-  type OperationIntent,
-  type OperationIntentQueue,
-  type OperationIntentIssue,
-  type OperationIssueSeverity,
-} from '@platform/offline';
+import type { OperationIntentQueue } from '@platform/offline';
 
 import {
-  type CompletionDraft,
   loadOperationNotifications,
   loadOperatorQueue,
   submitOperationIntent,
@@ -49,83 +35,21 @@ import {
 import { operationNotificationReadBus } from '@/features/operations/notification-reads';
 import { registerOperationPush } from '@/features/operations/push';
 import {
-  displayStatusForTask,
   type OperatorNotification,
   type OperatorTaskIssue,
   type OperatorTaskOccurrence,
 } from '@/features/operations/model';
 import { supabase } from '@/lib/supabase';
-import {
-  DISABLED_OPERATIONS,
-  type OperationConflict,
-  type OperationsState,
-} from '@/state/operations-state';
 import { useAuth } from '@/state/auth-context';
 import { useOperator } from '@/state/operator-store';
+import { operationRange } from './operations-store-helpers';
+import { useOperationsActions } from './operations-actions';
+import { useOperationsValue } from './operations-value';
+import { OperationsContext } from './operations-context';
+export { useOperations } from './operations-context';
 
 const LIVE_REFRESH_MS = 60_000;
 const CLOCK_REFRESH_MS = 30_000;
-
-const OperationsContext = createContext<OperationsState | null>(null);
-
-function rangeFor(now: Date): { from: string; to: string } {
-  return {
-    from: new Date(now.getTime() - 24 * 60 * 60_000).toISOString(),
-    to: new Date(now.getTime() + 35 * 24 * 60 * 60_000).toISOString(),
-  };
-}
-
-function actionBase(
-  brandId: string,
-  locationId: string,
-  occurrenceId: string,
-): Pick<OperationIntent, 'version' | 'actionId' | 'brandId' | 'locationId' | 'occurrenceId' | 'createdAt'> {
-  return {
-    version: OPERATION_INTENT_VERSION,
-    actionId: newIdempotencyKey(),
-    brandId,
-    locationId,
-    occurrenceId,
-    createdAt: new Date().toISOString(),
-  };
-}
-
-function optimisticTask(
-  task: OperatorTaskOccurrence,
-  intent: OperationIntent,
-  actorId: string,
-): OperatorTaskOccurrence {
-  if (task.id !== intent.occurrenceId) return task;
-  if (intent.kind === 'claim') {
-    return {
-      ...task,
-      status: 'claimed',
-      claimedBy: actorId,
-      claimedAt: intent.createdAt,
-    };
-  }
-  if (intent.kind === 'release') {
-    return { ...task, status: 'scheduled', claimedBy: null, claimedAt: null, claimExpiresAt: null };
-  }
-  if (intent.kind === 'complete') {
-    return {
-      ...task,
-      status: 'completed',
-      completedAt: intent.createdAt,
-      completedBy: actorId,
-      completionNote: intent.note,
-    };
-  }
-  return task;
-}
-
-function conflictList(queue: OperationIntentQueue): OperationConflict[] {
-  return queue.records.flatMap((record) => record.status === 'conflict' ? [{
-    actionId: record.intent.actionId,
-    occurrenceId: record.intent.occurrenceId,
-    message: record.conflict.message,
-  }] : []);
-}
 
 export function OperationsProvider({ children }: PropsWithChildren) {
   const { brandUserId, isDemo, operationsEnabled, tenant } = useAuth();
@@ -183,7 +107,7 @@ export function OperationsProvider({ children }: PropsWithChildren) {
       return;
     }
     const current = new Date();
-    const range = rangeFor(current);
+    const range = operationRange(current);
     try {
       const [snapshot, persistedNotifications] = await Promise.all([
         loadOperatorQueue(locationId, range.from, range.to),
@@ -256,129 +180,18 @@ export function OperationsProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     if (!live) return;
-    void registerOperationPush().catch(() => {
-      // Push is supplemental; the persisted in-app feed remains available.
-    });
+    void registerOperationPush().catch(() => undefined);
   }, [live]);
 
-  const enqueue = useCallback(async (intent: OperationIntent) => {
-    const actorId = brandUserId ?? 'demo-member';
-    setOccurrences((current) => current.map((task) => optimisticTask(task, intent, actorId)));
-    if (isDemo) {
-      if (intent.kind === 'report_issue') {
-        setIssues((current) => [...current, {
-          id: intent.actionId,
-          occurrenceId: intent.occurrenceId,
-          category: intent.category,
-          severity: intent.severity,
-          description: intent.description,
-          stepKey: intent.stepKey,
-          status: 'open',
-        }]);
-      }
-      return;
-    }
-    const current = queueRef.current ?? createOperationIntentQueue(intent.brandId, intent.locationId);
-    const next = enqueueOperationIntent(current, intent);
-    queueRef.current = next;
-    setQueue(next);
-    const saved = await saveOperationIntents(AsyncStorage, SecureStore, next);
-    if (!saved) setError('This action could not be saved offline. Keep the app open and try again.');
-    await flush();
-  }, [brandUserId, flush, isDemo]);
+  const { claim, complete, discardConflict, release, reportIssue } = useOperationsActions({
+    brandId, brandUserId, flush, isDemo, locationId, queueRef, refresh, setError,
+    setIssues, setOccurrences, setQueue,
+  });
 
-  const claim = useCallback(async (occurrenceId: string) => {
-    if (!brandId) return;
-    await enqueue({ ...actionBase(brandId, locationId, occurrenceId), kind: 'claim' });
-  }, [brandId, enqueue, locationId]);
-
-  const release = useCallback(async (occurrenceId: string) => {
-    if (!brandId) return;
-    await enqueue({ ...actionBase(brandId, locationId, occurrenceId), kind: 'release' });
-  }, [brandId, enqueue, locationId]);
-
-  const complete = useCallback(async (occurrenceId: string, draft: CompletionDraft) => {
-    if (!brandId) return;
-    const pendingClaim = queueRef.current?.records.find((record) => record.status === 'pending'
-      && record.intent.kind === 'claim' && record.intent.occurrenceId === occurrenceId);
-    await enqueue({
-      ...actionBase(brandId, locationId, occurrenceId),
-      kind: 'complete',
-      claimActionId: pendingClaim?.intent.actionId ?? null,
-      responses: draft.responses,
-      note: draft.note,
-      issues: draft.issues,
-    });
-  }, [brandId, enqueue, locationId]);
-
-  const reportIssue = useCallback(async (
-    occurrenceId: string,
-    issue: OperationIntentIssue,
-  ) => {
-    if (!brandId) return;
-    await enqueue({
-      ...actionBase(brandId, locationId, occurrenceId),
-      kind: 'report_issue',
-      category: issue.category,
-      severity: issue.severity as OperationIssueSeverity,
-      description: issue.description,
-      stepKey: issue.stepKey,
-    });
-  }, [brandId, enqueue, locationId]);
-
-  const discardConflict = useCallback(async (actionId: string) => {
-    const current = queueRef.current;
-    if (!current) return;
-    const next = removeOperationIntent(current, actionId);
-    queueRef.current = next;
-    setQueue(next);
-    await saveOperationIntents(AsyncStorage, SecureStore, next);
-    await refresh();
-  }, [refresh]);
-
-  const visibleOccurrences = useMemo(() => [...occurrences].sort((left, right) => {
-    const rank = { overdue: 0, claimed: 1, scheduled: 2, missed: 3, completed: 4, cancelled: 5 } as const;
-    return rank[displayStatusForTask(left, now)] - rank[displayStatusForTask(right, now)]
-      || Date.parse(left.scheduledFor) - Date.parse(right.scheduledFor);
-  }), [now, occurrences]);
-  const conflicts = useMemo(() => queue ? conflictList(queue) : [], [queue]);
-  const unreadCount = notifications.filter((notification) => notification.readAt === null).length;
-  const pendingCount = queue?.records.filter((record) => record.status === 'pending').length ?? 0;
-  const value = useMemo<OperationsState>(() => ({
-    // `operationsEnabled` has already resolved the demo case (auth-context);
-    // re-adding `isDemo ||` here would restore the fail-open sentence one
-    // layer down, where it would survive any fix made to the other.
-    enabled: operationsEnabled,
-    occurrences: visibleOccurrences,
-    issues,
-    notifications,
-    unreadCount,
-    pendingCount,
-    conflicts,
-    loading,
-    error,
-    now,
-    refresh,
-    claim,
-    release,
-    complete,
-    reportIssue,
-    discardConflict,
-  }), [claim, complete, conflicts, error, issues, loading, notifications, now, operationsEnabled,
-    pendingCount, refresh, release, reportIssue, discardConflict, unreadCount, visibleOccurrences]);
+  const value = useOperationsValue({
+    actions: { claim, complete, discardConflict, refresh, release, reportIssue },
+    enabled: operationsEnabled, error, issues, loading, notifications, now, occurrences, queue,
+  });
 
   return <OperationsContext.Provider value={value}>{children}</OperationsContext.Provider>;
-}
-
-/**
- * No provider means the tenant has no `workforce-operations` installation, so
- * the answer is the denied one rather than a thrown error. See
- * DISABLED_OPERATIONS for why a crash was the wrong failure mode once the
- * staff layout started gating the mount on capability.
- *
- * `useOptionalOperations` used to exist for callers that wanted to tolerate a
- * missing provider. Every caller wants that now, so it is the only behaviour.
- */
-export function useOperations(): OperationsState {
-  return useContext(OperationsContext) ?? DISABLED_OPERATIONS;
 }

@@ -1,14 +1,14 @@
 
 import { CupIcon } from '@/components/rewards/cup-icon';
+import { createBottomNavStyles } from '@/components/bottom-nav-styles';
 import { GlassContainer, GlassView } from 'expo-glass-effect';
 import { Fragment } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { alpha, tabState, AppIcon } from '@platform/ui';
+import { AppIcon, tabState, useTokens as useBrandTokens } from '@platform/ui';
 import { useAppState, type ClientTab, type StaffTab } from '@/state/app-context';
 import { CLIENT_TAB_LABELS, STAFF_TAB_LABELS } from '@/state/navigation-state';
-import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 import { useOperations } from '@/state/operations-store';
 
 /** SF Symbol names, plus the one mark the app draws itself. */
@@ -45,7 +45,7 @@ export function BottomNav({
   onQuickActions?: () => void;
 }) {
   const tokens = useBrandTokens();
-  const styles = createStyles(tokens);
+  const styles = createBottomNavStyles(tokens);
   const insets = useSafeAreaInsets();
   const { clientTab, staffTab, setClientTab, setStaffTab } = useAppState();
   // This bar renders for tenants with no operations installation, so it used to
@@ -139,7 +139,7 @@ function NavItem({
   badge?: number;
 }) {
   const tokens = useBrandTokens();
-  const styles = createStyles(tokens);
+  const styles = createBottomNavStyles(tokens);
   return (
     <Pressable
       accessibilityRole="tab"
@@ -174,40 +174,3 @@ function NavItem({
     </Pressable>
   );
 }
-
-const createStyles = (tokens: BrandTokens) => StyleSheet.create({
-  quickAction: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    marginHorizontal: 2,
-    backgroundColor: tokens.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  quickActionPressed: { opacity: 0.85 },
-  wrap: { position: 'absolute', left: 15, right: 15, height: 64, borderRadius: tokens.radius.pill, overflow: 'hidden', shadowColor: tokens.textPrimary, shadowOffset: { width: 0, height: 8 }, shadowOpacity: tokens.elevation.card, shadowRadius: 24, elevation: 5 },
-  surface: { borderRadius: tokens.radius.pill },
-  content: { flex: 1, padding: 4, flexDirection: 'row' },
-  webGlassFallback: { backgroundColor: alpha(tokens.surfaceElevated, 0.82), borderWidth: 1, borderColor: tokens.secondary },
-  item: { flex: 1, borderRadius: tokens.radius.pill, alignItems: 'center', justifyContent: 'center', gap: 2 },
-  itemFill: { borderRadius: tokens.radius.pill },
-  itemFillSelected: { borderWidth: 1, borderColor: tokens.surface },
-  webSelectedFallback: { backgroundColor: tokens.surface },
-  iconWrap: { width: 28, height: 25, borderRadius: tokens.radius.pill, alignItems: 'center', justifyContent: 'center' },
-  badge: { position: 'absolute', top: -5, right: -7, minWidth: 16, height: 16,
-    paddingHorizontal: 3, borderRadius: tokens.radius.pill, backgroundColor: tokens.danger,
-    alignItems: 'center', justifyContent: 'center' },
-  badgeText: { color: tokens.surfaceElevated, fontFamily: tokens.fontBody, fontSize: 10 },
-  label: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 10 },
-  labelSelected: { fontFamily: tokens.fontBody },
-  pressed: { opacity: 0.68 },
-  staffWrap: {
-    backgroundColor: tokens.surfaceElevated,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: tokens.secondary,
-  },
-  staffContent: { height: 58, flexDirection: 'row', paddingHorizontal: 4 },
-  staffItem: { minHeight: 52, minWidth: 44, borderRadius: tokens.radius.sm },
-  staffLabel: { color: tokens.textMuted, fontSize: 11 },
-});

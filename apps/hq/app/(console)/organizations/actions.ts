@@ -1,8 +1,5 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
-import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
 import { factoryTasks } from '@platform/factory';
 import { start } from 'workflow/api';
 
@@ -18,11 +15,9 @@ import {
   rollbackInvitationSafely,
 } from '@/lib/organization-provisioning-helpers';
 import { resolveOrInviteStaffUser } from '@/lib/staff-admin';
+import { switchWorkspaceToProvisionedOrg } from '@/lib/organization-workspace-switch';
 import { runPlatformFactory } from '@/workflows/platform-factory';
 import { isConfigured, serverClient } from '@/lib/supabase-server';
-import {
-  expiredWorkspaceCookieOptions, LOCATION_COOKIE, ORG_COOKIE, workspaceCookieOptions,
-} from '@/lib/workspace-cookie';
 
 function text(formData: FormData, key: string): string {
   const value = formData.get(key); return typeof value === 'string' ? value : '';
@@ -188,12 +183,8 @@ export async function createOrganizationAction(
     }
   }
 
-  const store = await cookies();
-  store.set(ORG_COOKIE, brandId, workspaceCookieOptions());
-  store.set(LOCATION_COOKIE, locationId ?? '', locationId
-    ? workspaceCookieOptions() : expiredWorkspaceCookieOptions());
-  revalidatePath('/', 'layout');
-  redirect(isConfigured()
-    ? `/organizations/${brandId}${factoryIssue ? '?factory=failed' : ''}`
-    : '/locations');
+  const switched = await switchWorkspaceToProvisionedOrg({
+    session, brandId, locationId, factoryIssue,
+  });
+  return switched;
 }

@@ -67,19 +67,20 @@ export function createApiClient(config: ApiClientConfig) {
     path: string,
     body: unknown,
     idempotencyKey?: string,
-    method: 'POST' | 'DELETE' = 'POST',
+    method: 'POST' | 'DELETE' | 'GET' = 'POST',
   ): Promise<T> {
     const token = await config.getAccessToken();
     if (!token) throw new Error('Sign in before calling the platform API.');
-    const response = await fetchWithRetry(resolveApiUrl(path, config), {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-        'Idempotency-Key': idempotencyKey ?? newIdempotencyKey(),
-      },
-      body: JSON.stringify(body),
-    });
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${token}`,
+      'Idempotency-Key': idempotencyKey ?? newIdempotencyKey(),
+    };
+    const init: RequestInit = { method, headers };
+    if (method !== 'GET') {
+      headers['Content-Type'] = 'application/json';
+      init.body = JSON.stringify(body);
+    }
+    const response = await fetchWithRetry(resolveApiUrl(path, config), init);
     if (!response.ok) await throwForResponse(response);
     return (await response.json()) as T;
   }
@@ -111,6 +112,8 @@ export function createApiClient(config: ApiClientConfig) {
     updateProfile: (input: UpdateProfileRequest) =>
       request<{ ok: true }>(API_ROUTES.profile, input),
     deleteProfile: () => request<DeleteProfileResponse>(API_ROUTES.profile, undefined, undefined, 'DELETE'),
+    /** Guest portability package: customers, orders, loyalty, push metadata. */
+    exportProfile: () => request<Record<string, unknown>>(API_ROUTES.profileExport, undefined, undefined, 'GET'),
     mintReferral: () => request<MintReferralResponse>(API_ROUTES.referrals, {}),
     submitTrainingQuiz: (input: SubmitTrainingQuizRequest, attemptId = newIdempotencyKey()) =>
       request<SubmitTrainingQuizResponse>(API_ROUTES.trainingProgress, { ...input, attemptId }, attemptId),

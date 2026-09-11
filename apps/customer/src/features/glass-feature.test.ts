@@ -30,7 +30,9 @@ import {
   shadowScaleRange,
 } from './glass-feature';
 
-const home = readFileSync(join(process.cwd(), 'src', 'screens', 'client', 'home-screen.tsx'), 'utf8');
+const home = ['home-screen.tsx', 'home-screen.styles.ts']
+  .map((file) => readFileSync(join(process.cwd(), 'src', 'screens', 'client', file), 'utf8'))
+  .join('\n');
 
 test('the slot quotes the photographic row rather than re-choosing its numbers', () => {
   // If either style changes, the glass section silently stops sharing the

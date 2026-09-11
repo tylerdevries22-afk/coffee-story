@@ -19,8 +19,15 @@ describe('refreshConnectorToken', { concurrency: false }, () => {
   it('uses each provider refresh contract and preserves an unrotated refresh token', async () => {
     configureOauthTestEnv();
     const requests: Request[] = [];
-    mock.method(globalThis, 'fetch', async (input, init) => {
+    mock.method(globalThis, 'fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
       requests.push(new Request(input, init));
+      const url = String(input);
+      if (url.includes('slack.com')) {
+        return Response.json({ ok: true, access_token: 'new-access', expires_in: 3_600 });
+      }
+      if (url.includes('tiktok.com')) {
+        return Response.json({ data: { access_token: 'new-access', expires_in: 3_600 } });
+      }
       return Response.json({ access_token: 'new-access', expires_in: 3_600 });
     });
 

@@ -64,6 +64,7 @@ export function verifyDeviceToken(token: string, key: DeviceSigningKey, nowMs: n
     decoded = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as Record<string, unknown>;
     head = JSON.parse(Buffer.from(header, 'base64url').toString('utf8')) as Record<string, unknown>;
   } catch {
+    console.warn(JSON.stringify({ component: 'device-tokens', event: 'parse_failed' }));
     return null;
   }
 

@@ -188,6 +188,7 @@ export const API_ROUTES = {
   loyaltyRedeem: '/api/loyalty/redeem',
   pushTokens: '/api/push-tokens',
   profile: '/api/profile',
+  profileExport: '/api/profile/export',
   referrals: '/api/referrals',
   health: '/api/health',
   trainingProgress: '/api/training/progress',

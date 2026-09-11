@@ -3,6 +3,7 @@ export * from './checkout';
 export * from './constants';
 export * from './http';
 export * from './malware';
+export * from './object-path';
 export * from './path-safety';
 export * from './preview-generator';
 export * from './publisher';

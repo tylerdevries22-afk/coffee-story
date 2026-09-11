@@ -13,77 +13,14 @@
  *
  * Pure, so `node:test` covers the whole policy without a renderer.
  */
-import type { KioskFlow, KioskStepFamily } from '@platform/domain';
+import type { KioskFlow } from '@platform/domain';
 
-export type KioskStepId =
-  | 'entry'
-  | 'node'
-  | 'item'
-  | 'options'
-  | 'pack'
-  | 'fill'
-  | 'review'
-  | 'bag'
-  | 'tip'
-  | 'pay'
-  | 'identify'
-  | 'keypad'
-  | 'balance'
-  | 'processing'
-  | 'name'
-  | 'done';
+import { stepSpine, type FlowFacts, type KioskStepId } from './step-flow-model';
 
-/**
- * What the guest has done, as far as the driver needs to care.
- *
- * Deliberately flat booleans and counts rather than the cart and the builder
- * themselves: the driver must stay testable without constructing a session,
- * and a fact it cannot see is a fact it cannot branch on by accident.
- */
-export type FlowFacts = {
-  /** A group tile was tapped, so a narrowing screen is warranted. */
-  inGroup: boolean;
-  /** The chosen item has visible option groups worth a screen. */
-  hasOptions: boolean;
-  /** Unfilled slots in the pack being built. Zero means complete. */
-  packSlotsRemaining: number;
-  bagCount: number;
-  /** The guest chose a tender that needs an account behind it. */
-  identifyOffered: boolean;
-  identifyMethod: 'phone' | 'scan' | null;
-  identified: boolean;
-  wantsName: boolean;
-  /** The order exists. Past this point nothing is cancellable. */
-  placed: boolean;
-};
-
-export const EMPTY_FACTS: FlowFacts = {
-  inGroup: false,
-  hasOptions: false,
-  packSlotsRemaining: 0,
-  bagCount: 0,
-  identifyOffered: false,
-  identifyMethod: null,
-  identified: false,
-  wantsName: false,
-  placed: false,
-};
-
-/**
- * The ordered spine per family, before facts prune it.
- *
- * The two families differ only in their middle: everything from `review`
- * onward is byte-identical, which is why those steps are the ones a tenant
- * cannot configure away.
- */
-const SPINES: Record<KioskStepFamily, readonly KioskStepId[]> = {
-  item: ['entry', 'node', 'item', 'options', 'review', 'bag', 'tip', 'pay', 'identify', 'keypad', 'balance', 'name', 'processing', 'done'],
-  pack: ['entry', 'node', 'pack', 'fill', 'review', 'bag', 'tip', 'pay', 'identify', 'keypad', 'balance', 'name', 'processing', 'done'],
-};
-
-export function stepSpine(family: KioskStepFamily): readonly KioskStepId[] {
-  return SPINES[family];
-}
+export {
+  EMPTY_FACTS, STEP_ROUTES, routeMatchesStep, stepForRoute, stepSpine,
+  type FlowFacts, type KioskStepId,
+} from './step-flow-model';
 
 /** Steps that exist on every flow, whatever the tenant configured. */
 const LOAD_BEARING: ReadonlySet<KioskStepId> = new Set([
@@ -212,51 +149,4 @@ export function recoveryStep(flow: KioskFlow, facts: FlowFacts, current: KioskSt
  */
 export function idleMayReset(current: KioskStepId): boolean {
   return current !== 'processing' && current !== 'done';
-}
-
-/**
- * Routes, typed as plain strings on purpose.
- *
- * `typedRoutes` builds expo-router's `Href` union from `.expo/types`, which the
- * dev server regenerates -- so typing this as `Record<KioskStepId, Href>` makes
- * a CI typecheck against stale generated types fail for a reason that has
- * nothing to do with the change. Strings here keep this module importable by
- * `node:test` without pulling in expo-router at all; the cast happens at the
- * single router call site.
- */
-export const STEP_ROUTES = {
-  entry: '/order/entry',
-  node: '/order/node',
-  item: '/order/item',
-  options: '/order/options',
-  pack: '/order/pack',
-  fill: '/order/fill',
-  review: '/order/review',
-  bag: '/bag',
-  tip: '/checkout/tip',
-  pay: '/checkout/pay',
-  identify: '/checkout/identify',
-  keypad: '/checkout/keypad',
-  balance: '/checkout/balance',
-  processing: '/checkout/processing',
-  name: '/checkout/name',
-  done: '/done',
-} as const satisfies Record<KioskStepId, string>;
-
-function normalizedPath(pathname: string): string {
-  return pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname;
-}
-
-/** Resolve navigation state from the URL so route and flow cannot drift. */
-export function stepForRoute(pathname: string): KioskStepId | null {
-  const normalized = normalizedPath(pathname);
-  for (const [step, route] of Object.entries(STEP_ROUTES) as [KioskStepId, string][]) {
-    if (route === normalized) return step;
-  }
-  return null;
-}
-
-/** True when Expo Router is rendering the page the state machine selected. */
-export function routeMatchesStep(pathname: string, step: KioskStepId): boolean {
-  return stepForRoute(pathname) === step;
 }
