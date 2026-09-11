@@ -4,8 +4,12 @@ create extension if not exists dblink with schema extensions;
 set search_path = extensions, public, pg_catalog;
 select plan(5);
 
-select dblink_connect('drop_worker_a', format('dbname=%s user=postgres', current_database()));
-select dblink_connect('drop_worker_b', format('dbname=%s user=postgres', current_database()));
+select dblink_connect('drop_worker_a', format(
+  'hostaddr=127.0.0.1 port=%s dbname=%s user=postgres password=postgres gssencmode=disable',
+  current_setting('port'), current_database()));
+select dblink_connect('drop_worker_b', format(
+  'hostaddr=127.0.0.1 port=%s dbname=%s user=postgres password=postgres gssencmode=disable',
+  current_setting('port'), current_database()));
 
 select dblink_exec('drop_worker_b', $setup$
   create table if not exists public.drop_transition_concurrency_results (

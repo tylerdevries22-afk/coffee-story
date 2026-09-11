@@ -49,11 +49,12 @@ select is((select min(reason) from cleanup_batch), 'stale_verified'::text,
 select is((select status from public.tenant_package_releases
   where id = '018f0f10-0000-7000-8000-000000000010'), 'failed'::text,
   'claiming stale evidence prevents a concurrent publish');
-select throws_ok($test$ select public.publish_tenant_package(
+select throws_ok($test$ select public.publish_tenant_package_if_current(
   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'stale-2026.09.08',
   'sha256:1111111111111111111111111111111111111111111111111111111111111111',
   '2222222222222222222222222222222222222222',
-  'vercel:stale-canary', 'github:stale-approval'
+  'vercel:stale-canary', 'github:stale-approval',
+  null, null, null, null
 ) $test$, '23514', 'tenant_package_release_mismatch',
   'a stale cleanup claim cannot race publication');
 select set_config('test.claim_id', (select claim_id::text from cleanup_batch limit 1), true);
