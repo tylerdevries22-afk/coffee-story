@@ -2,7 +2,7 @@ import type { CSSProperties, ReactNode } from 'react';
 import { headers } from 'next/headers';
 import { after } from 'next/server';
 
-import { currentSession, hasRole } from '@/lib/auth';
+import { currentAuthUser, currentSession, hasRole, isSetupConsolePath } from '@/lib/auth';
 import { activeModuleKeys, consoleCapabilitiesOf } from '@/lib/capabilities';
 import { brandConfigFor } from '@/lib/brand-scope';
 import { isConfigured, serverClient } from '@/lib/supabase-server';
@@ -31,6 +31,10 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
   const pathname = requestHeaders.get('x-hq-pathname') ?? '';
   const isPublicConsolePath = pathname === '/login' || pathname.startsWith('/status/');
   if (isConfigured() && !session && !isPublicConsolePath) {
+    if (isSetupConsolePath(pathname)) {
+      const setupUser = await currentAuthUser();
+      if (setupUser) return children;
+    }
     const user = client ? await client.auth.getUser() : null;
     return (
       <div className="shell">

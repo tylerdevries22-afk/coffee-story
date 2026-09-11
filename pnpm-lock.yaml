@@ -332,6 +332,9 @@ importers:
       '@platform/schema':
         specifier: workspace:*
         version: link:../../packages/schema
+      '@platform/tenant-config':
+        specifier: workspace:*
+        version: link:../../packages/tenant-config
       '@platform/ui':
         specifier: workspace:*
         version: link:../../packages/ui

@@ -4,7 +4,7 @@ import { factoryTasks } from '@platform/factory';
 import { start } from 'workflow/api';
 
 import { serverEnv, serviceDb } from '@/lib/api-auth';
-import { currentSession, hasRole } from '@/lib/auth';
+import { currentAuthUser, currentSession } from '@/lib/auth';
 import { addDemoLocation } from '@/lib/demo-locations';
 import { addDemoOrg } from '@/lib/demo-orgs';
 import { factoryStartupDecision } from '@/lib/factory-startup';
@@ -18,6 +18,7 @@ import { resolveOrInviteStaffUser } from '@/lib/staff-admin';
 import { switchWorkspaceToProvisionedOrg } from '@/lib/organization-workspace-switch';
 import { runPlatformFactory } from '@/workflows/platform-factory';
 import { isConfigured, serverClient } from '@/lib/supabase-server';
+import { tenantPackFromDraft, tryWriteTenantPack } from '@/lib/tenant-pack-write';
 
 function text(formData: FormData, key: string): string {
   const value = formData.get(key); return typeof value === 'string' ? value : '';
@@ -78,9 +79,9 @@ export async function createOrganizationAction(
   _previous: OrganizationActionState,
   formData: FormData,
 ): Promise<OrganizationActionState> {
-  const session = await currentSession();
-  if (!session || !hasRole(session, 'platform_admin')) {
-    return { kind: 'error', message: 'Only a platform administrator can create an organization.' };
+  const [session, authUser] = await Promise.all([currentSession(), currentAuthUser()]);
+  if (!session && !authUser) {
+    return { kind: 'error', message: 'Sign in to create an organization.' };
   }
   const parsed = parseOrgDraft({
     name: text(formData, 'name'), ownerEmail: text(formData, 'ownerEmail'),
@@ -129,7 +130,8 @@ export async function createOrganizationAction(
       hqUrl: process.env.NEXT_PUBLIC_HQ_URL, vercelEnvironment: process.env.VERCEL_ENV,
       vercelUrl: process.env.VERCEL_URL,
     });
-    if (!client || !environment || !callback || !session.userId) {
+    const actorId = session?.userId ?? authUser?.userId ?? null;
+    if (!client || !environment || !callback || !actorId) {
       return { kind: 'error', message: 'Owner invitations are not configured for this deployment.' };
     }
     const database = serviceDb(environment);
@@ -166,7 +168,7 @@ export async function createOrganizationAction(
       brandId = value.brandId;
       locationId = typeof value.locationId === 'string' ? value.locationId : null;
       try {
-        factoryIssue = !await startFactoryRun({ database, actorId: session.userId,
+        factoryIssue = !await startFactoryRun({ database, actorId: actorId,
           idempotencyKey, draft });
       } catch {
         factoryIssue = true;
@@ -183,8 +185,27 @@ export async function createOrganizationAction(
     }
   }
 
+  try {
+    tryWriteTenantPack(tenantPackFromDraft(draft));
+  } catch (error) {
+    console.error(JSON.stringify({
+      severity: 'error',
+      component: 'organization-provisioning',
+      event: 'tenant_pack.build_failed',
+      slug: draft.slug,
+      message: error instanceof Error ? error.message : 'build_failed',
+    }));
+  }
+
+  const workspaceSession = {
+    userId: session?.userId ?? authUser?.userId ?? null,
+    email: session?.email ?? authUser?.email ?? draft.ownerEmail,
+    role: session?.role ?? 'brand_owner',
+    brandId,
+    brandName: draft.name,
+  } as const;
   const switched = await switchWorkspaceToProvisionedOrg({
-    session, brandId, locationId, factoryIssue,
+    session: workspaceSession, brandId, locationId, factoryIssue,
   });
   return switched;
 }
