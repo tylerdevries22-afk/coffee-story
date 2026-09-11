@@ -36,9 +36,12 @@ describe('late Square settlement', { skip: skipUnlessConfigured }, () => {
     const connection = await sql<{ id: string; connection_generation: string }>(
       `insert into public.square_connections
          (brand_id, location_id, merchant_id, square_location_id,
-          access_token_encrypted, refresh_token_encrypted, expires_at)
-       values ($1, $2, 'merchant', $3, 'ciphertext', 'ciphertext', now() + interval '1 day')
-       on conflict (location_id) do update set square_location_id = excluded.square_location_id
+          access_token_encrypted, refresh_token_encrypted, expires_at,
+          oauth_scope_contract_version)
+       values ($1, $2, 'merchant', $3, 'ciphertext', 'ciphertext', now() + interval '1 day', 2)
+       on conflict (location_id) do update
+         set square_location_id = excluded.square_location_id,
+             oauth_scope_contract_version = excluded.oauth_scope_contract_version
        returning id, connection_generation`,
       [brandId, locationId, SQUARE_LOCATION_ID],
     );
@@ -85,7 +88,7 @@ describe('late Square settlement', { skip: skipUnlessConfigured }, () => {
         id: paymentId, status: 'COMPLETED', order_id: squareOrderId,
         location_id: SQUARE_LOCATION_ID,
         total_money: { amount: 1000, currency: 'USD' },
-        app_fee_money: { amount: 30, currency: 'USD' },
+        app_fee_money: { amount: 20, currency: 'USD' },
       } } },
     });
     const response = await POST(signedRequest(body));

@@ -27,9 +27,12 @@ export async function seedSquareConnection(brandId: string, locationId: string):
   await sql(
     `insert into public.square_connections (
        brand_id, location_id, merchant_id, square_location_id,
-       access_token_encrypted, refresh_token_encrypted, expires_at
-     ) values ($1, $2, $3, $4, $5, $6, now() + interval '1 hour')
-     on conflict (location_id) do nothing`,
+       access_token_encrypted, refresh_token_encrypted, expires_at,
+       oauth_scope_contract_version
+     ) values ($1, $2, $3, $4, $5, $6, now() + interval '1 hour', 2)
+     on conflict (location_id) do update
+       set square_location_id = excluded.square_location_id,
+           oauth_scope_contract_version = excluded.oauth_scope_contract_version`,
     [brandId, locationId, `merchant-${randomUUID()}`, `location-${randomUUID()}`,
       `access-${randomUUID()}`, `refresh-${randomUUID()}`],
   );

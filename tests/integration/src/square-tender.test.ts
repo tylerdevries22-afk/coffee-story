@@ -198,8 +198,9 @@ describe('square_link tender and refunds', { skip: skipUnlessConfigured }, () =>
   it('mints a hosted checkout carrying the platform fee, and never a second one', async () => {
     await sql(
       `insert into public.square_connections
-         (brand_id, location_id, merchant_id, square_location_id, access_token_encrypted, refresh_token_encrypted, expires_at)
-       values ($1, $2, 'MERCHANT-1', $3, $4, $5, now() + interval '30 days')`,
+         (brand_id, location_id, merchant_id, square_location_id, access_token_encrypted, refresh_token_encrypted, expires_at,
+          oauth_scope_contract_version)
+       values ($1, $2, 'MERCHANT-1', $3, $4, $5, now() + interval '30 days', 2)`,
       [brandId, locationId, SQUARE_LOCATION_ID,
         encryptToken(MERCHANT_TOKEN, TOKEN_KEY), encryptToken('refresh', TOKEN_KEY)],
     );
