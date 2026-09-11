@@ -1,4 +1,4 @@
-import { fetchWithRetry } from '@platform/api-client';
+import { fetchExternalWithRetry } from '@platform/engine';
 
 import {
   connectorProviderScopes,
@@ -8,6 +8,11 @@ import {
 import { stringAt, type ConnectorToken } from './connector-oauth-exchange';
 
 const META_PERMISSIONS = 'https://graph.facebook.com/v25.0/me/permissions';
+
+type ConnectorReadOptions = {
+  readonly timeoutMs?: number;
+  readonly retryDelayMs?: number;
+};
 
 /**
  * The scopes a provider itself says it granted.
@@ -32,11 +37,15 @@ export function grantedConnectorScopes(token: ConnectorToken): readonly string[]
  * source. Returns `null` when it cannot be reached, which is deliberately
  * distinct from an empty grant: one is an unknown, the other is an answer.
  */
-async function metaGrantedScopes(token: ConnectorToken): Promise<readonly string[] | null> {
+async function metaGrantedScopes(
+  token: ConnectorToken,
+  options: ConnectorReadOptions,
+): Promise<readonly string[] | null> {
   try {
-    const response = await fetchWithRetry(
+    const response = await fetchExternalWithRetry(
       META_PERMISSIONS,
       { headers: { Accept: 'application/json', Authorization: `Bearer ${token.access_token}` } },
+      { maxResponseBytes: 262_144, ...options },
     );
     if (!response.ok) return null;
     const rows = Reflect.get(await response.json() as object, 'data');
@@ -69,13 +78,22 @@ async function metaGrantedScopes(token: ConnectorToken): Promise<readonly string
 export async function resolveGrantedScopes(
   key: OAuthConnectorKey,
   token: ConnectorToken,
+  options: ConnectorReadOptions = {},
 ): Promise<readonly string[] | null> {
   const reported = grantedConnectorScopes(token);
   if (reported) return withinRequest(key, reported);
   const source = connectorScopeSource(key);
   if (source === 'request') return connectorProviderScopes(key);
-  const verified = source === 'verify' ? await metaGrantedScopes(token) : null;
+  const verified = source === 'verify' ? await metaGrantedScopes(token, options) : null;
   return verified === null ? null : withinRequest(key, verified);
+}
+
+export function hasCompleteConnectorGrant(
+  key: OAuthConnectorKey,
+  granted: readonly string[],
+): boolean {
+  const actual = new Set(granted);
+  return connectorProviderScopes(key).every((scope) => actual.has(scope));
 }
 
 /**

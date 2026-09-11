@@ -6,8 +6,11 @@ import { createPaymentLink } from '../square/client';
 
 import type { CapturePaymentDeps } from './capture-payment';
 import type { SnapshotLine } from './internal';
-import { appFeeForCharge } from './platform-fees';
+import {
+  appFeeForCharge, bindSquareCheckoutLink, releasePlatformFeeQuote,
+} from './platform-fees';
 import { buildSquareLines } from './square-lines';
+import { isDefinitiveSquareRejection } from './provider-error';
 import { OrderError } from './types';
 
 /**
@@ -44,7 +47,7 @@ export async function createSquareCheckoutLink(
 ): Promise<{ orderId: string; checkoutUrl: string; replayed: boolean }> {
   const loaded = await deps.db
     .from('orders')
-    .select('id, brand_id, location_id, status, tender_type, totals, tax_cents, tip_cents, total_cents, stored_value_applied_cents, square_checkout_url')
+    .select('id, brand_id, location_id, status, tender_type, totals, tax_cents, tip_cents, total_cents, stored_value_applied_cents, square_checkout_url, square_payment_link_id')
     .eq('id', input.orderId)
     .maybeSingle<{
       id: string;
@@ -58,20 +61,17 @@ export async function createSquareCheckoutLink(
       total_cents: number;
       stored_value_applied_cents: number;
       square_checkout_url: string | null;
+      square_payment_link_id: string | null;
     }>();
   if (loaded.error) throw loaded.error;
   const order = loaded.data;
   if (!order) throw new OrderError('invalid_request', 'That order does not exist.');
-  if (order.square_checkout_url) {
-    return { orderId: order.id, checkoutUrl: order.square_checkout_url, replayed: true };
-  }
   if (order.tender_type !== 'square_link') {
     throw new OrderError('invalid_request', `Order is a ${order.tender_type} order; only square_link orders get a checkout page.`);
   }
   if (order.status !== 'created') {
     throw new OrderError('invalid_request', `Order is ${order.status}; only a created order can be sent to checkout.`);
   }
-
   const lines = (order.totals.lines ?? []).map((line) => ({
     name: line.name,
     quantity: line.quantity,
@@ -80,13 +80,6 @@ export async function createSquareCheckoutLink(
     packContents: line.pack_contents ?? [],
   }));
   const chargeCents = order.total_cents - order.stored_value_applied_cents;
-  const fee = await appFeeForCharge(deps.db, {
-    locationId: order.location_id,
-    chargeCents,
-    feeConfig: deps.feeConfig,
-    locationTimezone: deps.locationTimezone,
-  });
-
   // The page must ask for exactly what the order says, or the guest pays one
   // number while the books, the metrics and the platform's fee use another.
   // The first version sent line items alone: tax and tip were simply never
@@ -100,28 +93,56 @@ export async function createSquareCheckoutLink(
     );
   }
 
-  const link = await createPaymentLink(deps.square, deps.locationAccessToken, {
-    squareLocationId: deps.squareLocationId,
-    referenceId: order.id,
-    lines: buildSquareLines(lines),
-    taxCents,
-    taxLabel: taxLabelFor(order.totals),
-    tipCents,
-    appFeeCents: fee.feeCents,
-    ...(input.redirectUrl ? { redirectUrl: input.redirectUrl } : {}),
-    ...(input.buyerEmail ? { buyerEmail: input.buyerEmail } : {}),
+  const fee = await appFeeForCharge(deps.db, {
+    orderId: order.id,
+    locationId: order.location_id,
+    chargeCents,
+    feeConfig: deps.feeConfig,
+    locationTimezone: deps.locationTimezone,
+    requireExisting: Boolean(order.square_checkout_url),
   });
-  const checkoutUrl = link.payment_link?.url;
-  if (!checkoutUrl) throw new Error('Square returned no checkout URL.');
+  if (order.square_checkout_url) {
+    return { orderId: order.id, checkoutUrl: order.square_checkout_url, replayed: true };
+  }
 
-  const { error: saveError } = await deps.db
-    .from('orders')
-    .update({
-      square_checkout_url: checkoutUrl,
-      ...(link.payment_link?.order_id ? { square_order_id: link.payment_link.order_id } : {}),
-    })
-    .eq('id', order.id);
-  if (saveError) throw saveError;
+  let link;
+  try {
+    link = await createPaymentLink(deps.square, deps.locationAccessToken, {
+      squareLocationId: deps.squareLocationId,
+      referenceId: order.id,
+      lines: buildSquareLines(lines),
+      taxCents,
+      taxLabel: taxLabelFor(order.totals),
+      tipCents,
+      appFeeCents: fee.feeCents,
+      ...(input.redirectUrl ? { redirectUrl: input.redirectUrl } : {}),
+      ...(input.buyerEmail ? { buyerEmail: input.buyerEmail } : {}),
+    });
+  } catch (error) {
+    if (fee.claimCreated && isDefinitiveSquareRejection(error)) {
+      await releasePlatformFeeQuote(deps.db, order.id, fee.claimGeneration);
+    }
+    throw error;
+  }
+  const checkoutUrl = link.payment_link?.url;
+  const paymentLinkId = link.payment_link?.id;
+  if (!checkoutUrl || !paymentLinkId) {
+    throw new Error('Square returned an incomplete checkout link.');
+  }
+
+  try {
+    await bindSquareCheckoutLink(deps.db, {
+      orderId: order.id,
+      claimGeneration: fee.claimGeneration,
+      checkoutUrl,
+      paymentLinkId,
+      squareOrderId: link.payment_link?.order_id ?? null,
+    });
+  } catch (error) {
+    throw new Error(
+      `Square checkout link ${paymentLinkId} was created but could not be recorded on order ${order.id}: ${String(error)}`,
+    );
+  }
 
   return { orderId: order.id, checkoutUrl, replayed: false };
 }

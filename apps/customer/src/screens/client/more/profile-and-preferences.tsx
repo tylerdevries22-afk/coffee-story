@@ -1,6 +1,6 @@
 import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
-import { Alert, Platform, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 
 import { ProfileAvatar } from '@/components/profile-avatar';
 import { CollapsingScreen } from '@/components/collapsing-screen';
@@ -10,65 +10,10 @@ import { downloadMyData as requestMyDataExport } from './download-my-data';
 import { useAuth } from '@/state/auth-context';
 import { useDemo } from '@/state/demo-context';
 import type { PortalProfile } from '@platform/domain';
-
-import { useInformationStyles } from './information-page';
 import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
 
-const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
-
-function avatarExtension(mimeType: string | null | undefined): 'jpg' | 'png' | 'webp' {
-  if (mimeType === 'image/png') return 'png';
-  if (mimeType === 'image/webp') return 'webp';
-  return 'jpg';
-}
-
-async function webDemoAvatarDataUrl(sourceUri: string): Promise<string> {
-  const image = new window.Image();
-  await new Promise<void>((resolve, reject) => {
-    image.onload = () => resolve();
-    image.onerror = () => reject(new Error('The selected photo could not be read.'));
-    image.src = sourceUri;
-  });
-  const canvas = document.createElement('canvas');
-  canvas.width = 512;
-  canvas.height = 512;
-  const context = canvas.getContext('2d');
-  if (!context) throw new Error('The selected photo could not be processed.');
-  const sourceSize = Math.min(image.naturalWidth, image.naturalHeight);
-  if (sourceSize <= 0) throw new Error('The selected photo has no readable dimensions.');
-  context.drawImage(
-    image,
-    (image.naturalWidth - sourceSize) / 2,
-    (image.naturalHeight - sourceSize) / 2,
-    sourceSize,
-    sourceSize,
-    0,
-    0,
-    512,
-    512,
-  );
-  return canvas.toDataURL('image/jpeg', 0.82);
-}
-
-async function durableDemoAvatarUri(
-  asset: ImagePicker.ImagePickerAsset,
-  previousAvatarUrl: string | null,
-): Promise<string> {
-  if (Platform.OS === 'web') return webDemoAvatarDataUrl(asset.uri);
-  const { File, Paths } = await import('expo-file-system');
-  const extension = avatarExtension(asset.mimeType);
-  const destination = new File(Paths.document, `demo-profile-avatar-${Date.now()}.${extension}`);
-  await new File(asset.uri).copy(destination);
-  if (previousAvatarUrl?.startsWith(Paths.document.uri) && previousAvatarUrl.includes('demo-profile-avatar')) {
-    const previous = new File(previousAvatarUrl);
-    if (previous.exists) previous.delete();
-  }
-  for (const candidateExtension of ['jpg', 'png', 'webp'] as const) {
-    const candidate = new File(Paths.document, `demo-profile-avatar.${candidateExtension}`);
-    if (candidate.exists) candidate.delete();
-  }
-  return destination.uri;
-}
+import { Field } from './preferences-screen';
+import { durableDemoAvatarUri, MAX_AVATAR_BYTES } from './profile-avatar-storage';
 
 export function Profile({
   onBack,
@@ -86,8 +31,8 @@ export function Profile({
   const [profile, setProfile] = useState<PortalProfile>(portal.profile);
   const [saving, setSaving] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const [exporting, setExporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   async function chooseProfilePhoto() {
     try {
@@ -115,7 +60,7 @@ export function Profile({
         demo.updateProfile({ ...portal.profile, avatarUrl });
         setProfile((current) => ({ ...current, avatarUrl }));
       } else {
-        const localResponse = await fetch(asset.uri, { signal: AbortSignal.timeout(15_000) });
+        const localResponse = await fetch(asset.uri);
         if (!localResponse.ok) throw new Error('The selected photo could not be read.');
         const photo = await localResponse.blob();
         if (photo.size > MAX_AVATAR_BYTES) throw new Error('Choose a profile photo smaller than 5 MB.');
@@ -174,7 +119,7 @@ export function Profile({
     }
   }
 
-
+  
   async function downloadMyData() {
     setExporting(true);
     try {
@@ -259,21 +204,11 @@ export function Profile({
   );
 }
 
-
-export function Field({ label, ...props }: React.ComponentProps<typeof TextInput> & { label: string }) {
-  const styles = useInformationStyles();
-  const tokens = useBrandTokens();
-  return (
-    <View style={styles.field}>
-      <Text style={styles.fieldLabel}>{label}</Text>
-      <TextInput accessibilityLabel={`${label} input`} {...props} placeholderTextColor={tokens.textMuted} style={[styles.input, props.multiline && styles.multiline]} />
-    </View>
-  );
-}
-
 const createProfileStyles = (tokens: BrandTokens) => StyleSheet.create({
   avatarHeader: { flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.xl, paddingVertical: tokens.spacing.md },
   avatarCopy: { flex: 1, gap: tokens.spacing.sm },
   profileName: { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: 25, lineHeight: 30 },
   accessCard: { gap: tokens.spacing.lg },
 });
+
+export { Field, Preferences } from './preferences-screen';

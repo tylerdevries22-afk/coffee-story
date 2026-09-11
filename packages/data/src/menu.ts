@@ -25,6 +25,8 @@ export type MenuTree = {
   catalog?: CatalogManifest;
 };
 
+export const PUBLIC_DROP_STATUSES = ['scheduled', 'revealed', 'live', 'ended'] as const;
+
 /**
  * The published menu as the storefront renders it: categories in sort order,
  * each carrying its listed items in sort order, plus the drops board. RLS
@@ -63,7 +65,7 @@ export async function fetchMenuTree(client: SupabaseClient, brandId: string): Pr
       .from('drops')
       .select('*')
       .eq('brand_id', brandId)
-      .in('status', ['scheduled', 'live', 'ended'])
+      .in('status', PUBLIC_DROP_STATUSES)
       .order('starts_at', { ascending: false })
       .abortSignal(signal)
       .returns<DropRow[]>()),

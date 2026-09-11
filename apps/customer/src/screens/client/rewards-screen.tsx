@@ -1,17 +1,11 @@
 import {
-  useEffect,
-  useCallback,
   useRef,
   useState,
 } from 'react';
 import {
   Alert,
-  Animated,
-  Linking,
   View,
   useWindowDimensions,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
 } from 'react-native';
 
 import { Screen } from '@/components/ui';
@@ -26,13 +20,11 @@ import { TENANT, TENANT_REWARD_TIERS } from '@/tenant';
 
 import { hapticError, hapticSelection, hapticSuccess } from './rewards/haptics';
 import { RewardsHeader, RewardTabs, type RewardTab } from './rewards/header';
-import { EarnTab } from './rewards/tabs/earn-tab';
-import { CashTab } from './rewards/tabs/cash-tab';
-import { RedeemTab } from './rewards/tabs/redeem-tab';
-import { StatusTab } from './rewards/tabs/status-tab';
+import { RewardsTabContent } from './rewards/rewards-tab-content';
 import { HelpSheet, PerkSheet, ReferralSheet, RewardSheet } from './rewards/sheets';
 import { useRewardStyles } from './rewards/styles';
 import type { PerkDetail, RewardDetail } from './rewards/types';
+import { useRewardMotion } from './rewards/use-reward-motion';
 
 export function RewardsScreen() {
   const styles = useRewardStyles();
@@ -75,26 +67,7 @@ export function RewardsScreen() {
       }
     : portal.rewardAccount;
   const tier = tierForAnnualPoints(account.annualPoints, TENANT_REWARD_TIERS);
-  const [reveal] = useState(() => new Animated.Value(1));
-  const [scrollY] = useState(() => new Animated.Value(0));
-  const onScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    scrollY.setValue(event.nativeEvent.contentOffset.y);
-  }, [scrollY]);
-
-  useEffect(() => {
-    if (reducedMotion) {
-      reveal.setValue(1);
-      return;
-    }
-    reveal.setValue(0);
-    Animated.spring(reveal, {
-      toValue: 1,
-      damping: 18,
-      stiffness: 180,
-      mass: 0.8,
-      useNativeDriver: true,
-    }).start();
-  }, [reducedMotion, reveal, tab]);
+  const { onScroll, reveal, scrollY } = useRewardMotion(tab, reducedMotion);
 
   async function redeem(reward: RewardCatalogItem) {
     if (reward.pointsCost > portal.rewardAccount.availablePoints) return;
@@ -173,66 +146,24 @@ export function RewardsScreen() {
           />
           <RewardTabs compact={compact} value={tab} onChange={changeTab} />
         </View>
-        <View style={styles.whiteBody}>
-          <Animated.View
-            style={[
-              styles.tabContent,
-              compact && styles.tabContentCompact,
-              {
-                opacity: reveal,
-                transform: [{
-                  translateY: reveal.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }),
-                }],
-              },
-            ]}
-          >
-            {tab === 'Redeem' ? (
-              <RedeemTab
-                account={account}
-                catalog={portal.rewardCatalog}
-                redeeming={redeeming}
-                reducedMotion={reducedMotion}
-                onSelect={setRewardDetail}
-              />
-            ) : null}
-            {tab === 'Status' ? (
-              <StatusTab
-                account={account}
-                onPerk={setPerk}
-                reducedMotion={reducedMotion}
-                isDemo={isDemo}
-                tierValue={tier.name}
-                onTierChange={setTierOverride}
-              />
-            ) : null}
-            {tab === 'Earn' ? (
-              <EarnTab
-                isDemo={isDemo}
-                completed={portal.rewardActivities}
-                onAction={(key) => {
-                  if (key === 'refer_friend') {
-                    hapticSelection();
-                    setReferralOpen(true);
-                    return;
-                  }
-                  void completeActivity(key);
-                }}
-                onGoogleReview={() => {
-                  const place = `${TENANT.identity.name} ${TENANT.location.address.city} ${TENANT.location.address.region} reviews`;
-                  void Linking.openURL(`https://www.google.com/search?q=${encodeURIComponent(place)}`);
-                }}
-              />
-            ) : null}
-            {tab === 'Cash' ? (
-              <CashTab
-                account={account}
-                ledger={portal.rewardLedger}
-                onUseCash={startOrder}
-                onSendGift={() => setClientTab('gift')}
-              />
-            ) : null}
-          </Animated.View>
-        </View>
+        <RewardsTabContent
+          account={account}
+          compact={compact}
+          isDemo={isDemo}
+          onCompleteActivity={(key) => void completeActivity(key)}
+          onReferral={() => setReferralOpen(true)}
+          onSelectPerk={setPerk}
+          onSelectReward={setRewardDetail}
+          onSendGift={() => setClientTab('gift')}
+          onTierChange={setTierOverride}
+          onUseCash={startOrder}
+          portal={portal}
+          redeeming={redeeming}
+          reducedMotion={reducedMotion}
+          reveal={reveal}
+          tab={tab}
+          tierValue={tier.name}
+        />
       </Screen>
       </View>
       <RewardSheet

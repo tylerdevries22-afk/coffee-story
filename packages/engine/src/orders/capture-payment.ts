@@ -1,17 +1,18 @@
-/**
- * captureSquarePayment is the back half for card tenders: Square order +
- * payment carrying app_fee_money, paid event, platform_fees row, loyalty
- * earn. Split from placement so a checkout that dies between the two never
- * strands money — the order just stays 'created' until capture succeeds or
- * the webhook advances it.
- */
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { FeeConfig } from '../fees';
-import { createSquareOrder, createSquarePayment, type SquareConfig } from '../square/client';
+import {
+  createSquareOrder, createSquarePayment, getSquarePayment, type SquareConfig,
+} from '../square/client';
+
+import { settledPaymentFee } from '../square/payment-receipt';
 
 import type { SnapshotLine } from './internal';
-import { appFeeForCharge, insertPlatformFeeOnce } from './platform-fees';
+import {
+  appFeeForCharge, bindSquarePayment, bindSquarePaymentAttempt,
+  insertPlatformFeeOnce, releasePlatformFeeQuote,
+} from './platform-fees';
+import { isDefinitiveSquareRejection } from './provider-error';
 import { buildSquareLines } from './square-lines';
 import { OrderError } from './types';
 
@@ -36,7 +37,7 @@ export async function captureSquarePayment(
 ): Promise<{ orderId: string; squarePaymentId: string }> {
   const loaded = await deps.db
     .from('orders')
-    .select('id, brand_id, location_id, customer_id, status, totals, subtotal_cents, tip_cents, total_cents, stored_value_applied_cents, square_payment_id')
+    .select('id, brand_id, location_id, customer_id, status, tender_type, totals, subtotal_cents, tip_cents, total_cents, stored_value_applied_cents, square_order_id, square_payment_id')
     .eq('id', input.orderId)
     .maybeSingle<{
       id: string;
@@ -44,30 +45,25 @@ export async function captureSquarePayment(
       location_id: string;
       customer_id: string | null;
       status: string;
+      tender_type: string;
       totals: { lines?: SnapshotLine[] } & Record<string, unknown>;
       subtotal_cents: number;
       tip_cents: number;
       total_cents: number;
       stored_value_applied_cents: number;
+      square_order_id: string | null;
       square_payment_id: string | null;
     }>();
   if (loaded.error) throw loaded.error;
   const order = loaded.data;
   if (!order) throw new OrderError('invalid_request', 'That order does not exist.');
-  // A retried capture after a lost response must finish the local settlement,
-  // not merely notice that Square already charged the card. Linking the
-  // payment, recording platform revenue, and appending the paid event are
-  // separate database calls because the external charge sits between them.
-  // Square's idempotency keys prevent another charge; these local idempotent
-  // repairs prevent a linked-but-unpaid order replaying as a false success.
+  if (order.tender_type !== 'square_card') {
+    throw new OrderError('invalid_request', `Order is a ${order.tender_type} order; only square_card orders can be captured.`);
+  }
   if (order.square_payment_id) {
     const cardChargeCents = order.total_cents - order.stored_value_applied_cents;
-    const fee = await appFeeForCharge(deps.db, {
-      locationId: order.location_id,
-      chargeCents: cardChargeCents,
-      feeConfig: deps.feeConfig,
-      locationTimezone: deps.locationTimezone,
-    });
+    const receipt = await getSquarePayment(deps.square, deps.locationAccessToken, order.square_payment_id);
+    const fee = settledPaymentFee(receipt.payment, order.square_payment_id, cardChargeCents);
     await insertPlatformFeeOnce(deps.db, {
       brand_id: order.brand_id,
       location_id: order.location_id,
@@ -105,64 +101,85 @@ export async function captureSquarePayment(
     options: line.options ?? [],
     packContents: line.pack_contents ?? [],
   }));
-  const squareOrder = await createSquareOrder(deps.square, deps.locationAccessToken, {
-    squareLocationId: deps.squareLocationId,
-    referenceId: order.id,
-    lines: buildSquareLines(lines),
-  });
-  const squareOrderId = squareOrder.order?.id;
-  if (!squareOrderId) throw new Error('Square returned no order id.');
-
-  // The card charge is what stored value did not cover.
   const cardChargeCents = order.total_cents - order.stored_value_applied_cents;
-
-  // Rule 3: the month's gross so far decides the tier for this payment.
   const fee = await appFeeForCharge(deps.db, {
+    orderId: order.id,
     locationId: order.location_id,
     chargeCents: cardChargeCents,
     feeConfig: deps.feeConfig,
     locationTimezone: deps.locationTimezone,
   });
+  let squareOrderId = order.square_order_id;
+  if (!squareOrderId) {
+    if (!fee.claimCreated) {
+      throw new OrderError('invalid_request', 'A card payment attempt is already in progress. Retry shortly.');
+    }
+    try {
+      const squareOrder = await createSquareOrder(deps.square, deps.locationAccessToken, {
+        squareLocationId: deps.squareLocationId,
+        referenceId: order.id,
+        lines: buildSquareLines(lines),
+      });
+      squareOrderId = squareOrder.order?.id ?? null;
+    } catch (error) {
+      if (isDefinitiveSquareRejection(error)) {
+        await releasePlatformFeeQuote(deps.db, order.id, fee.claimGeneration);
+      }
+      throw error;
+    }
+    if (!squareOrderId) throw new Error('Square returned no order id.');
+    try {
+      await bindSquarePaymentAttempt(deps.db, {
+        orderId: order.id, claimGeneration: fee.claimGeneration, squareOrderId,
+      });
+    } catch (error) {
+      throw new Error(`Square order ${squareOrderId} could not be secured before payment: ${String(error)}`);
+    }
+  }
 
-  const payment = await createSquarePayment(deps.square, deps.locationAccessToken, {
-    sourceId: input.sourceId,
-    squareOrderId,
-    referenceId: order.id,
-    amountCents: cardChargeCents - order.tip_cents,
-    tipCents: order.tip_cents,
-    appFeeCents: fee.feeCents,
-  });
+  let payment;
+  try {
+    payment = await createSquarePayment(deps.square, deps.locationAccessToken, {
+      sourceId: input.sourceId,
+      squareOrderId,
+      referenceId: order.id,
+      amountCents: cardChargeCents - order.tip_cents,
+      tipCents: order.tip_cents,
+      appFeeCents: fee.feeCents,
+    });
+  } catch (error) {
+    if (fee.claimCreated && isDefinitiveSquareRejection(error)) {
+      await releasePlatformFeeQuote(deps.db, order.id, fee.claimGeneration);
+    }
+    throw error;
+  }
   const paymentId = payment.payment?.id;
   if (!paymentId) throw new Error('Square returned no payment id.');
+  const settledFee = settledPaymentFee(payment.payment, paymentId, cardChargeCents);
 
-  // Checked, because this is the field a refund later depends on: an
-  // unchecked failure here left a charged card on an order the app could
-  // never return money for, while the rest of the function reported success.
-  const linked = await deps.db
-    .from('orders')
-    .update({ square_order_id: squareOrderId, square_payment_id: paymentId })
-    .eq('id', order.id);
-  if (linked.error) {
+  try {
+    await bindSquarePayment(deps.db, {
+      orderId: order.id,
+      claimGeneration: fee.claimGeneration,
+      squareOrderId,
+      squarePaymentId: paymentId,
+    });
+  } catch (error) {
     throw new Error(
-      `Square payment ${paymentId} was taken but could not be recorded on order ${order.id}: ${linked.error.message}`,
+      `Square payment ${paymentId} was taken but could not be recorded on order ${order.id}: ${String(error)}`,
     );
   }
 
-  // Record the fee before advancing state. If this call fails, the order is
-  // still created and the replay path above repairs it. Once paid is visible,
-  // the fee row is therefore already durable.
   await insertPlatformFeeOnce(deps.db, {
     brand_id: order.brand_id,
     location_id: order.location_id,
     order_id: order.id,
     gross_cents: cardChargeCents,
-    fee_cents: fee.feeCents,
-    fee_bps_applied: fee.feeBpsApplied,
+    fee_cents: settledFee.feeCents,
+    fee_bps_applied: settledFee.feeBpsApplied,
     square_payment_id: paymentId,
   });
 
-  // State moves through order_events only (rule 2). Its database trigger
-  // grants loyalty in the same transaction, including staff-recorded cash.
   const { error: eventError } = await deps.db.from('order_events').insert({
     brand_id: order.brand_id,
     order_id: order.id,

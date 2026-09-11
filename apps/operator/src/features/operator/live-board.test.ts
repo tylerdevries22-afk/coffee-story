@@ -33,6 +33,7 @@ const ROW: OrderRow = {
   square_order_id: null,
   square_payment_id: null,
   square_checkout_url: null,
+  square_payment_link_id: null,
   created_at: '2026-08-22T10:00:00Z',
   updated_at: '2026-08-22T10:00:00Z',
 };

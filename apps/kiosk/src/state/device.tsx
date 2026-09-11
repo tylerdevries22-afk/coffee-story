@@ -1,11 +1,11 @@
 import {
-  createContext, useCallback, useContext, useEffect, useMemo, useRef, useState,
+  useCallback, useEffect, useMemo, useRef, useState,
   type PropsWithChildren,
 } from 'react';
 
 import type { DeviceRole } from '@platform/schema';
 
-import { postureFor, type KioskPosture } from '@/features/kiosk-mode';
+import { postureFor } from '@/features/kiosk-mode';
 import {
   captureCredentialOperation, isCredentialOperationCurrent, nextCredentialGeneration,
   type CredentialOperation,
@@ -15,57 +15,13 @@ import {
   type StoredDeviceToken,
 } from '@/lib/device-token';
 import { pairDevice, refreshDevice } from '@/lib/pairing';
+import { DeviceContext, UNPAIRED, type DeviceValue } from '@/state/device-context';
+import { useDeviceRefresh } from '@/state/use-device-refresh';
 import { TENANT } from '@/tenant';
 
 const TENANT_SLUG = TENANT.identity.slug;
 
-/**
- * Which station this tablet is, and what it may do.
- *
- * Posture belongs to the PAIRED DEVICE, not to the build: swapping a tablet
- * between the lobby and the counter should be a re-pair, not a re-release.
- * `postureFor` was written for exactly that in 0022's era and was fed a module
- * constant until now, so the whole `pos` branch -- cash tender, order lookup,
- * no idle reset -- has been unreachable code.
- *
- * An unpaired binary runs as an unattended lobby kiosk: pay-at-counter is
- * staff-collected, while order lookup remains private and idle reset stays on.
- */
-export type DeviceStatus = 'loading' | 'unpaired' | 'ready' | 'revoked';
-
-type DeviceValue = {
-  status: DeviceStatus;
-  role: DeviceRole;
-  posture: KioskPosture;
-  deviceId: string | null;
-  locationId: string | null;
-  brandId: string | null;
-  label: string | null;
-  /** The bearer token for the platform API, or null when unpaired. */
-  accessToken: string | null;
-  pair: (code: string) => Promise<{ ok: true } | { ok: false; error: string }>;
-  unpair: () => Promise<void>;
-};
-
-const LOBBY_POSTURE = postureFor('kiosk');
-
-const UNPAIRED: Omit<DeviceValue, 'pair' | 'unpair'> = {
-  status: 'unpaired',
-  role: 'kiosk',
-  // `postureFor` returns null only for roles that must never run this binary;
-  // 'kiosk' is not one, so this cannot be null in practice.
-  posture: LOBBY_POSTURE ?? {
-    unattended: true, allowsCashTender: true, allowsOrderLookup: false,
-    idleResets: true, channel: 'kiosk',
-  },
-  deviceId: null,
-  locationId: null,
-  brandId: null,
-  label: null,
-  accessToken: null,
-};
-
-const DeviceContext = createContext<DeviceValue>({ ...UNPAIRED, pair: async () => ({ ok: true }), unpair: async () => {} });
+export { useDevice, type DeviceStatus } from '@/state/device-context';
 
 export function DeviceProvider({ children }: PropsWithChildren) {
   const [state, setState] = useState<Omit<DeviceValue, 'pair' | 'unpair'>>({ ...UNPAIRED, status: 'loading' });
@@ -197,36 +153,10 @@ export function DeviceProvider({ children }: PropsWithChildren) {
     return () => { alive = false; };
   }, [adopt, invalidateCredential, isCurrent, persistRefresh, queueCredentialMutation, revoke]);
 
-  useEffect(() => {
-    if (!storedToken) return;
-    let alive = true;
-    const expiresAt = Date.parse(storedToken.expiresAt);
-    const refreshAt = Math.max(Date.now() + 1_000, expiresAt - 60 * 60 * 1000, retryNotBefore);
-    const operation = captureCredentialOperation(credentialGeneration.current, storedToken.token);
-    const timer = setTimeout(() => {
-      void (async () => {
-        const refreshed = await refreshDevice(storedToken.token, TENANT_SLUG);
-        if (!alive || !isCurrent(operation)) return;
-        if (refreshed.ok) {
-          const persisted = await persistRefresh(operation, refreshed.token);
-          if (!alive || !persisted || !isCurrent(operation)) return;
-          setRetryNotBefore(0);
-          adopt(refreshed.token);
-          return;
-        }
-        if (refreshed.revoked || isExpired(storedToken, Date.now())) {
-          await revoke(operation);
-          return;
-        }
-        // Stay on the still-valid token and retry with a bounded cadence.
-        if (isCurrent(operation)) setRetryNotBefore(Date.now() + 60_000);
-      })();
-    }, refreshAt - Date.now());
-    return () => {
-      alive = false;
-      clearTimeout(timer);
-    };
-  }, [storedToken, retryNotBefore, adopt, isCurrent, persistRefresh, revoke]);
+  useDeviceRefresh({
+    storedToken, retryNotBefore, tenantSlug: TENANT_SLUG, credentialGeneration,
+    isCurrent, persistRefresh, adopt, revoke, setRetryNotBefore,
+  });
 
   const value = useMemo<DeviceValue>(() => ({
     ...state,
@@ -262,8 +192,4 @@ export function DeviceProvider({ children }: PropsWithChildren) {
   }), [state, adopt, invalidateCredential, isCurrent, queueCredentialMutation]);
 
   return <DeviceContext.Provider value={value}>{children}</DeviceContext.Provider>;
-}
-
-export function useDevice(): DeviceValue {
-  return useContext(DeviceContext);
 }

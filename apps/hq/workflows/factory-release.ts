@@ -1,6 +1,8 @@
 import type { FactoryRunRow } from './factory-runtime';
 
 export type ContentEvidence = {
+  releaseKey: string;
+  sourceCommitSha: string;
   artifactDigest: string;
   artifactIds: readonly string[];
 };
@@ -20,13 +22,13 @@ export type FactoryReleaseResult = {
 };
 
 export type FactoryReleaseDependencies = {
-  loadContentEvidence: (runId: string) => Promise<ContentEvidence | null>;
+  loadContentEvidence: (runId: string, brandId: string) => Promise<ContentEvidence | null>;
   publishContent: (evidence: ContentEvidence) => Promise<void>;
   organizationBrandId: (tenantSlug: string) => Promise<string | null>;
-  recordReadiness: (
+  promoteTenantPackage: (
     brandId: string,
-    check: 'tenant_artifacts' | 'release_approval',
-    evidence: Record<string, string>,
+    content: ContentEvidence,
+    deployment: DeploymentEvidence,
   ) => Promise<void>;
   loadDeploymentEvidence: (
     runId: string,
@@ -55,10 +57,6 @@ export async function advanceFactoryRelease(
 ): Promise<FactoryReleaseResult> {
   if (completedTasks.has('promote-live')) return { status: 'live', stage: 'live' };
 
-  const content = await dependencies.loadContentEvidence(run.id);
-  if (!content) {
-    return block(dependencies, 'publish-content', 'content', 'content_bootstrap_required');
-  }
   const brandId = await dependencies.organizationBrandId(run.tenantSlug);
   if (!brandId) {
     return block(
@@ -68,15 +66,16 @@ export async function advanceFactoryRelease(
       'organization_readiness_bridge_required',
     );
   }
+  const content = await dependencies.loadContentEvidence(run.id, brandId);
+  if (!content) {
+    return block(dependencies, 'publish-content', 'content', 'content_bootstrap_required');
+  }
   const firstPublication = !completedTasks.has('publish-content');
   if (firstPublication) {
     await dependencies.updateRun({ state: 'running', stage: 'content', last_error_code: null });
     await dependencies.updateTask('publish-content', 'running');
   }
   await dependencies.publishContent(content);
-  await dependencies.recordReadiness(brandId, 'tenant_artifacts', {
-    artifactDigest: content.artifactDigest,
-  });
   if (firstPublication) {
     await dependencies.updateTask('publish-content', 'completed');
   }
@@ -88,6 +87,9 @@ export async function advanceFactoryRelease(
   );
   if (!deployment) {
     return block(dependencies, 'verify-canary', 'canary', 'canary_evidence_required');
+  }
+  if (deployment.artifactDigest !== content.artifactDigest) {
+    return block(dependencies, 'verify-canary', 'canary', 'deployment_evidence_mismatch');
   }
   if (!completedTasks.has('verify-canary')) {
     await dependencies.updateRun({ state: 'running', stage: 'canary', last_error_code: null });
@@ -106,11 +108,7 @@ export async function advanceFactoryRelease(
     return block(dependencies, 'promote-live', 'canary', 'promotion_evidence_required');
   }
   await dependencies.updateTask('promote-live', 'running');
-  await dependencies.recordReadiness(brandId, 'release_approval', {
-    commitSha: deployment.commitSha,
-    artifactDigest: deployment.artifactDigest,
-    providerReference: deployment.promotionReference,
-  });
+  await dependencies.promoteTenantPackage(brandId, content, deployment);
   await dependencies.updateTask('promote-live', 'completed');
   await dependencies.updateRun({ state: 'live', stage: 'live', last_error_code: null });
   return { status: 'live', stage: 'live' };

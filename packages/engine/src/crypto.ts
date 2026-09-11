@@ -33,7 +33,7 @@ export function decryptToken(blob: string, key: Buffer): string {
   const iv = raw.subarray(0, 12);
   const tag = raw.subarray(raw.length - 16);
   const ciphertext = raw.subarray(12, raw.length - 16);
-  const decipher = createDecipheriv('aes-256-gcm', key, iv);
+  const decipher = createDecipheriv('aes-256-gcm', key, iv, { authTagLength: 16 });
   decipher.setAuthTag(tag);
   return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
 }

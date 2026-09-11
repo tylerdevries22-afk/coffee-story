@@ -31,13 +31,14 @@ export async function cancelOrder(
 ): Promise<{ orderId: string; status: string; alreadyCancelled: boolean }> {
   const loaded = await deps.db
     .from('orders')
-    .select('id, brand_id, customer_id, status, total_cents, square_payment_id')
+    .select('id, brand_id, customer_id, status, tender_type, total_cents, square_payment_id')
     .eq('id', input.orderId)
     .maybeSingle<{
       id: string;
       brand_id: string;
       customer_id: string | null;
       status: string;
+      tender_type: string;
       total_cents: number;
       square_payment_id: string | null;
     }>();
@@ -54,6 +55,10 @@ export async function cancelOrder(
   if (order.square_payment_id) {
     throw new OrderError('cancel_unavailable',
       'This order is already paid by card. Ask the shop to cancel and refund it.');
+  }
+  if (order.tender_type === 'square_link') {
+    throw new OrderError('cancel_unavailable',
+      'This card checkout may still complete. Ask the shop to cancel it safely.');
   }
   if (!GUEST_CANCELLABLE.has(order.status)) {
     throw new OrderError('cancel_unavailable',

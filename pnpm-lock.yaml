@@ -896,6 +896,9 @@ importers:
       '@platform/engine':
         specifier: workspace:*
         version: link:../engine
+      sharp:
+        specifier: '>=0.35.4'
+        version: 0.35.4(@types/node@24.6.2)
     devDependencies:
       '@types/node':
         specifier: ~24.6.2
@@ -1047,6 +1050,9 @@ importers:
       '@types/pg':
         specifier: ^8.15.0
         version: 8.23.1
+      monocart-coverage-reports:
+        specifier: 2.13.0
+        version: 2.13.0
       tsx:
         specifier: ^4.20.6
         version: 4.23.12
@@ -5216,6 +5222,10 @@ packages:
     peerDependencies:
       acorn: ^6.0.0 || ^7.0.0 || ^8.0.0
 
+  acorn-loose@8.5.2:
+    resolution: {integrity: sha512-PPvV6g8UGMGgjrMu+n/f9E/tCSkNQ2Y97eFvuVdJfG11+xdIeDcLyNdC8SHcrHbRqkfwLASdplyR6B6sKM1U4A==}
+    engines: {node: '>=0.4.0'}
+
   acorn-walk@8.3.5:
     resolution: {integrity: sha512-HEHNfbars9v4pgpW6SO1KSPkfoS0xVOM/9UzkJltjlsHZmJasxg8aXkuZa7SMf8vKGIBhpUsPluQSqhJFCqebw==}
     engines: {node: '>=0.4.0'}
@@ -5952,6 +5962,9 @@ packages:
     resolution: {integrity: sha512-5IKcdX0nnYavi6G7TtOhwkYzyjfJlatbjMjuLSfE2kYT5pMDOilZ4OvMhi637CcDICTmz3wARPoyhqyX1Y+XvA==}
     engines: {node: ^14.18.0 || >=16.10.0}
 
+  console-grid@2.2.4:
+    resolution: {integrity: sha512-OLjCRTiHhOpTRo9lQp/2FgJDyq5uQHwkEmVJulEnQ6JVf27oKKzXHZnNOv/e72V4++UdMZCrDWtvXW5sx4lyQg==}
+
   content-disposition@1.1.0:
     resolution: {integrity: sha512-5jRCH9Z/+DRP7rkvY83B+yGIGX96OYdJmzngqnw2SBSxqCFPd0w2km3s5iawpGX8krnwSGmF0FW5Nhr0Hfai3g==}
     engines: {node: '>=18'}
@@ -6251,6 +6264,9 @@ packages:
 
   ee-first@1.1.1:
     resolution: {integrity: sha512-WMwm9LhRUo+WUaRN+vRuETqG89IgZphVSNkdFgeb6sS/E4OrDIN7t48CAewSHXc6C8lefD8KKfr5vY61brQlow==}
+
+  eight-colors@1.3.3:
+    resolution: {integrity: sha512-4B54S2Qi4pJjeHmCbDIsveQZWQ/TSSQng4ixYJ9/SYHHpeS5nYK0pzcHvWzWUfRsvJQjwoIENhAwqg59thQceg==}
 
   ejs@3.1.10:
     resolution: {integrity: sha512-UeJmFfOrAQS8OJWPZ4qtgHyWExa088/MtK5UEyoJGFH67cDEXkZSviOiKRCZ4Xij0zxI3JECgYs3oKx+AizQBA==}
@@ -7005,6 +7021,10 @@ packages:
     resolution: {integrity: sha512-dKx12eRCVIzqCxFGplyFKJMPvLEWgmNtUrpTiJIR5u97zEhRG8ySrtboPHZXx7daLxQVrl643cTzbab2tkQjxg==}
     engines: {node: '>= 0.4'}
 
+  foreground-child@4.0.3:
+    resolution: {integrity: sha512-yeXZaNbCBGaT9giTpLPBdtedzjwhlJBUoL/R4BVQU5mn0TQXOHwVIl1Q2DMuBIdNno4ktA1abZ7dQFVxD6uHxw==}
+    engines: {node: '>=16'}
+
   form-data-encoder@4.1.0:
     resolution: {integrity: sha512-G6NsmEW15s0Uw9XnCg+33H3ViYRyiM0hMrMhhqQOR8NFc5GhYrI+6I3u7OTw7b91J2g8rtvMBZJDbcGb2YUniw==}
     engines: {node: '>= 18'}
@@ -7279,6 +7299,9 @@ packages:
   hosted-git-info@7.0.2:
     resolution: {integrity: sha512-puUZAUKT5m8Zzvs72XWy3HtvVbTWljRE66cP60bxJzAqf2DgICo7lYTY2IHUmLnNpjYvw5bvmoHvPc0QO2a62w==}
     engines: {node: ^16.14.0 || >=18.0.0}
+
+  html-escaper@2.0.2:
+    resolution: {integrity: sha512-H2iMtd0I4Mt5eYiapRdIDjp+XzelXQ0tFE4JS7YFwFevXXMmOp9myNrUvCg0D6ws8iqkRPBfKHgbwig1SmlLfg==}
 
   http-cache-semantics@4.2.0:
     resolution: {integrity: sha512-dTxcvPXqPvXBQpq5dUr6mEMJX4oIEFv6bwom3FDwKRDsuIjjJGANqhBuoAn9c1RQJIdAKav33ED65E2ys+87QQ==}
@@ -7648,6 +7671,14 @@ packages:
 
   istanbul-lib-instrument@5.2.1:
     resolution: {integrity: sha512-pzqtp31nLv/XFOzXGuvhCb8qhjmTVo5vjVk19XE4CRlSWz0KoeJ3bw9XsA7nOp9YBf4qHjwBxkDzKcME/J29Yg==}
+    engines: {node: '>=8'}
+
+  istanbul-lib-report@3.0.1:
+    resolution: {integrity: sha512-GCfE1mtsHGOELCU8e/Z7YWzpmybrx/+dSTfLrvY8qRmaY6zXTKWn6WQIjaAFw069icm6GVMNkgu0NzI4iPZUNw==}
+    engines: {node: '>=10'}
+
+  istanbul-reports@3.2.0:
+    resolution: {integrity: sha512-HGYWWS/ehqTV3xN10i23tkPkpH46MLCIMFNCaaKNavAXTF1RkqxawEPtnjnGZ6XKSInBKkiOA5BKS+aZiY3AvA==}
     engines: {node: '>=8'}
 
   iterare@1.2.1:
@@ -8079,12 +8110,19 @@ packages:
     resolution: {integrity: sha512-vtEhXh/gNjI9Yg1u4jX/0YVPMvxzHuGgCm6tC5kZyb08yjGWGnqAjGJvcXbqQR2P3MyMEFnRbpcdFS6PBcLqew==}
     engines: {node: '>=12'}
 
+  lz-utils@2.1.1:
+    resolution: {integrity: sha512-d3Thjos0PSJQAoyMj6vipSSrtrRHS7DImqUNR8x9NW3+zQIftPIbMJAWhi5nPdg5Q9zHz6lxtN8kp/VdMlhi/Q==}
+
   magic-string@0.30.21:
     resolution: {integrity: sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==}
 
   make-asynchronous@1.1.0:
     resolution: {integrity: sha512-ayF7iT+44LXdxJLTrTd3TLQpFDDvPCBxXxbv+pMUSuHA5Q8zyAfwkRP6aHHwNVFBUFWtxAHqwNJxF8vMZLAbVg==}
     engines: {node: '>=18'}
+
+  make-dir@4.0.0:
+    resolution: {integrity: sha512-hXdUTZYIVOt1Ex//jAQi+wTZZpUpwBj/0QsOzqegb3rGMMeJiSEu5xLHnYfBrRV4RH2+OCSOO95Is/7x1WJ4bw==}
+    engines: {node: '>=10'}
 
   makeerror@1.0.12:
     resolution: {integrity: sha512-JmqCvUhmt43madlpFzG4BQzG2Z3m6tvQDNKdClZnO3VbIudJYmxsT0FNJMeiB2+JTSlTQTSbU8QdesVmwJcmLg==}
@@ -8387,6 +8425,13 @@ packages:
 
   module-details-from-path@1.0.4:
     resolution: {integrity: sha512-EGWKgxALGMgzvxYF1UyGTy0HXX/2vHLkw6+NvDKW2jypWbHpjQuj4UMcqQWXHERJhVGKikolT06G3bcKe4fi7w==}
+
+  monocart-coverage-reports@2.13.0:
+    resolution: {integrity: sha512-RJfwzbn+EvR0OhCSU3bX2mKd0tSv4RLvood0weoCZV1L99+kBYH0Yq5SnnBFRik7nRoEoGB4mLuZAvO1Fr3DpQ==}
+    hasBin: true
+
+  monocart-locator@1.0.3:
+    resolution: {integrity: sha512-pe29W2XAoA1WQmZZqxXoP7s06ZEXUhcb81086v68cqjk1HnVL7Q/iU/WJnnetxjPcLqwb4qG8vaSGUOMQU602g==}
 
   motion-dom@13.1.1:
     resolution: {integrity: sha512-XSf8VYWSB6G/0IY3rWVbyLcxWXtAVHkN1PQE2agTaCv3u8RGvbwu56TyyR/MNzBqqNavEBTZzErcxI1TxBrjcA==}
@@ -15139,6 +15184,10 @@ snapshots:
     dependencies:
       acorn: 8.18.0
 
+  acorn-loose@8.5.2:
+    dependencies:
+      acorn: 8.18.0
+
   acorn-walk@8.3.5:
     dependencies:
       acorn: 8.18.0
@@ -16046,6 +16095,8 @@ snapshots:
 
   consola@3.4.2: {}
 
+  console-grid@2.2.4: {}
+
   content-disposition@1.1.0: {}
 
   content-disposition@2.0.1: {}
@@ -16300,6 +16351,8 @@ snapshots:
       time-span: 4.0.0
 
   ee-first@1.1.1: {}
+
+  eight-colors@1.3.3: {}
 
   ejs@3.1.10:
     dependencies:
@@ -17340,6 +17393,10 @@ snapshots:
     dependencies:
       is-callable: 1.2.7
 
+  foreground-child@4.0.3:
+    dependencies:
+      signal-exit: 4.1.0
+
   form-data-encoder@4.1.0: {}
 
   form-data@4.0.6:
@@ -17592,6 +17649,8 @@ snapshots:
   hosted-git-info@7.0.2:
     dependencies:
       lru-cache: 10.4.3
+
+  html-escaper@2.0.2: {}
 
   http-cache-semantics@4.2.0: {}
 
@@ -17940,6 +17999,17 @@ snapshots:
       semver: 6.3.1
     transitivePeerDependencies:
       - supports-color
+
+  istanbul-lib-report@3.0.1:
+    dependencies:
+      istanbul-lib-coverage: 3.2.2
+      make-dir: 4.0.0
+      supports-color: 7.2.0
+
+  istanbul-reports@3.2.0:
+    dependencies:
+      html-escaper: 2.0.2
+      istanbul-lib-report: 3.0.1
 
   iterare@1.2.1: {}
 
@@ -18321,6 +18391,8 @@ snapshots:
 
   luxon@3.7.2: {}
 
+  lz-utils@2.1.1: {}
+
   magic-string@0.30.21:
     dependencies:
       '@jridgewell/sourcemap-codec': 1.5.5
@@ -18330,6 +18402,10 @@ snapshots:
       p-event: 6.0.1
       type-fest: 4.41.0
       web-worker: 1.5.0
+
+  make-dir@4.0.0:
+    dependencies:
+      semver: 7.8.5
 
   makeerror@1.0.12:
     dependencies:
@@ -18724,6 +18800,23 @@ snapshots:
       ufo: 1.6.4
 
   module-details-from-path@1.0.4: {}
+
+  monocart-coverage-reports@2.13.0:
+    dependencies:
+      acorn: 8.18.0
+      acorn-loose: 8.5.2
+      acorn-walk: 8.3.5
+      commander: 14.0.3
+      console-grid: 2.2.4
+      eight-colors: 1.3.3
+      foreground-child: 4.0.3
+      istanbul-lib-coverage: 3.2.2
+      istanbul-lib-report: 3.0.1
+      istanbul-reports: 3.2.0
+      lz-utils: 2.1.1
+      monocart-locator: 1.0.3
+
+  monocart-locator@1.0.3: {}
 
   motion-dom@13.1.1:
     dependencies:
@@ -20093,6 +20186,39 @@ snapshots:
       - typescript
 
   shallowequal@1.1.0: {}
+
+  sharp@0.35.4(@types/node@24.6.2):
+    dependencies:
+      '@img/colour': 1.1.0
+      detect-libc: 2.1.2
+      semver: 7.8.5
+    optionalDependencies:
+      '@img/sharp-darwin-arm64': 0.35.4
+      '@img/sharp-darwin-x64': 0.35.4
+      '@img/sharp-freebsd-wasm32': 0.35.4
+      '@img/sharp-libvips-darwin-arm64': 1.3.3
+      '@img/sharp-libvips-darwin-x64': 1.3.3
+      '@img/sharp-libvips-linux-arm': 1.3.3
+      '@img/sharp-libvips-linux-arm64': 1.3.3
+      '@img/sharp-libvips-linux-ppc64': 1.3.3
+      '@img/sharp-libvips-linux-riscv64': 1.3.3
+      '@img/sharp-libvips-linux-s390x': 1.3.3
+      '@img/sharp-libvips-linux-x64': 1.3.3
+      '@img/sharp-libvips-linuxmusl-arm64': 1.3.3
+      '@img/sharp-libvips-linuxmusl-x64': 1.3.3
+      '@img/sharp-linux-arm': 0.35.4
+      '@img/sharp-linux-arm64': 0.35.4
+      '@img/sharp-linux-ppc64': 0.35.4
+      '@img/sharp-linux-riscv64': 0.35.4
+      '@img/sharp-linux-s390x': 0.35.4
+      '@img/sharp-linux-x64': 0.35.4
+      '@img/sharp-linuxmusl-arm64': 0.35.4
+      '@img/sharp-linuxmusl-x64': 0.35.4
+      '@img/sharp-webcontainers-wasm32': 0.35.4
+      '@img/sharp-win32-arm64': 0.35.4
+      '@img/sharp-win32-ia32': 0.35.4
+      '@img/sharp-win32-x64': 0.35.4
+      '@types/node': 24.6.2
 
   sharp@0.35.4(@types/node@26.2.0):
     dependencies:

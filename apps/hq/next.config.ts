@@ -20,6 +20,7 @@ const workspaceRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
  */
 const config: NextConfig = {
   outputFileTracingRoot: workspaceRoot,
+  productionBrowserSourceMaps: process.env.BROWSER_COVERAGE === '1',
   // Keep a running preview isolated from another HQ process or a production
   // build. Shared output can serve stale routes or missing chunks.
   distDir: process.env.NEXT_DIST_DIR ?? (process.env.NODE_ENV === 'development' ? '.next-dev' : '.next'),
