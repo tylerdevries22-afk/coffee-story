@@ -21,6 +21,7 @@ export function installationIdFromDeviceToken(token: string): string | null {
       ? parsed.device_id
       : null;
   } catch {
+    console.warn(JSON.stringify({ component: 'device-wall-presence', event: 'parse_failed' }));
     return null;
   }
 }
