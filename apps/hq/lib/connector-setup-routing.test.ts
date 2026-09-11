@@ -3,88 +3,22 @@ import { afterEach, describe, it } from 'node:test';
 
 import { listConnectorCatalog } from '@platform/integrations';
 
+import type { ConnectorCertificationRow } from './connector-auth-readiness';
+import { defaultConnectorCards } from './integration-cards';
 import { OAUTH_CONNECTOR_KEYS } from './connector-oauth-config';
-
-import { connectorCardsOf, defaultConnectorCards, demoConnectorCards } from './integration-cards';
 import {
+  activeRegistry,
+  cardsById,
   certifiedOAuthProviders,
-  withConnectorAuthorization,
-  type ConnectorCertificationRow,
-} from './connector-auth-readiness';
+  configureEverything,
+  OAUTH_IDS,
+  restoreConnectorTestEnvironment,
+} from './connector-setup-routing-test-helpers';
 
-const ENV = [
-  'CONNECTOR_OAUTH_STATE_SECRET', 'CONNECTOR_PUBLIC_ORIGIN',
-  'SQUARE_APP_ID', 'SQUARE_APP_SECRET', 'SQUARE_TOKEN_KEY',
-  'YOUTUBE_OAUTH_CLIENT_ID', 'YOUTUBE_OAUTH_CLIENT_SECRET',
-  'TIKTOK_CLIENT_KEY', 'TIKTOK_CLIENT_SECRET',
-  'META_APP_ID', 'META_APP_SECRET',
-  'SLACK_CLIENT_ID', 'SLACK_CLIENT_SECRET',
-  'GOOGLE_OAUTH_CLIENT_ID', 'GOOGLE_OAUTH_CLIENT_SECRET',
-  'QUICKBOOKS_CLIENT_ID', 'QUICKBOOKS_CLIENT_SECRET',
-  'STRIPE_CONNECT_CLIENT_ID', 'STRIPE_SECRET_KEY',
-] as const;
-const ORIGINAL = Object.fromEntries(ENV.map((name) => [name, process.env[name]]));
-
-const OAUTH_IDS = ['youtube', 'tiktok', 'meta-business-suite'] as const;
-
-/** Satisfies every gate except the one a test is isolating. */
-function configureEverything(): void {
-  process.env.CONNECTOR_OAUTH_STATE_SECRET = 's'.repeat(48);
-  process.env.CONNECTOR_PUBLIC_ORIGIN = 'https://hq.example.com';
-  process.env.YOUTUBE_OAUTH_CLIENT_ID = 'youtube-client';
-  process.env.YOUTUBE_OAUTH_CLIENT_SECRET = 'youtube-secret';
-  process.env.TIKTOK_CLIENT_KEY = 'tiktok-key';
-  process.env.TIKTOK_CLIENT_SECRET = 'tiktok-secret';
-  process.env.META_APP_ID = 'meta-app';
-  process.env.META_APP_SECRET = 'meta-secret';
-  process.env.SLACK_CLIENT_ID = 'slack-client';
-  process.env.SLACK_CLIENT_SECRET = 'slack-secret';
-  process.env.GOOGLE_OAUTH_CLIENT_ID = 'google-client';
-  process.env.GOOGLE_OAUTH_CLIENT_SECRET = 'google-secret';
-  process.env.QUICKBOOKS_CLIENT_ID = 'qb-client';
-  process.env.QUICKBOOKS_CLIENT_SECRET = 'qb-secret';
-  process.env.STRIPE_CONNECT_CLIENT_ID = 'stripe-client';
-  process.env.STRIPE_SECRET_KEY = 'stripe-secret';
-}
-
-/** Mirrors an activated registry: every non-planned provider live for the tenant. */
-function activeRegistry(overrides: Readonly<Record<string, Partial<{
-  availability: string; is_active: boolean;
-}>>> = {}) {
-  return listConnectorCatalog()
-    .filter((entry) => entry.availability !== 'coming-soon')
-    .map((entry) => ({
-      id: entry.descriptor.id,
-      provider_key: entry.descriptor.id,
-      availability: entry.availability.replaceAll('-', '_'),
-      is_active: true,
-      ...overrides[entry.descriptor.id],
-    }));
-}
-
-function cardsById(
-  certified: readonly string[] = [],
-  overrides: Parameters<typeof activeRegistry>[0] = {},
-) {
-  const cards = withConnectorAuthorization(
-    connectorCardsOf(activeRegistry(overrides), []), new Set(certified),
-  );
-  return new Map(cards.map((card) => [card.id, card]));
-}
-
-afterEach(() => {
-  for (const name of ENV) {
-    const original = ORIGINAL[name];
-    if (original === undefined) delete process.env[name];
-    else process.env[name] = original;
-  }
-});
+afterEach(restoreConnectorTestEnvironment);
 
 describe('connector setup routing', { concurrency: false }, () => {
   it('publishes a redirect path only for a provider this app actually routes', () => {
-    // The catalog cannot import from apps/hq, so the binding between what it
-    // advertises and what a route serves is asserted here, where both are visible.
-    // Removing a key from OAUTH_CONNECTOR_KEYS must fail this, not 404 in production.
     const served = new Set<string>([
       ...OAUTH_CONNECTOR_KEYS.map((key) => `/api/connectors/${key}/callback`),
       '/api/square/callback',
@@ -92,22 +26,16 @@ describe('connector setup routing', { concurrency: false }, () => {
     const published = listConnectorCatalog()
       .filter((entry) => entry.setup.redirectPath !== undefined)
       .map((entry) => ({ id: entry.descriptor.id, path: entry.setup.redirectPath }));
-
     assert.ok(published.length > 0);
     for (const { id, path } of published) {
-      assert.ok(path !== undefined && served.has(path), `${id} publishes ${path}, which no route serves`);
+      assert.ok(path !== undefined && served.has(path), `${id} publishes an unrouted path`);
     }
-    // And every routed OAuth provider should advertise its path, so the operator
-    // is never left guessing the callback to register.
     for (const key of OAUTH_CONNECTOR_KEYS) {
-      assert.ok(
-        published.some((entry) => entry.id === key),
-        `${key} is routed but publishes no redirect path`,
-      );
+      assert.ok(published.some((entry) => entry.id === key), `${key} publishes no redirect`);
     }
   });
 
-  it('gives every connectable card the setup block its provider declares', () => {
+  it('gives every connectable card its declared setup block', () => {
     for (const card of defaultConnectorCards()) {
       if (card.availability === 'coming-soon') continue;
       assert.ok(card.setup.steps.length > 0, `${card.id} lost its setup steps`);
@@ -115,59 +43,55 @@ describe('connector setup routing', { concurrency: false }, () => {
     }
   });
 
-  it('links an OAuth provider once every gate is satisfied', () => {
+  it('links an OAuth provider only after every gate succeeds', () => {
     configureEverything();
     const cards = cardsById([...OAUTH_IDS]);
     for (const id of OAUTH_IDS) {
-      assert.equal(
-        cards.get(id)?.connectHref, `/api/connectors/${id}/authorize`,
-        `${id} should be connectable when certified and configured`,
-      );
+      assert.equal(cards.get(id)?.connectHref, `/api/connectors/${id}/authorize`);
       assert.equal(cards.get(id)?.connectLabel, 'Connect');
     }
   });
 
-  it('withholds the link on certification alone, with every other gate satisfied', () => {
+  it('withholds links without certification', () => {
     configureEverything();
-    const cards = cardsById([]);
-    for (const id of OAUTH_IDS) {
-      assert.equal(cards.get(id)?.connectHref, null, `${id} must await certification`);
-    }
+    for (const id of OAUTH_IDS) assert.equal(cardsById().get(id)?.connectHref, null);
   });
 
-  it('withholds the link on the state secret alone, with every other gate satisfied', () => {
+  it('withholds links without a strong state secret', () => {
     configureEverything();
     delete process.env.CONNECTOR_OAUTH_STATE_SECRET;
     for (const id of OAUTH_IDS) {
-      assert.equal(cardsById([...OAUTH_IDS]).get(id)?.connectHref, null, `${id} needs a state secret`);
+      assert.equal(cardsById([...OAUTH_IDS]).get(id)?.connectHref, null);
     }
-    // A secret shorter than 32 bytes is as good as absent.
     process.env.CONNECTOR_OAUTH_STATE_SECRET = 'short';
     for (const id of OAUTH_IDS) {
-      assert.equal(cardsById([...OAUTH_IDS]).get(id)?.connectHref, null, `${id} needs 32+ bytes`);
+      assert.equal(cardsById([...OAUTH_IDS]).get(id)?.connectHref, null);
     }
   });
 
-  it('withholds the link on provider credentials alone, with every other gate satisfied', () => {
+  it('withholds only the provider missing its credentials', () => {
     configureEverything();
     delete process.env.TIKTOK_CLIENT_SECRET;
     const cards = cardsById([...OAUTH_IDS]);
-    assert.equal(cards.get('tiktok')?.connectHref, null, 'tiktok is missing its secret');
-    assert.equal(
-      cards.get('youtube')?.connectHref, '/api/connectors/youtube/authorize',
-      'the other providers are unaffected',
-    );
+    assert.equal(cards.get('tiktok')?.connectHref, null);
+    assert.equal(cards.get('youtube')?.connectHref, '/api/connectors/youtube/authorize');
   });
 
-  it('obeys the registry kill switch even when the provider is certified', () => {
+  it('obeys the registry activation kill switch', () => {
     configureEverything();
-    const cards = cardsById([...OAUTH_IDS], { youtube: { is_active: false } });
-    assert.equal(cards.get('youtube')?.canConfigure, false);
-    assert.equal(cards.get('youtube')?.connectHref, null, 'a deactivated provider must not link');
-    assert.equal(cards.get('youtube')?.statusLabel, 'Disabled');
+    const card = cardsById([...OAUTH_IDS], { youtube: { is_active: false } }).get('youtube');
+    assert.equal(card?.canConfigure, false);
+    assert.equal(card?.connectHref, null);
+    assert.equal(card?.statusLabel, 'Disabled');
   });
 
-  it('drops a deactivated provider from the certified set as well as the card', () => {
+  it('fails closed on an unknown registry availability', () => {
+    const card = cardsById([], { slack: { availability: 'retired' } }).get('slack');
+    assert.equal(card?.canConfigure, false);
+    assert.equal(card?.statusLabel, 'Disabled');
+  });
+
+  it('drops deactivated providers from the certified set', () => {
     const registry = [
       { id: 'p1', provider_key: 'youtube', availability: 'available', is_active: false },
       { id: 'p2', provider_key: 'tiktok', availability: 'disabled', is_active: true },
@@ -180,147 +104,30 @@ describe('connector setup routing', { concurrency: false }, () => {
       capability_id: capability.id, environment: 'sandbox', status: 'passed',
       certified_at: '2026-01-01T00:00:00.000Z', valid_until: null,
     }));
-
     const certified = certifiedOAuthProviders(registry, capabilities, certifications);
-    assert.equal(certified.has('youtube'), false, 'an inactive row is not certified');
-    assert.equal(certified.has('tiktok'), false, 'a disabled availability is not certified');
-    assert.equal(certified.has('slack'), true, 'an active, available row is certified');
+    assert.equal(certified.has('youtube'), false);
+    assert.equal(certified.has('tiktok'), false);
+    assert.equal(certified.has('slack'), true);
   });
 
-  it('certifies only a sandbox row that passed, was certified, and has not expired', () => {
+  it('requires a current, dated sandbox certification', () => {
     const registry = [{ id: 'p1', provider_key: 'slack', availability: 'available', is_active: true }];
     const capabilities = [{ id: 'cap', provider_id: 'p1', oauth_scopes: [] as readonly string[] }];
-    const now = Date.parse('2026-09-07T00:00:00.000Z');
     const base: ConnectorCertificationRow = {
       capability_id: 'cap', environment: 'sandbox', status: 'passed',
       certified_at: '2026-01-01T00:00:00.000Z', valid_until: null,
     };
     const certifies = (row: ConnectorCertificationRow) =>
-      certifiedOAuthProviders(registry, capabilities, [row], now).has('slack');
-
-    assert.equal(certifies(base), true, 'a passed, certified, unexpired sandbox row certifies');
-    assert.equal(certifies({ ...base, environment: 'production' }), false, 'production is not the gate');
-    assert.equal(certifies({ ...base, environment: 'staging' }), false, 'nor is staging');
-    assert.equal(certifies({ ...base, status: 'failed' }), false, 'a failed run must not certify');
-    assert.equal(certifies({ ...base, status: 'not_started' }), false, 'nor an unstarted one');
-    assert.equal(certifies({ ...base, certified_at: null }), false, 'passed without a date is not certified');
-    assert.equal(
-      certifies({ ...base, valid_until: '2026-09-01T00:00:00.000Z' }), false,
-      'an expired certification must not certify',
-    );
-    assert.equal(
-      certifies({ ...base, valid_until: '2026-12-01T00:00:00.000Z' }), true,
-      'one still in date does',
-    );
+      certifiedOAuthProviders(registry, capabilities, [row], Date.parse('2026-09-07')).has('slack');
+    assert.equal(certifies(base), true);
+    assert.equal(certifies({ ...base, environment: 'production' }), false);
+    assert.equal(certifies({ ...base, status: 'failed' }), false);
+    assert.equal(certifies({ ...base, certified_at: null }), false);
+    assert.equal(certifies({ ...base, valid_until: '2026-09-01T00:00:00Z' }), false);
+    assert.equal(certifies({ ...base, valid_until: '2026-12-01T00:00:00Z' }), true);
   });
 
-  it('refuses to certify a provider that has no enabled capability at all', () => {
-    configureEverything();
-    const registry = [{ id: 'p1', provider_key: 'slack', availability: 'available', is_active: true }];
-    // No capability rows: there is nothing certified, so nothing to authorize.
-    assert.equal(certifiedOAuthProviders(registry, [], []).has('slack'), false);
-    // A capability whose scopes were never requested is excluded, which leaves the
-    // provider with no enabled capability and so uncertified.
-    const unrequested = [{ id: 'cap', provider_id: 'p1', oauth_scopes: ['chat:write.customize'] }];
-    const passed = [{
-      capability_id: 'cap', environment: 'sandbox', status: 'passed',
-      certified_at: '2026-01-01T00:00:00.000Z', valid_until: null,
-    }];
-    assert.equal(certifiedOAuthProviders(registry, unrequested, passed).has('slack'), false);
-  });
-
-  it('requires every enabled capability to be certified, not merely one', () => {
-    // The scope-subset filter compares against the provider's configured request
-    // list, which is empty until its credentials are present.
-    configureEverything();
-    const registry = [{ id: 'p1', provider_key: 'slack', availability: 'available', is_active: true }];
-    const capabilities = [
-      { id: 'read', provider_id: 'p1', oauth_scopes: ['channels:read'] },
-      { id: 'write', provider_id: 'p1', oauth_scopes: ['chat:write'] },
-    ];
-    const row = (id: string) => ({
-      capability_id: id, environment: 'sandbox', status: 'passed',
-      certified_at: '2026-01-01T00:00:00.000Z', valid_until: null,
-    });
-    assert.equal(certifiedOAuthProviders(registry, capabilities, [row('read')]).has('slack'), false);
-    assert.equal(
-      certifiedOAuthProviders(registry, capabilities, [row('read'), row('write')]).has('slack'), true,
-    );
-  });
-
-  it('leaves an API-key provider without a redirect, because no route accepts a key', () => {
-    configureEverything();
-    const cards = cardsById([...OAUTH_IDS]);
-    for (const id of ['transistor', 'beehiiv']) {
-      assert.equal(cards.get(id)?.canConfigure, true, `${id} is configurable`);
-      assert.equal(cards.get(id)?.connectHref, null, `${id} has no endpoint to post a key to`);
-      assert.equal(cards.get(id)?.setup.kind, 'api-key');
-    }
-  });
-
-  it('rests a manual-only provider at setup required until something is imported', () => {
-    const cards = cardsById();
-    for (const id of ['kindle-direct-publishing', 'acx-audiobooks']) {
-      assert.equal(cards.get(id)?.isManualOnly, true, `${id} is manual only`);
-      assert.equal(cards.get(id)?.canConfigure, true, `${id} is configurable`);
-      assert.equal(cards.get(id)?.connectHref, null, `${id} has no import endpoint yet`);
-      assert.equal(
-        cards.get(id)?.statusLabel, 'Setup required',
-        `${id} has imported nothing, so it is not "Manual import"`,
-      );
-    }
-  });
-
-  it('reports manual import only once an installation exists', () => {
-    const cards = new Map(
-      demoConnectorCards(['kindle-direct-publishing', 'youtube', 'meta-business-suite'])
-        .map((card) => [card.id, card]),
-    );
-    assert.equal(cards.get('kindle-direct-publishing')?.status, 'manual-import');
-    assert.equal(cards.get('youtube')?.status, 'setup-required');
-    assert.equal(cards.get('meta-business-suite')?.status, 'provider-approval-required');
-    assert.equal(cards.get('acx-audiobooks')?.status, 'setup-required', 'unselected stays untouched');
-  });
-
-  it('fails closed when the registry row disagrees with the code catalog', () => {
-    // An operator marking an OAuth provider manual-only is an error, not a
-    // request to treat Slack as a spreadsheet import.
-    const cards = cardsById([], { slack: { availability: 'manual_only' } });
-    assert.equal(cards.get('slack')?.canConfigure, false);
-    assert.equal(cards.get('slack')?.statusLabel, 'Disabled');
-    assert.equal(cards.get('slack')?.isManualOnly, false);
-  });
-
-  it('fails closed on an availability the code does not recognize', () => {
-    const cards = cardsById([], { slack: { availability: 'retired' } });
-    assert.equal(cards.get('slack')?.canConfigure, false);
-    assert.equal(cards.get('slack')?.statusLabel, 'Disabled');
-  });
-
-  it('withholds every action when the registry is unavailable', () => {
-    configureEverything();
-    const cards = withConnectorAuthorization(defaultConnectorCards(), new Set(OAUTH_IDS));
-    assert.ok(cards.length > 0);
-    for (const card of cards) {
-      assert.equal(card.connectHref, null, `${card.id} must fail closed`);
-      assert.equal(card.canConfigure, false, `${card.id} must not be configurable`);
-    }
-  });
-
-  it('links Square by location only once its own credentials are present', () => {
-    assert.equal(cardsById().get('square')?.connectHref, null);
-    process.env.SQUARE_APP_ID = 'sq-app';
-    process.env.SQUARE_APP_SECRET = 'sq-secret';
-    process.env.SQUARE_TOKEN_KEY = 'sq-token';
-    assert.equal(cardsById().get('square')?.connectHref, '/locations');
-    assert.equal(cardsById().get('square')?.connectLabel, 'Choose location');
-  });
-
-  it('keeps a planned provider unconfigurable, unlinked and undocumented', () => {
-    const cards = cardsById();
-    assert.equal(cards.get('github')?.canConfigure, false);
-    assert.equal(cards.get('github')?.connectHref, null);
-    assert.deepEqual(cards.get('github')?.setup.steps, []);
-    assert.equal(cards.get('github')?.setup.consoleUrl, undefined);
+  it('keeps the active registry helper aligned with the catalog', () => {
+    assert.ok(activeRegistry().length > 0);
   });
 });

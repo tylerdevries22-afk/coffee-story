@@ -3,6 +3,8 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
+import { requestConnectorDisconnect } from '@/lib/connector-disconnect-request';
+
 export function ConnectorDisconnectButton({ provider }: { readonly provider: string }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
@@ -13,11 +15,7 @@ export function ConnectorDisconnectButton({ provider }: { readonly provider: str
     setPending(true);
     setError('');
     try {
-      const response = await fetch(`/api/connectors/${encodeURIComponent(provider)}/authorize`, {
-        method: 'DELETE',
-        headers: { Accept: 'application/json' },
-      });
-      if (!response.ok) throw new Error('disconnect failed');
+      await requestConnectorDisconnect(provider);
       router.refresh();
     } catch {
       setError('The connection could not be removed. Try again.');
