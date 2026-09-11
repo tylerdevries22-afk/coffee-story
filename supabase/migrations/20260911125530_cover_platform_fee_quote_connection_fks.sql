@@ -1,0 +1,1 @@
+-- no-op: covering indexes landed in 20260911170000.
