@@ -28,7 +28,6 @@ export type ConsoleRailProps = Pick<
   | 'statusHref'
 > & {
   readonly section: ConsoleSection;
-  readonly compact: boolean;
   readonly mobile: boolean;
   readonly isOpen: boolean;
   readonly isHidden: boolean;

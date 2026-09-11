@@ -13,12 +13,10 @@ type ConsoleTopbarProps = {
   readonly section: ConsoleSection;
   readonly brandName: string;
   readonly dataMode: 'hosted' | 'preview';
-  readonly compact: boolean;
   readonly mobile: boolean;
   readonly navigationOpen: boolean;
   readonly overlayOpen: boolean;
   readonly onOpenNavigation: () => void;
-  readonly onToggleCompact: () => void;
   readonly triggerButtonRef: RefObject<HTMLButtonElement | null>;
   readonly statusHref: string;
   readonly orgSwitcher?: ReactNode;
@@ -26,12 +24,6 @@ type ConsoleTopbarProps = {
 };
 
 export function ConsoleTopbar(props: ConsoleTopbarProps) {
-  const toggleNavigation = props.mobile ? props.onOpenNavigation : props.onToggleCompact;
-  const navigationExpanded = props.mobile ? props.navigationOpen : !props.compact;
-  const navigationLabel = props.mobile
-    ? 'Open navigation'
-    : props.compact ? 'Show navigation' : 'Hide navigation';
-
   return (
     <header
       className="hq-topbar"
@@ -39,19 +31,21 @@ export function ConsoleTopbar(props: ConsoleTopbarProps) {
       inert={props.overlayOpen || undefined}
     >
       <div className="hq-topbar-leading">
-        <Button
-          ref={props.triggerButtonRef}
-          variant="ghost"
-          size="icon"
-          className="hq-shell-mark"
-          type="button"
-          onClick={toggleNavigation}
-          aria-controls="console-navigation"
-          aria-expanded={navigationExpanded}
-          aria-label={navigationLabel}
-        >
-          <Icon name={props.mobile ? 'menu' : 'panel'} size={19} />
-        </Button>
+        {props.mobile ? (
+          <Button
+            ref={props.triggerButtonRef}
+            variant="ghost"
+            size="icon"
+            className="hq-shell-mark"
+            type="button"
+            onClick={props.onOpenNavigation}
+            aria-controls="console-navigation"
+            aria-expanded={props.navigationOpen}
+            aria-label="Open navigation"
+          >
+            <Icon name="menu" size={19} />
+          </Button>
+        ) : null}
         <nav className="hq-topbar-context" aria-label="Workspace context">
           {props.orgSwitcher ? (
             <Fragment key="organization-switcher">{props.orgSwitcher}</Fragment>
