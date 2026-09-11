@@ -169,8 +169,9 @@ jobs:
           printf '%s' "$plan" | jq -e '.all | index("hq")' >/dev/null
           {
             echo "all_surfaces=$(printf '%s' "$plan" | jq -r '.all | join(",")')"
-            echo "web_matrix=$(printf '%s' "$plan" | jq -c '{include: [.web[] | {surface: .}]}')"
-            echo "web_count=$(printf '%s' "$plan" | jq -r '.web | length')"
+            # Model B: customer/kiosk/operator ship inside the HQ host; only display stays separate.
+            echo "web_matrix=$(printf '%s' "$plan" | jq -c '{include: [.web[] | select(. != "customer" and . != "kiosk" and . != "operator") | {surface: .}]}')"
+            echo "web_count=$(printf '%s' "$plan" | jq -r '[.web[] | select(. != "customer" and . != "kiosk" and . != "operator")] | length')"
             echo "native_matrix=$(printf '%s' "$plan" | jq -c '{include: [.native[] | {surface: .}]}')"
             echo "native_count=$(printf '%s' "$plan" | jq -r '.native | length')"
           } >> "$GITHUB_OUTPUT"
@@ -334,9 +335,12 @@ jobs:
           # public surface origins. Preview HQ deployments intentionally leave
           # them unset so they never point at a production device or guest app.
           if [ "$DEPLOY_ENVIRONMENT" = production ]; then
-            case ",$TENANT_SURFACES," in *,customer,*) add_public NEXT_PUBLIC_CUSTOMER_URL "https://${PROJECT_PREFIX}-customer.vercel.app" ;; esac
-            case ",$TENANT_SURFACES," in *,operator,*) add_public NEXT_PUBLIC_OPERATOR_URL "https://${PROJECT_PREFIX}-operator.vercel.app" ;; esac
-            case ",$TENANT_SURFACES," in *,kiosk,*) add_public NEXT_PUBLIC_KIOSK_URL "https://${PROJECT_PREFIX}-kiosk.vercel.app" ;; esac
+            # Model B path URLs on the HQ org host (see docs/ADR-model-b-org-web.md).
+            hq_origin="https://${project}.vercel.app"
+            add_public NEXT_PUBLIC_ORG_SURFACE_ORIGIN "$hq_origin"
+            case ",$TENANT_SURFACES," in *,customer,*) add_public NEXT_PUBLIC_CUSTOMER_URL "${hq_origin}/customer" ;; esac
+            case ",$TENANT_SURFACES," in *,operator,*) add_public NEXT_PUBLIC_OPERATOR_URL "${hq_origin}/operator" ;; esac
+            case ",$TENANT_SURFACES," in *,kiosk,*) add_public NEXT_PUBLIC_KIOSK_URL "${hq_origin}/kiosk" ;; esac
             case ",$TENANT_SURFACES," in *,display,*) add_public NEXT_PUBLIC_DISPLAY_URL "https://${PROJECT_PREFIX}-display.vercel.app" ;; esac
           fi
           add_secret SUPABASE_SERVICE_ROLE_KEY "$SUPABASE_SERVICE_ROLE_KEY"

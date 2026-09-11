@@ -26,6 +26,8 @@ export function vercelRuntimeVariables(
   secrets: Record<string, string>,
 ): VercelRuntimeVariable[] {
   const hqUrl = `https://${tenantSlug}-hq.vercel.app`;
+  // Model B: guest Expo web ships on the HQ host. Legacy per-surface Vercel
+  // env maps remain for native/EAS tooling that still calls this helper.
   const values = surface === 'hq'
     ? {
         TENANT: tenantSlug,
@@ -35,6 +37,12 @@ export function vercelRuntimeVariables(
         SUPABASE_SERVICE_ROLE_KEY: secrets.SUPABASE_SERVICE_ROLE_KEY,
         CRON_SECRET: secrets.CRON_SECRET,
         HEALTH_CHECK_TOKEN: secrets.HEALTH_CHECK_TOKEN,
+        NEXT_PUBLIC_ORG_SURFACE_ORIGIN: hqUrl,
+        NEXT_PUBLIC_HQ_URL: hqUrl,
+        NEXT_PUBLIC_CUSTOMER_URL: `${hqUrl}/customer`,
+        NEXT_PUBLIC_KIOSK_URL: `${hqUrl}/kiosk`,
+        NEXT_PUBLIC_OPERATOR_URL: `${hqUrl}/operator`,
+        NEXT_PUBLIC_DISPLAY_URL: `https://${tenantSlug}-display.vercel.app`,
       }
     : surface === 'display'
       ? {
@@ -49,6 +57,7 @@ export function vercelRuntimeVariables(
           EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: secrets.SUPABASE_PUBLISHABLE_KEY,
           EXPO_PUBLIC_API_URL: hqUrl,
           EXPO_PUBLIC_ALLOWED_API_HOST: `${tenantSlug}-hq.vercel.app`,
+          EXPO_BASE_URL: `/${surface}`,
         };
   return Object.entries(values).flatMap(([key, value]) => value ? [{
     key, value, target: ['production', 'preview'] as const,

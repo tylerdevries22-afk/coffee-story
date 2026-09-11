@@ -98,3 +98,11 @@ readiness.err
 
 # Audit run artifacts (see ~/.agents/skills/audit)
 .audit/
+
+# Model B org-web static surfaces (generated into HQ public/)
+apps/hq/public/customer/
+apps/hq/public/kiosk/
+apps/hq/public/operator/
+apps/*/dist-web-org/
+.vercel
+.env*
