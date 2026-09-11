@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Alert } from 'react-native';
+import { Alert, View } from 'react-native';
 
 import { CollapsingScreen } from '@/components/collapsing-screen';
-import { Body, Button } from '@/components/ui';
+import { Button, SectionTitle } from '@/components/ui';
 import { mobileApi } from '@/lib/mobile-api';
 import { requestKey } from '@platform/domain';
 import { STRENGTH_OPTIONS, strengthLabel } from '@/features/setup/setup';
