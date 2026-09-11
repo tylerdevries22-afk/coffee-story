@@ -49,9 +49,12 @@ begin
     and (provider.oauth_refresh_managed
       or provider.provider_key = 'meta-business-suite') for share;
   if not found then return false; end if;
-  if p_expires_at is not null and p_expires_at > p_now +
-      case when v_provider_key = 'meta-business-suite'
-        then interval '90 days' else interval '30 days' end then
+  if p_expires_at is not null and p_expires_at > p_now + (
+      case
+        when v_provider_key = 'meta-business-suite' then interval '90 days'
+        else interval '30 days'
+      end
+    ) then
     raise exception using errcode = '22023', message = 'connector_oauth_quarantine_invalid';
   end if;
   perform 1 from app_private.connector_oauth_grant_namespaces grant_namespace
