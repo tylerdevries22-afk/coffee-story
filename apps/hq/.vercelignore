@@ -1,0 +1,14 @@
+node_modules
+.swc
+.next
+.next-dev
+.next-preview
+.next-wall
+.next-wall-live
+.next-wall-interaction
+.next-wall-fresh
+public/customer
+public/kiosk
+public/operator
+*.tsbuildinfo
+.env*

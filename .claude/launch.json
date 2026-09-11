@@ -19,7 +19,8 @@
         "COFFEE_STORY_DEMO_SYNC": "1",
         "COFFEE_STORY_LOCAL_PREVIEWS": "1",
         "COFFEE_STORY_PREVIEW_WALL": "1",
-        "NEXT_DIST_DIR": ".next-preview"
+        "NEXT_DIST_DIR": ".next-preview",
+        "COFFEE_STORY_WALL_HOSTED": "1"
       },
       "port": 3300,
       "autoPort": false

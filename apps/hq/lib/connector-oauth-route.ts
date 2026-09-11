@@ -45,7 +45,10 @@ export function parseConnectorCookie(request: Request, key: OAuthConnectorKey): 
     if (typeof binding !== 'string' || binding.length < 32 || binding.length > 100
       || typeof verifier !== 'string' || verifier.length < 43 || verifier.length > 128) return null;
     return { binding, verifier };
-  } catch { return null; }
+  } catch {
+    console.warn(JSON.stringify({ component: 'connector-oauth-route', event: 'cookie_parse_failed' }));
+    return null;
+  }
 }
 
 export function verifyConnectorState(

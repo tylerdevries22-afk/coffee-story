@@ -17,7 +17,7 @@ afterEach(() => {
 
 describe('connector OAuth identity verification', { concurrency: false }, () => {
   it('keeps its deadline active through a stalled identity body', async () => {
-    const fetchMock = mock.method(globalThis, 'fetch', async (_target, init) =>
+    const fetchMock = mock.method(globalThis, 'fetch', async (_target: RequestInfo | URL, init?: RequestInit) =>
       stalledJsonResponse(init?.signal));
     await assert.rejects(
       verifyConnectorIdentity(

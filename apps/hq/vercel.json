@@ -16,5 +16,6 @@
       "path": "/api/jobs/run",
       "schedule": "*/5 * * * *"
     }
-  ]
+  ],
+  "buildCommand": "cd ../.. && if [ \"${SKIP_ORG_WEB_STATICS:-}\" = \"1\" ]; then echo \"skip org web statics\"; else pnpm tsx scripts/build-org-web-statics.ts; fi && cd apps/hq && pnpm exec next build"
 }

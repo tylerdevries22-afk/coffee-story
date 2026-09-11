@@ -2,15 +2,15 @@ import type { OrderStatus } from '@platform/schema';
 
 import { taxCentsFor } from '@platform/domain';
 import type {
-  GiftCard,
   PortalOrder,
   PortalBundle,
   PortalMessage,
-  RewardEntry,
 } from '@platform/domain';
 
 import { TENANT, TENANT_TAX_JURISDICTIONS } from '@/tenant';
 import { CONSTRUCTION_ORDER_SEEDS, constructionMessages } from './construction-demo';
+import { createDemoGiftCards } from './demo-gift-cards';
+import { createDemoRewardLedger } from './demo-reward-ledger';
 
 // Sanitized, production-scale demo dataset. All names/emails/phones are fictional
 // (example.com, 555 numbers). Every date is relative to portal creation so
@@ -106,113 +106,9 @@ const upcomingOrders: PortalOrder[] = [
 // Annual 1,876 → House Regular tier, 624 Beans from Coffee Legend. Available
 // 1,376 after the $5-credit redemption → $5 credit + free mochi donut unlocked,
 // $15 credit + free signature latte locked.
-const rewardLedger: RewardEntry[] = [
-  { id: 'ledger-01', entryType: 'purchase', points: 91, description: 'Honeycomb Cheese Bread', earnedAt: isoAt(-6, 19), expiresAt: isoAt(359, 19) },
-  { id: 'ledger-02', entryType: 'purchase', points: 84, description: 'Pistachio Latte (16 oz)', earnedAt: isoAt(-14, 11), expiresAt: isoAt(351, 11) },
-  { id: 'ledger-03', entryType: 'activity', points: 10, description: 'set your usual order', earnedAt: isoAt(-20, 9), expiresAt: isoAt(345, 9) },
-  { id: 'ledger-04', entryType: 'purchase', points: 96, description: 'Spanish Latte (20 oz)', earnedAt: isoAt(-21, 9), expiresAt: isoAt(344, 9) },
-  { id: 'ledger-05', entryType: 'redemption', points: -500, description: 'Redeemed $5 drink credit', earnedAt: isoAt(-24, 12), expiresAt: null },
-  { id: 'ledger-06', entryType: 'purchase', points: 120, description: 'Mochi Donut Trio', earnedAt: isoAt(-32, 13), expiresAt: isoAt(333, 13) },
-  { id: 'ledger-07', entryType: 'activity', points: 5, description: 'add birthday', earnedAt: isoAt(-38, 8), expiresAt: isoAt(327, 8) },
-  { id: 'ledger-08', entryType: 'purchase', points: 84, description: 'Pistachio Milk Cake', earnedAt: isoAt(-45, 20), expiresAt: isoAt(320, 20) },
-  { id: 'ledger-09', entryType: 'purchase', points: 84, description: 'Brown Sugar Boba (20 oz)', earnedAt: isoAt(-60, 14), expiresAt: isoAt(305, 14) },
-  { id: 'ledger-10', entryType: 'purchase', points: 84, description: 'Spanish Latte (16 oz)', earnedAt: isoAt(-74, 11), expiresAt: isoAt(291, 11) },
-  { id: 'ledger-11', entryType: 'purchase', points: 72, description: 'Adeni Chai (16 oz)', earnedAt: isoAt(-90, 10), expiresAt: isoAt(275, 10) },
-  { id: 'ledger-12', entryType: 'purchase', points: 84, description: 'Rooh Afza Boba (20 oz)', earnedAt: isoAt(-112, 13), expiresAt: isoAt(253, 13) },
-  { id: 'ledger-13', entryType: 'expiration', points: -40, description: 'Expired Beans', earnedAt: isoAt(-120, 0), expiresAt: null },
-  { id: 'ledger-14', entryType: 'purchase', points: 72, description: 'Sunset Sparkling Ade (20 oz)', earnedAt: isoAt(-135, 16), expiresAt: isoAt(230, 16) },
-  { id: 'ledger-15', entryType: 'purchase', points: 72, description: 'Spanish Latte (12 oz)', earnedAt: isoAt(-160, 9), expiresAt: isoAt(205, 9) },
-  { id: 'ledger-16', entryType: 'purchase', points: 84, description: 'Turkish Coffee (Double)', earnedAt: isoAt(-182, 11), expiresAt: isoAt(183, 11) },
-  { id: 'ledger-17', entryType: 'purchase', points: 84, description: 'Pistachio Latte (16 oz)', earnedAt: isoAt(-210, 14), expiresAt: isoAt(155, 14) },
-  { id: 'ledger-18', entryType: 'purchase', points: 70, description: 'Spanish Latte (16 oz)', earnedAt: isoAt(-400, 10), expiresAt: isoAt(-35, 10) },
-];
+const rewardLedger = createDemoRewardLedger(isoAt);
 
-const giftCards: GiftCard[] = [
-  {
-    id: 'demo-gift',
-    code: 'CS-DEMO-2026',
-    initialCents: 2500,
-    balanceCents: 2500,
-    recipientEmail: 'alex@example.com',
-    recipientName: 'Alex',
-    designKey: 'quiet-hour',
-    deliveryAt: null,
-    status: 'claimed',
-    createdAt: isoAt(-46, 9),
-    claimedByCurrentUser: true,
-    purchasedByCurrentUser: false,
-  },
-  {
-    id: 'gift-received-2',
-    code: 'CS-GIFT-RCVD-02',
-    initialCents: 5000,
-    balanceCents: 2150,
-    recipientEmail: 'alex@example.com',
-    recipientName: 'Alex Rivera',
-    designKey: 'healing',
-    deliveryAt: null,
-    status: 'claimed',
-    createdAt: isoAt(-95, 12),
-    claimedByCurrentUser: true,
-    purchasedByCurrentUser: false,
-  },
-  {
-    id: 'gift-received-3',
-    code: 'CS-GIFT-RCVD-03',
-    initialCents: 2500,
-    balanceCents: 300,
-    recipientEmail: 'alex@example.com',
-    recipientName: 'Alex Rivera',
-    designKey: 'thank-you',
-    deliveryAt: null,
-    status: 'claimed',
-    createdAt: isoAt(-150, 15),
-    claimedByCurrentUser: true,
-    purchasedByCurrentUser: false,
-  },
-  {
-    id: 'gift-sent-1',
-    code: 'CS-GIFT-SENT-01',
-    initialCents: 2500,
-    balanceCents: 2500,
-    recipientEmail: 'casey.morgan@example.com',
-    recipientName: 'Casey Morgan',
-    designKey: 'healing',
-    deliveryAt: null,
-    status: 'delivered',
-    createdAt: isoAt(-33, 10),
-    claimedByCurrentUser: false,
-    purchasedByCurrentUser: true,
-  },
-  {
-    id: 'gift-sent-2',
-    code: 'CS-GIFT-SENT-02',
-    initialCents: 5000,
-    balanceCents: 1400,
-    recipientEmail: 'jordan.avery@example.com',
-    recipientName: 'Jordan Avery',
-    designKey: 'birthday',
-    deliveryAt: null,
-    status: 'claimed',
-    createdAt: isoAt(-70, 11),
-    claimedByCurrentUser: false,
-    purchasedByCurrentUser: true,
-  },
-  {
-    id: 'gift-sent-3',
-    code: 'CS-GIFT-SENT-03',
-    initialCents: 1500,
-    balanceCents: 1500,
-    recipientEmail: 'taylor.quinn@example.com',
-    recipientName: 'Taylor Quinn',
-    designKey: 'quiet-hour',
-    deliveryAt: isoAt(7, 8),
-    status: 'funded',
-    createdAt: isoAt(-2, 16),
-    claimedByCurrentUser: false,
-    purchasedByCurrentUser: true,
-  },
-];
+const giftCards = createDemoGiftCards(isoAt);
 
 const messages: PortalMessage[] = [
   { id: 'demo-message-1', sender: 'studio', body: 'Welcome, Alex. Send us a note here if anything changes before pickup.', sentAt: isoAt(-21, 9), read: true },
@@ -262,7 +158,7 @@ export const DEMO_PORTAL: PortalBundle = {
     completed: true,
     notes: IS_PROJECT_BUSINESS ? 'Preferred contact: email. Access window is 8 AM–4 PM; coordinate trade arrivals with the superintendent.' : 'Oat milk preferred, half-sweet on the signature lattes. Pistachio anything is a yes.',
     strength: 'medium',
-        updatedAt: isoAt(-20, 9),
+    updatedAt: isoAt(-20, 9),
   },
   membership: {
     id: 'demo-membership',

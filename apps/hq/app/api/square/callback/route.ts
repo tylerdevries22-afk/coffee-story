@@ -25,9 +25,8 @@ import { tokenAppMetadata } from '../../../../lib/token-claims';
  * state names. Service role: this route is the trust boundary between Square
  * and the database, so it decides who owns a shop's card payments.
  *
- * The state hardening that bound state to a user and an expiry landed in
- * `/api/square/connect` and `lib/square-oauth-state.ts` and never reached this
- * file, which went on verifying the old `<location_id>.<mac>` format. That left
+ * State is bound to a user and expiry by `lib/square-oauth-state.ts`. The old
+ * callback verified `<location_id>.<mac>` instead, leaving
  * two live defects at once:
  *
  *  - any state minted under the old scheme still verified, with no expiry and
@@ -39,8 +38,7 @@ import { tokenAppMetadata } from '../../../../lib/token-claims';
  *    so every honest attempt died on "State signature mismatch". No location
  *    could connect Square at all.
  *
- * So: verify the state the way it is minted, then re-check the person. A state
- * proves the request was started by someone who could manage the location; it
+ * Verify the minted state, then re-check the person who started the request; it
  * cannot prove they still can, or that the browser finishing consent is
  * theirs. Both are checked here against the console's own cookie session.
  */

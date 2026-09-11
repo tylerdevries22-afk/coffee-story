@@ -28,6 +28,7 @@ function database(options: { error?: boolean; fee?: number; bps?: number } = {})
       return Response.json({
         quoted_fee_cents: options.fee ?? 300,
         quoted_fee_bps_applied: options.bps ?? 300,
+        quote_claim_created: true,
         quote_claim_generation: 'claim-a',
       });
     } },
@@ -39,7 +40,7 @@ describe('monthly fee volume reservation', () => {
   it('claims one durable quote with the order, terms, and local month', async () => {
     const { db, calls } = database({ fee: 225, bps: 225 });
     assert.deepEqual(await appFeeForCharge(db, INPUT), {
-      feeCents: 225, feeBpsApplied: 225, claimGeneration: 'claim-a',
+      feeCents: 225, feeBpsApplied: 225, claimGeneration: 'claim-a', claimCreated: true,
     });
     assert.equal(calls.length, 1);
     assert.equal(calls[0]?.url.pathname, '/rest/v1/rpc/claim_platform_fee_quote');

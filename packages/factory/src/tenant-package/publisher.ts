@@ -1,8 +1,14 @@
 import { stat } from 'node:fs/promises';
 
-import { requestWithRetry, safeEndpoint, serviceHeaders } from './http';
+import { readBoundedJson, requestWithRetry, safeEndpoint, serviceHeaders } from './http';
+import {
+  isCanonicalPostgresUuid, isCanonicalTenantPackageObjectPath,
+  isSafeTenantPackageRelativePath, parseTenantPackageObjectPath,
+} from './object-path';
 import { TenantPackageStorageClient } from './storage-client';
-import type { TenantPackageBuild, TenantPackageManifestFile } from './types';
+import {
+  TenantPackageError, type TenantPackageBuild, type TenantPackageManifestFile,
+} from './types';
 
 export type TenantPackagePublication = {
   readonly releaseId: string;
@@ -10,7 +16,7 @@ export type TenantPackagePublication = {
   readonly files: readonly TenantPackageManifestFile[];
 };
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const RPC_RESPONSE_BYTES = 16 * 1024;
 
 async function rpc(
   endpoint: URL,
@@ -23,7 +29,7 @@ async function rpc(
     headers: { ...serviceHeaders(serviceKey), 'content-type': 'application/json' },
     body: JSON.stringify(body),
   });
-  return response.json() as Promise<unknown>;
+  return readBoundedJson(response, RPC_RESPONSE_BYTES);
 }
 
 export function tenantPackageObjectPrefix(
@@ -31,10 +37,10 @@ export function tenantPackageObjectPrefix(
   artifactDigest: string,
   envelopeSha256: string,
 ): string {
-  if (!UUID.test(brandId)
+  if (!isCanonicalPostgresUuid(brandId)
     || !/^sha256:[0-9a-f]{64}$/.test(artifactDigest)
     || !/^sha256:[0-9a-f]{64}$/.test(envelopeSha256)) {
-    throw new Error('Tenant package object identity is invalid.');
+    throw new TenantPackageError('object_identity_invalid', 'Tenant package object identity is invalid.');
   }
   return `${brandId}/${artifactDigest.slice(7)}/${envelopeSha256.slice(7)}`;
 }
@@ -51,21 +57,32 @@ export async function publishTenantPackageObjects(input: {
     input.build.envelopeSha256,
   );
   const archiveObjectPath = `${prefix}/archive.zip`;
-  const files = input.build.files.map((file) => ({
-    relativePath: file.relativePath,
-    pathKey: file.pathKey,
-    contentSha256: file.contentSha256,
-    mimeType: file.mimeType,
-    byteSize: file.byteSize,
-    previewKind: file.previewKind,
-    objectPath: `${prefix}/files/${file.pathKey}`,
-    ...(file.preview ? {
-      previewObjectPath: `${prefix}/previews/${file.pathKey}.png`,
-      previewContentSha256: file.preview.contentSha256,
-      previewMimeType: file.preview.mimeType,
-      previewByteSize: file.preview.byteSize,
-    } : {}),
-  }));
+  const files = input.build.files.map((file): TenantPackageManifestFile => {
+    const objectPath = `${prefix}/files/${file.pathKey}`;
+    const previewObjectPath = file.preview ? `${prefix}/previews/${file.pathKey}.png` : undefined;
+    if (!isSafeTenantPackageRelativePath(file.relativePath)
+      || !isSafeTenantPackageRelativePath(file.pathKey)
+      || !isCanonicalTenantPackageObjectPath(objectPath)
+      || (previewObjectPath && !isCanonicalTenantPackageObjectPath(previewObjectPath))
+      || parseTenantPackageObjectPath(objectPath)?.namespace !== prefix) {
+      throw new TenantPackageError('object_path_invalid', 'Tenant package object path is invalid.');
+    }
+    return {
+      relativePath: file.relativePath,
+      pathKey: file.pathKey,
+      contentSha256: file.contentSha256,
+      mimeType: file.mimeType,
+      byteSize: file.byteSize,
+      previewKind: file.previewKind,
+      objectPath,
+      ...(file.preview && previewObjectPath ? {
+        previewObjectPath,
+        previewContentSha256: file.preview.contentSha256,
+        previewMimeType: file.preview.mimeType,
+        previewByteSize: file.preview.byteSize,
+      } : {}),
+    };
+  });
   const endpoint = safeEndpoint(input.endpoint);
   const sessionId = await rpc(endpoint, input.serviceKey, 'begin_tenant_package_upload', {
     p_brand_id: input.brandId,
@@ -78,13 +95,19 @@ export async function publishTenantPackageObjects(input: {
     p_file_count: input.build.fileCount,
     p_total_bytes: input.build.totalBytes,
   });
-  if (typeof sessionId !== 'string' || !UUID.test(sessionId)) {
-    throw new Error('Supabase returned an invalid tenant upload session.');
+  if (typeof sessionId !== 'string' || !isCanonicalPostgresUuid(sessionId)) {
+    throw new TenantPackageError(
+      'upload_session_invalid',
+      'Supabase returned an invalid tenant upload session.',
+    );
   }
   const storage = new TenantPackageStorageClient(input.endpoint, input.serviceKey, async () => {
-    await rpc(endpoint, input.serviceKey, 'renew_tenant_package_upload', {
+    const renewedUntil = await rpc(endpoint, input.serviceKey, 'renew_tenant_package_upload', {
       p_session_id: sessionId,
     });
+    if (typeof renewedUntil !== 'string' || !Number.isFinite(Date.parse(renewedUntil))) {
+      throw new TenantPackageError('upload_renewal_invalid', 'Tenant upload renewal is invalid.');
+    }
   });
   await uploadFiles(storage, input.build, files);
   const archiveSize = (await stat(input.build.archivePath)).size;
@@ -101,8 +124,8 @@ export async function publishTenantPackageObjects(input: {
     p_file_count: input.build.fileCount, p_total_bytes: input.build.totalBytes,
     p_files: files, p_upload_session_id: sessionId,
   });
-  if (typeof releaseId !== 'string' || !UUID.test(releaseId)) {
-    throw new Error('Supabase returned an invalid tenant release.');
+  if (typeof releaseId !== 'string' || !isCanonicalPostgresUuid(releaseId)) {
+    throw new TenantPackageError('release_invalid', 'Supabase returned an invalid tenant release.');
   }
   return { releaseId, archiveObjectPath, files };
 }
@@ -119,7 +142,9 @@ async function uploadFiles(
       next += 1;
       const file = build.files[index];
       const item = manifest[index];
-      if (!file || !item) throw new Error('Tenant package manifest is inconsistent.');
+      if (!file || !item) {
+        throw new TenantPackageError('manifest_invalid', 'Tenant package manifest is inconsistent.');
+      }
       await storage.upload({
         path: file.sourcePath, objectPath: item.objectPath,
         byteSize: file.byteSize, mimeType: file.mimeType,

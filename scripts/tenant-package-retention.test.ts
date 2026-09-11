@@ -37,6 +37,9 @@ function operations(claims: unknown[]): {
         calls.confirmations.push(claimId);
         return true;
       },
+      async renew() {
+        return new Date(Date.now() + 10 * 60_000).toISOString();
+      },
       async remove(paths) {
         calls.removals.push([...paths]);
       },

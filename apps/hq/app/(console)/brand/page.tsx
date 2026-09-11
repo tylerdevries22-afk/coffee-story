@@ -14,6 +14,11 @@ export default async function BrandPage() {
     <>
       <h1>Brand config</h1>
       <p className="subtitle">Tokens, copy, and status badges — hydrated into both apps on their next launch. The preview is live. What this brand may <em>run</em> is decided by its installed modules, not here.</p>
+      <div className="card" style={{ marginBottom: '1rem' }}>
+        <h2>Organization data</h2>
+        <p className="muted">Download locations, staff, customers, orders, and loyalty for this organization.</p>
+        <a className="button secondary" href="/brand/export">Download organization data</a>
+      </div>
       <BrandConfigEditor initialConfig={config} updatedAt={updatedAt} />
     </>
   );

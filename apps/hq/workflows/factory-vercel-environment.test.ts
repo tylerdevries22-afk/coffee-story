@@ -69,7 +69,13 @@ describe('vercelRuntimeVariables', () => {
       'TENANT', 'SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_URL',
       'NEXT_PUBLIC_SUPABASE_ANON_KEY', 'SUPABASE_SERVICE_ROLE_KEY',
       'CRON_SECRET', 'HEALTH_CHECK_TOKEN',
+      'NEXT_PUBLIC_ORG_SURFACE_ORIGIN', 'NEXT_PUBLIC_HQ_URL',
+      'NEXT_PUBLIC_CUSTOMER_URL', 'NEXT_PUBLIC_KIOSK_URL',
+      'NEXT_PUBLIC_OPERATOR_URL', 'NEXT_PUBLIC_DISPLAY_URL',
     ]);
+    const byKey = Object.fromEntries(variables.map(({ key, value }) => [key, value]));
+    assert.equal(byKey.NEXT_PUBLIC_CUSTOMER_URL, 'https://tenant-one-hq.vercel.app/customer');
+    assert.equal(byKey.NEXT_PUBLIC_ORG_SURFACE_ORIGIN, 'https://tenant-one-hq.vercel.app');
     assert.ok(variables.every(({ target }) => (
       target.join(',') === 'production,preview'
     )));

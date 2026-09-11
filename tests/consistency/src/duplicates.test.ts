@@ -61,6 +61,7 @@ const DIVERGENT_BY_DESIGN = [
   // a customer binary names its bundled tenant, while the pre-login operator
   // must stay neutral until a staff session identifies the brand.
   'features/setup/setup.test.ts',
+  'features/setup/setup-summary.ts',
   'features/setup/setup.ts',
   // The live planes are persona-different by design: the customer bundle is
   // a guest's world through the platform API, the operator's is staff claims

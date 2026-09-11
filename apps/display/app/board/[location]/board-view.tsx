@@ -1,32 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import type { CSSProperties } from 'react';
 
-import { fetchWithRetry, startSerializedPolling } from '@platform/api-client';
-import { boardQueue, type BoardConfig, type BoardEntry } from '@platform/domain';
+import type { BoardConfig, BoardEntry } from '@platform/domain';
 import type { BoardTicketRow } from '@platform/schema';
 import { formatCopy, type BrandCopy } from '@platform/ui/copy';
 
 import { TIER_TONE_VARIABLE } from '@/lib/theme';
-import { boardFreshness, type BoardFreshness } from '@/lib/board-freshness';
-
-/** Past this without a successful read, the freshness line admits it may be stale. */
-const STALE_AFTER_MS = 90_000;
-/**
- * The reconcile interval.
- *
- * Realtime is the fast path, but it carries only a payload-free revision from
- * `board_change_signals`. The browser then reconciles through `board_tickets`;
- * it never receives an orders row. This minute heartbeat is the recovery path
- * for a dropped socket, a suspended browser, or a missed notification.
- */
-const RECONCILE_MS = 60_000;
-const DEMO_SYNC_RECONCILE_MS = 1_000;
-const TICKET_READ_TIMEOUT_MS = 5_000;
-const PRESENCE_INTERVAL_MS = 30_000;
-// Comfortably inside the interval, so a hung beat is abandoned before the next
-// one is due and the queue cannot grow.
-const PRESENCE_TIMEOUT_MS = 10_000;
+import { useBoardQueue } from './use-board-queue';
 
 export type BoardViewProps = {
   initialTickets: BoardTicketRow[];
@@ -40,109 +21,9 @@ export type BoardViewProps = {
 };
 
 export function BoardView({ initialTickets, config, copy, live, degraded, demoSynced }: BoardViewProps) {
-  const [tickets, setTickets] = useState<BoardTicketRow[]>(initialTickets);
-  const [lastRead, setLastRead] = useState(() => Date.now());
-  const [readDegraded, setReadDegraded] = useState(degraded);
-  const [now, setNow] = useState(() => Date.now());
-  const mounted = useRef(true);
-  const reconcileInFlight = useRef<Promise<void> | null>(null);
-
-  useEffect(() => {
-    mounted.current = true;
-    return () => { mounted.current = false; };
-  }, []);
-
-  // A clock, for the freshness line only.
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 5_000);
-    return () => clearInterval(id);
-  }, []);
-
-  const reconcile = useCallback(async () => {
-    if (reconcileInFlight.current) return reconcileInFlight.current;
-    const request = (async () => {
-      try {
-        const response = await fetchWithRetry(`${window.location.pathname}/tickets`, {
-          cache: 'no-store',
-          headers: { accept: 'application/json' },
-        }, TICKET_READ_TIMEOUT_MS, 2);
-        if (!response.ok) {
-          if (mounted.current) setReadDegraded(true);
-          return;
-        }
-        const next = (await response.json()) as BoardTicketRow[];
-        if (!mounted.current || !Array.isArray(next)) return;
-        // Replace outright. A missing ticket was collected; keeping it would
-        // leave a stranger's name on the wall after they walked out.
-        setTickets(next);
-        setLastRead(Date.now());
-        setReadDegraded(false);
-      } catch {
-        if (mounted.current) setReadDegraded(true);
-      }
-    })();
-    reconcileInFlight.current = request;
-    try {
-      await request;
-    } finally {
-      if (reconcileInFlight.current === request) reconcileInFlight.current = null;
-    }
-  }, []);
-
-  // Fast path: the server owns the paired device token and forwards only an
-  // invalidation event. EventSource reconnects itself when the route rotates.
-  useEffect(() => {
-    if (!live) return undefined;
-    const events = new EventSource(`${window.location.pathname}/events`);
-    events.onmessage = (event) => {
-      if (event.data !== 'heartbeat') void reconcile();
-    };
-    return () => events.close();
-  }, [live, reconcile]);
-
-  // Nothing on a wall is watching for a failed fetch, so the board re-reads on
-  // a timer and reports its own staleness rather than assuming it is current.
-  //
-  // This runs on fixtures too. The demo cycle moves, so polling it exercises
-  // the whole path for real -- which matters because this is a React component
-  // in a repo with no component renderer, making the demo the only place this
-  // loop is ever executed before a shop depends on it.
-  useEffect(() => {
-    return startSerializedPolling(reconcile, demoSynced ? DEMO_SYNC_RECONCILE_MS : RECONCILE_MS);
-  }, [demoSynced, reconcile]);
-
-  useEffect(() => {
-    if (!live) return undefined;
-    // Bounded, unlike every other outbound call's helper: a wall screen sits on
-    // a shop network that fails by hanging rather than refusing, and an unbounded
-    // heartbeat on a setInterval accumulates pending requests for as long as the
-    // outage lasts. One deadline, no retry -- the next tick is the retry, and a
-    // presence beat that missed its window is worthless by the time it lands.
-    const heartbeat = () => {
-      const abort = new AbortController();
-      const deadline = setTimeout(() => abort.abort(), PRESENCE_TIMEOUT_MS);
-      void fetch(`${window.location.pathname}/presence`, {
-        method: 'POST', cache: 'no-store', keepalive: true, signal: abort.signal,
-      }).catch(() => undefined).finally(() => clearTimeout(deadline));
-    };
-    heartbeat();
-    const id = setInterval(heartbeat, PRESENCE_INTERVAL_MS);
-    return () => clearInterval(id);
-  }, [live]);
-
-  const queue = useMemo(() => boardQueue(tickets, config), [tickets, config]);
-
-  // In fixtures mode nothing ever refreshes `lastRead` against a database, so
-  // measuring staleness against it would put "Reconnecting" on a demo board
-  // and leave it there -- announcing a failure of a connection that was never
-  // supposed to exist. The three states are distinct on purpose.
-  const freshness: BoardFreshness = boardFreshness(
-    live,
-    readDegraded,
-    lastRead,
-    now,
-    STALE_AFTER_MS,
-  );
+  const { queue, freshness } = useBoardQueue({
+    initialTickets, config, live, degraded, demoSynced,
+  });
 
   // Always through formatCopy: it is the one accessor that falls back to the
   // key rather than to `undefined`, so a dictionary missing an entry shows a
@@ -286,4 +167,4 @@ function Ticket({ entry, copy }: { entry: BoardEntry; copy: BrandCopy }) {
   );
 }
 
-export { STALE_AFTER_MS, RECONCILE_MS, DEMO_SYNC_RECONCILE_MS };
+export { STALE_AFTER_MS, RECONCILE_MS, DEMO_SYNC_RECONCILE_MS } from './use-board-queue';

@@ -47,6 +47,7 @@ function fixture(t: TestContext, options: {
         return response({
           quoted_fee_cents: 30,
           quoted_fee_bps_applied: 300,
+          quote_claim_created: true,
           quote_claim_generation: 'claim-a',
         });
       }

@@ -51,7 +51,7 @@ describe('consoleSectionsFor', () => {
       '/apps/display',
       '/catalog',
       '/menu/import',
-      '/kiosk',
+      '/kiosk-flow',
       '/storage',
       '/training',
       '/knowledge',
@@ -169,7 +169,7 @@ describe('consoleSectionsFor', () => {
     assert.ok(managerDestinations.includes('/training'));
     assert.equal(managerDestinations.includes('/brand'), false);
     assert.ok(ownerDestinations.includes('/catalog'));
-    assert.ok(ownerDestinations.includes('/kiosk'));
+    assert.ok(ownerDestinations.includes('/kiosk-flow'));
     assert.ok(ownerDestinations.includes('/brand'));
     assert.ok(ownerDestinations.includes('/staff'));
     assert.equal(ownerDestinations.includes('/fees'), false);

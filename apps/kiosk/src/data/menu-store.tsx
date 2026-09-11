@@ -1,17 +1,11 @@
 /**
  * The live menu, and what a screen draws while it is not there.
  *
- * Reads through `@platform/data`'s `fetchMenuTree` — the same read the
- * customer app and the operator app make — so there is one assembly of the
- * menu tree rather than a fourth. `subscribeToMenu` then keeps it current:
- * migration 0027 published `menu_items`, `menu_categories` and `drops` so that
- * "a change made once should appear on every kiosk and display at once", and
- * until this existed nothing subscribed, so 86'ing an item reached no screen.
+ * Reads through the shared menu assembly and subscribes to its change signal.
  *
  * Three states a screen has to tell apart, and the middle one is the point:
  *
- *   demo         nothing configured. The bundled catalog, for the web export
- *                and the capture recipes.
+ *   demo         nothing configured; use the bundled capture catalog.
  *   live         real rows, kept current.
  *   unavailable  configured, but the read failed.
  *
@@ -21,39 +15,26 @@
  * to know. A kiosk that cannot read its menu says so and keeps retrying.
  */
 import {
-  fetchBrandBySlug, fetchBrandConfig, fetchMenuTree, readWithRetry, subscribeToBrandConfig,
+  fetchBrandConfig, fetchMenuTree, readWithRetry, subscribeToBrandConfig,
   subscribeToLocationSettings, subscribeToMenu,
 } from '@platform/data';
 import { EMPTY_KIOSK_MENU, type KioskMenu } from '@platform/domain';
 import {
-  createContext, useCallback, useContext, useEffect, useMemo, useRef, useState,
+  useCallback, useContext, useEffect, useMemo, useRef, useState,
   type PropsWithChildren,
 } from 'react';
 
-import { demoMenu, kioskMenuFromRows } from '@/data/menu-source';
+import { kioskMenuFromRows } from '@/data/menu-source';
+import {
+  DEMO_MENU, kioskConfigOf, MenuContext, RETRY_MS,
+  type KioskMenuStatus, type KioskMenuValue,
+} from '@/data/menu-store-context';
+import { useKioskBrand } from '@/data/use-kiosk-brand';
 import { hasSupabaseConfig, supabase } from '@/lib/supabase';
 import { useDevice } from '@/state/device';
 import { TENANT_BRAND_CONFIG } from '@/tenant';
 
-export type KioskMenuStatus = 'demo' | 'loading' | 'live' | 'paused' | 'unavailable';
-
-export type KioskMenuValue = {
-  menu: KioskMenu;
-  status: KioskMenuStatus;
-  /** The resolved tenant kiosk flow. Updated through a payload-free signal. */
-  kioskConfig: unknown;
-  /** Read again now — the retry affordance on the unavailable screen. */
-  refresh: () => void;
-};
-
-const DEMO_MENU = demoMenu();
-
-const MenuContext = createContext<KioskMenuValue>({
-  menu: DEMO_MENU, status: 'demo', kioskConfig: TENANT_BRAND_CONFIG.kiosk, refresh: () => {},
-});
-
-/** Backoff between failed reads. A kiosk retries all day; it must not spin. */
-const RETRY_MS = [1_000, 4_000, 15_000, 60_000] as const;
+export type { KioskMenuStatus, KioskMenuValue } from '@/data/menu-store-context';
 
 export function MenuProvider({ children }: PropsWithChildren) {
   const { brandId: deviceBrandId, locationId: deviceLocationId } = useDevice();
@@ -63,51 +44,16 @@ export function MenuProvider({ children }: PropsWithChildren) {
   const [nonce, setNonce] = useState(0);
   const failures = useRef(0);
   const locationFailures = useRef(0);
-  const brandFailures = useRef(0);
-  const [brandRetrySeq, setBrandRetrySeq] = useState(0);
+  const { brandId, locationId, retry: retryBrand } = useKioskBrand({
+    deviceBrandId, deviceLocationId, setKioskConfig, setStatus,
+  });
 
   const refresh = useCallback(() => {
     failures.current = 0;
     locationFailures.current = 0;
-    brandFailures.current = 0;
-    setBrandRetrySeq((value) => value + 1);
+    retryBrand();
     setNonce((n) => n + 1);
-  }, []);
-
-  // A paired device names its own brand. Before pairing there is still a
-  // tenant — this binary is built per brand — so the slug resolves one, which
-  // is what lets a kiosk be set up and previewed before it is paired.
-  const [resolvedBrandId, setResolvedBrandId] = useState<string | null>(null);
-  const [resolvedLocationId, setResolvedLocationId] = useState<string | null>(null);
-  const brandId = deviceBrandId ?? resolvedBrandId;
-  const locationId = deviceLocationId ?? resolvedLocationId;
-
-  useEffect(() => {
-    if (!supabase || deviceBrandId !== null || resolvedBrandId !== null) return;
-    let alive = true;
-    let retry: ReturnType<typeof setTimeout> | null = null;
-    void fetchBrandBySlug(supabase, TENANT_BRAND_CONFIG.identity.slug)
-      .then((summary) => {
-        if (!alive) return;
-        if (!summary) throw new Error('The configured brand is unavailable.');
-        brandFailures.current = 0;
-        setStatus('loading');
-        setKioskConfig(kioskConfigOf(summary.brand.brand_config));
-        setResolvedBrandId(summary.brand.id);
-        setResolvedLocationId(summary.locations[0]?.id ?? null);
-      })
-      .catch(() => {
-        if (!alive) return;
-        setStatus('unavailable');
-        const wait = RETRY_MS[Math.min(brandFailures.current, RETRY_MS.length - 1)] ?? 60_000;
-        brandFailures.current += 1;
-        retry = setTimeout(() => setBrandRetrySeq((value) => value + 1), wait);
-      });
-    return () => {
-      alive = false;
-      if (retry) clearTimeout(retry);
-    };
-  }, [deviceBrandId, resolvedBrandId, brandRetrySeq]);
+  }, [retryBrand]);
 
   useEffect(() => {
     const client = supabase;
@@ -247,12 +193,6 @@ export function MenuProvider({ children }: PropsWithChildren) {
 
   const value = useMemo<KioskMenuValue>(() => ({ menu, status, kioskConfig, refresh }), [menu, status, kioskConfig, refresh]);
   return <MenuContext.Provider value={value}>{children}</MenuContext.Provider>;
-}
-
-function kioskConfigOf(config: unknown): unknown {
-  if (typeof config !== 'object' || config === null || Array.isArray(config)) return null;
-  const kiosk = (config as Record<string, unknown>).kiosk;
-  return typeof kiosk === 'object' && kiosk !== null && !Array.isArray(kiosk) ? kiosk : null;
 }
 
 export function useKioskMenu(): KioskMenuValue {
