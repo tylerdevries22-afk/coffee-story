@@ -52,7 +52,7 @@ insert into public.drops (
    '2029-12-29', '2029-12-30', '2029-12-31', 'scheduled'),
   ('eeeeeeee-4000-4000-8000-000000000005',
    'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
-   null, '2029-12-30', '2029-12-31', '2029-12-31', 'cancelled');
+   'eeeeeeee-3000-4000-8000-000000000001', '2029-12-30', '2029-12-31', '2029-12-31', 'cancelled');
 
 set local role service_role;
 select throws_ok(
