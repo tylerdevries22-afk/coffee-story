@@ -7,14 +7,6 @@ import {
   requestedTenant,
 } from './preview-wall-config';
 
-type RawLaunch = {
-  name?: unknown;
-  runtimeExecutable?: unknown;
-  runtimeArgs?: unknown;
-  env?: unknown;
-  port?: unknown;
-};
-
 export type WallLaunch = Readonly<{
   name: string;
   executable: string;
@@ -41,12 +33,13 @@ function stringRecord(value: unknown): Record<string, string> | null {
   return candidate as Record<string, string>;
 }
 
-function launchEntry(value: RawLaunch): Omit<WallLaunch, 'url'> {
-  const args = Array.isArray(value.runtimeArgs) ? value.runtimeArgs : [];
+function launchEntry(input: unknown): Omit<WallLaunch, 'url'> {
+  const value = record(input) ?? {};
+  const args = value.runtimeArgs;
   const env = value.env === undefined ? {} : stringRecord(value.env);
   if (typeof value.name !== 'string' || value.name.length === 0
     || typeof value.runtimeExecutable !== 'string' || value.runtimeExecutable.length === 0
-    || !args.every((arg) => typeof arg === 'string') || env === null
+    || !Array.isArray(args) || !args.every((arg) => typeof arg === 'string') || env === null
     || !Number.isInteger(value.port) || Number(value.port) < 1 || Number(value.port) > 65_535) {
     throw new Error('Every wall launch entry needs a name, executable, string arguments, environment, and port.');
   }
@@ -64,16 +57,21 @@ export function parseWallLauncherArgs(
   environmentTenant: string | undefined,
 ): WallLauncherArgs {
   const supported = new Set(['--tenant', '--rebuild']);
+  const seen = new Set<string>();
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index];
-    if (!argument || supported.has(argument)) {
+    if (argument && supported.has(argument)) {
+      if (seen.has(argument)) throw new Error(`Duplicate wall launcher option "${argument}".`);
+      seen.add(argument);
       if (argument === '--tenant') index += 1;
       continue;
     }
     throw new Error(`Unsupported wall launcher option "${argument}".`);
   }
+  const tenant = requestedTenant(args, environmentTenant);
+  if (tenant) parseBuildContext({ tenantKey: tenant });
   return {
-    requestedTenant: requestedTenant(args, environmentTenant),
+    requestedTenant: tenant,
     rebuild: args.includes('--rebuild'),
   };
 }
@@ -81,7 +79,15 @@ export function parseWallLauncherArgs(
 export function readBuiltTenant(root: string): string | undefined {
   const path = join(root, 'apps', 'customer', 'dist-web', 'wall-build-context.json');
   if (!existsSync(path)) return undefined;
-  return parseBuildContext(JSON.parse(readFileSync(path, 'utf8')) as unknown);
+  let context: unknown;
+  try {
+    context = JSON.parse(readFileSync(path, 'utf8')) as unknown;
+  } catch {
+    throw new Error('The wall build context is unreadable; run a full preview export.');
+  }
+  const tenant = parseBuildContext(context);
+  return ['customer', 'operator', 'kiosk'].every((app) =>
+    existsSync(join(root, 'apps', app, 'dist-web', 'index.html'))) ? tenant : undefined;
 }
 
 export function previewCommandArgs(
@@ -95,15 +101,19 @@ export function previewCommandArgs(
 }
 
 export function wallLaunchPlan(root: string, tenant: string): WallLaunch[] {
+  parseBuildContext({ tenantKey: tenant });
   const launchDocument = JSON.parse(
     readFileSync(join(root, '.claude', 'launch.json'), 'utf8'),
   ) as unknown;
   const launchRecord = record(launchDocument);
   const rawEntries = launchRecord?.configurations;
   if (!Array.isArray(rawEntries)) throw new Error('.claude/launch.json needs a configurations list.');
-  const entries = rawEntries.map((entry) => launchEntry(entry as RawLaunch));
+  const entries = rawEntries.map(launchEntry);
   const byName = new Map(entries.map((entry) => [entry.name, entry]));
   if (byName.size !== entries.length) throw new Error('Wall launch names must be unique.');
+  if (new Set(entries.map(({ port }) => port)).size !== entries.length) {
+    throw new Error('Wall launch ports must be unique.');
+  }
 
   const wall = parseWallSource(JSON.parse(
     readFileSync(join(root, 'tools', 'preview-wall', 'surfaces.json'), 'utf8'),

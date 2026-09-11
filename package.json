@@ -5,8 +5,9 @@
   "scripts": {
     "lint": "pnpm -r --workspace-concurrency=1 lint && eslint scripts --max-warnings=0",
     "typecheck": "pnpm -r --workspace-concurrency=1 typecheck && tsc -p scripts",
-    "test": "pnpm -r --workspace-concurrency=1 test",
-    "verify": "pnpm audit:tokens && pnpm audit:brand && pnpm lint && tsc -p scripts && pnpm -r --workspace-concurrency=1 verify",
+    "test": "pnpm test:scripts && pnpm -r --workspace-concurrency=1 test",
+    "test:scripts": "tsx --test \"scripts/**/*.test.ts\" \"scripts/**/*.test.mjs\"",
+    "verify": "pnpm audit:tokens && pnpm audit:brand && pnpm lint && tsc -p scripts && pnpm test:scripts && pnpm -r --workspace-concurrency=1 verify",
     "mutate": "tsx scripts/mutate.ts",
     "preview": "tsx scripts/preview.ts",
     "wall:start": "tsx scripts/wall-launch.ts",
