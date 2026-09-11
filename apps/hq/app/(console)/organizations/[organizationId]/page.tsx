@@ -99,11 +99,14 @@ export default async function OrganizationReadinessPage({ params, searchParams }
           The organization was provisioned, but factory automation did not start. Resume it from Onboarding.
         </div>
       ) : null}
-      {query.lifecycle && LIFECYCLE_NOTICES[query.lifecycle] ? (
-        <div className={LIFECYCLE_NOTICES[query.lifecycle].failed ? 'notice danger' : 'notice'} role="status">
-          {LIFECYCLE_NOTICES[query.lifecycle].message}
-        </div>
-      ) : null}
+      {(() => {
+        const lifecycleNotice = query.lifecycle ? LIFECYCLE_NOTICES[query.lifecycle] : undefined;
+        return lifecycleNotice ? (
+          <div className={lifecycleNotice.failed ? 'notice danger' : 'notice'} role="status">
+            {lifecycleNotice.message}
+          </div>
+        ) : null;
+      })()}
       <div className="card readiness-summary">
         <div>
           <span className={statusClass(brand.status)}>{brand.status}</span>
