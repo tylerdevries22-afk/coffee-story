@@ -35,7 +35,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "framer-motion": "^13.1.1",
-    "franchise-mcp-store-ui": "https://github.com/tylerdevries22-afk/franchise-mcp-store-ui/releases/download/v1.3.0/franchise-mcp-store-ui-1.3.0.tgz",
+    "franchise-mcp-store-ui": "github:tylerdevries22-afk/franchise-mcp-store-ui#9734ee3d75215ebbfb1fa6a005591083745edf90",
     "libsodium-wrappers": "0.8.4",
     "next": "~15.5.25",
     "react": "19.1.0",

@@ -30,7 +30,18 @@ describe('connector OAuth route authorization', () => {
     assert.match(callback, /mcpCookieBindingMatches\(/);
   });
 
+  it('documents PKCE verifier currently lives in the authorize cookie (contract divergence)', () => {
+    // Package adoption.md: never put the code verifier into the host cookie.
+    // CS still embeds material.codeVerifier alongside binding — track until Vault migration.
+    assert.match(route('authorize'), /verifier:\s*material\.codeVerifier/);
+    assert.match(helper, /binding,\s*verifier/);
+  });
+
+  // Target contract after Vault-backed PKCE migration (see docs/mcp-hosts-adopt-20260911/PLAN.md).
+  it.todo('authorize Set-Cookie payload must not contain the PKCE code verifier');
+
   it('uses mutable Next.js redirect responses before setting private cookies', () => {
+
     for (const name of ['authorize', 'callback'] as const) {
       assert.match(route(name), /import \{ NextResponse \} from 'next\/server'/);
       assert.match(route(name), /NextResponse\.redirect\(/);
