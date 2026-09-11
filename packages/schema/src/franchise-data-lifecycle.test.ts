@@ -12,6 +12,10 @@ const brandExport = readFileSync(
   join(dirname(fileURLToPath(import.meta.url)), '../../../supabase/migrations/20260911130000_brand_organization_export.sql'),
   'utf8',
 );
+const locationDeleteHarden = readFileSync(
+  join(dirname(fileURLToPath(import.meta.url)), '../../../supabase/migrations/20260911140000_harden_location_delete.sql'),
+  'utf8',
+);
 
 describe('franchise data lifecycle', () => {
   it('exports guest data without raw push tokens and keeps the RPC service-role only', () => {
@@ -39,6 +43,14 @@ describe('franchise data lifecycle', () => {
     assert.match(migration, /last_location_protected/);
     assert.match(migration, /app\.is_brand_owner/);
     assert.match(migration, /grant execute on function public\.delete_location_if_allowed\(uuid\) to authenticated/);
+  });
+
+  it('blocks deleting locations that still have order history and audits the delete', () => {
+    assert.match(locationDeleteHarden, /location_has_commerce_history/);
+    assert.match(locationDeleteHarden, /from public\.orders ord/);
+    assert.match(locationDeleteHarden, /locations\.delete/);
+    assert.match(locationDeleteHarden, /platform_access_events/);
+    assert.match(locationDeleteHarden, /register_release\(\s*'20260911140000'/);
   });
 });
 
