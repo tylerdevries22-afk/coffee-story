@@ -16,6 +16,10 @@ const locationDeleteHarden = readFileSync(
   join(dirname(fileURLToPath(import.meta.url)), '../../../supabase/migrations/20260911140000_harden_location_delete.sql'),
   'utf8',
 );
+const exportHarden = readFileSync(
+  join(dirname(fileURLToPath(import.meta.url)), '../../../supabase/migrations/20260911150000_harden_franchise_exports.sql'),
+  'utf8',
+);
 
 describe('franchise data lifecycle', () => {
   it('exports guest data without raw push tokens and keeps the RPC service-role only', () => {
@@ -64,5 +68,14 @@ describe('brand organization export', () => {
     assert.match(brandExport, /revoke all on function public\.export_brand_organization_data\(uuid\) from public, anon/);
     assert.match(brandExport, /grant execute on function public\.export_brand_organization_data\(uuid\) to authenticated/);
     assert.match(brandExport, /register_release\(\s*'20260911130000'/);
+  });
+
+  it('audits brand export, caps order payload, and subject-binds guest export', () => {
+    assert.match(exportHarden, /brands\.export/);
+    assert.match(exportHarden, /orders_truncated/);
+    assert.match(exportHarden, /limit order_limit/);
+    assert.match(exportHarden, /export_subject_mismatch/);
+    assert.match(exportHarden, /jwt_role = 'service_role'/);
+    assert.match(exportHarden, /register_release\(\s*'20260911150000'/);
   });
 });
