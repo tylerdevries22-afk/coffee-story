@@ -30,6 +30,12 @@ const CONNECT_FAILURES: Record<string, string> = {
     'Square did not complete the authorization exchange. This shop was not connected — start again from Locations.',
   storage_failed:
     'Square authorized the request, but the encrypted connection could not be stored. The issued token was revoked; try connecting again.',
+  in_flight:
+    'Square cannot be changed while a payment or refund is being reconciled. The existing connection is unchanged; try again after that work finishes.',
+  connection_changed:
+    'The Square connection changed while this request was open. The new token was cleaned up; reload Locations before trying again.',
+  storage_ambiguous:
+    'Square connection storage could not be confirmed. Do not retry this connection until an operator resolves the pending transition.',
 };
 
 const CONNECT_WARNINGS: Record<string, string> = {
@@ -40,24 +46,24 @@ const CONNECT_WARNINGS: Record<string, string> = {
 };
 
 /**
- * What a disconnect leaves behind, in the two states it can end in.
- *
- * `local_only` is not a failure of the disconnect -- the shop is disconnected
- * either way -- but it leaves the owner a job only they can do, so it is
- * styled as a warning rather than a confirmation.
+ * What a disconnect leaves behind.
  */
 const DISCONNECTS: Record<string, SquareConnectNotice> = {
   revoked: {
     failed: false,
     message: 'Square is disconnected and the token was revoked at Square. This location can no longer take card payments.',
   },
-  local_only: {
+  in_flight: {
     failed: true,
-    message: 'Square is disconnected here, but Square did not confirm the revocation. That token can stay usable for the rest of its thirty days — revoke this app from your Square dashboard to be certain.',
+    message: 'Square cannot be disconnected while a payment or refund is being reconciled. The connection is unchanged; try again after that work finishes.',
+  },
+  changed: {
+    failed: true,
+    message: 'The Square connection changed while disconnect started. Nothing was revoked; reload Locations before trying again.',
   },
   stranded: {
     failed: true,
-    message: 'Square was told to revoke this token, but the connection could not be cleared here. This location cannot take card payments until it is — disconnect it again.',
+    message: 'Square revocation or local cleanup could not be confirmed. The connection is fenced for operator review; do not retry card setup yet.',
   },
   failed: {
     failed: true,

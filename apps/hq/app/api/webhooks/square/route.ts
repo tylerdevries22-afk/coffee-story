@@ -9,6 +9,7 @@ import {
   recordWebhookFailure,
   type WebhookFailureStage,
 } from '../../../../lib/webhook-diagnostics';
+import { squareWebhookLocationMatches } from '../../../../lib/square-webhook-location';
 
 const DATABASE_TIMEOUT_MS = 8_000;
 
@@ -109,18 +110,20 @@ export async function POST(request: Request): Promise<Response> {
   const grossCents = order.total_cents - order.stored_value_applied_cents;
   if (mapped.orderStatus === 'paid' && (
     !Number.isSafeInteger(grossCents) || grossCents < 0
+    || !mapped.squareOrderId
     || !mapped.squarePaymentId
+    || !mapped.squareLocationId
     || mapped.settledGrossCents !== grossCents
     || mapped.settledFeeCents === undefined || mapped.settledFeeCents > grossCents
   )) return new Response('Invalid payment settlement amounts', { status: 422 });
-
-  // Never acknowledge money on a locally cancelled order. New hosted-card
-  // orders cannot be guest-cancelled, but this also protects older rows and
-  // staff/provider races: the delivery remains unresolved and diagnosed for
-  // reconciliation instead of being stamped processed with no paid event.
-  if (mapped.orderStatus === 'paid' && order.status === 'cancelled') {
-    return failure('order_event', new Error('Square settled a cancelled order'),
-      'Cancelled order requires payment reconciliation', 409, order);
+  if (mapped.orderStatus === 'paid') {
+    try {
+      if (!await squareWebhookLocationMatches(db, order, mapped.squareLocationId as string)) {
+        return new Response('Invalid payment settlement location', { status: 422 });
+      }
+    } catch (error) {
+      return failure('resolve_order', error, 'Could not verify payment location', 503, order);
+    }
   }
 
   if (mapped.orderStatus === 'refunded') {
@@ -150,6 +153,7 @@ export async function POST(request: Request): Promise<Response> {
     const settled = await db.rpc('record_square_payment_settlement', {
       target_order: order.id,
       square_event: mapped.squareEventId,
+      square_order: mapped.squareOrderId,
       square_payment: mapped.squarePaymentId,
       settled_fee_cents: mapped.settledFeeCents,
       square_event_type: event.type ?? 'payment.updated',

@@ -14,8 +14,9 @@
 export * from './orders/types';
 export * from './orders/request';
 export * from './orders/create-order';
-export { recordPlatformFee } from './orders/platform-fees';
 export * from './orders/square-lines';
+export * from './orders/square-card-funding';
+export * from './orders/square-link-response';
 export * from './orders/capture-payment';
 export * from './orders/checkout-link';
 export * from './orders/cancel-order';

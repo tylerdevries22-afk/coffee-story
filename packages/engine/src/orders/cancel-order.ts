@@ -76,6 +76,10 @@ export async function cancelOrder(
     source: 'customer',
   });
   if (error) {
+    if (/square_card_payment_in_flight/i.test(error.message)) {
+      throw new OrderError('cancel_unavailable',
+        'This card payment may still complete. Retry shortly or ask the shop to cancel it safely.');
+    }
     // The barista started it between the read and the write: the trigger
     // refuses the transition. Only that gets the counter sentence — every
     // other failure is an infrastructure problem, and claiming the shop

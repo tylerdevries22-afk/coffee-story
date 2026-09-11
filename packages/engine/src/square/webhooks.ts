@@ -39,7 +39,7 @@ export type SquareEvent = {
   data?: {
     object?: {
       payment?: {
-        id?: string; status?: string; order_id?: string;
+        id?: string; status?: string; order_id?: string; location_id?: string;
         total_money?: { amount?: number; currency?: string };
         app_fee_money?: { amount?: number; currency?: string };
       };
@@ -60,6 +60,7 @@ export type MappedEvent = {
   orderStatus: OrderStatus | null;
   squareOrderId: string | null;
   squarePaymentId: string | null;
+  squareLocationId: string | null;
   /** The underlying refund id, stable across Square delivery event ids. */
   squareRefundId: string | null;
   /**
@@ -93,13 +94,15 @@ export function mapSquareEvent(event: SquareEvent): MappedEvent | null {
     if (settledFeeCents === null) return null;
     const completed = object.payment.status === 'COMPLETED';
     const settledGrossCents = completed ? squareUsdCents(object.payment.total_money) : undefined;
-    if (completed && (!object.payment.id || settledGrossCents === null)) return null;
+    if (completed && (!object.payment.id || !object.payment.order_id
+      || !object.payment.location_id || settledGrossCents === null)) return null;
     return {
       settledFeeCents, settledGrossCents: settledGrossCents ?? undefined,
       squareEventId: id,
       orderStatus: completed ? 'paid' : null,
       squareOrderId: object.payment.order_id ?? null,
       squarePaymentId: object.payment.id ?? null,
+      squareLocationId: object.payment.location_id ?? null,
       squareRefundId: null,
       refundedCents: null,
       kind: 'payment',
@@ -111,6 +114,7 @@ export function mapSquareEvent(event: SquareEvent): MappedEvent | null {
       orderStatus: object.refund.status === 'COMPLETED' ? 'refunded' : null,
       squareOrderId: null,
       squarePaymentId: object.refund.payment_id ?? null,
+      squareLocationId: null,
       squareRefundId: object.refund.id ?? null,
       refundedCents: typeof object.refund.amount_money?.amount === 'number'
         ? object.refund.amount_money.amount
@@ -124,6 +128,7 @@ export function mapSquareEvent(event: SquareEvent): MappedEvent | null {
       orderStatus: object.order.state === 'CANCELED' ? 'cancelled' : null,
       squareOrderId: object.order.id ?? null,
       squarePaymentId: null,
+      squareLocationId: null,
       squareRefundId: null,
       refundedCents: null,
       kind: 'order',
@@ -134,6 +139,7 @@ export function mapSquareEvent(event: SquareEvent): MappedEvent | null {
     orderStatus: null,
     squareOrderId: null,
     squarePaymentId: null,
+    squareLocationId: null,
     squareRefundId: null,
     refundedCents: null,
     kind: 'ignored',

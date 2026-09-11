@@ -32,7 +32,10 @@ it('reports optional Square maintenance as unconfigured without credentials', as
 
   assert.equal(result.configured, false);
   assert.equal(result.checkoutLinks.scanned, 0);
+  assert.equal(result.cardPayments.scanned, 0);
+  assert.equal(result.paymentRemediations.scanned, 0);
   assert.equal(result.retirements.scanned, 0);
+  assert.equal(result.alerts.scanFailed, true);
 });
 
 it('runs every configured Square lifecycle scan and combines its results', async (t) => {
@@ -56,7 +59,7 @@ it('runs every configured Square lifecycle scan and combines its results', async
     },
     rpc: async (name: string) => {
       calls.push(name);
-      return { data: [], error: null };
+      return { data: name.startsWith('count_') ? 0 : [], error: null };
     },
   } as unknown as SupabaseClient;
 
@@ -67,8 +70,18 @@ it('runs every configured Square lifecycle scan and combines its results', async
     'square_connections',
     'square_access_token_retirements',
     'claim_due_square_checkout_quotes',
+    'claim_due_square_card_quotes',
+    'claim_due_square_payment_remediations',
+    'count_square_payment_remediation_alerts',
+    'count_square_payment_validation_alerts',
+    'count_square_connection_mutation_alerts',
   ]);
   assert.equal(result.scanned, 0);
   assert.equal(result.retirements.scanned, 0);
   assert.equal(result.checkoutLinks.scanned, 0);
+  assert.equal(result.cardPayments.scanned, 0);
+  assert.equal(result.paymentRemediations.scanned, 0);
+  assert.deepEqual(result.alerts,
+    { paymentRemediations: 0, paymentValidations: 0,
+      connectionMutations: 0, scanFailed: false });
 });

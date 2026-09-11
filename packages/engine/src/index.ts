@@ -11,4 +11,5 @@ export * from './http';
 export * from './jobs';
 export * from './orders';
 export * from './square/client';
+export * from './square/payment-receipt';
 export * from './square/webhooks';

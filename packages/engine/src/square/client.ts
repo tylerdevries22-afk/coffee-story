@@ -9,7 +9,13 @@ export type { OAuthTokens, SquareTokenState } from './oauth';
 export { listSquareLocations, chooseSquareLocation } from './merchant-locations';
 export type { SquareMerchantLocation, SquareLocationRefusal, SquareLocationChoice } from './merchant-locations';
 export {
-  createSquareOrder, createPaymentLink, deletePaymentLink, retrieveSquareOrder,
+  cancelSquareOrder, createSquareOrder, createPaymentLink, deletePaymentLink, retrieveSquareOrder,
 } from './order-api';
-export type { SquareOrderLine } from './order-api';
-export { createSquarePayment, getSquarePayment, refundSquarePayment } from './payment-api';
+export type {
+  SquareOrderLine, SquareOrderSnapshot, SquarePaymentLinkResponse,
+} from './order-api';
+export {
+  cancelSquarePaymentByIdempotencyKey, createSquarePayment, getSquarePayment, getSquareRefund,
+  refundSquarePayment,
+} from './payment-api';
+export type { SquareRefundReceipt } from './payment-api';
