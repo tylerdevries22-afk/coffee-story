@@ -168,41 +168,32 @@ const RESOLVERS: Readonly<Record<OAuthConnectorKey, IdentityResolver>> = {
   'quickbooks-online': (token, realmId, options) => quickbooksIdentity(token, realmId, options),
 };
 
-export async function verifyConnectorIdentity(
-  key: OAuthConnectorKey,
-  token: ConnectorToken,
-  realmId: string | null,
-  options: ConnectorReadOptions = {},
+async function resolveIdentity(
+  table: Readonly<Record<OAuthConnectorKey, IdentityResolver>>,
+  key: OAuthConnectorKey, token: ConnectorToken, realmId: string | null,
+  options: ConnectorReadOptions, cleanup = false,
 ): Promise<ConnectorIdentity> {
-  const resolver = RESOLVERS[key];
+  const resolver = table[key];
   if (!resolver) throw new ConnectorIdentityError();
   const resolved = await resolver(token, realmId, options);
-  if (!resolved) throw new ConnectorIdentityError();
+  if (!resolved) throw new ConnectorIdentityError('payload', cleanup);
   return resolved;
 }
 
-export async function verifyConnectorCleanupIdentity(
-  key: OAuthConnectorKey,
-  token: ConnectorToken,
-  realmId: string | null,
+const CLEANUP_RESOLVERS: Readonly<Record<OAuthConnectorKey, IdentityResolver>> = {
+  ...RESOLVERS,
+  'google-suite': (token, _realmId, options) => googleGrantIdentity(token, options),
+  youtube: (token, _realmId, options) => googleGrantIdentity(token, options),
+  slack: (token, _realmId, options) => slackIdentity(token, options, false),
+  tiktok: (token, _realmId, options) => tiktokIdentity(token, options, false),
+};
+
+export const verifyConnectorIdentity = (
+  key: OAuthConnectorKey, token: ConnectorToken, realmId: string | null,
   options: ConnectorReadOptions = {},
-): Promise<ConnectorIdentity> {
-  const resolver = key === 'google-suite' || key === 'youtube'
-    ? googleGrantIdentity
-    : key === 'slack'
-      ? (
-        credential: ConnectorToken,
-        _realmId: string | null,
-        readOptions: ConnectorReadOptions,
-      ) => slackIdentity(credential, readOptions, false)
-      : key === 'tiktok'
-        ? (
-          credential: ConnectorToken,
-          _realmId: string | null,
-          readOptions: ConnectorReadOptions,
-        ) => tiktokIdentity(credential, readOptions, false)
-      : RESOLVERS[key];
-  const resolved = await resolver(token, realmId, options);
-  if (!resolved) throw new ConnectorIdentityError('payload', true);
-  return resolved;
-}
+) => resolveIdentity(RESOLVERS, key, token, realmId, options);
+
+export const verifyConnectorCleanupIdentity = (
+  key: OAuthConnectorKey, token: ConnectorToken, realmId: string | null,
+  options: ConnectorReadOptions = {},
+) => resolveIdentity(CLEANUP_RESOLVERS, key, token, realmId, options, true);
