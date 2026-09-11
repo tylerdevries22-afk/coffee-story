@@ -47,7 +47,7 @@ select is(pg_temp.publish_current(
   '4111111111111111111111111111111111111111','vercel:aba-a','github:aba-a'),
   'e2000000-0000-4000-8000-000000000001'::uuid,'A publishes');
 select set_config('test.a_published',(select published_at::text
-  from public.tenant_package_publications),true);
+  from public.tenant_package_publications where brand_id='e1000000-0000-4000-8000-000000000001'),true);
 select public.record_organization_readiness(
   'e1000000-0000-4000-8000-000000000001','tenant_artifacts',true,
   '{"artifactDigest":"sha256:2222222222222222222222222222222222222222222222222222222222222222"}');
@@ -68,7 +68,7 @@ select is(public.confirm_tenant_package_publication_compensation(
   '4222222222222222222222222222222222222222','vercel:aba-b1','github:aba-b1'),
   'confirmed'::text,'B first provider rollback confirms');
 select is((select status from public.organization_readiness_checks
-  where check_key='release_approval'),'passed'::text,'A is approved after first confirmation');
+  where brand_id='e1000000-0000-4000-8000-000000000001' and check_key='release_approval'),'passed'::text,'A is approved after first confirmation');
 select lives_ok($q$select public.record_organization_readiness(
   'e1000000-0000-4000-8000-000000000001','tenant_artifacts',true,
   '{"artifactDigest":"sha256:2222222222222222222222222222222222222222222222222222222222222222"}')$q$,
@@ -86,27 +86,27 @@ select is(public.compensate_tenant_package_publication(
   '4111111111111111111111111111111111111111',current_setting('test.a_published')::timestamptz),
   'compensated'::text,'newer B compensation restores A');
 select is((select status from public.organization_readiness_checks
-  where check_key='release_approval'),'failed'::text,'newer compensation is pending');
+  where brand_id='e1000000-0000-4000-8000-000000000001' and check_key='release_approval'),'failed'::text,'newer compensation is pending');
 select throws_ok($q$select public.confirm_tenant_package_publication_compensation(
   'e1000000-0000-4000-8000-000000000001','e2000000-0000-4000-8000-000000000002',
   '4222222222222222222222222222222222222222','vercel:aba-b1','github:aba-b1')$q$,
   '23514','tenant_package_compensation_conflict','stale confirmation cannot pass readiness');
 select is((select status from public.organization_readiness_checks
-  where check_key='release_approval'),'failed'::text,'stale confirmation leaves readiness failed');
+  where brand_id='e1000000-0000-4000-8000-000000000001' and check_key='release_approval'),'failed'::text,'stale confirmation leaves readiness failed');
 select is((select evidence->>'providerRollbackPending' from public.organization_readiness_checks
-  where check_key='release_approval'),'true'::text,'newer rollback remains pending');
+  where brand_id='e1000000-0000-4000-8000-000000000001' and check_key='release_approval'),'true'::text,'newer rollback remains pending');
 select throws_ok($q$select public.compensate_tenant_package_publication(
   'e1000000-0000-4000-8000-000000000001','e2000000-0000-4000-8000-000000000001',
   '4111111111111111111111111111111111111111','vercel:aba-a','github:aba-a',
   'vercel:aba-a-rb','github:aba-a-rb',null,null,null,null)$q$,
   '23514','tenant_package_compensation_conflict','late A compensation cannot undo newer work');
-select is((select current_release_id from public.tenant_package_publications),
+select is((select current_release_id from public.tenant_package_publications where brand_id='e1000000-0000-4000-8000-000000000001'),
   'e2000000-0000-4000-8000-000000000001'::uuid,'the exact restored pointer remains A');
 select is((select count(*) from public.tenant_package_publication_compensations),
   2::bigint,'only the two valid B compensations are audited');
 select is((select count(*) from public.tenant_package_publication_compensation_confirmations),
   1::bigint,'the newer pending compensation has no confirmation');
-select ok((select max(id)>min(id) from public.tenant_package_publication_events),
+select ok((select max(id)>min(id) from public.tenant_package_publication_events where brand_id='e1000000-0000-4000-8000-000000000001'),
   'brand-serialized event ids form the ABA generation fence');
 reset role;
 select * from finish();

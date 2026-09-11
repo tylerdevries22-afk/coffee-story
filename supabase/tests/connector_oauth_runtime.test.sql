@@ -63,8 +63,11 @@ insert into public.connector_capabilities (
   from public.connector_registry where provider_key = 'oauth-runtime-test';
 insert into public.connector_certifications (
   capability_id, environment, status, contract_version, certified_at, valid_until
-) select id, 'sandbox', 'passed', '1.0.0', now(), now() + interval '1 day'
-  from public.connector_capabilities where capability_key = 'profile.read';
+) select capability.id, 'sandbox', 'passed', '1.0.0', now(), now() + interval '1 day'
+  from public.connector_capabilities capability
+  join public.connector_registry provider on provider.id = capability.provider_id
+  where provider.provider_key = 'oauth-runtime-test'
+    and capability.capability_key = 'profile.read';
 
 select lives_ok($q$select public.begin_connector_oauth_state(
   '61616161-6161-4616-8616-616161616161','oauth-runtime-test',

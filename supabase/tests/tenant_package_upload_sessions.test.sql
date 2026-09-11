@@ -111,6 +111,7 @@ select throws_ok($test$ select public.begin_tenant_package_upload(
 ) $test$, '23514', 'tenant_package_upload_closed',
   'a different release key cannot revive a namespace after cleanup starts');
 reset role;
+set local session_replication_role = replica;
 delete from storage.objects object_row using cleanup_batch batch
 where batch.object_path is not null and object_row.name = batch.object_path
   and object_row.name like '%/archive.zip';
@@ -139,6 +140,7 @@ select is((select count(*) from cleanup_batch), 1::bigint,
   'the next claim resumes at the remaining object');
 select set_config('test.claim_id', (select claim_id::text from cleanup_batch limit 1), true);
 reset role;
+set local session_replication_role = replica;
 delete from storage.objects object_row using cleanup_batch batch
 where object_row.name = batch.object_path;
 set local role service_role;

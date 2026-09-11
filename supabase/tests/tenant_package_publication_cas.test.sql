@@ -55,18 +55,18 @@ select is(public.publish_tenant_package_if_current(
   '4111111111111111111111111111111111111111','vercel:cas-one','github:cas-one',
   null,null,null,null), 'a2000000-0000-4000-8000-000000000001'::uuid,
   'an all-null expected tuple publishes the first release');
-select is((select current_release_id from public.tenant_package_publications),
+select is((select current_release_id from public.tenant_package_publications where brand_id='a1000000-0000-4000-8000-000000000001'),
   'a2000000-0000-4000-8000-000000000001'::uuid, 'first publication writes its pointer');
-select is((select previous_package_release_id from public.tenant_package_publication_events),
+select is((select previous_package_release_id from public.tenant_package_publication_events where brand_id='a1000000-0000-4000-8000-000000000001'),
   null::uuid, 'first publication snapshots an absent pointer');
 select is((select status from public.organization_readiness_checks
-  where check_key='release_approval'),'passed'::text,'publication passes matching approval');
+  where brand_id='a1000000-0000-4000-8000-000000000001' and check_key='release_approval'),'passed'::text,'publication passes matching approval');
 select is(pg_temp.publish_current(
   'a1000000-0000-4000-8000-000000000001','release-cas-one',
   'sha256:1111111111111111111111111111111111111111111111111111111111111111',
   '4111111111111111111111111111111111111111','vercel:cas-one','github:cas-one'),
   'a2000000-0000-4000-8000-000000000001'::uuid,'an exact retry is idempotent');
-select is((select count(*) from public.tenant_package_publication_events),1::bigint,
+select is((select count(*) from public.tenant_package_publication_events where brand_id='a1000000-0000-4000-8000-000000000001'),1::bigint,
   'an exact retry does not duplicate audit evidence');
 select throws_ok($q$select public.publish_tenant_package_if_current(
   'a1000000-0000-4000-8000-000000000001','release-cas-two',
@@ -81,9 +81,9 @@ select throws_ok($q$select public.publish_tenant_package_if_current(
   null,null,null,null)$q$,'23514','tenant_package_publication_conflict',
   'all-null expectation is stale after first publication');
 select set_config('test.r1_published_at',(select published_at::text
-  from public.tenant_package_publications),true);
+  from public.tenant_package_publications where brand_id='a1000000-0000-4000-8000-000000000001'),true);
 select set_config('test.r1_updated_at',(select updated_at::text
-  from public.tenant_package_publications),true);
+  from public.tenant_package_publications where brand_id='a1000000-0000-4000-8000-000000000001'),true);
 select lives_ok($q$select public.record_organization_readiness(
   'a1000000-0000-4000-8000-000000000001','tenant_artifacts',true,
   '{"artifactDigest":"sha256:2222222222222222222222222222222222222222222222222222222222222222"}')$q$,
@@ -108,14 +108,14 @@ select throws_ok(format($q$select public.publish_tenant_package_if_current(
   '4111111111111111111111111111111111111111',%L)$q$,
   current_setting('test.r1_published_at')),'23514','tenant_package_publication_conflict',
   'a stale exact tuple cannot overwrite replacement');
-select is((select current_release_id from public.tenant_package_publications),
+select is((select current_release_id from public.tenant_package_publications where brand_id='a1000000-0000-4000-8000-000000000001'),
   'a2000000-0000-4000-8000-000000000002'::uuid,'stale CAS leaves pointer unchanged');
 select is(pg_temp.publish_current(
   'a1000000-0000-4000-8000-000000000001','release-cas-two',
   'sha256:2222222222222222222222222222222222222222222222222222222222222222',
   '5222222222222222222222222222222222222222','vercel:code-only','github:code-only'),
   'a2000000-0000-4000-8000-000000000002'::uuid,'code-only promotion uses exact current tuple');
-select is((select deployment_commit_sha from public.tenant_package_publications),
+select is((select deployment_commit_sha from public.tenant_package_publications where brand_id='a1000000-0000-4000-8000-000000000001'),
   '5222222222222222222222222222222222222222'::text,'pointer records code-only commit');
 select throws_ok($q$select pg_temp.publish_current(
   'a1000000-0000-4000-8000-000000000001','release-cas-one',
@@ -129,7 +129,7 @@ select throws_ok($q$select public.publish_tenant_package_if_current(
   'a2000000-0000-4000-8000-000000000002',
   'sha256:9999999999999999999999999999999999999999999999999999999999999999',
   '5222222222222222222222222222222222222222',
-  (select published_at from public.tenant_package_publications))$q$,
+  (select published_at from public.tenant_package_publications where brand_id='a1000000-0000-4000-8000-000000000001'))$q$,
   '23514','tenant_package_publication_conflict','mismatched tuple member is rejected');
 select lives_ok($q$select public.record_organization_readiness(
   'a1000000-0000-4000-8000-000000000001','tenant_artifacts',true,
@@ -141,9 +141,9 @@ select throws_ok($q$select pg_temp.publish_current(
   '6222222222222222222222222222222222222222','vercel:old-artifact','github:old-artifact')$q$,
   '23514','tenant_package_release_artifact_mismatch',
   'approval cannot contradict current artifact readiness');
-select is((select deployment_commit_sha from public.tenant_package_publications),
+select is((select deployment_commit_sha from public.tenant_package_publications where brand_id='a1000000-0000-4000-8000-000000000001'),
   '5222222222222222222222222222222222222222'::text,'failed approval rolls pointer back');
-select is((select count(*) from public.tenant_package_publication_events),3::bigint,
+select is((select count(*) from public.tenant_package_publication_events where brand_id='a1000000-0000-4000-8000-000000000001'),3::bigint,
   'failed publication rolls audit insertion back');
 reset role;
 update public.tenant_package_releases set

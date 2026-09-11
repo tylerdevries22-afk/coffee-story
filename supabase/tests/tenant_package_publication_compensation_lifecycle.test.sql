@@ -52,8 +52,8 @@ select is(pg_temp.publish_current(
   'sha256:1111111111111111111111111111111111111111111111111111111111111111',
   '4111111111111111111111111111111111111111','vercel:comp-a','github:comp-a'),
   'c2000000-0000-4000-8000-000000000001'::uuid,'the baseline publishes');
-select set_config('test.a_published',(select published_at::text from public.tenant_package_publications),true);
-select set_config('test.a_updated',(select updated_at::text from public.tenant_package_publications),true);
+select set_config('test.a_published',(select published_at::text from public.tenant_package_publications where brand_id='c1000000-0000-4000-8000-000000000001'),true);
+select set_config('test.a_updated',(select updated_at::text from public.tenant_package_publications where brand_id='c1000000-0000-4000-8000-000000000001'),true);
 select public.record_organization_readiness(
   'c1000000-0000-4000-8000-000000000001','tenant_artifacts',true,
   '{"artifactDigest":"sha256:2222222222222222222222222222222222222222222222222222222222222222"}');
@@ -72,11 +72,11 @@ select is(public.compensate_tenant_package_publication(
   'sha256:1111111111111111111111111111111111111111111111111111111111111111',
   '4111111111111111111111111111111111111111',current_setting('test.a_published')::timestamptz),
   'compensated'::text,'database compensation succeeds');
-select is((select current_release_id from public.tenant_package_publications),
+select is((select current_release_id from public.tenant_package_publications where brand_id='c1000000-0000-4000-8000-000000000001'),
   'c2000000-0000-4000-8000-000000000001'::uuid,'the prior pointer is restored');
-select is((select published_at from public.tenant_package_publications),
+select is((select published_at from public.tenant_package_publications where brand_id='c1000000-0000-4000-8000-000000000001'),
   current_setting('test.a_published')::timestamptz,'the prior publication time is restored');
-select is((select updated_at from public.tenant_package_publications),
+select is((select updated_at from public.tenant_package_publications where brand_id='c1000000-0000-4000-8000-000000000001'),
   current_setting('test.a_updated')::timestamptz,'the exact pointer version is restored');
 select is((select status from public.tenant_package_releases where id=
   'c2000000-0000-4000-8000-000000000001'),'published'::text,'the prior release is current');
@@ -87,9 +87,9 @@ select is((select count(*) from public.tenant_package_releases where status='pub
 select is((select count(*) from public.tenant_package_publication_compensations),
   1::bigint,'compensation writes immutable audit evidence');
 select is((select status from public.organization_readiness_checks
-  where check_key='release_approval'),'failed'::text,'approval stays failed pending providers');
+  where brand_id='c1000000-0000-4000-8000-000000000001' and check_key='release_approval'),'failed'::text,'approval stays failed pending providers');
 select is((select evidence->>'providerRollbackPending' from public.organization_readiness_checks
-  where check_key='release_approval'),'true'::text,'readiness records pending provider restore');
+  where brand_id='c1000000-0000-4000-8000-000000000001' and check_key='release_approval'),'true'::text,'readiness records pending provider restore');
 select is((select evidence->>'artifactDigest' from public.organization_readiness_checks
   where check_key='tenant_artifacts'),
   'sha256:1111111111111111111111111111111111111111111111111111111111111111'::text,
@@ -115,7 +115,7 @@ select throws_ok($q$select public.record_organization_readiness(
   '{"commitSha":"4111111111111111111111111111111111111111","artifactDigest":"sha256:1111111111111111111111111111111111111111111111111111111111111111","providerReference":"github:unrelated","canaryReference":"vercel:unrelated"}')$q$,
   '23514','tenant_package_compensation_pending','generic failure cannot erase pending evidence');
 select is((select evidence->>'compensationId' from public.organization_readiness_checks
-  where check_key='release_approval'),(select id::text
+  where brand_id='c1000000-0000-4000-8000-000000000001' and check_key='release_approval'),(select id::text
   from public.tenant_package_publication_compensations),
   'a rejected failure preserves the exact compensation binding');
 select throws_ok($q$select public.record_organization_readiness(
@@ -145,9 +145,9 @@ select is(public.confirm_tenant_package_publication_compensation(
   '4222222222222222222222222222222222222222','vercel:comp-b','github:comp-b'),
   'confirmed'::text,'provider restoration confirms after target cleanup');
 select is((select status from public.organization_readiness_checks
-  where check_key='release_approval'),'passed'::text,'confirmation passes restored approval');
+  where brand_id='c1000000-0000-4000-8000-000000000001' and check_key='release_approval'),'passed'::text,'confirmation passes restored approval');
 select is((select evidence->>'providerRollbackCompleted' from public.organization_readiness_checks
-  where check_key='release_approval'),'true'::text,'readiness records completed restoration');
+  where brand_id='c1000000-0000-4000-8000-000000000001' and check_key='release_approval'),'true'::text,'readiness records completed restoration');
 select is((select count(*) from public.tenant_package_publication_compensation_confirmations),
   1::bigint,'confirmation appends one audit row');
 select is(public.confirm_tenant_package_publication_compensation(
@@ -165,7 +165,7 @@ select is(pg_temp.publish_current(
   'sha256:3333333333333333333333333333333333333333333333333333333333333333',
   '4333333333333333333333333333333333333333','vercel:comp-c','github:comp-c'),
   'c2000000-0000-4000-8000-000000000003'::uuid,'publication resumes after confirmation');
-select is((select current_release_id from public.tenant_package_publications),
+select is((select current_release_id from public.tenant_package_publications where brand_id='c1000000-0000-4000-8000-000000000001'),
   'c2000000-0000-4000-8000-000000000003'::uuid,'the new pointer commits');
 reset role;
 select * from finish();

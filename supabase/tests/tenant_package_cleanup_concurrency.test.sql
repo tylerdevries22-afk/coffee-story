@@ -12,7 +12,8 @@ select dblink_exec('package_worker_b', $setup$
     claim_id uuid not null
   );
   truncate public.tenant_package_cleanup_concurrency_results;
-  delete from storage.objects where name like
+  set local session_replication_role = replica;
+delete from storage.objects where name like
     'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee/%';
   delete from app_private.tenant_package_upload_sessions
     where brand_id = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
@@ -117,6 +118,7 @@ select dblink_disconnect('package_worker_b');
 select * from finish();
 rollback;
 
+set local session_replication_role = replica;
 delete from storage.objects where name like
   'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee/%';
 delete from app_private.tenant_package_upload_sessions

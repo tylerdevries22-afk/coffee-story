@@ -56,6 +56,7 @@ select is((select object_path from cleanup_batch limit 1),
   'legacy releases retain their actual two-segment namespace');
 select set_config('test.claim_id', (select claim_id::text from cleanup_batch limit 1), true);
 reset role;
+set local session_replication_role = replica;
 delete from storage.objects object_row using cleanup_batch batch
 where object_row.name = batch.object_path;
 set local role service_role;
@@ -146,6 +147,7 @@ select is((select target_id from cleanup_batch limit 1),
   'blocked oldest work does not starve a later candidate');
 select set_config('test.claim_id', (select claim_id::text from cleanup_batch limit 1), true);
 reset role;
+set local session_replication_role = replica;
 delete from storage.objects object_row using cleanup_batch batch
 where object_row.name = batch.object_path;
 set local role service_role;

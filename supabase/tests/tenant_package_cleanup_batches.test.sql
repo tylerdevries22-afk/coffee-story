@@ -58,6 +58,7 @@ select throws_ok($test$ select public.publish_tenant_package(
   'a stale cleanup claim cannot race publication');
 select set_config('test.claim_id', (select claim_id::text from cleanup_batch limit 1), true);
 reset role;
+set local session_replication_role = replica;
 delete from storage.objects object_row using cleanup_batch batch
 where object_row.name = batch.object_path;
 set local role service_role;
@@ -89,6 +90,7 @@ select is((select count(*) from cleanup_batch), 500::bigint,
   'one database claim never exceeds 500 objects');
 select set_config('test.claim_id', (select claim_id::text from cleanup_batch limit 1), true);
 reset role;
+set local session_replication_role = replica;
 delete from storage.objects object_row using cleanup_batch batch
 where object_row.name = batch.object_path;
 set local role service_role;
@@ -101,6 +103,7 @@ select is((select count(*) from cleanup_batch), 1::bigint,
   'the second claim exposes the remainder beyond 500');
 select set_config('test.claim_id', (select claim_id::text from cleanup_batch limit 1), true);
 reset role;
+set local session_replication_role = replica;
 delete from storage.objects object_row using cleanup_batch batch
 where object_row.name = batch.object_path;
 set local role service_role;
