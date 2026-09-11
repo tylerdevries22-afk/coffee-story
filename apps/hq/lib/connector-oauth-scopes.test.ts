@@ -30,7 +30,7 @@ describe('connector OAuth granted scopes', { concurrency: false }, () => {
 
   it('returns unknown after a bounded stalled Meta permissions body', async () => {
     configureOauthTestEnv();
-    const fetchMock = mock.method(globalThis, 'fetch', async (_target, init) =>
+    const fetchMock = mock.method(globalThis, 'fetch', async (_target: RequestInfo | URL, init?: RequestInit) =>
       stalledJsonResponse(init?.signal));
     assert.equal(await resolveGrantedScopes(
       'meta-business-suite', { access_token: 'meta-token' }, { timeoutMs: 5, retryDelayMs: 0 },

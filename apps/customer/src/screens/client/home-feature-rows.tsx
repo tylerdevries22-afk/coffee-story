@@ -4,7 +4,7 @@ import { MenuImage } from '@/components/menu-image';
 import type { MenuItem } from '@/data/catalog';
 import { dropStatus, type Drop } from '@/features/drops';
 import { ACTION_LABEL } from './home-content';
-import { AppIcon, DropCountdown, disabledState, useTokens as useBrandTokens } from '@platform/ui';
+import { AppIcon, DropCountdown, useTokens as useBrandTokens } from '@platform/ui';
 import { formatMoney } from '@platform/domain';
 
 import { createHomeStyles } from './home-screen.styles';

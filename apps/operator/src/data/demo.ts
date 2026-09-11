@@ -8,6 +8,8 @@ import type {
 
 import { isoAt, now, order } from './demo-helpers';
 
+import { giftCards } from './demo-gifts';
+
 // --- Client portal -----------------------------------------------------------
 
 const pastAppointments: PortalOrder[] = [
@@ -59,8 +61,6 @@ const rewardLedger: RewardEntry[] = [
   { id: 'ledger-17', entryType: 'purchase', points: 84, description: 'Pistachio Latte (16 oz)', earnedAt: isoAt(-210, 14), expiresAt: isoAt(155, 14) },
   { id: 'ledger-18', entryType: 'purchase', points: 70, description: 'Spanish Latte (16 oz)', earnedAt: isoAt(-400, 10), expiresAt: isoAt(-35, 10) },
 ];
-
-import { giftCards } from './demo-gifts';
 
 const messages: PortalMessage[] = [
   { id: 'demo-message-1', sender: 'studio', body: 'Welcome, Alex. Send us a note here if anything changes before pickup.', sentAt: isoAt(-21, 9), read: true },

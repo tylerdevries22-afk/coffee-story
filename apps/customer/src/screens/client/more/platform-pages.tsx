@@ -13,10 +13,9 @@ import { useAuth } from '@/state/auth-context';
 import { useAppState } from '@/state/app-context';
 import { useCustomerCatalog } from '@/state/catalog-context';
 import { TENANT, tenantFeature } from '@/tenant';
-import { DropCountdown } from '@platform/ui';
+import { DropCountdown, useTokens as useBrandTokens } from '@platform/ui';
 
 import { useInformationStyles } from './information-page';
-import { useTokens as useBrandTokens } from '@platform/ui';
 
 import { createPlatformPageStyles } from './platform-page.styles';
 

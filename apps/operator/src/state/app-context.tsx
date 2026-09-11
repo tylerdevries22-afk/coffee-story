@@ -18,12 +18,12 @@ import {
 } from '@/state/navigation-state';
 import type { AppRole } from '@platform/domain';
 
-export type { AppRole } from '@platform/domain';
-export type { ClientTab, MoreView, StaffTab } from '@/state/navigation-state';
-
 import { useAppDeepLinks } from './app-deep-links';
 import { useAppNavigationActions } from './app-navigation-actions';
 import { AppContext, go, selectionFeedback, type AppState } from './app-context-shared';
+
+export type { AppRole } from '@platform/domain';
+export type { ClientTab, MoreView, StaffTab } from '@/state/navigation-state';
 
 export function AppStateProvider({ children }: PropsWithChildren) {
   const { isDemo, role } = useAuth();

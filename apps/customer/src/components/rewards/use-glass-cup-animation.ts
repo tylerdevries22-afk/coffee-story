@@ -23,7 +23,7 @@ type AnimationParams = {
 };
 
 export function useGlassCupAnimation({ animate, target, geo, drag, replayKey }: AnimationParams) {
-  const { k, width, height, cupTop, cupBottom, centerX, centerY } = geo;
+  const { k, width, height, cupTop, cupBottom, centerX } = geo;
   const span = cupBottom - cupTop;
 
   const pour = useSharedValue(animate ? 0 : 1);

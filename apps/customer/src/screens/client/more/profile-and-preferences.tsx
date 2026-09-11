@@ -1,18 +1,20 @@
 import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { Alert, Text, View } from 'react-native';
 
 import { ProfileAvatar } from '@/components/profile-avatar';
 import { CollapsingScreen } from '@/components/collapsing-screen';
-import { Body, Button, Card, SectionTitle } from '@/components/ui';
+import { Body, Button } from '@/components/ui';
 import { mobileApi } from '@/lib/mobile-api';
 import { downloadMyData as requestMyDataExport } from './download-my-data';
 import { useAuth } from '@/state/auth-context';
 import { useDemo } from '@/state/demo-context';
 import type { PortalProfile } from '@platform/domain';
-import { useTokens as useBrandTokens, type BrandTokens } from '@platform/ui';
+import { useTokens as useBrandTokens } from '@platform/ui';
 
 import { Field } from './preferences-screen';
+import { ClientDataCard, WorkspaceAccessCard } from './profile-account-cards';
+import { createProfileStyles } from './profile-screen.styles';
 import { durableDemoAvatarUri, MAX_AVATAR_BYTES } from './profile-avatar-storage';
 
 export function Profile({
@@ -169,46 +171,25 @@ export function Profile({
       <Field label="Birthday" value={profile.birthday ?? ''} placeholder="YYYY-MM-DD" onChangeText={(birthday) => setProfile({ ...profile, birthday })} />
       <Button label="Save profile" loading={saving} onPress={() => void saveProfile()} />
       {!isDemo && role === 'client' ? (
-        <Card style={profileStyles.accessCard}>
-          <SectionTitle>Your data</SectionTitle>
-          <Body muted>Download a copy of your profile, orders, loyalty, and notification settings before you leave.</Body>
-          <Button
-            label="Download my data"
-            variant="soft"
-            loading={exporting}
-            disabled={exporting || deleting}
-            onPress={() => void downloadMyData()}
-          />
-          <SectionTitle>Delete account</SectionTitle>
-          <Body muted>Your personal details and sign-in will be removed. An anonymized order record remains with the shop.</Body>
-          <Button
-            label="Delete my account"
-            variant="secondary"
-            loading={deleting}
-            disabled={deleting || exporting}
-            onPress={confirmAccountDeletion}
-          />
-        </Card>
+        <ClientDataCard
+          accessCardStyle={profileStyles.accessCard}
+          exporting={exporting}
+          deleting={deleting}
+          onDownload={() => void downloadMyData()}
+          onDelete={confirmAccountDeletion}
+        />
       ) : null}
       {role !== 'client' ? (
-        <Card style={profileStyles.accessCard}>
-          <SectionTitle>Workspace access</SectionTitle>
-          <Body muted>{role === 'admin'
-            ? 'Owner permissions include business settings, reports, staff, and all operations.'
-            : 'Team member permissions include schedule, clients, checkout, and reviews.'}</Body>
-          {onExit ? <Button label="Return to client app" variant="secondary" onPress={onExit} /> : null}
-          {onSignOut ? <Button label="Sign out" variant="soft" onPress={onSignOut} /> : null}
-        </Card>
+        <WorkspaceAccessCard
+          accessCardStyle={profileStyles.accessCard}
+          role={role}
+          onExit={onExit}
+          onSignOut={onSignOut}
+        />
       ) : null}
     </CollapsingScreen>
   );
 }
 
-const createProfileStyles = (tokens: BrandTokens) => StyleSheet.create({
-  avatarHeader: { flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.xl, paddingVertical: tokens.spacing.md },
-  avatarCopy: { flex: 1, gap: tokens.spacing.sm },
-  profileName: { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: 25, lineHeight: 30 },
-  accessCard: { gap: tokens.spacing.lg },
-});
 
 export { Field, Preferences } from './preferences-screen';
