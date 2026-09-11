@@ -68,6 +68,9 @@ it('runs healthy maintenance stages when the drops stage fails', async (t) => {
     '/rest/v1/rpc/claim_connector_oauth_identities',
     '/rest/v1/rpc/claim_connector_oauth_refreshes',
     '/rest/v1/rpc/claim_connector_oauth_revocations',
+    '/rest/v1/rpc/count_square_connection_mutation_alerts',
+    '/rest/v1/rpc/count_square_payment_remediation_alerts',
+    '/rest/v1/rpc/count_square_payment_validation_alerts',
   ]));
 });
 

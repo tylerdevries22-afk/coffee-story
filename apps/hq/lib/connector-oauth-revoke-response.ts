@@ -34,10 +34,13 @@ async function readJson(response: Response): Promise<unknown> {
 
 function safeProviderCode(payload: unknown): string | null {
   const nested = objectAt(payload, 'error');
+  const reflected = nested ? Reflect.get(nested, 'code') : undefined;
   const raw = stringAt(payload, 'error') ?? stringAt(payload, 'error_code')
-    ?? stringAt(nested, 'code') ?? Reflect.get(nested ?? {}, 'code');
-  return (typeof raw === 'number' && Number.isSafeInteger(raw) ? String(raw) : raw)
-    ?.trim().toLowerCase().replace(/[\s-]+/gu, '_') ?? null;
+    ?? stringAt(nested, 'code')
+    ?? (typeof reflected === 'string' || typeof reflected === 'number' ? reflected : null);
+  const asString = typeof raw === 'number' && Number.isSafeInteger(raw) ? String(raw)
+    : typeof raw === 'string' ? raw : null;
+  return asString?.trim().toLowerCase().replace(/[\s-]+/gu, '_') ?? null;
 }
 
 function rejectedResult(key: OAuthConnectorKey, payload: unknown): ConnectorRevocationResult {

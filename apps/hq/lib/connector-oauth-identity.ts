@@ -190,9 +190,17 @@ export async function verifyConnectorCleanupIdentity(
   const resolver = key === 'google-suite' || key === 'youtube'
     ? googleGrantIdentity
     : key === 'slack'
-      ? (credential, _realmId, readOptions) => slackIdentity(credential, readOptions, false)
+      ? (
+        credential: ConnectorToken,
+        _realmId: string | null,
+        readOptions: ConnectorReadOptions,
+      ) => slackIdentity(credential, readOptions, false)
       : key === 'tiktok'
-        ? (credential, _realmId, readOptions) => tiktokIdentity(credential, readOptions, false)
+        ? (
+          credential: ConnectorToken,
+          _realmId: string | null,
+          readOptions: ConnectorReadOptions,
+        ) => tiktokIdentity(credential, readOptions, false)
       : RESOLVERS[key];
   const resolved = await resolver(token, realmId, options);
   if (!resolved) throw new ConnectorIdentityError('payload', true);
