@@ -166,6 +166,22 @@ export async function seedBrand(slug: string): Promise<{ brandId: string; locati
       [brandId],
     );
     const locationId = location.rows[0]!.id;
+    // Fee-quote fill trigger needs a square_connections row per location;
+    // without it platform_fee_quotes.connection_id stays null and NOT NULL fails.
+    await client.query(
+      `insert into public.square_connections (
+         brand_id, location_id, merchant_id, square_location_id,
+         access_token_encrypted, refresh_token_encrypted, expires_at
+       ) values ($1, $2, $3, $4, $5, $6, now() + interval '1 hour')`,
+      [
+        brandId,
+        locationId,
+        `merchant-${randomUUID()}`,
+        `location-${randomUUID()}`,
+        `access-${randomUUID()}`,
+        `refresh-${randomUUID()}`,
+      ],
+    );
     await client.query('commit');
     return { brandId, locationId };
   } catch (error) {
