@@ -13,7 +13,11 @@ import { NextResponse, type NextRequest } from 'next/server';
 
 import { previewWallRuntimeEnabled } from './lib/demo-sync-http';
 
-const PUBLIC_PREFIXES = ['/login', '/auth/callback', '/api/', '/status/'];
+const PUBLIC_PREFIXES = [
+  '/login', '/auth/callback', '/api/', '/status/',
+  // Model B co-located Expo statics (guest / device surfaces).
+  '/customer', '/kiosk', '/operator',
+];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

@@ -1,11 +1,15 @@
 import { mcpCookieBindingMatches, mcpSha256 } from 'franchise-mcp-store-ui/oauth';
 import { NextResponse } from 'next/server';
 
+import { AppNetworkError } from '@platform/api-client';
+
 import {
+  ConnectorExchangeError,
+  ConnectorIdentityError,
   connectorCallbackUrl,
   exchangeConnectorCode,
-  grantedConnectorScopes,
   isOAuthConnectorKey,
+  resolveGrantedScopes,
   verifyConnectorIdentity,
   type OAuthConnectorKey,
 } from '@/lib/connector-oauth-providers';
@@ -31,6 +35,42 @@ function finish(request: Request, provider: OAuthConnectorKey, outcome: string):
   const response = NextResponse.redirect(target, 302);
   response.headers.append('Set-Cookie', `${connectorCookieName(provider)}=; Path=/api/connectors/${provider}/callback; Max-Age=0; HttpOnly; SameSite=Lax`);
   return response;
+}
+
+/**
+ * Records which stage failed, without the code, the token, or any credential.
+ *
+ * Every cause previously collapsed into one opaque redirect, so an operator could
+ * not tell a stale client secret from a declined scope or a storage error.
+ */
+function reportFailure(provider: OAuthConnectorKey, error: unknown): 'connection_failed' {
+  const stage = error instanceof ConnectorExchangeError ? error.stage
+    : error instanceof ConnectorScopeError ? 'scope'
+    : error instanceof ConnectorIdentityError ? 'identity'
+    // fetchWithRetry raises this for a timeout or network failure on the identity
+    // call, which is a provider problem rather than a storage one. The permissions
+    // call catches its own failures and surfaces as `scope`, above.
+    : error instanceof AppNetworkError ? 'transport' : 'storage';
+  const status = error instanceof ConnectorExchangeError && error.status !== null
+    ? ` status=${error.status}` : '';
+  console.error(`connector.oauth.callback provider=${provider} stage=${stage}${status}`);
+  return 'connection_failed';
+}
+
+/**
+ * Raised when the granted scopes cannot be established.
+ *
+ * Storing the installation anyway would mark it connected and healthy with an
+ * empty capability set. A narrowed grant is recoverable — the card reports the
+ * gap and offers a reconnect — but an unknown one is not, because there is
+ * nothing to compare against. Failing here leaves the owner able to press Connect
+ * again rather than acting on a number we could not establish.
+ */
+class ConnectorScopeError extends Error {
+  constructor() {
+    super('Connector granted scopes could not be verified.');
+    this.name = 'ConnectorScopeError';
+  }
 }
 
 function expiryOf(token: Readonly<Record<string, unknown>>): string | null {
@@ -67,6 +107,8 @@ export async function GET(
   if (!callbackUrl || callbackUrl !== record.redirect_uri) return finish(request, provider, 'invalid_state');
   try {
     const token = await exchangeConnectorCode(provider, code, cookie.verifier, callbackUrl);
+    const grantedScopes = await resolveGrantedScopes(provider, token);
+    if (grantedScopes === null) throw new ConnectorScopeError();
     const identity = await verifyConnectorIdentity(provider, token, url.searchParams.get('realmId'));
     const credential = { ...token, external_account_id: identity.accountId, acquired_at: new Date().toISOString() };
     const completed = await context.db.rpc('complete_connector_oauth_connection', {
@@ -76,12 +118,12 @@ export async function GET(
       p_actor_user_id: context.userId,
       p_credential: credential,
       p_account_label: identity.accountLabel,
-      p_granted_scopes: grantedConnectorScopes(provider, token),
+      p_granted_scopes: grantedScopes,
       p_expires_at: expiryOf(token),
     });
     if (completed.error) throw new Error('Connector storage failed.');
     return finish(request, provider, 'connected');
-  } catch {
-    return finish(request, provider, 'connection_failed');
+  } catch (error) {
+    return finish(request, provider, reportFailure(provider, error));
   }
 }

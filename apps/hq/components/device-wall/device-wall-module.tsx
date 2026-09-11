@@ -1,13 +1,13 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 
 import type { DeviceFormFactor } from '@platform/device-wall';
 
 import { AppsPreviewTable } from '@/components/apps-preview-table';
 import { AppsPreviewMosaic } from '@/components/apps-preview-mosaic';
 import { AppsViewTabs } from '@/components/apps-view-tabs';
-import type { AppPreview } from '@/lib/app-previews';
+import type { AppPreview, OrgPreviewCatalogEntry } from '@/lib/app-previews';
 import { saveDeviceLayoutAction } from '@/lib/device-wall-actions';
 import type { DeviceWallView, WallInstallation } from '@/lib/device-wall-data';
 import { resetWallLayoutPreference } from '@/components/use-wall-layout';
@@ -34,7 +34,31 @@ function orientation(formFactor: DeviceFormFactor) {
   return formFactor === 'phone' ? 'portrait' as const : 'landscape' as const;
 }
 
-export function DeviceWallModule({ constructionOperator, previews, view }: { readonly constructionOperator: boolean; readonly previews: readonly AppPreview[]; readonly view: DeviceWallView }) {
+export function DeviceWallModule({
+  catalog,
+  constructionOperator,
+  organizationId: _organizationId,
+  previews,
+  view,
+}: {
+  readonly catalog: readonly OrgPreviewCatalogEntry[];
+  readonly constructionOperator: boolean;
+  readonly organizationId: string | null;
+  readonly previews: readonly AppPreview[];
+  readonly view: DeviceWallView;
+}) {
+  const [livePreviews, setLivePreviews] = useState(previews);
+  useEffect(() => { setLivePreviews(previews); }, [previews]);
+  useEffect(() => {
+    const onOrgChanged = (event: Event) => {
+      const id = (event as CustomEvent<{ organizationId?: string }>).detail?.organizationId;
+      if (!id) return;
+      const entry = catalog.find((item) => item.id === id);
+      if (entry) setLivePreviews(entry.previews);
+    };
+    window.addEventListener('platform-org-changed', onOrgChanged);
+    return () => window.removeEventListener('platform-org-changed', onOrgChanged);
+  }, [catalog]);
   const initial = useMemo(() => ordered(view), [view]);
   const [devices, setDevices] = useState(initial);
   const [locationId, setLocationId] = useState(view.selectedLocationId ?? 'all');
@@ -86,7 +110,7 @@ export function DeviceWallModule({ constructionOperator, previews, view }: { rea
       <AppsViewTabs
         onReset={reset}
         table={<AppsPreviewTable {...controls} />}
-        wall={<AppsPreviewMosaic constructionOperator={constructionOperator} previews={previews} />}
+        wall={<AppsPreviewMosaic constructionOperator={constructionOperator} key={livePreviews.map((preview) => preview.url).join("|")} previews={livePreviews} />}
       />
       <DeviceConnectionWizard
         canStream={view.canStream}

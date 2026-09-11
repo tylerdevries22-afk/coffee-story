@@ -137,7 +137,7 @@ export function contentSection(access: ConsoleNavigationAccess): ConsoleSection 
         ? [{ href: '/menu/import', label: 'Import CSV', icon: 'menu' as const }]
         : []),
       ...(access.canManageBrand
-        ? [{ href: '/kiosk', label: 'Kiosk', icon: 'kiosk' as const }]
+        ? [{ href: '/kiosk-flow', label: 'Kiosk', icon: 'kiosk' as const }]
         : []),
       ...(access.canManageBrand
         ? [{ href: '/storage', label: 'Storage', icon: 'folder' as const }]

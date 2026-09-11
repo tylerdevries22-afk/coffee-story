@@ -23,6 +23,14 @@ export type AppPreview = {
   readonly url: string | null;
 };
 
+export type OrgPreviewCatalogEntry = {
+  readonly id: string;
+  readonly slug: string | null;
+  readonly name: string;
+  readonly previews: readonly AppPreview[];
+};
+
+
 type AppPreviewDefinition = Omit<AppPreview, 'source' | 'url'> & {
   readonly localUrl: string;
 };
@@ -122,4 +130,20 @@ export function appPreviewFor(
 /** Returns the four customer-facing operational surfaces in navigation order. */
 export function appPreviewsFor(environment: AppPreviewEnvironment = process.env): AppPreview[] {
   return APP_PREVIEW_KEYS.map((key) => appPreviewFor(key, environment));
+}
+
+/** Overlays absolute surface URLs onto the standard preview descriptors. */
+export function withSurfaceUrls(
+  previews: readonly AppPreview[],
+  urls: Readonly<Partial<Record<AppPreviewKey, string | null>>>,
+): AppPreview[] {
+  return previews.map((preview) => {
+    const overlay = urls[preview.key];
+    if (!overlay) return preview;
+    return {
+      ...preview,
+      url: overlay,
+      source: overlay.includes('localhost') || overlay.startsWith('/') ? 'local' : 'configured',
+    };
+  });
 }

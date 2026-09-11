@@ -1,0 +1,26 @@
+# Advisory suppressions for `osv-scanner`. Every entry must carry a reason that a
+# reviewer can verify from the advisory record itself. Suppress a false positive
+# or an unreachable finding only; never a real, fixable advisory.
+
+[[IgnoredVulns]]
+id = "GHSA-fm4j-4xhm-xpwx"
+reason = """
+False positive from an unbounded advisory range. This 2020 advisory covers the
+original `sandbox` npm package; GitHub's own record sets
+last_known_affected_version_range to "< 1.0.0", but the machine-readable SEMVER
+range carries only `introduced: 0.0.0` with no `fixed` event, so osv-scanner
+matches every version ever published under the name. The installed 4.1.0 is
+Vercel's package under the reclaimed name, pulled in transitively by the `vercel`
+CLI (a deploy-time devDependency), and is not the affected code. Verified
+2026-09-07: no repository source imports `sandbox`, and it is never bundled into
+a deployed artifact.
+"""
+
+[[IgnoredVulns]]
+id = "GHSA-gc25-3vc5-2jf9"
+reason = """
+Same false positive as GHSA-fm4j-4xhm-xpwx, from the same 2020 advisory pair:
+last_known_affected_version_range is "< 1.0.0" against an installed 4.1.0, and
+the SEMVER range is unbounded with no fixed version, so every version matches.
+Transitive devDependency of the `vercel` CLI only. Verified 2026-09-07.
+"""

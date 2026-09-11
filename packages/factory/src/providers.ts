@@ -61,21 +61,31 @@ export function supabaseProjectRequest(
   });
 }
 
+/** Surfaces that still need their own Vercel project under Model B. */
+export const VERCEL_WEB_HOST_SURFACES = ["hq", "display"] as const;
+
+export type VercelWebHostSurface = (typeof VERCEL_WEB_HOST_SURFACES)[number];
+
+/**
+ * Model B: one org web host (HQ, with path-colocated Expo statics) plus a
+ * dedicated display Next app. Customer/kiosk/operator remain factory surfaces
+ * for onboard + native/EAS, but no longer mint separate Vercel web projects.
+ */
 export function vercelProjectSpecifications(
   tenantSlug: string,
   repository: string,
   surfaces: readonly FactorySurface[] = FACTORY_SURFACES,
 ): readonly VercelProjectSpecification[] {
-  if (!/^[^/\s]+\/[^/\s]+$/.test(repository)) throw new Error('GitHub repository must use owner/name format.');
+  if (!/^[^/\s]+\/[^/\s]+$/.test(repository)) throw new Error("GitHub repository must use owner/name format.");
   const requested = new Set(surfaces);
   if (requested.size !== surfaces.length || [...requested].some((surface) => !FACTORY_SURFACES.includes(surface))) {
-    throw new Error('Vercel surfaces must be unique supported factory surfaces.');
+    throw new Error("Vercel surfaces must be unique supported factory surfaces.");
   }
-  if (!requested.has('hq')) throw new Error('Every hosted tenant requires the HQ API surface.');
-  return FACTORY_SURFACES.filter((surface) => requested.has(surface)).map((surface) => ({
+  if (!requested.has("hq")) throw new Error("Every hosted tenant requires the HQ API surface.");
+  return VERCEL_WEB_HOST_SURFACES.filter((surface) => requested.has(surface)).map((surface) => ({
     name: factoryResourceName(tenantSlug, surface),
     rootDirectory: `apps/${surface}`,
-    framework: surface === 'hq' || surface === 'display' ? 'nextjs' : null,
+    framework: "nextjs" as const,
     repository,
   }));
 }

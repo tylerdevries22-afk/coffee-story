@@ -159,7 +159,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       },
     ],
   ],
-  experiments: { typedRoutes: true },
+  experiments: {
+    typedRoutes: true,
+    ...(process.env.EXPO_BASE_URL?.trim()
+      ? { baseUrl: process.env.EXPO_BASE_URL.trim().replace(/\/$/, '') }
+      : {}),
+  },
   ...kioskEasConfig(brand.identity.kioskEasProjectId),
   owner: 'tylerdevries222',
 });
