@@ -140,7 +140,6 @@ it('releases a checkout quote when Square definitively rejects the link', async 
           quoted_fee_bps_applied: 300,
           quote_claim_created: true,
           quote_claim_generation: 'claim-a',
-          quote_claim_created: true,
         });
       }
       if (table === 'release_platform_fee_quote') {

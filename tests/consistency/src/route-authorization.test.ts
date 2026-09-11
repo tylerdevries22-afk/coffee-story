@@ -61,10 +61,12 @@ const apiRoutes = routeFiles(HQ_API).map((file) => ({
  *
  * A route that calls none of these has not identified its caller.
  */
-const AUTHENTICATES = new RegExp('\\b(' + [
-  'authenticateAny', 'authenticate', 'matchesSecret', 'verifyDeviceToken',
-  'redeemPairingCode', 'exchangeDeviceRefreshSecret', 'operationsRequestContext', 'authorizeConnectorOAuth',
-].join('|') + ')\\b');
+const AUTHENTICATES = new RegExp(
+  '\\b(' + [
+    'authenticateAny', 'authenticate', 'matchesSecret', 'verifyDeviceToken',
+    'redeemPairingCode', 'exchangeDeviceRefreshSecret', 'operationsRequestContext', 'authorizeConnectorOAuth',
+  ].join('|') + ')\\b|dependencies\\.authorize\\b',
+);
 
 /**
  * The shared helper every operations route funnels through, and the three
