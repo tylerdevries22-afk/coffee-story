@@ -110,7 +110,7 @@ export async function POST(request: Request): Promise<Response> {
       // one cart never yields two checkout pages.
       const link = await createSquareCheckoutLink(
         { db, ...square },
-        { orderId: result.orderId },
+        { orderId: result.orderId, redirectUrl: body.redirectUrl },
       );
       response.checkoutUrl = link.checkoutUrl;
     }

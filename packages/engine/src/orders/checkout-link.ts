@@ -29,6 +29,8 @@ function taxLabelFor(totals: { tax_rows?: { label?: string }[] } & Record<string
 
 export type CheckoutLinkInput = {
   orderId: string;
+  /** Tenant-validated deep link Square sends the guest to after paying. */
+  redirectUrl?: string;
 };
 
 /**
@@ -125,6 +127,7 @@ export async function createSquareCheckoutLink(
       tipCents: 0,
       storedValueCents: 0,
       appFeeCents: fee.feeCents,
+      redirectUrl: input.redirectUrl,
     });
   } catch (error) {
     if (fee.claimCreated && isDefinitiveSquareRejection(error)) {

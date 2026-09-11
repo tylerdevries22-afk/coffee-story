@@ -57,12 +57,30 @@ function startFakeSquare(): Promise<void> {
         response.end(JSON.stringify(payload));
       };
       if (request.url === '/v2/online-checkout/payment-links') {
+        const order = (body.order ?? {}) as {
+          location_id?: string;
+          reference_id?: string;
+          line_items?: { base_price_money?: { amount?: number }; quantity?: string }[];
+          service_charges?: { amount_money?: { amount?: number } }[];
+        };
+        const amount = (order.line_items ?? []).reduce(
+          (sum, line) => sum + (line.base_price_money?.amount ?? 0) * Number(line.quantity ?? 1),
+          0,
+        ) + (order.service_charges ?? []).reduce(
+          (sum, charge) => sum + (charge.amount_money?.amount ?? 0), 0,
+        );
         reply({
           payment_link: {
             id: 'LINK-1',
             order_id: 'SQ-ORDER-1',
             url: 'https://square.link/u/test-checkout',
           },
+          related_resources: { orders: [{
+            id: 'SQ-ORDER-1',
+            location_id: order.location_id,
+            reference_id: order.reference_id,
+            total_money: { amount, currency: 'USD' },
+          }] },
         });
         return;
       }
@@ -228,25 +246,21 @@ describe('square_link tender and refunds', { skip: skipUnlessConfigured }, () =>
     const order = mint.body.order as {
       location_id: string;
       reference_id: string;
-      line_items: { base_price_money: { amount: number }; quantity: string }[];
+      line_items: { name: string; base_price_money: { amount: number }; quantity: string }[];
       service_charges?: { name: string; amount_money: { amount: number } }[];
     };
     assert.equal(order.location_id, SQUARE_LOCATION_ID);
     assert.equal(order.reference_id, created.orderId, 'the link points back at our order');
 
-    // The guest must be asked for the whole total. The first version sent
-    // line items only, so tax and tip were never collected while the books
-    // and the platform fee still counted them.
+    // Tax is already priced into totals; Square gets one exact-balance line
+    // so it cannot recompute a percentage a cent away from the receipt.
     assert.ok(created.taxCents > 0, 'this brand charges tax');
-    const charged = order.line_items.reduce(
-      (sum, line) => sum + line.base_price_money.amount * Number(line.quantity), 0)
-      + (order.service_charges ?? []).reduce((sum, charge) => sum + charge.amount_money.amount, 0);
-    assert.equal(charged, created.totalCents, 'Square is asked for exactly the order total');
-    assert.equal(
-      (order.service_charges ?? []).find((charge) => charge.name === 'City Sales Tax')?.amount_money.amount,
-      created.taxCents,
-      'tax rides as an exact amount, not a percentage Square recomputes',
-    );
+    assert.equal(order.line_items.length, 1);
+    assert.equal(order.line_items[0]!.name, 'Card-funded order balance');
+    assert.equal(order.line_items[0]!.quantity, '1');
+    assert.equal(order.line_items[0]!.base_price_money.amount, created.totalCents,
+      'Square is asked for exactly the order total');
+    assert.equal(order.service_charges, undefined);
 
     const options = mint.body.checkout_options as { app_fee_money?: { amount: number }; redirect_url?: string };
     // Rule 3: 300 bps of the whole charge, to the cent.
