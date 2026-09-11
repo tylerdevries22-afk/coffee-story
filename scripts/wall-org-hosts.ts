@@ -20,7 +20,7 @@ export function modelBWallSurfaces(tenantKey: string): WallHostSurfaces {
 }
 
 function titleizeSlug(slug: string): string {
-  return slug.split('-').map((part) => part ? part[0].toUpperCase() + part.slice(1) : part).join(' ');
+  return slug.split('-').filter(Boolean).map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`).join(' ');
 }
 
 /** Hosted wall catalog is env-driven. Unset = empty (never invent Coffee Story). */
