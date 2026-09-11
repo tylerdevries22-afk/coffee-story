@@ -37,7 +37,7 @@ function orientation(formFactor: DeviceFormFactor) {
 export function DeviceWallModule({
   catalog,
   constructionOperator,
-  organizationId,
+  organizationId: _organizationId,
   previews,
   view,
 }: {
