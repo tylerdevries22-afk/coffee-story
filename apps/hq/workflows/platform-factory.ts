@@ -1,8 +1,3 @@
-import {
-  factoryCompletionMintsHosts,
-  mayPromoteLive,
-} from '@platform/factory';
-
 import { advanceFactoryRelease } from './factory-release';
 import {
   completedFactoryTasks,
@@ -44,14 +39,14 @@ export async function runPlatformFactory(input: PlatformFactoryInput): Promise<P
   try {
     const run = await loadRun(input.runId);
     const completed = new Set(await completedFactoryTasks(run.id));
+    // Reporting only: this returns before anything that mints. A completed
+    // promote-live is itself proof the run was approved, because the only
+    // place that task reaches 'completed' is advanceFactoryRelease, and it
+    // blocks promote-live with go_live_required whenever goLiveApproved is
+    // false. So the run is live whether or not THIS invocation carried the
+    // flag, and re-testing the flag here would report an approved, already
+    // live run as unapproved. factory-release.test pins that premise.
     if (completed.has('promote-live')) {
-      // Completed runs still must not mint hosts unless Go live was approved.
-      if (factoryCompletionMintsHosts(true, goLiveApproved) === false) {
-        logFactory('go_live.guard', {
-          runId: run.id,
-          message: 'completed factory run does not mint hosts without Go live',
-        });
-      }
       return { status: 'live', missingCredentialKeys: [] };
     }
     const available = await synchronizeCredentials(run.id);
@@ -95,9 +90,6 @@ export async function runPlatformFactory(input: PlatformFactoryInput): Promise<P
     }
 
     if (goLiveApproved) {
-      if (!mayPromoteLive(true)) {
-        throw new Error('Go live promotion refused.');
-      }
       if (!completed.has('verify-canary')) {
         // Still need canary before minting hosts.
         const release = await advanceFactoryRelease(
@@ -115,7 +107,10 @@ export async function runPlatformFactory(input: PlatformFactoryInput): Promise<P
         completed.add('verify-canary');
       }
       if (!completed.has('create-vercel-projects')) {
-        await mintProductionHosts(run);
+        // The flag travels to the point of action rather than being re-tested
+        // here: mintProductionHosts refuses without it, so moving this call
+        // out of the approved branch fails instead of silently minting.
+        await mintProductionHosts(run, goLiveApproved);
         completed.add('create-vercel-projects');
       }
       const live = await advanceFactoryRelease(

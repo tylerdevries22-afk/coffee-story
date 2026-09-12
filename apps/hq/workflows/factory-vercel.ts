@@ -83,10 +83,16 @@ export async function provisionVercel(
   options: { goLiveApproved?: boolean } = {},
 ): Promise<readonly SafeResource[]> {
   'use step';
-  if (!mayMintProductionHosts(options.goLiveApproved === true)) {
+  const goLiveApproved = options.goLiveApproved === true;
+  if (!mayMintProductionHosts(goLiveApproved)) {
     throw new Error('Refusing to mint production Vercel hosts without explicit Go live.');
   }
-  const squareEnv = squareEnvForPhase(true);
+  // Derived from the same flag the guard above tested, not asserted with a
+  // literal. Reaching this line already means Go live was approved, so the
+  // value is unchanged -- but the product lock says Square stays sandbox until
+  // Go live, and a hard-coded `true` states the opposite of that rule in the
+  // one place a reader checks it.
+  const squareEnv = squareEnvForPhase(goLiveApproved);
   const scope = requiredEnvironment('VERCEL_SCOPE');
   const specifications = vercelProjectSpecifications(run.tenantSlug, repository, run.surfaces);
   const plans = [] as Array<{

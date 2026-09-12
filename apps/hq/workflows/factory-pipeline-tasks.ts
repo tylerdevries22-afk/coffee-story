@@ -21,6 +21,7 @@ import {
 import { provisionVercel } from './factory-vercel';
 
 export async function createDemo(run: FactoryRunRow): Promise<void> {
+  'use step';
   let activeTask = 'research-brand';
   try {
     await updateTask(run.id, activeTask, 'running');
@@ -41,6 +42,7 @@ export async function createDemo(run: FactoryRunRow): Promise<void> {
 
 /** GitHub + Doppler + Supabase only. Never mints {slug}-hq / {slug}-display. */
 export async function provisionSandboxInfrastructure(run: FactoryRunRow): Promise<void> {
+  'use step';
   let activeTask = 'create-github-repository';
   try {
     await updateTask(run.id, activeTask, 'running');
@@ -66,8 +68,23 @@ export async function provisionSandboxInfrastructure(run: FactoryRunRow): Promis
   }
 }
 
-export async function mintProductionHosts(run: FactoryRunRow): Promise<void> {
-  if (!mayMintProductionHosts(true)) {
+/**
+ * The point of action for the product lock, and therefore where it is enforced.
+ *
+ * Takes the approval rather than assuming it. The guard used to read
+ * `mayMintProductionHosts(true)`, which is a constant, so the throw below could
+ * never fire and the call to provisionVercel passed the same literal on to the
+ * guard inside it -- disabling that one too. Nothing minted without approval,
+ * but only because the one caller happens to sit inside `if (goLiveApproved)`.
+ * Move that call and four separate guards would go on reporting that they were
+ * protecting something.
+ */
+export async function mintProductionHosts(
+  run: FactoryRunRow,
+  goLiveApproved: boolean,
+): Promise<void> {
+  'use step';
+  if (!mayMintProductionHosts(goLiveApproved)) {
     throw new Error('Production host mint refused without Go live approval.');
   }
   await updateTask(run.id, 'create-vercel-projects', 'running');
@@ -75,7 +92,7 @@ export async function mintProductionHosts(run: FactoryRunRow): Promise<void> {
     const prior = await existingResource(run.id, 'github', 'repository');
     if (!prior?.externalId) throw new Error('GitHub repository is required before Go live mint.');
     const repository = prior.externalId;
-    await provisionVercel(run, repository, { goLiveApproved: true });
+    await provisionVercel(run, repository, { goLiveApproved });
     await synchronizeGitHubDeployment(run, repository);
     await updateTask(run.id, 'create-vercel-projects', 'completed');
   } catch (error) {
