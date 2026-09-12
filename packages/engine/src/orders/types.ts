@@ -17,6 +17,8 @@ export class OrderError extends Error {
     | 'invalid_request'
     | 'location_unknown'
     | 'ordering_paused'
+    /** The brand has not installed the module this fulfillment type needs. */
+    | 'fulfillment_unavailable'
     | 'idempotency_conflict'
     | 'price_changed'
     | 'item_unavailable'
