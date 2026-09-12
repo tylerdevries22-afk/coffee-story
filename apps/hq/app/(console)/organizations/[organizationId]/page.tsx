@@ -7,13 +7,11 @@ import { franchiseConsentReadiness } from '@/lib/franchise-enrollment';
 import { canTapGoLive } from '@/lib/go-live-access';
 import { serverClient } from '@/lib/supabase-server';
 
-import {
-  offboardOrganizationAction,
-  restoreOrganizationAction,
-  suspendOrganizationAction,
-} from '../lifecycle-actions';
-import { goLiveOrganizationAction } from '../go-live-actions';
-import { activateOrganizationAction } from '../readiness-actions';
+import { GoLiveBanner } from './go-live-panel';
+import { LifecyclePanel } from './lifecycle-panel';
+import { ReadinessNotices } from './readiness-notices';
+import type { Check } from './readiness-overview';
+import { ReadinessOverview } from './readiness-overview';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,44 +24,6 @@ type Props = {
     golive?: string;
   }>;
 };
-type Check = { check_key: string; required: boolean; status: string; evidence: unknown; updated_at: string };
-
-const LABELS: Record<string, string> = {
-  database: 'Database tenant', owner: 'Owner access', modules: 'Module installation',
-  location: 'First location', tenant_artifacts: 'Tenant artifacts',
-  release_approval: 'Release approval', payment_provider: 'Payment provider',
-};
-const NOTICES: Record<string, string> = {
-  complete: 'Organization activated. Its production surfaces may now serve tenant traffic.',
-  'not-ready': 'Activation is blocked until every required readiness check passes.',
-  failed: 'Activation was refused. Review the readiness evidence and try again.',
-  unavailable: 'Supabase is not configured for activation on this deployment.',
-};
-const GOLIVE_NOTICES: Record<string, { message: string; failed: boolean }> = {
-  started: {
-    message: 'Go live started. Production hosts {slug}-hq and {slug}-display will mint now.',
-    failed: false,
-  },
-  'already-live': { message: 'This shop is already live.', failed: false },
-  'no-run': { message: 'No factory run found for this shop. Resume onboarding first.', failed: true },
-  forbidden: { message: 'Only the owner or a platform admin can tap Go live.', failed: true },
-  failed: { message: 'Go live could not start. Check factory credentials and try again.', failed: true },
-  unavailable: { message: 'Supabase is not configured for Go live on this deployment.', failed: true },
-};
-
-const LIFECYCLE_NOTICES: Record<string, { message: string; failed: boolean }> = {
-  suspended: { message: 'Organization suspended. Devices and delegated grants were revoked.', failed: false },
-  restored: { message: 'Organization restored. Re-pair devices before they can serve again.', failed: false },
-  offboarded: { message: 'Organization offboarded. Access is terminal; data remains for audit.', failed: false },
-  failed: { message: 'Lifecycle change was refused. Confirm platform admin access and try again.', failed: true },
-  unavailable: { message: 'Supabase is not configured for lifecycle actions on this deployment.', failed: true },
-};
-
-function statusClass(status: string): string {
-  if (status === 'passed' || status === 'active') return 'pill success';
-  if (status === 'failed') return 'pill danger';
-  return 'pill warning';
-}
 
 export default async function OrganizationReadinessPage({ params, searchParams }: Props) {
   const [{ organizationId }, query, session] = await Promise.all([params, searchParams, currentSession()]);
@@ -128,7 +88,6 @@ export default async function OrganizationReadinessPage({ params, searchParams }
     && !completedTaskKeys.includes('promote-live'),
   );
   const showGoLive = canTapGoLive(session) && awaitingGoLive;
-  const goliveNotice = query.golive ? GOLIVE_NOTICES[query.golive] : undefined;
 
   return (
     <>
@@ -137,29 +96,7 @@ export default async function OrganizationReadinessPage({ params, searchParams }
       <p className="subtitle">
         {brand.organization_kind} · {brand.industry_key} · {brand.blueprint_key}
       </p>
-      {query.activation && NOTICES[query.activation] ? (
-        <div className={query.activation === 'complete' ? 'notice' : 'notice danger'} role="status">
-          {NOTICES[query.activation]}
-        </div>
-      ) : null}
-      {query.factory === 'failed' ? (
-        <div className="notice danger" role="status">
-          The organization was provisioned, but factory automation did not start. Resume it from Onboarding.
-        </div>
-      ) : null}
-      {goliveNotice ? (
-        <div className={goliveNotice.failed ? 'notice danger' : 'notice'} role="status">
-          {goliveNotice.message.replaceAll('{slug}', brand.slug)}
-        </div>
-      ) : null}
-      {(() => {
-        const lifecycleNotice = query.lifecycle ? LIFECYCLE_NOTICES[query.lifecycle] : undefined;
-        return lifecycleNotice ? (
-          <div className={lifecycleNotice.failed ? 'notice danger' : 'notice'} role="status">
-            {lifecycleNotice.message}
-          </div>
-        ) : null;
-      })()}
+      <ReadinessNotices query={query} slug={brand.slug} />
 
       {factoryRun && factoryRun.state !== 'live' ? (
         <ProvisioningLoader
@@ -173,96 +110,20 @@ export default async function OrganizationReadinessPage({ params, searchParams }
         />
       ) : null}
 
-      {showGoLive ? (
-        <div className="card readiness-summary">
-          <div>
-            <h2>Go live</h2>
-            <p className="muted">
-              Sandbox uses preview Supabase, SQUARE_ENV=sandbox, and factory canary.
-              Tapping Go live mints {brand.slug}-hq.vercel.app and {brand.slug}-display.vercel.app.
-              Guest apps stay paths on HQ. Parked customer/kiosk/operator projects are left alone.
-            </p>
-          </div>
-          <form action={goLiveOrganizationAction}>
-            <input type="hidden" name="brandId" value={brand.id} />
-            <button className="button" type="submit">Go live</button>
-          </form>
-        </div>
-      ) : null}
+      {showGoLive ? <GoLiveBanner brandId={brand.id} slug={brand.slug} /> : null}
 
-      <div className="card readiness-summary">
-        <div>
-          <span className={statusClass(brand.status)}>{brand.status}</span>
-          <h2>{passed} of {requiredCount} required checks passed</h2>
-          <p className="muted">Owner: {run?.owner_email ?? 'Not recorded'} · Stage: {run?.stage ?? 'legacy'}</p>
-        </div>
-        {brand.status === 'provisioning' ? (
-          <form action={activateOrganizationAction}>
-            <input type="hidden" name="brandId" value={brand.id} />
-            <button className="button" type="submit" disabled={!ready}>Activate organization</button>
-          </form>
-        ) : <Link href="/" className="button">Open dashboard</Link>}
-      </div>
-      <div className="card">
-        <table>
-          <thead><tr><th>Check</th><th>Requirement</th><th>Status</th><th>Evidence</th></tr></thead>
-          <tbody>
-            {consent.required ? (
-              <tr>
-                <td><strong>Franchise consent</strong></td>
-                <td>Required</td>
-                <td><span className={statusClass(consent.status)}>{consent.status}</span></td>
-                <td>{consent.evidence}</td>
-              </tr>
-            ) : null}
-            {checks.map((check) => (
-              <tr key={check.check_key}>
-                <td><strong>{LABELS[check.check_key] ?? check.check_key}</strong></td>
-                <td>{check.required ? 'Required' : 'Optional'}</td>
-                <td><span className={statusClass(check.status)}>{check.status}</span></td>
-                <td>{check.status === 'passed' ? 'Recorded' : 'Awaiting factory worker'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <ReadinessOverview
+        brandId={brand.id}
+        brandStatus={brand.status}
+        run={run}
+        passed={passed}
+        requiredCount={requiredCount}
+        ready={ready}
+        consent={consent}
+        checks={checks}
+      />
 
-      <div className="card">
-        <h2>Lifecycle</h2>
-        <p className="muted">
-          Suspend pauses access without deleting data. Offboard is terminal.
-          Hard deletion of provider projects stays a manual operator step.
-        </p>
-        {brand.status === 'active' || brand.status === 'suspended' ? (
-          <div style={{ display: 'grid', gap: '1rem', maxWidth: '32rem' }}>
-            {brand.status === 'active' ? (
-              <form action={suspendOrganizationAction} className="location-form">
-                <input type="hidden" name="brandId" value={brand.id} />
-                <label>
-                  Suspension reason
-                  <input name="reason" required minLength={4} maxLength={500} placeholder="Why this organization is being suspended" />
-                </label>
-                <button type="submit" className="button danger">Suspend organization</button>
-              </form>
-            ) : (
-              <form action={restoreOrganizationAction}>
-                <input type="hidden" name="brandId" value={brand.id} />
-                <button type="submit" className="button">Restore organization</button>
-              </form>
-            )}
-            <form action={offboardOrganizationAction} className="location-form">
-              <input type="hidden" name="brandId" value={brand.id} />
-              <label>
-                Offboard reason
-                <input name="reason" required minLength={4} maxLength={500} placeholder="Why this organization is ending" />
-              </label>
-              <button type="submit" className="button danger">Offboard organization</button>
-            </form>
-          </div>
-        ) : (
-          <p className="muted">Lifecycle controls apply after activation (current status: {brand.status}).</p>
-        )}
-      </div>
+      <LifecyclePanel brandId={brand.id} brandStatus={brand.status} />
 
       <div className="location-form-actions">
         <Link href="/organizations/new" className="button secondary">Create another</Link>

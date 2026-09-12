@@ -1,12 +1,8 @@
-import { sleep } from 'workflow';
-
 import {
   factoryCompletionMintsHosts,
-  mayMintProductionHosts,
   mayPromoteLive,
 } from '@platform/factory';
 
-import { buildFactoryApplicationManifest } from '../lib/factory-automation';
 import { advanceFactoryRelease } from './factory-release';
 import {
   completedFactoryTasks,
@@ -15,127 +11,32 @@ import {
   organizationBrandId,
 } from './factory-release-runtime';
 import { synchronizeDeploymentEvidence } from './factory-deployment-sync';
-import {
-  synchronizeGitHubArtifactDigest,
-  synchronizeGitHubDeployment,
-} from './factory-github-actions';
-import { provisionGitHub } from './factory-github';
+import { synchronizeGitHubArtifactDigest } from './factory-github-actions';
 import { synchronizePublishedContent } from './factory-content';
-import { researchBrand } from './factory-research';
 import {
-  database,
-  existingResource,
+  createDemo,
+  mintProductionHosts,
+  provisionSandboxInfrastructure,
+} from './factory-pipeline-tasks';
+import {
+  blockForCredentials,
+  failRun,
+  type PlatformFactoryResult,
+} from './factory-run-state';
+import {
   loadRun,
   logFactory,
   requiredCredentialKeys,
-  saveArtifact,
   synchronizeCredentials,
   updateRun,
   updateTask,
-  verifyCredential,
-  type FactoryRunRow,
 } from './factory-runtime';
-import {
-  provisionDoppler,
-  provisionSupabase,
-  synchronizeSupabaseRuntime,
-} from './factory-secrets';
-import { provisionVercel } from './factory-vercel';
 
 type PlatformFactoryInput = {
   runId: string;
   /** Owner/admin tapped Go live. Never set by automatic factory resume. */
   goLiveApproved?: boolean;
 };
-type PlatformFactoryResult = {
-  status: 'blocked' | 'failed' | 'live';
-  missingCredentialKeys: readonly string[];
-  code?: string;
-};
-
-async function failRun(runId: string, message: string): Promise<void> {
-  'use step';
-  logFactory('run.failed', { runId, message });
-  const result = await database().from('platform_onboarding_runs')
-    .update({ state: 'failed', last_error_code: 'factory_pipeline_failed' })
-    .eq('id', runId);
-  if (result.error) throw new Error(`Factory failure state update failed: ${result.error.code}`);
-}
-
-async function createDemo(run: FactoryRunRow): Promise<void> {
-  let activeTask = 'research-brand';
-  try {
-    await updateTask(run.id, activeTask, 'running');
-    const research = await researchBrand(run);
-    await saveArtifact(run.id, 'brand_kit', research as unknown as Record<string, unknown>);
-    await verifyCredential(run.id, 'openai.api_key');
-    await updateTask(run.id, activeTask, 'completed');
-    activeTask = 'generate-demo';
-    await updateTask(run.id, activeTask, 'running');
-    await saveArtifact(run.id, 'application', buildFactoryApplicationManifest(run, research));
-    await updateTask(run.id, activeTask, 'completed');
-    await updateTask(run.id, 'verify-demo', 'completed');
-  } catch (error) {
-    await updateTask(run.id, activeTask, 'failed', 'factory_task_failed');
-    throw error;
-  }
-}
-
-/** GitHub + Doppler + Supabase only. Never mints {slug}-hq / {slug}-display. */
-async function provisionSandboxInfrastructure(run: FactoryRunRow): Promise<void> {
-  let activeTask = 'create-github-repository';
-  try {
-    await updateTask(run.id, activeTask, 'running');
-    await provisionGitHub(run);
-    await updateTask(run.id, activeTask, 'completed');
-    activeTask = 'create-doppler-project';
-    await updateTask(run.id, activeTask, 'running');
-    await provisionDoppler(run);
-    await updateTask(run.id, activeTask, 'completed');
-    activeTask = 'create-supabase-project';
-    await updateTask(run.id, activeTask, 'running');
-    const supabase = await provisionSupabase(run);
-    let runtimeReady = false;
-    for (let poll = 0; poll < 30 && !runtimeReady; poll += 1) {
-      if (poll > 0) await sleep('10s');
-      runtimeReady = await synchronizeSupabaseRuntime(run, supabase.externalId);
-    }
-    if (!runtimeReady) throw new Error('Supabase project did not become ready within five minutes.');
-    await updateTask(run.id, activeTask, 'completed');
-  } catch (error) {
-    await updateTask(run.id, activeTask, 'failed', 'factory_task_failed');
-    throw error;
-  }
-}
-
-async function mintProductionHosts(run: FactoryRunRow): Promise<void> {
-  if (!mayMintProductionHosts(true)) {
-    throw new Error('Production host mint refused without Go live approval.');
-  }
-  await updateTask(run.id, 'create-vercel-projects', 'running');
-  try {
-    const prior = await existingResource(run.id, 'github', 'repository');
-    if (!prior?.externalId) throw new Error('GitHub repository is required before Go live mint.');
-    const repository = prior.externalId;
-    await provisionVercel(run, repository, { goLiveApproved: true });
-    await synchronizeGitHubDeployment(run, repository);
-    await updateTask(run.id, 'create-vercel-projects', 'completed');
-  } catch (error) {
-    await updateTask(run.id, 'create-vercel-projects', 'failed', 'factory_task_failed');
-    throw error;
-  }
-}
-
-async function blockForCredentials(
-  run: FactoryRunRow,
-  task: string,
-  code: string,
-  missingCredentialKeys: readonly string[],
-): Promise<PlatformFactoryResult> {
-  await updateTask(run.id, task, 'blocked', code);
-  await updateRun(run.id, { state: 'blocked', stage: 'credentials', last_error_code: code });
-  return { status: 'blocked', missingCredentialKeys, code };
-}
 
 export async function runPlatformFactory(input: PlatformFactoryInput): Promise<PlatformFactoryResult> {
   'use workflow';
