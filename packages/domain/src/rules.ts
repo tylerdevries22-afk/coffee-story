@@ -29,7 +29,11 @@ export const REWARD_TIERS: readonly RewardTier[] = [
   BASE_TIER,
   { name: 'Regular', minimumAnnualPoints: 500, pointsPerDollar: 11, description: 'For guests settling into a rhythm.', perks: ['A birthday reward'] },
   { name: 'Insider', minimumAnnualPoints: 1500, pointsPerDollar: 12, description: 'For guests who make us part of their day.', perks: ['Free upgrades'] },
-  { name: 'Legend', minimumAnnualPoints: 2500, pointsPerDollar: 13, description: 'Our most dedicated regulars.', perks: ['5% off + priority pickup'] },
+  // "priority service", not "priority pickup": this ladder is the fallback for
+  // a tenant that wrote none, and a consultancy or a studio that enables
+  // loyalty must not promise a counter it does not have. The shipped rungs
+  // name no shop -- and no fulfillment model either.
+  { name: 'Legend', minimumAnnualPoints: 2500, pointsPerDollar: 13, description: 'Our most dedicated regulars.', perks: ['5% off + priority service'] },
 ] as const;
 
 export type PurchaseBreakdown = {
