@@ -96,7 +96,7 @@ set search_path = ''
 as $$
 declare
   expectation record;
-  failures text[] := '{}';
+  failures text[] := array[]::text[];
 begin
   for expectation in
     select * from (values
@@ -119,7 +119,7 @@ begin
           or pg_catalog.strpos(coalesce(policy.with_check, ''), expectation.helper) > 0
         )
     ) then
-      failures := failures || (expectation.tablename || '.' || expectation.policyname);
+      failures := array_append(failures, expectation.tablename || '.' || expectation.policyname);
     end if;
   end loop;
 
@@ -137,7 +137,7 @@ begin
         or pg_catalog.strpos(coalesce(policy.with_check, ''), 'at_location') > 0
       )
   ) then
-    failures := failures || 'locations.locations_update (still admits staff via at_location)';
+    failures := array_append(failures, 'locations.locations_update (still admits staff via at_location)');
   end if;
 
   if array_length(failures, 1) > 0 then

@@ -5,7 +5,7 @@ import { after, before, describe, it } from 'node:test';
 
 import { encryptToken } from '../../../packages/engine/src/crypto.ts';
 
-import { createSignedInUser, seedBrand, skipUnlessConfigured, sql, stack } from './stack.ts';
+import { createSignedInUser, exposeStackToRoutes, seedBrand, skipUnlessConfigured, sql } from './stack.ts';
 
 /**
  * The card tender, end to end, against a stand-in Square.
@@ -17,8 +17,7 @@ import { createSignedInUser, seedBrand, skipUnlessConfigured, sql, stack } from 
  * mocked is the merchant, never our own code path.
  */
 
-process.env.SUPABASE_URL = stack.url;
-process.env.SUPABASE_SERVICE_ROLE_KEY = stack.serviceRoleKey;
+exposeStackToRoutes();
 process.env.SQUARE_APP_ID = 'test-app-id';
 process.env.SQUARE_APP_SECRET = 'test-app-secret';
 // 32 bytes, base64: the key square_connections rows are sealed with.

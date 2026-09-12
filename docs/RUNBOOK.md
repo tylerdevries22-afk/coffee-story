@@ -127,6 +127,81 @@ HQ → Onboarding → Add a location (or insert the row), then Locations →
 Connect Square on the new row, then confirm hours and `ordering_paused =
 false`. Multi-location pricing tiers apply per location automatically.
 
+## Roll back a migration
+
+The chain is forward-only by design (`scripts/local-database-chain.ts`): there
+is no `down` directory, and nothing tracking applied versions will re-run or
+skip a file. A rollback is therefore **a new forward migration that reverses
+the effect** of the one being pulled back, and it has to do two things, not
+one — undo the schema change, and retire the release assertion the original
+registered. Miss the second and readiness fails forever: every registered
+assertion runs on every `platform_release_readiness()` call, and the one
+you just made false will raise on each of them.
+
+### The shape
+
+1. Claim the next migration number (`git ls-tree -r --name-only origin/main
+   -- supabase/migrations | tail`).
+2. Reverse the schema change with the narrowest DDL that does it.
+3. Retire the original's assertion. The precedent is
+   `20260911230000_drop_stale_publish_grant_assertion.sql`: redefine the
+   assertion function as an empty body (`begin return; end`) so linked
+   databases that registered it stay green, then
+   `update app.release_assertions set assertion = '<replacement>()' where
+   release = '<original>'` if a narrower check should stand in its place.
+4. Register the reverting migration with its own assertion — one that
+   proves the reversal held (the trigger is gone, the grant is back, the
+   column is absent) — via `app.register_release`.
+5. Bump `REQUIRED_DATABASE_RELEASE` in `apps/hq/lib/deep-health.ts` to the
+   new number; `deep-health.test.ts` pins it to the newest file.
+6. Prove it: `pnpm db:local` must apply the whole chain with every assertion
+   passing and the head matching. Then land it through the normal PR gate.
+
+### The three that are pending against production
+
+`main` pins `20260912020000`; production is at `20260911280000`. These are
+the reverts if any of the three has to come back out.
+
+**`20260912000000` fulfillment capability guard**
+
+```sql
+drop trigger if exists orders_assert_fulfillment_capability on public.orders;
+drop function if exists app.assert_fulfillment_capability();
+-- retire app.assert_fulfillment_capability_guard() per the shape above
+```
+
+Reversing this re-opens the case it closed: any service-role caller can
+again book a catering or delivery order for a brand that never installed
+either. The engine guard (`packages/engine/src/orders/fulfillment-capability.ts`)
+still refuses at its layer; only the database backstop goes.
+
+**`20260912010000` close Square validation-alert exposure**
+
+There is nothing to roll back *to*. The prior state was three RPCs callable
+by `anon`, one of which could dismiss a payment alert unauthenticated. If
+some caller genuinely needs one of them, grant it to `authenticated` with a
+policy — never back to `anon`. The assertion
+`app.assert_square_validation_alerts_unexposed()` will need retiring only if
+that grant is widened, and it should be widened in a migration that says who
+and why.
+
+**`20260912020000` platform fee refunds**
+
+```sql
+drop function if exists public.record_platform_fee_refund(uuid, bigint);
+alter table public.platform_fees
+  drop constraint if exists platform_fees_refunded_within_charged;
+alter table public.platform_fees drop column if exists refunded_fee_cents;
+-- retire app.assert_platform_fee_refunds_recordable() per the shape above
+```
+
+Dropping the column loses every recorded fee reversal. Safe before the
+first live refund; after that, back the column up into `order_events`
+snapshots first or do not drop it. `packages/engine/src/orders/refund-order-fee.ts`
+tolerates the RPC being absent (it is deliberately non-throwing), so the
+application keeps refunding — it simply stops recording the platform's
+share, which is the state you are choosing to return to.
+
 ## Incidents
 
 **Orders not appearing on the board:** check Supabase Realtime status first;

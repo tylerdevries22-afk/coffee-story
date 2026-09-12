@@ -62,6 +62,10 @@ export const createBoardSheetStyles = (tokens: BrandTokens) => StyleSheet.create
     backgroundColor: tokens.danger,
   },
   detailDangerText: { color: tokens.surfaceElevated, fontFamily: tokens.fontBody, fontSize: 14 },
+  detailStatusRow: { flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.md },
+  detailStatusText: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 14 },
+  detailErrorBox: { gap: tokens.spacing.md, borderWidth: 1, borderColor: tokens.danger, borderRadius: tokens.radius.lg, padding: tokens.spacing.lg },
+  detailErrorText: { color: tokens.danger, fontFamily: tokens.fontBody, fontSize: 14, lineHeight: 20 },
   refundBox: { gap: tokens.spacing.md },
   refundHint: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 13, lineHeight: 18 },
   refundInput: {
