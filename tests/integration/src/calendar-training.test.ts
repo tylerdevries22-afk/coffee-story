@@ -293,15 +293,23 @@ describe('calendar and training tenancy', { skip: skipUnlessConfigured }, () => 
       [tenant.brandId, JSON.stringify(manifest), ownerMemberId],
     );
 
-    const staleStartedAt = Date.now();
-    const staleAttempt = await serviceClient().rpc('publish_manual_training_release', {
+    // Count the HTTP attempts rather than timing the round trip: a stale
+    // rejection is a 4xx the harness answers once, and a wall-clock bound
+    // read a slow runner as a retry (and would have let two fast retries
+    // through).
+    let attempts = 0;
+    const counted = serviceClient((input, init) => {
+      attempts += 1;
+      return fetch(input, init);
+    });
+    const staleAttempt = await counted.rpc('publish_manual_training_release', {
       target_brand: tenant.brandId,
       target_release: draft.rows[0]!.id,
       target_editor: ownerMemberId,
       expected_updated_at: new Date(new Date(draft.rows[0]!.updated_at).getTime() - 1_000).toISOString(),
     });
     assert.equal(staleAttempt.error?.message, 'training_draft_stale');
-    assert.ok(Date.now() - staleStartedAt < 5_000, 'stale draft rejection must not be retried');
+    assert.equal(attempts, 1, 'a stale draft rejection is final and must not be retried');
 
     const browserAttempt = await userClient(owner.accessToken).rpc('publish_manual_training_release', {
       target_brand: tenant.brandId,
