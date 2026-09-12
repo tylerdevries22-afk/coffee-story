@@ -27,6 +27,7 @@ import {
   completeConnectorOAuth,
   ConnectorCompletionError,
 } from '@/lib/connector-oauth-completion';
+import { log, requestContext } from '@/lib/log';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -51,7 +52,9 @@ function finish(request: Request, provider: OAuthConnectorKey, outcome: string):
  * Every cause previously collapsed into one opaque redirect, so an operator could
  * not tell a stale client secret from a declined scope or a storage error.
  */
-function reportFailure(provider: OAuthConnectorKey, error: unknown): 'connection_failed' {
+function reportFailure(
+  request: Request, brandId: string, provider: OAuthConnectorKey, error: unknown,
+): 'connection_failed' {
   const stage = error instanceof ConnectorExchangeError ? error.stage
     : error instanceof ConnectorScopeError ? 'scope'
     : error instanceof ConnectorIdentityError ? 'identity'
@@ -62,9 +65,9 @@ function reportFailure(provider: OAuthConnectorKey, error: unknown): 'connection
     // call catches its own failures and surfaces as `scope`, above.
     : error instanceof AppNetworkError || error instanceof ExternalRequestError
       ? 'transport' : 'storage';
-  const status = error instanceof ConnectorExchangeError && error.status !== null
-    ? ` status=${error.status}` : '';
-  console.error(`connector.oauth.callback provider=${provider} stage=${stage}${status}`);
+  const status = error instanceof ConnectorExchangeError ? error.status : null;
+  log.error('connector.oauth_callback_failed',
+    { ...requestContext(request), brandId, provider, stage, status }, error);
   return 'connection_failed';
 }
 
@@ -144,6 +147,6 @@ export async function GET(
       const cleaned = await revokeConnectorToken(provider, exchangedToken);
       if (!cleaned) reported = new ConnectorCompletionError(false);
     }
-    return finish(request, provider, reportFailure(provider, reported));
+    return finish(request, provider, reportFailure(request, record.brand_id, provider, reported));
   }
 }

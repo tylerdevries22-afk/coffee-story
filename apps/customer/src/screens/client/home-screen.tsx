@@ -7,7 +7,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Screen } from '@/components/ui';
+import { ErrorState, Screen } from '@/components/ui';
 import type { MenuCategoryId } from '@/data/catalog';
 import { TEA_MATCHA_CATEGORY } from '@/features/tea-matcha';
 import { openWebPath } from '@/lib/web-navigation';
@@ -29,7 +29,7 @@ export function HomeScreen() {
   const tokens = useBrandTokens();
   const styles = createHomeStyles(tokens);
   const { startOrder } = useAppState();
-  const { items: menuItems } = useCustomerCatalog();
+  const { items: menuItems, status: catalogStatus, refresh: refreshCatalog } = useCustomerCatalog();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const tabBarClearance = useTabBarClearance(24);
@@ -102,19 +102,35 @@ export function HomeScreen() {
           onBookNow={onBookNow}
           onOpenPackages={onOpenPackages}
         />
-        <HomeFeatureSections
-          scrollY={scrollY}
-          viewportHeight={height}
-          reducedMotion={reducedMotion}
-          onSeeAllTea={onSeeAllTea}
-        />
-        <HomeCatalogSections
-          expanded={expanded}
-          onCategoryLayout={onCategoryLayout}
-          onToggleCategory={toggleCategory}
-          showAssistant={showAssistant}
-          onCloseAssistant={() => setShowAssistant(false)}
-        />
+        {catalogStatus === 'unavailable' ? (
+          // `items` holds the bundled catalog until the live one loads, and it
+          // kept rendering here after the load failed: a menu the shop may not
+          // sell today, with nothing on screen to say so and no way to try
+          // again short of backgrounding the app. The provider keeps retrying
+          // on its own; this makes the failure visible and puts the retry
+          // under the guest's thumb.
+          <ErrorState
+            title="The menu did not load."
+            message="Check your connection and try again."
+            onRetry={refreshCatalog}
+          />
+        ) : (
+          <>
+            <HomeFeatureSections
+              scrollY={scrollY}
+              viewportHeight={height}
+              reducedMotion={reducedMotion}
+              onSeeAllTea={onSeeAllTea}
+            />
+            <HomeCatalogSections
+              expanded={expanded}
+              onCategoryLayout={onCategoryLayout}
+              onToggleCategory={toggleCategory}
+              showAssistant={showAssistant}
+              onCloseAssistant={() => setShowAssistant(false)}
+            />
+          </>
+        )}
       </Screen>
       <Animated.View
         pointerEvents={showStickyCta ? 'auto' : 'none'}

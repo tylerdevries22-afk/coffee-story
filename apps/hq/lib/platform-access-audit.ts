@@ -10,6 +10,7 @@ import {
 import { serverEnv } from './api-auth';
 import { isConfigured } from './auth';
 import type { SessionInfo } from './demo-data';
+import { log } from './log';
 
 export type PlatformAccessAuditTarget = {
   action: string;
@@ -35,11 +36,7 @@ const defaults: PlatformAccessAuditDependencies = {
   configured: isConfigured,
   correlationId: randomUUID,
   environment: serverEnv,
-  logFailure: (details) => console.error(JSON.stringify({
-    severity: 'error',
-    context: 'platform_access_audit',
-    ...details,
-  })),
+  logFailure: (details) => log.error('platform_access.audit_failed', details),
   write: recordPlatformAccessEvent,
 };
 

@@ -4,6 +4,7 @@ import {
 } from '@platform/engine';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { log } from './log';
 import {
   exactPaymentRemediationRefund,
   paymentRemediationRetryAt,
@@ -153,7 +154,7 @@ export async function remediateDueSquarePayments(
   };
   let rows: DuePaymentRemediation[];
   try { rows = await (deps.load ?? loadDuePaymentRemediations)(db, now); }
-  catch { console.error('Square payment remediation scan failed.'); summary.scanFailed = true; return summary; }
+  catch { log.error('square.payment_remediation_scan_failed', { stage: 'load' }); summary.scanFailed = true; return summary; }
   summary.scanned = rows.length;
   for (let offset = 0; offset < rows.length; offset += CONCURRENCY) {
     const outcomes = await Promise.all(rows.slice(offset, offset + CONCURRENCY)

@@ -1,6 +1,7 @@
 import { loadTokenKey, squareConfigFromEnv } from '@platform/engine';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { log } from './log';
 import { expireDueSquareCardQuotes } from './square-card-maintenance';
 import { expireDueSquareCheckoutLinks } from './square-link-maintenance';
 import { remediateDueSquarePayments } from './square-payment-remediation';
@@ -15,7 +16,7 @@ export async function runSquareMaintenance(db: SupabaseClient, now: Date) {
     loadTokenKey();
   } catch {
     const alerts = await loadSquareMaintenanceAlerts(db);
-    console.warn('Square maintenance skipped: server credentials are not configured.');
+    log.warn('square.maintenance_skipped', { reason: 'server credentials are not configured' });
     return {
       configured: false,
       scanned: 0, renewed: 0, failed: 0, stale: 0, scanFailed: false, cleanupFailed: 0,
@@ -49,7 +50,7 @@ export async function runSquareMaintenance(db: SupabaseClient, now: Date) {
     || paymentRemediations.manual > 0 || alerts.scanFailed
     || alerts.paymentRemediations > 0 || alerts.paymentValidations > 0
     || alerts.connectionMutations > 0) {
-    console.error('Square maintenance requires attention.', {
+    log.error('square.maintenance_needs_attention', {
       renewalScanFailed: renewals.scanFailed,
       renewalFailures: renewals.failed,
       credentialQueueFailures: renewals.cleanupFailed,

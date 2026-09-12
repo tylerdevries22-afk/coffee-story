@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { Alert, Pressable, Share, Text, View } from 'react-native';
 
 import { SheetModal } from '@/components/sheet-modal';
-import { POINTS_LABEL, demoReferralCode, referralShareUrl } from '@/features/rewards/presentation';
+import { REFERRAL_SHARE_EXPLAINER } from '@/features/referrals';
+import { demoReferralCode, referralShareUrl } from '@/features/rewards/presentation';
 import { mobileApi } from '@/lib/mobile-api';
 import { TENANT } from '@/tenant';
 import type { RewardReferral } from '@platform/domain';
@@ -73,13 +74,15 @@ export function ReferralSheet({
       sheetStyle={styles.referralSheet}
     >
       <View style={styles.sheetTop}>
-        <View style={styles.referralPointsBadge}><Text style={styles.referralPointsText}>+20 {POINTS_LABEL}</Text></View>
+        {/* No amount and no points noun: what a referral is worth is the
+            brand's to say, and nothing credits it on its own -- the team
+            applies it at checkout. The old "+20" plus the points noun promised
+            both a number and a mechanism the platform does not have. */}
+        <View style={styles.referralPointsBadge}><Text style={styles.referralPointsText}>Reward for you both</Text></View>
         <CloseButton onPress={onClose} />
       </View>
       <Text style={styles.referralTitle}>Refer a Friend</Text>
-      <Text style={styles.referralBody}>
-        Share the invitation below. You’ll receive 20 {POINTS_LABEL} after your friend joins and places their first eligible order.
-      </Text>
+      <Text style={styles.referralBody}>{REFERRAL_SHARE_EXPLAINER}</Text>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`Share referral code ${code}`}
@@ -90,7 +93,10 @@ export function ReferralSheet({
         <Text numberOfLines={1} style={styles.referralLink}>{loading ? 'Preparing your invitation…' : shareUrl}</Text>
         <AppIcon name="square.and.arrow.up" size={24} tintColor={tokens.textPrimary} />
       </Pressable>
-      <Text style={styles.referralFootnote}>New guests only. Beans are awarded after the first completed, paid order.</Text>
+      {/* Replaces a sentence that promised the award on the friend's first
+          paid order with the points noun hard-coded -- a construction
+          franchise has no beans -- and an automatic award no function performs. */}
+      <Text style={styles.referralFootnote}>New guests only. The team applies the reward at checkout on their first order.</Text>
       <View style={styles.referralDivider} />
       <Text style={styles.referralPendingTitle}>Pending Referrals ({referrals.filter((item) => item.status === 'pending').length})</Text>
       {referrals.length ? referrals.map((referral) => (

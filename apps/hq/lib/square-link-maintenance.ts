@@ -1,6 +1,7 @@
 import type { SquareConfig } from '@platform/engine';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { log } from './log';
 import { loadDueSquareLinks } from './square-link-maintenance-loader';
 import { inspectDueSquareLink, recoverDueSquareLink } from './square-link-provider';
 import type {
@@ -49,7 +50,7 @@ export async function expireDueSquareCheckoutLinks(
   let rows: DueSquareLink[];
   try { rows = await (deps.load ?? loadDueSquareLinks)(db, now); }
   catch {
-    console.error('Square checkout expiry scan failed.', { stage: 'claim_due_quotes' });
+    log.error('square.checkout_expiry_scan_failed', { stage: 'claim_due_quotes' });
     summary.scanFailed = true;
     return summary;
   }
