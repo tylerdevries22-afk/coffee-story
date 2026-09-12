@@ -1,5 +1,6 @@
+import { ScheduleDropForm } from '@/components/schedule-drop-form';
 import { selectedConsoleCapabilities } from '@/lib/console-capability';
-import { loadDrops } from '@/lib/data';
+import { loadDrops, loadMenu } from '@/lib/data';
 import { formatMoney } from '@/lib/kpi';
 // The console is live data behind a session: never prerender a fixture
 // snapshot at build time and serve it as if it were today's numbers.
@@ -26,7 +27,7 @@ export default async function DropsPage() {
       </>
     );
   }
-  const drops = await loadDrops();
+  const [drops, menu] = await Promise.all([loadDrops(), loadMenu()]);
   return (
     <>
       <h1>Drops</h1>
@@ -58,15 +59,7 @@ export default async function DropsPage() {
         </table>
       </div>
       <div className="grid-2">
-        <div className="card">
-          <h2>Schedule a drop</h2>
-          <label className="field">Item<input placeholder="Honey Lavender Latte" /></label>
-          <label className="field">Starts<input type="datetime-local" /></label>
-          <label className="field">Ends<input type="datetime-local" /></label>
-          <label className="field">Hero image<input type="file" accept="image/*" /></label>
-          <label className="field"><input type="checkbox" style={{ display: 'inline', width: 'auto' }} /> Draft the announcement campaign automatically</label>
-          <button className="button" type="button">Schedule</button>
-        </div>
+        <ScheduleDropForm menuItems={menu.map((item) => ({ id: item.id, name: item.name }))} />
         <div className="card">
           <h2>Countdown preview</h2>
           <p style={{ color: 'var(--text-muted)' }}>
