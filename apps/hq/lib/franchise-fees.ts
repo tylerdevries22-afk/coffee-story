@@ -42,6 +42,15 @@ export function parseLocationFeeOverrides(input: {
   if (feeBps === undefined || feeBpsTier2 === undefined || tierThresholdCents === undefined) {
     return { ok: false, error: 'Rates must be whole basis points from 0–9,000 and the threshold must be non-negative cents.' };
   }
+  // Rule 3 is "the rate drops above the threshold." Both fields are
+  // independently range-checked above, so nothing stopped an admin from
+  // swapping them -- silently making every payment above the threshold cost
+  // MORE. Only checked when both are explicit: a null here means "inherit
+  // the brand's rate," which this parser cannot resolve (the RPC does, since
+  // it has the brand row -- see set_platform_location_fee_overrides).
+  if (feeBps !== null && feeBpsTier2 !== null && feeBpsTier2 > feeBps) {
+    return { ok: false, error: 'The volume-tier rate must be no higher than the base rate.' };
+  }
   return { ok: true, draft: { feeBps, feeBpsTier2, tierThresholdCents } };
 }
 

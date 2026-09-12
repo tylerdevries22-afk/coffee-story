@@ -27,6 +27,20 @@ describe('parseLocationFeeOverrides', () => {
       { feeBps: '9001', feeBpsTier2: '', tierThresholdCents: '' },
     ]) assert.equal(parseLocationFeeOverrides(input).ok, false);
   });
+
+  it('rejects a volume tier priced above the base rate', () => {
+    // Rule 3 is "the rate drops above the threshold" -- swapped fields would
+    // silently make every payment above the threshold cost MORE.
+    assert.equal(parseLocationFeeOverrides({
+      feeBps: '150', feeBpsTier2: '300', tierThresholdCents: '',
+    }).ok, false);
+  });
+
+  it('accepts a volume tier equal to the base rate', () => {
+    assert.deepEqual(parseLocationFeeOverrides({
+      feeBps: '300', feeBpsTier2: '300', tierThresholdCents: '',
+    }), { ok: true, draft: { feeBps: 300, feeBpsTier2: 300, tierThresholdCents: null } });
+  });
 });
 
 describe('updateLocationFeeOverrides', () => {
