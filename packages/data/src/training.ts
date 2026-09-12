@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { liftTrainingManifest, type TrainingManifest } from '@platform/domain';
 
 import { readWithRetry } from './read-retry';
+import { signTrainingManifestMedia } from './signed-training-media';
 
 export type PublishedTrainingRelease = { id: string; manifest: TrainingManifest };
 
@@ -25,7 +26,8 @@ export async function fetchPublishedTrainingRelease(
     .abortSignal(signal)
     .maybeSingle<{ id: string; manifest: unknown }>());
   if (!row) return null;
-  return { id: row.id, manifest: parseManifest(row.manifest) };
+  const manifest = await signTrainingManifestMedia(client, parseManifest(row.manifest));
+  return { id: row.id, manifest };
 }
 
 /**
