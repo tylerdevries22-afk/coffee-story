@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { liftTrainingManifest, type TrainingManifest } from '@platform/domain';
 
 import { readWithRetry } from './read-retry';
+import { signTrainingManifestMedia } from './signed-training-media';
 
 export type PublishedTrainingRelease = { id: string; manifest: TrainingManifest };
 
@@ -25,7 +26,8 @@ export async function fetchPublishedTrainingRelease(
     .abortSignal(signal)
     .maybeSingle<{ id: string; manifest: unknown }>());
   if (!row) return null;
-  return { id: row.id, manifest: parseManifest(row.manifest) };
+  const manifest = await signTrainingManifestMedia(client, parseManifest(row.manifest));
+  return { id: row.id, manifest };
 }
 
 /**
@@ -49,6 +51,9 @@ export function subscribeToTrainingReleases(
       if (live) onChanged();
     }, settleMs);
   };
+  // Refresh five-minute signed media before expiry, including when the
+  // release itself is unchanged during a long training session.
+  const refreshTimer = setInterval(settle, 4 * 60_000);
   const channel = client
     .channel(`training-releases-${brandId}`)
     .on('postgres_changes', {
@@ -63,6 +68,7 @@ export function subscribeToTrainingReleases(
   return () => {
     live = false;
     if (timer) clearTimeout(timer);
+    clearInterval(refreshTimer);
     void client.removeChannel(channel);
   };
 }

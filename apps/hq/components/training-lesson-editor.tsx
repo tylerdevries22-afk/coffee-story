@@ -8,7 +8,7 @@ import { uploadContentImage } from '@/app/(console)/content/actions';
 import { slugFromLabel, type ContentMediaVersion } from '@/lib/content-model';
 
 import { ContentIcon } from './content-workspace';
-import { ManagedThumbnail } from './managed-thumbnail';
+import { TrainingMediaThumbnail } from './training-media-thumbnail';
 
 export function LessonEditor({ trackSlug, lesson, mediaVersions, onChange, onRemove }: { trackSlug: string; lesson: TrainingLesson; mediaVersions: ContentMediaVersion[]; onChange: (lesson: TrainingLesson) => void; onRemove: () => void }) {
   const patch = (next: Partial<TrainingLesson>) => onChange({ ...lesson, ...next });
@@ -58,14 +58,14 @@ function MediaRow({ entityKey, item, history, onChange, onRemove }: { entityKey:
   }
   return (
     <div className="training-media-row">
-      <ManagedThumbnail url={item.kind === 'image' ? item.url : null} alt={item.title || 'Lesson media'} className="training-media-preview" />
+      <TrainingMediaThumbnail url={item.kind === 'image' ? item.url : null} alt={item.title || 'Lesson media'} className="training-media-preview" />
       <label className="field">Type<select value={item.kind} onChange={(event) => onChange({ ...item, kind: event.target.value as 'image' | 'video' })}><option value="image">Image</option><option value="video">Video</option></select></label>
       <label className="field">Title<input value={item.title} onChange={(event) => onChange({ ...item, title: event.target.value })} /></label>
       <label className="field media-url-field">Public HTTPS URL<input type="url" value={item.url} onChange={(event) => onChange({ ...item, url: event.target.value })} /></label>
       <input ref={fileRef} className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload(file); }} />
       <button type="button" className="icon-action" aria-label="Upload training image" disabled={uploading} onClick={() => fileRef.current?.click()}><ContentIcon kind="upload" /></button>
       <label className="field rights-field">Rights note<input value={item.rightsNote} onChange={(event) => onChange({ ...item, rightsNote: event.target.value })} /></label>
-      {history.length > 0 ? <div className="content-media-history"><strong>Previous media</strong><div className="content-media-history-grid">{history.slice(0, 8).map((version) => <button type="button" key={version.id} className={item.url === version.url ? 'active' : ''} aria-label={`Use media from ${new Date(version.createdAt).toLocaleString()}`} onClick={() => onChange({ ...item, url: version.url })}><ManagedThumbnail url={version.url} alt={`Media from ${new Date(version.createdAt).toLocaleDateString()}`} className="content-history-thumb" /><time dateTime={version.createdAt}>{new Date(version.createdAt).toLocaleDateString()}</time></button>)}</div></div> : null}
+      {history.length > 0 ? <div className="content-media-history"><strong>Previous media</strong><div className="content-media-history-grid">{history.slice(0, 8).map((version) => <button type="button" key={version.id} className={item.url === version.url ? 'active' : ''} aria-label={`Use media from ${new Date(version.createdAt).toLocaleString()}`} onClick={() => onChange({ ...item, url: version.url })}><TrainingMediaThumbnail url={version.url} alt={`Media from ${new Date(version.createdAt).toLocaleDateString()}`} className="content-history-thumb" /><time dateTime={version.createdAt}>{new Date(version.createdAt).toLocaleDateString()}</time></button>)}</div></div> : null}
       <button type="button" className="icon-action danger" aria-label="Remove media" onClick={onRemove}>×</button>
     </div>
   );
