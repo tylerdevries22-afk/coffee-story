@@ -75,7 +75,7 @@ const APP_PREVIEWS = {
     key: 'display', label: 'Location display', href: '/apps/display', icon: 'wall',
     description: 'Location-scoped status and activity for customers and teams.',
     device: 'TV display', frame: 'tv', viewport: { width: 1920, height: 1080 }, environmentKey: 'NEXT_PUBLIC_DISPLAY_URL',
-    localUrl: 'http://localhost:3200/board/demo',
+    localUrl: 'http://localhost:3200/',
   },
 } satisfies Record<AppPreviewKey, AppPreviewDefinition>;
 

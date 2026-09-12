@@ -12,9 +12,18 @@ const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
  * Display stays on a dedicated Next project until Vercel Services can co-host.
  * Optional overrides let a tenant keep a non-standard display path or host.
  */
+const LOCATION_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+/** TV path: paired location UUID, otherwise the display origin (setup). Never /board/demo. */
+export function displayBoardPath(locationId?: string | null): string {
+  if (locationId && LOCATION_UUID.test(locationId)) return `/board/${locationId}`;
+  return '/';
+}
+
 export function hostedSurfaceUrlsForSlug(
   slug: string,
   overrides: OrgSurfaceUrls = {},
+  locationId?: string | null,
 ): Record<AppPreviewKey, string> {
   if (!SLUG.test(slug)) {
     throw new Error(`Tenant slug must be a lowercase hyphenated slug (got ${slug}).`);
@@ -25,7 +34,7 @@ export function hostedSurfaceUrlsForSlug(
     customer: `${hq}/customer`,
     operator: `${hq}/operator`,
     kiosk: `${hq}/kiosk`,
-    display: `https://${slug}-display.vercel.app/board/demo`,
+    display: `https://${slug}-display.vercel.app${displayBoardPath(locationId)}`,
   };
   return {
     hq: overrides.hq ?? defaults.hq,
@@ -44,7 +53,7 @@ const LOCAL_URLS: Readonly<Record<AppPreviewKey, string>> = {
   customer: 'http://localhost:4170/',
   operator: 'http://localhost:4191/',
   kiosk: 'http://localhost:4180/',
-  display: 'http://localhost:3200/board/demo',
+  display: 'http://localhost:3200/',
 };
 
 /** Model B shape: one origin, path-routed surfaces. */
@@ -55,7 +64,7 @@ export function pathBasedSurfaceUrls(origin: string): Record<AppPreviewKey, stri
     customer: `${base}/customer`,
     operator: `${base}/operator`,
     kiosk: `${base}/kiosk`,
-    display: `${base}/display/board/demo`, // overlay with *-display until Services
+    display: `${base}/display`, // overlay with *-display until Services
   };
 }
 
