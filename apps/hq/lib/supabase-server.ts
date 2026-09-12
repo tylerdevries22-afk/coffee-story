@@ -11,12 +11,9 @@ import { cache } from 'react';
 
 import { fetchWithRetry } from '@platform/api-client';
 
-import { previewWallRuntimeEnabled } from './demo-sync-http';
+import { isConfigured } from './deployment-mode';
 
-export function isConfigured(): boolean {
-  return !previewWallRuntimeEnabled()
-    && Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
-}
+export { isConfigured };
 
 /**
  * Null when the deployment carries no Supabase env — pages fall back to

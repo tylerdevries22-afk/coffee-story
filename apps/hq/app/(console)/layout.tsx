@@ -30,7 +30,11 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
   const requestHeaders = await headers();
   const pathname = requestHeaders.get('x-hq-pathname') ?? '';
   const isPublicConsolePath = pathname === '/login' || pathname.startsWith('/status/');
-  if (isConfigured() && !session && !isPublicConsolePath) {
+  // Not conditioned on isConfigured(): an unconfigured production deployment
+  // now resolves no session at all, and gating that on being configured is
+  // what let it render the console to anyone instead. A development fallback
+  // still has DEMO_SESSION, so nothing changes there.
+  if (!session && !isPublicConsolePath) {
     if (isSetupConsolePath(pathname)) {
       const setupUser = await currentAuthUser();
       if (setupUser) return children;
