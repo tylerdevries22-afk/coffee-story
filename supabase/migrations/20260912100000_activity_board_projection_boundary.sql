@@ -44,6 +44,14 @@ create or replace view public.activity_board_items
 with (security_barrier = true, security_invoker = true) as
   select * from app.read_activity_board_items();
 
+-- 0014 grants ALL on new tables AND VIEWS to authenticated, and the earlier
+-- revoke on this view sits before this create. packages/schema's
+-- `revokes after the last create` invariant reads the chain in order and
+-- cannot tell a privilege-preserving `create or replace` from a drop+create
+-- that resets them, so the revoke is restated here rather than left to a
+-- reader to prove. It is idempotent either way.
+revoke insert, update, delete on public.activity_board_items from anon, authenticated;
+
 create or replace function app.assert_activity_board_projection_boundary()
 returns void language plpgsql stable security invoker set search_path = '' as $$
 begin
