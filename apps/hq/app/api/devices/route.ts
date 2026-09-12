@@ -5,6 +5,7 @@ import {
   authenticate, corsPreflight, jsonError, jsonWithCors, notConfigured,
   parseJsonBody, serverEnv, serviceDb,
 } from '../../../lib/api-auth';
+import { rateLimited } from '../../../lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 export function OPTIONS() { return corsPreflight(); }
@@ -27,6 +28,14 @@ export async function POST(request: Request) {
 
   const auth = await authenticate(request, db);
   if (auth instanceof Response) return auth;
+
+  // Keyed on the caller's user id, not their IP: this route is staff-only, so
+  // a stolen bearer token -- not a flood of anonymous traffic -- is the threat
+  // that matters. Without this, that one token could mint pairing codes for
+  // every location in the brand at whatever rate the caller could send them.
+  if (rateLimited(auth.userId, 'devices/mint-pairing-code', Date.now(), 20)) {
+    return jsonError(429, 'rate_limited', 'Too many pairing codes requested. Try again shortly.');
+  }
 
   const body = await parseJsonBody<{ locationId?: unknown; role?: unknown; label?: unknown }>(request);
   if (body instanceof Response) return body;

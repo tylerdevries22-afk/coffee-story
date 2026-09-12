@@ -1,6 +1,7 @@
 import {
   authenticate, corsPreflight, jsonError, jsonWithCors, notConfigured, serverEnv, serviceDb,
 } from '@/lib/api-auth';
+import { rateLimited } from '@/lib/rate-limit';
 import { mayCreateEnrollment } from '@platform/device-wall';
 
 export const dynamic = 'force-dynamic';
@@ -17,6 +18,12 @@ export async function DELETE(
   const db = serviceDb(env);
   const auth = await authenticate(request, db);
   if (auth instanceof Response) return auth;
+  // Identity-keyed, like the other device-admin writes this pairs with: a
+  // stolen owner token could otherwise revoke every installation in the brand
+  // by walking installation ids at full speed.
+  if (rateLimited(auth.userId, 'device-wall/installations-revoke', Date.now(), 20)) {
+    return jsonError(429, 'rate_limited', 'Too many revocations. Try again shortly.');
+  }
   const { id } = await context.params;
   if (!UUID.test(id)) return jsonError(400, 'invalid_request', 'The installation id is invalid.');
   if (!auth.claims.role || !mayCreateEnrollment(auth.claims.role)) {

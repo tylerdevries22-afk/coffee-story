@@ -5,6 +5,7 @@ import {
   authenticate, corsPreflight, jsonError, jsonWithCors, notConfigured,
   parseJsonBody, serverEnv, serviceDb,
 } from '../../../../lib/api-auth';
+import { rateLimited } from '../../../../lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 export function OPTIONS() { return corsPreflight(); }
@@ -27,6 +28,13 @@ export async function POST(request: Request) {
 
   const auth = await authenticate(request, db);
   if (auth instanceof Response) return auth;
+
+  // Same identity-keyed budget as pairing-code minting, and for the same
+  // reason: a stolen staff token, not an anonymous flood, is what rotating
+  // every screen's durable secret at full speed would take.
+  if (rateLimited(auth.userId, 'devices/refresh-secret', Date.now(), 20)) {
+    return jsonError(429, 'rate_limited', 'Too many secret rotations. Try again shortly.');
+  }
 
   const body = await parseJsonBody<{ deviceId?: unknown }>(request);
   if (body instanceof Response) return body;
