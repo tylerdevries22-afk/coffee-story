@@ -46,8 +46,15 @@ function rejectExecutable(path: string, buffer: Buffer, mode: number): void {
 }
 
 function rejectSecrets(buffer: Buffer): void {
-  if (buffer.includes(0)) return;
-  const text = buffer.toString('utf8');
+  // latin1, and no binary short-circuit. This used to `return` on any buffer
+  // containing a NUL byte, on the reasoning that binary files hold no secrets
+  // worth regexing. One 0 byte anywhere therefore skipped the scan for the
+  // whole file -- and download-only extensions get no magic-byte check either,
+  // so such a file could carry a private key straight through the gate. The
+  // text-extension NUL check below only ever covered .txt/.json and friends.
+  // Every pattern here is ASCII, and latin1 maps each byte to one character
+  // without throwing, so scanning decodes cleanly whatever the bytes are.
+  const text = buffer.toString('latin1');
   const finding = SECRET_PATTERNS.find(([pattern]) => pattern.test(text));
   if (finding) {
     throw new TenantPackageError('secret_detected', `Tenant package contains a ${finding[1]} credential pattern.`);
