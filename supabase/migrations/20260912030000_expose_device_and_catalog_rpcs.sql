@@ -36,7 +36,7 @@ language sql security definer set search_path = '' as $$
   select app.revoke_device_installation(p_installation_id, p_brand_id);
 $$;
 revoke all on function public.revoke_device_installation(uuid, uuid)
-  from public, anon, authenticated;
+  from public, anon, authenticated, service_role;
 grant execute on function public.revoke_device_installation(uuid, uuid) to service_role;
 
 create or replace function public.record_device_heartbeat(
@@ -49,7 +49,7 @@ language sql security definer set search_path = '' as $$
   );
 $$;
 revoke all on function public.record_device_heartbeat(uuid, uuid, uuid, uuid, uuid)
-  from public, anon, authenticated;
+  from public, anon, authenticated, service_role;
 grant execute on function public.record_device_heartbeat(uuid, uuid, uuid, uuid, uuid)
   to service_role;
 
@@ -63,7 +63,7 @@ language sql security definer set search_path = '' as $$
   );
 $$;
 revoke all on function public.create_device_stream_session(uuid, uuid, uuid, uuid, integer)
-  from public, anon, authenticated;
+  from public, anon, authenticated, service_role;
 grant execute on function public.create_device_stream_session(uuid, uuid, uuid, uuid, integer)
   to service_role;
 
@@ -81,8 +81,13 @@ create or replace function public.set_brand_kiosk_config(
 language sql security invoker set search_path = '' as $$
   select app.set_brand_kiosk_config(config, expected_updated_at);
 $$;
-revoke execute on function public.set_brand_kiosk_config(jsonb, timestamptz)
-  from anon, public;
+-- Revoke from all four roles before granting, on every wrapper. Supabase
+-- grants EXECUTE on each new public function to anon, authenticated and
+-- service_role by default; a narrower revoke leaves those defaults in place
+-- and the parity assertion below catches it -- as CI did for this function
+-- and publish_catalog_draft, which the plain-Postgres chain had passed.
+revoke all on function public.set_brand_kiosk_config(jsonb, timestamptz)
+  from public, anon, authenticated, service_role;
 grant execute on function public.set_brand_kiosk_config(jsonb, timestamptz)
   to authenticated;
 
@@ -92,7 +97,8 @@ create or replace function public.publish_catalog_draft(
 language sql security definer set search_path = '' as $$
   select app.publish_catalog_draft(target_catalog, expected_draft_version);
 $$;
-revoke all on function public.publish_catalog_draft(uuid, integer) from public;
+revoke all on function public.publish_catalog_draft(uuid, integer)
+  from public, anon, authenticated, service_role;
 grant execute on function public.publish_catalog_draft(uuid, integer) to authenticated;
 
 -- Release assertion: every wrapper must exist, its app original must still
