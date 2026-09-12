@@ -37,6 +37,8 @@ export type FactoryReleaseDependencies = {
   ) => Promise<DeploymentEvidence | null>;
   updateTask: (task: string, state: string, code?: string | null) => Promise<void>;
   updateRun: (values: Record<string, unknown>) => Promise<void>;
+  /** Explicit owner/admin Go live. Factory automation must leave this false/undefined. */
+  goLiveApproved?: boolean;
 };
 
 async function block(
@@ -102,6 +104,20 @@ export async function advanceFactoryRelease(
       return { status: 'failed', stage: 'canary', code: 'canary_verification_failed' };
     }
     await dependencies.updateTask('verify-canary', 'completed');
+  }
+
+  if (!dependencies.goLiveApproved) {
+    // Canary may pass in sandbox; production hosts + Square live require Go live.
+    await dependencies.updateTask('create-vercel-projects', 'blocked', 'go_live_required');
+    await dependencies.updateTask('promote-live', 'blocked', 'go_live_required');
+    await dependencies.updateRun({
+      state: 'blocked', stage: 'canary', last_error_code: 'go_live_required',
+    });
+    return { status: 'blocked', stage: 'canary', code: 'go_live_required' };
+  }
+
+  if (!completedTasks.has('create-vercel-projects')) {
+    return block(dependencies, 'create-vercel-projects', 'canary', 'go_live_hosts_required');
   }
 
   if (!deployment.promotionReference) {

@@ -56,7 +56,15 @@ describe('industry blueprint and plan', () => {
     const plan = createProvisioningPlan(blueprint, intake.value);
     assert.equal(plan.tasks.length, 11);
     assert.deepEqual(plan.tasks[0]?.dependsOn, []);
-    assert.deepEqual(plan.tasks.at(-1)?.dependsOn, ['verify-canary']);
+    assert.deepEqual(plan.tasks.at(-1)?.dependsOn, ['create-vercel-projects']);
+    assert.deepEqual(
+      plan.tasks.find((task) => task.key === 'create-vercel-projects')?.dependsOn,
+      ['verify-canary'],
+    );
+    assert.deepEqual(
+      plan.tasks.find((task) => task.key === 'publish-content')?.dependsOn,
+      ['create-supabase-project'],
+    );
   });
 
   it('returns only tasks whose dependencies completed', () => {

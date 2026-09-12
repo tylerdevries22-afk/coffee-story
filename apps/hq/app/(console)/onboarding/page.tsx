@@ -8,7 +8,8 @@ import { formatMoney } from '@/lib/kpi';
 import { ONBOARDING_INDUSTRIES } from '@/lib/onboarding-industries';
 import { serverClient } from '@/lib/supabase-server';
 
-import { createOnboardingRun, resumeOnboardingRun } from './actions';
+import { createOnboardingRun } from './actions';
+import { FactoryRunList } from './run-list';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,10 +30,6 @@ const APP_SURFACES: readonly {
 
 function firstParam(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
-}
-
-function runStateLabel(state: string): string {
-  return state.replaceAll('_', ' ');
 }
 
 export default async function OnboardingPage({ searchParams }: { searchParams: SearchParams }) {
@@ -152,35 +149,7 @@ export default async function OnboardingPage({ searchParams }: { searchParams: S
         </div>
       </section>
 
-      <section className="factory-panel">
-        <div className="factory-panel-heading"><div><p className="factory-eyebrow">Automation runs</p><h2>Demo-to-live pipeline</h2></div><span className="badge">{overview.runs.length} tenants</span></div>
-        <div className="factory-run-list">
-          {overview.runs.length ? overview.runs.map((run) => {
-            const progress = run.totalTasks ? Math.round((run.completedTasks / run.totalTasks) * 100) : 0;
-            return (
-              <article className="factory-run" key={run.id}>
-                <div className="factory-run-primary">
-                  <div><strong>{run.businessName}</strong><span>{run.tenantSlug}</span></div>
-                  <span className={`factory-state factory-state-${run.state}`}>{runStateLabel(run.state)}</span>
-                </div>
-                <div className="factory-progress" aria-label={`${progress}% complete`}><span style={{ width: `${progress}%` }} /></div>
-                <div className="factory-run-meta">
-                  <span>{run.completedTasks} of {run.totalTasks} tasks</span>
-                  <span>{run.verifiedCredentials} of {run.requiredCredentials} credentials verified</span>
-                  <span>Stage: {runStateLabel(run.stage)}</span>
-                </div>
-                {admin && (run.state === 'blocked' || run.state === 'failed') ? (
-                  <form action={resumeOnboardingRun}>
-                    <input type="hidden" name="runId" value={run.id} />
-                    <button className="button secondary" type="submit">Resume from checkpoint</button>
-                  </form>
-                ) : null}
-              </article>
-            );
-          }) : <div className="factory-empty"><Icon name="onboarding" size={22} /><strong>No tenant runs yet</strong><p>Create a private demo to begin the verified pipeline.</p></div>}
-        </div>
-        <p className="factory-source">Source: {overview.source}. A failed task leaves the previous hosted release active and records a safe, auditable failure.</p>
-      </section>
+      <FactoryRunList runs={overview.runs} admin={admin} source={overview.source} />
     </main>
   );
 }

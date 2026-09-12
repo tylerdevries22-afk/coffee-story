@@ -12,6 +12,7 @@ type RunRow = {
   tenant_slug: string;
   state: FactoryRunState;
   stage: FactoryStage;
+  last_error_code: string | null;
   created_at: string;
 };
 
@@ -48,6 +49,8 @@ export type FactoryRunView = {
   tenantSlug: string;
   state: FactoryRunState;
   stage: FactoryStage;
+  lastErrorCode: string | null;
+  completedTaskKeys: readonly string[];
   completedTasks: number;
   totalTasks: number;
   verifiedCredentials: number;
@@ -69,6 +72,8 @@ const DEMO_RUNS: readonly FactoryRunView[] = [
     tenantSlug: 'coffee-story',
     state: 'live',
     stage: 'live',
+    lastErrorCode: null,
+    completedTaskKeys: ['promote-live'],
     completedTasks: 11,
     totalTasks: 11,
     verifiedCredentials: 4,
@@ -81,6 +86,8 @@ const DEMO_RUNS: readonly FactoryRunView[] = [
     tenantSlug: 'juniper-coffee',
     state: 'blocked',
     stage: 'credentials',
+    lastErrorCode: null,
+    completedTaskKeys: [],
     completedTasks: 3,
     totalTasks: 11,
     verifiedCredentials: 1,
@@ -114,13 +121,18 @@ export function factoryRunViews(
   return runs.map((run) => {
     const runTasks = tasks.filter((task) => task.run_id === run.id);
     const runCredentials = credentials.filter((credential) => credential.run_id === run.id);
+    const completedTaskKeys = runTasks
+      .filter((task) => task.state === 'completed')
+      .map((task) => task.task_key);
     return {
       id: run.id,
       businessName: run.business_name,
       tenantSlug: run.tenant_slug,
       state: run.state,
       stage: run.stage,
-      completedTasks: runTasks.filter((task) => task.state === 'completed').length,
+      lastErrorCode: run.last_error_code,
+      completedTaskKeys,
+      completedTasks: completedTaskKeys.length,
       totalTasks: runTasks.length || factoryTasks().length,
       verifiedCredentials: runCredentials.filter((credential) => credential.state === 'verified').length,
       requiredCredentials: runCredentials.length,
@@ -133,7 +145,7 @@ export async function loadFactoryOverview(client: SupabaseClient | null): Promis
   if (!client) return { source: 'demo', runs: DEMO_RUNS, guides: DEMO_GUIDES };
   const [runs, tasks, credentials, guides] = await Promise.all([
     client.from('platform_onboarding_runs')
-      .select('id, business_name, tenant_slug, state, stage, created_at')
+      .select('id, business_name, tenant_slug, state, stage, last_error_code, created_at')
       .order('created_at', { ascending: false }).limit(50).returns<RunRow[]>(),
     client.from('platform_onboarding_tasks')
       .select('run_id, task_key, state, attempt_count').returns<TaskRow[]>(),

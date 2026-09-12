@@ -6,13 +6,16 @@ import { factoryRunViews, loadFactoryOverview, providerGuideViews } from './fact
 describe('factoryRunViews', () => {
   it('summarizes task and credential readiness without leaking secret values', () => {
     const views = factoryRunViews(
-      [{ id: 'run-1', business_name: 'Juniper Coffee', tenant_slug: 'juniper-coffee', state: 'running', stage: 'demo', created_at: '2026-08-27T00:00:00Z' }],
+      [{ id: 'run-1', business_name: 'Juniper Coffee', tenant_slug: 'juniper-coffee', state: 'running', stage: 'demo', last_error_code: null, created_at: '2026-08-27T00:00:00Z' }],
       [{ run_id: 'run-1', task_key: 'research-brand', state: 'completed', attempt_count: 1 }],
       [{ run_id: 'run-1', state: 'verified' }, { run_id: 'run-1', state: 'required' }],
     );
     assert.equal(views[0]?.completedTasks, 1);
+    assert.deepEqual(views[0]?.completedTaskKeys, ['research-brand']);
+    assert.equal(views[0]?.lastErrorCode, null);
     assert.equal(views[0]?.verifiedCredentials, 1);
     assert.equal(views[0]?.requiredCredentials, 2);
+    assert.equal(JSON.stringify(views).includes('Coffee Story'), false);
   });
 });
 

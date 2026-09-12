@@ -21,7 +21,9 @@ export function vercelRuntimeVariables(
   surface: FactorySurface,
   tenantSlug: string,
   secrets: Record<string, string>,
+  options: { squareEnv?: 'sandbox' | 'production' } = {},
 ): VercelRuntimeVariable[] {
+  const squareEnv = options.squareEnv ?? 'sandbox';
   const hqUrl = `https://${tenantSlug}-hq.vercel.app`;
   const values = surface === 'hq'
     ? {
@@ -32,6 +34,7 @@ export function vercelRuntimeVariables(
         SUPABASE_SERVICE_ROLE_KEY: secrets.SUPABASE_SERVICE_ROLE_KEY,
         CRON_SECRET: secrets.CRON_SECRET,
         HEALTH_CHECK_TOKEN: secrets.HEALTH_CHECK_TOKEN,
+        SQUARE_ENV: squareEnv,
         ...modelBHqSurfaceUrls(tenantSlug, hqUrl),
       }
     : surface === 'display'
