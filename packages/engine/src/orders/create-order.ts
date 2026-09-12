@@ -14,6 +14,7 @@ import { requireSinglePublishedMenuId } from '@platform/schema';
 import { priceLine, MenuPricingError } from '../menu-pricing';
 import { taxCentsFor, taxRowsFor } from '../tax';
 
+import { requireFulfillmentCapability } from './fulfillment-capability';
 import {
   committedResult,
   resolveOrderReplay,
@@ -88,6 +89,10 @@ export async function createOrder(deps: CreateOrderDeps, input: CreateOrderInput
   if (location.data.ordering_paused) {
     throw new OrderError('ordering_paused', 'Ordering is paused at this location right now.');
   }
+  // Beside the other "can this order be placed here at all" guards, and ahead
+  // of the catalog reads and pricing: a fulfillment type the brand never
+  // bought is refused before the order costs anything to price.
+  await requireFulfillmentCapability(deps.db, input.brandId, input.fulfillmentType);
 
   const menus = await deps.db
     .from('menus')

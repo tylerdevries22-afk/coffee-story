@@ -11,7 +11,7 @@ import { DemoTierToggle } from '../demo-tier-toggle';
 import { perkDescription } from '../sheets';
 import { useRewardStyles } from '../styles';
 import type { PerkDetail } from '../types';
-import { useTokens as useBrandTokens, AppIcon } from '@platform/ui';
+import { useTokens as useBrandTokens, AppIcon, expandedState } from '@platform/ui';
 
 import { PerkRow, ProgressHalo } from './status-tab-components';
 
@@ -71,7 +71,7 @@ export function StatusTab({
         </View>
         <Pressable
           accessibilityRole="button"
-          accessibilityState={{ expanded: progressOpen }}
+          {...expandedState(progressOpen)}
           accessibilityLabel={`${periodYear + 1} rewards progress`}
           onPress={() => setProgressOpen((open) => !open)}
           style={styles.statusCarryRow}

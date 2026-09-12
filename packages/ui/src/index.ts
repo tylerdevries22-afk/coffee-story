@@ -6,6 +6,7 @@ export * from './a11y-state';
 export * from './motion';
 export * from './reduced-motion';
 export * from './copy';
+export * from './copy-industry';
 export * from './theme';
 export * from './components';
 export * from './app-primitives';
