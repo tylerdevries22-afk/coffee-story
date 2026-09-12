@@ -160,6 +160,46 @@ describe('createOrder idempotency', () => {
     });
     assert.equal(calls.length, 1);
   });
+
+  /**
+   * The engine guard normally refuses first, so this is the race: the
+   * installation is disabled between that read and the insert. Without the
+   * mapping the trigger's 42501 escapes as a raw Postgres error and the guest
+   * gets a crash where the identical refusal a moment earlier was a sentence.
+   */
+  it('answers the fulfillment trigger with the same code the engine guard uses', async () => {
+    const calls: ReplayRpcCall[] = [];
+    await assert.rejects(createOrder({
+      db: replayOnlyDatabase(null, {
+        code: '42501',
+        message: 'fulfillment capability commerce-delivery is not installed for this brand',
+      }, calls),
+    }, CREATE_INPUT), (error: unknown) => {
+      assert.ok(error instanceof OrderError);
+      assert.equal(error.code, 'fulfillment_unavailable');
+      return true;
+    });
+    assert.equal(calls.length, 1);
+  });
+
+  /**
+   * 42501 is also plain RLS. Mapping the class rather than the message would
+   * tell a guest their brand lacks a capability when the real answer is that
+   * the caller was not allowed to read the row at all.
+   */
+  it('leaves an unrelated insufficient-privilege error alone', async () => {
+    const calls: ReplayRpcCall[] = [];
+    await assert.rejects(createOrder({
+      db: replayOnlyDatabase(null, {
+        code: '42501',
+        message: 'permission denied for table orders',
+      }, calls),
+    }, CREATE_INPUT), (error: unknown) => {
+      assert.equal(error instanceof OrderError, false);
+      return true;
+    });
+    assert.equal(calls.length, 1);
+  });
 });
 
 const REFUND_KEY = '11111111-1111-4111-8111-111111111111';

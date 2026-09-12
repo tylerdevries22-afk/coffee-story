@@ -71,6 +71,18 @@ export function throwOrderRpcError(error: OrderRpcError): never {
     throw new OrderError('idempotency_conflict',
       'That Idempotency-Key was already used for a different order request.');
   }
+  // The app.assert_fulfillment_capability trigger (20260912000000) raises
+  // 42501 when the brand holds no installation for the fulfillment type.
+  // requireFulfillmentCapability normally refuses first and this never fires;
+  // it fires when the installation is disabled between that read and the
+  // insert, and when a second writer reaches commit_order without the engine
+  // guard. Both are the same refusal to the caller, so both get the same
+  // structured code -- otherwise the race surfaces a raw Postgres error and a
+  // guest sees a crash where the call before it had a sentence.
+  if (error.code === '42501' && /fulfillment capability/i.test(error.message)) {
+    throw new OrderError('fulfillment_unavailable',
+      'That kind of order is not available from this brand.');
+  }
   throw error;
 }
 
