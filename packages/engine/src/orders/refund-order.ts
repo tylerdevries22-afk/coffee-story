@@ -8,6 +8,7 @@ import {
 } from '../refunds';
 import { refundSquarePayment, type SquareConfig } from '../square/client';
 
+import { recordFeeRefund, resolveRefundAppFeeCents } from './refund-order-fee';
 import {
   claimWebhookRefundWinner,
   refundEventByRequestKey,
@@ -110,9 +111,14 @@ export async function refundOrderPayment(
       `Only ${refundable} cents are left to refund on this order.`);
   }
 
+  // Resolved before Square is called, so a failed read refuses an action
+  // nothing has taken yet rather than orphaning a fee against moved money.
+  const appFeeCents = await resolveRefundAppFeeCents(deps.db, order.id, amountCents);
+
   const refund = await refundSquarePayment(deps.square, deps.locationAccessToken, {
     paymentId: order.square_payment_id,
     amountCents,
+    appFeeCents,
     // The caller's key, not the amount: two separate $5 refunds are two
     // refunds, and keying on the amount made Square treat the second as a
     // replay of the first — returning $5 while the books recorded $10.
@@ -173,5 +179,7 @@ export async function refundOrderPayment(
   }
   if (eventError) throw eventError;
 
+  await recordFeeRefund(deps.db, order.id, appFeeCents);
   return { orderId: order.id, refundId, amountCents };
 }
+
