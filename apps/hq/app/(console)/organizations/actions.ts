@@ -1,86 +1,33 @@
 'use server';
 
-import { factoryTasks } from '@platform/factory';
-import { start } from 'workflow/api';
 
 import { serverEnv, serviceDb } from '@/lib/api-auth';
-import { currentSession, hasRole } from '@/lib/auth';
+import { currentAuthUser, currentSession } from '@/lib/auth';
 import { addDemoLocation } from '@/lib/demo-locations';
 import { addDemoOrg } from '@/lib/demo-orgs';
-import { factoryStartupDecision } from '@/lib/factory-startup';
 import type { OrganizationActionState } from '@/lib/organization-action-state';
-import { parseOrgDraft, type OrgDraft } from '@/lib/org-input';
+import { startFactoryRun } from '@/lib/organization-factory-run';
+import { parseOrgDraft } from '@/lib/org-input';
 import {
   organizationFailure, organizationInvitationUrl, reconcileUnknownProvisioningInvitation,
   rollbackInvitationSafely,
 } from '@/lib/organization-provisioning-helpers';
 import { resolveOrInviteStaffUser } from '@/lib/staff-admin';
 import { switchWorkspaceToProvisionedOrg } from '@/lib/organization-workspace-switch';
-import { runPlatformFactory } from '@/workflows/platform-factory';
 import { isConfigured, serverClient } from '@/lib/supabase-server';
+import { tenantPackFromDraft, tryWriteTenantPack } from '@/lib/tenant-pack-write';
 
 function text(formData: FormData, key: string): string {
   const value = formData.get(key); return typeof value === 'string' ? value : '';
-}
-
-async function startFactoryRun(input: {
-  database: ReturnType<typeof serviceDb>;
-  actorId: string;
-  idempotencyKey: string;
-  draft: OrgDraft;
-}): Promise<boolean> {
-  const { database, actorId, idempotencyKey, draft } = input;
-  const existing = await database.from('platform_onboarding_runs').select('id,state')
-    .eq('tenant_slug', draft.slug).maybeSingle<{ id: string; state: string }>();
-  if (existing.error) throw new Error('Factory run lookup failed.');
-  const decision = factoryStartupDecision(existing.data);
-  if (decision === 'reuse') return true;
-  if (decision === 'reject') return false;
-  if (decision === 'restart' && existing.data) {
-    const claim = await database.from('platform_onboarding_runs')
-      .update({ state: 'running', last_error_code: null }).eq('id', existing.data.id)
-      .eq('state', existing.data.state).select('id').maybeSingle<{ id: string }>();
-    if (claim.error) throw new Error('Factory run restart failed.');
-    if (!claim.data) return true;
-  }
-  let runId = existing.data?.id;
-  if (!runId) {
-    const blueprint = await database.from('industry_blueprints').select('id')
-      .eq('industry_key', draft.industryKey).eq('status', 'active')
-      .order('version', { ascending: false }).limit(1).single<{ id: string }>();
-    if (blueprint.error) throw new Error('Factory blueprint is unavailable.');
-    const run = await database.rpc('create_platform_onboarding_run', {
-      input_blueprint_id: blueprint.data.id,
-      input_business_name: draft.name,
-      input_tenant_slug: draft.slug,
-      input_location_name: draft.location?.name ?? `${draft.name} HQ`,
-      input_timezone: draft.location?.timezone ?? 'UTC',
-      input_website_url: '',
-      input_idempotency_key: idempotencyKey,
-      input_created_by: actorId,
-      input_tasks: factoryTasks(),
-    });
-    if (run.error || typeof run.data !== 'string') throw new Error('Factory run creation failed.');
-    runId = run.data;
-  }
-  try {
-    await start(runPlatformFactory, [{ runId }]);
-  } catch {
-    await database.from('platform_onboarding_runs').update({
-      state: 'failed', last_error_code: 'workflow_start_failed',
-    }).eq('id', runId);
-    return false;
-  }
-  return true;
 }
 
 export async function createOrganizationAction(
   _previous: OrganizationActionState,
   formData: FormData,
 ): Promise<OrganizationActionState> {
-  const session = await currentSession();
-  if (!session || !hasRole(session, 'platform_admin')) {
-    return { kind: 'error', message: 'Only a platform administrator can create an organization.' };
+  const [session, authUser] = await Promise.all([currentSession(), currentAuthUser()]);
+  if (!session && !authUser) {
+    return { kind: 'error', message: 'Sign in to create an organization.' };
   }
   const parsed = parseOrgDraft({
     name: text(formData, 'name'), ownerEmail: text(formData, 'ownerEmail'),
@@ -129,7 +76,8 @@ export async function createOrganizationAction(
       hqUrl: process.env.NEXT_PUBLIC_HQ_URL, vercelEnvironment: process.env.VERCEL_ENV,
       vercelUrl: process.env.VERCEL_URL,
     });
-    if (!client || !environment || !callback || !session.userId) {
+    const actorId = session?.userId ?? authUser?.userId ?? null;
+    if (!client || !environment || !callback || !actorId) {
       return { kind: 'error', message: 'Owner invitations are not configured for this deployment.' };
     }
     const database = serviceDb(environment);
@@ -166,7 +114,7 @@ export async function createOrganizationAction(
       brandId = value.brandId;
       locationId = typeof value.locationId === 'string' ? value.locationId : null;
       try {
-        factoryIssue = !await startFactoryRun({ database, actorId: session.userId,
+        factoryIssue = !await startFactoryRun({ database, actorId: actorId,
           idempotencyKey, draft });
       } catch {
         factoryIssue = true;
@@ -183,8 +131,27 @@ export async function createOrganizationAction(
     }
   }
 
+  try {
+    tryWriteTenantPack(tenantPackFromDraft(draft));
+  } catch (error) {
+    console.error(JSON.stringify({
+      severity: 'error',
+      component: 'organization-provisioning',
+      event: 'tenant_pack.build_failed',
+      slug: draft.slug,
+      message: error instanceof Error ? error.message : 'build_failed',
+    }));
+  }
+
+  const workspaceSession = {
+    userId: session?.userId ?? authUser?.userId ?? null,
+    email: session?.email ?? authUser?.email ?? draft.ownerEmail,
+    role: session?.role ?? 'brand_owner',
+    brandId,
+    brandName: draft.name,
+  } as const;
   const switched = await switchWorkspaceToProvisionedOrg({
-    session, brandId, locationId, factoryIssue,
+    session: workspaceSession, brandId, locationId, factoryIssue,
   });
   return switched;
 }
