@@ -26,11 +26,11 @@ Open **http://localhost:4170/wall**.
 | Customer | `customer-web` | http://localhost:4170 |
 | Kiosk / POS | `kiosk-web` | http://localhost:4180 |
 | Operator | `operator-web` | http://localhost:4191 |
-| Pickup display | `display` | http://localhost:3200/board/demo |
+| Pickup display | `display` | http://localhost:3200/ |
 | HQ console | `hq` | http://localhost:3300 |
 
 The display's root is a signpost, not a screen: a display is always pointed at
-one shop, so the wall frames `/board/demo` rather than `/`.
+one shop, so the wall frames the display origin, not `/board/demo`.
 
 ## How it is wired
 
