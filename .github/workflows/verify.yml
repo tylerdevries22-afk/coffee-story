@@ -115,6 +115,17 @@ jobs:
       # an asset no longer matches MENU_IMAGE_SPEC. It reports, but does not
       # fail on, the photographs that are outside what grading may fix -- those
       # need reshooting, and are tracked in docs/MENU-IMAGERY.md.
+      # The script defaults to coffee-story when no --tenant is given, so the
+      # bare call checked one tenant and reported green for all of them -- the
+      # same silent single-tenant blind spot the test and bundle steps above
+      # loop to avoid. Keep this list identical to theirs.
+      # Still only the default tenant, and that is a known hole: stillpoint's
+      # menu assets are 1200x900 against a square spec and this step cannot see
+      # them. Widening the loop here is a one-line change, but it goes red until
+      # those assets are fixed, and they cannot simply be run through the
+      # normalizer -- it centre-crops 150px off each side, which clips the first
+      # letter of both the tenant's name and every card title. They need
+      # regenerating square at source, so the loop lands with that fix.
       - name: Check menu imagery against the spec
         run: pnpm normalize-menu-images --check
 
@@ -795,17 +806,20 @@ jobs:
             if [ "$attempt" -lt 3 ]; then sleep $((attempt * 5)); fi
           done
           # The scan could not run. That is not the same fact as "no
-          # vulnerabilities" and must not be reported as one -- but neither is
-          # it evidence of a vulnerability, and hard-failing here stops every
-          # merge in the repository for as long as a third party is down.
-          # Verified 2026-09-04: the endpoint returned HTTP 000 after 45s to a
-          # direct curl, from CI and a developer machine alike.
-          echo '::warning::AUDIT DID NOT RUN. The npm advisory endpoint was unreachable, so this gate proved nothing. Re-run it once the registry recovers.'
-          { echo '### :warning: Dependency audit did not run'
+          # vulnerabilities", so it cannot exit green: a gate that reports
+          # "could not check" as a pass launders an unknown into evidence, and
+          # the one run where it mattered would be the one nobody looked at.
+          # Availability of a third party is not a reason to call a tree clean;
+          # a red gate that says why is recoverable by re-running, a green one
+          # is not recoverable at all. The severity threshold above is
+          # unchanged -- only advisories at or above high fail on their own
+          # merits; this fails solely because nothing was measured.
+          echo '::error::AUDIT DID NOT RUN. The npm advisory endpoint was unreachable after 3 attempts, so this gate proved nothing. Re-run the audit job once the registry recovers.'
+          { echo '### :x: Dependency audit did not run'
              echo
-             echo 'The npm advisory endpoint was unreachable, so **no vulnerability scan was performed** for this run. This step passed on availability grounds, not on evidence. Re-run the audit job once <https://status.npmjs.org> is healthy.'
+             echo 'The npm advisory endpoint was unreachable, so **no vulnerability scan was performed** for this run. An inconclusive scan is not a pass, so this job fails. Re-run the audit job once <https://status.npmjs.org> is healthy.'
            } >> "$GITHUB_STEP_SUMMARY"
-          exit 0
+          exit 1
       - name: Audit the full dependency graph
         env:
           # Let pnpm fail fast so THIS loop owns the retrying. Left at its
@@ -828,17 +842,20 @@ jobs:
             if [ "$attempt" -lt 3 ]; then sleep $((attempt * 5)); fi
           done
           # The scan could not run. That is not the same fact as "no
-          # vulnerabilities" and must not be reported as one -- but neither is
-          # it evidence of a vulnerability, and hard-failing here stops every
-          # merge in the repository for as long as a third party is down.
-          # Verified 2026-09-04: the endpoint returned HTTP 000 after 45s to a
-          # direct curl, from CI and a developer machine alike.
-          echo '::warning::AUDIT DID NOT RUN. The npm advisory endpoint was unreachable, so this gate proved nothing. Re-run it once the registry recovers.'
-          { echo '### :warning: Dependency audit did not run'
+          # vulnerabilities", so it cannot exit green: a gate that reports
+          # "could not check" as a pass launders an unknown into evidence, and
+          # the one run where it mattered would be the one nobody looked at.
+          # Availability of a third party is not a reason to call a tree clean;
+          # a red gate that says why is recoverable by re-running, a green one
+          # is not recoverable at all. The severity threshold above is
+          # unchanged -- only advisories at or above high fail on their own
+          # merits; this fails solely because nothing was measured.
+          echo '::error::AUDIT DID NOT RUN. The npm advisory endpoint was unreachable after 3 attempts, so this gate proved nothing. Re-run the audit job once the registry recovers.'
+          { echo '### :x: Dependency audit did not run'
              echo
-             echo 'The npm advisory endpoint was unreachable, so **no vulnerability scan was performed** for this run. This step passed on availability grounds, not on evidence. Re-run the audit job once <https://status.npmjs.org> is healthy.'
+             echo 'The npm advisory endpoint was unreachable, so **no vulnerability scan was performed** for this run. An inconclusive scan is not a pass, so this job fails. Re-run the audit job once <https://status.npmjs.org> is healthy.'
            } >> "$GITHUB_STEP_SUMMARY"
-          exit 0
+          exit 1
   publish-preview:
     needs: [verify, hosted-integration, security, audit]
     if: github.event_name == 'workflow_dispatch' && (inputs.publish || inputs.publish_operator)
