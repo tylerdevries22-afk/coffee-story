@@ -7,6 +7,7 @@ import {
 } from '@platform/domain';
 import type { ActivityBoardItemRow, BoardTicketRow } from '@platform/schema';
 import { resolveCopy, type BrandCopy } from '@platform/ui/copy';
+import { brandIndustryKey } from '@platform/ui/copy-industry';
 
 import { demoBoardAt } from './demo-board';
 import {
@@ -61,7 +62,7 @@ export function fixtureBoardSnapshot(
     activityItems: kind === 'activity' ? demoActivityItems(Date.now(), locationId) : [],
     config: resolveBoardConfig(brandConfig),
     activityConfig: resolveActivityBoardConfig(brandConfig),
-    copy: resolveCopy((brandConfig as { copy?: unknown }).copy),
+    copy: resolveCopy((brandConfig as { copy?: unknown }).copy, brandIndustryKey(brandConfig)),
     theme: displayTheme(brandConfig),
     live: false,
     degraded,
@@ -98,7 +99,10 @@ export function liveBoardSnapshot(
     activityItems,
     config: resolveBoardConfig(brand?.config),
     activityConfig: resolveActivityBoardConfig(brand?.config),
-    copy: resolveCopy((brand?.config as { copy?: unknown } | undefined)?.copy),
+    copy: resolveCopy(
+      (brand?.config as { copy?: unknown } | undefined)?.copy,
+      brandIndustryKey(brand?.config),
+    ),
     theme: displayTheme(brand?.config),
     live: true,
     degraded: false,

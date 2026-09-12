@@ -126,7 +126,8 @@
     "email": "operations@stillpointbuilders.example",
     "website": "https://stillpointbuilders.example",
     "supportEmail": "operations@stillpointbuilders.example",
-    "industry": "Construction and renovation"
+    "industry": "Construction and renovation",
+    "industryKey": "construction"
   },
   "information": {
     "location": {
