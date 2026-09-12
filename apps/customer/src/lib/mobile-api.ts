@@ -59,10 +59,14 @@ export const mobileApi = {
     }
   },
   updateProfile: async (
-    payload: Pick<PortalProfile, 'fullName' | 'phone' | 'birthday'>,
+    // No birthday, deliberately. The live profile has no column for it, and
+    // this boundary used to accept the field and drop it on the floor while
+    // the screen announced "Profile saved". Narrowing the type here means a
+    // screen cannot hand it over without a compile error -- the screen has to
+    // decide what to do with a value nothing stores, rather than lie about it.
+    payload: Pick<PortalProfile, 'fullName' | 'phone'>,
     _idempotencyKey: string,
   ): Promise<void> => {
-    // Birthday has no live column yet; the supported fields write through.
     try {
       await requireApi().updateProfile({ fullName: payload.fullName, phone: payload.phone });
     } catch (error) {
