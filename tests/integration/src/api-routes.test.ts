@@ -12,7 +12,7 @@ import { POST as referralsPost } from '../../../apps/hq/app/api/referrals/route.
 import { POST as squareWebhookPost } from '../../../apps/hq/app/api/webhooks/square/route.ts';
 
 import { seedSquareConnection } from './platform-fee-test-support.ts';
-import { createSignedInUser, seedBrand, skipUnlessConfigured, sql, stack } from './stack.ts';
+import { createSignedInUser, exposeStackToRoutes, seedBrand, skipUnlessConfigured, sql } from './stack.ts';
 
 const SQUARE_LOCATION_ID = 'SQ-API-ROUTES-LOC';
 
@@ -24,8 +24,7 @@ const SQUARE_LOCATION_ID = 'SQ-API-ROUTES-LOC';
  */
 
 // The routes read env per request; point them at the stack under test.
-process.env.SUPABASE_URL = stack.url;
-process.env.SUPABASE_SERVICE_ROLE_KEY = stack.serviceRoleKey;
+exposeStackToRoutes();
 process.env.CRON_SECRET = 'integration-cron-secret';
 process.env.SQUARE_WEBHOOK_SIGNATURE_KEY = 'integration-square-signature';
 process.env.SQUARE_WEBHOOK_URL = 'http://hq.test/api/webhooks/square';
