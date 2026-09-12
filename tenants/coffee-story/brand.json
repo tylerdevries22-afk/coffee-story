@@ -505,7 +505,6 @@
     },
     "tenders": [
       "card",
-      "stored_value",
       "cash"
     ],
     "tip": {
