@@ -244,3 +244,45 @@ what else is running. A third submission would tell an owner nothing new.
 failed in 41 s because it was sent with `setup=npm-ci` against a pnpm repository
 and never reached dependency install. That failure was an agent error and says
 nothing about the branch.
+
+## 9. Sentry secrets must exist before the next production deploy — ACTION NEEDED
+
+`apps/hq/instrumentation.ts`, `apps/display/instrumentation.ts` and
+`packages/monitoring/src/mobile.ts` are all DSN-gated and silent by design:
+without a DSN each one no-ops so the build stays self-contained, which also
+means a missing DSN never fails a build or a health check — it just reports
+nothing, forever, until someone notices errors are not showing up in Sentry.
+
+`deploy-hosted.yml`'s "Configure hosted server environment" step now sources
+`SENTRY_DSN` (server, for the console and the display wall) and
+`EXPO_PUBLIC_SENTRY_DSN` (public, for the Expo surfaces this host embeds) from
+`${{ secrets.SENTRY_DSN }}` / `${{ secrets.EXPO_PUBLIC_SENTRY_DSN }}`, and the
+step now fails the deploy outright when either is empty on a production run.
+That is wiring only — it cannot create the secrets themselves.
+
+**Owner action:** create the `SENTRY_DSN` and `EXPO_PUBLIC_SENTRY_DSN`
+repository secrets (Settings → Secrets and variables → Actions) before the
+next production deploy, or that deploy will now fail closed at the
+"Configure hosted server environment" step instead of shipping silently
+unmonitored, per `docs/PLATFORM_FACTORY.md`'s Monitoring section. Values come
+from the relevant Sentry projects' Client Keys (DSN) settings; this agent
+never had access to those values and did not need them to wire the pipeline.
+
+## 10. New `security-scan` workflow is not yet a required check — ACTION NEEDED
+
+`.github/workflows/security-scan.yml` now runs gitleaks (secret scanning,
+fails the job closed on any finding) and CodeQL for javascript-typescript
+(standard init/analyze pair, default queries) on every pull request and on
+push to `main`. This closes part of `docs/franchise-readiness/tasks.yaml`
+CI-01 — the `audit` job in `verify.yml` only ever covered known-vulnerable
+dependencies via `pnpm audit`, never source-level SAST or committed secrets.
+
+It is deliberately **not** added to branch protection's required checks:
+that is owner territory, not something a workflow file can grant itself, and
+a newly-added scanner should prove it runs clean on real PRs before it can
+block merges.
+
+**Owner action:** once `security-scan` has run green on a real pull request,
+add it (both the `gitleaks` and `codeql` jobs) to `main`'s required status
+checks in Settings → Branches. Until then a red run here does not block
+anything.
