@@ -144,14 +144,23 @@ describe('Vercel provider state reconciliation', () => {
       calls=$(mktemp); trap 'rm -f "$calls"' EXIT
       curl() {
         printf 'call\n' >> "$calls"
-        sleep 2
+        sleep 3
         printf '%s\n' '{"domains":[{"name":"one.example.com"}],"pagination":{"count":1,"next":123,"prev":null}}'
       }
-      SECONDS=0; release_deadline=$((SECONDS + 1))
+      # Two seconds, not one. Bash derives SECONDS from whole-second time_t, so
+      # setting it to 0 reads back as 1 the moment the wall clock crosses the
+      # next integer second -- microseconds later if the assignment lands late
+      # in a second. With a one-second budget the seq fork between here and the
+      # first release_time_available check was enough to expire it on a loaded
+      # runner, so the scan made zero calls instead of one and this test failed
+      # intermittently in CI. Production budgets are 420s and 180s, where that
+      # granularity is irrelevant; the margin only has to outlast process setup.
+      SECONDS=0; release_deadline=$((SECONDS + 2))
       if read_production_aliases >/dev/null; then exit 9; fi
       wc -l < "$calls"
     `);
     assert.equal(result.status, 0, result.stderr);
-    assert.equal(result.stdout.trim(), '1');
+    assert.equal(result.stdout.trim(), '1',
+      'the scan should stop after exactly one page once the budget expires');
   });
 });
