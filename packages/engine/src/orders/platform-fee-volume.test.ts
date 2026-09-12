@@ -43,12 +43,19 @@ function database(options: {
 describe('monthly fee volume reservation', () => {
   it('claims one durable quote with the order, terms, and local month', async () => {
     const { db, calls } = database({ fee: 225, bps: 225 });
-    assert.deepEqual(await appFeeForCharge(db, INPUT), {
+    // A bare `new Date()` here and the one inside appFeeForCharge are two
+    // independent reads of the clock: once a month, in the few milliseconds
+    // either side of the location's local-month boundary, they can land in
+    // different months and the range asserted below would not match the one
+    // actually sent. Pinning a single instant and passing it to both sides
+    // removes the race instead of just making it rarer.
+    const now = new Date();
+    assert.deepEqual(await appFeeForCharge(db, { ...INPUT, now }), {
       feeCents: 225, feeBpsApplied: 225, claimGeneration: 'claim-a', claimCreated: true,
     });
     assert.equal(calls.length, 1);
     assert.equal(calls[0]?.url.pathname, '/rest/v1/rpc/claim_platform_fee_quote');
-    const range = feeMonthRange(new Date(), INPUT.locationTimezone);
+    const range = feeMonthRange(now, INPUT.locationTimezone);
     assert.deepEqual(calls[0]?.body, {
       p_order_id: 'order-a', p_location_id: 'location-a', p_charge_cents: 10_000,
       p_connection_id: INPUT.connectionId, p_connection_generation: INPUT.connectionGeneration,
