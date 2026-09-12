@@ -53,6 +53,57 @@ export async function refundEventBySquareId(
   return result.data;
 }
 
+export type OrderRefundClaim = {
+  brand_id: string;
+  status: string;
+  total_cents: number;
+  stored_value_applied_cents: number;
+  square_payment_id: string | null;
+  already_refunded_cents: number;
+};
+
+/**
+ * The locked read that feeds `refundable`. `begin_order_refund` does the
+ * order's SELECT ... FOR UPDATE and the already-refunded sum inside one
+ * advisory-locked transaction, AND stamps a durable claim on the order row
+ * -- see the migration's comment for why the claim, not just the lock, is
+ * what actually serializes two concurrent attempts (a PostgREST RPC call is
+ * its own transaction, so a lock alone would release before Square is ever
+ * called). A `22023` here means a different attempt already holds the claim.
+ */
+export async function beginOrderRefund(
+  db: SupabaseClient,
+  orderId: string,
+  requestKey: string,
+): Promise<OrderRefundClaim | null> {
+  const result = await db.rpc('begin_order_refund', { p_order_id: orderId, p_request_key: requestKey });
+  if (result.error) {
+    if (result.error.code === '22023') {
+      throw new OrderError('refund_unavailable',
+        'Another refund attempt for this order is already in progress. Try again in a moment.');
+    }
+    throw result.error;
+  }
+  const rows = (result.data ?? []) as OrderRefundClaim[];
+  return rows[0] ?? null;
+}
+
+/**
+ * Releases the claim `beginOrderRefund` took, so the order is refundable
+ * again. Never throws: this runs after Square has already answered (or the
+ * attempt never got that far), and a network blip on the release call must
+ * not turn a completed refund into an error the client retries. The claim's
+ * own two-minute TTL (in the migration) is what bounds a release that never
+ * arrives.
+ */
+export async function endOrderRefund(db: SupabaseClient, orderId: string, requestKey: string): Promise<void> {
+  try {
+    await db.rpc('end_order_refund', { p_order_id: orderId, p_request_key: requestKey });
+  } catch {
+    // Self-heals via begin_order_refund's TTL check on the next attempt.
+  }
+}
+
 export async function claimWebhookRefundWinner(
   db: SupabaseClient,
   input: {

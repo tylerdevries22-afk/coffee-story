@@ -29,6 +29,15 @@ end
 $shim$;
 grant anon, authenticated, service_role to authenticator;
 
+-- Supabase grants EXECUTE on every new `public` function to these roles by
+-- default. Without the same default here, "no revoke" reads as "nobody", so a
+-- migration that forgets an explicit revoke passes this chain and ships a
+-- function anon can call. Two RPC wrappers did exactly that: the readiness
+-- head passed here 56/56 and failed in CI's real stack on the privilege-parity
+-- assertion. Functions only -- the class this incident is about; tables and
+-- sequences are a separate decision.
+alter default privileges in schema public grant execute on functions to anon, authenticated, service_role;
+
 create schema if not exists auth;
 create schema if not exists storage;
 create schema if not exists realtime;
