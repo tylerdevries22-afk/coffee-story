@@ -1,6 +1,7 @@
 {
   "$docs": {
-    "$self": "Derived from brand.json `features`. Every flag that is true maps through LEGACY_FLAG_MODULE_MAP (packages/module-kit/src/registry.ts) to the module that replaces it: drops, catering, delivery, stored_value, referrals and operations. multi_location and sms are deliberately unmapped -- they are capacity and integration settings on the brands row, not capabilities -- so no module appears for them here.",
+    "$self": "Derived from brand.json `features`. Every flag that is true maps through LEGACY_FLAG_MODULE_MAP (packages/module-kit/src/registry.ts) to the module that replaces it: drops, catering, stored_value, referrals and operations. multi_location and sms are deliberately unmapped -- they are capacity and integration settings on the brands row, not capabilities -- so no module appears for them here.",
+    "delivery": "delivery is false, so commerce-delivery is absent -- and absence here is the gate, not decoration: reconcile_brand_modules treats this manifest as a complete desired state and disables any installation it does not name, so the storefront stops offering delivery and the fulfillment guard (20260912000000) refuses a delivery order server side. Held off for launch because the flow quotes DELIVERY_FEE_CENTS to the guest and packages/engine has no delivery-fee concept to charge it with, and because no address reaches the order. Restore the entry once both exist.",
     "dependencies": "commerce-catalog and commerce-ordering are not flags. They are named because every commerce and growth module above depends on them, and resolveModules would pull them in regardless; listing them keeps the manifest an honest account of what is installed rather than a list of what was switched on.",
     "device-wall": "Installed because modules/device-wall.json is authored for this tenant with `enabled: true`; the HQ console already reads that artifact directly."
   },
@@ -21,12 +22,6 @@
     },
     {
       "key": "commerce-catering",
-      "version": "1.0.0",
-      "surfaces": ["customer", "operator", "hq"],
-      "enabled": true
-    },
-    {
-      "key": "commerce-delivery",
       "version": "1.0.0",
       "surfaces": ["customer", "operator", "hq"],
       "enabled": true

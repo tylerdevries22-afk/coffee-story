@@ -139,7 +139,7 @@
   "features": {
     "drops": true,
     "catering": true,
-    "delivery": true,
+    "delivery": false,
     "multi_location": false,
     "sms": false,
     "stored_value": true,
