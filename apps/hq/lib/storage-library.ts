@@ -17,7 +17,10 @@ export type StorageAssetConfig = {
 const CONFIG: Record<StorageAssetKind, StorageAssetConfig> = {
   menu_image: { bucketId: 'menu-images', label: 'Menu image', visibility: 'public' },
   brand_image: { bucketId: 'brand-assets', label: 'Brand image', visibility: 'public' },
-  training_media: { bucketId: 'training-media', label: 'Training media', visibility: 'public' },
+  // Private since 20260912090000_training_media_is_private.sql: internal
+  // staff training material, unlike menu and brand imagery, was never meant
+  // to be world-readable.
+  training_media: { bucketId: 'training-media', label: 'Training media', visibility: 'private' },
   document: { bucketId: 'content-files', label: 'Document', visibility: 'private' },
   design: { bucketId: 'content-files', label: 'Design source', visibility: 'private' },
   attachment: { bucketId: 'content-files', label: 'Attachment', visibility: 'private' },

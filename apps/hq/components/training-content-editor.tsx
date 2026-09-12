@@ -9,8 +9,8 @@ import { trainingTrackArtworkUrl, type ContentMediaVersion, type TrainingAutomat
 import type { TenantTrainingProfile } from '@/lib/training-bootstrap';
 
 import { ContentIcon } from './content-workspace';
-import { ManagedThumbnail } from './managed-thumbnail';
 import { emptyTrack, TrackEditor } from './training-track-editor';
+import { TrainingMediaThumbnail } from './training-media-thumbnail';
 import { AutomationEditor, SourcesEditor } from './training-sources-editor';
 
 type TrainingView = { kind: 'track'; index: number } | { kind: 'sources' } | { kind: 'automation' };
@@ -84,7 +84,7 @@ export function TrainingContentEditor({
         <div className="training-nav-list">
           {manifest.tracks.map((track, index) => (
             <button type="button" key={`${track.slug}-${index}`} className={view.kind === 'track' && view.index === index ? 'active' : ''} onClick={() => setView({ kind: 'track', index })}>
-              <ManagedThumbnail url={trainingTrackArtworkUrl(track)} alt={`${track.title} track artwork`} />
+              <TrainingMediaThumbnail url={trainingTrackArtworkUrl(track)} alt={`${track.title} track artwork`} />
               <span><strong>{track.title || 'Untitled track'}</strong><small>{isCoreTrainingTrack(track.slug) ? 'Core track' : 'Tenant track'} · {track.lessons.length} lessons</small></span>
             </button>
           ))}

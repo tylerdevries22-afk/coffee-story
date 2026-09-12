@@ -49,7 +49,7 @@ export type StorageWorkspaceData = {
 
 const BUCKETS: ReadonlyArray<{ bucketId: StorageBucketId; label: string; visibility: StorageVisibility }> = [
   { bucketId: 'menu-images', label: 'Menu imagery', visibility: 'public' },
-  { bucketId: 'training-media', label: 'Training media', visibility: 'public' },
+  { bucketId: 'training-media', label: 'Training media', visibility: 'private' },
   { bucketId: 'brand-assets', label: 'Brand assets', visibility: 'public' },
   { bucketId: 'content-files', label: 'Private files', visibility: 'private' },
 ];
