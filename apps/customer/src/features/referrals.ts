@@ -2,6 +2,11 @@
  * Referral codes, demo-side. The engine issues real codes server-side
  * (referrals table, unique per brand); this derives a stable demo code so the
  * screen behaves identically in both modes.
+ *
+ * The share sentence is deliberately absent: what a referral is worth is the
+ * brand's to say -- a tenant who sells renovations gives away no free drink --
+ * so it lives in the `referralShare` copy key and is filled by `useCopy` at
+ * the one screen that shares it.
  */
 
 /** "Jordan Álvarez" + "CS" -> "CS-JORDAN-7f3a" style, stable per name. */
@@ -13,8 +18,4 @@ export function referralCodeFor(fullName: string, prefix: string): string {
     hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
   }
   return `${prefix}-${clean}-${(hash % 0xffff).toString(16).padStart(4, '0').toUpperCase()}`;
-}
-
-export function referralMessage(code: string, appName: string, url: string): string {
-  return `Try ${appName} — use my code ${code} and we both get a free drink. ${url}`;
 }

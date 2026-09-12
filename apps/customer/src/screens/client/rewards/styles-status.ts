@@ -94,7 +94,9 @@ export const createRewardStatusStyles = (tokens: BrandTokens) => StyleSheet.crea
   // The wordmark is set lower case by design; it used to be typed that way in
   // the screen, which made the casing a property of one tenant's name.
   cashBrand: { color: tokens.textPrimary, fontFamily: tokens.fontDisplay, fontSize: 33, textTransform: 'lowercase' },
-  cashSubbrand: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 10, letterSpacing: 1.5 },
+  // Same reason as cashBrand: the all-caps line was typed in caps in the
+  // screen, so the casing travelled with one tenant's word for stored value.
+  cashSubbrand: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 10, letterSpacing: 1.5, textTransform: 'uppercase' },
   currencyPill: { borderRadius: tokens.radius.pill, backgroundColor: mixHex(tokens.surface, tokens.accent, 0.12), paddingHorizontal: tokens.spacing.lg, paddingVertical: tokens.spacing.md },
   currencyText: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 14 },
   actionRow: { minHeight: 82, borderRadius: tokens.radius.pill, backgroundColor: tokens.surface, borderWidth: 1, borderColor: tokens.secondary, paddingHorizontal: tokens.spacing.xl, flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.lg },

@@ -23,6 +23,14 @@ export type BrandCopy = Record<string, string>;
 export const UNIVERSAL_COPY: BrandCopy = {
   pointsName: 'Points',
   checkoutTitle: 'Checkout',
+  /**
+   * The referral share text, filled with {appName}, {code} and {url}.
+   *
+   * Universal rather than per-vertical: it already names no reward, only that
+   * there is one, so a renovation firm and a coffee shop can both send it
+   * unchanged. What the reward actually is stays the tenant's to write.
+   */
+  referralShare: 'Try {appName} — use my code {code} and we both get a reward. {url}',
   dropEndsIn: 'Ends in {time}',
   /**
    * The status mark. One glyph, shown beside a tier name wherever a tier name

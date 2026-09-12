@@ -11,54 +11,18 @@ import { randomUUID } from 'node:crypto';
 
 import { fetchExternalWithRetry } from './http';
 import { NotificationDeliveryUncertainError, requestNotification } from './notification-request';
+import {
+  renderTemplate,
+  type BrandMessageContext,
+  type BrandTemplateBodies,
+  type TemplateKey,
+} from './notification-templates';
 
 export type NotificationChannel = 'push' | 'sms' | 'email';
 
-export type BrandMessageContext = {
-  appName: string;
-  pointsName: string;
-};
-
-export const TEMPLATES = {
-  order_ready: {
-    title: '{appName}',
-    body: 'Order {shortCode} is ready — come and get it while it’s hot.',
-  },
-  drop_live: {
-    title: '{appName}',
-    body: '{dropTitle} just dropped. It’s gone when it’s gone.',
-  },
-  points_earned: {
-    title: '{appName}',
-    body: 'You earned {points} {pointsName}. {pointsToNext} to your next reward.',
-  },
-  task_due: {
-    title: '{appName}',
-    body: '{taskTitle} is ready to claim at {locationName}.',
-  },
-  task_overdue: {
-    title: '{appName}',
-    body: '{taskTitle} is overdue at {locationName}.',
-  },
-  task_issue_reported: {
-    title: '{appName}',
-    body: 'An issue was reported for {taskTitle} at {locationName}.',
-  },
-} as const;
-
-export type TemplateKey = keyof typeof TEMPLATES;
-
-export function renderTemplate(
-  key: TemplateKey,
-  context: BrandMessageContext & Record<string, string | number>,
-): { title: string; body: string } {
-  const fill = (template: string) =>
-    template.replace(/\{(\w+)\}/g, (whole, name: string) =>
-      name in context ? String(context[name as keyof typeof context]) : whole,
-    );
-  const template = TEMPLATES[key];
-  return { title: fill(template.title), body: fill(template.body) };
-}
+// Wording lives in notification-templates.ts; re-exported so the engine
+// barrel and every existing import keep resolving from one module.
+export * from './notification-templates';
 
 export type Transport = {
   sendPush: (
@@ -139,8 +103,9 @@ export async function sendNotification(
   key: TemplateKey,
   context: BrandMessageContext & Record<string, string | number>,
   pushData?: Readonly<Record<string, string>>,
+  bodies?: BrandTemplateBodies,
 ): Promise<void> {
-  const { title, body } = renderTemplate(key, context);
+  const { title, body } = renderTemplate(key, context, bodies);
   switch (recipient.channel) {
     case 'push': return transport.sendPush(recipient.address, title, body, pushData);
     case 'sms': return transport.sendSms(recipient.address, body);

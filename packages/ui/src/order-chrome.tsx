@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatMoney } from '@platform/domain';
 
 import { disabledState } from './a11y-state';
-import { useTokens } from './theme';
+import { useCopy, useTokens } from './theme';
 import { withAlpha } from './components';
 
 const HOME_INDICATOR_MAX = 34;
@@ -59,13 +59,17 @@ export function ActionButton({ label, value, disabled, onPress, accessibilityHin
 export function SharedCartPill({ count, subtotalCents, onPress, icon }: { count: number; subtotalCents: number; onPress: () => void; icon?: ReactNode }) {
   const tokens = useTokens();
   const clearance = useTabBarClearance(tokens.spacing.sm);
+  // One key for the visible label and the spoken one: a tenant that renames
+  // the bag ("View project" for a builder) must rename both or a screen reader
+  // announces a word that is nowhere on the screen.
+  const viewBag = useCopy()('viewBag');
   if (count <= 0) return null;
   const items = count === 1 ? '1 item' : `${count} items`;
   return <View pointerEvents="box-none" style={{ position: 'absolute', left: tokens.spacing.lg, right: tokens.spacing.lg, bottom: clearance, zIndex: 40, elevation: 40 }}>
-    <Pressable accessibilityRole="button" accessibilityLabel={`View bag, ${items}, ${formatMoney(subtotalCents)}`} onPress={onPress}
+    <Pressable accessibilityRole="button" accessibilityLabel={`${viewBag}, ${items}, ${formatMoney(subtotalCents)}`} onPress={onPress}
       style={({ pressed }) => ({ minHeight: 56, borderRadius: tokens.radius.pill, paddingHorizontal: tokens.spacing.lg, flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.md, backgroundColor: tokens.textPrimary, shadowColor: tokens.textPrimary, shadowOpacity: tokens.elevation.raised, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 4, opacity: pressed ? 0.72 : 1 })}>
       <View style={{ width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>{icon}<CountBadge count={count} /></View>
-      <Text style={{ flex: 1, color: tokens.surfaceElevated, fontFamily: tokens.fontBody, fontWeight: '700', fontSize: tokens.type.md }}>View Bag</Text>
+      <Text style={{ flex: 1, color: tokens.surfaceElevated, fontFamily: tokens.fontBody, fontWeight: '700', fontSize: tokens.type.md }}>{viewBag}</Text>
       <Text style={{ color: tokens.surfaceElevated, fontFamily: tokens.fontBody, fontWeight: '700', fontSize: tokens.type.md }}>{formatMoney(subtotalCents)}</Text>
     </Pressable>
   </View>;

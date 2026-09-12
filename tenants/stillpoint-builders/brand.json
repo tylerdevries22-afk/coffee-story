@@ -121,6 +121,7 @@
   },
   "business": {
     "monogram": "SB",
+    "giftCodePrefix": "SB",
     "legalName": "Stillpoint Builders",
     "tagline": "Built with clarity",
     "email": "operations@stillpointbuilders.example",

@@ -24,6 +24,10 @@ export const VERTICAL_COPY_KEYS = [
   'earnBanner', 'memberFallback', 'dropLive', 'dropStartsIn', 'handoffPromise',
   'boardTitle', 'boardQueued', 'boardMaking', 'boardPosition', 'boardEmpty',
   'boardArrived', 'boardOverflow',
+  // Stored value and the order-ready notification. All three name a place or a
+  // moment -- a counter, a checkout, a pickup -- and a vertical that has none
+  // of those needs its own words rather than a shop's.
+  'cashName', 'cashHint', 'orderReadyMessage',
 ] as const;
 
 export type VerticalCopyKey = (typeof VERTICAL_COPY_KEYS)[number];
@@ -60,6 +64,9 @@ export const GENERIC_COPY: IndustryCopy = {
   boardEmpty: 'Nothing in the queue',
   boardArrived: 'Arrived',
   boardOverflow: '+{count} more waiting',
+  cashName: 'Store Credit',
+  cashHint: 'Use this at checkout',
+  orderReadyMessage: 'Order {shortCode} is ready.',
 };
 
 /**
@@ -89,6 +96,9 @@ const COFFEE_SHOP_COPY: IndustryCopy = {
   boardEmpty: 'Nothing in the queue',
   boardArrived: 'Here',
   boardOverflow: '+{count} more waiting',
+  cashName: 'Store Credit',
+  cashHint: 'Present at the counter',
+  orderReadyMessage: 'Order {shortCode} is ready for pickup.',
 };
 
 /**
@@ -116,6 +126,9 @@ const CONSTRUCTION_COPY: IndustryCopy = {
   boardEmpty: 'Nothing scheduled',
   boardArrived: 'On site',
   boardOverflow: '+{count} more scheduled',
+  cashName: 'Account Credit',
+  cashHint: 'Applied to your next invoice',
+  orderReadyMessage: 'Request {shortCode} is ready.',
 };
 
 /**

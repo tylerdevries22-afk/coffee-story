@@ -96,7 +96,7 @@ export async function POST(request: Request): Promise<Response> {
   });
   if (!square) {
     return jsonError(503, 'refund_unavailable',
-      'Card payments are not connected for this location, so there is nothing to return here — refund at the register.');
+      'Card payments are not connected for this location, so there is nothing to return here — refund it however it was collected.');
   }
 
   try {
