@@ -9,6 +9,28 @@ function requiredId(ids: ReadonlyMap<string, string>, key: string, label: string
   return id;
 }
 
+async function retireMenuItems(
+  db: SupabaseClient, brandId: string, menuId: string, retainedIds: ReadonlySet<string>,
+): Promise<void> {
+  // Page over a stable ID order; updating visibility does not change this set.
+  const pageSize = 500;
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await db.from('menu_items').select('id')
+      .eq('brand_id', brandId).eq('menu_id', menuId)
+      .order('id').range(offset, offset + pageSize - 1);
+    if (error) throw error;
+    const rows = (data ?? []) as { id: string }[];
+    const retiredIds = rows.filter((row) => !retainedIds.has(row.id)).map((row) => row.id);
+    if (retiredIds.length) {
+      const { error: retireError } = await db.from('menu_items')
+        .update({ is_listed: false }).eq('brand_id', brandId).eq('menu_id', menuId)
+        .in('id', retiredIds);
+      if (retireError) throw retireError;
+    }
+    if (rows.length < pageSize) return;
+  }
+}
+
 export async function seedTenantMenu(
   db: SupabaseClient, brandId: string, tenantDir: string, tenant: ValidatedTenant,
 ): Promise<number> {
@@ -55,12 +77,7 @@ export async function seedTenantMenu(
   // after the tenant took it off their menu. Unlist rather than delete:
   // order history references these rows, and unlisting is what the storefront
   // actually keys on.
-  const { error: retireError } = await db.from('menu_items')
-    .update({ is_listed: false })
-    .eq('brand_id', brandId)
-    .eq('menu_id', savedMenu.id)
-    .not('slug', 'in', `(${tenant.menuRows.map((row) => `"${row.slug}"`).join(',')})`);
-  if (retireError) throw retireError;
+  await retireMenuItems(db, brandId, savedMenu.id, new Set(itemIds.values()));
   for (const item of tenant.menu.items) {
     if (!item.singleItemId) continue;
     const { error } = await db.from('menu_items')
