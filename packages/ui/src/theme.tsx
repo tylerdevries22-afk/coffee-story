@@ -10,6 +10,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type PropsWithChildren } from 'react';
 
 import { formatCopy, resolveCopy, type BrandCopy } from './copy';
+import { brandIndustryKey } from './copy-industry';
 import { resolveAppTokens, type AppTokens } from './app-tokens';
 import { resolveTokens, type BrandTokens, DEFAULT_TOKENS } from './tokens';
 
@@ -79,7 +80,7 @@ export function ThemeProvider({
     return {
       tokens: resolveTokens(source.tokens),
       appTokens: resolveAppTokens(source.tokens),
-      copy: resolveCopy(source.copy),
+      copy: resolveCopy(source.copy, brandIndustryKey(source)),
       hydrated: active != null || cacheChecked,
     };
   }, [active, cacheChecked]);

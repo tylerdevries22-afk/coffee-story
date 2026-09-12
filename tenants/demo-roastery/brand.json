@@ -46,12 +46,12 @@
   "$docs": {
     "identity": "slug is the tenant key everywhere (folder name, brands.slug, onboarding); bundleId/scheme and kioskBundleId/kioskScheme feed the per-brand Expo configs; easProjectId and kioskEasProjectId come from each binary's separate `eas init`.",
     "tokens": "Hydrated into packages/ui's ThemeProvider and stored on brands.brand_config. Colors are #RRGGBB. fontDisplay/fontBody must be family names from the supported font registry (maintained in packages/ui/src/font-registry.ts, landing in the next phase). Optional tokens.ramp holds advanced overrides for the app's internal palette, keyed exactly like the legacy `colors` export -- note ramp.surface is the app screen surface, distinct from top-level tokens.surface used by splash/shared components; when omitted, the steps are derived from the seed colors by the theme resolver. Derive the palette from the brand's own assets -- never from any other product's look (docs/DO-NOT-RESEMBLE.md).",
-    "copy": "Every user-facing brand string. Keys the apps read are listed in packages/ui/src/copy.ts (DEFAULT_COPY); unknown keys are allowed and ignored. {placeholders} survive until formatted.",
+    "copy": "Every user-facing brand string, and the last of three layers: universal (packages/ui/src/copy.ts, UNIVERSAL_COPY) then your industry's pack (packages/ui/src/copy-industry.ts, chosen by business.industryKey) then this block. Only override what your brand says differently from its industry; unknown keys are allowed and ignored. {placeholders} survive until formatted.",
     "features": "Rule 5 flags, mirrored to the brands row by onboarding.",
     "fees": "Rule 3: platform take in basis points; above tierThresholdCents of gross in a calendar month (per location) later payments use feeBpsTier2. Confirm per contract before onboarding.",
     "locations": "Canonical location list created by onboarding. hours uses 24h HH:MM in each location's timezone; [] = closed.",
     "illustrations": "Optional named palettes for brand illustration work (e.g. the rewards cup). Free-form; read by the app's illustration components.",
-    "business": "Contact + legal identity the apps print (error screens, receipts, calendar notes, gift codes). monogram is the 1-3 letter fallback mark; giftCodePrefix prefixes every issued gift code.",
+    "business": "Contact + legal identity the apps print (error screens, receipts, calendar notes, gift codes). monogram is the 1-3 letter fallback mark; giftCodePrefix prefixes every issued gift code. industryKey is REQUIRED and machine-readable: it names the industry pack your unoverridden wording comes from, and must be either an industries/<key> folder name or \"generic\" for a brand that belongs to no vertical. A consistency test fails the build when it is missing or names a pack the platform does not ship -- that is deliberate, because the cost of guessing is a builder's app telling clients to collect their bag from the counter.",
     "modifiers.json": "Sibling file: option groups per item slug, in the JSONB shape packages/engine/src/menu-pricing.ts reads -- each slug maps to an array of groups {id, name, select: 'single' | 'multi', required, maxChoices, dependsOn?, choices: [{id, name, priceDeltaCents}]}. Optional; items absent from it sell plain. Every key must be a slug in menu.csv -- onboarding validates that."
   },
   "identity": {
@@ -172,7 +172,8 @@
     "phone": "",
     "website": "https://demo-roastery.test",
     "giftCodePrefix": "DR",
-    "monogram": "DR"
+    "monogram": "DR",
+    "industryKey": "coffee-shop"
   },
   "kiosk": {
     "$docs": "The container family: the sellable SKU is a box and the guest allocates its slots. Exercises migration 0029's pack path.",
