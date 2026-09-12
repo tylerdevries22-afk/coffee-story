@@ -6,7 +6,7 @@ import { describe, it } from 'node:test';
 
 import { databaseHealthy, databaseReadable, REQUIRED_DATABASE_RELEASE } from './deep-health';
 
-const env = { url: 'https://database.example.test', serviceRoleKey: 'service-key' };
+const env = { url: 'https://database.example.test', serviceRoleKey: 'service-key', anonKey: 'anon-key' };
 
 const MIGRATIONS = join(dirname(fileURLToPath(import.meta.url)), '../../../supabase/migrations');
 

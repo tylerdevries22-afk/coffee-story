@@ -5,6 +5,7 @@ import {
   authenticate, corsPreflight, jsonError, jsonWithCors, notConfigured,
   parseJsonBody, serverEnv, serviceDb,
 } from '../../../../lib/api-auth';
+import { rateLimited } from '../../../../lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 export function OPTIONS() { return corsPreflight(); }
@@ -28,6 +29,13 @@ export async function POST(request: Request) {
 
   const auth = await authenticate(request, db);
   if (auth instanceof Response) return auth;
+
+  // Same identity-keyed budget as the other device-admin writes: a stolen
+  // staff token could otherwise revoke every screen in the brand, one request
+  // apart, faster than anyone could notice and re-pair them.
+  if (rateLimited(auth.userId, 'devices/revoke', Date.now(), 20)) {
+    return jsonError(429, 'rate_limited', 'Too many revocations. Try again shortly.');
+  }
 
   const body = await parseJsonBody<{ deviceId?: unknown }>(request);
   if (body instanceof Response) return body;
