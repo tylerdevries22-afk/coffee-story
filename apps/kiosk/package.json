@@ -72,7 +72,7 @@
     "lint": "expo lint --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "test": "EXPO_PUBLIC_TENANT=${EXPO_PUBLIC_TENANT:?missing} tsx --test \"src/**/*.test.ts\"",
-    "verify": "pnpm lint && pnpm typecheck && pnpm test && EXPO_PUBLIC_TENANT=${EXPO_PUBLIC_TENANT:?missing} npx expo export --platform ios"
+    "verify": "pnpm lint && pnpm typecheck && pnpm test && EXPO_PUBLIC_TENANT=${EXPO_PUBLIC_TENANT:?missing} npx expo export --platform ios && EXPO_PUBLIC_TENANT=${EXPO_PUBLIC_TENANT:?missing} npx expo export --platform android"
   },
   "private": true
 }
