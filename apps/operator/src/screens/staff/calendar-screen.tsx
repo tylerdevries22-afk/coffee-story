@@ -1,13 +1,11 @@
-import { router, type Href } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DEMO_OPERATOR_FIXTURES } from '@/data/demo-fixtures';
 import { loadLiveCalendarItems } from '@/features/calendar/live';
-import { calendarCategoryForItem, calendarDateRail, calendarItemHref, type CalendarItem } from '@/features/calendar/presentation';
+import { calendarDateRail } from '@/features/calendar/presentation';
 import { operationCalendarItems } from '@/features/operations/calendar';
-import { operatorLayout } from '@/lib/responsive-layout';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/state/auth-context';
 import { useBusiness } from '@/state/business';
@@ -15,7 +13,13 @@ import { useOperations } from '@/state/operations-store';
 import { useOperator } from '@/state/operator-store';
 import { AppIcon, tabState, toggleState } from '@platform/ui';
 
-import { EmptySchedule, TimelineItem } from './calendar-items';
+import { CalendarList, DayTimeline } from './calendar-schedule-views';
+import {
+  calendarLoadFailed,
+  calendarLoaded,
+  calendarLoading,
+  type CalendarLoadState,
+} from './calendar-load-state';
 import { useCalendarTheme } from './calendar-theme';
 
 type CalendarMode = 'list' | 'day';
@@ -27,27 +31,34 @@ export function CalendarScreen() {
   const { isDemo, tenant } = useAuth();
   const operations = useOperations();
   const { location } = useOperator();
-  const [baseItems, setBaseItems] = useState<readonly CalendarItem[]>(isDemo ? DEMO_OPERATOR_FIXTURES.calendarItems : []);
+  const [calendarState, setCalendarState] = useState<CalendarLoadState>(
+    () => (isDemo ? calendarLoaded(DEMO_OPERATOR_FIXTURES.calendarItems) : calendarLoading()),
+  );
   const [mode, setMode] = useState<CalendarMode>('list');
   const [day, setDay] = useState<DayKey>('today');
   const [personId, setPersonId] = useState<string>('all');
+  const [reloadToken, setReloadToken] = useState(0);
   const days = useMemo(() => calendarDateRail(new Date(), 7, business.timezone), [business.timezone]);
   useEffect(() => {
-    if (isDemo) { setBaseItems(DEMO_OPERATOR_FIXTURES.calendarItems); return undefined; }
+    if (isDemo) { setCalendarState(calendarLoaded(DEMO_OPERATOR_FIXTURES.calendarItems)); return undefined; }
     if (!supabase || !tenant) return undefined;
     let mounted = true;
+    setCalendarState(calendarLoading());
     void loadLiveCalendarItems(supabase, tenant.brand_id).then((loaded) => {
-      if (mounted) setBaseItems(loaded);
-    }).catch(() => {
-      if (mounted) setBaseItems([]);
+      if (mounted) setCalendarState(calendarLoaded(loaded));
+    }).catch((error: unknown) => {
+      if (mounted) setCalendarState(calendarLoadFailed(error));
     });
     return () => { mounted = false; };
-  }, [isDemo, tenant]);
-  const items = useMemo(() => [
-    ...baseItems,
-    ...operationCalendarItems(operations.occurrences, location.name, location.timezone, operations.now),
-  ].sort((left, right) => Date.parse(left.startsAt ?? '') - Date.parse(right.startsAt ?? '')),
-  [baseItems, location.name, location.timezone, operations.now, operations.occurrences]);
+  }, [isDemo, tenant, reloadToken]);
+  const retry = useCallback(() => setReloadToken((token) => token + 1), []);
+  const items = useMemo(() => {
+    const baseItems = calendarState.status === 'loaded' ? calendarState.items : [];
+    return [
+      ...baseItems,
+      ...operationCalendarItems(operations.occurrences, location.name, location.timezone, operations.now),
+    ].sort((left, right) => Date.parse(left.startsAt ?? '') - Date.parse(right.startsAt ?? ''));
+  }, [calendarState, location.name, location.timezone, operations.now, operations.occurrences]);
   const people = useMemo(() => isDemo ? DEMO_OPERATOR_FIXTURES.calendarPeople : Array.from(
     new Map(items.flatMap((item) => item.assignees).map((person) => [person.id, person])).values(),
   ), [isDemo, items]);
@@ -60,7 +71,9 @@ export function CalendarScreen() {
       <CalendarHeader businessName={business.name} />
       <DateRail day={day} days={days} onSelect={setDay} />
       <CalendarFilters mode={mode} people={people} personId={personId} onMode={setMode} onPerson={setPersonId} />
-      {mode === 'list' ? <CalendarList items={visibleItems} day={day} /> : <DayTimeline items={visibleItems} />}
+      {mode === 'list'
+        ? <CalendarList items={visibleItems} day={day} state={calendarState} onRetry={retry} />
+        : <DayTimeline items={visibleItems} state={calendarState} onRetry={retry} />}
     </SafeAreaView>
   );
 }
@@ -107,91 +120,5 @@ function ModeButton({ label, selected, onPress }: { label: CalendarMode extends 
     <Pressable accessibilityRole="tab" {...tabState(selected)} onPress={onPress} style={[styles.modeButton, selected && styles.modeButtonSelected]}>
       <Text style={[styles.modeText, selected && styles.modeTextSelected]}>{label}</Text>
     </Pressable>
-  );
-}
-
-function CalendarList({ items, day }: { items: readonly CalendarItem[]; day: DayKey }) {
-  const { styles } = useCalendarTheme();
-  const { width, height } = useWindowDimensions();
-  const layout = operatorLayout(width, height);
-  return (
-    <ScrollView
-      style={styles.body}
-      contentContainerStyle={[
-        styles.listContent,
-        layout.isTablet && { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center' },
-      ]}
-      showsVerticalScrollIndicator={false}
-    >
-      <Text style={styles.groupTitle}>{day === 'today' ? 'Today' : 'Tomorrow'}</Text>
-      {items.length ? items.map((item) => <ScheduleCard key={item.id} item={item} />) : <EmptySchedule />}
-    </ScrollView>
-  );
-}
-
-function ScheduleCard({ item }: { item: CalendarItem }) {
-  const { colors, tokens, styles } = useCalendarTheme();
-  const category = calendarCategoryForItem(item, tokens);
-  const open = () => router.push(calendarItemHref(item.id) as Href);
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`${category.label}: ${item.title}, ${item.startTime}`}
-      onPress={open}
-      style={({ pressed }) => [styles.card, pressed && styles.pressed]}
-    >
-      <View style={[styles.categoryRail, { backgroundColor: category.color }]} />
-      <View style={styles.cardContent}>
-        <View style={styles.timeRow}>
-          <Text style={styles.time}>{item.startTime} – {item.endTime}</Text>
-          <View style={[styles.categoryBadge, { backgroundColor: category.tint }]}>
-            <AppIcon name={category.icon} size={14} tintColor={category.color} />
-            <Text style={[styles.categoryText, { color: category.color }]}>{category.label}</Text>
-          </View>
-        </View>
-        <Text style={styles.cardTitle}>{item.title}</Text>
-        <Text style={styles.cardMeta}>{item.project} · {item.location}</Text>
-        <View style={styles.cardFooter}>
-          <View style={styles.avatarStack}>
-            {item.assignees.map((person, index) => (
-              <View key={person.id} style={[styles.smallAvatar, { marginLeft: index === 0 ? 0 : -6 }]}>
-                <Text style={styles.smallAvatarText}>{person.initials}</Text>
-              </View>
-            ))}
-          </View>
-          <Text style={styles.status}>{item.status}</Text>
-          <AppIcon name="chevron.right" size={15} tintColor={colors.ink400} />
-        </View>
-      </View>
-    </Pressable>
-  );
-}
-
-function DayTimeline({ items }: { items: readonly CalendarItem[] }) {
-  const { colors, styles } = useCalendarTheme();
-  const { width, height } = useWindowDimensions();
-  const layout = operatorLayout(width, height);
-  return (
-    <ScrollView
-      style={styles.body}
-      contentContainerStyle={[
-        styles.timelineContent,
-        layout.isTablet && { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center' },
-      ]}
-      showsVerticalScrollIndicator={false}
-    >
-      {['7 AM', '9 AM', '11 AM', '1 PM', '3 PM'].map((time, index) => (
-        <View key={time} style={styles.timelineRow}>
-          <Text style={styles.timelineTime}>{time}</Text>
-          <View style={styles.timelineLine} />
-          {items[index] ? <TimelineItem item={items[index]} /> : null}
-        </View>
-      ))}
-      {!items.length ? <EmptySchedule /> : null}
-      <Pressable accessibilityRole="button" style={styles.todayButton}>
-        <AppIcon name="mappin" size={15} tintColor={colors.ink900} />
-        <Text style={styles.todayText}>Today</Text>
-      </Pressable>
-    </ScrollView>
   );
 }

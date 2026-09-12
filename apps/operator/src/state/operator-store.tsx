@@ -6,11 +6,13 @@ import type { QueuedTransition } from '@/features/operator/offline-queue';
 import { demoSyncEnabled } from '@/lib/demo-sync';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/state/auth-context';
+import { dismissConflict, type OperatorConflict } from '@/state/operator-conflicts';
 import {
   DEFAULT_DEMO_LOCATION,
   TENANT_DEMO_LOCATIONS,
   type OperatorLocation,
 } from '@/state/operator-locations';
+import { initialOrdersLoaded } from '@/state/operator-orders-loaded';
 
 import { OperatorContext, type OperatorSettings, type OperatorState } from './operator-store-types';
 import { useOperatorLiveSync } from './operator-live-sync';
@@ -39,6 +41,7 @@ export function OperatorProvider({ children }: PropsWithChildren) {
   const [orders, setOrders] = useState<BoardOrder[]>(
     () => (brokered ? [] : [...DEMO_OPERATOR_FIXTURES.boardOrders]),
   );
+  const [ordersLoaded, setOrdersLoaded] = useState(() => initialOrdersLoaded(brokered, live));
   const [unseenIds, setUnseenIds] = useState<ReadonlySet<string>>(new Set());
   const [location, setLocation] = useState<OperatorLocation>(DEFAULT_DEMO_LOCATION);
   const [settings, setSettings] = useState<OperatorSettings>({
@@ -46,7 +49,7 @@ export function OperatorProvider({ children }: PropsWithChildren) {
     kdsMode: false,
     printerEnabled: false,
   });
-  const [conflicts, setConflicts] = useState<{ orderId: string; message: string }[]>([]);
+  const [conflicts, setConflicts] = useState<OperatorConflict[]>([]);
   const [hoursOverride, setHoursOverride] = useState('');
   const queueRef = useRef<QueuedTransition[]>([]);
   const spawnIndex = useRef(0);
@@ -70,6 +73,7 @@ export function OperatorProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     if (isDemo || live) return;
     setOrders([]);
+    setOrdersLoaded(false);
     seenRef.current = new Set();
     syncedDemoIdsRef.current = new Set();
     queueRef.current = [];
@@ -101,12 +105,15 @@ export function OperatorProvider({ children }: PropsWithChildren) {
   }, []);
 
   const flushQueue = useOperatorLiveSync({ live, location, locationReady, queueFlushInFlightRef,
-    queueRef, seenRef, setConflicts, setOrders, tenant, trackFresh, user });
+    queueRef, seenRef, setConflicts, setOrders, setOrdersLoaded, tenant, trackFresh, user });
 
   const markSeen = useCallback(() => setUnseenIds(new Set()), []);
   const reconcileDemoSync = useOperatorDemoSync({ brokered, demoModeRef,
     demoReconcileInFlightRef, demoSyncPrimedRef, queueRef, richDemo, seenRef, setConflicts,
-    setOrders, spawnIndex, syncedDemoIdsRef, trackFresh });
+    setOrders, setOrdersLoaded, spawnIndex, syncedDemoIdsRef, trackFresh });
+  const dismissConflictAction = useCallback((id: string) => {
+    setConflicts((existing) => dismissConflict(existing, id));
+  }, []);
 
   const { advance, cancel, refund } = useOperatorActions({ flushQueue, live, location,
     locationReady, ordersRef, queueRef, reconcileDemoSync, refundInFlightRef, setConflicts,
@@ -123,6 +130,7 @@ export function OperatorProvider({ children }: PropsWithChildren) {
 
   const value = useMemo<OperatorState>(() => ({
     orders,
+    ordersLoaded,
     unseenIds,
     markSeen,
     advance,
@@ -142,7 +150,10 @@ export function OperatorProvider({ children }: PropsWithChildren) {
     hoursOverride,
     setHoursOverride,
     conflicts,
-  }), [advance, cancel, conflicts, eightySixed, hoursOverride, location, locationReady, locations, markSeen, menuItems, orders, orderingPaused, refund, setOrderingPaused, settings, toggleEightySix, unseenIds, updateSettings]);
+    dismissConflict: dismissConflictAction,
+  }), [advance, cancel, conflicts, dismissConflictAction, eightySixed, hoursOverride, location,
+    locationReady, locations, markSeen, menuItems, orders, ordersLoaded, orderingPaused, refund,
+    setOrderingPaused, settings, toggleEightySix, unseenIds, updateSettings]);
 
   return <OperatorContext.Provider value={value}>{children}</OperatorContext.Provider>;
 }

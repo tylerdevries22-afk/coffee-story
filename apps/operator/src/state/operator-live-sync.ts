@@ -11,6 +11,7 @@ import type { QueuedTransition } from '@/features/operator/offline-queue';
 import { drainTransitionQueue, finalizeTransitionDrain, loadTransitionQueue,
   refreshTransitionStatuses, runQueueOperation, saveTransitionQueue } from '@/features/operator/persistent-queue';
 import { supabase } from '@/lib/supabase';
+import { appendConflicts, type OperatorConflict } from '@/state/operator-conflicts';
 import type { OperatorLocation } from '@/state/operator-locations';
 
 const LIVE_RECONCILE_MS = 60_000;
@@ -21,14 +22,15 @@ type Options = {
   user: User | null; queueRef: MutableRefObject<QueuedTransition[]>;
   queueFlushInFlightRef: MutableRefObject<boolean>;
   seenRef: MutableRefObject<Set<string>>;
-  setConflicts: Dispatch<SetStateAction<{ orderId: string; message: string }[]>>;
+  setConflicts: Dispatch<SetStateAction<OperatorConflict[]>>;
   setOrders: Dispatch<SetStateAction<BoardOrder[]>>;
+  setOrdersLoaded: Dispatch<SetStateAction<boolean>>;
   trackFresh: (orders: BoardOrder[]) => void;
 };
 
 export function useOperatorLiveSync(options: Options) {
   const { live, location, locationReady, queueFlushInFlightRef, queueRef, seenRef,
-    setConflicts, setOrders, tenant, trackFresh, user } = options;
+    setConflicts, setOrders, setOrdersLoaded, tenant, trackFresh, user } = options;
   const fetchLiveBoard = useCallback(async (): Promise<BoardOrder[] | null> => {
     if (!supabase || !tenant || !locationReady) return null;
     const rows = await fetchActiveLocationOrders(supabase, location.id, {
@@ -65,11 +67,11 @@ export function useOperatorLiveSync(options: Options) {
         queueRef.current = finalizeTransitionDrain(queueRef.current, started, drained.remaining);
         void saveTransitionQueue(AsyncStorage, location.id, queueRef.current);
         if (drained.conflicts.length > 0) {
-          setConflicts((existing) => [...existing, ...drained.conflicts.map((conflict) => ({
+          setConflicts((existing) => appendConflicts(existing, drained.conflicts.map((conflict) => ({
             orderId: conflict.transition.orderId,
             message: conflict.serverStatus ? `${conflict.message} Server status: ${conflict.serverStatus}.`
               : `${conflict.message} The order no longer exists.`,
-          }))]);
+          }))));
           setOrders((current) => current.map((order) => {
             const conflict = drained.conflicts.find((entry) => entry.transition.orderId === order.id);
             return conflict?.serverStatus ? { ...order, status: conflict.serverStatus } : order;
@@ -86,12 +88,14 @@ export function useOperatorLiveSync(options: Options) {
       const hadQueued = queueRef.current.length > 0;
       await flushQueue(new Map(board.map((order) => [order.id, order.status] as const)));
       const next = (hadQueued ? await fetchLiveBoard() : null) ?? board;
-      setOrders(next); trackFresh(next);
+      setOrders(next); trackFresh(next); setOrdersLoaded(true);
     } catch { /* Keep the last board and retry. */ }
-  }, [fetchLiveBoard, flushQueue, queueRef, setOrders, trackFresh]);
+  }, [fetchLiveBoard, flushQueue, queueRef, setOrders, setOrdersLoaded, trackFresh]);
   useEffect(() => {
     if (!live) return undefined;
-    setOrders([]); seenRef.current = new Set(); queueRef.current = [];
+    // A fresh location starts unresolved again: the last board it showed
+    // belonged to a different set of orders.
+    setOrders([]); setOrdersLoaded(false); seenRef.current = new Set(); queueRef.current = [];
     if (!locationReady) return undefined;
     let active = true;
     void loadTransitionQueue(AsyncStorage, location.id).then((stored) => {
@@ -103,9 +107,10 @@ export function useOperatorLiveSync(options: Options) {
         const next = upsertBoardOrder(current, orderBoardEntryFromRow(event.order as OrderRow));
         trackFresh(next); return next;
       });
+      setOrdersLoaded(true);
     });
     const timer = setInterval(() => void reconcileLive(), LIVE_RECONCILE_MS);
     return () => { active = false; unsubscribe(); clearInterval(timer); };
-  }, [live, location.id, locationReady, queueRef, reconcileLive, seenRef, setOrders, trackFresh]);
+  }, [live, location.id, locationReady, queueRef, reconcileLive, seenRef, setOrders, setOrdersLoaded, trackFresh]);
   return flushQueue;
 }
