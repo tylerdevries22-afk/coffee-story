@@ -11,6 +11,7 @@ const ENV = {
   SQUARE_WEBHOOK_URL: WEBHOOK_URL,
   SUPABASE_URL: 'https://database.example.test',
   SUPABASE_SERVICE_ROLE_KEY: 'test-service-key',
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: 'test-anon-key',
 };
 
 function requestFor(value: unknown, body = JSON.stringify(value), signature = sign(body)): Request {
