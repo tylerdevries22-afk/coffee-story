@@ -5,7 +5,7 @@ import { before, describe, it } from 'node:test';
 import { POST } from '../../../apps/hq/app/api/webhooks/square/route.ts';
 
 import { currentPeriod } from './platform-fee-test-support.ts';
-import { seedBrand, skipUnlessConfigured, sql, stack } from './stack.ts';
+import { exposeStackToRoutes, seedBrand, skipUnlessConfigured, sql } from './stack.ts';
 
 const SIGNATURE_KEY = 'cancelled-settlement-key';
 const WEBHOOK_URL = 'http://hq.test/api/webhooks/square';
@@ -28,8 +28,7 @@ describe('late Square settlement', { skip: skipUnlessConfigured }, () => {
 
   before(async function setup() {
     if (skipUnlessConfigured) return;
-    process.env.SUPABASE_URL = stack.url;
-    process.env.SUPABASE_SERVICE_ROLE_KEY = stack.serviceRoleKey;
+    exposeStackToRoutes();
     process.env.SQUARE_WEBHOOK_SIGNATURE_KEY = SIGNATURE_KEY;
     process.env.SQUARE_WEBHOOK_URL = WEBHOOK_URL;
     ({ brandId, locationId } = await seedBrand('cancelled-settlement'));
