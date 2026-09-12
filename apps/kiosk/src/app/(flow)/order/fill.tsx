@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { nextPackChoiceBoundary, packChoicesOf } from '@platform/domain';
-import { useTokens } from '@platform/ui';
+import { disabledState, useTokens } from '@platform/ui';
 
 import { KioskPressable } from '@/components/chrome/kiosk-pressable';
 import { FlowRecovery } from '@/components/chrome/flow-recovery';
@@ -96,7 +96,7 @@ export default function FillStep() {
               key={slot}
               accessibilityLabel={choiceId ? `Remove one ${choice?.name ?? choiceId} from the box` : `Empty box slot ${slot + 1}`}
               accessibilityRole="button"
-              accessibilityState={{ disabled: !choiceId }}
+              {...disabledState(!choiceId)}
               disabled={!choiceId}
               onPress={() => {
                 if (choiceId) builder.releaseChoice(choiceId);
