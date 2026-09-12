@@ -15,7 +15,8 @@ import {
 
 import { asPrincipal } from './principal.ts';
 import {
-  anonClient, createSignedInUser, seedBrand, serviceClient, skipUnlessConfigured, sql, stack, userClient,
+  anonClient, createSignedInUser, exposeStackToRoutes, seedBrand, serviceClient, skipUnlessConfigured, sql,
+  userClient,
 } from './stack.ts';
 
 /**
@@ -30,8 +31,7 @@ import {
  * not a hand-written SQL approximation of it. If a surface stops seeing the
  * order, this fails; that is the whole point of it existing.
  */
-process.env.SUPABASE_URL = stack.url;
-process.env.SUPABASE_SERVICE_ROLE_KEY = stack.serviceRoleKey;
+exposeStackToRoutes();
 
 const SLUG = 'five-surface-trace';
 
