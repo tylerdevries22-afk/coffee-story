@@ -8,6 +8,10 @@
  * total they sit above.
  */
 
+// Imported as well as re-exported below: `export { type X } from` publishes the
+// name without binding it here, and parseTaxJurisdictions annotates with it.
+import type { TaxJurisdiction } from '@platform/domain';
+
 /**
  * The computation itself lives in @platform/domain and is re-exported here.
  *
@@ -24,10 +28,6 @@ export {
   type TaxJurisdiction,
   type TaxRow,
 } from '@platform/domain';
-
-// Imported as well as re-exported: `export { type X } from` publishes the name
-// without binding it here, and parseTaxJurisdictions below annotates with it.
-import type { TaxJurisdiction } from '@platform/domain';
 
 /**
  * The jurisdiction list out of a brand_config value. Malformed entries are
