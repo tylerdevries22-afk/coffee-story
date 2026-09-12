@@ -43,9 +43,25 @@ tasks:
     acceptance: Inconclusive scans fail and weekly plus pull-request workflows are pinned and reproducible.
   - id: MOB-01
     title: Android and store-readiness verification
-    status: pending
+    status: in_progress
     depends_on: []
-    acceptance: Customer, operator, and kiosk Android exports and release metadata checks join existing iOS/web gates.
+    # Landed: verify.yml now exports customer, operator, and kiosk for
+    # Android alongside the existing iOS/web loop, and a separate step runs
+    # `expo config --type introspect` for all three -- which evaluates every
+    # config plugin, including with-media-projection.cjs -- and asserts the
+    # resulting package name and permissions/blockedPermissions resolve.
+    # Each app's own `verify` script exports Android the same way, so a
+    # developer's local `pnpm verify` matches CI.
+    # Still open: nothing here runs a real Gradle or EAS Android build, so a
+    # Gradle-only syntax error, an XML-merge conflict between two plugins, or
+    # a resource that only fails inside `gradlew assembleRelease` stays
+    # invisible. Release metadata (Play listing copy, screenshots, signing
+    # config, versionCode) and any other store-submission checks are also
+    # not covered by this task.
+    acceptance: Customer, operator, and kiosk each export for Android and have their
+      config-plugin-resolved package name and permissions asserted, alongside the
+      existing iOS/web gates; a real Gradle/EAS Android build and Play
+      store-listing/release-metadata checks are separate, uncompleted work.
   - id: REF-01
     title: Staged 200-line source compliance
     status: pending
