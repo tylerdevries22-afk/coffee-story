@@ -13,9 +13,12 @@ import { useRewardStyles } from '../styles';
  *
  * - 'claim'  — calls /api/mobile/rewards/activity, which verifies the action
  *              against a real source before awarding.
- * - 'sheet'  — opens an in-app sheet and never touches the rewards API. The
- *              points arrive later by another route (a referral is awarded by
- *              complete_reward_referral_for_purchase when the friend pays).
+ * - 'sheet'  — opens an in-app sheet and never touches the rewards API. No
+ *              points arrive by any automatic route either: no order field
+ *              carries a referral code and no function credits one on payment
+ *              (tests/consistency/src/referral-capability-preconditions.test.ts
+ *              pins both). The team applies a referral by hand at checkout,
+ *              which is what the sheet's copy now says.
  * - 'link'   — leaves the app. Useful work, but nothing can verify it happened,
  *              so no points are claimed.
  * - 'inert'  — genuinely nothing to do: there is no OS integration behind it and
