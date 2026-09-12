@@ -18,13 +18,17 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 export type ServerEnv = {
   url: string;
   serviceRoleKey: string;
+  /** Public/publishable key -- see `authenticatedDb` for why it, and not the
+   *  service-role key, is the `apikey` on a caller-scoped client. */
+  anonKey: string;
 };
 
 export function serverEnv(): ServerEnv | null {
   const url = process.env.SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !serviceRoleKey) return null;
-  return { url, serviceRoleKey };
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !serviceRoleKey || !anonKey) return null;
+  return { url, serviceRoleKey, anonKey };
 }
 
 export function serviceDb(env: ServerEnv): SupabaseClient {
@@ -40,11 +44,23 @@ export function serviceDb(env: ServerEnv): SupabaseClient {
  * API routes use the service client only to verify the token and read public
  * tenant feature flags. Tenant mutations must run through this client so
  * `auth.uid()` and RLS remain the source of authorization truth.
+ *
+ * The second `createClient` argument is the `apikey` header, and PostgREST
+ * treats it as a fallback identity: whenever the `Authorization` bearer JWT
+ * fails to verify -- expired, malformed, revoked, or simply absent by the
+ * time the request reaches Postgres -- PostgREST silently authorizes the
+ * request as whatever role `apikey` encodes instead. That key must be the
+ * anon key, never the service-role key: a service-role `apikey` turns every
+ * failure of the caller's own token into an unlogged, RLS-bypassing
+ * service-role read, which is the opposite of "the caller failed to
+ * authenticate." Built with the anon key, the same failure degrades to the
+ * anonymous role -- exactly as unprivileged as a request with no token at
+ * all, which is what "fail closed" has to mean here.
  */
 export function authenticatedDb(env: ServerEnv, request: Request): SupabaseClient | null {
   const authorization = request.headers.get('authorization');
   if (!authorization?.startsWith('Bearer ')) return null;
-  return createClient(env.url, env.serviceRoleKey, {
+  return createClient(env.url, env.anonKey, {
     auth: { persistSession: false },
     global: {
       headers: { Authorization: authorization },

@@ -1,3 +1,4 @@
+import { CampaignDraftForm } from '@/components/campaign-draft-form';
 import { selectedConsoleCapabilities } from '@/lib/console-capability';
 import { loadCampaigns } from '@/lib/data';
 // The console is live data behind a session: never prerender a fixture
@@ -45,31 +46,7 @@ export default async function CampaignsPage() {
           </tbody>
         </table>
       </div>
-      <div className="card">
-        <h2>New campaign</h2>
-        <div className="grid-2">
-          <div>
-            <label className="field">Name<input placeholder="Weekend drop reminder" /></label>
-            <label className="field">Channel
-              <select><option>push</option><option>sms</option><option>email</option></select>
-            </label>
-            <label className="field">Audience
-              <select>
-                <option>Everyone</option>
-                <option>Lapsed 30 days</option>
-                <option>Loyalty 500+ points</option>
-                <option>Ordered the last drop</option>
-              </select>
-            </label>
-            <label className="field">Schedule<input type="datetime-local" /></label>
-          </div>
-          <div>
-            <label className="field">Subject (email only)<input placeholder="It's back" /></label>
-            <label className="field">Message<textarea rows={6} placeholder="The Honey Lavender Latte returns Friday…" /></label>
-          </div>
-        </div>
-        <button className="button" type="button">Save draft</button>
-      </div>
+      <CampaignDraftForm />
     </>
   );
 }

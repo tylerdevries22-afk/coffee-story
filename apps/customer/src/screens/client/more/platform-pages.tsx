@@ -1,12 +1,14 @@
-import { useMemo, useState } from 'react';
-import { Share, Text, TextInput, View } from 'react-native';
+import { useMemo } from 'react';
+import { Alert, Share, Text, View } from 'react-native';
 
 import { CollapsingScreen } from '@/components/collapsing-screen';
 import { MenuImage } from '@/components/menu-image';
 import { Body, Button, Card } from '@/components/ui';
 import { BUSINESS } from '@/data/business';
+import { CATERING_UNAVAILABLE_MESSAGE, cateringEmailHref, cateringPhoneHref } from '@/features/catering-request';
 import { dropArchive, dropStatus, type Drop } from '@/features/drops';
-import { referralCodeFor } from '@/features/referrals';
+import { REFERRAL_SHARE_EXPLAINER, referralCodeFor, referralIncomingMessage } from '@/features/referrals';
+import { openContactLink } from '@/lib/contact-links';
 import { clearPendingReferralCode, readPendingReferralCode } from '@/state/pending-referral';
 import { findMenuItem } from '@/screens/client/order/menu-data';
 import { useAuth } from '@/state/auth-context';
@@ -66,15 +68,15 @@ function DropRow({ drop, onOrder }: { drop: Drop; onOrder: () => void }) {
   );
 }
 
+/**
+ * There is no catering-request intake (see features/catering-request.ts): no
+ * endpoint, no table, nothing that notifies the shop. This used to collect an
+ * event date, party size, and notes, then flip to a fake success card on
+ * tap -- a lie, since nothing was ever sent anywhere. The honest version
+ * points the guest at a channel that actually reaches the shop.
+ */
 export function CateringRequest({ onBack }: { onBack: () => void }) {
   const pageStyles = useInformationStyles();
-  const tokens = useBrandTokens();
-  const local = createPlatformPageStyles(tokens);
-  const { portal } = useAuth();
-  const [eventDate, setEventDate] = useState('');
-  const [partySize, setPartySize] = useState('');
-  const [notes, setNotes] = useState('');
-  const [sent, setSent] = useState(false);
 
   if (!tenantFeature('catering')) {
     return (
@@ -84,58 +86,31 @@ export function CateringRequest({ onBack }: { onBack: () => void }) {
     );
   }
 
-  const canSend = eventDate.trim().length > 0 && partySize.trim().length > 0;
+  function openOrAlert(url: string, failureTitle: string) {
+    void openContactLink(url).catch((error: unknown) => {
+      Alert.alert(failureTitle, error instanceof Error ? error.message : 'Try again later.');
+    });
+  }
+
   return (
     <CollapsingScreen title="Catering" eyebrow="For your event" onBack={onBack}>
-      {sent ? (
-        <Card style={pageStyles.detailCard}>
-          <Text style={pageStyles.detailTitle}>Request received</Text>
-          <Body>
-            Thanks {portal.profile.fullName || 'there'} — the shop will reply in
-            Messages within one business day.
-          </Body>
-          <Button label="Done" variant="secondary" onPress={onBack} />
-        </Card>
-      ) : (
-        <>
-          <Body muted>
-            Carafes, pastry boxes, and a barista if you want one. Tell us about
-            the event and {BUSINESS.name} will follow up with a quote.
-          </Body>
-          <Card style={pageStyles.detailCard}>
-            <Text style={local.fieldLabel}>Event date</Text>
-            <TextInput
-              accessibilityLabel="Event date"
-              value={eventDate}
-              onChangeText={setEventDate}
-              placeholder="Sat Sep 12, morning"
-              placeholderTextColor={tokens.textMuted}
-              style={local.field}
-            />
-            <Text style={local.fieldLabel}>How many people</Text>
-            <TextInput
-              accessibilityLabel="How many people"
-              value={partySize}
-              onChangeText={setPartySize}
-              placeholder="25"
-              keyboardType="number-pad"
-              placeholderTextColor={tokens.textMuted}
-              style={local.field}
-            />
-            <Text style={local.fieldLabel}>Anything else</Text>
-            <TextInput
-              accessibilityLabel="Anything else"
-              value={notes}
-              onChangeText={setNotes}
-              placeholder="Dietary needs, delivery or pickup, timing"
-              placeholderTextColor={tokens.textMuted}
-              multiline
-              style={[local.field, local.fieldTall]}
-            />
-            <Button label="Send request" disabled={!canSend} onPress={() => setSent(true)} />
-          </Card>
-        </>
-      )}
+      <Body muted>
+        Carafes, pastry boxes, and a barista if you want one. {BUSINESS.name}
+        puts together catering quotes by phone or email, not through the app.
+      </Body>
+      <Card style={pageStyles.detailCard}>
+        <Text style={pageStyles.detailTitle}>Get in touch</Text>
+        <Body>{CATERING_UNAVAILABLE_MESSAGE}</Body>
+        <Button
+          label={`Call ${BUSINESS.phone}`}
+          onPress={() => openOrAlert(cateringPhoneHref(BUSINESS.phone), 'Could not open phone')}
+        />
+        <Button
+          label={`Email ${BUSINESS.email}`}
+          variant="secondary"
+          onPress={() => openOrAlert(cateringEmailHref(BUSINESS.email), 'Could not open email')}
+        />
+      </Card>
     </CollapsingScreen>
   );
 }
@@ -162,20 +137,14 @@ export function Referrals({ onBack }: { onBack: () => void }) {
       {incoming ? (
         <Card style={pageStyles.detailCard}>
           <Text style={pageStyles.detailTitle}>Friend code received</Text>
-          <Body>
-            Code {incoming} will be applied to your first order. Nothing else to
-            do -- just order something good.
-          </Body>
+          <Body>{referralIncomingMessage(incoming)}</Body>
           <Button label="Got it" variant="secondary" onPress={clearPendingReferralCode} />
         </Card>
       ) : null}
       <Card style={pageStyles.detailCard}>
         <Text style={local.codeLabel}>Your code</Text>
         <Text accessibilityRole="text" selectable style={local.code}>{code}</Text>
-        <Body muted>
-          When a friend places their first order with your code, you each get a
-          free drink loaded onto your rewards.
-        </Body>
+        <Body muted>{REFERRAL_SHARE_EXPLAINER}</Body>
         <Button
           label="Share your code"
           onPress={() => {

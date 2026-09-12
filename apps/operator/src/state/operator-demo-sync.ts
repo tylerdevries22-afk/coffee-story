@@ -7,6 +7,7 @@ import { drainTransitionQueue, finalizeTransitionDrain, transitionQueueNeedsRefr
 import { spawnDemoOrder } from '@/data/demo-orders';
 import { normalizeBoardOrderGuest } from '@/features/operator/live-board';
 import { demoSyncClient, demoSyncEnabled } from '@/lib/demo-sync';
+import { appendConflicts, type OperatorConflict } from '@/state/operator-conflicts';
 
 const DEMO_SYNC_RECONCILE_MS = 1_000;
 
@@ -16,13 +17,16 @@ type Options = {
   demoSyncPrimedRef: MutableRefObject<boolean>; queueRef: MutableRefObject<QueuedTransition[]>;
   seenRef: MutableRefObject<Set<string>>; spawnIndex: MutableRefObject<number>;
   syncedDemoIdsRef: MutableRefObject<Set<string>>;
-  setConflicts: Dispatch<SetStateAction<{ orderId: string; message: string }[]>>;
-  setOrders: Dispatch<SetStateAction<BoardOrder[]>>; trackFresh: (orders: BoardOrder[]) => void;
+  setConflicts: Dispatch<SetStateAction<OperatorConflict[]>>;
+  setOrders: Dispatch<SetStateAction<BoardOrder[]>>;
+  setOrdersLoaded: Dispatch<SetStateAction<boolean>>;
+  trackFresh: (orders: BoardOrder[]) => void;
 };
 
 export function useOperatorDemoSync(options: Options) {
   const { brokered, demoModeRef, demoReconcileInFlightRef, demoSyncPrimedRef, queueRef,
-    richDemo, seenRef, setConflicts, setOrders, spawnIndex, syncedDemoIdsRef, trackFresh } = options;
+    richDemo, seenRef, setConflicts, setOrders, setOrdersLoaded, spawnIndex, syncedDemoIdsRef,
+    trackFresh } = options;
   useEffect(() => {
     if (!richDemo || brokered) return undefined;
     const timer = setInterval(() => {
@@ -50,9 +54,9 @@ export function useOperatorDemoSync(options: Options) {
             ? { outcome: 'rejected', message: error.message } : { outcome: 'retry' }; }
         });
         queueRef.current = finalizeTransitionDrain(queueRef.current, started, drained.remaining);
-        if (drained.conflicts.length > 0) setConflicts((existing) => [...existing,
-          ...drained.conflicts.map((conflict) => ({ orderId: conflict.transition.orderId,
-            message: `${conflict.message} The shared demo kept its server status.` }))]);
+        if (drained.conflicts.length > 0) setConflicts((existing) => appendConflicts(existing,
+          drained.conflicts.map((conflict) => ({ orderId: conflict.transition.orderId,
+            message: `${conflict.message} The shared demo kept its server status.` }))));
         if (drained.remaining.length === 0) snapshot = await client.orders();
       }
       if (!demoModeRef.current) return;
@@ -66,10 +70,11 @@ export function useOperatorDemoSync(options: Options) {
         const merged = [...local, ...snapshot.orders.map(normalizeBoardOrderGuest)];
         syncedDemoIdsRef.current = nextIds; trackFresh(merged); return merged;
       });
+      setOrdersLoaded(true);
     } catch { /* Keep the last snapshot and retry. */ }
     finally { demoReconcileInFlightRef.current = false; }
   }, [demoModeRef, demoReconcileInFlightRef, demoSyncPrimedRef, queueRef, seenRef,
-    setConflicts, setOrders, syncedDemoIdsRef, trackFresh]);
+    setConflicts, setOrders, setOrdersLoaded, syncedDemoIdsRef, trackFresh]);
   useEffect(() => {
     if (!demoSyncEnabled(richDemo)) return undefined;
     void reconcileDemoSync();

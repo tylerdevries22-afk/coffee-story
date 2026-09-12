@@ -101,7 +101,12 @@ export const TENANT_ORGS: readonly TenantOrg[] = [
     id: 'stillpoint-builders',
     slug: 'stillpoint-builders',
     name: 'Stillpoint Builders',
-    kind: 'operator',
+    // A franchisee, not the platform. 'operator' is the badge the workspace
+    // switcher reserves for the platform's own account, and the demo was
+    // tagging its construction tenant with it -- exactly the identity mix-up
+    // a live pitch to a second franchisee would surface. No demo org is the
+    // platform operator, so nothing in the registry carries that kind.
+    kind: 'brand',
     brandConfig: stillpointBrand,
     moduleKeys: enabledModuleKeys(stillpointModules),
     locations: manifestLocations(stillpointBrand, 'stillpoint-builders'),

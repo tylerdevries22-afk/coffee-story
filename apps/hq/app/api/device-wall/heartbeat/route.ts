@@ -1,3 +1,5 @@
+import { canManageLocation } from '@platform/schema';
+
 import { authenticateAny, corsPreflight, jsonError, jsonWithCors, notConfigured, parseJsonBody, serverEnv, serviceDb } from '@/lib/api-auth';
 import { clientIdentity, rateLimited } from '@/lib/rate-limit';
 
@@ -21,9 +23,19 @@ export async function POST(request: Request) {
       || typeof body.locationId !== 'string' || !UUID.test(body.locationId)) {
     return jsonError(400, 'invalid_request', 'installationId and locationId must be UUIDs.');
   }
+  // A device may only ever ring in for the one location its own token names --
+  // that check is a plain equality. A user caller carries no fixed location at
+  // all, so the equivalent check is claims-based membership: brand-wide for an
+  // owner/admin, the location_ids list otherwise. Comparing body.locationId to
+  // itself here previously always passed, which let a role-less guest (a
+  // customer account: a brand but no staff role, per parseTenantClaims) ring
+  // in for any location it named.
   const brandId = caller.kind === 'device' ? caller.claims.brandId : caller.claims.brand_id;
   const locationId = caller.kind === 'device' ? caller.claims.locationId : body.locationId;
-  if (locationId !== body.locationId) return jsonError(403, 'forbidden', 'That installation is unavailable.');
+  const authorized = caller.kind === 'device'
+    ? locationId === body.locationId
+    : canManageLocation(caller.claims, body.locationId);
+  if (!authorized) return jsonError(403, 'forbidden', 'That installation is unavailable.');
   const result = await db.rpc('record_device_heartbeat', {
     p_installation_id: body.installationId, p_brand_id: brandId, p_location_id: locationId,
     p_paired_device_id: caller.kind === 'device' ? caller.device.id : null,

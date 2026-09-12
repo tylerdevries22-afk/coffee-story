@@ -24,6 +24,9 @@ export function captureFixture(t: TestContext) {
     releaseResult: true,
     orderProviderStatus: 200, paymentProviderStatus: 200, paymentStatus: 'COMPLETED',
     preboundOrderState: 'OPEN', preboundTenderPaymentId: null as string | null,
+    // Overrides the clean single-tender shape below for malformed-tender tests;
+    // null keeps the default zero/one-tender behaviour every other test relies on.
+    preboundTenders: null as Record<string, unknown>[] | null,
     paymentOrderId: 'square-order-a', paymentLocationId: 'sq-location',
     quotedFeeCents: 300, feeCents: 300 as number | null,
     providerOrderTotalCents: 9_500, providerOrderLocationId: 'sq-location',
@@ -106,10 +109,10 @@ export function captureFixture(t: TestContext) {
     }
     if (path === '/v2/orders/square-order-a') return json({ order: {
       id: 'square-order-a', location_id: 'sq-location', state: state.preboundOrderState, version: 1,
-      tenders: state.preboundTenderPaymentId ? [{
+      tenders: state.preboundTenders ?? (state.preboundTenderPaymentId ? [{
         type: 'CARD', id: state.preboundTenderPaymentId,
         payment_id: state.preboundTenderPaymentId,
-      }] : [],
+      }] : []),
     } });
     if (path === '/v2/payments') {
       if (state.lostPaymentResponses-- > 0) {

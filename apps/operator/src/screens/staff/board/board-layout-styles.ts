@@ -47,6 +47,22 @@ export const createBoardLayoutStyles = (tokens: BrandTokens) => StyleSheet.creat
   },
   newBadgeText: { color: tokens.surfaceElevated, fontFamily: tokens.fontBody, fontSize: 13 },
 
+  conflictBanner: { gap: tokens.spacing.sm, paddingHorizontal: tokens.spacing.xl, paddingBottom: tokens.spacing.md },
+  conflictRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: tokens.spacing.md,
+    borderRadius: tokens.radius.lg,
+    borderWidth: 1,
+    borderColor: tokens.danger,
+    backgroundColor: tokens.surfaceElevated,
+    paddingHorizontal: tokens.spacing.lg,
+    paddingVertical: tokens.spacing.md,
+  },
+  conflictText: { flex: 1, color: tokens.danger, fontFamily: tokens.fontBody, fontSize: 13, lineHeight: 18 },
+  conflictDismiss: { minHeight: 32, justifyContent: 'center', paddingHorizontal: tokens.spacing.sm },
+  conflictDismissText: { color: tokens.textPrimary, fontFamily: tokens.fontBody, fontSize: 12, textDecorationLine: 'underline' },
+
   lane: { paddingBottom: tokens.spacing.md },
   laneTitle: { color: tokens.textMuted, fontFamily: tokens.fontBody, fontSize: 12, letterSpacing: 0.6, textTransform: 'uppercase', paddingHorizontal: tokens.spacing.xl, paddingBottom: tokens.spacing.sm },
   laneRow: { gap: tokens.spacing.md, paddingHorizontal: tokens.spacing.xl },
