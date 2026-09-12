@@ -12,7 +12,7 @@ describe('appPreviewFor', () => {
       ['customer', 'http://localhost:4170/', 'local'],
       ['operator', 'http://localhost:4191/', 'local'],
       ['kiosk', 'http://localhost:4180/', 'local'],
-      ['display', 'http://localhost:3200/board/demo', 'local'],
+      ['display', 'http://localhost:3200/', 'local'],
     ]);
   });
 
