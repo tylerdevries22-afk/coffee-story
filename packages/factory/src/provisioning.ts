@@ -19,10 +19,11 @@ const TASKS = [
   task('create-github-repository', 'Create the industry repository', 'infrastructure', 'github', ['collect-credentials'], ['github.app']),
   task('create-doppler-project', 'Create scoped secret environments', 'infrastructure', 'doppler', ['create-github-repository'], ['doppler.service_token']),
   task('create-supabase-project', 'Create the hosted data project', 'infrastructure', 'supabase', ['create-doppler-project'], ['supabase.management_token']),
-  task('create-vercel-projects', 'Create and configure declared Vercel projects', 'infrastructure', 'vercel', ['create-supabase-project'], ['vercel.token']),
-  task('publish-content', 'Publish the validated catalog and training release', 'content', 'platform', ['create-vercel-projects']),
+  // Model B hosts mint only at explicit Go live — not during sandbox/canary.
+  task('publish-content', 'Publish the validated catalog and training release', 'content', 'platform', ['create-supabase-project']),
   task('verify-canary', 'Verify the hosted canary release', 'canary', 'vercel', ['publish-content']),
-  task('promote-live', 'Promote the verified release', 'live', 'vercel', ['verify-canary']),
+  task('create-vercel-projects', 'Mint {slug}-hq and {slug}-display after Go live', 'live', 'vercel', ['verify-canary'], ['vercel.token']),
+  task('promote-live', 'Promote the verified release', 'live', 'vercel', ['create-vercel-projects']),
 ] as const satisfies readonly FactoryTaskDefinition[];
 
 function task(

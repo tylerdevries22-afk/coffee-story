@@ -79,9 +79,13 @@ export async function resumeOnboardingRun(formData: FormData): Promise<void> {
   const environment = serverEnv();
   if (!environment) redirect('/onboarding?error=resume');
   const database = serviceDb(environment);
-  const run = await database.from('platform_onboarding_runs').select('id,state')
+  const run = await database.from('platform_onboarding_runs').select('id,state,last_error_code')
     .eq('id', runId).in('state', ['blocked', 'failed']).maybeSingle();
   if (run.error || !run.data) redirect('/onboarding?error=resume');
+  // Go live is never automatic — resume must not mint production hosts.
+  if (run.data.last_error_code === 'go_live_required') {
+    redirect('/onboarding?error=resume&detail=Use+Go+live+on+the+organization+page');
+  }
   try {
     await start(runPlatformFactory, [{ runId }]);
   } catch {

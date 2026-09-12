@@ -5,3 +5,4 @@ export * from './provisioning';
 export * from './release';
 export * from './providers';
 export * from './tenant-package';
+export * from './go-live';
