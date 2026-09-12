@@ -9,7 +9,7 @@ import { TENANT_MODULE_KEYS } from '@/tenant';
 export function BaseHomeScreen() {
   const business = useBusiness();
   const { portal } = useAuth();
-  const { categories, items, status } = useCustomerCatalog();
+  const { categories, items, status, refresh } = useCustomerCatalog();
   const { openMore, setClientTab } = useAppState();
   const hasCatalog = TENANT_MODULE_KEYS.includes('commerce-catalog');
   const name = portal.profile.fullName.trim().split(/\s+/)[0];
@@ -30,10 +30,11 @@ export function BaseHomeScreen() {
               ? 'The catalog is temporarily unavailable.'
               : `${items.length} offerings across ${categories.length} categories.`}
           </Body>
+          {/* A disabled button gave the guest nothing to do about an outage,
+              and the provider's own retries are silent. */}
           <Button
-            label="Browse catalog"
-            disabled={status === 'unavailable'}
-            onPress={() => setClientTab('book')}
+            label={status === 'unavailable' ? 'Try again' : 'Browse catalog'}
+            onPress={status === 'unavailable' ? refresh : () => setClientTab('book')}
           />
         </Card>
       ) : (
