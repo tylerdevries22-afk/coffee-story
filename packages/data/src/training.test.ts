@@ -113,6 +113,19 @@ describe('published training release data', () => {
     assert.equal(removed.length, 1);
   });
 
+  it('refreshes expiring signed media and stops the refresh on cleanup', (context) => {
+    context.mock.timers.enable({ apis: ['setTimeout', 'setInterval'] });
+    const { client } = releaseClient(legacyManifest);
+    let changes = 0;
+    const stop = subscribeToTrainingReleases(client, 'brand-1', () => { changes += 1; });
+    context.mock.timers.tick(240_000);
+    context.mock.timers.tick(350);
+    assert.equal(changes, 1);
+    stop();
+    context.mock.timers.tick(300_000);
+    assert.equal(changes, 1);
+  });
+
   it('refetches after a realtime reconnect boundary', async () => {
     let status: ((value: string) => void) | undefined;
     const channel = {

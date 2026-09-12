@@ -51,6 +51,9 @@ export function subscribeToTrainingReleases(
       if (live) onChanged();
     }, settleMs);
   };
+  // Refresh five-minute signed media before expiry, including when the
+  // release itself is unchanged during a long training session.
+  const refreshTimer = setInterval(settle, 4 * 60_000);
   const channel = client
     .channel(`training-releases-${brandId}`)
     .on('postgres_changes', {
@@ -65,6 +68,7 @@ export function subscribeToTrainingReleases(
   return () => {
     live = false;
     if (timer) clearTimeout(timer);
+    clearInterval(refreshTimer);
     void client.removeChannel(channel);
   };
 }

@@ -26,10 +26,14 @@ export function TrainingMediaThumbnail({
     if (!trainingMediaObjectPath(url)) { setResolved(url); return undefined; }
     let live = true;
     setResolved(null);
-    void resolveTrainingMediaSrc(url)
-      .then((signed) => { if (live) setResolved(signed); })
-      .catch(() => { if (live) setResolved(null); });
-    return () => { live = false; };
+    const refresh = () => {
+      void resolveTrainingMediaSrc(url)
+        .then((signed) => { if (live) setResolved(signed); })
+        .catch(() => { if (live) setResolved(null); });
+    };
+    refresh();
+    const timer = setInterval(refresh, 4 * 60_000);
+    return () => { live = false; clearInterval(timer); };
   }, [url]);
   return <ManagedThumbnail url={resolved} alt={alt} className={className} />;
 }
