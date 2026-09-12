@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { TENANT } from '@/tenant';
+
 import {
   annualPeriodYear,
   cashDeltaForEntry,
@@ -33,9 +35,13 @@ test('builds an encoded referral share URL', () => {
 });
 
 test('creates a stable demo referral code without exposing punctuation', () => {
-  // The prefix is the tenant's (coffee-story's giftCodePrefix is CS), not a
-  // literal: another vertical must never be given a coffee shop's currency.
-  assert.equal(demoReferralCode('demo-client'), 'CS-MOCLIENT');
+  // Derived from the tenant, not asserted as a literal: CI runs this suite
+  // under every bundled tenant, so a hard-coded prefix passes for whichever
+  // one it was written against and fails for the next. normalizeTenant always
+  // resolves giftCodePrefix -- to the monogram, and to initials from the name
+  // beyond that -- so there is always a prefix to read.
+  assert.equal(demoReferralCode('demo-client'), `${TENANT.business.giftCodePrefix}-MOCLIENT`);
+  assert.match(demoReferralCode('demo-client'), /^[A-Z0-9]+-[A-Z0-9]{8}$/);
 });
 
 test('derives cash value only from cash-credit redemptions', () => {
