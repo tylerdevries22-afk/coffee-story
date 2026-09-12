@@ -41,9 +41,9 @@ async function withTimeout<T>(work: Promise<T>, timeoutMs: number): Promise<T> {
  * Exchanges one training-media URL for a signed one through the caller's own
  * RLS-bound client, so Storage evaluates storage_training_media_read against
  * the caller's own JWT: a brand-staff caller can only ever sign what that
- * policy already lets them read. Anything that is not a training-media
- * object (an external link, a blob: preview, a demo placeholder) passes
- * through untouched. One retry and a timeout guard the external Storage call.
+ * policy already lets them read. Non-training URLs are refused here: the
+ * thumbnail handles external images locally without reflecting caller input
+ * through a server action. One retry and a timeout guard the Storage call.
  */
 export async function signTrainingMediaUrl(
   client: SupabaseClient,
@@ -52,7 +52,7 @@ export async function signTrainingMediaUrl(
   timeoutMs = SIGN_TIMEOUT_MS,
 ): Promise<string | null> {
   const path = trainingMediaObjectPath(url);
-  if (!path) return url ?? null;
+  if (!path) return null;
   for (let attempt = 0; attempt < SIGN_ATTEMPTS; attempt += 1) {
     try {
       const result = await withTimeout(
