@@ -58,7 +58,7 @@ describe('buildAnalyticsDashboard', () => {
       campaigns: [],
       customers: [],
     });
-    assert.equal(model.metrics[0]?.value, '$0.00');
+    assert.equal(model.metrics[0]?.value, '$0');
     assert.equal(model.tables[1]?.rows.length, 0);
     assert.match(model.tables[1]?.emptyMessage ?? '', /No drops/);
   });

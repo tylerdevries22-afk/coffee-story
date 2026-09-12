@@ -375,8 +375,8 @@ importers:
         specifier: ^13.1.1
         version: 13.1.1(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       franchise-mcp-store-ui:
-        specifier: https://github.com/tylerdevries22-afk/franchise-mcp-store-ui/releases/download/v1.3.0/franchise-mcp-store-ui-1.3.0.tgz
-        version: https://github.com/tylerdevries22-afk/franchise-mcp-store-ui/releases/download/v1.3.0/franchise-mcp-store-ui-1.3.0.tgz(react@19.1.0)
+        specifier: https://github.com/tylerdevries22-afk/franchise-mcp-store-ui/releases/download/v1.3.1/franchise-mcp-store-ui-1.3.1.tgz
+        version: https://github.com/tylerdevries22-afk/franchise-mcp-store-ui/releases/download/v1.3.1/franchise-mcp-store-ui-1.3.1.tgz(react@19.1.0)
       libsodium-wrappers:
         specifier: 0.8.4
         version: 0.8.4
@@ -7091,9 +7091,9 @@ packages:
       react-dom:
         optional: true
 
-  franchise-mcp-store-ui@https://github.com/tylerdevries22-afk/franchise-mcp-store-ui/releases/download/v1.3.0/franchise-mcp-store-ui-1.3.0.tgz:
-    resolution: {integrity: sha512-0YyDFsGFRw+fSwG7bmYnhEcGoYabQRj1CcdPEeUGDhOTsHy+oWQhJ33/xOXzhDHAqnWLOyF7sjQFbltvYPHaig==, tarball: https://github.com/tylerdevries22-afk/franchise-mcp-store-ui/releases/download/v1.3.0/franchise-mcp-store-ui-1.3.0.tgz}
-    version: 1.3.0
+  franchise-mcp-store-ui@https://github.com/tylerdevries22-afk/franchise-mcp-store-ui/releases/download/v1.3.1/franchise-mcp-store-ui-1.3.1.tgz:
+    resolution: {integrity: sha512-kOkOH3hsGTeBpAmFaxtNyX4v4uerdLBT3CdROTZkaUYAtb/PNyFQ89tzAZOVrAuVI+Vn7OnHUT2MXgnQn9IPEg==, tarball: https://github.com/tylerdevries22-afk/franchise-mcp-store-ui/releases/download/v1.3.1/franchise-mcp-store-ui-1.3.1.tgz}
+    version: 1.3.1
     engines: {node: '>=22'}
     peerDependencies:
       react: '>=19 <20'
@@ -17531,7 +17531,7 @@ snapshots:
       react: 19.1.0
       react-dom: 19.1.0(react@19.1.0)
 
-  franchise-mcp-store-ui@https://github.com/tylerdevries22-afk/franchise-mcp-store-ui/releases/download/v1.3.0/franchise-mcp-store-ui-1.3.0.tgz(react@19.1.0):
+  franchise-mcp-store-ui@https://github.com/tylerdevries22-afk/franchise-mcp-store-ui/releases/download/v1.3.1/franchise-mcp-store-ui-1.3.1.tgz(react@19.1.0):
     dependencies:
       react: 19.1.0
 

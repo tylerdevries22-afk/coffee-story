@@ -21,6 +21,9 @@ const ERROR_STATUS: Record<OrderError['code'], number> = {
   catalog_invalid: 500,
   location_unknown: 404,
   ordering_paused: 409,
+  // Not 409: retrying changes nothing, because the brand does not hold the
+  // capability. The client should stop offering the option, not back off.
+  fulfillment_unavailable: 403,
   idempotency_conflict: 409,
   price_changed: 409,
   item_unavailable: 409,

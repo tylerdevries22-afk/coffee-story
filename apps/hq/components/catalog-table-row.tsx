@@ -2,6 +2,8 @@
 
 import { motion, useReducedMotion } from 'framer-motion';
 
+import { formatMoney } from '@platform/domain';
+
 import { displayPriceCents, type CatalogItemAssociations } from '@/lib/catalog-insights';
 import type { ContentMenuItem } from '@/lib/content-model';
 
@@ -69,10 +71,6 @@ export function CatalogTableRow({ item, category, associations, open, onOpenChan
 function StatusBadge({ item }: { item: ContentMenuItem }) {
   const label = item.is86d ? '86’d' : item.isListed ? 'Published' : 'Unlisted';
   return <span className={`catalog-status-badge is-${item.is86d ? 'paused' : item.isListed ? 'live' : 'draft'}`}><i />{label}</span>;
-}
-
-function formatMoney(cents: number): string {
-  return (cents / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 }
 
 function countLabel(count: number, singular: string): string {
