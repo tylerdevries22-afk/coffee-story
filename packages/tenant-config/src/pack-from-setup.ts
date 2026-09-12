@@ -76,10 +76,12 @@ function compactSlug(slug: string): string {
 }
 
 function monogram(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return 'TB';
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0] ?? ''}${parts[1][0] ?? ''}`.toUpperCase();
+  // Destructured rather than indexed: noUncheckedIndexedAccess does not narrow
+  // parts[0] from a parts.length check, so the index form failed typecheck.
+  const [first, second] = name.trim().split(/\s+/).filter(Boolean);
+  if (first === undefined) return 'TB';
+  if (second === undefined) return first.slice(0, 2).toUpperCase();
+  return `${first[0] ?? ''}${second[0] ?? ''}`.toUpperCase();
 }
 
 function hoursFor(location: TenantSetupLocation | null): Record<string, { open: string; close: string }[]> {
