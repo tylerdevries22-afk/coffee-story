@@ -8,33 +8,26 @@
  * total they sit above.
  */
 
-export type TaxJurisdiction = {
-  id: string;
-  label: string;
-  /** Fractional rate, e.g. 0.029 for 2.90%. */
-  rate: number;
-};
+/**
+ * The computation itself lives in @platform/domain and is re-exported here.
+ *
+ * These were two byte-identical copies, which meant one rounding defect in two
+ * places: the float form undercharged a cent whenever the exact tax landed on
+ * a half. Re-exporting keeps `@platform/engine/tax` as the server's import
+ * surface while there is only one implementation to be right. The brand_config
+ * parser below stays local -- engine's and domain's have diverged, and
+ * reconciling them is a separate change on the money path.
+ */
+export {
+  taxCentsFor,
+  taxRowsFor,
+  type TaxJurisdiction,
+  type TaxRow,
+} from '@platform/domain';
 
-export type TaxRow = TaxJurisdiction & { amountCents: number };
-
-export function taxRowsFor(
-  taxableCents: number,
-  jurisdictions: readonly TaxJurisdiction[],
-): TaxRow[] {
-  const base = Number.isFinite(taxableCents) ? Math.max(0, Math.round(taxableCents)) : 0;
-  return jurisdictions.map((jurisdiction) => ({
-    ...jurisdiction,
-    amountCents: Math.round(base * Math.max(0, jurisdiction.rate)),
-  }));
-}
-
-/** Exactly the sum of `taxRowsFor`, so a receipt and the orders row agree. */
-export function taxCentsFor(
-  taxableCents: number,
-  jurisdictions: readonly TaxJurisdiction[],
-): number {
-  return taxRowsFor(taxableCents, jurisdictions).reduce((total, row) => total + row.amountCents, 0);
-}
+// Imported as well as re-exported: `export { type X } from` publishes the name
+// without binding it here, and parseTaxJurisdictions below annotates with it.
+import type { TaxJurisdiction } from '@platform/domain';
 
 /**
  * The jurisdiction list out of a brand_config value. Malformed entries are
