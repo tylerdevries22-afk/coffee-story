@@ -148,9 +148,9 @@ describe('Vercel provider state reconciliation', () => {
         printf '%s\n' '{"domains":[{"name":"one.example.com"}],"pagination":{"count":1,"next":123,"prev":null}}'
       }
       # Two seconds, not one. Bash derives SECONDS from whole-second time_t, so
-      # `SECONDS=0` reads back as 1 the moment the wall clock crosses the next
-      # integer second -- microseconds later if the assignment lands late in a
-      # second. With a one-second budget the `seq` fork between here and the
+      # setting it to 0 reads back as 1 the moment the wall clock crosses the
+      # next integer second -- microseconds later if the assignment lands late
+      # in a second. With a one-second budget the seq fork between here and the
       # first release_time_available check was enough to expire it on a loaded
       # runner, so the scan made zero calls instead of one and this test failed
       # intermittently in CI. Production budgets are 420s and 180s, where that
