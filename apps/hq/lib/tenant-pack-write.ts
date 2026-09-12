@@ -3,6 +3,7 @@ import { join, resolve } from 'node:path';
 
 import { tenantPackFromSetup, type TenantPack, type TenantSetupInput } from '@platform/tenant-config';
 
+import { log } from './log';
 import type { OrgDraft } from './org-input';
 
 const RESERVED = new Set(['_template']);
@@ -70,13 +71,7 @@ export function tryWriteTenantPack(pack: TenantPack, cwd = process.cwd()): strin
   try {
     return writeTenantPack(root, pack);
   } catch (error) {
-    console.error(JSON.stringify({
-      severity: 'error',
-      component: 'organization-provisioning',
-      event: 'tenant_pack.write_failed',
-      slug: pack.slug,
-      message: error instanceof Error ? error.message : 'write_failed',
-    }));
+    log.error('organization.tenant_pack_write_failed', { slug: pack.slug }, error);
     return null;
   }
 }

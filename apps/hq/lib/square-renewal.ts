@@ -22,6 +22,7 @@ import {
   claimSquareConnectionMutation,
   failSquareConnectionMutation,
 } from './square-connection-mutation';
+import { log } from './log';
 import { finalizeSquareConnectionRenewal } from './square-renewal-persistence';
 import { queueSquareAccessTokenRetirement } from './square-token-retirement';
 
@@ -159,15 +160,11 @@ export async function renewDueSquareConnections(
       .limit(SQUARE_RENEWAL_BATCH_SIZE)
       .returns<SquareRenewalConnection[]>();
   } catch (error) {
-    console.error('Square token renewal scan failed.', {
-      error: error instanceof Error ? error.message : 'database query failed',
-    });
+    log.error('square.token_renewal_scan_failed', {}, error);
     return { scanned: 0, renewed: 0, failed: 0, stale: 0, scanFailed: true, cleanupFailed: 0 };
   }
   if (due.error) {
-    console.error('Square token renewal scan failed.', {
-      error: due.error.message ?? 'database query failed',
-    });
+    log.error('square.token_renewal_scan_failed', { reason: due.error.message ?? 'database query failed' });
     return { scanned: 0, renewed: 0, failed: 0, stale: 0, scanFailed: true, cleanupFailed: 0 };
   }
 
