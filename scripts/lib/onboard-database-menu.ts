@@ -41,11 +41,26 @@ export async function seedTenantMenu(
       modifiers: tenant.modifiers[row.slug] ?? [], sort_order: index,
       pack_size: item.packSize ?? null, choice_source: item.choiceSource ?? null,
       pack_choice_slugs: item.eligibleItemIds ?? [], single_item_id: null,
+      // Explicit, so an item that left the CSV and came back is listed again
+      // rather than keeping whatever the retire pass below left it with.
+      is_listed: true,
     }, { onConflict: 'menu_id,slug' }).select('id,slug').single();
     if (error) throw error;
     itemIds.set(data.slug, data.id);
     if (await syncMenuImage(db, brandId, data.id, data.slug, tenantDir)) uploaded += 1;
   }
+  // Onboarding is documented as idempotent, and it was -- for additions. An
+  // item removed from menu.csv stayed exactly as it was, and the guest menu
+  // reads `is_listed`, so a discontinued drink was orderable indefinitely
+  // after the tenant took it off their menu. Unlist rather than delete:
+  // order history references these rows, and unlisting is what the storefront
+  // actually keys on.
+  const { error: retireError } = await db.from('menu_items')
+    .update({ is_listed: false })
+    .eq('brand_id', brandId)
+    .eq('menu_id', savedMenu.id)
+    .not('slug', 'in', `(${tenant.menuRows.map((row) => `"${row.slug}"`).join(',')})`);
+  if (retireError) throw retireError;
   for (const item of tenant.menu.items) {
     if (!item.singleItemId) continue;
     const { error } = await db.from('menu_items')
