@@ -6,6 +6,7 @@ import {
 } from '@platform/engine';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { log } from './log';
 import { SQUARE_RENEWAL_RETRY_MS } from './square-renewal-contract';
 
 // One scheduled interval is long enough for a checkout or refund request that
@@ -123,15 +124,12 @@ export async function retireDueSquareAccessTokens(
       .limit(SQUARE_ACCESS_TOKEN_RETIREMENT_BATCH_SIZE)
       .returns<SquareAccessTokenRetirement[]>();
   } catch (error) {
-    console.error('Square access-token retirement scan failed.', {
-      error: error instanceof Error ? error.message : 'database query failed',
-    });
+    log.error('square.access_token_retirement_scan_failed', {}, error);
     return { scanned: 0, retired: 0, failed: 0, stale: 0, scanFailed: true };
   }
   if (due.error) {
-    console.error('Square access-token retirement scan failed.', {
-      error: due.error.message ?? 'database query failed',
-    });
+    log.error('square.access_token_retirement_scan_failed',
+      { reason: due.error.message ?? 'database query failed' });
     return { scanned: 0, retired: 0, failed: 0, stale: 0, scanFailed: true };
   }
 

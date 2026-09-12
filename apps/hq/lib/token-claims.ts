@@ -11,6 +11,8 @@
  * what is inside it. Decoding is separate from verifying on purpose, because
  * the two answers come from different places.
  */
+import { log } from './log';
+
 export function tokenAppMetadata(accessToken: string): Record<string, unknown> | null {
   const payload = accessToken.split('.')[1];
   if (!payload) return null;
@@ -23,7 +25,7 @@ export function tokenAppMetadata(accessToken: string): Record<string, unknown> |
       ? (metadata as Record<string, unknown>)
       : null;
   } catch {
-    console.warn(JSON.stringify({ component: 'token-claims', event: 'parse_failed' }));
+    log.warn('auth.token_claims_parse_failed', {});
     return null;
   }
 }

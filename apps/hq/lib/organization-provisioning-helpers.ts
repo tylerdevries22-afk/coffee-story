@@ -1,3 +1,17 @@
+import { log } from './log';
+
+/**
+ * Default `report`: the message is already a JSON-encoded `{event, ownerId}`
+ * fact (see the two call sites below), so this recovers that structure for
+ * the logger instead of forwarding an opaque string.
+ */
+function reportFromMessage(message: string): void {
+  let parsed: Record<string, unknown> = {};
+  try { parsed = JSON.parse(message) as Record<string, unknown>; } catch { /* not JSON */ }
+  const event = typeof parsed.event === 'string' ? parsed.event : 'organization.invitation_report_failed';
+  log.error(event, typeof parsed.event === 'string' ? parsed : { message });
+}
+
 export function organizationInvitationUrl(environment: {
   readonly hqUrl?: string;
   readonly vercelEnvironment?: string;
@@ -59,7 +73,7 @@ export async function rollbackInvitation(
 export async function rollbackInvitationSafely(
   admin: InvitationAdmin,
   owner: InvitationOwner,
-  report: (message: string) => void = console.error,
+  report: (message: string) => void = reportFromMessage,
 ): Promise<void> {
   try { await rollbackInvitation(admin, owner); } catch {
     report(JSON.stringify({ severity: 'error', component: 'organization-provisioning',
@@ -71,7 +85,7 @@ export async function reconcileUnknownProvisioningInvitation(
   admin: InvitationAdmin,
   owner: InvitationOwner,
   readback: PromiseLike<{ data: { brand_id?: unknown } | null; error: unknown }>,
-  report: (message: string) => void = console.error,
+  report: (message: string) => void = reportFromMessage,
 ): Promise<void> {
   try {
     const result = await readback;
