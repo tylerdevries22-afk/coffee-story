@@ -26,7 +26,9 @@ export function TrainingMediaThumbnail({
     if (!trainingMediaObjectPath(url)) { setResolved(url); return undefined; }
     let live = true;
     setResolved(null);
-    void resolveTrainingMediaSrc(url).then((signed) => { if (live) setResolved(signed); });
+    void resolveTrainingMediaSrc(url)
+      .then((signed) => { if (live) setResolved(signed); })
+      .catch(() => { if (live) setResolved(null); });
     return () => { live = false; };
   }, [url]);
   return <ManagedThumbnail url={resolved} alt={alt} className={className} />;

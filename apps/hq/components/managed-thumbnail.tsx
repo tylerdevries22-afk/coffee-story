@@ -2,12 +2,14 @@
 
 import { useEffect, useRef, useState } from 'react';
 
+import { safeImageSource } from '@/lib/image-source';
+
 import { ContentIcon } from './content-workspace';
 
 type MediaState = 'empty' | 'loading' | 'ready' | 'error';
 
 export function ManagedThumbnail({
-  url,
+  url: requestedUrl,
   alt,
   className = 'content-thumb',
   showStatus = false,
@@ -17,6 +19,7 @@ export function ManagedThumbnail({
   className?: string;
   showStatus?: boolean;
 }) {
+  const url = safeImageSource(requestedUrl);
   const [state, setState] = useState<MediaState>(url ? 'loading' : 'empty');
   const imageRef = useRef<HTMLImageElement>(null);
 

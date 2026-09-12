@@ -394,7 +394,7 @@ describe('calendar and training tenancy', { skip: skipUnlessConfigured }, () => 
       `select public, file_size_limit, allowed_mime_types
        from storage.buckets where id = 'training-media'`,
     );
-    assert.equal(bucket.rows[0]!.public, true);
+    assert.equal(bucket.rows[0]!.public, false);
     assert.equal(Number(bucket.rows[0]!.file_size_limit), 10485760);
     assert.ok(bucket.rows[0]!.allowed_mime_types.includes('image/webp'));
     const mutationPolicies = await sql<{ policyname: string; using_expression: string | null }>(
