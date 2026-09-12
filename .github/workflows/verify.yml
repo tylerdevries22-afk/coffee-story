@@ -43,6 +43,11 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 40
+    # Guest verify/test scripts fail closed without a tenant. The recursive
+    # workspace gate exercises Coffee Story; matrix steps below override this
+    # for stillpoint-builders.
+    env:
+      EXPO_PUBLIC_TENANT: coffee-story
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -66,8 +71,13 @@ jobs:
       # that keeps one shop's address out of every other shop's binary could
       # not fail a build; lint ran only here, so a warning passed locally.
       # Whatever this gate is, both sides now run all of it.
+      # Guest Metro scripts fail closed without EXPO_PUBLIC_TENANT. Recursive
+      # `pnpm verify` still needs one explicit launch-tenant value so CI does
+      # not reintroduce an implicit coffee-story default in app code.
       - name: Verify all workspaces
         id: workspace_verification
+        env:
+          EXPO_PUBLIC_TENANT: coffee-story
         run: >-
           pnpm exec c8
           --temp-directory coverage/verification/tmp
@@ -96,6 +106,7 @@ jobs:
         run: pnpm -r --workspace-concurrency=1 test
         env:
           TZ: America/Denver
+          EXPO_PUBLIC_TENANT: coffee-story
 
       # The default workspace command exercises Coffee Story. This second
       # matrix proves the other bundled tenant selects its own data and static

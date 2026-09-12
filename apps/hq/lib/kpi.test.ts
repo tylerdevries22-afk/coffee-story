@@ -42,7 +42,10 @@ describe('rollupByLocation', () => {
 
 describe('formatting', () => {
   it('prints money with separators and shares with one decimal', () => {
-    assert.equal(formatMoney(2_612_400), '$26,124.00');
+    // The canonical formatter drops the cents when there are none, so a
+    // whole-dollar total reads the same here as it does in the apps.
+    assert.equal(formatMoney(2_612_400), '$26,124');
+    assert.equal(formatMoney(2_612_450), '$26,124.50');
     assert.equal(formatShare(0.583), '58.3%');
   });
 });

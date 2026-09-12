@@ -10,7 +10,7 @@ describe('analyticsReportOf', () => {
     assert.equal(report.points.length, 7);
     assert.equal(report.points[0]?.day, '2026-08-16');
     assert.equal(report.points[0]?.value, 148_500);
-    assert.equal(report.points.at(-1)?.formattedValue, '$2,259.00');
+    assert.equal(report.points.at(-1)?.formattedValue, '$2,259');
     assert.equal(report.rangeLabel, 'Aug 16, 2026 – Aug 22, 2026');
   });
 

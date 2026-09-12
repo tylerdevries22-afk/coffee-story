@@ -17,6 +17,26 @@ export function isConfigured(): boolean {
     && Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 }
 
+/** Signed-in users with no brand_users still need the new-shop wizard. */
+export function isSetupConsolePath(pathname: string): boolean {
+  return pathname === '/organizations/new';
+}
+
+export type AuthUser = { readonly userId: string; readonly email: string };
+
+/** GoTrue user without tenant claims. Null when nobody is signed in. */
+export const currentAuthUser = cache(async function currentAuthUser(): Promise<AuthUser | null> {
+  if (!isConfigured()) {
+    return { userId: DEMO_SESSION.userId ?? 'demo', email: DEMO_SESSION.email };
+  }
+  const { serverClient } = await import('./supabase-server');
+  const client = await serverClient();
+  if (!client) return null;
+  const { data } = await client.auth.getUser();
+  if (!data.user) return null;
+  return { userId: data.user.id, email: data.user.email ?? '' };
+});
+
 /**
  * Server-side: the current session, or the demo one when unconfigured.
  *
