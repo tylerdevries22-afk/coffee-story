@@ -21,25 +21,36 @@ function retryableStatus(status: number): boolean {
   return status === 408 || status === 429 || status >= 500;
 }
 
-async function resilientFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-  let latestError: unknown;
-  for (let attempt = 1; attempt <= HTTP_MAX_ATTEMPTS; attempt += 1) {
-    const timeoutSignal = AbortSignal.timeout(HTTP_TIMEOUT_MS);
-    const signal = init?.signal
-      ? AbortSignal.any([init.signal, timeoutSignal])
-      : timeoutSignal;
-    try {
-      const response = await fetch(input, { ...init, signal });
-      if (attempt === HTTP_MAX_ATTEMPTS || !retryableStatus(response.status)) return response;
-      await response.body?.cancel().catch(() => undefined);
-    } catch (error) {
-      latestError = error;
-      if (attempt === HTTP_MAX_ATTEMPTS) throw error;
+/**
+ * The harness's retrying fetch over a caller-supplied transport. A suite that
+ * must prove a refusal is final -- answered once, never retried -- counts the
+ * calls the transport receives instead of timing the round trip against a
+ * wall-clock bound, which a slow runner trips on its own and which two fast
+ * attempts would fit inside anyway.
+ */
+export function resilientFetchOver(transport: typeof fetch): typeof fetch {
+  return async (input, init) => {
+    let latestError: unknown;
+    for (let attempt = 1; attempt <= HTTP_MAX_ATTEMPTS; attempt += 1) {
+      const timeoutSignal = AbortSignal.timeout(HTTP_TIMEOUT_MS);
+      const signal = init?.signal
+        ? AbortSignal.any([init.signal, timeoutSignal])
+        : timeoutSignal;
+      try {
+        const response = await transport(input, { ...init, signal });
+        if (attempt === HTTP_MAX_ATTEMPTS || !retryableStatus(response.status)) return response;
+        await response.body?.cancel().catch(() => undefined);
+      } catch (error) {
+        latestError = error;
+        if (attempt === HTTP_MAX_ATTEMPTS) throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 250 * attempt));
     }
-    await new Promise((resolve) => setTimeout(resolve, 250 * attempt));
-  }
-  throw latestError instanceof Error ? latestError : new Error('Supabase request failed');
+    throw latestError instanceof Error ? latestError : new Error('Supabase request failed');
+  };
 }
+
+const resilientFetch = resilientFetchOver(fetch);
 
 const supabaseOptions = {
   auth: { persistSession: false },
@@ -115,8 +126,12 @@ export function exposeStackToRoutes(): void {
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = stack.anonKey;
 }
 
-export function serviceClient(): SupabaseClient {
-  return createClient(stack.url, stack.serviceRoleKey, supabaseOptions);
+/** `transport` swaps the fetch under the harness's retries -- see `resilientFetchOver`. */
+export function serviceClient(transport: typeof fetch = fetch): SupabaseClient {
+  return createClient(stack.url, stack.serviceRoleKey, {
+    ...supabaseOptions,
+    global: { fetch: resilientFetchOver(transport) },
+  });
 }
 
 export function anonClient(): SupabaseClient {
