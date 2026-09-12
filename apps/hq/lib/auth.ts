@@ -9,13 +9,31 @@ import { cache } from 'react';
 import { parseTenantClaims, type BrandRole, type TenantClaims } from '@platform/schema';
 
 import { DEMO_SESSION, type SessionInfo } from './demo-data';
-import { previewWallRuntimeEnabled } from './demo-sync-http';
+import { demoFallbackAllowed, isConfigured } from './deployment-mode';
 import { brandNameFromMetadata, tokenAppMetadata } from './token-claims';
 
-export function isConfigured(): boolean {
-  return !previewWallRuntimeEnabled()
-    && Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+export { isConfigured };
+
+/** Signed-in users with no brand_users still need the new-shop wizard. */
+export function isSetupConsolePath(pathname: string): boolean {
+  return pathname === '/organizations/new';
 }
+
+export type AuthUser = { readonly userId: string; readonly email: string };
+
+/** GoTrue user without tenant claims. Null when nobody is signed in. */
+export const currentAuthUser = cache(async function currentAuthUser(): Promise<AuthUser | null> {
+  if (!isConfigured()) {
+    if (!demoFallbackAllowed()) return null;
+    return { userId: DEMO_SESSION.userId ?? 'demo', email: DEMO_SESSION.email };
+  }
+  const { serverClient } = await import('./supabase-server');
+  const client = await serverClient();
+  if (!client) return null;
+  const { data } = await client.auth.getUser();
+  if (!data.user) return null;
+  return { userId: data.user.id, email: data.user.email ?? '' };
+});
 
 /**
  * Server-side: the current session, or the demo one when unconfigured.
@@ -26,7 +44,9 @@ export function isConfigured(): boolean {
  * a single render.
  */
 export const currentSession = cache(async function currentSession(): Promise<SessionInfo | null> {
-  if (!isConfigured()) return DEMO_SESSION;
+  // An unconfigured production deployment has nobody signed in, rather than a
+  // hard-coded platform_admin. See demoFallbackAllowed.
+  if (!isConfigured()) return demoFallbackAllowed() ? DEMO_SESSION : null;
   // Reuse the request-bound client so authentication and page reads share the
   // same cookie handling, ten-second deadline, and bounded safe-read retry.
   const { serverClient } = await import('./supabase-server');

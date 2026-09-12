@@ -8,6 +8,7 @@ import {
 } from '../refunds';
 import { refundSquarePayment, type SquareConfig } from '../square/client';
 
+import { recordFeeRefund, resolveRefundAppFeeCents } from './refund-order-fee';
 import {
   claimWebhookRefundWinner,
   refundEventByRequestKey,
@@ -43,8 +44,8 @@ const REFUNDABLE: ReadonlySet<string> = new Set(['paid', 'in_progress', 'ready',
 /**
  * Money back through Square, then the event that records it. Only a card
  * order can refund here: a pay-at-pickup order never charged a card through
- * the platform, so returning that money is a register action and saying so
- * beats a failure the barista cannot act on.
+ * the platform, so returning that money happens wherever it was taken, and
+ * saying so beats a failure staff cannot act on.
  */
 export async function refundOrderPayment(
   deps: RefundDeps,
@@ -68,7 +69,7 @@ export async function refundOrderPayment(
   if (!order) throw new OrderError('invalid_request', 'That order does not exist.');
   if (!order.square_payment_id) {
     throw new OrderError('refund_unavailable',
-      'This order was not paid by card through the app, so there is nothing to return here — refund it at the register.');
+      'This order was not paid by card through the app, so there is nothing to return here — refund it however it was collected.');
   }
   const existingAttempt = await refundEventByRequestKey(deps.db, order.brand_id, input.requestKey);
   const priorAttempt = replayForRequest(existingAttempt ? [existingAttempt] : [], {
@@ -110,9 +111,14 @@ export async function refundOrderPayment(
       `Only ${refundable} cents are left to refund on this order.`);
   }
 
+  // Resolved before Square is called, so a failed read refuses an action
+  // nothing has taken yet rather than orphaning a fee against moved money.
+  const appFeeCents = await resolveRefundAppFeeCents(deps.db, order.id, amountCents);
+
   const refund = await refundSquarePayment(deps.square, deps.locationAccessToken, {
     paymentId: order.square_payment_id,
     amountCents,
+    appFeeCents,
     // The caller's key, not the amount: two separate $5 refunds are two
     // refunds, and keying on the amount made Square treat the second as a
     // replay of the first — returning $5 while the books recorded $10.
@@ -173,5 +179,7 @@ export async function refundOrderPayment(
   }
   if (eventError) throw eventError;
 
+  await recordFeeRefund(deps.db, order.id, appFeeCents);
   return { orderId: order.id, refundId, amountCents };
 }
+

@@ -356,7 +356,7 @@ describe('square_link tender and refunds', { skip: skipUnlessConfigured }, () =>
     assert.equal(captured.length, before, 'Square was not contacted without a durable attempt key');
   });
 
-  it('tells the barista to use the register when no card was charged', async () => {
+  it('tells staff to refund outside the app when no card was charged', async () => {
     const order = await sql<{ id: string }>(
       `insert into public.orders (brand_id, location_id, status, tender_type, total_cents, subtotal_cents, totals)
        values ($1, $2, 'created', 'pay_at_pickup', 400, 400, '{"lines":[]}'::jsonb) returning id`,
@@ -374,7 +374,7 @@ describe('square_link tender and refunds', { skip: skipUnlessConfigured }, () =>
     assert.equal(response.status, 409);
     const body = await response.json() as { error: { code: string; message: string } };
     assert.equal(body.error.code, 'refund_unavailable');
-    assert.match(body.error.message, /register/);
+    assert.match(body.error.message, /however it was collected/);
   });
 
   it('serializes concurrent Square refunds and reverses loyalty exactly once per refund', async () => {

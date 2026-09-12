@@ -24,6 +24,23 @@ describe('taxRowsFor', () => {
     assert.equal(rows.reduce((total, row) => total + row.amountCents, 0), taxCentsFor(1050, FOUR));
   });
 
+  /**
+   * The half-cent the float form lost.
+   *
+   * 7.25% of $2.00 is exactly 14.5, so half-up owes the authority 15. But
+   * `200 * 0.0725` is 14.499999999999998 in binary, and the old
+   * `Math.round(base * rate)` billed 14. It is one cent, and it is the
+   * authority's cent, on one of the most widely used rates in the country.
+   */
+  it('rounds a half-cent up even where the float lands just under it', () => {
+    const sevenTwentyFive = [{ id: 'state', label: 'State', rate: 0.0725 }];
+    assert.equal(taxCentsFor(200, sevenTwentyFive), 15);
+    for (const base of [3000, 3400, 5800, 6200, 6600]) {
+      const exact = Math.round(Math.round(base * 0.0725 * 1e6) / 1e6);
+      assert.equal(taxCentsFor(base, sevenTwentyFive), exact);
+    }
+  });
+
   it('charges nothing for a tenant with no declared authorities', () => {
     assert.deepEqual(taxRowsFor(1050, []), []);
     assert.equal(taxCentsFor(1050, []), 0);

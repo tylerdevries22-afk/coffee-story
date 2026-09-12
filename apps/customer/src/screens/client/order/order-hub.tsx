@@ -35,8 +35,9 @@ export function OrderHub({
   // everyone. A shop with delivery off still showed a Delivery card that
   // started a flow it cannot fulfil, and one without stored value still
   // offered gift cards -- the balance was already gated, the entry point
-  // was not. They are all on for the launch tenant, so nothing moves here
-  // until the second brand, which is exactly when it would have hurt.
+  // was not. Delivery is now off for the launch tenant too, so this card is
+  // what removes the offer rather than letting a guest build a cart the
+  // place-order tap would refuse.
   const deliveryEnabled = tenantFeature('delivery');
 
   return (

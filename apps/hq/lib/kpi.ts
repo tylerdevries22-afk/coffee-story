@@ -1,6 +1,14 @@
 /** KPI aggregation for the dashboard. Pure and tested; integer cents. */
 import type { ChannelRevenueCents, KpiDay } from './demo-data';
 
+/**
+ * Re-exported, not reimplemented. This module used to carry its own formatter
+ * that always printed two decimals, so a whole-dollar total read `$26,124.00`
+ * on the dashboard while the same amount read `$26,124` everywhere else on the
+ * platform. One console, two spellings of one number.
+ */
+export { formatMoney } from '@platform/domain';
+
 export type KpiTotals = {
   revenueCents: number;
   ordersCount: number;
@@ -50,12 +58,6 @@ export function rollupByLocation(days: readonly KpiDay[]): (KpiTotals & { locati
       ...rollupKpis(bucket),
     }))
     .sort((a, b) => b.revenueCents - a.revenueCents);
-}
-
-export function formatMoney(cents: number): string {
-  const dollars = Math.trunc(cents / 100);
-  const remainder = Math.abs(cents % 100).toString().padStart(2, '0');
-  return `$${dollars.toLocaleString('en-US')}.${remainder}`;
 }
 
 export function formatShare(fraction: number): string {

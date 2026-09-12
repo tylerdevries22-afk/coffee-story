@@ -130,12 +130,16 @@
     "orderCta": "Start an order",
     "earnBanner": "Earn {points} {pointsName} for this order",
     "memberFallback": "Member",
-    "dropLive": "Pouring now"
+    "dropLive": "Pouring now",
+    "cashName": "Brew Bucks",
+    "cashHint": "Present at the counter",
+    "referralShare": "Try {appName} — use my code {code} and we both get a free drink. {url}",
+    "orderReadyMessage": "Order {shortCode} is ready — come and get it while it’s hot."
   },
   "features": {
     "drops": true,
     "catering": true,
-    "delivery": true,
+    "delivery": false,
     "multi_location": false,
     "sms": false,
     "stored_value": true,
@@ -333,7 +337,8 @@
     "phone": "(720) 609-2971",
     "website": "https://coffeestoryco.com",
     "giftCodePrefix": "CS",
-    "monogram": "CS"
+    "monogram": "CS",
+    "industryKey": "coffee-shop"
   },
   "information": {
     "location": {

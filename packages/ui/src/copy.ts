@@ -2,24 +2,36 @@
  * The brand copy dictionary: every user-facing string a component or screen
  * needs, keyed, with {placeholders}. Rule 4 covers words too -- no component
  * hard-codes a brand string.
+ *
+ * A dictionary is resolved in three layers, the same shape `packages/domain`
+ * uses for catalog vocabulary: universal <- industry <- tenant. The keys whose
+ * wording depends on the vertical live in `copy-industry.ts`; what stays here
+ * is what reads the same whether the tenant sells espresso or builds houses.
  */
+import { industryCopy } from './copy-industry';
+
 export type BrandCopy = Record<string, string>;
 
-/** Neutral fallbacks so a missing dictionary entry degrades to plain words. */
-export const DEFAULT_COPY: BrandCopy = {
-  appName: 'Our Shop',
+/**
+ * Wording no vertical needs to restate.
+ *
+ * The test for a key belonging here is not whether the words are bland -- it
+ * is whether a new vertical would want to change them. "Checkout" and
+ * "Reconnecting" survive any industry; "Add to Bag" does not, and lives in a
+ * pack instead.
+ */
+export const UNIVERSAL_COPY: BrandCopy = {
   pointsName: 'Points',
-  orderCta: 'Start an order',
-  addToBag: 'Add to Bag',
-  viewBag: 'View Bag',
-  bagTitle: 'My Bag',
   checkoutTitle: 'Checkout',
-  orderPlaced: 'Order placed',
-  earnBanner: 'Earn {points} {pointsName} for this order',
-  dropLive: 'Dropping now',
+  /**
+   * The referral share text, filled with {appName}, {code} and {url}.
+   *
+   * Universal rather than per-vertical: it already names no reward, only that
+   * there is one, so a renovation firm and a coffee shop can both send it
+   * unchanged. What the reward actually is stays the tenant's to write.
+   */
+  referralShare: 'Try {appName} — use my code {code} and we both get a reward. {url}',
   dropEndsIn: 'Ends in {time}',
-  dropStartsIn: 'Drops in {time}',
-  memberFallback: 'Member',
   /**
    * The status mark. One glyph, shown beside a tier name wherever a tier name
    * appears -- the customer app's rewards chip and the in-store board read the
@@ -32,16 +44,8 @@ export const DEFAULT_COPY: BrandCopy = {
   // The pickup display. Its own block because a wall screen is read across a
   // room in under two seconds: these are the shortest words that still say the
   // thing, and a tenant lengthening one has to see the rest to know what fits.
-  // The board's own name, above the location. A tenant that calls it
-  // something else ("Order Up", "Collection") overrides this like any other
-  // brand string rather than editing a component.
-  /**
-   * The kiosk's handoff line. Here rather than in the component because it
-   * describes how a particular shop actually hands orders over -- some call
-   * names, some only light the board -- and that is the brand's to say.
-   */
-  handoffPromise: "We'll call your name when it's ready.",
-  boardTitle: 'Order Queue',
+  // The queue's own vocabulary is the vertical's, so it sits in the industry
+  // packs; what is left here is the screen talking about itself.
   /**
    * Shown when a production screen has no device token. Addressed to staff,
    * not guests -- a guest can do nothing about it, and the one person who can
@@ -50,18 +54,6 @@ export const DEFAULT_COPY: BrandCopy = {
   boardUnpairedTitle: 'This screen is not paired',
   boardUnpairedBody: 'Pair it from the console under Locations → Devices.',
   boardReady: 'Ready',
-  /**
-   * The two states before ready, shown as a small live pill on each row so a
-   * guest can tell "we have your order" from "we are making it" without
-   * asking. Short because they sit beside the name on one line.
-   */
-  boardQueued: 'In line',
-  boardMaking: 'Making',
-  /** Read out by assistive tech in place of the bare digit. */
-  boardPosition: 'Number {position} in line',
-  boardEmpty: 'Nothing in the queue',
-  boardArrived: 'Here',
-  boardOverflow: '+{count} more waiting',
   boardLive: 'Live',
   boardStale: 'Reconnecting',
   boardOffline: 'Sample board',
@@ -72,7 +64,8 @@ export const DEFAULT_COPY: BrandCopy = {
    * from across a room: three short words each landing on their own beat are
    * legible in the time somebody spends looking up, where a clause is not.
    * The break is in the copy rather than left to the container so a tenant
-   * controls where their own headline turns.
+   * controls where their own headline turns. Universal because a rewards
+   * ladder reads the same in any trade.
    */
   boardQrTitle: 'Perks. Status.\nRewards',
   boardQrBody: 'Scan to get {appName} and start earning {pointsName}.',
@@ -86,8 +79,17 @@ export const DEFAULT_COPY: BrandCopy = {
   boardTierBadge: '{tier}',
 };
 
-export function resolveCopy(config: unknown): BrandCopy {
-  const copy = { ...DEFAULT_COPY };
+/**
+ * Universal <- industry <- tenant.
+ *
+ * `industryKey` is read off the brand config rather than passed by each caller
+ * so an unknown, absent, or malformed key lands on neutral wording in one
+ * place. Omitting it is safe by construction: no argument means no industry
+ * means the generic pack, never the first vertical the platform happened to
+ * ship.
+ */
+export function resolveCopy(config: unknown, industryKey?: unknown): BrandCopy {
+  const copy: BrandCopy = { ...UNIVERSAL_COPY, ...industryCopy(industryKey) };
   if (typeof config !== 'object' || config === null) return copy;
   for (const [key, value] of Object.entries(config as Record<string, unknown>)) {
     if (typeof value === 'string' && value.length <= 500) copy[key] = value;

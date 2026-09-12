@@ -2,6 +2,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
+import { disabledState } from './a11y-state';
 import { Badge, withAlpha } from './components';
 import { dropPhase, formatCountdown } from './drop-countdown-logic';
 import { useCopy, useTokens } from './theme';
@@ -29,7 +30,7 @@ export function ItemCard({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={is86d ? `${name}, sold out today` : `${name}, ${priceLabel}`}
-      accessibilityState={{ disabled: Boolean(is86d) }}
+      {...disabledState(Boolean(is86d))}
       disabled={is86d}
       onPress={onPress}
       style={({ pressed }) => ({

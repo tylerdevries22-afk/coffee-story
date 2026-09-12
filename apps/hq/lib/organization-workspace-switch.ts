@@ -16,18 +16,21 @@ export async function switchWorkspaceToProvisionedOrg(input: {
   locationId: string | null;
   factoryIssue: boolean;
 }): Promise<{ kind: 'error'; message: string } | never> {
-  const audited = await recordPlatformAccess(input.session, {
-    action: 'organizations.provision.select',
-    brandId: input.brandId,
-    locationId: input.locationId,
-    required: true,
-    metadata: { source: 'organization_create', surface: 'hq' },
-  });
-  if (!audited) {
-    return {
-      kind: 'error',
-      message: 'Organization was created but workspace switch could not be audited.',
-    };
+  const crossing = input.session.role === 'platform_admin' && Boolean(input.session.userId);
+  if (crossing) {
+    const audited = await recordPlatformAccess(input.session, {
+      action: 'organizations.provision.select',
+      brandId: input.brandId,
+      locationId: input.locationId,
+      required: true,
+      metadata: { source: 'organization_create', surface: 'hq' },
+    });
+    if (!audited) {
+      return {
+        kind: 'error',
+        message: 'Organization was created but workspace switch could not be audited.',
+      };
+    }
   }
   const store = await cookies();
   store.set(ORG_COOKIE, input.brandId, workspaceCookieOptions());

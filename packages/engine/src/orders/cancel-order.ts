@@ -63,7 +63,7 @@ export async function cancelOrder(
   if (!GUEST_CANCELLABLE.has(order.status)) {
     throw new OrderError('cancel_unavailable',
       order.status === 'in_progress' || order.status === 'ready'
-        ? 'The shop has already started this order — talk to them at the counter.'
+        ? 'The shop has already started this order — ask them to cancel it.'
         : `This order is ${order.status} and can no longer be cancelled.`);
   }
 
@@ -81,13 +81,13 @@ export async function cancelOrder(
         'This card payment may still complete. Retry shortly or ask the shop to cancel it safely.');
     }
     // The barista started it between the read and the write: the trigger
-    // refuses the transition. Only that gets the counter sentence — every
-    // other failure is an infrastructure problem, and claiming the shop
+    // refuses the transition. Only that gets the "already started" sentence —
+    // every other failure is an infrastructure problem, and claiming the shop
     // started an order it did not is both a lie to the guest and a 409 that
     // hides a 500 from whoever is watching the logs.
     if (/illegal order transition/i.test(error.message)) {
       throw new OrderError('cancel_unavailable',
-        'The shop started this order just now — talk to them at the counter.');
+        'The shop started this order just now — ask them to cancel it.');
     }
     throw error;
   }

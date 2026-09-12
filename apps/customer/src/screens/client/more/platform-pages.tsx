@@ -6,14 +6,14 @@ import { MenuImage } from '@/components/menu-image';
 import { Body, Button, Card } from '@/components/ui';
 import { BUSINESS } from '@/data/business';
 import { dropArchive, dropStatus, type Drop } from '@/features/drops';
-import { referralCodeFor, referralMessage } from '@/features/referrals';
+import { referralCodeFor } from '@/features/referrals';
 import { clearPendingReferralCode, readPendingReferralCode } from '@/state/pending-referral';
 import { findMenuItem } from '@/screens/client/order/menu-data';
 import { useAuth } from '@/state/auth-context';
 import { useAppState } from '@/state/app-context';
 import { useCustomerCatalog } from '@/state/catalog-context';
 import { TENANT, tenantFeature } from '@/tenant';
-import { DropCountdown, useTokens as useBrandTokens } from '@platform/ui';
+import { DropCountdown, useCopy, useTokens as useBrandTokens } from '@platform/ui';
 
 import { useInformationStyles } from './information-page';
 
@@ -145,6 +145,7 @@ export function Referrals({ onBack }: { onBack: () => void }) {
   const tokens = useBrandTokens();
   const local = createPlatformPageStyles(tokens);
   const { portal } = useAuth();
+  const copy = useCopy();
 
   if (!tenantFeature('referrals')) {
     return (
@@ -179,7 +180,11 @@ export function Referrals({ onBack }: { onBack: () => void }) {
           label="Share your code"
           onPress={() => {
             void Share.share({
-              message: referralMessage(code, TENANT.identity.name, BUSINESS.website),
+              message: copy('referralShare', {
+                appName: TENANT.identity.name,
+                code,
+                url: BUSINESS.website,
+              }),
             }).catch(() => undefined);
           }}
         />

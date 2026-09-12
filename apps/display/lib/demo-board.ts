@@ -154,6 +154,9 @@ export const DEMO_BRAND_CONFIG = {
     fontBody: 'Inter',
     motion: { fast: 120, base: 220, slow: 360 },
   },
+  // Named so the fixture board resolves the same industry pack a real coffee
+  // brand row does; without it the demo would fall back to neutral wording.
+  business: { industryKey: 'coffee-shop' },
   copy: {
     appName: 'Coffee Story',
     pointsName: 'Beans',

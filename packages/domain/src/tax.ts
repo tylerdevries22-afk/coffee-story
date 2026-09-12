@@ -50,8 +50,24 @@ export function taxRowsFor(
   const base = Number.isFinite(taxableCents) ? Math.max(0, Math.round(taxableCents)) : 0;
   return jurisdictions.map((jurisdiction) => ({
     ...jurisdiction,
-    amountCents: Math.round(base * Math.max(0, jurisdiction.rate)),
+    amountCents: centsAt(base, Math.max(0, jurisdiction.rate)),
   }));
+}
+
+/**
+ * Cents at a rate, rounded half up on the decimal value rather than on the
+ * float that happens to represent it.
+ *
+ * `Math.round(base * rate)` undercharges by a cent whenever the exact product
+ * lands on a half and binary rounding puts the float just under it: 7.25% of
+ * $2.00 is exactly 14.5, but `200 * 0.0725` is 14.499999999999998, so the
+ * naive form billed 14. Scaling to micro-cents first snaps the value back to
+ * the decimal the tax authority means before the half-up decision is made.
+ * 1e6 is far below the range where a double stops representing integers
+ * exactly, even for a six-figure order.
+ */
+function centsAt(baseCents: number, rate: number): number {
+  return Math.round(Math.round(baseCents * rate * 1e6) / 1e6);
 }
 
 /** Exactly the sum of `taxRowsFor`, so a receipt and a register agree. */

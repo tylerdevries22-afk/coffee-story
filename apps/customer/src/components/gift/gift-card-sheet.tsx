@@ -4,7 +4,7 @@ import { Pressable, Text, View } from 'react-native';
 import { Screen } from '@/components/ui';
 import { GIFT_AMOUNTS, GIFT_QUANTITIES, type GiftDesign } from '@/data/gift-designs';
 import type { PaymentMethod } from '@platform/domain';
-import { AppIcon, disabledState, useTokens as useBrandTokens } from '@platform/ui';
+import { AppIcon, disabledState, useCopy, useTokens as useBrandTokens } from '@platform/ui';
 
 import { CloseButton } from './gift-sheet-controls';
 import { createGiftStyles } from './gift-shelves.styles';
@@ -40,6 +40,7 @@ export function GiftCardSheet({
   onPay: () => void;
 }) {
   const tokens = useBrandTokens();
+  const copy = useCopy();
   const styles = createGiftStyles(tokens);
   const total = amount * quantity;
   return (
@@ -107,7 +108,10 @@ export function GiftCardSheet({
       <View style={styles.earnBanner}>
         <AppIcon name="heart.fill" size={18} tintColor={tokens.primary} />
         <Text style={styles.earnText}>
-          Earn {(total * pointsPerDollar).toLocaleString()} Beans for this order!
+          {copy('earnBanner', {
+            points: (total * pointsPerDollar).toLocaleString(),
+            pointsName: copy('pointsName'),
+          })}
         </Text>
       </View>
 
