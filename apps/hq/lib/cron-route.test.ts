@@ -7,6 +7,7 @@ const ENV = {
   CRON_SECRET: 'test-cron-secret',
   SUPABASE_URL: 'https://database.example.test',
   SUPABASE_SERVICE_ROLE_KEY: 'test-service-key',
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: 'test-anon-key',
 };
 const MUTATED_ENV_KEYS = [
   ...Object.keys(ENV), 'OPENAI_API_KEY', 'OPENAI_RESEARCH_MODEL', 'SQUARE_APP_ID',

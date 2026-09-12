@@ -117,15 +117,30 @@ const messageOf = async (result: unknown): Promise<string> => {
 };
 
 describe('serverEnv', () => {
-  it('needs both halves, because one alone builds a client that cannot authenticate', () => {
-    const both = { SUPABASE_URL: 'https://p.supabase.co', SUPABASE_SERVICE_ROLE_KEY: 'service' };
-    assert.deepEqual(withEnv(both, serverEnv), { url: 'https://p.supabase.co', serviceRoleKey: 'service' });
-    assert.equal(withEnv({ ...both, SUPABASE_URL: undefined }, serverEnv), null);
-    assert.equal(withEnv({ ...both, SUPABASE_SERVICE_ROLE_KEY: undefined }, serverEnv), null);
+  const all = {
+    SUPABASE_URL: 'https://p.supabase.co',
+    SUPABASE_SERVICE_ROLE_KEY: 'service',
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon',
+  };
+
+  it('needs all three, because a missing one builds a client that cannot authenticate', () => {
+    assert.deepEqual(withEnv(all, serverEnv), { url: 'https://p.supabase.co', serviceRoleKey: 'service', anonKey: 'anon' });
+    assert.equal(withEnv({ ...all, SUPABASE_URL: undefined }, serverEnv), null);
+    assert.equal(withEnv({ ...all, SUPABASE_SERVICE_ROLE_KEY: undefined }, serverEnv), null);
+  });
+
+  /**
+   * `authenticatedDb` uses this key as `apikey`, which PostgREST falls back to
+   * whenever the caller's own bearer token fails to verify. Missing it here
+   * must refuse to configure at all rather than let some caller build a
+   * client with no anon key to fall back to -- there is no safe substitute.
+   */
+  it('fails closed when the anon key is missing, rather than silently omitting it', () => {
+    assert.equal(withEnv({ ...all, NEXT_PUBLIC_SUPABASE_ANON_KEY: undefined }, serverEnv), null);
   });
 
   it('treats an empty string as unset, not as configured', () => {
-    assert.equal(withEnv({ SUPABASE_URL: '', SUPABASE_SERVICE_ROLE_KEY: 'service' }, serverEnv), null);
+    assert.equal(withEnv({ ...all, SUPABASE_URL: '' }, serverEnv), null);
   });
 });
 
@@ -376,18 +391,47 @@ describe('authenticateAny', () => {
 });
 
 describe('authenticatedDb', () => {
+  const env = { url: 'https://p.supabase.co', serviceRoleKey: 'service-role-secret', anonKey: 'anon-public-key' };
+
   /**
    * Null is the refusal. A client built without the caller's token would carry
    * only the service-role key, and every RLS check downstream would pass.
    */
   it('refuses to build a client for a request carrying no bearer token', () => {
-    const env = { url: 'https://p.supabase.co', serviceRoleKey: 'service' };
     assert.equal(authenticatedDb(env, new Request('https://api.test/x')), null);
     assert.equal(
       authenticatedDb(env, new Request('https://api.test/x', { headers: { authorization: 'Basic abc' } })),
       null,
     );
     assert.notEqual(authenticatedDb(env, bearer('token')), null);
+  });
+
+  /**
+   * PostgREST derives the caller's role from `Authorization` when it verifies,
+   * and from `apikey` when it does not. `apikey` set to the service-role key
+   * would make every failure of the caller's own token -- expired, malformed,
+   * revoked -- a silent, RLS-bypassing service-role read instead of a refusal.
+   * Asserting the header directly is the only way to catch that: a request
+   * with a *valid* token looks identical either way until the token stops
+   * being valid.
+   */
+  it('sends the anon key as apikey, never the service-role key', async () => {
+    const db = authenticatedDb(env, bearer('caller-token'));
+    assert.ok(db, 'expected a client for a bearer-token request');
+    let seen: Headers | undefined;
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+      seen = new Headers(init?.headers);
+      return Response.json([]);
+    }) as typeof fetch;
+    try {
+      await db.from('orders').select('id');
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+    assert.equal(seen?.get('apikey'), env.anonKey);
+    assert.notEqual(seen?.get('apikey'), env.serviceRoleKey);
+    assert.equal(seen?.get('authorization'), 'Bearer caller-token');
   });
 });
 

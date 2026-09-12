@@ -10,7 +10,8 @@ for (const persistenceFails of [false, true]) {
   test(`${stage} failure keeps safe context when diagnostic persistence ${persistenceFails ? 'fails' : 'succeeds'}`, async () => {
     const env = { SQUARE_WEBHOOK_SIGNATURE_KEY: 'test-signature-key',
       SQUARE_WEBHOOK_URL: 'https://app.example.test/api/webhooks/square',
-      SUPABASE_URL: 'https://database.example.test', SUPABASE_SERVICE_ROLE_KEY: 'test-service-key' };
+      SUPABASE_URL: 'https://database.example.test', SUPABASE_SERVICE_ROLE_KEY: 'test-service-key',
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: 'test-anon-key' };
     const originals = Object.fromEntries(Object.keys(env).map((key) => [key, process.env[key]]));
     const originalFetch = globalThis.fetch;
     const originalLog = console.error;
