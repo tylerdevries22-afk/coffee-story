@@ -10,6 +10,7 @@ import {
 
 import type { OrderStatus } from '@platform/schema';
 
+import { disabledState } from './a11y-state';
 import { toneColor, withAlpha } from './component-colors';
 import { STATUS_PRESENTATION, type StatusTone } from './order-status-pill-logic';
 import { useTokens } from './theme';
@@ -37,7 +38,7 @@ export function Button({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={trailing ? `${label}, ${trailing}` : label}
-      accessibilityState={{ disabled: Boolean(disabled) }}
+      {...disabledState(Boolean(disabled))}
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [
@@ -137,7 +138,7 @@ export function QuantityStepper({
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityHint={hint}
-      accessibilityState={{ disabled: !enabled }}
+      {...disabledState(!enabled)}
       disabled={!enabled}
       onPress={action}
       style={({ pressed }) => ({

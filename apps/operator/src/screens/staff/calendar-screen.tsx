@@ -13,7 +13,7 @@ import { useAuth } from '@/state/auth-context';
 import { useBusiness } from '@/state/business';
 import { useOperations } from '@/state/operations-store';
 import { useOperator } from '@/state/operator-store';
-import { AppIcon } from '@platform/ui';
+import { AppIcon, tabState, toggleState } from '@platform/ui';
 
 import { EmptySchedule, TimelineItem } from './calendar-items';
 import { useCalendarTheme } from './calendar-theme';
@@ -72,7 +72,7 @@ function CalendarHeader({ businessName }: { businessName: string }) {
 
 function DateRail({ day, days, onSelect }: { day: string; days: ReturnType<typeof calendarDateRail>; onSelect: (day: string) => void }) {
   const { styles } = useCalendarTheme();
-  return <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dateRail}>{days.map((date) => <Pressable key={date.key} accessibilityRole="button" accessibilityState={{ selected: day === date.key }} accessibilityLabel={`${date.weekday} ${date.day}`} onPress={() => onSelect(date.key)} style={styles.dateButton}><Text style={styles.weekday}>{date.weekday}</Text><View style={[styles.dateCircle, day === date.key && styles.dateCircleSelected]}><Text style={[styles.dateNumber, day === date.key && styles.dateNumberSelected]}>{date.day}</Text></View><View style={[styles.eventDot, day === date.key && styles.eventDotSelected]} /></Pressable>)}</ScrollView>;
+  return <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dateRail}>{days.map((date) => <Pressable key={date.key} accessibilityRole="button" {...toggleState(day === date.key)} accessibilityLabel={`${date.weekday} ${date.day}`} onPress={() => onSelect(date.key)} style={styles.dateButton}><Text style={styles.weekday}>{date.weekday}</Text><View style={[styles.dateCircle, day === date.key && styles.dateCircleSelected]}><Text style={[styles.dateNumber, day === date.key && styles.dateNumberSelected]}>{date.day}</Text></View><View style={[styles.eventDot, day === date.key && styles.eventDotSelected]} /></Pressable>)}</ScrollView>;
 }
 
 function CalendarFilters({ mode, people, personId, onMode, onPerson }: { mode: CalendarMode; people: readonly { id: string; name: string; initials: string }[]; personId: string; onMode: (mode: CalendarMode) => void; onPerson: (id: string) => void }) {
@@ -92,7 +92,7 @@ function IconButton({ label, icon }: { label: string; icon: 'plus' | 'slider.hor
 function PersonBadge({ label, initials, selected, onPress }: { label: string; initials: string; selected: boolean; onPress: () => void }) {
   const { styles } = useCalendarTheme();
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={`Show ${label}`} accessibilityState={{ selected }} onPress={onPress} style={styles.personButton}>
+    <Pressable accessibilityRole="button" accessibilityLabel={`Show ${label}`} {...toggleState(selected)} onPress={onPress} style={styles.personButton}>
       <View style={[styles.avatar, selected && styles.avatarSelected]}>
         <Text style={[styles.avatarText, selected && styles.avatarTextSelected]}>{initials}</Text>
       </View>
@@ -104,7 +104,7 @@ function PersonBadge({ label, initials, selected, onPress }: { label: string; in
 function ModeButton({ label, selected, onPress }: { label: CalendarMode extends never ? never : string; selected: boolean; onPress: () => void }) {
   const { styles } = useCalendarTheme();
   return (
-    <Pressable accessibilityRole="tab" accessibilityState={{ selected }} onPress={onPress} style={[styles.modeButton, selected && styles.modeButtonSelected]}>
+    <Pressable accessibilityRole="tab" {...tabState(selected)} onPress={onPress} style={[styles.modeButton, selected && styles.modeButtonSelected]}>
       <Text style={[styles.modeText, selected && styles.modeTextSelected]}>{label}</Text>
     </Pressable>
   );

@@ -5,7 +5,7 @@ import type { AdminSettingsState } from '@/features/admin/admin-settings';
 import { INTAKE_FORM_CATALOG, type IntakeFormCatalogEntry } from '@/features/admin/preferences-forms';
 import { mobileApi } from '@/lib/mobile-api';
 import { openWebPath } from '@/lib/web-navigation';
-import { AppIcon, useTokens as useBrandTokens } from '@platform/ui';
+import { AppIcon, expandedState, useTokens as useBrandTokens } from '@platform/ui';
 import { createStyles } from './admin-settings-styles';
 import { Field, PanelHeading, ToggleRow } from './admin-settings-fields';
 
@@ -79,7 +79,7 @@ export function FormsPanel({ value, onChange, isDemo }: SettingsPanelProps & { i
                 accessibilityRole="button"
                 accessibilityLabel={draft.title}
                 accessibilityHint={open ? 'Collapses this form' : 'Opens this form for editing'}
-                accessibilityState={{ expanded: open }}
+                {...expandedState(open)}
                 onPress={() => setOpenId(open ? null : draft.id)}
                 style={({ pressed }) => [styles.formHeader, pressed && styles.formHeaderPressed]}
               >

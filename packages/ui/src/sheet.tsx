@@ -2,6 +2,7 @@
 import { useEffect, useRef, type PropsWithChildren } from 'react';
 import { Animated, Easing, Modal, Pressable, ScrollView, Text, View } from 'react-native';
 
+import { choiceState } from './a11y-state';
 import { withAlpha } from './components';
 import { useTokens } from './theme';
 
@@ -111,7 +112,7 @@ export function ModifierSheet({
                 <Pressable
                   key={choice.id}
                   accessibilityRole={group.select === 'single' ? 'radio' : 'checkbox'}
-                  accessibilityState={{ checked: selected }}
+                  {...choiceState(selected)}
                   accessibilityLabel={`${choice.label}${priced}`}
                   onPress={() => onToggle(group.id, choice.id)}
                   style={({ pressed }) => ({

@@ -4,7 +4,7 @@ import {
 } from 'react-native';
 
 import { useOperator } from '@/state/operator-store';
-import { useTokens as useBrandTokens } from '@platform/ui';
+import { choiceState, useTokens as useBrandTokens } from '@platform/ui';
 
 import { SettingToggle, SheetShell } from './board-controls';
 import { createStyles } from './board-styles';
@@ -44,7 +44,7 @@ export function LocationSheet({ visible, onClose }: { visible: boolean; onClose:
         <Pressable
           key={location.id}
           accessibilityRole="radio"
-          accessibilityState={{ checked: operator.location.id === location.id }}
+          {...choiceState(operator.location.id === location.id)}
           onPress={() => { operator.setLocation(location); onClose(); }}
           style={({ pressed }) => [styles.locationRow, pressed && styles.pressed]}
         >
