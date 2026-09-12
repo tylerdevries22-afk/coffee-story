@@ -3,6 +3,7 @@ import {
 } from '@platform/engine';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { log } from './log';
 import { inspectDueSquareCard } from './square-card-inspection';
 import { recoverDueSquareCard } from './square-card-recovery';
 import type {
@@ -154,7 +155,7 @@ export async function expireDueSquareCardQuotes(
   };
   let rows: DueSquareCard[];
   try { rows = await (deps.load ?? loadDueCards)(db, now); }
-  catch { console.error('Square card expiry scan failed.'); summary.scanFailed = true; return summary; }
+  catch { log.error('square.card_expiry_scan_failed', {}); summary.scanFailed = true; return summary; }
   summary.scanned = rows.length;
   for (let offset = 0; offset < rows.length; offset += CONCURRENCY) {
     const results = await Promise.all(rows.slice(offset, offset + CONCURRENCY).map(async (row) => {
