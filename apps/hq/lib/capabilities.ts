@@ -24,7 +24,6 @@ import { tenantOrgById } from './tenants';
 export const DEMO_MODULE_KEYS: readonly string[] = [
   'commerce-catalog',
   'commerce-catering',
-  'commerce-delivery',
   'commerce-ordering',
   'device-wall',
   'growth-drops',
