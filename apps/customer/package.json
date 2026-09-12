@@ -77,8 +77,8 @@
     "web": "expo start --web",
     "lint": "expo lint --max-warnings=0",
     "typecheck": "tsc --noEmit",
-    "test": "EXPO_PUBLIC_TENANT=${EXPO_PUBLIC_TENANT:-coffee-story} tsx --test \"src/**/*.test.ts\"",
-    "verify": "pnpm lint && pnpm typecheck && pnpm test && EXPO_PUBLIC_TENANT=${EXPO_PUBLIC_TENANT:-coffee-story} npx expo export --platform ios"
+    "test": "EXPO_PUBLIC_TENANT=${EXPO_PUBLIC_TENANT:?missing} tsx --test \"src/**/*.test.ts\"",
+    "verify": "pnpm lint && pnpm typecheck && pnpm test && EXPO_PUBLIC_TENANT=${EXPO_PUBLIC_TENANT:?missing} npx expo export --platform ios"
   },
   "private": true
 }
