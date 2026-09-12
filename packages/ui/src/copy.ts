@@ -16,6 +16,30 @@ export const DEFAULT_COPY: BrandCopy = {
   checkoutTitle: 'Checkout',
   orderPlaced: 'Order placed',
   earnBanner: 'Earn {points} {pointsName} for this order',
+  /**
+   * Stored value: what a brand calls money held on account, and the line that
+   * tells a guest how to spend it. Both are the brand's words -- a coined
+   * currency name belongs to the shop that coined it, and where it is handed
+   * over is a counter for some tenants and an invoice for others, so neither
+   * is the platform's to assume.
+   */
+  cashName: 'Store Credit',
+  cashHint: 'Present this when you pay',
+  /**
+   * The referral share text, filled with {appName}, {code} and {url}. A whole
+   * sentence rather than a noun because what a referral is worth is the
+   * brand's to say: a tenant who sells renovations gives away no free drink.
+   */
+  referralShare: 'Try {appName} — use my code {code} and we both get a reward. {url}',
+  /**
+   * The order-ready notification body, filled with {shortCode}.
+   *
+   * packages/engine keeps the same string as its own default because it may
+   * not import this package; a caller reads this key off the brand row and
+   * passes it as the `order_ready` body. Neutral here on purpose -- a shop
+   * that says "while it's hot" writes that here, a builder does not.
+   */
+  orderReadyMessage: 'Order {shortCode} is ready for pickup.',
   dropLive: 'Dropping now',
   dropEndsIn: 'Ends in {time}',
   dropStartsIn: 'Drops in {time}',

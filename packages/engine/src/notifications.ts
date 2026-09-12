@@ -22,7 +22,11 @@ export type BrandMessageContext = {
 export const TEMPLATES = {
   order_ready: {
     title: '{appName}',
-    body: 'Order {shortCode} is ready — come and get it while it’s hot.',
+    // Mirrors `orderReadyMessage` in the UI copy dictionary. Deliberately
+    // vertical-neutral: a shop that wants to say "while it's hot" writes that
+    // in its own dictionary, and a tenant selling something that is not food
+    // must never be sent a sentence about hot drinks.
+    body: 'Order {shortCode} is ready for pickup.',
   },
   drop_live: {
     title: '{appName}',
@@ -48,16 +52,28 @@ export const TEMPLATES = {
 
 export type TemplateKey = keyof typeof TEMPLATES;
 
+/**
+ * Bodies a tenant has rewritten, keyed like TEMPLATES and carrying the same
+ * `{placeholders}`.
+ *
+ * An argument rather than a dictionary lookup because packages/engine may not
+ * depend on packages/ui: the caller already loads the brand row to build
+ * `BrandMessageContext`, so it reads the matching copy keys off the same row
+ * and passes them here. Anything absent falls back to the neutral default.
+ */
+export type BrandTemplateBodies = Partial<Record<TemplateKey, string>>;
+
 export function renderTemplate(
   key: TemplateKey,
   context: BrandMessageContext & Record<string, string | number>,
+  bodies: BrandTemplateBodies = {},
 ): { title: string; body: string } {
   const fill = (template: string) =>
     template.replace(/\{(\w+)\}/g, (whole, name: string) =>
       name in context ? String(context[name as keyof typeof context]) : whole,
     );
   const template = TEMPLATES[key];
-  return { title: fill(template.title), body: fill(template.body) };
+  return { title: fill(template.title), body: fill(bodies[key] ?? template.body) };
 }
 
 export type Transport = {
@@ -139,8 +155,9 @@ export async function sendNotification(
   key: TemplateKey,
   context: BrandMessageContext & Record<string, string | number>,
   pushData?: Readonly<Record<string, string>>,
+  bodies?: BrandTemplateBodies,
 ): Promise<void> {
-  const { title, body } = renderTemplate(key, context);
+  const { title, body } = renderTemplate(key, context, bodies);
   switch (recipient.channel) {
     case 'push': return transport.sendPush(recipient.address, title, body, pushData);
     case 'sms': return transport.sendSms(recipient.address, body);

@@ -10,6 +10,7 @@ import { useAuth } from '@/state/auth-context';
 import { useDemo } from '@/state/demo-context';
 import { TENANT, TENANT_REWARD_TIERS, tenantFeature } from '@/tenant';
 import { tierForAnnualPoints } from '@platform/domain';
+import { useCopy } from '@platform/ui';
 
 import rewardsCup from '../../../assets/tabs/cup.png';
 
@@ -17,6 +18,7 @@ export function MoreMenuRows({ now }: { now: Date }) {
   const { openMore, setClientTab } = useAppState();
   const { portal, isDemo, signOut } = useAuth();
   const demo = useDemo();
+  const pointsName = useCopy()('pointsName');
   const liveOrders = portal.orders ?? [];
   const completedOrders = isDemo
     ? portal.orders.filter((order) => order.status === 'picked_up').length
@@ -32,7 +34,7 @@ export function MoreMenuRows({ now }: { now: Date }) {
   const clientMetrics = [
     { label: 'Upcoming', value: String(upcomingVisits) },
     { label: 'Gift balance', value: `$${(giftBalanceCents / 100).toFixed(2)}` },
-    { label: 'Beans', value: portal.rewardAccount.availablePoints.toLocaleString('en-US') },
+    { label: pointsName, value: portal.rewardAccount.availablePoints.toLocaleString('en-US') },
   ] as const;
   return (
     <>
@@ -59,7 +61,7 @@ export function MoreMenuRows({ now }: { now: Date }) {
         <PillRow title="Membership" subtitle={portal.membership?.name ?? 'Explore plans'} symbol="heart" onPress={() => openMore('membership')} />
       ) : null}
       <SectionTitle>My account</SectionTitle>
-      <PillRow title="My Rewards" subtitle={`${portal.rewardAccount.availablePoints.toLocaleString('en-US')} Beans`} iconSrc={rewardsCup} onPress={() => setClientTab('rewards')} />
+      <PillRow title="My Rewards" subtitle={`${portal.rewardAccount.availablePoints.toLocaleString('en-US')} ${pointsName}`} iconSrc={rewardsCup} onPress={() => setClientTab('rewards')} />
       <PillRow title="Account settings" subtitle={portal.profile.fullName} symbol="person.crop.circle" onPress={() => openMore('profile')} />
       {isDemo || portal.giftCards.length > 0 ? (
         <PillRow title="Gift card balance" subtitle={`$${(giftSummary.spendableBalanceCents / 100).toFixed(2)} available · ${giftSummary.sentCards.length} sent`} symbol="creditcard" onPress={() => openMore('gift-balance')} />

@@ -41,9 +41,15 @@ export function referralShareUrl(baseUrl: string, referralCode: string): string 
   return `${normalizedBase}/?ref=${encodeURIComponent(normalizedCode)}`;
 }
 
+/**
+ * The demo member number, prefixed with the tenant's own code prefix -- the
+ * same one `referralCodeFor` stamps on a real code, so the demo and the live
+ * screen agree. It used to hard-code one shop's points currency, which put
+ * that shop's word on every other tenant's member card.
+ */
 export function demoReferralCode(profileId: string): string {
   const normalized = profileId.replace(/[^a-z0-9]/gi, '').toUpperCase();
-  return `BEAN-${(normalized || 'GUEST').slice(-8).padStart(8, '0')}`;
+  return `${TENANT.business.giftCodePrefix}-${(normalized || 'GUEST').slice(-8).padStart(8, '0')}`;
 }
 
 export function cashDeltaForEntry(entry: RewardEntry): number | null {

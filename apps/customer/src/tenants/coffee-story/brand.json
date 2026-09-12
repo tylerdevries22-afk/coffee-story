@@ -130,7 +130,11 @@
     "orderCta": "Start an order",
     "earnBanner": "Earn {points} {pointsName} for this order",
     "memberFallback": "Member",
-    "dropLive": "Pouring now"
+    "dropLive": "Pouring now",
+    "cashName": "Brew Bucks",
+    "cashHint": "Present at the counter",
+    "referralShare": "Try {appName} — use my code {code} and we both get a free drink. {url}",
+    "orderReadyMessage": "Order {shortCode} is ready — come and get it while it’s hot."
   },
   "features": {
     "drops": true,

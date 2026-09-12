@@ -43,8 +43,8 @@ const REFUNDABLE: ReadonlySet<string> = new Set(['paid', 'in_progress', 'ready',
 /**
  * Money back through Square, then the event that records it. Only a card
  * order can refund here: a pay-at-pickup order never charged a card through
- * the platform, so returning that money is a register action and saying so
- * beats a failure the barista cannot act on.
+ * the platform, so returning that money happens wherever it was taken, and
+ * saying so beats a failure staff cannot act on.
  */
 export async function refundOrderPayment(
   deps: RefundDeps,
@@ -68,7 +68,7 @@ export async function refundOrderPayment(
   if (!order) throw new OrderError('invalid_request', 'That order does not exist.');
   if (!order.square_payment_id) {
     throw new OrderError('refund_unavailable',
-      'This order was not paid by card through the app, so there is nothing to return here — refund it at the register.');
+      'This order was not paid by card through the app, so there is nothing to return here — refund it however it was collected.');
   }
   const existingAttempt = await refundEventByRequestKey(deps.db, order.brand_id, input.requestKey);
   const priorAttempt = replayForRequest(existingAttempt ? [existingAttempt] : [], {

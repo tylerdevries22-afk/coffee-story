@@ -22,6 +22,21 @@ describe('renderTemplate', () => {
     const message = renderTemplate('order_ready', { ...CONTEXT });
     assert.ok(message.body.includes('{shortCode}'));
   });
+
+  it('says nothing about coffee until a tenant asks it to', () => {
+    // The default must survive being read by a construction client; the
+    // vertical-specific sentence belongs in that tenant's own dictionary.
+    assert.equal(
+      renderTemplate('order_ready', { ...CONTEXT, shortCode: 'A12' }).body,
+      'Order A12 is ready for pickup.',
+    );
+    assert.equal(
+      renderTemplate('order_ready', { ...CONTEXT, shortCode: 'A12' }, {
+        order_ready: 'Order {shortCode} is ready — come and get it while it’s hot.',
+      }).body,
+      'Order A12 is ready — come and get it while it’s hot.',
+    );
+  });
 });
 
 describe('sendNotification', () => {

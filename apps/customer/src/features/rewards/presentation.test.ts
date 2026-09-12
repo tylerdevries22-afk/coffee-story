@@ -33,7 +33,9 @@ test('builds an encoded referral share URL', () => {
 });
 
 test('creates a stable demo referral code without exposing punctuation', () => {
-  assert.equal(demoReferralCode('demo-client'), 'BEAN-MOCLIENT');
+  // The prefix is the tenant's (coffee-story's giftCodePrefix is CS), not a
+  // literal: another vertical must never be given a coffee shop's currency.
+  assert.equal(demoReferralCode('demo-client'), 'CS-MOCLIENT');
 });
 
 test('derives cash value only from cash-credit redemptions', () => {

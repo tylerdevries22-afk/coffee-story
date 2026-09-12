@@ -7,7 +7,7 @@ import { formatRewardDate } from '@/features/rewards/presentation';
 import type { RewardAccount, RewardEntry } from '@platform/domain';
 
 import { useRewardStyles } from '../styles';
-import { useTokens as useBrandTokens, AppIcon } from '@platform/ui';
+import { useTokens as useBrandTokens, AppIcon, useCopy } from '@platform/ui';
 
 export function CashTab({
   account,
@@ -22,12 +22,16 @@ export function CashTab({
 }) {
   const styles = useRewardStyles();
   const tokens = useBrandTokens();
+  const copy = useCopy();
+  // One shop's word for stored value used to be typed in here, directly under
+  // the tenant's own name, so every other brand's card carried it too.
+  const cashName = copy('cashName');
   const entries = cashEntries(ledger);
   return (
     <>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`Use $${(account.cashCents / 100).toFixed(2)} Brew Bucks`}
+        accessibilityLabel={`Use $${(account.cashCents / 100).toFixed(2)} ${cashName}`}
         onPress={onUseCash}
         style={({ pressed }) => [styles.cashCard, pressed && styles.cashCardPressed]}
       >
@@ -37,12 +41,12 @@ export function CashTab({
           end={{ x: 1, y: 1 }}
           style={StyleSheet.absoluteFill}
         />
-        <Text style={styles.cashHint}>Present at the counter</Text>
+        <Text style={styles.cashHint}>{copy('cashHint')}</Text>
         <Text style={styles.cashBalance}>${(account.cashCents / 100).toFixed(2)}</Text>
         <View style={styles.cashBottom}>
           <View>
             <Text style={styles.cashBrand}>{TENANT.identity.name}</Text>
-            <Text style={styles.cashSubbrand}>BREW BUCKS</Text>
+            <Text style={styles.cashSubbrand}>{cashName}</Text>
           </View>
           <View style={styles.currencyPill}><Text style={styles.currencyText}>USD⌄</Text></View>
         </View>
@@ -53,7 +57,7 @@ export function CashTab({
         style={({ pressed }) => [styles.actionRow, pressed && styles.rowPressed]}
       >
         <AppIcon name="calendar" size={24} tintColor={tokens.textPrimary} />
-        <Text style={styles.actionRowLabel}>Order with Brew Bucks on hand</Text>
+        <Text style={styles.actionRowLabel}>Order with {cashName} on hand</Text>
         <AppIcon name="chevron.right" size={17} tintColor={tokens.textPrimary} />
       </Pressable>
       <Pressable
@@ -70,14 +74,14 @@ export function CashTab({
         {entries.length ? entries.map(({ entry, delta }) => (
           <CashActivityRow
             key={entry.id}
-            title="Brew Bucks Earned"
+            title={`${cashName} Earned`}
             date={formatRewardDate(entry.earnedAt)}
             amount={`+$${(delta / 100).toFixed(2)}`}
             positive
           />
         )) : account.cashCents > 0 ? (
           <CashActivityRow
-            title="Brew Bucks Available"
+            title={`${cashName} Available`}
             date="Current balance"
             amount={`+$${(account.cashCents / 100).toFixed(2)}`}
             positive
@@ -85,7 +89,7 @@ export function CashTab({
         ) : (
           <View style={styles.emptyActivity}>
             <Text style={styles.emptyActivityTitle}>No cash activity yet</Text>
-            <Text style={styles.emptyActivityBody}>Redeem eligible rewards to add Brew Bucks.</Text>
+            <Text style={styles.emptyActivityBody}>Redeem eligible rewards to add {cashName}.</Text>
           </View>
         )}
         {ledger.slice(0, 5).map((entry) => (

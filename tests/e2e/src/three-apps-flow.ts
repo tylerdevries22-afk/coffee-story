@@ -87,7 +87,9 @@ export async function runThreeAppsFullLoop(): Promise<void> {
     await clickText(customer.page, 'See the menu');
     await clickLabel(customer.page, /^Latte, /);
     await clickText(customer.page, 'Add to Bag');
-    await clickLabel(customer.page, /^View bag, /);
+    // The spoken label now comes from the `viewBag` copy key, so it carries
+    // that key's casing rather than a sentence hand-written in the component.
+    await clickLabel(customer.page, /^View Bag, /);
     await clickText(customer.page, 'Checkout');
     await clickText(customer.page, 'Skip');
     await waitText(customer.page, 'Pay at the counter');
