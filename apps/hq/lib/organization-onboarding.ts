@@ -56,13 +56,27 @@ const ALL_INDUSTRIES: readonly IndustryKey[] = ['general', 'coffee-shop', 'const
 const COFFEE_ONLY: readonly IndustryKey[] = ['coffee-shop'];
 const CONSTRUCTION_ONLY: readonly IndustryKey[] = ['construction'];
 
+/**
+ * Offered to nobody, while still carrying metadata so the registry check and
+ * the dependency-boundary check below keep passing.
+ *
+ * commerce-delivery is installable here, and the guest app cannot complete a
+ * delivery order: packages/engine has no delivery-fee concept, so the fee the
+ * customer app quotes is never charged, and no address reaches the order.
+ * Removing the tenant manifest entry closed that for coffee-story, but this
+ * console would have let the next owner switch it straight back on and reach
+ * the same dead end. tests/consistency/src/delivery-capability-preconditions
+ * states what must exist before it returns.
+ */
+const WITHHELD: readonly IndustryKey[] = [];
+
 /** Explicit metadata is intentional: an unclassified registry module must fail closed. */
 const MODULE_COPY: Readonly<Record<string, ModuleCopy>> = {
   'commerce-catalog': ['Catalog', 'Products, services, menus, pricing, and availability.', 'Commerce', 'base', ALL_INDUSTRIES],
   'commerce-ordering': ['Ordering', 'Shared orders across customer, kiosk, operator, and display.', 'Commerce', 'plus', ALL_INDUSTRIES],
   'commerce-payments': ['Payments', 'Payment collection, settlement, refunds, and reconciliation.', 'Commerce', 'premium', ALL_INDUSTRIES],
   'commerce-catering': ['Catering', 'Large-order intake and fulfillment workflows.', 'Commerce', 'plus', COFFEE_ONLY],
-  'commerce-delivery': ['Delivery', 'Delivery zones, dispatch, and order tracking.', 'Commerce', 'premium', COFFEE_ONLY],
+  'commerce-delivery': ['Delivery', 'Delivery zones, dispatch, and order tracking.', 'Commerce', 'premium', WITHHELD],
   'growth-loyalty': ['Loyalty', 'Points, tiers, offers, and member rewards.', 'Growth', 'premium', COFFEE_ONLY],
   'growth-stored-value': ['Stored value', 'Gift balances and tenant-safe ledgers.', 'Growth', 'premium', COFFEE_ONLY],
   'growth-referrals': ['Referrals', 'Track invitations and customer referral rewards.', 'Growth', 'premium', COFFEE_ONLY],
