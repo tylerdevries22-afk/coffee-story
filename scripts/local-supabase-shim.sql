@@ -33,7 +33,17 @@ create schema if not exists auth;
 create schema if not exists storage;
 create schema if not exists realtime;
 create schema if not exists vault;
-create extension if not exists pgcrypto with schema public;
+-- Hosted Supabase puts extensions in `extensions`, not `public`, and the chain
+-- has depended on that since 20260911190000 -- which calls extensions.digest()
+-- to alias public.digest, and stopped this script dead with "schema extensions
+-- does not exist". Installing pgcrypto into public instead was silently
+-- wrong the moment a migration qualified the schema, and it took the local
+-- rehearsal offline for every migration after that one: the loop that exists
+-- because pull-request CI has no database was itself unable to reach the end
+-- of the chain. dblink lands here too, for 20260911240000's concurrency suite.
+create schema if not exists extensions;
+create extension if not exists pgcrypto with schema extensions;
+create extension if not exists dblink with schema extensions;
 
 create table auth.users (
   id uuid primary key default gen_random_uuid(),

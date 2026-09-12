@@ -1,78 +1,24 @@
 'use server';
 
-import { factoryTasks } from '@platform/factory';
-import { start } from 'workflow/api';
 
 import { serverEnv, serviceDb } from '@/lib/api-auth';
 import { currentAuthUser, currentSession } from '@/lib/auth';
 import { addDemoLocation } from '@/lib/demo-locations';
 import { addDemoOrg } from '@/lib/demo-orgs';
-import { factoryStartupDecision } from '@/lib/factory-startup';
 import type { OrganizationActionState } from '@/lib/organization-action-state';
-import { parseOrgDraft, type OrgDraft } from '@/lib/org-input';
+import { startFactoryRun } from '@/lib/organization-factory-run';
+import { parseOrgDraft } from '@/lib/org-input';
 import {
   organizationFailure, organizationInvitationUrl, reconcileUnknownProvisioningInvitation,
   rollbackInvitationSafely,
 } from '@/lib/organization-provisioning-helpers';
 import { resolveOrInviteStaffUser } from '@/lib/staff-admin';
 import { switchWorkspaceToProvisionedOrg } from '@/lib/organization-workspace-switch';
-import { runPlatformFactory } from '@/workflows/platform-factory';
 import { isConfigured, serverClient } from '@/lib/supabase-server';
 import { tenantPackFromDraft, tryWriteTenantPack } from '@/lib/tenant-pack-write';
 
 function text(formData: FormData, key: string): string {
   const value = formData.get(key); return typeof value === 'string' ? value : '';
-}
-
-async function startFactoryRun(input: {
-  database: ReturnType<typeof serviceDb>;
-  actorId: string;
-  idempotencyKey: string;
-  draft: OrgDraft;
-}): Promise<boolean> {
-  const { database, actorId, idempotencyKey, draft } = input;
-  const existing = await database.from('platform_onboarding_runs').select('id,state')
-    .eq('tenant_slug', draft.slug).maybeSingle<{ id: string; state: string }>();
-  if (existing.error) throw new Error('Factory run lookup failed.');
-  const decision = factoryStartupDecision(existing.data);
-  if (decision === 'reuse') return true;
-  if (decision === 'reject') return false;
-  if (decision === 'restart' && existing.data) {
-    const claim = await database.from('platform_onboarding_runs')
-      .update({ state: 'running', last_error_code: null }).eq('id', existing.data.id)
-      .eq('state', existing.data.state).select('id').maybeSingle<{ id: string }>();
-    if (claim.error) throw new Error('Factory run restart failed.');
-    if (!claim.data) return true;
-  }
-  let runId = existing.data?.id;
-  if (!runId) {
-    const blueprint = await database.from('industry_blueprints').select('id')
-      .eq('industry_key', draft.industryKey).eq('status', 'active')
-      .order('version', { ascending: false }).limit(1).single<{ id: string }>();
-    if (blueprint.error) throw new Error('Factory blueprint is unavailable.');
-    const run = await database.rpc('create_platform_onboarding_run', {
-      input_blueprint_id: blueprint.data.id,
-      input_business_name: draft.name,
-      input_tenant_slug: draft.slug,
-      input_location_name: draft.location?.name ?? `${draft.name} HQ`,
-      input_timezone: draft.location?.timezone ?? 'UTC',
-      input_website_url: '',
-      input_idempotency_key: idempotencyKey,
-      input_created_by: actorId,
-      input_tasks: factoryTasks(),
-    });
-    if (run.error || typeof run.data !== 'string') throw new Error('Factory run creation failed.');
-    runId = run.data;
-  }
-  try {
-    await start(runPlatformFactory, [{ runId }]);
-  } catch {
-    await database.from('platform_onboarding_runs').update({
-      state: 'failed', last_error_code: 'workflow_start_failed',
-    }).eq('id', runId);
-    return false;
-  }
-  return true;
 }
 
 export async function createOrganizationAction(

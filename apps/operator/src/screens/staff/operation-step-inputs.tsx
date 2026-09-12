@@ -1,7 +1,7 @@
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import type { OperationIntentIssue, OperationIntentResponse } from '@platform/offline';
-import { useTokens } from '@platform/ui';
+import { choiceState, useTokens } from '@platform/ui';
 
 import type { OperatorChecklistStep } from '@/features/operations/model';
 
@@ -46,7 +46,7 @@ export function StepResponse({ onChange, response, step, styles }: {
 function Choice({ label, onPress, selected, styles }: {
   label: string; onPress: () => void; selected: boolean; styles: Styles;
 }) {
-  return <Pressable accessibilityRole="radio" accessibilityState={{ checked: selected }} onPress={onPress}
+  return <Pressable accessibilityRole="radio" {...choiceState(selected)} onPress={onPress}
     style={({ pressed }) => [styles.choice, selected && styles.choiceSelected, pressed && styles.pressed]}>
     <Text style={[styles.choiceText, selected && styles.choiceTextSelected]}>{label}</Text>
   </Pressable>;

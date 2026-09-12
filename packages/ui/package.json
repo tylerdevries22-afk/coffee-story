@@ -12,6 +12,7 @@
     "./app-tokens": "./src/app-tokens.ts",
     "./font-registry": "./src/font-registry.ts",
     "./copy": "./src/copy.ts",
+    "./copy-industry": "./src/copy-industry.ts",
     "./src/*": "./src/*.ts"
   },
   "scripts": {

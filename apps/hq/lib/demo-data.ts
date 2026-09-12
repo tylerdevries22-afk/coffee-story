@@ -4,12 +4,33 @@ import type { KpiDay, LocationSummary, DeviceSummary, MenuItemSummary, DropSumma
 
 export type { KpiDay, ChannelRevenueCents, LocationSummary, DeviceSummary, MenuItemSummary, DropSummary, CampaignSummary, CustomerSummary, FeeRow, SessionInfo } from './demo-data-types';
 
+/**
+ * Brand label for the launch demo session.
+ * Fail closed in production when tenant is unset. Explicit coffee-story stays Coffee Story.
+ */
+export function resolveDemoSessionBrandName(
+  env: {
+    EXPO_PUBLIC_TENANT?: string;
+    TENANT?: string;
+    NODE_ENV?: string;
+  } = process.env,
+): string {
+  const slug = env.EXPO_PUBLIC_TENANT?.trim() || env.TENANT?.trim() || '';
+  if (slug === 'coffee-story') return 'Coffee Story';
+  if (!slug) {
+    if (env.NODE_ENV === 'production') return 'HQ';
+    return 'Coffee Story';
+  }
+  return 'HQ';
+}
+
+/** Coffee Story launch fixture session. brandName is fail-closed via resolveDemoSessionBrandName. */
 export const DEMO_SESSION: SessionInfo = {
   userId: null,
   email: 'owner@coffee-story.demo',
   role: 'platform_admin',
   brandId: '00000000-0000-4000-8000-000000000101',
-  brandName: 'Coffee Story',
+  brandName: resolveDemoSessionBrandName(),
 };
 
 export const DEMO_LOCATIONS: LocationSummary[] = [
