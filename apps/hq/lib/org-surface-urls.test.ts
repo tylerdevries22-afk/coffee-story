@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
+  displayBoardPath,
   hostedSurfaceUrlsForSlug,
   pathBasedSurfaceUrls,
   surfaceUrlsForTenant,
@@ -14,7 +15,15 @@ describe('hostedSurfaceUrlsForSlug', () => {
     assert.equal(urls.customer, 'https://demo-roastery-hq.vercel.app/customer');
     assert.equal(urls.kiosk, 'https://demo-roastery-hq.vercel.app/kiosk');
     assert.equal(urls.operator, 'https://demo-roastery-hq.vercel.app/operator');
-    assert.equal(urls.display, 'https://demo-roastery-display.vercel.app/board/demo');
+    assert.equal(urls.display, 'https://demo-roastery-display.vercel.app/');
+  });
+
+  it('uses /board/<uuid> when a location id is known', () => {
+    const id = '11111111-1111-4111-8111-111111111111';
+    assert.equal(displayBoardPath(id), `/board/${id}`);
+    assert.equal(displayBoardPath('demo'), '/');
+    const urls = hostedSurfaceUrlsForSlug('demo-roastery', {}, id);
+    assert.equal(urls.display, `https://demo-roastery-display.vercel.app/board/${id}`);
   });
 });
 
@@ -25,7 +34,7 @@ describe('surfaceUrlsForTenant', () => {
       COFFEE_STORY_WALL_HOSTED: '1',
     });
     assert.equal(urls.customer, 'https://coffee-story-hq.vercel.app/customer');
-    assert.equal(urls.display, 'https://coffee-story-display.vercel.app/board/demo');
+    assert.equal(urls.display, 'https://coffee-story-display.vercel.app/');
   });
 
   it('keeps local loopback URLs in development by default', () => {
@@ -49,7 +58,7 @@ describe('surfaceUrlsForTenant', () => {
       NEXT_PUBLIC_ORG_SURFACE_ORIGIN: 'https://coffee-story-hq.vercel.app',
     });
     assert.equal(urls.customer, 'https://coffee-story-hq.vercel.app/customer');
-    assert.equal(urls.display, 'https://coffee-story-display.vercel.app/board/demo');
+    assert.equal(urls.display, 'https://coffee-story-display.vercel.app/');
   });
 
   it('rejects credentialed or http non-loopback origins', () => {
