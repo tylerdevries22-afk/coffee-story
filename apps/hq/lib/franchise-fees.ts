@@ -13,6 +13,26 @@ export type FeeTerms = {
   locations: FeeTermsLocation[];
 };
 
+/**
+ * What the override editor should say when it lists nothing, or null when it
+ * has rows to list.
+ *
+ * The two reasons are not the same sentence. An unconfigured console reads
+ * its fee TABLE from demo fixtures -- which name locations -- while
+ * `loadFeeTerms` returns no locations at all, so the page reported "No
+ * locations are available in this organization" directly above a table of
+ * two of them. That reads as a data fault in the tenant rather than as the
+ * console running without a database, which is the one thing it was trying
+ * to say.
+ */
+export function feeOverridesEmptyReason(input: { locations: number; configured: boolean }): string | null {
+  if (input.locations > 0) return null;
+  return input.configured
+    ? 'No locations are available in this organization.'
+    : 'This console has no live deployment behind it, so there are no location terms to edit. '
+      + 'The collection figures below are demo fixtures, not this organization\'s revenue.';
+}
+
 export type LocationFeeDraft = LocationFeeOverrides & {
   actorId: string;
   auditCorrelationId: string;
