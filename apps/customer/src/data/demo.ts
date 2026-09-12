@@ -29,7 +29,12 @@ function isoAt(daysFromNow: number, hour: number, minute = 0): string {
 }
 
 const SHOP_LABEL = `${TENANT.identity.name} · ${TENANT.location.address.street}`;
-const IS_PROJECT_BUSINESS = Boolean(TENANT.copy.projectName);
+// Derived from the declared industry, not from whether a copy key happens to
+// be set. NOTE: the seeds below are still two-way, so a tenant that is neither
+// construction nor coffee-shop gets the coffee fixtures in demo mode. That is
+// a narrower leak than the live home screen -- demo data only -- but it is the
+// same shape, and writing a neutral seed set is the remaining half.
+const IS_PROJECT_BUSINESS = TENANT.business.industryKey === 'construction';
 const DELIVERY_LABEL = IS_PROJECT_BUSINESS ? 'Project site' : 'Delivery';
 const DELIVERY_DETAIL = `${IS_PROJECT_BUSINESS ? 'Demo site' : 'Demo delivery'} · ${TENANT.location.address.city}, ${TENANT.location.address.region}`;
 

@@ -23,6 +23,11 @@ import { APPLIED_TENANT_SLUGS, TENANT_SLOT, TENANT_SLUG } from '../tenants';
 
 export { APPLIED_TENANT_SLUGS, TENANT_SLUG };
 
+// Mirrors GENERIC_INDUSTRY_KEY in @platform/ui rather than importing it: that
+// barrel reaches `theme`, which imports react-native, and node tests load this
+// module and cannot transform it. One repeated string beats a broken runner.
+const GENERIC_INDUSTRY_KEY = 'generic';
+
 export type TenantBusiness = {
   legalName: string;
   tagline: string;
@@ -32,6 +37,16 @@ export type TenantBusiness = {
   giftCodePrefix: string;
   monogram: string;
   industry: string;
+  /**
+   * The machine-readable industry, as brand.json's `business.industryKey`.
+   *
+   * Normalization used to drop it, so the guest app could not ask what
+   * industry it was built for and answered with `Boolean(copy.projectName)`
+   * instead -- a two-way flag whose false branch is coffee wording, which is
+   * how a tenant declaring "generic" shipped latte bundles. Defaults to
+   * generic: a tenant naming no industry is nobody's, never the launch one's.
+   */
+  industryKey: string;
 };
 
 export type TenantFeatures = {
@@ -117,6 +132,7 @@ function normalizeTenant(source: TenantSource): TenantFile {
       giftCodePrefix: business.giftCodePrefix ?? monogram,
       monogram,
       industry: business.industry ?? 'General',
+      industryKey: business.industryKey ?? GENERIC_INDUSTRY_KEY,
     },
     location,
   };
