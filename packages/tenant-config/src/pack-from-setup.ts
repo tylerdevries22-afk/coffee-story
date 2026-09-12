@@ -76,8 +76,7 @@ function compactSlug(slug: string): string {
 }
 
 function monogram(name: string): string {
-  // Destructured rather than indexed: noUncheckedIndexedAccess does not narrow
-  // parts[0] from a parts.length check, so the index form failed typecheck.
+  // Destructured: noUncheckedIndexedAccess does not narrow parts[0] from a length check.
   const [first, second] = name.trim().split(/\s+/).filter(Boolean);
   if (first === undefined) return 'TB';
   if (second === undefined) return first.slice(0, 2).toUpperCase();
