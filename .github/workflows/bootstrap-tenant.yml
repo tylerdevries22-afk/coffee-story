@@ -163,6 +163,8 @@ jobs:
       CRON_SECRET: ${{ secrets.CRON_SECRET }}
       HEALTH_CHECK_TOKEN: ${{ secrets.HEALTH_CHECK_TOKEN }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+      EXPO_PUBLIC_SENTRY_DSN: ${{ secrets.EXPO_PUBLIC_SENTRY_DSN }}
       DISPLAY_DEVICE_TOKEN: ${{ secrets.DISPLAY_DEVICE_TOKEN }}
       DISPLAY_DEVICE_REFRESH_SECRET: ${{ secrets.DISPLAY_DEVICE_REFRESH_SECRET }}
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
