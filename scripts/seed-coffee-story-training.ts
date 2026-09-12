@@ -72,7 +72,9 @@ async function syncTrackArtwork(
     await registerStorageAsset(db, {
       brandId, bucketId: 'training-media', objectPath, sourceKey: trackKey,
       originalFilename: `${trackKey}.webp`, assetKind: 'training_media',
-      visibility: 'public', sourceType: 'training_module',
+      // Private since 20260912090000_training_media_is_private.sql; the
+      // storage_assets CHECK now rejects 'public' for this bucket.
+      visibility: 'private', sourceType: 'training_module',
       mimeType: 'image/webp', byteSize: bytes.length, checksumSha256: checksum,
     });
 

@@ -16,6 +16,16 @@ describe('storage asset library', () => {
     assert.equal(storageConfigFor('document').bucketId, 'content-files');
   });
 
+  // Regression guard for 20260912090000_training_media_is_private.sql: the
+  // training-media bucket went private, and recordStorageAsset writes this
+  // visibility straight onto every new row, so a flip back to 'public' here
+  // would silently reopen storageAssetDownload's public-URL branch for it.
+  it('marks training media private, unlike the other tenant image buckets', () => {
+    assert.deepEqual(storageConfigFor('training_media'), {
+      bucketId: 'training-media', label: 'Training media', visibility: 'private',
+    });
+  });
+
   it('creates an opaque object path without a user-created folder', () => {
     assert.equal(
       storagePathFor('brand-id', 'design', 'fig', 'asset-id'),
