@@ -72,9 +72,9 @@ export function fixtureBoardSnapshot(
 }
 
 /** A production screen with no device token must never invent guests. */
-export function unpairedBoardSnapshot(): BoardSnapshot {
+export function unpairedBoardSnapshot(locationName = ''): BoardSnapshot {
   return {
-    locationName: '',
+    locationName,
     tickets: [],
     activityItems: [],
     config: resolveBoardConfig(null),
