@@ -5,7 +5,7 @@ import { before, describe, it } from 'node:test';
 import { POST as cancelPost } from '../../../apps/hq/app/api/orders/cancel/route.ts';
 import { POST as ordersPost } from '../../../apps/hq/app/api/orders/route.ts';
 
-import { createSignedInUser, seedBrand, skipUnlessConfigured, sql, stack } from './stack.ts';
+import { createSignedInUser, exposeStackToRoutes, seedBrand, skipUnlessConfigured, sql } from './stack.ts';
 
 /**
  * A guest calling off their own order.
@@ -17,8 +17,7 @@ import { createSignedInUser, seedBrand, skipUnlessConfigured, sql, stack } from 
  * and that it is refused — for the right reasons — after.
  */
 
-process.env.SUPABASE_URL = stack.url;
-process.env.SUPABASE_SERVICE_ROLE_KEY = stack.serviceRoleKey;
+exposeStackToRoutes();
 
 const SLUG = 'order-cancel';
 
