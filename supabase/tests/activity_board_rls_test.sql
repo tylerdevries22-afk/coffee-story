@@ -1,7 +1,14 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = extensions, public, pg_catalog;
-select plan(12);
+select plan(16);
+
+select lives_ok('select app.assert_activity_board_projection_boundary()',
+  'the board has an invoker view and a restricted definer helper');
+select ok(not has_function_privilege('anon', 'app.read_activity_board_items()', 'EXECUTE'),
+  'anonymous callers cannot invoke the projection helper');
+select hasnt_column('public', 'activity_board_items', 'completion_responses',
+  'checklist responses never reach the wall');
 
 select has_view('public', 'activity_board_items', 'activity board uses a narrow view');
 select ok(has_table_privilege('authenticated', 'public.activity_board_items', 'SELECT'),
@@ -82,6 +89,9 @@ select is_empty($test$select id from public.operation_occurrences$test$,
 select results_eq($test$select location_id from public.operations_change_signals$test$,
   array['aaaaaaaa-0000-4000-8000-000000000001'::uuid],
   'realtime exposes only the paired location signal');
+
+select results_eq($test$select title from app.read_activity_board_items()$test$,
+  array['Site check']::text[], 'the helper preserves the paired location boundary');
 
 reset role;
 select lives_ok($test$select 1 from public.activity_board_items where false$test$,
