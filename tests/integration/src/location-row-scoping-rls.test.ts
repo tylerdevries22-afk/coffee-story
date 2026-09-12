@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
-import { after, before, describe, it } from 'node:test';
+import { before, describe, it } from 'node:test';
 
 import { seedLocationScopingFixture, type LocationScopingFixture } from './location-row-scoping-fixtures.ts';
 import { asPrincipal } from './principal.ts';
-import { skipUnlessConfigured, sql } from './stack.ts';
+import { skipUnlessConfigured } from './stack.ts';
 
 /**
  * 20260912050000 fixed six tables whose SELECT policy checked brand_id only,
@@ -41,12 +41,10 @@ describe('location-scoped row RLS (20260912050000)', { skip: skipUnlessConfigure
     fixture = await seedLocationScopingFixture();
   });
 
-  after(async () => {
-    // Every fixture row hangs off brand_id (crew_tasks, workforce_role_
-    // assignments, site_module_overrides, connector_*) or off locations,
-    // which itself cascades from brands -- so deleting the brand is enough.
-    await sql(`delete from public.brands where id = $1`, [fixture.brandId]);
-  });
+  // This fixture includes immutable connector and module audit history.
+  // Its unique brand remains until the disposable test database is destroyed,
+  // matching the other append-only integration fixtures. Cascading a brand
+  // deletion here correctly fails the production immutability guards.
 
   it('crew_tasks: a manager at store A sees store A and the brand-wide task, never store B', async () => {
     assert.deepEqual(
