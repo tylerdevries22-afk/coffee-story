@@ -97,6 +97,24 @@ if (process.env.REQUIRE_DATABASE_TESTS === '1' && !stackConfigured) {
   );
 }
 
+/**
+ * Publish the stack to the HQ route handlers, which the suites call
+ * in-process. Those handlers read their deployment configuration from
+ * process.env on every request (`serverEnv()` in apps/hq/lib/api-auth.ts),
+ * not from this module, so the two lists have to agree by hand -- and they
+ * did not: when the anon key joined what `serverEnv()` requires, the suites
+ * kept setting only the first two names and every route answered 501
+ * `not_configured`, which read as a wall of authorization failures. One
+ * place sets the whole list now, and
+ * tests/consistency/src/route-env-reaches-integration-suites.test.ts pins
+ * it to what `serverEnv()` reads.
+ */
+export function exposeStackToRoutes(): void {
+  process.env.SUPABASE_URL = stack.url;
+  process.env.SUPABASE_SERVICE_ROLE_KEY = stack.serviceRoleKey;
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = stack.anonKey;
+}
+
 export function serviceClient(): SupabaseClient {
   return createClient(stack.url, stack.serviceRoleKey, supabaseOptions);
 }
