@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { computeAppFeeCents, feeMonthKey, feeMonthRange, resolveFeeConfig } from './fees';
+import {
+  computeAppFeeCents, feeMonthKey, feeMonthRange, refundAppFeeCents, resolveFeeConfig,
+} from './fees';
 
 const CONFIG = { feeBps: 300, feeBpsTier2: 150, tierThresholdCents: 2_000_000 };
 
@@ -130,5 +132,56 @@ describe('resolveFeeConfig', () => {
     const config = resolveFeeConfig(brand, { fee_bps: 250 });
     const { feeCents } = computeAppFeeCents(config, 0, 10_000);
     assert.equal(feeCents, 250, '250bps of $100 is $2.50');
+  });
+});
+
+describe('refundAppFeeCents', () => {
+  /**
+   * The whole point: a full refund gives back the whole fee. Before this, the
+   * platform sent Square no app_fee_money at all, so the franchisee funded the
+   * refund and the platform kept its cut of a sale that no longer happened.
+   */
+  it('returns the entire fee when the entire sale is refunded', () => {
+    assert.equal(refundAppFeeCents({
+      feeCents: 250, grossCents: 5000, alreadyRefundedFeeCents: 0, refundAmountCents: 5000,
+    }), 250);
+  });
+
+  it('returns the fee in proportion to a partial refund', () => {
+    assert.equal(refundAppFeeCents({
+      feeCents: 250, grossCents: 5000, alreadyRefundedFeeCents: 0, refundAmountCents: 2000,
+    }), 100);
+  });
+
+  /** Successive partials must never give back more fee than was charged. */
+  it('caps a sequence of partial refunds at the fee actually taken', () => {
+    const first = refundAppFeeCents({
+      feeCents: 250, grossCents: 5000, alreadyRefundedFeeCents: 0, refundAmountCents: 3000,
+    });
+    assert.equal(first, 150);
+    const second = refundAppFeeCents({
+      feeCents: 250, grossCents: 5000, alreadyRefundedFeeCents: first, refundAmountCents: 3000,
+    });
+    assert.equal(second, 100, 'the remainder, not another proportional slice');
+    assert.equal(refundAppFeeCents({
+      feeCents: 250, grossCents: 5000, alreadyRefundedFeeCents: 250, refundAmountCents: 1000,
+    }), 0);
+  });
+
+  it('returns nothing when the payment carried no application fee', () => {
+    assert.equal(refundAppFeeCents({
+      feeCents: 0, grossCents: 5000, alreadyRefundedFeeCents: 0, refundAmountCents: 5000,
+    }), 0);
+  });
+
+  it('refuses nonsense rather than inventing a credit', () => {
+    for (const bad of [
+      { feeCents: 250, grossCents: 0, alreadyRefundedFeeCents: 0, refundAmountCents: 100 },
+      { feeCents: 250, grossCents: 5000, alreadyRefundedFeeCents: 0, refundAmountCents: 0 },
+      { feeCents: 250, grossCents: 5000, alreadyRefundedFeeCents: 0, refundAmountCents: -100 },
+      { feeCents: -250, grossCents: 5000, alreadyRefundedFeeCents: 0, refundAmountCents: 100 },
+    ]) {
+      assert.equal(refundAppFeeCents(bad), 0, JSON.stringify(bad));
+    }
   });
 });

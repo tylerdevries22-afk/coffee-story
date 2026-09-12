@@ -81,6 +81,39 @@ export function computeAppFeeCents(
   return { feeCents, feeBpsApplied };
 }
 
+/**
+ * The platform's share of a refund: the fee it took, in proportion to the part
+ * of the sale being returned.
+ *
+ * The alternative is what the platform did before this existed — send Square no
+ * `app_fee_money` on a refund, which it reads as "the developer contributes
+ * nothing". The seller then funds the whole refund and the platform keeps its
+ * cut of a sale that no longer happened. On a franchise platform that is a
+ * franchisee paying us to undo their own order.
+ *
+ * Rounded half up on the decimal, like every other cent in this module, and
+ * capped at what is left unreturned so a sequence of partial refunds can never
+ * give back more fee than was charged. The cap is what makes this safe to call
+ * per refund rather than once per order.
+ */
+export function refundAppFeeCents(input: {
+  feeCents: number;
+  grossCents: number;
+  alreadyRefundedFeeCents: number;
+  refundAmountCents: number;
+}): number {
+  const { feeCents, grossCents, alreadyRefundedFeeCents, refundAmountCents } = input;
+  if (!Number.isInteger(refundAmountCents) || refundAmountCents <= 0) return 0;
+  if (!Number.isInteger(feeCents) || feeCents <= 0) return 0;
+  if (!Number.isInteger(grossCents) || grossCents <= 0) return 0;
+  const remaining = Math.max(0, feeCents - Math.max(0, alreadyRefundedFeeCents));
+  if (remaining === 0) return 0;
+  // Scaled before rounding for the same reason tax is: the exact share can land
+  // on a half that the float lands just under.
+  const share = Math.round(Math.round(feeCents * refundAmountCents * 1e6 / grossCents) / 1e6);
+  return Math.min(remaining, Math.max(0, share));
+}
+
 /** Which calendar month a payment belongs to, in the location's timezone. */
 export function feeMonthKey(paidAt: Date, timezone: string): string {
   const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: timezone, year: 'numeric', month: '2-digit' });

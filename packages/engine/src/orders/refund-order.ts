@@ -7,6 +7,7 @@ import {
   replayForSquareRefund,
 } from '../refunds';
 import { refundSquarePayment, type SquareConfig } from '../square/client';
+import { refundAppFeeCents } from '../fees';
 
 import {
   claimWebhookRefundWinner,
@@ -110,9 +111,28 @@ export async function refundOrderPayment(
       `Only ${refundable} cents are left to refund on this order.`);
   }
 
+  // The platform's share of this refund, read from the fee row the payment
+  // wrote. A missing row means no application fee was ever charged, which is
+  // not an error -- pay-at-pickup orders never produce one.
+  const feeRow = await deps.db
+    .from('platform_fees')
+    .select('fee_cents, gross_cents, refunded_fee_cents')
+    .eq('order_id', order.id)
+    .maybeSingle<{ fee_cents: number; gross_cents: number; refunded_fee_cents: number }>();
+  if (feeRow.error) throw feeRow.error;
+  const appFeeCents = feeRow.data
+    ? refundAppFeeCents({
+      feeCents: feeRow.data.fee_cents,
+      grossCents: feeRow.data.gross_cents,
+      alreadyRefundedFeeCents: feeRow.data.refunded_fee_cents,
+      refundAmountCents: amountCents,
+    })
+    : 0;
+
   const refund = await refundSquarePayment(deps.square, deps.locationAccessToken, {
     paymentId: order.square_payment_id,
     amountCents,
+    appFeeCents,
     // The caller's key, not the amount: two separate $5 refunds are two
     // refunds, and keying on the amount made Square treat the second as a
     // replay of the first — returning $5 while the books recorded $10.
@@ -173,5 +193,32 @@ export async function refundOrderPayment(
   }
   if (eventError) throw eventError;
 
+  await recordFeeRefund(deps.db, order.id, appFeeCents);
   return { orderId: order.id, refundId, amountCents };
+}
+
+/**
+ * Book the platform's share of a refund against the fee row.
+ *
+ * After the refund event, never before: the event is the record that the money
+ * moved, and a fee reversal without one would overstate what was returned.
+ *
+ * Deliberately does not throw. Square has already returned the guest's money by
+ * the time this runs, so failing the call would tell an operator the refund did
+ * not happen when it did -- and they would retry, which is the one outcome
+ * worth avoiding. The discrepancy stays detectable instead: a refund event
+ * whose fee reversal is missing shows up as refunded_fee_cents trailing the
+ * refunded total on that order. The RPC clamps to what is left unreturned, so a
+ * retry cannot double-count either.
+ */
+async function recordFeeRefund(
+  db: SupabaseClient,
+  orderId: string,
+  appFeeCents: number,
+): Promise<void> {
+  if (appFeeCents <= 0) return;
+  await db.rpc('record_platform_fee_refund', {
+    p_order_id: orderId,
+    p_refund_fee_cents: appFeeCents,
+  });
 }

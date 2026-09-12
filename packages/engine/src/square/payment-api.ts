@@ -46,8 +46,25 @@ export async function cancelSquarePaymentByIdempotencyKey(
 export function refundSquarePayment(
   config: SquareConfig,
   token: string,
-  input: { paymentId: string; amountCents: number; referenceId: string; reason: string },
+  input: {
+    paymentId: string;
+    amountCents: number;
+    referenceId: string;
+    reason: string;
+    /**
+     * The platform's share of this refund, returned with it.
+     *
+     * Square reads an absent `app_fee_money` as "the developer contributes
+     * nothing", which makes the seller fund the whole refund while the platform
+     * keeps the fee it took on the original sale. On a franchise platform that
+     * is the franchisee paying us to undo their own sale, so the fee goes back
+     * in proportion to what is being returned. Omitted only when the payment
+     * carried no application fee.
+     */
+    appFeeCents?: number;
+  },
 ): Promise<{ refund?: SquareRefundReceipt }> {
+  const appFee = input.appFeeCents ?? 0;
   return call(config, '/v2/refunds', {
     method: 'POST',
     token,
@@ -55,6 +72,9 @@ export function refundSquarePayment(
       idempotency_key: `refund-${input.referenceId}`,
       payment_id: input.paymentId,
       amount_money: { amount: input.amountCents, currency: PLATFORM_CURRENCY },
+      ...(appFee > 0
+        ? { app_fee_money: { amount: appFee, currency: PLATFORM_CURRENCY } }
+        : {}),
       reason: input.reason,
     },
   });
