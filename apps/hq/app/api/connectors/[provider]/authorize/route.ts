@@ -17,6 +17,7 @@ import {
   disconnectConnectorOAuth,
   sameOriginConnectorMutation,
 } from '@/lib/connector-oauth-disconnect';
+import { log, requestContext } from '@/lib/log';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -78,8 +79,9 @@ export async function DELETE(
         actorUserId: context.userId,
       });
       return Response.json({ ok: true });
-    } catch {
-      console.error(`connector.oauth.disconnect provider=${provider} stage=disconnect code=disconnect_failed status=503`);
+    } catch (error) {
+      log.error('connector.oauth_disconnect_failed',
+        { ...requestContext(request), brandId: context.brandId, provider }, error);
       return Response.json({ code: 'disconnect_failed', message: 'Connector disconnect failed.' }, { status: 503 });
     }
   });

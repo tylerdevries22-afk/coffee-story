@@ -152,12 +152,31 @@ jobs:
       # The bundle is part of the gate. Lint and tsc both pass on code Metro
       # cannot resolve -- a missing asset or a bad platform-specific import
       # only shows up here.
-      - name: Bundle both tenant guest apps for iOS and web
+      #
+      # `android` joins `ios` and `web` here (MOB-01): Android was fully
+      # configured in all three native apps -- package names, permissions,
+      # adaptive icons, config plugins -- and never bundled anywhere in CI.
+      # A franchisee on an Android tablet was the first one to find a broken
+      # import or asset path Metro could not resolve for that platform.
+      #
+      # This adds one more platform per (tenant, app) pair to a loop that
+      # already ran twice, so the step's cost rises by roughly half, not by
+      # double. A matrix job would parallelize that back out, but it would
+      # also mean re-running `pnpm install` and every step this job shares
+      # with the matrix per platform; for a step that is one of many in a
+      # 40-minute job, that trade is not worth making here.
+      #
+      # `expo export` only proves Metro can bundle that platform's code and
+      # assets. It does NOT read AndroidManifest.xml, permissions, or the
+      # package name -- those are produced by config plugins, which export
+      # never runs. The introspection step below is what actually renders
+      # and checks those.
+      - name: Bundle both tenant guest apps for iOS, Android, and web
         run: |
           set -euo pipefail
           for tenant in coffee-story stillpoint-builders; do
             for app in customer kiosk; do
-              for platform in ios web; do
+              for platform in ios android web; do
                 EXPO_PUBLIC_TENANT="$tenant" pnpm --filter "@platform/$app" exec expo export \
                   --platform "$platform" --output-dir "dist-$tenant-$platform" --source-maps
                 pnpm exec tsx scripts/assert-tenant-bundle.ts --app "$app" --tenant "$tenant" \
@@ -166,9 +185,50 @@ jobs:
             done
           done
 
-      - name: Bundle the operator app for iOS
+      - name: Bundle the operator app for iOS and Android
         working-directory: apps/operator
-        run: pnpm exec expo export --platform ios
+        run: |
+          set -euo pipefail
+          pnpm exec expo export --platform ios
+          pnpm exec expo export --platform android
+
+      # `expo export` bundles JavaScript; it never evaluates a config
+      # plugin, so it would stay green even if a plugin threw, the package
+      # name resolved empty, or a permission the manifest depends on never
+      # made it in. `expo config --type introspect` is the part of `expo
+      # prebuild` that actually runs every config plugin -- including this
+      # repository's own `with-media-projection.cjs` -- and returns the
+      # resulting android section (package, permissions, blockedPermissions)
+      # in memory, the same values `prebuild` would write into
+      # AndroidManifest.xml. It needs neither Gradle nor the Android SDK:
+      # nothing here compiles, so this runs on the same ubuntu-latest runner
+      # as the rest of this job.
+      #
+      # `expo prebuild --platform android --no-install` was the other option
+      # (it also needs no SDK on Linux -- it only writes files, it does not
+      # build them) but it materializes a full android/ directory per app
+      # that this step would then have to clean up between tenants to avoid
+      # one prebuild's stale output leaking into the next. Introspection
+      # gets the same config-plugin evaluation with no filesystem state to
+      # manage.
+      #
+      # What this does NOT catch: it never writes an actual
+      # AndroidManifest.xml or build.gradle, so an XML-merge conflict
+      # between two plugins, a Gradle-only syntax error, or a resource that
+      # only fails inside a real `gradlew assembleRelease` or EAS build
+      # stays invisible. No workflow in this repository runs that build.
+      - name: Render each app's Android manifest config (introspect)
+        run: |
+          set -euo pipefail
+          for tenant in coffee-story stillpoint-builders; do
+            for app in customer kiosk; do
+              EXPO_PUBLIC_TENANT="$tenant" pnpm --filter "@platform/$app" exec expo config \
+                --type introspect --json \
+                | pnpm exec tsx scripts/assert-android-config.ts --label "$app/$tenant"
+            done
+          done
+          pnpm --filter @platform/operator exec expo config --type introspect --json \
+            | pnpm exec tsx scripts/assert-android-config.ts --label operator
 
       - name: Build the pickup display
         run: pnpm --filter @platform/display build

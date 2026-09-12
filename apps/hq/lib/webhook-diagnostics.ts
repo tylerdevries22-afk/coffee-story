@@ -1,5 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { log } from './log';
+
 export type WebhookFailureStage = 'refund' | 'platform_fee' | 'order_event'
   | 'record_delivery' | 'read_delivery' | 'resolve_order' | 'stamp_delivery';
 type FailureContext = { eventId: string; orderId?: string; brandId?: string; stage: WebhookFailureStage };
@@ -26,8 +28,8 @@ export async function recordWebhookFailure(
   }
   const identifier = (value: string | undefined) => value === undefined ? null
     : /^[a-zA-Z0-9_-]{1,128}$/.test(value) ? value : 'invalid_identifier';
-  console.error('Square webhook processing failed.', {
-    level: 'error', provider: 'square', stage: context.stage, code, diagnosticStored,
+  log.error('square.webhook_processing_failed', {
+    provider: 'square', stage: context.stage, code, diagnosticStored,
     eventId: identifier(context.eventId), orderId: identifier(context.orderId), brandId: identifier(context.brandId),
   });
 }
