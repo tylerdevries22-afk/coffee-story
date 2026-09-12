@@ -97,7 +97,7 @@ export function BrandConfigEditor({
           </p>
           {tiers.map((tier, index) => (
             <div key={tier.slug} className="tier-row">
-              <TierBadgePreview tier={tier} />
+              <TierBadgePreview tier={tier} surface={applied.surface} ink={applied.textPrimary} />
               <label className="field tier-field">
                 Colour
                 <input
