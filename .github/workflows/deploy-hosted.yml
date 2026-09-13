@@ -43,6 +43,10 @@ on:
         required: true
       OPENAI_API_KEY:
         required: false
+      SENTRY_DSN:
+        required: false
+      EXPO_PUBLIC_SENTRY_DSN:
+        required: false
       DISPLAY_DEVICE_TOKEN:
         required: false
       DISPLAY_DEVICE_REFRESH_SECRET:
@@ -426,6 +430,8 @@ jobs:
           OPENAI_MENU_MODEL: ${{ vars.OPENAI_MENU_MODEL }}
           OPENAI_RESEARCH_MODEL: ${{ vars.OPENAI_RESEARCH_MODEL }}
           OPENAI_EVALUATION_MODEL: ${{ vars.OPENAI_EVALUATION_MODEL }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          EXPO_PUBLIC_SENTRY_DSN: ${{ secrets.EXPO_PUBLIC_SENTRY_DSN }}
           TENANT_SURFACES: ${{ needs.release-policy.outputs.all_surfaces }}
         run: |
           set -euo pipefail
@@ -479,6 +485,24 @@ jobs:
           add_public OPENAI_MENU_MODEL "$OPENAI_MENU_MODEL"
           add_public OPENAI_RESEARCH_MODEL "$OPENAI_RESEARCH_MODEL"
           add_public OPENAI_EVALUATION_MODEL "$OPENAI_EVALUATION_MODEL"
+          # Sentry is DSN-gated and silent (apps/hq/instrumentation.ts and, for
+          # the Expo surfaces this host embeds, packages/monitoring/src/mobile.ts):
+          # with no DSN it no-ops and the build stays "self-contained", so a
+          # missing secret never shows up as an error -- only as errors that
+          # never get reported. Fail the production deploy outright instead of
+          # shipping monitoring that silently does nothing.
+          if [ "$DEPLOY_ENVIRONMENT" = production ]; then
+            test -n "$SENTRY_DSN" || {
+              echo '::error::Set the SENTRY_DSN repository secret before a production deploy -- without it apps/hq/instrumentation.ts silently no-ops and errors go unreported.'
+              exit 1
+            }
+            test -n "$EXPO_PUBLIC_SENTRY_DSN" || {
+              echo '::error::Set the EXPO_PUBLIC_SENTRY_DSN repository secret before a production deploy -- without it packages/monitoring/src/mobile.ts silently no-ops for the embedded Expo surfaces.'
+              exit 1
+            }
+          fi
+          add_secret SENTRY_DSN "$SENTRY_DSN"
+          add_public EXPO_PUBLIC_SENTRY_DSN "$EXPO_PUBLIC_SENTRY_DSN"
       - name: Stage and verify the exact HQ commit
         id: deploy
         env:

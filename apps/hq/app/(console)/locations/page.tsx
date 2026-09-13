@@ -4,6 +4,9 @@ import { DevicePanel, type DevicePanelDevice } from '@/components/device-panel';
 import { currentClaims, currentSession, hasRole } from '@/lib/auth';
 import { loadDevices, loadLocations, loadMultiLocationEnabled } from '@/lib/data';
 import { squareConnectNotice } from '@/lib/square-connect-notice';
+import { loadSquareConnectionStatuses } from '@/lib/square-connection-status';
+import { squareLocationUiStatus } from '@/lib/square-connection-status-result';
+import { squareLocationPill } from '@/lib/square-location-pill';
 import { mayManageWorkspaceLocation } from '@/lib/workspace-location-access';
 import { selectedOrganizationId } from '@/lib/workspace-scope';
 
@@ -39,9 +42,16 @@ const DELETED_NOTICE: Record<string, { message: string; failed: boolean }> = {
 };
 
 export default async function LocationsPage({ searchParams }: LocationsPageProps) {
-  const [locations, devices, claims, session, multiLocation, params] = await Promise.all([
+  const [locations, devices, claims, session, multiLocation, params, squareLoad] = await Promise.all([
     loadLocations(), loadDevices(), currentClaims(), currentSession(), loadMultiLocationEnabled(), searchParams,
+    loadSquareConnectionStatuses(),
   ]);
+  // Three states, not a boolean. A grant under the old OAuth scope contract
+  // cannot carry the platform fee, and rendering it as "Connected" with only
+  // Disconnect on offer left no path to the consent re-run that fixes it.
+  const squarePill = (location: { id: string; squareConnected: boolean }) => squareLocationPill(
+    squareLocationUiStatus(squareLoad, location.id, location.squareConnected),
+  );
   // Square consent redirects back here, and it can come back refused.
   const notice = squareConnectNotice(params);
   const createdNotice = params.created ? CREATED_NOTICE[params.created] ?? null : null;
@@ -90,9 +100,7 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
                 </td>
                 <td>{location.hours}</td>
                 <td>
-                  {location.squareConnected
-                    ? <span className="pill success">Connected</span>
-                    : <span className="pill warning">Not connected</span>}
+                  <span className={`pill ${squarePill(location).tone}`}>{squarePill(location).label}</span>
                 </td>
                 <td>
                   {location.orderingPaused
@@ -100,14 +108,16 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
                     : <span className="pill success">Taking orders</span>}
                 </td>
                 <td className="num" style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-                  {!manages(location.id) ? null : location.squareConnected ? (
+                  {!manages(location.id) ? null : squarePill(location).action === 'disconnect' ? (
                     <form action={disconnectSquareAction}>
                       <input type="hidden" name="locationId" value={location.id} />
                       <button type="submit" className="button danger">Disconnect Square</button>
                     </form>
                   ) : (
+                    // Reconnect and Connect share the consent entry point: a stale
+                    // grant is fixed by consenting again, not by disconnecting.
                     <a className="button secondary" href={`/api/square/connect?location_id=${location.id}`}>
-                      Connect Square
+                      {squarePill(location).action === 'reconnect' ? 'Reconnect Square' : 'Connect Square'}
                     </a>
                   )}
                   {hasRole(session, 'brand_owner') && locations.length > 1 ? (

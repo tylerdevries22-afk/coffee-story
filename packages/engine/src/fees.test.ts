@@ -35,6 +35,17 @@ describe('computeAppFeeCents', () => {
     assert.equal(computeAppFeeCents(CONFIG, 0, 0).feeCents, 0);
     assert.equal(computeAppFeeCents(CONFIG, 0, -500).feeCents, 0);
   });
+
+  it('documents that correctly ordered terms make the above-threshold portion cheaper', () => {
+    // Rule 3: the discounted tier only means something if it is actually a
+    // discount. A payment landing entirely below the threshold, and an
+    // identical one landing entirely above it, must not cost the same --
+    // and the above-threshold one must cost less, never more.
+    const belowThreshold = computeAppFeeCents(CONFIG, 0, 10_000).feeCents;
+    const aboveThreshold = computeAppFeeCents(CONFIG, CONFIG.tierThresholdCents, 10_000).feeCents;
+    assert.ok(aboveThreshold < belowThreshold,
+      'the discounted tier must charge less than the base rate for the same payment');
+  });
 });
 
 describe('feeMonthKey', () => {

@@ -60,6 +60,8 @@ function createStyles({ colors, fonts, radius, spacing }: AppTokens) {
     timelineCopy: { flex: 1, gap: 3 }, timelineTitle: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 13 }, timelineMeta: { color: colors.ink600, fontFamily: fonts.sans, fontSize: 10 },
     todayButton: { alignSelf: 'center', minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: spacing.md, backgroundColor: colors.white, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.ink200 },
     todayText: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 12 }, empty: { minHeight: 170, borderRadius: 12, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center', gap: 6, padding: spacing.lg },
-    emptyTitle: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 16 }, emptyText: { color: colors.ink500, fontFamily: fonts.sans, fontSize: 13 },
+    emptyTitle: { color: colors.ink900, fontFamily: fonts.sansBold, fontSize: 16 }, emptyText: { color: colors.ink500, fontFamily: fonts.sans, fontSize: 13, textAlign: 'center' },
+    retryButton: { marginTop: spacing.xs, minHeight: 40, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.lg, borderRadius: radius.pill, backgroundColor: colors.ink900 },
+    retryText: { color: colors.white, fontFamily: fonts.sansBold, fontSize: 13 },
   });
 }

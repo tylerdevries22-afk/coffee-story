@@ -21,25 +21,36 @@ function retryableStatus(status: number): boolean {
   return status === 408 || status === 429 || status >= 500;
 }
 
-async function resilientFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-  let latestError: unknown;
-  for (let attempt = 1; attempt <= HTTP_MAX_ATTEMPTS; attempt += 1) {
-    const timeoutSignal = AbortSignal.timeout(HTTP_TIMEOUT_MS);
-    const signal = init?.signal
-      ? AbortSignal.any([init.signal, timeoutSignal])
-      : timeoutSignal;
-    try {
-      const response = await fetch(input, { ...init, signal });
-      if (attempt === HTTP_MAX_ATTEMPTS || !retryableStatus(response.status)) return response;
-      await response.body?.cancel().catch(() => undefined);
-    } catch (error) {
-      latestError = error;
-      if (attempt === HTTP_MAX_ATTEMPTS) throw error;
+/**
+ * The harness's retrying fetch over a caller-supplied transport. A suite that
+ * must prove a refusal is final -- answered once, never retried -- counts the
+ * calls the transport receives instead of timing the round trip against a
+ * wall-clock bound, which a slow runner trips on its own and which two fast
+ * attempts would fit inside anyway.
+ */
+export function resilientFetchOver(transport: typeof fetch): typeof fetch {
+  return async (input, init) => {
+    let latestError: unknown;
+    for (let attempt = 1; attempt <= HTTP_MAX_ATTEMPTS; attempt += 1) {
+      const timeoutSignal = AbortSignal.timeout(HTTP_TIMEOUT_MS);
+      const signal = init?.signal
+        ? AbortSignal.any([init.signal, timeoutSignal])
+        : timeoutSignal;
+      try {
+        const response = await transport(input, { ...init, signal });
+        if (attempt === HTTP_MAX_ATTEMPTS || !retryableStatus(response.status)) return response;
+        await response.body?.cancel().catch(() => undefined);
+      } catch (error) {
+        latestError = error;
+        if (attempt === HTTP_MAX_ATTEMPTS) throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 250 * attempt));
     }
-    await new Promise((resolve) => setTimeout(resolve, 250 * attempt));
-  }
-  throw latestError instanceof Error ? latestError : new Error('Supabase request failed');
+    throw latestError instanceof Error ? latestError : new Error('Supabase request failed');
+  };
 }
+
+const resilientFetch = resilientFetchOver(fetch);
 
 const supabaseOptions = {
   auth: { persistSession: false },
@@ -97,8 +108,30 @@ if (process.env.REQUIRE_DATABASE_TESTS === '1' && !stackConfigured) {
   );
 }
 
-export function serviceClient(): SupabaseClient {
-  return createClient(stack.url, stack.serviceRoleKey, supabaseOptions);
+/**
+ * Publish the stack to the HQ route handlers, which the suites call
+ * in-process. Those handlers read their deployment configuration from
+ * process.env on every request (`serverEnv()` in apps/hq/lib/api-auth.ts),
+ * not from this module, so the two lists have to agree by hand -- and they
+ * did not: when the anon key joined what `serverEnv()` requires, the suites
+ * kept setting only the first two names and every route answered 501
+ * `not_configured`, which read as a wall of authorization failures. One
+ * place sets the whole list now, and
+ * tests/consistency/src/route-env-reaches-integration-suites.test.ts pins
+ * it to what `serverEnv()` reads.
+ */
+export function exposeStackToRoutes(): void {
+  process.env.SUPABASE_URL = stack.url;
+  process.env.SUPABASE_SERVICE_ROLE_KEY = stack.serviceRoleKey;
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = stack.anonKey;
+}
+
+/** `transport` swaps the fetch under the harness's retries -- see `resilientFetchOver`. */
+export function serviceClient(transport: typeof fetch = fetch): SupabaseClient {
+  return createClient(stack.url, stack.serviceRoleKey, {
+    ...supabaseOptions,
+    global: { fetch: resilientFetchOver(transport) },
+  });
 }
 
 export function anonClient(): SupabaseClient {

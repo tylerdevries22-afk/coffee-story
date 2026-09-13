@@ -1,0 +1,52 @@
+name: security scan
+
+# Static analysis and secret scanning: nothing else in this repository's CI
+# looks for known vulnerability patterns in source or for credentials
+# committed to the tree. `audit` in verify.yml only covers known-vulnerable
+# dependencies (docs/franchise-readiness/tasks.yaml CI-01).
+#
+# This workflow is intentionally not wired into branch protection here --
+# making a check required is owner territory (see OWNER-ACTIONS.md).
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: security-scan-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  security-events: write # required by github/codeql-action/analyze to upload SARIF results
+
+jobs:
+  gitleaks:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      # Full history: gitleaks scans past commits, not just the checked-out tree.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # This workflow does not hold pull-requests: write (permissions are
+          # kept to the minimum it needs), so PR review comments are turned
+          # off rather than left to fail against a token that cannot post
+          # them. The job still fails closed on any finding regardless.
+          GITLEAKS_ENABLE_COMMENTS: 'false'
+
+  codeql:
+    name: CodeQL (javascript-typescript)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: github/codeql-action/init@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4.38.0
+        with:
+          languages: javascript-typescript
+          build-mode: none
+      - uses: github/codeql-action/analyze@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4.38.0

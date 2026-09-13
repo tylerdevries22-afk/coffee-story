@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
+  feeOverridesEmptyReason,
   parseLocationFeeOverrides,
   readPlatformFeeTerms,
   updateLocationFeeOverrides,
@@ -26,6 +27,20 @@ describe('parseLocationFeeOverrides', () => {
       { feeBps: '-1', feeBpsTier2: '', tierThresholdCents: '' },
       { feeBps: '9001', feeBpsTier2: '', tierThresholdCents: '' },
     ]) assert.equal(parseLocationFeeOverrides(input).ok, false);
+  });
+
+  it('rejects a volume tier priced above the base rate', () => {
+    // Rule 3 is "the rate drops above the threshold" -- swapped fields would
+    // silently make every payment above the threshold cost MORE.
+    assert.equal(parseLocationFeeOverrides({
+      feeBps: '150', feeBpsTier2: '300', tierThresholdCents: '',
+    }).ok, false);
+  });
+
+  it('accepts a volume tier equal to the base rate', () => {
+    assert.deepEqual(parseLocationFeeOverrides({
+      feeBps: '300', feeBpsTier2: '300', tierThresholdCents: '',
+    }), { ok: true, draft: { feeBps: 300, feeBpsTier2: 300, tierThresholdCents: null } });
   });
 });
 
@@ -85,5 +100,33 @@ describe('readPlatformFeeTerms', () => {
       brand: { feeBps: 9001, feeBpsTier2: 100, tierThresholdCents: 10 }, locations: [],
     }, error: null }; } };
     assert.equal(await readPlatformFeeTerms(tooHigh as never, 'actor-1', 'brand-1'), null);
+  });
+});
+
+describe('feeOverridesEmptyReason', () => {
+  it('says nothing when there are locations to edit', () => {
+    for (const configured of [true, false]) {
+      assert.equal(feeOverridesEmptyReason({ locations: 2, configured }), null);
+    }
+  });
+
+  it('blames the organization only when a live deployment answered', () => {
+    assert.equal(
+      feeOverridesEmptyReason({ locations: 0, configured: true }),
+      'No locations are available in this organization.',
+    );
+  });
+
+  /**
+   * The unconfigured console reads its fee TABLE from demo fixtures, which
+   * name two locations, while loadFeeTerms returns none -- so the old single
+   * sentence reported a tenant with no locations directly above a table of
+   * two. The demo sentence has to say which half is fixture.
+   */
+  it('says the console has no deployment behind it, and that the figures are fixtures', () => {
+    const reason = feeOverridesEmptyReason({ locations: 0, configured: false });
+    assert.match(reason ?? '', /no live deployment behind it/);
+    assert.match(reason ?? '', /demo fixtures/);
+    assert.doesNotMatch(reason ?? '', /No locations are available in this organization/);
   });
 });

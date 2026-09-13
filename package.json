@@ -9,7 +9,7 @@
     "coverage:unit": "c8 --temp-directory coverage/unit/tmp --reports-dir coverage/unit --reporter=json --reporter=json-summary pnpm test",
     "coverage:check": "pnpm --filter @platform/e2e-tests check-coverage coverage/unit/coverage-summary.json 38",
     "test:scripts": "tsx --test scripts/*.test.ts scripts/*.test.mjs",
-    "verify": "pnpm audit:tokens && pnpm audit:brand && pnpm lint && tsc -p scripts && pnpm test:scripts && pnpm -r --workspace-concurrency=1 verify",
+    "verify": "pnpm audit:tokens && pnpm audit:brand && pnpm lint && tsc -p scripts && pnpm test:scripts && pnpm -r --workspace-concurrency=1 --no-bail verify",
     "mutate": "tsx scripts/mutate.ts",
     "preview": "tsx scripts/preview.ts",
     "wall:start": "tsx scripts/wall-launch.ts",

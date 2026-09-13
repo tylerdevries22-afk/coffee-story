@@ -12,7 +12,10 @@ import {
 } from 'react-native';
 
 
+import { columnEmptyLabel } from '@/state/operator-orders-loaded';
+
 import { HeaderButton } from './board/board-controls';
+import { ConflictsBanner } from './board/conflicts-banner';
 import { DaySheet, MenuControlSheet } from './board/day-menu-sheets';
 import { OrderCard } from './board/order-card';
 import { OrderDetail } from './board/order-detail';
@@ -60,6 +63,8 @@ export function OrdersBoardScreen() {
           <HeaderButton label="Lock" onPress={() => setLocked(true)} />
         </ScrollView>
       </View>
+
+      <ConflictsBanner conflicts={operator.conflicts} onDismiss={operator.dismissConflict} />
 
       {columns.scheduled.length > 0 ? (
         <View style={styles.lane}>
@@ -112,7 +117,7 @@ export function OrdersBoardScreen() {
             </View>
             <ScrollView contentContainerStyle={styles.columnBody} showsVerticalScrollIndicator={false}>
               {column.orders.length === 0 ? (
-                <Text style={styles.columnEmpty}>Nothing here.</Text>
+                <Text style={styles.columnEmpty}>{columnEmptyLabel(operator.ordersLoaded)}</Text>
               ) : column.orders.map((order) => (
                 <OrderCard
                   key={order.id}
@@ -134,14 +139,12 @@ export function OrdersBoardScreen() {
         order={detailLive}
         onClose={() => setDetail(null)}
         onAdvance={(to) => detailLive && operator.advance(detailLive.id, to)}
-        onCancel={() => {
-          if (detailLive) operator.cancel(detailLive.id);
-          setDetail(null);
-        }}
-        onRefund={(amount) => {
-          if (detailLive) operator.refund(detailLive.id, amount);
-          setDetail(null);
-        }}
+        onCancel={() => (detailLive
+          ? operator.cancel(detailLive.id)
+          : Promise.resolve({ ok: false, message: 'This order is no longer open.' }))}
+        onRefund={(amount) => (detailLive
+          ? operator.refund(detailLive.id, amount)
+          : Promise.resolve({ ok: false, message: 'This order is no longer open.' }))}
       />
 
       <DaySheet visible={sheet === 'day'} onClose={() => setSheet('none')} />

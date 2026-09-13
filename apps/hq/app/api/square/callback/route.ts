@@ -18,6 +18,7 @@ import {
 } from '../../../../lib/square-admin';
 import { serverClient } from '../../../../lib/supabase-server';
 import { tokenAppMetadata } from '../../../../lib/token-claims';
+import { log, requestContext } from '../../../../lib/log';
 
 /** Exchange a user-bound consent code and atomically replace one connection. */
 export async function GET(request: Request): Promise<Response> {
@@ -145,7 +146,8 @@ export async function GET(request: Request): Promise<Response> {
     previousConnection: previous.data ?? null,
   });
   if (!replacement.ok) {
-    console.error('Square connection could not be stored.', {
+    log.error('square.connection_store_failed', {
+      ...requestContext(request),
       brandId: location!.brand_id,
       locationId: decision.locationId,
       cleanupFailed: replacement.cleanupFailed,
@@ -165,7 +167,8 @@ export async function GET(request: Request): Promise<Response> {
     connectionId: replacement.connectionId,
   });
   if (!linked) {
-    console.warn('Square connection back-pointer was not synchronized.', {
+    log.warn('square.connection_pointer_sync_failed', {
+      ...requestContext(request),
       brandId: location!.brand_id,
       locationId: decision.locationId,
       connectionId: replacement.connectionId,
@@ -173,7 +176,8 @@ export async function GET(request: Request): Promise<Response> {
   }
   const target = new URL('/locations?connected=1', url.origin);
   if (replacement.previousRetirementFailed) {
-    console.warn('Previous Square access token retirement was not queued.', {
+    log.warn('square.previous_token_retirement_not_queued', {
+      ...requestContext(request),
       brandId: location!.brand_id,
       locationId: decision.locationId,
     });

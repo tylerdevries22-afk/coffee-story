@@ -1,4 +1,5 @@
 import { hasRole, currentSession } from '@/lib/auth';
+import { activeModuleKeys } from '@/lib/capabilities';
 import {
   operationReportCsv,
   operationReportFilters,
@@ -38,9 +39,12 @@ export async function GET(request: Request): Promise<Response> {
     selectedOrganizationId(session), authorizedSelectedLocationId(),
   ]);
   const locationId = operationReportLocationId(filters.locationId, workspaceLocationId);
-  const feature = await client.from('brands').select('operations').eq('id', brandId)
-    .maybeSingle<{ operations: boolean }>();
-  if (feature.error || !feature.data?.operations) {
+  // The installation, not brands.operations -- the same answer the page gives.
+  // This route read the retired column while operations-data.ts read the
+  // module, so a brand that installed workforce-operations without anyone
+  // setting the legacy flag saw a working Operations page and a 404 on Export.
+  const modules = await activeModuleKeys(brandId);
+  if (!modules.has('workforce-operations')) {
     return Response.json({ error: { code: 'operations_disabled', message: 'Operations are not enabled.' } }, { status: 404 });
   }
   let occurrenceQuery = client.from('operation_occurrences')

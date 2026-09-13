@@ -5,12 +5,23 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { POST } from '../app/api/webhooks/square/route';
 import { recordWebhookFailure } from './webhook-diagnostics';
 
+/** `log.error` emits one JSON-line argument; recover it as a plain object,
+ *  keeping `ts` unchecked since callers cannot control the clock. */
+function loggedLine(logs: unknown[][]): Record<string, unknown> {
+  const [raw] = logs[0] ?? [];
+  assert.equal(typeof raw, 'string');
+  const parsed = JSON.parse(raw as string) as Record<string, unknown>;
+  assert.equal(typeof parsed.ts, 'string');
+  return parsed;
+}
+
 for (const stage of ['refund', 'platform_fee'] as const) {
 for (const persistenceFails of [false, true]) {
   test(`${stage} failure keeps safe context when diagnostic persistence ${persistenceFails ? 'fails' : 'succeeds'}`, async () => {
     const env = { SQUARE_WEBHOOK_SIGNATURE_KEY: 'test-signature-key',
       SQUARE_WEBHOOK_URL: 'https://app.example.test/api/webhooks/square',
-      SUPABASE_URL: 'https://database.example.test', SUPABASE_SERVICE_ROLE_KEY: 'test-service-key' };
+      SUPABASE_URL: 'https://database.example.test', SUPABASE_SERVICE_ROLE_KEY: 'test-service-key',
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: 'test-anon-key' };
     const originals = Object.fromEntries(Object.keys(env).map((key) => [key, process.env[key]]));
     const originalFetch = globalThis.fetch;
     const originalLog = console.error;
@@ -57,7 +68,9 @@ for (const persistenceFails of [false, true]) {
         ? 'Refund processing failed'
         : 'Payment settlement failed');
       assert.deepEqual(writes, [{ error: JSON.stringify({ stage, code: '23514' }) }]);
-      assert.deepEqual(logs[0]?.[1], { level: 'error', provider: 'square', stage, code: '23514',
+      const parsed = loggedLine(logs);
+      assert.deepEqual(parsed, { level: 'error', event: 'square.webhook_processing_failed', ts: parsed.ts,
+        provider: 'square', stage, code: '23514',
         diagnosticStored: !persistenceFails, eventId: 'refund-event', orderId: 'order', brandId: 'brand' });
       assert.ok(!JSON.stringify(logs).includes('sensitive'));
     } finally {
@@ -79,7 +92,9 @@ test('diagnostic transport failure still logs safely without exposing arbitrary 
     const db = { from() { throw new Error('sensitive transport detail'); } } as unknown as SupabaseClient;
     await recordWebhookFailure(db, { eventId: 'unsafe\nidentifier', orderId: 'order', brandId: 'brand', stage: 'platform_fee' },
       { code: 'sensitive-invalid-code', message: 'sensitive' });
-    assert.deepEqual(logs[0]?.[1], { level: 'error', provider: 'square', stage: 'platform_fee', code: 'processing_failed',
+    const parsed = loggedLine(logs);
+    assert.deepEqual(parsed, { level: 'error', event: 'square.webhook_processing_failed', ts: parsed.ts,
+      provider: 'square', stage: 'platform_fee', code: 'processing_failed',
       diagnosticStored: false, eventId: 'invalid_identifier', orderId: 'order', brandId: 'brand' });
     assert.ok(!JSON.stringify(logs).includes('sensitive'));
   } finally { console.error = original; }

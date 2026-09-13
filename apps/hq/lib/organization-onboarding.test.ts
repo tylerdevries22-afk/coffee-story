@@ -76,6 +76,23 @@ describe('organization module onboarding', () => {
     }
   });
 
+  /**
+   * The console is the other way a tenant installs delivery. Removing it from
+   * coffee-story's manifest fixed the tenant that had it; this stops the next
+   * owner switching it back on and reaching the same dead end, where the guest
+   * is quoted a fee the engine cannot charge and no address reaches the order.
+   */
+  it('offers delivery to no industry while the guest app cannot complete it', () => {
+    for (const industry of INDUSTRY_OPTIONS) {
+      assert.ok(!keysFor(industry.key).includes('commerce-delivery'),
+        `${industry.key} was offered commerce-delivery`);
+      assert.ok(!moduleOptionsForIndustry(industry.key).some((m) => m.key === 'commerce-delivery'),
+        `${industry.key} could pick commerce-delivery from the module list`);
+    }
+    // Selecting it anyway, by posting the key directly, still resolves to nothing.
+    assert.deepEqual(resolvedModuleSelection('coffee-shop', ['commerce-delivery']), []);
+  });
+
   it('expands dependencies into the exact selection displayed to the user', () => {
     assert.deepEqual(resolvedModuleSelection('coffee-shop', ['commerce-payments']), [
       'commerce-catalog', 'commerce-ordering', 'commerce-payments',

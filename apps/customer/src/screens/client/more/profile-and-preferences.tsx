@@ -94,7 +94,6 @@ export function Profile({
         await mobileApi.updateProfile({
           fullName: profile.fullName,
           phone: profile.phone,
-          birthday: profile.birthday,
         }, `profile-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`);
         await refresh();
       }
@@ -152,7 +151,12 @@ export function Profile({
       <Field label="Email" value={profile.email} editable={false} />
       <Body muted>Contact support to change the email used for secure sign in.</Body>
       <Field label="Phone" value={profile.phone ?? ''} keyboardType="phone-pad" onChangeText={(phone) => setProfile({ ...profile, phone })} />
-      <Field label="Birthday" value={profile.birthday ?? ''} placeholder="YYYY-MM-DD" onChangeText={(birthday) => setProfile({ ...profile, birthday })} />
+      {/* Demo only until the live profile has somewhere to keep it. Offering the
+          field to a live account collected a date nothing stored and then
+          said "saved". Un-gate this when the column and the API field land. */}
+      {isDemo ? (
+        <Field label="Birthday" value={profile.birthday ?? ''} placeholder="YYYY-MM-DD" onChangeText={(birthday) => setProfile({ ...profile, birthday })} />
+      ) : null}
       <Button label="Save profile" loading={saving} onPress={() => void saveProfile()} />
       {!isDemo && role === 'client' ? (
         <Card style={profileStyles.accessCard}>

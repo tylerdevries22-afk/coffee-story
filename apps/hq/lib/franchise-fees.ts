@@ -13,6 +13,26 @@ export type FeeTerms = {
   locations: FeeTermsLocation[];
 };
 
+/**
+ * What the override editor should say when it lists nothing, or null when it
+ * has rows to list.
+ *
+ * The two reasons are not the same sentence. An unconfigured console reads
+ * its fee TABLE from demo fixtures -- which name locations -- while
+ * `loadFeeTerms` returns no locations at all, so the page reported "No
+ * locations are available in this organization" directly above a table of
+ * two of them. That reads as a data fault in the tenant rather than as the
+ * console running without a database, which is the one thing it was trying
+ * to say.
+ */
+export function feeOverridesEmptyReason(input: { locations: number; configured: boolean }): string | null {
+  if (input.locations > 0) return null;
+  return input.configured
+    ? 'No locations are available in this organization.'
+    : 'This console has no live deployment behind it, so there are no location terms to edit. '
+      + 'The collection figures below are demo fixtures, not this organization\'s revenue.';
+}
+
 export type LocationFeeDraft = LocationFeeOverrides & {
   actorId: string;
   auditCorrelationId: string;
@@ -41,6 +61,15 @@ export function parseLocationFeeOverrides(input: {
   const tierThresholdCents = optionalInteger(input.tierThresholdCents, Number.MAX_SAFE_INTEGER);
   if (feeBps === undefined || feeBpsTier2 === undefined || tierThresholdCents === undefined) {
     return { ok: false, error: 'Rates must be whole basis points from 0–9,000 and the threshold must be non-negative cents.' };
+  }
+  // Rule 3 is "the rate drops above the threshold." Both fields are
+  // independently range-checked above, so nothing stopped an admin from
+  // swapping them -- silently making every payment above the threshold cost
+  // MORE. Only checked when both are explicit: a null here means "inherit
+  // the brand's rate," which this parser cannot resolve (the RPC does, since
+  // it has the brand row -- see set_platform_location_fee_overrides).
+  if (feeBps !== null && feeBpsTier2 !== null && feeBpsTier2 > feeBps) {
+    return { ok: false, error: 'The volume-tier rate must be no higher than the base rate.' };
   }
   return { ok: true, draft: { feeBps, feeBpsTier2, tierThresholdCents } };
 }

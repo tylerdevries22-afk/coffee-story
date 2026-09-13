@@ -8,8 +8,8 @@ import { uploadContentImage } from '@/app/(console)/content/actions';
 import { slugFromLabel, trainingTrackArtworkUrl, type ContentMediaVersion } from '@/lib/content-model';
 
 import { ContentIcon } from './content-workspace';
-import { ManagedThumbnail } from './managed-thumbnail';
 import { LessonEditor } from './training-lesson-editor';
+import { TrainingMediaThumbnail } from './training-media-thumbnail';
 
 /**
  * A new track is a tenant track: its slug comes from the title the author
@@ -91,11 +91,11 @@ function TrackIconEditor({ track, history, onChange }: { track: TrainingTrack; h
   }
   return (
     <div className="training-icon-editor">
-      <ManagedThumbnail url={previewUrl} alt={`${track.title} track artwork`} />
+      <TrainingMediaThumbnail url={previewUrl} alt={`${track.title} track artwork`} />
       <div><strong>Track artwork</strong><small>Optional tenant-owned icon stored with the training release.</small></div>
       <input ref={fileRef} className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload(file); }} />
       <button type="button" className="button secondary content-square-button" disabled={uploading} onClick={() => fileRef.current?.click()}><ContentIcon kind="upload" /> {uploading ? 'Uploading…' : track.icon.url ? 'Replace artwork' : 'Upload artwork'}</button>
-      {history.length > 0 ? <div className="content-media-history"><strong>Artwork history</strong><div className="content-media-history-grid">{history.slice(0, 8).map((version) => <button type="button" key={version.id} className={track.icon.url === version.url ? 'active' : ''} aria-label={`Use artwork from ${new Date(version.createdAt).toLocaleString()}`} onClick={() => onChange({ icon: { ...track.icon, url: version.url } })}><ManagedThumbnail url={version.url} alt={`Artwork from ${new Date(version.createdAt).toLocaleDateString()}`} className="content-history-thumb" /><time dateTime={version.createdAt}>{new Date(version.createdAt).toLocaleDateString()}</time></button>)}</div></div> : null}
+      {history.length > 0 ? <div className="content-media-history"><strong>Artwork history</strong><div className="content-media-history-grid">{history.slice(0, 8).map((version) => <button type="button" key={version.id} className={track.icon.url === version.url ? 'active' : ''} aria-label={`Use artwork from ${new Date(version.createdAt).toLocaleString()}`} onClick={() => onChange({ icon: { ...track.icon, url: version.url } })}><TrainingMediaThumbnail url={version.url} alt={`Artwork from ${new Date(version.createdAt).toLocaleDateString()}`} className="content-history-thumb" /><time dateTime={version.createdAt}>{new Date(version.createdAt).toLocaleDateString()}</time></button>)}</div></div> : null}
     </div>
   );
 }

@@ -20,6 +20,13 @@ export async function appFeeForCharge(
     feeConfig: FeeConfig;
     locationTimezone: string;
     requireExisting?: boolean;
+    /**
+     * The instant the month boundary is computed against. Defaults to
+     * `new Date()`; a caller (namely a test asserting the exact range sent to
+     * the database) can pin it so the assertion is not a second, independent
+     * `new Date()` racing this one across a local-month boundary.
+     */
+    now?: Date;
   },
 ): Promise<{
   feeCents: number;
@@ -33,7 +40,7 @@ export async function appFeeForCharge(
     || input.feeConfig.tierThresholdCents < 0) {
     throw new RangeError('Invalid platform fee quote inputs.');
   }
-  const { startIso, endIso } = feeMonthRange(new Date(), input.locationTimezone);
+  const { startIso, endIso } = feeMonthRange(input.now ?? new Date(), input.locationTimezone);
   const { data, error } = await db.rpc('claim_platform_fee_quote', {
     p_order_id: input.orderId,
     p_location_id: input.locationId,

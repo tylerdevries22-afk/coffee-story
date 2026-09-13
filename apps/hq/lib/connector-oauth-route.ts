@@ -8,6 +8,7 @@ import {
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { currentSession, hasRole } from './auth';
+import { log, requestContext } from './log';
 import { clientIdentity, rateLimited } from './rate-limit';
 import { serverEnv, serviceDb } from './api-auth';
 import { isConfigured } from './supabase-server';
@@ -46,7 +47,7 @@ export function parseConnectorCookie(request: Request, key: OAuthConnectorKey): 
       || typeof verifier !== 'string' || verifier.length < 43 || verifier.length > 128) return null;
     return { binding, verifier };
   } catch {
-    console.warn(JSON.stringify({ component: 'connector-oauth-route', event: 'cookie_parse_failed' }));
+    log.warn('connector_oauth.cookie_parse_failed', { ...requestContext(request), provider: key });
     return null;
   }
 }
