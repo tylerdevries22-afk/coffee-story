@@ -1,6 +1,8 @@
 import { currentSession, hasRole } from '@/lib/auth';
 import { loadFees } from '@/lib/data';
+import { isConfigured } from '@/lib/deployment-mode';
 import { loadFeeTerms } from '@/lib/fee-terms-data';
+import { feeOverridesEmptyReason } from '@/lib/franchise-fees';
 import { formatMoney } from '@/lib/kpi';
 
 import { saveLocationFeeOverridesAction } from './actions';
@@ -26,6 +28,10 @@ export default async function FeesPage({ searchParams }: FeesPageProps) {
     loadFees(), loadFeeTerms(session?.userId ?? undefined), searchParams,
   ]);
   const months = [...new Set(fees.map((row) => row.month))].sort().reverse();
+  const emptyReason = feeOverridesEmptyReason({
+    locations: terms.locations.length,
+    configured: isConfigured(),
+  });
   return (
     <>
       <h1>Platform fees</h1>
@@ -38,7 +44,7 @@ export default async function FeesPage({ searchParams }: FeesPageProps) {
           Blank fields inherit the brand terms: {terms.brand.feeBps} bps, then {terms.brand.feeBpsTier2} bps
           after {formatMoney(terms.brand.tierThresholdCents)} per location-month.
         </p>
-        {terms.locations.length === 0 ? <div className="notice">No locations are available in this organization.</div> : null}
+        {emptyReason ? <div className="notice">{emptyReason}</div> : null}
         {terms.locations.map((location) => (
           <form action={saveLocationFeeOverridesAction} className="location-form fee-override-form" key={location.id}>
             <input type="hidden" name="locationId" value={location.id} />
