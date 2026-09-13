@@ -40,40 +40,42 @@ permissions:
   contents: read
 
 jobs:
-  verify:
+  # ---------------------------------------------------------------------------
+  # The 40-minute monolith that used to live here exceeded its own timeout and
+  # blocked PR #180. Its steps had exactly two data dependencies and no others,
+  # so it is now five parallel jobs behind one aggregator.
+  #
+  # THE AGGREGATOR AT THE BOTTOM IS STILL CALLED `verify` AND MUST STAY CALLED
+  # `verify`. Branch protection on `dev` and `main` requires the contexts
+  # [verify, audit, security], and deploy-hosted.yml surfaces this job as
+  # `Verify before deployment / verify`. Renaming it, or giving it a `name:`
+  # key, makes that required context never report -- which GitHub shows as
+  # "Expected -- waiting for status to be reported" forever, blocking every
+  # merge and every dev->main promotion.
+  # ---------------------------------------------------------------------------
+
+  # The coverage cluster: the ONE part of the old job that cannot be split. The
+  # threshold step reads the c8 summary the verification step wrote, and both
+  # upload steps read `steps.workspace_verification.outcome`, which is step
+  # context and does not cross a job boundary.
+  verify-workspaces:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
-    # Guest verify/test scripts fail closed without a tenant. The recursive
-    # workspace gate exercises Coffee Story; matrix steps below override this
-    # for stillpoint-builders.
+    timeout-minutes: 35
     env:
       EXPO_PUBLIC_TENANT: coffee-story
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      # Reads the pinned version from the root package.json `packageManager`.
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
         with:
           version: 10.33.0
-
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
           cache: pnpm
-
-      # `--frozen-lockfile`: the lockfile is the contract, and a job that
-      # silently resolves a different tree is not verifying what ships.
       - run: pnpm install --frozen-lockfile
 
       # One command, defined once in the root package.json, so this job and a
-      # developer's `pnpm verify` cannot drift. They had: the tenancy audits
-      # (rule 4) and the typecheck of scripts/ ran only locally, so the gate
-      # that keeps one shop's address out of every other shop's binary could
-      # not fail a build; lint ran only here, so a warning passed locally.
-      # Whatever this gate is, both sides now run all of it.
-      # Guest Metro scripts fail closed without EXPO_PUBLIC_TENANT. Recursive
-      # `pnpm verify` still needs one explicit launch-tenant value so CI does
-      # not reintroduce an implicit coffee-story default in app code.
+      # developer's `pnpm verify` cannot drift.
       - name: Verify all workspaces
         id: workspace_verification
         env:
@@ -86,14 +88,53 @@ jobs:
           --reporter=json-summary
           pnpm verify
 
-      # Hosted database and browser jobs cannot safely receive secrets from a
-      # pull request. This threshold still makes every PR enforce the complete
-      # TS/TSX source denominator using the secret-free verification suite.
+      # .c8rc.json sets "all": true, so this threshold's DENOMINATOR is a static
+      # file glob, not "whatever happened to load". Work moved out of this job
+      # therefore cannot shrink the denominator -- only the numerator is at
+      # risk, and the numerator comes from executed code: the test suites, the
+      # two audit scripts, and hq/display's `next build` prerender. eslint and
+      # tsc parse rather than execute, so they contribute nothing here.
       - name: Enforce secret-free TS/TSX coverage
         run: >-
           pnpm --filter @platform/e2e-tests check-coverage
           "$GITHUB_WORKSPACE/coverage/verification/coverage-summary.json"
           38
+
+      - name: Keep verification coverage
+        if: ${{ always() && steps.workspace_verification.outcome == 'success' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: verification-coverage
+          path: |
+            coverage/verification/coverage-final.json
+            coverage/verification/coverage-summary.json
+          if-no-files-found: error
+
+      - name: Keep partial verification coverage for diagnosis
+        if: ${{ always() && steps.workspace_verification.outcome == 'failure' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: verification-coverage-partial
+          path: coverage/verification/
+          if-no-files-found: ignore
+
+  # Neither step was ever inside the c8 wrapper, so moving them out of the
+  # coverage job changes no coverage number at all -- they are pass/fail only.
+  verify-clock-and-tenants:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      EXPO_PUBLIC_TENANT: coffee-story
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: 10.33.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
 
       # The runner is UTC, and that hid a customer-facing bug for a whole
       # release: the drop board formatted its date range through the device
@@ -120,70 +161,81 @@ jobs:
             done
           done
 
-      # Menu photographs are a design contract like tokens are, and nothing
-      # enforced it before: 61 assets had drifted to a 5x spread in exposure
-      # and were stored in a shape no render site actually used. This fails if
-      # an asset no longer matches MENU_IMAGE_SPEC. It reports, but does not
-      # fail on, the photographs that are outside what grading may fix -- those
-      # need reshooting, and are tracked in docs/MENU-IMAGERY.md.
-      # The script defaults to coffee-story when no --tenant is given, so the
-      # bare call checked one tenant and reported green for all of them -- the
-      # same silent single-tenant blind spot the test and bundle steps above
-      # loop to avoid. Keep this list identical to theirs.
-      # Still only the default tenant, and that is a known hole: stillpoint's
-      # menu assets are 1200x900 against a square spec and this step cannot see
-      # them. Widening the loop here is a one-line change, but it goes red until
-      # those assets are fixed, and they cannot simply be run through the
-      # normalizer -- it centre-crops 150px off each side, which clips the first
-      # letter of both the tenant's name and every card title. They need
-      # regenerating square at source, so the loop lands with that fix.
-      - name: Check menu imagery against the spec
-        run: pnpm normalize-menu-images --check
+  # The bundle is part of the gate. Lint and tsc both pass on code Metro
+  # cannot resolve -- a missing asset or a bad platform-specific import only
+  # shows up here.
+  #
+  # This WAS a serial 12-iteration loop whose comment rejected a matrix because
+  # it "would also mean re-running `pnpm install` and every step this job shares
+  # with the matrix per platform". Both halves are false by measurement: install
+  # is ~6 seconds against a warm pnpm store, and this step shares nothing with
+  # any other step -- it consumes the tree and emits a pass/fail. The dist-
+  # directories are read only by the assert-tenant-bundle call in the same loop
+  # iteration, which is exactly why it shards cleanly.
+  #
+  # WHY 4 SHARDS AND NOT 12: one export is ~56s, one preamble ~25s. Twelve
+  # shards would finish ~1.8m sooner but buy nothing, because the critical path
+  # is verify-workspaces at ~24.7m and anything under ~20m here is hidden behind
+  # it. Twelve would also cost 5.0m of billed preamble against 1.7m, add twelve
+  # jobs of concurrency pressure alongside `security` (which boots Docker), and
+  # discard the one thing the original comment got right: three exports of the
+  # SAME app on one runner share a warm Metro/Babel transform cache that a
+  # per-platform shard boundary throws away.
+  #
+  # fail-fast is false deliberately. The old `set -euo pipefail` loop aborted on
+  # the first broken export, so one tenant's failure hid the other's. This is
+  # strictly more diagnostic information and weakens no gate -- the aggregator
+  # still fails the run.
+  bundle-guest-apps:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        tenant: [coffee-story, stillpoint-builders]
+        app: [customer, kiosk]
+    env:
+      EXPO_PUBLIC_TENANT: ${{ matrix.tenant }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: 10.33.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
 
-      # Product cut-outs are a separate asset class with a separate spec, so
-      # they get a separate step: a failure names which class drifted rather
-      # than making someone read the output to find out. This one re-derives
-      # each cut-out from its tenant master and fails if the committed asset is
-      # not byte-identical -- which also catches the likeliest regression here,
-      # an asset that came back flattened and still looks plausible in a diff.
-      - name: Check product cut-outs against the spec
-        run: pnpm normalize-product-cutouts --check
-
-      # The bundle is part of the gate. Lint and tsc both pass on code Metro
-      # cannot resolve -- a missing asset or a bad platform-specific import
-      # only shows up here.
-      #
-      # `android` joins `ios` and `web` here (MOB-01): Android was fully
-      # configured in all three native apps -- package names, permissions,
-      # adaptive icons, config plugins -- and never bundled anywhere in CI.
-      # A franchisee on an Android tablet was the first one to find a broken
-      # import or asset path Metro could not resolve for that platform.
-      #
-      # This adds one more platform per (tenant, app) pair to a loop that
-      # already ran twice, so the step's cost rises by roughly half, not by
-      # double. A matrix job would parallelize that back out, but it would
-      # also mean re-running `pnpm install` and every step this job shares
-      # with the matrix per platform; for a step that is one of many in a
-      # 40-minute job, that trade is not worth making here.
-      #
-      # `expo export` only proves Metro can bundle that platform's code and
-      # assets. It does NOT read AndroidManifest.xml, permissions, or the
-      # package name -- those are produced by config plugins, which export
-      # never runs. The introspection step below is what actually renders
-      # and checks those.
-      - name: Bundle both tenant guest apps for iOS, Android, and web
+      - name: Bundle ${{ matrix.app }} for ${{ matrix.tenant }} on iOS, Android, and web
         run: |
           set -euo pipefail
-          for tenant in coffee-story stillpoint-builders; do
-            for app in customer kiosk; do
-              for platform in ios android web; do
-                EXPO_PUBLIC_TENANT="$tenant" pnpm --filter "@platform/$app" exec expo export \
-                  --platform "$platform" --output-dir "dist-$tenant-$platform" --source-maps
-                pnpm exec tsx scripts/assert-tenant-bundle.ts --app "$app" --tenant "$tenant" \
-                  --output "apps/$app/dist-$tenant-$platform"
-              done
-            done
+          for platform in ios android web; do
+            pnpm --filter "@platform/${{ matrix.app }}" exec expo export \
+              --platform "$platform" \
+              --output-dir "dist-${{ matrix.tenant }}-$platform" --source-maps
+            pnpm exec tsx scripts/assert-tenant-bundle.ts \
+              --app "${{ matrix.app }}" --tenant "${{ matrix.tenant }}" \
+              --output "apps/${{ matrix.app }}/dist-${{ matrix.tenant }}-$platform"
           done
+
+  # Everything that proves a native/config surface builds, but is not a guest
+  # tenant bundle.
+  verify-native-config:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      EXPO_PUBLIC_TENANT: coffee-story
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: 10.33.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
 
       - name: Bundle the operator app for iOS and Android
         working-directory: apps/operator
@@ -192,31 +244,19 @@ jobs:
           pnpm exec expo export --platform ios
           pnpm exec expo export --platform android
 
-      # `expo export` bundles JavaScript; it never evaluates a config
-      # plugin, so it would stay green even if a plugin threw, the package
-      # name resolved empty, or a permission the manifest depends on never
-      # made it in. `expo config --type introspect` is the part of `expo
-      # prebuild` that actually runs every config plugin -- including this
-      # repository's own `with-media-projection.cjs` -- and returns the
-      # resulting android section (package, permissions, blockedPermissions)
-      # in memory, the same values `prebuild` would write into
-      # AndroidManifest.xml. It needs neither Gradle nor the Android SDK:
-      # nothing here compiles, so this runs on the same ubuntu-latest runner
-      # as the rest of this job.
-      #
-      # `expo prebuild --platform android --no-install` was the other option
-      # (it also needs no SDK on Linux -- it only writes files, it does not
-      # build them) but it materializes a full android/ directory per app
-      # that this step would then have to clean up between tenants to avoid
-      # one prebuild's stale output leaking into the next. Introspection
-      # gets the same config-plugin evaluation with no filesystem state to
-      # manage.
+      # `expo export` bundles JavaScript; it never evaluates a config plugin,
+      # so it would stay green even if a plugin threw, the package name
+      # resolved empty, or a permission the manifest depends on never made it
+      # in. `expo config --type introspect` is the part of `expo prebuild` that
+      # actually runs every config plugin -- including this repository's own
+      # `with-media-projection.cjs` -- and returns the resulting android
+      # section in memory, the same values `prebuild` would write into
+      # AndroidManifest.xml. It needs neither Gradle nor the Android SDK.
       #
       # What this does NOT catch: it never writes an actual
-      # AndroidManifest.xml or build.gradle, so an XML-merge conflict
-      # between two plugins, a Gradle-only syntax error, or a resource that
-      # only fails inside a real `gradlew assembleRelease` or EAS build
-      # stays invisible. No workflow in this repository runs that build.
+      # AndroidManifest.xml or build.gradle, so an XML-merge conflict between
+      # two plugins, a Gradle-only syntax error, or a resource that only fails
+      # inside a real `gradlew assembleRelease` or EAS build stays invisible.
       - name: Render each app's Android manifest config (introspect)
         run: |
           set -euo pipefail
@@ -233,19 +273,45 @@ jobs:
       - name: Build the pickup display
         run: pnpm --filter @platform/display build
 
-      # The one release gate in CLAUDE.md, and it existed only as a manual
-      # skill. Two details make it runnable rather than theatrical:
-      #
-      #   - WORD BOUNDARIES, not substrings. A plain `grep -ri` matches inside
-      #     unrelated identifiers and then fails forever on a coincidence; a
-      #     minified Sentry helper carries one of these names inside a longer
-      #     name, which docs/BUILD-REPORT.md gap 9 records.
-      #   - The denylist and this workflow are excluded from their own scan.
-      #     A gate that cannot name what it looks for without failing itself is
-      #     a gate nobody can run.
-      #   - Only tracked file CONTENT is scanned. Git history is deliberately
-      #     excluded: an old commit message cannot be edited without rewriting
-      #     shared history, and a release gate must never demand that rewrite.
+  # Asset specs and the originality gate. Seconds of work; this job exists so
+  # those seconds are not queued behind 24 minutes of workspace verification.
+  verify-asset-specs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      EXPO_PUBLIC_TENANT: coffee-story
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: 10.33.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      # Menu photographs are a design contract like tokens are, and nothing
+      # enforced it before: 61 assets had drifted to a 5x spread in exposure
+      # and were stored in a shape no render site actually used. This fails if
+      # an asset no longer matches MENU_IMAGE_SPEC. It reports, but does not
+      # fail on, the photographs that are outside what grading may fix.
+      # Still only the default tenant, and that is a known hole: stillpoint's
+      # menu assets are 1200x900 against a square spec and this step cannot see
+      # them. They need regenerating square at source, so the loop lands with
+      # that fix.
+      - name: Check menu imagery against the spec
+        run: pnpm normalize-menu-images --check
+
+      # Product cut-outs are a separate asset class with a separate spec, so
+      # they get a separate step: a failure names which class drifted rather
+      # than making someone read the output to find out.
+      - name: Check product cut-outs against the spec
+        run: pnpm normalize-product-cutouts --check
+
+      # The one release gate in CLAUDE.md. Word boundaries, not substrings; the
+      # denylist and this workflow are excluded from their own scan; only
+      # tracked file CONTENT is scanned, never git history.
       - name: Originality gate (CLAUDE.md rule 6)
         run: |
           set -uo pipefail
@@ -262,23 +328,51 @@ jobs:
           fi
           echo "PASS: no competitor name in any tracked file."
 
-      - name: Keep verification coverage
-        if: ${{ always() && steps.workspace_verification.outcome == 'success' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: verification-coverage
-          path: |
-            coverage/verification/coverage-final.json
-            coverage/verification/coverage-summary.json
-          if-no-files-found: error
-
-      - name: Keep partial verification coverage for diagnosis
-        if: ${{ always() && steps.workspace_verification.outcome == 'failure' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: verification-coverage-partial
-          path: coverage/verification/
-          if-no-files-found: ignore
+  # ---------------------------------------------------------------------------
+  # THE MERGE GATE. Do not rename this job. Do not add a `name:` key to it.
+  #
+  # A required status check is matched by check-run NAME, and a job's check-run
+  # name is its `name:` if present and otherwise its job id. Branch protection
+  # on `dev` and `main` requires the contexts [verify, audit, security];
+  # deploy-hosted.yml surfaces this same job as
+  # `Verify before deployment / verify`. If this id changes, or a `name:` is
+  # added, that context is never reported and GitHub parks every pull request
+  # on "Expected -- waiting for status to be reported" indefinitely.
+  #
+  # `if: always()` plus the explicit result check below is load-bearing, not
+  # defensive style. A job with only `needs:` is SKIPPED when a dependency
+  # fails, and GitHub branch protection counts a skipped required check as a
+  # PASS. Without these two lines this aggregator would turn every red run
+  # green -- a gate that silently stops gating.
+  # ---------------------------------------------------------------------------
+  verify:
+    if: always()
+    needs:
+      - verify-workspaces
+      - verify-clock-and-tenants
+      - bundle-guest-apps
+      - verify-native-config
+      - verify-asset-specs
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # `needs.<matrix job>.result` is already the rollup across every shard:
+      # it is `success` only when all four shards succeeded. Anything that is
+      # not `success` -- including `skipped` and `cancelled` -- fails here.
+      - name: Require every verification job to have succeeded
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: |
+          set -euo pipefail
+          printf '%s\n' "$NEEDS_JSON"
+          not_ok=$(printf '%s' "$NEEDS_JSON" \
+            | jq -r 'to_entries[] | select(.value.result != "success") | "\(.key): \(.value.result)"')
+          if [ -n "$not_ok" ]; then
+            echo '::error::A verification job did not succeed.'
+            printf '%s\n' "$not_ok" >&2
+            exit 1
+          fi
+          echo 'PASS: every verification job succeeded.'
 
   # One disposable hosted branch proves migrations, RLS, Realtime, the five
   # surfaces, and browser journeys without Docker or a developer machine.
