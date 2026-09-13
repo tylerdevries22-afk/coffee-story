@@ -286,3 +286,69 @@ block merges.
 add it (both the `gitleaks` and `codeql` jobs) to `main`'s required status
 checks in Settings → Branches. Until then a red run here does not block
 anything.
+
+## 11. `enforce_admins` is off on `dev` and `main` — ACTION NEEDED
+
+Both branches require the same three contexts — `verify`, `audit`, `security` —
+with `strict: false`, `enforce_admins: false`, and no required review. The
+third field is the problem: **branch protection does not bind administrators,
+so a pull request can be merged while a required check is red.**
+
+That is not hypothetical here. #160 was merged on 2026-09-12 with
+`security = FAILURE`. Its own change was sound (the caller-scoped PostgREST
+client had been built with the service-role key as `apikey`, which turned any
+failure of a caller's bearer token into an unlogged RLS-bypassing read), but it
+made `NEXT_PUBLIC_SUPABASE_ANON_KEY` mandatory in `serverEnv()` without adding
+it to the six integration suites that call the HQ route handlers in-process.
+Every route then answered `501 not_configured`, which the `security` job
+reported as twelve authorization failures — on `dev` itself, and therefore on
+every pull request opened behind it, until #172 fixed it roughly four hours
+later. Seven PRs sat blocked on a failure none of them caused.
+
+A red required check stopping only non-administrators is a gate that is off
+exactly when the person merging is the one who can do the most damage.
+
+**Owner action:** enable "Do not allow bypassing the above settings"
+(`enforce_admins`) on both `dev` and `main` in Settings → Branches. Nothing in
+the repository can set this; a workflow cannot grant itself enforcement.
+
+Worth pairing with it: `strict: false` means a branch need not be up to date
+with its base before merging. That is deliberate here — it is what let ten
+pull requests merge in sequence without ten re-runs of a ~25-minute suite —
+but it does mean a green check can describe a slightly older base. The
+combination is only safe while `enforce_admins` is on.
+
+## 12. Eight migrations are pending application to production — ACTION NEEDED
+
+`main` pins `REQUIRED_DATABASE_RELEASE = '20260912020000'`; after the current
+promotion it pins `'20260912100000'`, eight migrations later:
+
+```
+20260912030000_expose_device_and_catalog_rpcs
+20260912040000_refund_definer_and_writer_assertion
+20260912050000_scope_location_rows_to_location
+20260912060000_platform_admin_is_live_membership
+20260912070000_refund_serialization_and_fee_tier_order
+20260912080000_cover_cascading_foreign_keys
+20260912090000_training_media_is_private
+20260912100000_activity_board_projection_boundary
+```
+
+They are additive and each registers an assertion that
+`platform_release_readiness()` runs, and the whole chain applies locally under
+a shim that reproduces Supabase's default function privileges. But **merging
+to `main` does not deploy** — `deploy-hosted.yml` is `workflow_call` /
+`workflow_dispatch` only — so until the owner triggers a deploy, HQ deep
+health will report the database behind the code, which is the correct and
+intended reading.
+
+Two of the eight change authorization rather than adding to it, so apply them
+*with* the deploy rather than after it:
+
+- `20260912060000` makes `app.is_platform_admin()` require a live `brand_users`
+  row instead of trusting the JWT claim alone. An offboarded platform admin
+  currently keeps cross-tenant read for the lifetime of their token.
+- `20260912090000` flips the `training-media` bucket private and splits the
+  blanket storage read policy. Storage serves a public bucket unauthenticated
+  regardless of any RLS policy, so until this lands, internal training
+  material is readable by anyone who learns a brand id.
