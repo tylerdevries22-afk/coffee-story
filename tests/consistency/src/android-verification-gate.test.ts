@@ -50,11 +50,11 @@ describe('Android joins the guest-app bundling gate (MOB-01)', () => {
     assert.ok(tenants, 'the bundling matrix no longer declares a tenant axis');
     assert.ok(apps, 'the bundling matrix no longer declares an app axis');
     assert.deepEqual(
-      tenants[1].split(',').map((t) => t.trim()).sort(),
+      (tenants[1] ?? '').split(',').map((t) => t.trim()).sort(),
       ['coffee-story', 'stillpoint-builders'],
     );
     assert.deepEqual(
-      apps[1].split(',').map((a) => a.trim()).sort(),
+      (apps[1] ?? '').split(',').map((a) => a.trim()).sort(),
       ['customer', 'kiosk'],
     );
 
