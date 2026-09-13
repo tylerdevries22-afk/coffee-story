@@ -36,8 +36,30 @@ function packageVerifyScript(app: string): string {
 
 describe('Android joins the guest-app bundling gate (MOB-01)', () => {
   it('bundles customer and kiosk for Android alongside iOS and web', () => {
-    const step = /Bundle both tenant guest apps[\s\S]*?for platform in ([a-z ]+); do/.exec(verify);
-    assert.ok(step, 'could not find the tenant guest app bundling step');
+    // The serial `for tenant / for app / for platform` loop this originally
+    // matched is now a `tenant x app` job matrix whose shards each loop the
+    // three platforms -- same twelve (tenant, app, platform) cells, run four
+    // ways in parallel instead of twelve ways in series. The guarantee MOB-01
+    // added is unchanged, so assert it against the shape that now carries it:
+    // the matrix must still name both guest apps and both tenants, and the
+    // per-shard loop must still include Android.
+    const matrix = /bundle-guest-apps:[\s\S]*?strategy:([\s\S]*?)steps:/.exec(verify);
+    assert.ok(matrix, 'could not find the bundle-guest-apps job matrix');
+    const tenants = /tenant: \[([^\]]+)\]/.exec(matrix[1] ?? '');
+    const apps = /app: \[([^\]]+)\]/.exec(matrix[1] ?? '');
+    assert.ok(tenants, 'the bundling matrix no longer declares a tenant axis');
+    assert.ok(apps, 'the bundling matrix no longer declares an app axis');
+    assert.deepEqual(
+      (tenants[1] ?? '').split(',').map((t) => t.trim()).sort(),
+      ['coffee-story', 'stillpoint-builders'],
+    );
+    assert.deepEqual(
+      (apps[1] ?? '').split(',').map((a) => a.trim()).sort(),
+      ['customer', 'kiosk'],
+    );
+
+    const step = /for platform in ([a-z ]+); do/.exec(verify);
+    assert.ok(step, 'could not find the guest app platform loop');
     const platforms = step[1]?.trim().split(/\s+/) ?? [];
     assert.deepEqual(platforms.sort(), ['android', 'ios', 'web']);
   });
