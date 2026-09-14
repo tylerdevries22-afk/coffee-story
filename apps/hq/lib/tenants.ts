@@ -17,8 +17,8 @@
  */
 import coffeeStoryBrand from '../../../tenants/coffee-story/brand.json';
 import coffeeStoryModules from '../../../tenants/coffee-story/modules.json';
-import demoRoasteryBrand from '../../../tenants/demo-roastery/brand.json';
-import demoRoasteryModules from '../../../tenants/demo-roastery/modules.json';
+import juniperBrand from '../../../tenants/juniper-base-demo/brand.json';
+import juniperModules from '../../../tenants/juniper-base-demo/modules.json';
 import stillpointBrand from '../../../tenants/stillpoint-builders/brand.json';
 import stillpointModules from '../../../tenants/stillpoint-builders/modules.json';
 
@@ -127,13 +127,20 @@ export const TENANT_ORGS: readonly TenantOrg[] = [
     })),
   },
   {
-    id: 'demo-roastery',
-    slug: 'demo-roastery',
-    name: 'Demo Roastery',
+    // The third slot is the neutral tenant: a brand with no vertical of its
+    // own, which is what proves the console is not coffee-shaped. It was
+    // Demo Roastery, which had no guest-app bundle and not one image file --
+    // a switcher entry whose apps could not be opened and whose menu was
+    // empty. Juniper Base Demo is already applied into both guest bundles
+    // (apps/*/src/tenants/applied.json), so this entry and those builds now
+    // describe the same tenant.
+    id: 'juniper-base-demo',
+    slug: 'juniper-base-demo',
+    name: 'Juniper Base Demo',
     kind: 'brand',
-    brandConfig: demoRoasteryBrand,
-    moduleKeys: enabledModuleKeys(demoRoasteryModules),
-    locations: manifestLocations(demoRoasteryBrand, 'demo-roastery'),
+    brandConfig: juniperBrand,
+    moduleKeys: enabledModuleKeys(juniperModules),
+    locations: manifestLocations(juniperBrand, 'juniper-base-demo'),
   },
 ];
 
