@@ -598,6 +598,21 @@ jobs:
             EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
             EXPO_PUBLIC_API_URL="http://127.0.0.1:4383" \
             pnpm exec expo export --platform web --output-dir dist-e2e --source-maps )
+          # Model B: HQ is the org web host and SPA-rewrites /customer, /kiosk
+          # and /operator to static exports co-located in apps/hq/public/
+          # (docs/ADR-model-b-org-web.md). That directory is gitignored and is
+          # produced by apps/hq/vercel.json's buildCommand, never by `next
+          # build` -- so this job used to serve HQ with those three rewrites
+          # pointing at nothing, and the route smoke test asked for /kiosk and
+          # got a 404. Run the same script production runs, with this stack's
+          # env, so the prefixes the smoke test visits are the ones a franchise
+          # actually gets. The exports above stay: they serve each guest app
+          # standalone on its own port, at a different base URL than these.
+          EXPO_PUBLIC_TENANT="coffee-story" \
+            EXPO_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
+            EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
+            EXPO_PUBLIC_API_URL="http://127.0.0.1:4383" \
+            pnpm tsx scripts/build-org-web-statics.ts
           NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL" \
             NEXT_PUBLIC_SUPABASE_ANON_KEY="$SUPABASE_PUBLISHABLE_KEY" \
             BROWSER_COVERAGE=1 \
