@@ -68,6 +68,38 @@ export function pathBasedSurfaceUrls(origin: string): Record<AppPreviewKey, stri
   };
 }
 
+/**
+ * Same-origin surfaces for one tenant, which is the only shape the staff wall
+ * can actually render.
+ *
+ * Every hosted surface answers `frame-ancestors 'self'`
+ * (apps/hq/next.config.ts), so a frame pointed at another origin is refused by
+ * the browser and paints white -- which is what the wall did for every org: a
+ * deployed tenant showed blank because the console was on a different origin,
+ * and an undeployed one showed Vercel's 404 because a missing deployment sends
+ * no CSP at all. The blank was the security header working, not a broken app.
+ *
+ * `/t/<slug>/<surface>` is written by scripts/build-org-web-statics.ts --wall
+ * for every applied tenant, so switching organization retargets to that
+ * tenant's own build instead of relabelling the previous one.
+ */
+export function tenantPathSurfaceUrls(
+  origin: string,
+  slug: string,
+  locationId?: string | null,
+): Record<AppPreviewKey, string> {
+  const base = origin.replace(/\/$/, '');
+  return {
+    hq: `${base}/`,
+    customer: `${base}/t/${slug}/customer`,
+    operator: `${base}/t/${slug}/operator`,
+    kiosk: `${base}/t/${slug}/kiosk`,
+    // The display board already has a same-origin, tenant-safe preview route
+    // that carries the signed-in HQ session (next.config.ts:80-88).
+    display: `${base}/wall/preview/${locationId ?? 'default'}`,
+  };
+}
+
 function allowedUrl(value: string | undefined): string | null {
   if (!value?.trim()) return null;
   try {
