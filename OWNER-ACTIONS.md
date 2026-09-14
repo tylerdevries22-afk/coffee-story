@@ -352,3 +352,46 @@ Two of the eight change authorization rather than adding to it, so apply them
   blanket storage read policy. Storage serves a public bucket unauthenticated
   regardless of any RLS policy, so until this lands, internal training
   material is readable by anyone who learns a brand id.
+
+## 13. Stillpoint Builders: exactly what go-live needs — ACTION NEEDED
+
+Stillpoint is **demo-solid today**. `pnpm tsx scripts/onboard.ts --tenant
+stillpoint-builders` validates `brand.json` and all five `menu.csv` items,
+generates artwork, and emits its construction listing. Every menu row has its
+own photograph, the slugs match exactly, and all fifteen assets are distinct
+files — it is not a placeholder tenant.
+
+It is also **not close to go-live**, and the distance is entirely owner inputs.
+`scripts/release-gate.ts` fails it in three independent ways *before* the
+approvals are even considered:
+
+**(a) The release binding is empty.** `tenants/stillpoint-builders/release.json`
+carries `releaseId`, `commitSha`, `artifactDigest` and `createdAt` as empty
+strings, and `packages/factory/src/release.ts:121-123` requires each to match a
+format regex. Coffee Story's equivalent block is populated and bound to a real
+commit — copy that shape.
+
+**(b) Both EAS project ids are blank.** `brand.json:66-67` has
+`identity.easProjectId` and `identity.kioskEasProjectId` as `""` while the
+tenant declares both the `customer` and `kiosk` surfaces, so
+`easProjectIssues` (`release.ts:82-100`) emits two failures. These are UUIDs
+that only exist once the tenant has an Expo account and a project per guest
+app. Nothing in this repository can mint them.
+
+**(c) All five approvals are pending.** `productionCredentials`,
+`providerAccounts`, `legalAndPrivacy`, `storeListings` and
+`commercialConfiguration` each need `approvedBy`, `approvedAt` and an **HTTPS
+`evidenceUrl`** pointing at durable external evidence. `release.ts:141-159`
+refuses anything else, and it is right to: an approval without evidence is a
+checkbox, not a record.
+
+**Owner action, in order:** create the Expo account and two EAS projects and
+paste the UUIDs into `brand.json`; run the factory to bind a release to a real
+commit; then sign the five approvals with their evidence URLs. Only then does
+the Go-live control in HQ become meaningful — and note that go live is what
+mints the production hosts (`packages/factory/src/go-live.ts:43-58`), so until
+it is tapped, Square stays in sandbox for this tenant.
+
+One thing worth deciding first: whether Stillpoint needs native app listings at
+all. If its guests order on the web, drop `kiosk`/`customer` from the declared
+surfaces and (b) disappears entirely.
