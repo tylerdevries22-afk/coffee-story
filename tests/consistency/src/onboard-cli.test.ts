@@ -39,7 +39,7 @@ describe('tenant onboarding CLI', () => {
         'tsx',
         join(ROOT, 'scripts', 'onboard.ts'),
         '--tenant',
-        'demo-roastery',
+        'juniper-base-demo',
         '--owner-user-id',
       ],
       { cwd: ROOT, encoding: 'utf8', timeout: 10_000 },
