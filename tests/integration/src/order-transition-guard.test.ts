@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
+import { before, describe, it } from 'node:test';
 
 import { seedBrand, sql, stack } from './stack.ts';
 
@@ -35,11 +35,6 @@ const DISALLOWED: readonly (readonly [string, string])[] = [
   ['paid', 'ready'], ['in_progress', 'picked_up'], ['cancelled', 'paid'],
 ];
 
-/** brands.slug forbids underscores; order_status values like 'in_progress' have them. */
-function slugify(status: string): string {
-  return status.replaceAll('_', '-');
-}
-
 /** source='system' so neither the operator- nor customer-only guards fire first. */
 async function createOrder(brandId: string, locationId: string, status: string): Promise<string> {
   const row = await sql<{ id: string }>(
@@ -55,9 +50,27 @@ async function orderStatus(orderId: string): Promise<string> {
 }
 
 describe('order transition guard (app.order_transition_allowed)', { skip: !stack.dbUrl }, () => {
+  /**
+   * One brand for all 25 subtests, not one each.
+   *
+   * `seedBrand` clears roughly sixty dependent tables per call so a rerun
+   * cannot inherit a previous run's rows. That is right, and it is why calling
+   * it per subtest cost ~1,500 statements: fine against a local stack, but
+   * against the hosted branch `hosted-integration` uses it exceeded the
+   * 120-second file timeout and took the job down -- while every assertion in
+   * it passed. The guard under test is per order, so the brand can be shared;
+   * each subtest still inserts its own order and never touches another's.
+   */
+  let brandId = '';
+  let locationId = '';
+
+  before(async () => {
+    if (!stack.dbUrl) return;
+    ({ brandId, locationId } = await seedBrand('txn-guard'));
+  });
+
   for (const [from, to] of DISALLOWED) {
     it(`rejects ${from} -> ${to}`, async () => {
-      const { brandId, locationId } = await seedBrand(`txn-bad-${slugify(from)}-${slugify(to)}`);
       const orderId = await createOrder(brandId, locationId, from);
       await assert.rejects(
         sql(
@@ -73,7 +86,6 @@ describe('order transition guard (app.order_transition_allowed)', { skip: !stack
 
   for (const [from, to] of ALLOWED) {
     it(`permits ${from} -> ${to}`, async () => {
-      const { brandId, locationId } = await seedBrand(`txn-ok-${slugify(from)}-${slugify(to)}`);
       const orderId = await createOrder(brandId, locationId, from);
       await sql(
         `insert into public.order_events (brand_id, order_id, type, source) values ($1, $2, $3::app.order_status, 'system')`,
