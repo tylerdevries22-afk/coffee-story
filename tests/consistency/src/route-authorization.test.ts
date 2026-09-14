@@ -64,7 +64,26 @@ const apiRoutes = routeFiles(HQ_API).map((file) => ({
 const AUTHENTICATES = new RegExp('\\b(' + [
   'authenticateAny', 'authenticate', 'matchesSecret', 'verifyDeviceToken',
   'redeemPairingCode', 'exchangeDeviceRefreshSecret', 'operationsRequestContext', 'authorizeConnectorOAuth',
+  'integrationContext',
 ].join('|') + ')\\b');
+
+/**
+ * The same bargain as OPERATIONS_CONTEXT_GUARDS, for the platform-integration
+ * edge: naming a shared helper in AUTHENTICATES exempts every route that calls
+ * it, so the helper itself has to keep earning that. If one of these is
+ * dropped, the integration routes lose it silently and this list is the only
+ * thing that notices.
+ */
+const INTEGRATION_CONTEXT_GUARDS: readonly (readonly [string, RegExp])[] = [
+  ['authenticates the caller', /\bawait authenticate\(/],
+  // The call, not the declaration: matching the bare name also matches the
+  // function's own definition further down the file, so removing the guard
+  // from the request path would have gone unnoticed.
+  ['requires the integration key', /if \(!integrationKeyAccepted\(request\)\)/],
+  ['throttles before the token round trip', /rateLimited\(clientIdentity\(/],
+  ['throttles per account and brand', /rateLimited\(auth\.userId/],
+  ['reads through the caller-scoped client', /authenticatedDb\(/],
+];
 
 /**
  * The shared helper every operations route funnels through, and the three
@@ -163,6 +182,15 @@ describe('HQ API routes identify their caller', () => {
       assert.match(source, pattern,
         `operationsRequestContext no longer ${what}, and every operations route `
         + 'authenticates through it');
+    }
+  });
+
+  it('holds the shared integration context to what its callers rely on', () => {
+    const source = readFileSync(join(ROOT, 'apps/hq/lib/integration-summary.ts'), 'utf8');
+    for (const [what, pattern] of INTEGRATION_CONTEXT_GUARDS) {
+      assert.match(source, pattern,
+        `integrationContext no longer ${what}, and every platform-integration `
+        + 'route authenticates through it');
     }
   });
 
