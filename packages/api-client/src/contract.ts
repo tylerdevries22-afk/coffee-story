@@ -192,4 +192,5 @@ export const API_ROUTES = {
   referrals: '/api/referrals',
   health: '/api/health',
   trainingProgress: '/api/training/progress',
+  integrationsOrderingSummary: '/api/integrations/ordering/summary',
 } as const;

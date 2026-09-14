@@ -10,3 +10,4 @@ export {
 } from './demo-sync';
 export { startSerializedPolling } from './polling';
 export * from './contract';
+export * from './ordering-summary';
