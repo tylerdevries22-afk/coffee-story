@@ -5,8 +5,9 @@ const MIGRATION_FILE_PATTERN = /^(\d{14})_([a-z0-9_]+)\.sql$/;
 export const PROJECT_REF_PATTERN = /^[a-z]{20}$/;
 export const RETRYABLE_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
 // Existing Coffee Story environments were reconciled through this migration.
-// Every later migration must carry the stronger script-managed content record.
-export const LEGACY_HISTORY_BOUNDARY = '20260828104000';
+// The next release (20260912000000) adopted script-managed immutable content
+// records, so every later migration must carry the stronger record.
+export const LEGACY_HISTORY_BOUNDARY = '20260911280000';
 
 export interface LocalMigration {
   readonly name: string;

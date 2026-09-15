@@ -198,8 +198,8 @@ describe('hosted migration promotion', () => {
 
   it('rejects post-baseline history without an immutable managed record', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'hosted-migrations-'));
-    await writeFile(join(directory, '20260828163000_release.sql'), 'select 1;');
-    const applied = [{ version: '20260828163000', name: 'release' }];
+    await writeFile(join(directory, '20260912000000_release.sql'), 'select 1;');
+    const applied = [{ version: '20260912000000', name: 'release' }];
     const responses: Response[] = [Response.json(applied), Response.json(applied), Response.json([], { status: 201 })];
     const fetchImpl: typeof fetch = async () => {
       const response = responses.shift();
@@ -209,7 +209,7 @@ describe('hosted migration promotion', () => {
     try {
       await assert.rejects(runHostedMigrationPromotion({
         accessToken: 'test-token',
-        expectedReadiness: 20260828163000,
+        expectedReadiness: 20260912000000,
         fetchImpl,
         migrationsDirectory: directory,
         projectRef: 'abcdefghijklmnopqrst',
