@@ -21,6 +21,7 @@ import { join } from 'node:path';
 
 import {
   parseTenantModulesManifest,
+  servesABuiltSurface,
   type TenantModuleInstall,
   type TenantModulesManifest,
 } from '../packages/module-kit/src/modules-manifest';
@@ -103,12 +104,12 @@ export function modulesManifestProblems(tenantDir: string): string[] {
   result.manifest.modules.forEach((install, index) => {
     problems.push(...installProblems(tenantDir, install, index));
   });
-  // Every declared key, not just the enabled ones: a disabled install still
-  // pins a version and an artifact, and a tenant turning it back on must not
-  // discover then that the key was never real.
+  // Every declared key this repo builds for, not just the enabled ones: a
+  // disabled install still pins a version and an artifact, and a tenant turning
+  // it back on must not discover then that the key was never real.
   const resolution = resolveModules(
     MODULE_REGISTRY,
-    result.manifest.modules.map((install) => install.key),
+    result.manifest.modules.filter(servesABuiltSurface).map((install) => install.key),
   );
   if (resolution.kind === 'failed') {
     problems.push(...resolution.errors.map(describeResolutionError));

@@ -1,0 +1,15 @@
+{
+  "businessName": "Elevate Web Demo",
+  "industry": "web-development",
+  "locale": "en-US",
+  "website": "https://example.com",
+  "products": [],
+  "services": [
+    "Web Design"
+  ],
+  "complianceTopics": [
+    "customer privacy",
+    "brand usage"
+  ],
+  "brandVoice": "A web development engagement"
+}

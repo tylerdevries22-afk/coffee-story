@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "modules": [
+    {
+      "key": "web-services",
+      "version": "1.0.0",
+      "config": "modules/web-services/config.json",
+      "surfaces": [
+        "admin"
+      ],
+      "enabled": true
+    },
+    {
+      "key": "mcp-store",
+      "version": "1.0.0",
+      "config": "modules/mcp-store.json",
+      "surfaces": [
+        "admin"
+      ],
+      "enabled": true
+    }
+  ]
+}

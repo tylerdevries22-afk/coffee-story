@@ -4,7 +4,8 @@ import { dirname, join } from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { parseTenantModulesManifest } from './modules-manifest';
+import { parseTenantModulesManifest, servesABuiltSurface } from './modules-manifest';
+import { APP_SURFACES, BUILT_SURFACES } from './types';
 
 const REPOSITORY_ROOT = join(dirname(fileURLToPath(import.meta.url)), '../../..');
 
@@ -176,5 +177,38 @@ describe('parseTenantModulesManifest', () => {
     assert.deepEqual(result.manifest.modules.map((install) => install.key), [
       'commerce-catalog', 'device-wall',
     ]);
+  });
+});
+
+/** Builds one install; `surfaces` is what this predicate reads. */
+function install(surfaces: readonly string[] | null) {
+  return {
+    key: 'web-services', version: '1.0.0', config: null, enabled: true,
+    surfaces: surfaces as never,
+  };
+}
+
+describe('servesABuiltSurface', () => {
+  it('counts a module on any surface this repo renders', () => {
+    assert.equal(servesABuiltSurface(install(['customer'])), true);
+    assert.equal(servesABuiltSurface(install(['admin', 'hq'])), true);
+  });
+
+  // The case the whole predicate exists for: Elevate's portal modules are
+  // hosted there and are absent from MODULE_REGISTRY on purpose, so a registry
+  // check that counted them would call a correct pack broken.
+  it('excludes a module scoped entirely to a surface hosted elsewhere', () => {
+    assert.equal(servesABuiltSurface(install(['admin'])), false);
+  });
+
+  it('counts an unconstrained install, since null means every surface', () => {
+    assert.equal(servesABuiltSurface(install(null)), true);
+  });
+
+  // A guard against the widening being undone quietly: if `admin` ever rejoins
+  // BUILT_SURFACES the case above starts returning true and this fails with it.
+  it('keeps admin out of the built set', () => {
+    assert.equal((BUILT_SURFACES as readonly string[]).includes('admin'), false);
+    assert.equal((APP_SURFACES as readonly string[]).includes('admin'), true);
   });
 });

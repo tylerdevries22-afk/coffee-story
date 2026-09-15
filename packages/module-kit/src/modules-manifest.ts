@@ -13,7 +13,7 @@
  * fields the contract owns are validated.
  */
 import { parseSemVer } from './semver';
-import { APP_SURFACES, type AppSurface } from './types';
+import { APP_SURFACES, BUILT_SURFACES, type AppSurface } from './types';
 
 const MODULE_KEY = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const WINDOWS_ABSOLUTE = /^[a-zA-Z]:[\\/]/;
@@ -112,6 +112,23 @@ function parseInstall(
 
   const surfaces = parseSurfaces(entry.surfaces, `${path}.surfaces`, issues);
   return { key, version, config, surfaces, enabled };
+}
+
+/**
+ * Whether this repo renders anything for the install.
+ *
+ * The pack schema is Elevate's and names surfaces this repo does not build --
+ * `admin` is the Elevate portal. A module scoped entirely to those is hosted
+ * there and is absent from MODULE_REGISTRY by design, so a registry check that
+ * included it would report "not a module the platform ships" about a module
+ * that is perfectly fine. Three separate gates check the registry (onboarding
+ * validation, the release surface plan, and resolution); all three ask this
+ * first, so they cannot drift apart. `surfaces: null` is unconstrained, and
+ * counts.
+ */
+export function servesABuiltSurface(install: TenantModuleInstall): boolean {
+  return install.surfaces === null
+    || install.surfaces.some((surface) => (BUILT_SURFACES as readonly string[]).includes(surface));
 }
 
 /** Validates a raw tenant modules.json. Never throws: bad input is a result, not a crash. */

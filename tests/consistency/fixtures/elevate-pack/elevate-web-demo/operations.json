@@ -1,0 +1,13 @@
+{
+  "roles": [],
+  "competencies": [],
+  "templates": [],
+  "schedules": [],
+  "escalations": [],
+  "retention": {
+    "evidenceDays": 395,
+    "issueDays": 395,
+    "actorIdentityDays": 395
+  },
+  "priority": "normal"
+}
