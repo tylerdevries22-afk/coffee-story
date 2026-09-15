@@ -94,9 +94,15 @@ function validateIdentity(
     problems.push(`identity.slug does not match the tenant folder "${folderSlug}".`);
   }
   if (!brand.identity.bundleId.includes('.')) problems.push('identity.bundleId must be reverse-DNS.');
-  if (!brand.identity.kioskBundleId.includes('.')) problems.push('identity.kioskBundleId must be reverse-DNS.');
-  if (!/^[a-z][a-z0-9+.-]*$/.test(brand.identity.kioskScheme)) {
-    problems.push('identity.kioskScheme must be a valid URL scheme.');
+  // Kiosk identity binds a kiosk build, so only a pack declaring that surface
+  // owes it. Elevate emits both as empty strings for a web-dev tenant, and
+  // demanding a bundle id for an app nobody will build makes a valid pack read
+  // as broken.
+  if (brand.surfaces.includes('kiosk')) {
+    if (!brand.identity.kioskBundleId.includes('.')) problems.push('identity.kioskBundleId must be reverse-DNS.');
+    if (!/^[a-z][a-z0-9+.-]*$/.test(brand.identity.kioskScheme)) {
+      problems.push('identity.kioskScheme must be a valid URL scheme.');
+    }
   }
   if (brand.identity.kioskEasProjectId !== '' && !UUID.test(brand.identity.kioskEasProjectId)) {
     problems.push('identity.kioskEasProjectId must be empty or a valid EAS project UUID.');
@@ -126,9 +132,6 @@ export function validateTenant(input: {
   validateIdentity(brand, input.slug, input.scaffold, problems);
   const menuPath = join(input.tenantDir, 'menu.csv');
   const operationsPath = join(input.tenantDir, 'operations.json');
-  if (brand.locations.length === 0 && (existsSync(menuPath) || existsSync(operationsPath))) {
-    problems.push('at least one location is required with menu.csv or operations.json.');
-  }
   for (const jurisdiction of brand.tax?.jurisdictions ?? []) {
     if (!jurisdiction.id || !jurisdiction.label || jurisdiction.rate < 0 || jurisdiction.rate >= 1) {
       problems.push('tax.jurisdictions entries need id, label and a fractional rate.');
@@ -144,6 +147,19 @@ export function validateTenant(input: {
   const parsedMenu = existsSync(menuPath)
     ? parseMenuCsv(readFileSync(menuPath, 'utf8')) : { rows: [], errors: [] };
   problems.push(...parsedMenu.errors.map((error) => `menu.csv: ${error}`));
+  // A location is required by CONTENT, not by a file being present. Elevate
+  // writes operations.json for every tenant it creates with every collection
+  // empty, and such a file schedules nothing at any address; a menu with no
+  // rows sells at none. Demanding a street address from a web-development
+  // tenant is how a valid pack reads as broken.
+  const operationsBind = operations !== null && (
+    operations.roles.length > 0 || operations.competencies.length > 0
+    || operations.templates.length > 0 || operations.schedules.length > 0
+    || operations.escalations.length > 0
+  );
+  if (brand.locations.length === 0 && (parsedMenu.rows.length > 0 || operationsBind)) {
+    problems.push('at least one location is required with menu rows or operations content.');
+  }
   const modifiers = readModifiers(join(input.tenantDir, 'modifiers.json'), parsedMenu.rows, problems);
   const categoriesPath = join(input.tenantDir, 'menu-categories.json');
   const categories = existsSync(categoriesPath)

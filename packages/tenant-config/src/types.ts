@@ -5,7 +5,14 @@ export const ORGANIZATION_KINDS = [
 ] as const;
 export type OrganizationKind = (typeof ORGANIZATION_KINDS)[number];
 
-export const TENANT_SURFACES = ['customer', 'kiosk', 'operator', 'display', 'hq'] as const;
+/**
+ * Surfaces a tenant may DECLARE. Wider than the set this repo BUILDS
+ * (`FACTORY_SURFACES`): `admin` is the Elevate portal. Elevate owns the pack
+ * schema and emits it, so a pack is not malformed here merely because one of
+ * its surfaces is hosted elsewhere -- consumers that turn a declaration into a
+ * build filter to what they ship instead of rejecting the manifest.
+ */
+export const TENANT_SURFACES = ['customer', 'kiosk', 'operator', 'display', 'hq', 'admin'] as const;
 export type TenantSurface = (typeof TENANT_SURFACES)[number];
 
 export type TenantNetwork = {
