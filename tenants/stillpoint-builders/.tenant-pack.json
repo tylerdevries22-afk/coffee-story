@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "revision": 1,
+  "files": {
+    "README.md": "468a910bd9b22d1496c4035f1734ac7b68f91f22",
+    "assets/gift/birthday-cake.webp": "b6260ad8f737e5b590b04989bba873be01d4515c",
+    "assets/gift/birthday-confetti.webp": "c69640f226732d7b113e71e1ff9c45991c3db09e",
+    "assets/gift/congrats-bloom.webp": "9bcd441fec0d1be4909b021cb78e150666e5ebfe",
+    "assets/gift/congrats-gold.webp": "3f18778edcaf30fce52c2285755a7a303df6cee9",
+    "assets/gift/grateful.webp": "0e99fa5d67202b5532281c0ecf1f436727fe2f2d",
+    "assets/gift/healing-oil.webp": "ba2fe20044e3bd7e0025d2c7e9b53c41b46a4a54",
+    "assets/gift/quiet-hour.webp": "1e631b383895d1b8e8404f6461632eefe297cf02",
+    "assets/gift/thank-you.webp": "9cae8c8d3a9f8b2fb2032ffa2712ffbcbccd5d8d",
+    "assets/hero/home-hero.mp4": "3dce8f953cd87e6263a001c9a63abd792877bd66",
+    "assets/hero/stones.webp": "a3ac72d9b29d41fc8b5d9a4b8bf9449c07020b7b",
+    "assets/logo.svg": "247a19865d9839a5916fab2ceb1c1df65647b584",
+    "assets/menu/bathroom-renovation.webp": "50e58046b0437fbb38c2bdf1353d5dace88ad957",
+    "assets/menu/kitchen-renovation.webp": "4bb3b07fe3e6f361ddab65e1fa39c339fe3e83e5",
+    "assets/menu/preconstruction-plan.webp": "8ec7aa99bf803f4d4c1628d5da1b5f3cdd6738ff",
+    "assets/menu/project-consultation.webp": "7dcb05f47b55898db19d5f5b3998a28734b79350",
+    "assets/menu/warranty-service-visit.webp": "525045cc9d3eb7556dcf546fc74dd6b441de9c15",
+    "assets/rewards/liquid-nebula.webp": "f3014a2912ca619da125a955786c0c1594d97dd2",
+    "brand.json": "71898cc469a667a9a3c235410ba6e90f0b619e1a",
+    "menu-categories.json": "77be998559e01cc444ac9aaf5585dff44507e1f7",
+    "menu.csv": "ebece5294d209a4d11d21462adf10726719f700c",
+    "modifiers.json": "0967ef424bce6791893e9a57bb952f80fd536e93",
+    "modules.json": "ee0a32026d28667d6730508d00538296ef5619e4",
+    "operations.json": "c7f09bd4468ac1f159de28141e5cba9a2d84170c",
+    "packs.json": "0967ef424bce6791893e9a57bb952f80fd536e93",
+    "release.json": "1cfafdf41540de42c7d5025372e453d5d80e8529",
+    "training-profile.json": "05dcb9149cd8784cba924f3533cfbaa49d633521"
+  }
+}

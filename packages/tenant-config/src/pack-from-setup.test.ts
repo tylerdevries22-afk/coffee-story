@@ -64,3 +64,45 @@ describe('tenantPackFromSetup', () => {
     assert.equal(parsed.manifest.inheritance.mode, 'network');
   });
 });
+
+/**
+ * The console's generator used to emit five files. `tenants/_template/` has
+ * thirteen, and the factory publisher rejects a package with no release.json --
+ * so an organization created from the console produced a folder that could
+ * never ship, and nothing reported it until a publish failed much later.
+ */
+describe('the generated pack is a complete core file set', () => {
+  const pack = tenantPackFromSetup(independent);
+
+  it('emits every core file, not just the brand and the menu', () => {
+    assert.deepEqual(Object.keys(pack.files).sort(), [
+      'README.md', 'brand.json', 'menu-categories.json', 'menu.csv',
+      'modifiers.json', 'modules.json', 'operations.json', 'packs.json',
+      'release.json', 'training-profile.json',
+    ]);
+  });
+
+  it('binds release.json to this tenant at the version the factory requires', () => {
+    const release = pack.files['release.json'] as Record<string, unknown>;
+    assert.equal(release.schemaVersion, 2);
+    assert.equal(release.tenantSlug, pack.slug);
+  });
+
+  // An unstable pack makes every later comparison report a change that is not
+  // one, which is how a folder sync commits the same tree forever.
+  it('is byte-identical when generated twice', () => {
+    assert.equal(
+      JSON.stringify(tenantPackFromSetup(independent)),
+      JSON.stringify(tenantPackFromSetup(independent)),
+    );
+  });
+
+  it('writes no wall-clock value into release.json', () => {
+    const release = pack.files['release.json'] as {
+      release: { createdAt: string };
+      expoGo: { checkedAt: string };
+    };
+    assert.equal(release.release.createdAt, '');
+    assert.equal(release.expoGo.checkedAt, '2026-08-31T00:00:00.000Z');
+  });
+});

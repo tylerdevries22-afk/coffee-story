@@ -26,11 +26,21 @@ export function parseAdvisors(value: unknown): readonly AdvisorNotice[] {
   if (!value || typeof value !== 'object' || !('lints' in value)) {
     throw new HostedMigrationError('invalid_advisor_response', 'Supabase advisor response is malformed.');
   }
-  return asRecords(value.lints, 'invalid_advisor_response').map((entry) => ({
-    level: typeof entry.level === 'string' ? entry.level : 'ERROR',
-    name: typeof entry.name === 'string' ? entry.name : 'unknown',
-    title: typeof entry.title === 'string' ? entry.title : 'Unknown advisor finding',
-  }));
+  return asRecords(value.lints, 'invalid_advisor_response').map((entry) => {
+    const metadata = entry.metadata && typeof entry.metadata === 'object'
+      ? entry.metadata as Record<string, unknown>
+      : {};
+    return {
+      level: typeof entry.level === 'string' ? entry.level : 'ERROR',
+      metadata: {
+        arguments: typeof metadata.arguments === 'string' ? metadata.arguments : undefined,
+        name: typeof metadata.name === 'string' ? metadata.name : undefined,
+        schema: typeof metadata.schema === 'string' ? metadata.schema : undefined,
+      },
+      name: typeof entry.name === 'string' ? entry.name : 'unknown',
+      title: typeof entry.title === 'string' ? entry.title : 'Unknown advisor finding',
+    };
+  });
 }
 
 export function parseReadiness(value: unknown): number {

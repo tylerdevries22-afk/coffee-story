@@ -1,12 +1,15 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import { isApprovedAdvisorNotice } from './hosted-advisor-policy.js';
+
 const MIGRATION_FILE_PATTERN = /^(\d{14})_([a-z0-9_]+)\.sql$/;
 export const PROJECT_REF_PATTERN = /^[a-z]{20}$/;
 export const RETRYABLE_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
 // Existing Coffee Story environments were reconciled through this migration.
-// Every later migration must carry the stronger script-managed content record.
-export const LEGACY_HISTORY_BOUNDARY = '20260828104000';
+// The next release (20260912000000) adopted script-managed immutable content
+// records, so every later migration must carry the stronger record.
+export const LEGACY_HISTORY_BOUNDARY = '20260911280000';
 
 export interface LocalMigration {
   readonly name: string;
@@ -25,6 +28,11 @@ export interface ManagedMigration extends RemoteMigration {
 
 export interface AdvisorNotice {
   readonly level: string;
+  readonly metadata?: {
+    readonly arguments?: string;
+    readonly name?: string;
+    readonly schema?: string;
+  };
   readonly name: string;
   readonly title: string;
 }
@@ -73,23 +81,58 @@ export async function loadLocalMigrations(directory: string): Promise<readonly L
   return migrations;
 }
 
+function matchRemoteMigrations(
+  local: readonly LocalMigration[],
+  remote: readonly RemoteMigration[],
+): ReadonlyMap<number, RemoteMigration> {
+  const identities = new Set(remote.map(({ name, version }) => `${version}\0${name}`));
+  if (identities.size !== remote.length) {
+    throw new HostedMigrationError(
+      'duplicate_remote_migration',
+      'Remote migration version and name identities must be unique.',
+    );
+  }
+  const matched = new Map<number, RemoteMigration>();
+  const remaining = new Set(remote);
+  for (const migration of remote) {
+    const index = local.findIndex(({ name, version }) =>
+      name === migration.name && version === migration.version,
+    );
+    if (index >= 0 && !matched.has(index)) {
+      matched.set(index, migration);
+      remaining.delete(migration);
+    }
+  }
+  for (const migration of remaining) {
+    const candidates = local
+      .map(({ name }, index) => ({ index, name }))
+      .filter(({ index, name }) => name === migration.name && !matched.has(index));
+    if (candidates.length === 0) {
+      throw new HostedMigrationError(
+        'remote_migration_unknown',
+        `Remote migration ${migration.name} is absent locally or duplicated remotely.`,
+      );
+    }
+    if (candidates.length > 1) {
+      throw new HostedMigrationError(
+        'remote_migration_ambiguous',
+        `Remote migration ${migration.name} cannot be matched to one local version.`,
+      );
+    }
+    matched.set(candidates[0]!.index, migration);
+  }
+  return matched;
+}
+
 export function planPendingMigrations(
   local: readonly LocalMigration[],
   remote: readonly RemoteMigration[],
 ): readonly LocalMigration[] {
-  const localNames = new Set(local.map(({ name }) => name));
-  const unknown = remote.find(({ name }) => !localNames.has(name));
-  if (unknown) {
-    throw new HostedMigrationError('remote_migration_unknown', `Remote migration ${unknown.name} is absent locally.`);
-  }
-  const remoteNames = new Set(remote.map(({ name }) => name));
-  if (remoteNames.size !== remote.length) {
-    throw new HostedMigrationError('duplicate_remote_migration', 'Remote migration names must be unique.');
-  }
-  const firstGap = local.findIndex(({ name }) => !remoteNames.has(name));
+  const matched = matchRemoteMigrations(local, remote);
+  const firstGap = local.findIndex((_, index) => !matched.has(index));
   if (firstGap < 0) return [];
-  const outOfOrder = local.slice(firstGap + 1).find(({ name }) => remoteNames.has(name));
-  if (outOfOrder) {
+  const outOfOrderIndex = local.findIndex((_, index) => index > firstGap && matched.has(index));
+  if (outOfOrderIndex >= 0) {
     throw new HostedMigrationError('remote_history_has_gap', `Remote history skips migration ${local[firstGap]?.name}.`);
   }
   return local.slice(firstGap);
@@ -99,13 +142,16 @@ export function migrationVersionAlignments(
   local: readonly LocalMigration[],
   remote: readonly RemoteMigration[],
 ): readonly LocalMigration[] {
-  const remoteByName = new Map(remote.map((migration) => [migration.name, migration.version]));
-  return local.filter(({ name, version }) => {
-    const remoteVersion = remoteByName.get(name);
+  const matched = matchRemoteMigrations(local, remote);
+  return local.filter(({ version }, index) => {
+    const remoteVersion = matched.get(index)?.version;
     return remoteVersion !== undefined && remoteVersion !== version;
   });
 }
 
 export function findBlockingAdvisors(notices: readonly AdvisorNotice[]): readonly AdvisorNotice[] {
-  return notices.filter(({ level }) => ['WARN', 'WARNING', 'ERROR'].includes(level.toUpperCase()));
+  return notices.filter((notice) => (
+    ['WARN', 'WARNING', 'ERROR'].includes(notice.level.toUpperCase())
+    && !isApprovedAdvisorNotice(notice)
+  ));
 }
