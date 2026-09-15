@@ -2,7 +2,10 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { FACTORY_SURFACES, type FactorySurface } from '../packages/factory/src/providers';
-import { parseTenantModulesManifest } from '../packages/module-kit/src/modules-manifest';
+import {
+  parseTenantModulesManifest, servesABuiltSurface,
+} from '../packages/module-kit/src/modules-manifest';
+import { TENANT_SURFACES } from '../packages/tenant-config/src/types';
 import { MODULE_REGISTRY } from '../packages/module-kit/src/registry';
 
 export type TenantReleaseSurfacePlan = Readonly<{
@@ -33,8 +36,16 @@ function declaredSurfaces(value: unknown): { surfaces: FactorySurface[]; issues:
     typeof surface === 'string' && FACTORY_SURFACES.includes(surface as FactorySurface)
   ));
   const issues: string[] = [];
-  if (surfaces.length !== raw.length) issues.push('brand.json surfaces contains an unsupported surface.');
-  if (new Set(surfaces).size !== surfaces.length) issues.push('brand.json surfaces must not repeat entries.');
+  // A surface this repo does not build is not an error: `admin` is the Elevate
+  // portal, declared in a pack Elevate owns. Only a value that is no tenant
+  // surface at all is unsupported -- the rest are simply not ours to ship.
+  const unsupported = raw.some((surface) => (
+    typeof surface !== 'string' || !(TENANT_SURFACES as readonly string[]).includes(surface)
+  ));
+  if (unsupported) issues.push('brand.json surfaces contains an unsupported surface.');
+  // Over `raw`, not the filtered list: a pack repeating a surface we skip is
+  // still a malformed pack, and filtering first would hide it.
+  if (new Set(raw).size !== raw.length) issues.push('brand.json surfaces must not repeat entries.');
   if (!surfaces.includes('hq')) issues.push('brand.json surfaces must include the HQ API.');
   return { surfaces, issues };
 }
@@ -73,17 +84,27 @@ export function tenantReleaseSurfacePlan(
   if (earlyIssues.length > 0) return plan(FACTORY_SURFACES, earlyIssues);
   const parsed = parseTenantModulesManifest(modules.value);
   if (parsed.kind !== 'ok') return plan(FACTORY_SURFACES, parsed.issues);
+  // Modules hosted on a surface this repo does not build are not ours to plan
+  // a release for, and are absent from the registry on purpose -- counting them
+  // here would fail the gate on a pack that is correct.
   const enabled = new Set(
-    parsed.manifest.modules.filter((install) => install.enabled).map((install) => install.key),
+    parsed.manifest.modules
+      .filter((install) => install.enabled && servesABuiltSurface(install))
+      .map((install) => install.key),
   );
   const known = new Set(MODULE_REGISTRY.map((definition) => definition.key));
   const unknown = [...enabled].filter((key) => !known.has(key));
   if (unknown.length > 0) {
     return plan(FACTORY_SURFACES, unknown.map((key) => `Enabled module ${key} is not in the module registry.`));
   }
+  // Narrowed to what we build: a registry module never needs `admin`, and
+  // `declaration.surfaces` below only ever holds surfaces this repo ships.
   const required = new Set(MODULE_REGISTRY
     .filter((definition) => enabled.has(definition.key))
-    .flatMap((definition) => definition.surfaces));
+    .flatMap((definition) => definition.surfaces)
+    .filter((surface): surface is FactorySurface => (
+      (FACTORY_SURFACES as readonly string[]).includes(surface)
+    )));
   const missing = [...required].filter((surface) => !declaration.surfaces.includes(surface));
   if (missing.length > 0) {
     return plan(FACTORY_SURFACES, [

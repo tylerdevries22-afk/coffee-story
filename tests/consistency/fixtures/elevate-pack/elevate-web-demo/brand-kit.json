@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "tokens": {
+    "primary": "#1E1E1E",
+    "surface": "#F6F3ED",
+    "surfaceElevated": "#FFFFFF",
+    "accent": "#C49A3A",
+    "textPrimary": "#1A202C",
+    "textMuted": "#5A6472"
+  },
+  "copy": {
+    "appName": "",
+    "pointsName": "Points"
+  },
+  "logoUrl": "",
+  "tagline": "",
+  "existingWebsite": "",
+  "socials": {
+    "instagram": "",
+    "linkedin": "",
+    "facebook": "",
+    "x": "",
+    "youtube": "",
+    "tiktok": ""
+  }
+}

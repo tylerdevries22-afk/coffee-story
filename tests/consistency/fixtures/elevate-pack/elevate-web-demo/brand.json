@@ -1,0 +1,109 @@
+{
+  "schemaVersion": 1,
+  "organization": {
+    "kind": "independent"
+  },
+  "network": null,
+  "inheritance": {
+    "mode": "standalone",
+    "sourceTenantSlug": null,
+    "revision": 1,
+    "overrides": []
+  },
+  "surfaces": [
+    "customer",
+    "admin",
+    "hq"
+  ],
+  "providers": [
+    {
+      "capability": "database",
+      "provider": "supabase",
+      "ownership": "platform",
+      "required": true
+    },
+    {
+      "capability": "identity",
+      "provider": "supabase-auth",
+      "ownership": "platform",
+      "required": true
+    },
+    {
+      "capability": "hosting",
+      "provider": "vercel",
+      "ownership": "platform",
+      "required": true
+    },
+    {
+      "capability": "payments",
+      "provider": "stripe",
+      "ownership": "organization",
+      "required": false
+    }
+  ],
+  "identity": {
+    "slug": "elevate-web-demo",
+    "name": "Elevate Web Demo",
+    "bundleId": "com.elevate.webdemo.app",
+    "scheme": "elevatewebdemo",
+    "kioskBundleId": "",
+    "kioskScheme": "",
+    "easProjectId": "",
+    "kioskEasProjectId": ""
+  },
+  "tokens": {
+    "primary": "#1E1E1E",
+    "secondary": "#44403C",
+    "surface": "#F6F3ED",
+    "surfaceElevated": "#FFFFFF",
+    "accent": "#C49A3A",
+    "textPrimary": "#1A202C",
+    "textMuted": "#5A6472",
+    "success": "#2F6844",
+    "warning": "#8A5A1E",
+    "danger": "#9B3B32",
+    "fontDisplay": "System",
+    "fontBody": "System"
+  },
+  "copy": {
+    "appName": "Mitch Bakker",
+    "pointsName": "Points",
+    "orderCta": "Start a project",
+    "memberFallback": "Client"
+  },
+  "features": {
+    "drops": false,
+    "catering": false,
+    "delivery": false,
+    "multi_location": false,
+    "sms": false,
+    "stored_value": false,
+    "referrals": false,
+    "operations": true
+  },
+  "fees": {
+    "feeBps": 0,
+    "feeBpsTier2": 0,
+    "tierThresholdCents": 0
+  },
+  "locations": [],
+  "illustrations": {},
+  "business": {
+    "legalName": "Elevate Web Demo",
+    "tagline": "A web development engagement",
+    "email": "demo@example.com",
+    "phone": "",
+    "website": "https://example.com",
+    "giftCodePrefix": "EWD",
+    "monogram": "EW"
+  },
+  "information": {},
+  "socials": {
+    "instagram": "https://example.com/instagram",
+    "linkedin": "",
+    "facebook": "",
+    "x": "",
+    "youtube": "",
+    "tiktok": ""
+  }
+}

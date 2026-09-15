@@ -1,0 +1,16 @@
+{
+  "businessName": "Elevate Web Demo",
+  "industry": "web-development",
+  "locale": "en-US",
+  "website": "https://example.com",
+  "products": [],
+  "services": [
+    "Branding",
+    "Copywriting"
+  ],
+  "complianceTopics": [
+    "customer privacy",
+    "brand usage"
+  ],
+  "brandVoice": "Faith. Life. The space in between."
+}

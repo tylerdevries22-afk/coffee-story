@@ -12,7 +12,7 @@ import { TENANT_SCHEMA_VERSION, type TenantManifest, type TenantManifestResult }
 const TOP_LEVEL = new Set([
   '$docs', 'schemaVersion', 'organization', 'network', 'inheritance', 'surfaces', 'providers',
   'identity', 'tokens', 'copy', 'features', 'fees', 'tax', 'loyalty', 'board', 'location',
-  'locations', 'illustrations', 'business', 'information', 'kiosk',
+  'locations', 'illustrations', 'business', 'information', 'kiosk', 'socials',
 ]);
 
 function stringRecord(value: unknown, path: string, issues: string[]): Record<string, string> | null {

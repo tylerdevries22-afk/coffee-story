@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "choices": {
+    "maintenance": "bypass",
+    "security": "bypass",
+    "seo": "bypass",
+    "design": "bypass",
+    "development": "bypass",
+    "database": "bypass",
+    "branding": "yes",
+    "copywriting": "yes",
+    "hosting": "bypass",
+    "analytics": "bypass",
+    "ecommerce": "bypass",
+    "integrations": "bypass"
+  },
+  "notes": "Cadence Studio: monthly content cadence (8 posts + weekly 4-beat newsletter). Seeded from the October 2026 brief."
+}
