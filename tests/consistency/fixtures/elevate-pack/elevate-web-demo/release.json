@@ -5,11 +5,11 @@
     "releaseId": "",
     "commitSha": "",
     "artifactDigest": "",
-    "createdAt": "2026-09-13T07:09:47.598Z"
+    "createdAt": "2026-01-01T00:00:00.000Z"
   },
   "expoGo": {
     "appStoreSdk": 54,
-    "checkedAt": "2026-09-13T07:09:47.598Z",
+    "checkedAt": "2026-01-01T00:00:00.000Z",
     "sourceUrl": "https://docs.expo.dev/versions/v54.0.0/"
   },
   "checks": {

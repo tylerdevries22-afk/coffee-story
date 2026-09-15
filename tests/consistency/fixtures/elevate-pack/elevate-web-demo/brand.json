@@ -11,9 +11,7 @@
     "overrides": []
   },
   "surfaces": [
-    "customer",
-    "admin",
-    "hq"
+    "admin"
   ],
   "providers": [
     {
@@ -44,7 +42,7 @@
   "identity": {
     "slug": "elevate-web-demo",
     "name": "Elevate Web Demo",
-    "bundleId": "com.elevate.webdemo.app",
+    "bundleId": "com.elevate.elevatewebdemo.app",
     "scheme": "elevatewebdemo",
     "kioskBundleId": "",
     "kioskScheme": "",
@@ -52,11 +50,11 @@
     "kioskEasProjectId": ""
   },
   "tokens": {
-    "primary": "#1E1E1E",
+    "primary": "#111111",
     "secondary": "#44403C",
-    "surface": "#F6F3ED",
+    "surface": "#F7F7F5",
     "surfaceElevated": "#FFFFFF",
-    "accent": "#C49A3A",
+    "accent": "#2563EB",
     "textPrimary": "#1A202C",
     "textMuted": "#5A6472",
     "success": "#2F6844",
@@ -66,7 +64,7 @@
     "fontBody": "System"
   },
   "copy": {
-    "appName": "Mitch Bakker",
+    "appName": "Elevate Web Demo",
     "pointsName": "Points",
     "orderCta": "Start a project",
     "memberFallback": "Client"
@@ -94,10 +92,9 @@
     "email": "demo@example.com",
     "phone": "",
     "website": "https://example.com",
-    "giftCodePrefix": "EWD",
+    "giftCodePrefix": "EW",
     "monogram": "EW"
   },
-  "information": {},
   "socials": {
     "instagram": "https://example.com/instagram",
     "linkedin": "",
@@ -105,5 +102,6 @@
     "x": "",
     "youtube": "",
     "tiktok": ""
-  }
+  },
+  "information": {}
 }

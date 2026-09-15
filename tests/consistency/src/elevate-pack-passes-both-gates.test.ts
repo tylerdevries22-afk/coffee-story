@@ -26,6 +26,8 @@ import { TenantValidationError, validateTenant } from '../../../scripts/lib/onbo
 
 const ROOT = join(process.cwd(), '..', '..');
 const SLUG = 'elevate-web-demo';
+// Copied verbatim from Elevate's own committed fixture -- see the README beside
+// it. Hand-editing these files is how the two repos drift apart silently.
 const PACK = join(ROOT, 'tests', 'consistency', 'fixtures', 'elevate-pack', SLUG);
 
 function brand(): Record<string, unknown> {
@@ -37,9 +39,12 @@ describe('a tenant pack in the shape Elevate emits', () => {
   // exercises any of the three widenings, and the suite below would go on
   // passing while proving nothing.
   describe('exercises what it claims to', () => {
-    it('declares a surface this repo does not build', () => {
-      assert.ok((brand().surfaces as string[]).includes('admin'),
-        'fixture no longer declares admin -- it cannot prove the surface widening');
+    it('declares only a surface this repo does not build', () => {
+      // `customer`, `kiosk` and `hq` are the ordering app's own surfaces in
+      // both repos. A web-development tenant ships none of them until that
+      // offering is switched on, so this pack declares just the portal.
+      assert.deepEqual(brand().surfaces, ['admin'],
+        'fixture no longer declares admin alone -- it cannot prove the surface widening');
     });
 
     it('carries socials as a top-level key, not a business field', () => {
@@ -81,7 +86,10 @@ describe('a tenant pack in the shape Elevate emits', () => {
         apply: false, requireDatabase: false, allowImagelessFixture: true,
       });
       assert.equal(validated.brand.identity.slug, SLUG);
-      assert.deepEqual(validated.guestSurfaces, ['customer']);
+      // Nothing to build a guest binary from, and nothing asked us to: the
+      // previous shape claimed `customer`, which would have sent onboarding
+      // looking for a menu and artwork this tenant does not have.
+      assert.deepEqual(validated.guestSurfaces, []);
     } catch (error) {
       if (error instanceof TenantValidationError) {
         assert.fail(`validateTenant rejected an Elevate pack: ${error.problems.join('; ')}`);

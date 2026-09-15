@@ -1,22 +1,22 @@
 {
   "schemaVersion": 1,
   "tokens": {
-    "primary": "#1E1E1E",
-    "surface": "#F6F3ED",
+    "primary": "#111111",
+    "surface": "#F7F7F5",
     "surfaceElevated": "#FFFFFF",
-    "accent": "#C49A3A",
+    "accent": "#2563EB",
     "textPrimary": "#1A202C",
     "textMuted": "#5A6472"
   },
   "copy": {
-    "appName": "",
+    "appName": "Elevate Web Demo",
     "pointsName": "Points"
   },
   "logoUrl": "",
-  "tagline": "",
-  "existingWebsite": "",
+  "tagline": "A web development engagement",
+  "existingWebsite": "https://example.com",
   "socials": {
-    "instagram": "",
+    "instagram": "https://example.com/instagram",
     "linkedin": "",
     "facebook": "",
     "x": "",

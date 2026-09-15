@@ -4,15 +4,15 @@
     "maintenance": "bypass",
     "security": "bypass",
     "seo": "bypass",
-    "design": "bypass",
+    "design": "yes",
     "development": "bypass",
     "database": "bypass",
-    "branding": "yes",
-    "copywriting": "yes",
+    "branding": "bypass",
+    "copywriting": "bypass",
     "hosting": "bypass",
     "analytics": "bypass",
     "ecommerce": "bypass",
     "integrations": "bypass"
   },
-  "notes": "Cadence Studio: monthly content cadence (8 posts + weekly 4-beat newsletter). Seeded from the October 2026 brief."
+  "notes": ""
 }
