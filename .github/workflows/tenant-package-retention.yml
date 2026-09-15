@@ -20,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [production, preview]
+        target: ${{ fromJSON(vars.SUPABASE_PREVIEW_PROJECT_REF != '' && '["production","preview"]' || '["production"]') }}
     env:
       SUPABASE_PROJECT_REF: ${{ matrix.target == 'production' && vars.SUPABASE_PROJECT_REF || vars.SUPABASE_PREVIEW_PROJECT_REF }}
     steps:
