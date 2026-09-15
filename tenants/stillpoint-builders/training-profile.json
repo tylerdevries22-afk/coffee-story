@@ -1,0 +1,24 @@
+{
+  "businessName": "Stillpoint Builders",
+  "industry": "construction-and-renovation",
+  "locale": "en-US",
+  "website": "https://stillpointbuilders.example",
+  "products": [
+    "Preconstruction Plan",
+    "Kitchen Renovation",
+    "Bathroom Renovation"
+  ],
+  "services": [
+    "Project consultation",
+    "Construction planning",
+    "Renovation delivery",
+    "Warranty service"
+  ],
+  "complianceTopics": [
+    "jobsite safety",
+    "permit and inspection records",
+    "client privacy",
+    "change-order authorization"
+  ],
+  "brandVoice": "Clear, grounded, practical, and accountable"
+}
