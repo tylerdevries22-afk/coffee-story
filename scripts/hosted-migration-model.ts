@@ -1,6 +1,8 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import { isApprovedAdvisorNotice } from './hosted-advisor-policy.js';
+
 const MIGRATION_FILE_PATTERN = /^(\d{14})_([a-z0-9_]+)\.sql$/;
 export const PROJECT_REF_PATTERN = /^[a-z]{20}$/;
 export const RETRYABLE_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
@@ -26,6 +28,11 @@ export interface ManagedMigration extends RemoteMigration {
 
 export interface AdvisorNotice {
   readonly level: string;
+  readonly metadata?: {
+    readonly arguments?: string;
+    readonly name?: string;
+    readonly schema?: string;
+  };
   readonly name: string;
   readonly title: string;
 }
@@ -143,5 +150,8 @@ export function migrationVersionAlignments(
 }
 
 export function findBlockingAdvisors(notices: readonly AdvisorNotice[]): readonly AdvisorNotice[] {
-  return notices.filter(({ level }) => ['WARN', 'WARNING', 'ERROR'].includes(level.toUpperCase()));
+  return notices.filter((notice) => (
+    ['WARN', 'WARNING', 'ERROR'].includes(notice.level.toUpperCase())
+    && !isApprovedAdvisorNotice(notice)
+  ));
 }
