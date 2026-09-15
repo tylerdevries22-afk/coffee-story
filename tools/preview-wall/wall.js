@@ -174,8 +174,10 @@ fetch('./wall-surfaces.json', { signal: AbortSignal.timeout(10_000) })
     }
     const presetsById = presetMap(data);
     data.surfaces.forEach((surface) => mount(surface, presetsById, current));
-    window.addEventListener('message', (event) => {
-      const payload = event.data;
+// nosemgrep: javascript.browser.security.insufficient-postmessage-origin-validation.insufficient-postmessage-origin-validation -- the next line pins messages to this preview's origin.
+window.addEventListener('message', (event) => {
+  if (event.origin !== window.location.origin) return;
+  const payload = event.data;
       if (!payload || payload.type !== 'platform-org-changed') return;
       const next = organizations.find((org) => org.tenantKey === payload.tenantKey
         || org.organizationId === payload.organizationId);

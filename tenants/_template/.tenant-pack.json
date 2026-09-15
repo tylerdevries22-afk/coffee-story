@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "revision": 1,
+  "files": {
+    "README.md": "364822dafa56b492f5e2778a772a9c5065af7c12",
+    "assets/README.md": "0df9ca2a3d306b82cba442fdb03e74633360629f",
+    "assets/gift/README.md": "6ff2aeedbb825c1c177376ae538204447815dd70",
+    "assets/hero/README.md": "513ec05abe2e69d668acd2fca92a7c3327034d51",
+    "assets/menu/README.md": "fcfcf7c6586ddb924d2dc5c7b98ecef64cfa121e",
+    "assets/products/README.md": "59ca8ffe2f305ee087ba8f96b016bab351fa0e06",
+    "assets/rewards/README.md": "d39b3968f8c25091a003ebbf65e1cfabb320c42e",
+    "brand.json": "ef2c2df69ba1e23848c762574b43a242a65511ba",
+    "menu-categories.json": "afced9df258e4072f3fee226d4484d288488ebf6",
+    "menu.csv": "eed28f8b8ecf1b26b84e853031b739f33bbb2a1a",
+    "modifiers.json": "4371d6d206dc2b33f2791bee43a0279d7cdc2c67",
+    "modules/commerce-catalog/config.json": "163a26da5f1d88af45f593fafcc008c893a1c480",
+    "modules/device-wall.json": "be44333f87c660020ed52cf59c08841b59dc64df",
+    "modules.json": "a325cf79141b93df581e142e1918813749823bc9",
+    "operations.json": "0890546e7cc3d35d129a38ba513f4f7482889e05",
+    "packs.json": "0967ef424bce6791893e9a57bb952f80fd536e93",
+    "release.json": "8a3486da7261a84c30114476886c185417595b57",
+    "training-profile.json": "2d85503bb4b814cdbafc32b227c443fea2d008c8"
+  }
+}

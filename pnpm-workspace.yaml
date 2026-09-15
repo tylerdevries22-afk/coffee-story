@@ -2,3 +2,7 @@ packages:
   - apps/*
   - packages/*
   - tests/*
+
+blockExoticSubdeps: true
+minimumReleaseAge: 10080
+trustPolicy: no-downgrade
