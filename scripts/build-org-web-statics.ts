@@ -5,11 +5,29 @@
  */
 import { spawn } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, rmSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const ROOT = process.cwd();
 const HQ_PUBLIC = join(ROOT, 'apps', 'hq', 'public');
+
+/**
+ * Every applied tenant, exported a second time under /t/<slug>/<surface>.
+ *
+ * Model B gives one HQ origin per organization and serves that org's guest
+ * apps at /customer, /kiosk and /operator. The staff wall needs more: it
+ * previews whichever organization the console has selected, and every hosted
+ * surface answers `frame-ancestors 'self'`, so a frame pointed at another
+ * org's deployment is refused by the browser and paints blank. Same-origin
+ * per-tenant paths are the only shape that can render more than one tenant.
+ */
+function appliedTenants(): string[] {
+  const applied = JSON.parse(
+    readFileSync(join(ROOT, 'apps', 'customer', 'src', 'tenants', 'applied.json'), 'utf8'),
+  ) as { slugs?: unknown };
+  const slugs = Array.isArray(applied.slugs) ? applied.slugs : [];
+  return slugs.filter((slug): slug is string => typeof slug === 'string' && slug.length > 0);
+}
 
 type Surface = { app: 'customer' | 'kiosk' | 'operator'; baseUrl: string };
 
@@ -38,7 +56,11 @@ function withOperatorBaseUrl(baseUrl: string): () => void {
   return () => writeFileSync(path, original);
 }
 
-async function exportSurface(surface: Surface, tenant: string): Promise<void> {
+async function exportSurface(
+  surface: Surface,
+  tenant: string,
+  target = join(HQ_PUBLIC, surface.app),
+): Promise<void> {
   const appRoot = join(ROOT, 'apps', surface.app);
   const outDir = join(appRoot, 'dist-web-org');
   if (existsSync(outDir)) rmSync(outDir, { recursive: true, force: true });
@@ -57,11 +79,10 @@ async function exportSurface(surface: Surface, tenant: string): Promise<void> {
   } finally {
     restore();
   }
-  const target = join(HQ_PUBLIC, surface.app);
   if (existsSync(target)) rmSync(target, { recursive: true, force: true });
-  mkdirSync(HQ_PUBLIC, { recursive: true });
+  mkdirSync(dirname(target), { recursive: true });
   cpSync(outDir, target, { recursive: true });
-  console.log(`Published ${surface.app} → apps/hq/public${surface.baseUrl}`);
+  console.log(`Published ${surface.app} → ${target.replace(ROOT, '')}`);
 }
 
 export function requiredTenant(): string {
@@ -77,6 +98,20 @@ export function requiredTenant(): string {
 async function main(): Promise<void> {
   if (process.argv.includes('--skip')) {
     console.log('Skipping org web static export (--skip).');
+    return;
+  }
+  // --wall adds the per-tenant copies the staff wall frames. It is additive:
+  // the unprefixed Model B paths this deployment serves are still written.
+  if (process.argv.includes('--wall')) {
+    for (const slug of appliedTenants()) {
+      for (const surface of SURFACES) {
+        await exportSurface(
+          { app: surface.app, baseUrl: `/t/${slug}${surface.baseUrl}` },
+          slug,
+          join(HQ_PUBLIC, 't', slug, surface.app),
+        );
+      }
+    }
     return;
   }
   const tenant = requiredTenant();
