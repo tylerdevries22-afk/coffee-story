@@ -1,45 +1,9 @@
+import {
+  DEFAULT_CATEGORIES, DEFAULT_MENU_CSV, DEFAULT_PROVIDERS, EMPTY_OPERATIONS,
+  emptyRelease, emptyTrainingProfile, NEUTRAL_TOKENS, SURFACES, WEEKDAYS,
+} from './pack-defaults';
 import { parseTenantManifest } from './parser';
 import type { OrganizationKind } from './types';
-
-const WEEKDAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
-const SURFACES = ['customer', 'kiosk', 'operator', 'display', 'hq'] as const;
-
-const DEFAULT_PROVIDERS = [
-  { capability: 'database', provider: 'supabase', ownership: 'platform', required: true },
-  { capability: 'identity', provider: 'supabase-auth', ownership: 'platform', required: true },
-  { capability: 'hosting', provider: 'vercel', ownership: 'platform', required: true },
-  { capability: 'payments', provider: 'square', ownership: 'organization', required: true },
-] as const;
-
-const NEUTRAL_TOKENS = {
-  primary: '#1C1917',
-  secondary: '#44403C',
-  surface: '#FAFAF9',
-  surfaceElevated: '#FFFFFF',
-  accent: '#8A7350',
-  textPrimary: '#1C1917',
-  textMuted: '#57534E',
-  success: '#2F6844',
-  warning: '#8A5A1E',
-  danger: '#9B3B32',
-  fontDisplay: 'System',
-  fontBody: 'System',
-};
-
-const DEFAULT_MENU_CSV = [
-  'slug,name,category,description,base_price_cents,sizes',
-  'house-latte,House Latte,Espresso,"Espresso, steamed milk, and a thin cap of foam.",450,12:450|16:525',
-  'drip-coffee,Drip Coffee,Brew Bar,Batch-brewed every hour.,300,',
-  'cold-brew,Cold Brew,Brew Bar,Slow-steeped for 18 hours.,475,16:475',
-  'banana-bread,Banana Bread,Bakery,Baked fresh every morning.,375,',
-  '',
-].join('\n');
-
-const DEFAULT_CATEGORIES = [
-  { id: 'espresso', title: 'Espresso', tagline: 'Pulled to order' },
-  { id: 'brew-bar', title: 'Brew Bar', tagline: 'Brewed your way' },
-  { id: 'bakery', title: 'Bakery', tagline: 'Fresh from the case' },
-];
 
 export type TenantSetupLocation = {
   readonly name: string;
@@ -61,6 +25,11 @@ export type TenantSetupInput = {
 export type TenantPackFiles = {
   readonly 'brand.json': Record<string, unknown>;
   readonly 'modules.json': Record<string, unknown>;
+  readonly 'operations.json': Record<string, unknown>;
+  readonly 'packs.json': Record<string, never>;
+  readonly 'release.json': Record<string, unknown>;
+  readonly 'training-profile.json': Record<string, unknown>;
+  readonly 'README.md': string;
   readonly 'menu.csv': string;
   readonly 'menu-categories.json': unknown;
   readonly 'modifiers.json': Record<string, never>;
@@ -178,20 +147,38 @@ export function tenantPackFromSetup(input: TenantSetupInput): TenantPack {
   if (parsed.kind === 'invalid') {
     throw new Error(`Generated tenant pack is invalid: ${parsed.issues.join('; ')}`);
   }
+  // release.json is the factory publisher's hard requirement, and this
+  // generator used to omit it -- so a folder created from the console was one
+  // that could never ship, and nothing said so until a publish failed.
+  const release = emptyRelease(input.slug);
+  if (release.schemaVersion !== 2 || release.tenantSlug !== input.slug) {
+    throw new Error('Generated release.json does not bind this tenant at schemaVersion 2.');
+  }
   return {
     slug: input.slug,
     files: {
       'brand.json': brand,
       'modules.json': {
         schemaVersion: 1,
+        // Neither `surfaces` nor `config` is invented here. This generator
+        // claimed all five surfaces for every module, which is wrong for any
+        // module that does not serve all five -- commerce-catalog serves four
+        // -- and named a `modules/<key>.json` it never wrote. Both failed
+        // onboarding validation, so a folder created from the console has never
+        // passed it. An omitted `surfaces` means unconstrained, which is the
+        // truth: the registry knows which surfaces a module serves, and this
+        // does not.
         modules: input.modules.map((module) => ({
           key: module.key,
           version: module.version,
-          config: `modules/${module.key}.json`,
-          surfaces: [...SURFACES],
           enabled: true,
         })),
       },
+      'operations.json': EMPTY_OPERATIONS,
+      'packs.json': {},
+      'release.json': release,
+      'training-profile.json': emptyTrainingProfile(input.name),
+      'README.md': `# ${input.name}\n\nGenerated tenant pack. See tenants/README.md.\n`,
       'menu.csv': DEFAULT_MENU_CSV,
       'menu-categories.json': DEFAULT_CATEGORIES,
       'modifiers.json': {},
