@@ -106,6 +106,9 @@ readiness.err
 apps/hq/public/customer/
 apps/hq/public/kiosk/
 apps/hq/public/operator/
+# Per-tenant copies the staff wall frames, written by
+# scripts/build-org-web-statics.ts --wall. Generated, like the three above.
+apps/hq/public/t/
 apps/*/dist-web-org/
 .vercel
 .env*

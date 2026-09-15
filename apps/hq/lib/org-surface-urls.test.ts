@@ -6,6 +6,7 @@ import {
   hostedSurfaceUrlsForSlug,
   pathBasedSurfaceUrls,
   surfaceUrlsForTenant,
+  tenantPathSurfaceUrls,
 } from './org-surface-urls';
 
 describe('hostedSurfaceUrlsForSlug', () => {
@@ -73,5 +74,43 @@ describe('surfaceUrlsForTenant', () => {
 describe('pathBasedSurfaceUrls', () => {
   it('strips a trailing slash once', () => {
     assert.equal(pathBasedSurfaceUrls('https://x.example/').customer, 'https://x.example/customer');
+  });
+});
+
+/**
+ * The wall renders every organization, which it could not do before.
+ *
+ * Every hosted surface answers `frame-ancestors 'self'`, so a frame pointed at
+ * another origin is refused by the browser. That is why the wall showed white
+ * for a deployed tenant (its CSP refused the console's origin) and Vercel's
+ * 404 for an undeployed one (a missing deployment sends no CSP, so its error
+ * page framed fine). Neither was the guest app failing.
+ */
+describe('tenantPathSurfaceUrls', () => {
+  it('keeps every guest surface on the calling origin, under the tenant', () => {
+    const urls = tenantPathSurfaceUrls('', 'stillpoint-builders', 'loc-1');
+    assert.equal(urls.customer, '/t/stillpoint-builders/customer');
+    assert.equal(urls.operator, '/t/stillpoint-builders/operator');
+    assert.equal(urls.kiosk, '/t/stillpoint-builders/kiosk');
+    for (const url of Object.values(urls)) {
+      assert.doesNotMatch(url, /^https?:\/\//,
+        'a cross-origin surface is refused by frame-ancestors and paints blank');
+    }
+  });
+
+  /** Two organizations must not resolve to the same build, or one is relabelled as the other. */
+  it('gives different tenants different surfaces', () => {
+    const coffee = tenantPathSurfaceUrls('', 'coffee-story', null);
+    const stillpoint = tenantPathSurfaceUrls('', 'stillpoint-builders', null);
+    for (const key of ['customer', 'operator', 'kiosk'] as const) {
+      assert.notEqual(coffee[key], stillpoint[key], `${key} must differ per tenant`);
+    }
+  });
+
+  it('sends the display board to its same-origin tenant-safe preview', () => {
+    assert.equal(
+      tenantPathSurfaceUrls('', 'coffee-story', 'loc-9').display,
+      '/wall/preview/loc-9',
+    );
   });
 });
