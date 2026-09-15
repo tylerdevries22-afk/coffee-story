@@ -80,7 +80,7 @@ describe('hosted migration promotion', () => {
   it('applies a pending migration, retries once, checks advisors, and verifies readiness', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'hosted-migrations-'));
     await writeFile(join(directory, '20260828163000_release.sql'), 'select 1;');
-    const responses: Array<Response | Error> = [
+    const responses: (Response | Error)[] = [
       Response.json({ message: 'temporarily unavailable' }, { status: 429 }),
       Response.json([]),
       Response.json({}, { status: 201 }),
@@ -130,7 +130,7 @@ describe('hosted migration promotion', () => {
     const directory = await mkdtemp(join(tmpdir(), 'hosted-migrations-'));
     await writeFile(join(directory, '20260828163000_release.sql'), 'select 1;');
     const applied = [{ version: '20260828163000', name: 'release' }];
-    const responses: Array<Response | Error> = [
+    const responses: (Response | Error)[] = [
       Response.json([]),
       new Error('connection closed after commit'),
       Response.json(applied),
