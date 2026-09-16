@@ -97,6 +97,49 @@ describe('parseTenantManifest', () => {
     assert.equal('googlePlaceId' in (result.manifest.locations[0] ?? {}), false);
   });
 
+  /**
+   * `placeQuery` is the property named the way a person would name it, so a
+   * lookup can resolve the id above. It exists because the alternative -- an
+   * operator pasting an opaque id -- fails silently: an id pointing at the cafe
+   * next door renders the cafe's hours under the hotel's name.
+   */
+  it('accepts a property named for a lookup, and trims it', () => {
+    const result = parseTenantManifest(base({
+      locations: [{
+        name: 'Lobby', timezone: 'America/Denver', address: {}, hours: {},
+        placeQuery: '  The Example Hotel, Georgetown CO  ',
+      }],
+    }));
+    assert.equal(result.kind, 'ok');
+    if (result.kind !== 'ok') return;
+    assert.equal(result.manifest.locations[0]?.placeQuery, 'The Example Hotel, Georgetown CO');
+  });
+
+  it('leaves placeQuery absent when the tenant names nothing to look up', () => {
+    const result = parseTenantManifest(base({
+      locations: [{ name: 'Lobby', timezone: 'America/Denver', address: {}, hours: {} }],
+    }));
+    assert.equal(result.kind, 'ok');
+    if (result.kind !== 'ok') return;
+    assert.equal('placeQuery' in (result.manifest.locations[0] ?? {}), false);
+  });
+
+  // It is free text posted to a metered provider, so the bound lives in the
+  // manifest rather than at the call site: a pasted page should not become a
+  // query, and an empty string should not become a lookup that matches anything.
+  for (const bad of ['', '   ', 'x'.repeat(201)]) {
+    it(`refuses a placeQuery that cannot resolve a property: ${JSON.stringify(bad.slice(0, 12))}`, () => {
+      const result = parseTenantManifest(base({
+        locations: [{
+          name: 'Lobby', timezone: 'America/Denver', address: {}, hours: {}, placeQuery: bad,
+        }],
+      }));
+      assert.equal(result.kind, 'invalid');
+      if (result.kind !== 'invalid') return;
+      assert.ok(result.issues.some((issue) => issue.includes('placeQuery must be')), result.issues.join('; '));
+    });
+  }
+
   // Anything that could smuggle a path, a quote or whitespace into a value the
   // database and a URL both handle is refused rather than stored and trusted.
   for (const bad of ['', 'has space', '../etc/passwd', 'quote"id', 'a'.repeat(256)]) {

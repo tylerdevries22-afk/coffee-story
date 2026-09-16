@@ -4,9 +4,10 @@ import { activeModuleKeys } from '@/lib/capabilities';
 import { loadDeviceWall } from '@/lib/device-wall-data';
 import { surfaceUrlsForTenant, tenantPathSurfaceUrls } from '@/lib/org-surface-urls';
 import { partnerNetworkOf } from '@/lib/partner-surface-urls';
+import { lobbySurfaceUrl } from '@/lib/lobby-screen';
 import { currentSession } from '@/lib/auth';
 import { readWorkspaceScope } from '@/lib/workspace-scope';
-import { tenantOrgById } from '@/lib/tenants';
+import { tenantOrgById, type TenantOrg } from '@/lib/tenants';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,6 +15,7 @@ function previewsForSlug(
   slug: string | null,
   locationId: string | null,
   brandConfig?: unknown,
+  org?: TenantOrg | null,
 ): AppPreview[] {
   // Same origin, per tenant -- not the hosted Vercel stack.
   //
@@ -40,7 +42,13 @@ function previewsForSlug(
     : surfaceUrlsForTenant(slug);
   const partner = partnerNetworkOf(brandConfig);
   const urls = partner ? { ...base, ...partner.surfaces } : base;
-  return withSurfaceUrls(appPreviewsFor(), urls);
+  // A venue's kiosk IS its lobby screen, and it is ours to serve rather than
+  // the partner's: it is drawn from one property's own published page, so it
+  // is per-building by nature. Applied after the partner merge because the
+  // parser already refuses a network that claims `kiosk` -- this is the
+  // positive half of that rule, not a second chance to override it.
+  const lobby = org ? lobbySurfaceUrl(org, '', locationId) : null;
+  return withSurfaceUrls(appPreviewsFor(), lobby ? { ...urls, kiosk: lobby } : urls);
 }
 
 export default async function AppsWallPage() {
@@ -57,7 +65,7 @@ export default async function AppsWallPage() {
       slug,
       name: org.name,
       previews: previewsForSlug(
-        slug, deviceWall.locations[0]?.id ?? null, registered?.brandConfig,
+        slug, deviceWall.locations[0]?.id ?? null, registered?.brandConfig, registered,
       ),
     };
   });

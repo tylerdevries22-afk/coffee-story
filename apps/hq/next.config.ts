@@ -106,9 +106,10 @@ const config: NextConfig = {
       { source: '/operator', headers: modelBHeaders },
       { source: '/operator/:path*', headers: modelBHeaders },
       { source: '/t/:slug/:path*', headers: modelBHeaders },
+      { source: '/lobby/:path*', headers: modelBHeaders },
       {
         // Exclude Model B prefixes so they do not inherit production frame-ancestors 'none'.
-        source: '/((?!api/|wall/preview/|t/|customer(?:/|$)|kiosk(?:/|$)|operator(?:/|$)|$).*)',
+        source: '/((?!api/|wall/preview/|t/|lobby(?:/|$)|customer(?:/|$)|kiosk(?:/|$)|operator(?:/|$)|$).*)',
         headers: securityHeaders({ developmentFrames: process.env.NODE_ENV !== 'production' }),
       },
     ];
