@@ -41,6 +41,11 @@ async function visitRoutes(page: Page, baseUrl: string, routes: readonly string[
       }
     }
     assert.ok(response?.ok(), `${route} returned HTTP ${response?.status() ?? 'no response'}`);
+    await page.waitForFunction(
+      () => Boolean(document.body?.innerText.trim()),
+      undefined,
+      { timeout: 20_000 },
+    );
     const body = await page.locator('body').innerText({ timeout: 20_000 });
     assert.ok(body.trim().length > 0, `${route} rendered an empty document`);
     assert.doesNotMatch(body, /Application error|Internal Server Error/i, `${route} rendered a fatal error`);
