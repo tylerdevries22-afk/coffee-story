@@ -1,12 +1,21 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import {
-  PARTNER_NETWORKS,
   networkSlugOf,
   partnerAdmitsOrigin,
-  partnerNetworkFor,
+  partnerNetworkOf,
 } from './partner-surface-urls';
+
+/** The shipped network config, read from disk: no partner is named in source. */
+function tenantNetwork(slug: string): unknown {
+  return JSON.parse(
+    readFileSync(join(process.cwd(), '..', '..', 'tenants', slug, 'brand.json'), 'utf8'),
+  );
+}
 
 /**
  * The gate on partner-hosted surfaces.
@@ -16,65 +25,89 @@ import {
  * never handed to a partner.
  */
 describe('partner surface resolution', () => {
-  it('recognises a venue by the network its config declares', () => {
-    const partner = partnerNetworkFor(networkSlugOf({
-      network: { slug: 'actz', relationship: 'member' },
-    }));
-    assert.ok(partner, 'a venue on the actz network resolved to no partner');
-    assert.equal(partner?.surfaces.hq, 'https://actz.org/dashboard');
-  });
-
-  // The requirement this file exists for. A hotel that joins the network must
-  // work with no edit here; if this ever fails, "any property" has quietly
-  // become "the properties someone remembered to list".
-  it('resolves a venue it has never seen, because the network is the key', () => {
+  // The requirement this module exists for. A venue is recognised by the
+  // network its own config declares, so a hotel that joins works with no edit
+  // here -- and no partner is named in this repo's source, which rule 4 forbids
+  // and `pnpm audit:brand` enforces.
+  it('resolves a venue it has never seen, from that venue own config', () => {
     for (const slug of ['a-hotel-nobody-listed', 'another-chain-entirely']) {
-      const partner = partnerNetworkFor(networkSlugOf({
-        identity: { slug }, network: { slug: 'actz', relationship: 'member' },
-      }));
+      const partner = partnerNetworkOf({
+        identity: { slug },
+        network: {
+          slug: 'some-network', relationship: 'member',
+          hostedSurfaces: { hq: 'https://partner.example/dashboard' },
+          framedBy: ['https://*.vercel.app'],
+        },
+      });
       assert.ok(partner, `${slug} resolved to no partner`);
+      assert.equal(partner?.surfaces.hq, 'https://partner.example/dashboard');
     }
   });
 
-  it('leaves a tenant on no network entirely alone', () => {
-    assert.equal(partnerNetworkFor(networkSlugOf({ network: null })), null);
-    assert.equal(partnerNetworkFor(networkSlugOf({})), null);
-    assert.equal(partnerNetworkFor(networkSlugOf(null)), null);
-    assert.equal(partnerNetworkFor(networkSlugOf('not an object')), null);
+  it('reads the shipped network config off disk rather than a table in source', () => {
+    const partner = partnerNetworkOf(tenantNetwork('actz'));
+    assert.ok(partner, 'the shipped network declared no hosted surfaces');
+    assert.equal(networkSlugOf(tenantNetwork('actz')), partner?.slug);
+    assert.ok(partner?.surfaces.hq?.startsWith('https://'));
+    assert.ok(partner?.surfaces.operator?.startsWith('https://'));
   });
 
-  it('never hands the kiosk to a partner', () => {
-    for (const [name, partner] of Object.entries(PARTNER_NETWORKS)) {
-      assert.equal(partner.surfaces.kiosk, undefined,
-        `${name} claimed the kiosk, which is per-property and ours to serve`);
-    }
+  it('treats a network that hosts nothing as no partner at all', () => {
+    // A franchisor that only groups brands hosts nothing; its venues keep the
+    // surfaces this repo builds.
+    assert.equal(partnerNetworkOf({ network: { slug: 'plain', relationship: 'owner' } }), null);
+    assert.equal(partnerNetworkOf({ network: null }), null);
+    assert.equal(partnerNetworkOf({}), null);
+    assert.equal(partnerNetworkOf(null), null);
+    assert.equal(partnerNetworkOf('not an object'), null);
+  });
+
+  it('never lets a network take the kiosk, even if its config claims it', () => {
+    const partner = partnerNetworkOf({
+      network: {
+        slug: 'greedy', relationship: 'owner',
+        hostedSurfaces: { hq: 'https://partner.example/', kiosk: 'https://partner.example/kiosk' },
+      },
+    });
+    assert.equal(partner?.surfaces.kiosk, undefined,
+      'a network claimed the kiosk, which is per-property and ours to serve');
+  });
+
+  it('ignores a hosted surface that is not an https URL', () => {
+    const partner = partnerNetworkOf({
+      network: {
+        slug: 'sloppy', relationship: 'owner',
+        hostedSurfaces: { hq: 'http://insecure.example/', operator: 'https://ok.example/' },
+      },
+    });
+    assert.equal(partner?.surfaces.hq, undefined);
+    assert.equal(partner?.surfaces.operator, 'https://ok.example/');
   });
 
   /**
-   * Framing is the partner's decision. These assertions encode what actz-may's
-   * security-csp.ts actually sends, so if this repo ever assumes a localhost
-   * wall can frame production Actz, it fails here rather than painting an empty
-   * rectangle that reads as a broken app.
+   * Framing is the partner's decision. These encode what the network's own CSP
+   * sends, so if this repo ever assumes a localhost wall can frame a deployed
+   * partner, it fails here rather than painting an empty rectangle that a
+   * viewer reads as a broken app.
    */
   describe('framing admission', () => {
-    const actz = PARTNER_NETWORKS.actz;
+    const partner = partnerNetworkOf(tenantNetwork('actz'));
 
-    it('admits a deployed HQ on the hosted platform', () => {
-      assert.ok(actz && partnerAdmitsOrigin(actz, 'https://coffee-story-hq.vercel.app'));
-      assert.ok(actz && partnerAdmitsOrigin(actz, 'https://actz.org'));
+    it('admits a deployed console on the hosted platform', () => {
+      assert.ok(partner && partnerAdmitsOrigin(partner, 'https://coffee-story-hq.vercel.app'));
     });
 
     it('refuses a localhost wall, which is why the local tile stays blank', () => {
-      assert.equal(actz && partnerAdmitsOrigin(actz, 'http://localhost:3300'), false);
-      assert.equal(actz && partnerAdmitsOrigin(actz, 'https://localhost:3300'), false);
+      assert.equal(partner && partnerAdmitsOrigin(partner, 'http://localhost:3300'), false);
+      assert.equal(partner && partnerAdmitsOrigin(partner, 'https://localhost:3300'), false);
     });
 
-    // A suffix match that ignored the scheme or the label boundary would admit
-    // `https://evil-vercel.app` and `http://…vercel.app`. Neither is the partner.
+    // A match that ignored the scheme or the label boundary would admit
+    // `https://evilvercel.app` and `http://x.vercel.app`. Neither is the partner.
     it('does not let a lookalike origin pass as the wildcard', () => {
-      assert.equal(actz && partnerAdmitsOrigin(actz, 'https://evilvercel.app'), false);
-      assert.equal(actz && partnerAdmitsOrigin(actz, 'http://x.vercel.app'), false);
-      assert.equal(actz && partnerAdmitsOrigin(actz, 'https://actz.org.evil.com'), false);
+      assert.equal(partner && partnerAdmitsOrigin(partner, 'https://evilvercel.app'), false);
+      assert.equal(partner && partnerAdmitsOrigin(partner, 'http://x.vercel.app'), false);
+      assert.equal(partner && partnerAdmitsOrigin(partner, 'https://actz.org.evil.com'), false);
     });
   });
 });

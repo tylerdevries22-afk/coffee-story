@@ -3,7 +3,7 @@ import { appPreviewsFor, withSurfaceUrls, type AppPreview, type OrgPreviewCatalo
 import { activeModuleKeys } from '@/lib/capabilities';
 import { loadDeviceWall } from '@/lib/device-wall-data';
 import { surfaceUrlsForTenant, tenantPathSurfaceUrls } from '@/lib/org-surface-urls';
-import { networkSlugOf, partnerNetworkFor } from '@/lib/partner-surface-urls';
+import { partnerNetworkOf } from '@/lib/partner-surface-urls';
 import { currentSession } from '@/lib/auth';
 import { readWorkspaceScope } from '@/lib/workspace-scope';
 import { tenantOrgById } from '@/lib/tenants';
@@ -38,7 +38,7 @@ function previewsForSlug(
   const base = slug
     ? tenantPathSurfaceUrls('', slug, locationId)
     : surfaceUrlsForTenant(slug);
-  const partner = partnerNetworkFor(networkSlugOf(brandConfig));
+  const partner = partnerNetworkOf(brandConfig);
   const urls = partner ? { ...base, ...partner.surfaces } : base;
   return withSurfaceUrls(appPreviewsFor(), urls);
 }

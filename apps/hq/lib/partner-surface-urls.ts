@@ -1,57 +1,79 @@
 import type { AppPreviewKey } from './app-previews';
 
 /**
- * Surfaces a partner network hosts itself, rather than this repo building them.
+ * Surfaces a partner network hosts, read from the tenant's own config.
  *
- * Most tenants get five surfaces this repo compiles. A venue on a partner
- * network does not: its staff already work in the partner's own portal and its
- * guests already carry the partner's own app, so rebuilding either here would
- * produce a second, worse copy that has to be kept in step with the original
- * forever. The wall frames the real thing instead.
+ * A venue on a partner network already has a staff console and a guest app on
+ * that network. Rebuilding either here would ship a worse copy that has to
+ * track the original forever, so the wall frames the real thing instead.
  *
- * Keyed on the tenant's NETWORK, never on a tenant slug. A network has one
- * portal and one guest app for every venue under it, so keying on the slug
- * would mean editing this file for every hotel that joins -- which is exactly
- * the "works for any property" requirement failing quietly.
+ * Which network, and where its surfaces live, comes from `network` in the
+ * tenant's brand config -- never a table of slugs in this file. Two reasons,
+ * and the first is a rule: a network name in app source is a hard-coded brand
+ * string, which `pnpm audit:brand` fails (it caught exactly that in the first
+ * draft of this module). The second is the requirement -- a venue joining the
+ * network must work with no edit here, or "any property" quietly means "the
+ * ones someone remembered to list".
  *
- * The kiosk is deliberately absent: a lobby screen is per-property, built from
- * that hotel's own published page, so it stays a surface this repo serves.
+ * The kiosk is never partner-hosted. A lobby screen is drawn from one
+ * property's own published page, so it is per-venue by nature; the tenant-config
+ * parser rejects a network that claims it, and this module never reads it.
  */
 export type PartnerSurfaceUrls = Readonly<Partial<Record<AppPreviewKey, string>>>;
 
-/**
- * Whether a frame pointed at this partner can actually paint.
- *
- * Framing is the partner's decision, not ours: the browser enforces THEIR
- * `frame-ancestors`, so an origin they do not list renders blank no matter what
- * we put in the src. Recorded per network so the wall can say "this partner
- * does not admit this origin" instead of showing an empty rectangle and
- * letting a viewer conclude the app is broken.
- */
 export type PartnerNetwork = {
+  readonly slug: string;
   readonly surfaces: PartnerSurfaceUrls;
-  /** Origins the partner's CSP admits as a framing ancestor. */
+  /** Origins the partner's own CSP admits as a framing ancestor. */
   readonly framedBy: readonly string[];
 };
 
-const ACTZ_ORIGIN = 'https://actz.org';
-
-export const PARTNER_NETWORKS: Readonly<Record<string, PartnerNetwork>> = {
-  actz: {
-    surfaces: {
-      // The provider portal: the venue's own staff console on the network.
-      hq: `${ACTZ_ORIGIN}/dashboard`,
-      // The traveller app a guest carries, which is also what the operator
-      // surface shows -- staff look at the same itinerary the guest does.
-      operator: `${ACTZ_ORIGIN}/profile-dashboard`,
-    },
-    // Mirrors actz-may's security-csp.ts: production admits 'self', *.vercel.app
-    // and the actz.org origins, plus whatever EMBED_ALLOWED_ORIGINS carries.
-    // A localhost HQ is NOT on that list, so the local wall cannot frame it
-    // until that repo adds the origin and ships it.
-    framedBy: ['https://*.vercel.app', 'https://actz.org', 'https://*.actz.org'],
-  },
+type NetworkConfig = {
+  slug?: unknown;
+  hostedSurfaces?: unknown;
+  framedBy?: unknown;
 };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function networkOf(brandConfig: unknown): NetworkConfig | null {
+  if (!isRecord(brandConfig)) return null;
+  const network = brandConfig.network;
+  return isRecord(network) ? network as NetworkConfig : null;
+}
+
+/** The network slug a tenant declares, if any. */
+export function networkSlugOf(brandConfig: unknown): string | null {
+  const slug = networkOf(brandConfig)?.slug;
+  return typeof slug === 'string' && slug.length > 0 ? slug : null;
+}
+
+/**
+ * The partner surfaces a tenant's network serves, or null when it serves none.
+ *
+ * A network with no `hostedSurfaces` is not a partner in this sense -- a
+ * franchisor that simply groups brands hosts nothing, and its venues keep the
+ * surfaces this repo builds.
+ */
+export function partnerNetworkOf(brandConfig: unknown): PartnerNetwork | null {
+  const network = networkOf(brandConfig);
+  const slug = networkSlugOf(brandConfig);
+  if (!network || !slug || !isRecord(network.hostedSurfaces)) return null;
+  const surfaces: Record<string, string> = {};
+  for (const [surface, url] of Object.entries(network.hostedSurfaces)) {
+    // `kiosk` is refused by the parser; refused again here so a config written
+    // before that rule existed still cannot take a venue's lobby screen away.
+    if (surface === 'kiosk') continue;
+    if (typeof url === 'string' && url.startsWith('https://')) surfaces[surface] = url;
+  }
+  if (Object.keys(surfaces).length === 0) return null;
+  const framedBy = Array.isArray(network.framedBy)
+    ? network.framedBy.filter((entry): entry is string => typeof entry === 'string')
+    : [];
+  return { slug, surfaces: surfaces as PartnerSurfaceUrls, framedBy };
+}
 
 /** Matches one origin against a partner pattern, honouring a single `*` label. */
 function admits(pattern: string, origin: string): boolean {
@@ -64,26 +86,13 @@ function admits(pattern: string, origin: string): boolean {
   return originHost.endsWith(suffix) && originHost.length > suffix.length;
 }
 
-export function partnerNetworkFor(networkSlug: string | null | undefined): PartnerNetwork | null {
-  if (!networkSlug) return null;
-  return PARTNER_NETWORKS[networkSlug] ?? null;
-}
-
 /**
- * The network slug a tenant's brand config declares, if any.
+ * Whether the partner admits `origin` as a framing ancestor.
  *
- * Read from the config rather than a list here, so a venue joining the network
- * is a tenant-folder fact and nothing in this repo changes.
+ * False means the frame will paint blank whatever we do, because the browser
+ * enforces the partner's policy and not ours. A console that knows this can say
+ * so rather than showing an empty rectangle a viewer reads as a broken app.
  */
-export function networkSlugOf(brandConfig: unknown): string | null {
-  if (typeof brandConfig !== 'object' || brandConfig === null) return null;
-  const network = (brandConfig as { network?: unknown }).network;
-  if (typeof network !== 'object' || network === null) return null;
-  const slug = (network as { slug?: unknown }).slug;
-  return typeof slug === 'string' && slug.length > 0 ? slug : null;
-}
-
-/** Whether the partner admits `origin` as a framing ancestor. */
 export function partnerAdmitsOrigin(partner: PartnerNetwork, origin: string): boolean {
   return partner.framedBy.some((pattern) => admits(pattern, origin));
 }

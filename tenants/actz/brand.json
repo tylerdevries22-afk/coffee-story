@@ -5,7 +5,16 @@
   },
   "network": {
     "slug": "actz",
-    "relationship": "owner"
+    "relationship": "owner",
+    "hostedSurfaces": {
+      "hq": "https://actz.org/dashboard",
+      "operator": "https://actz.org/profile-dashboard"
+    },
+    "framedBy": [
+      "https://*.vercel.app",
+      "https://actz.org",
+      "https://*.actz.org"
+    ]
   },
   "inheritance": {
     "mode": "standalone",
