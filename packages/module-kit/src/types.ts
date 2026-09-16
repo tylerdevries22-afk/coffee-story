@@ -15,9 +15,12 @@
 /**
  * Surfaces a module may DECLARE. Wider than `BUILT_SURFACES` for the same
  * reason `TENANT_SURFACES` is: `admin` is the Elevate portal, declared in a
- * pack Elevate owns and rendered there, never here.
+ * pack Elevate owns and rendered there, never here. `lobby` is the unattended
+ * venue screen, declarable now and built once `apps/lobby` ships.
  */
-export const APP_SURFACES = ['customer', 'kiosk', 'operator', 'display', 'hq', 'admin'] as const;
+export const APP_SURFACES = [
+  'customer', 'kiosk', 'operator', 'display', 'hq', 'admin', 'lobby',
+] as const;
 export type AppSurface = (typeof APP_SURFACES)[number];
 
 /** The subset of `APP_SURFACES` this repo renders. The rest are declared-only. */

@@ -11,8 +11,15 @@ export type OrganizationKind = (typeof ORGANIZATION_KINDS)[number];
  * schema and emits it, so a pack is not malformed here merely because one of
  * its surfaces is hosted elsewhere -- consumers that turn a declaration into a
  * build filter to what they ship instead of rejecting the manifest.
+ *
+ * `lobby` is the unattended venue screen: it renders a provider's published
+ * page rather than a catalog, so a tenant may declare it without declaring
+ * `kiosk`. It is declarable before it is buildable, for the same reason
+ * `admin` is -- a partner emits the pack, and this repo decides what to ship.
  */
-export const TENANT_SURFACES = ['customer', 'kiosk', 'operator', 'display', 'hq', 'admin'] as const;
+export const TENANT_SURFACES = [
+  'customer', 'kiosk', 'operator', 'display', 'hq', 'admin', 'lobby',
+] as const;
 export type TenantSurface = (typeof TENANT_SURFACES)[number];
 
 export type TenantNetwork = {
