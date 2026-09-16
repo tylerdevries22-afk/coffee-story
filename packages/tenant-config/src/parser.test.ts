@@ -74,6 +74,45 @@ describe('parseTenantManifest', () => {
     assert.ok(result.issues.includes('business must be an object of strings'));
   });
 
+  // A Place id is the only field on a location that is an identity rather than
+  // a description, so it is the only one worth validating beyond "is a string".
+  it('accepts a location that names the Google Place it is', () => {
+    const result = parseTenantManifest(base({
+      locations: [{
+        name: 'Lobby', timezone: 'America/Denver', address: {}, hours: {},
+        googlePlaceId: 'ChIJN1t_tDeuEmsRUsoyG83frY4',
+      }],
+    }));
+    assert.equal(result.kind, 'ok');
+    if (result.kind !== 'ok') return;
+    assert.equal(result.manifest.locations[0]?.googlePlaceId, 'ChIJN1t_tDeuEmsRUsoyG83frY4');
+  });
+
+  it('leaves googlePlaceId absent when the tenant names no Place', () => {
+    const result = parseTenantManifest(base({
+      locations: [{ name: 'Lobby', timezone: 'America/Denver', address: {}, hours: {} }],
+    }));
+    assert.equal(result.kind, 'ok');
+    if (result.kind !== 'ok') return;
+    assert.equal('googlePlaceId' in (result.manifest.locations[0] ?? {}), false);
+  });
+
+  // Anything that could smuggle a path, a quote or whitespace into a value the
+  // database and a URL both handle is refused rather than stored and trusted.
+  for (const bad of ['', 'has space', '../etc/passwd', 'quote"id', 'a'.repeat(256)]) {
+    it(`refuses a Google Place id that is not one: ${JSON.stringify(bad)}`, () => {
+      const result = parseTenantManifest(base({
+        locations: [{
+          name: 'Lobby', timezone: 'America/Denver', address: {}, hours: {}, googlePlaceId: bad,
+        }],
+      }));
+      assert.equal(result.kind, 'invalid');
+      if (result.kind !== 'invalid') return;
+      assert.ok(result.issues.some((issue) => issue.includes('googlePlaceId must be a Google Place id')),
+        result.issues.join('; '));
+    });
+  }
+
   it('rejects duplicate surfaces and provider capabilities', () => {
     const provider = { capability: 'database', provider: 'supabase', ownership: 'platform', required: true };
     const result = parseTenantManifest(base({ surfaces: ['hq', 'hq'], providers: [provider, provider] }));

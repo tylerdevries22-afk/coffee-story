@@ -45,6 +45,17 @@ export type TenantLocation = {
   readonly name: string;
   readonly address: Readonly<Record<string, string>>;
   readonly note?: string;
+  /**
+   * The Google Place this location IS, when a partner resolved one.
+   *
+   * An address is descriptive and a name is ambiguous -- two hotels a block
+   * apart can share both. A Place id is the identity: it makes a location
+   * de-duplicable and re-syncable against the source that produced it, which
+   * is what lets a pack describe any venue rather than a hand-listed few.
+   * Optional, because a tenant that never went through a Places lookup has
+   * nothing truthful to put here.
+   */
+  readonly googlePlaceId?: string;
   readonly timezone: string;
   readonly hours: Readonly<Record<string, readonly {
     readonly open: string;
