@@ -1,0 +1,110 @@
+{
+  "schemaVersion": 1,
+  "organization": {
+    "kind": "franchisor"
+  },
+  "network": {
+    "slug": "actz",
+    "relationship": "owner"
+  },
+  "inheritance": {
+    "mode": "standalone",
+    "sourceTenantSlug": null,
+    "revision": 1,
+    "overrides": []
+  },
+  "surfaces": [
+    "hq"
+  ],
+  "providers": [
+    {
+      "capability": "database",
+      "provider": "supabase",
+      "ownership": "platform",
+      "required": true
+    },
+    {
+      "capability": "identity",
+      "provider": "supabase-auth",
+      "ownership": "platform",
+      "required": true
+    },
+    {
+      "capability": "hosting",
+      "provider": "vercel",
+      "ownership": "platform",
+      "required": true
+    }
+  ],
+  "$docs": {
+    "status": "ACTZ is the franchisor tenant for an adventure-activity and lodging network: it owns the network's brand defaults and design tokens but ships no guest app, kiosk, or lobby of its own -- only the hq console. Member hotel and venue brands are separate tenants with organization.kind \"franchisee\", network.relationship \"member\", and inheritance.mode \"network\" pointing sourceTenantSlug at \"actz\"; they ship [\"hq\", \"lobby\"] and inherit these tokens unless they override them.",
+    "contentModel": "ACTZ installs no commerce-catalog, operations, training, or device-wall capability itself -- it sells nothing, staffs no site, and declares no locations. Catalog, ordering, payments, and operations belong to each member property's own tenant pack."
+  },
+  "identity": {
+    "slug": "actz",
+    "name": "ACTZ",
+    "bundleId": "com.actz.app",
+    "scheme": "actz",
+    "kioskBundleId": "",
+    "kioskScheme": "",
+    "easProjectId": "",
+    "kioskEasProjectId": ""
+  },
+  "tokens": {
+    "primary": "#1F3D2B",
+    "secondary": "#3A5A40",
+    "surface": "#F5F1E8",
+    "surfaceElevated": "#FFFFFF",
+    "accent": "#C1622D",
+    "textPrimary": "#1B231D",
+    "textMuted": "#5B6B5E",
+    "success": "#3F7D4E",
+    "warning": "#B8842E",
+    "danger": "#A23B2E",
+    "radius": {
+      "sm": 8,
+      "md": 14,
+      "lg": 22,
+      "pill": 999
+    },
+    "spacing": {
+      "xs": 4,
+      "sm": 8,
+      "md": 12,
+      "lg": 16,
+      "xl": 24,
+      "xxl": 32
+    },
+    "fontDisplay": "Fraunces",
+    "fontBody": "Inter",
+    "motion": {
+      "fast": 120,
+      "base": 220,
+      "slow": 360
+    }
+  },
+  "copy": {
+    "appName": "ACTZ"
+  },
+  "features": {
+    "drops": false,
+    "catering": false,
+    "delivery": false,
+    "multi_location": false,
+    "sms": false,
+    "stored_value": false,
+    "referrals": false,
+    "operations": false
+  },
+  "business": {
+    "monogram": "ACZ",
+    "giftCodePrefix": "ACTZ",
+    "legalName": "ACTZ Network, Inc.",
+    "tagline": "Basecamp for every adventure.",
+    "email": "network@actz.example",
+    "website": "https://actz.example",
+    "supportEmail": "network@actz.example",
+    "industry": "Adventure activity and lodging network",
+    "industryKey": "hospitality"
+  }
+}

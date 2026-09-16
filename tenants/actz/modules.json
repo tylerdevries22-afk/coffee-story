@@ -1,0 +1,5 @@
+{
+  "$docs": "ACTZ is the network operator, not a seller: it installs no modules of its own. Member venues install what they need; a franchisor row exists so its hotels can inherit tokens and configuration, not so it can take an order.",
+  "schemaVersion": 1,
+  "modules": []
+}
