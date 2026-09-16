@@ -24,9 +24,10 @@
  * value ships readable inside a guest bundle, and a Places key must not.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
 
 import { PlacesError, findLodging, type PlaceDetails } from '@platform/engine';
+
+import { tenantBrandPath } from './resolve-tenant-places-lib';
 
 type Location = { name?: string; placeQuery?: string; googlePlaceId?: string };
 type Brand = { identity?: { name?: string }; locations?: Location[] };
@@ -88,7 +89,7 @@ async function main(): Promise<number> {
   const check = flag('check');
   const force = flag('force');
   const apiKey = process.env.GOOGLE_PLACES_API_KEY;
-  const path = join(process.cwd(), 'tenants', slug, 'brand.json');
+  const path = tenantBrandPath(process.cwd(), slug);
   const brand = JSON.parse(readFileSync(path, 'utf8')) as Brand;
   const locations = brand.locations ?? [];
   if (locations.length === 0) {
