@@ -130,6 +130,16 @@ test('findLodging reports no match rather than inventing one', async () => {
   });
 });
 
+test('findLodging rejects an oversized query before spending a provider call', async () => {
+  const calls = await withFetch(() => json({ places: [HOTEL] }), async () => {
+    await assert.rejects(
+      findLodging('x'.repeat(201), { apiKey: 'k' }),
+      (error: unknown) => error instanceof PlacesError && error.code === 'not_found',
+    );
+  });
+  assert.equal(calls.length, 0);
+});
+
 test('a provider failure surfaces as provider, not as a malformed place', async () => {
   await withFetch(() => new Response('nope', { status: 403 }), async () => {
     await assert.rejects(

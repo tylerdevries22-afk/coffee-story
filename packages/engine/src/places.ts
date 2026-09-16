@@ -19,6 +19,7 @@ import { ExternalRequestError, fetchExternalWithRetry } from './http';
 import { PLACE_FIELDS, normalizePlace, isLodging, type PlaceDetails } from './places-types';
 
 const ENDPOINT = 'https://places.googleapis.com/v1';
+const PLACE_QUERY_MAX = 200;
 
 /** Bounds chosen for a screen a guest is standing in front of, not a batch job. */
 const TRANSPORT = { timeoutMs: 6_000, attempts: 2, retryDelayMs: 300, maxResponseBytes: 262_144 } as const;
@@ -129,7 +130,9 @@ export async function placeDetails(
 export async function findLodging(query: string, options: PlacesOptions): Promise<PlaceDetails> {
   const key = requireKey(options);
   const textQuery = query.trim();
-  if (textQuery.length === 0) throw new PlacesError('not_found');
+  // Keep this boundary aligned with tenant-config. Callers outside that parser
+  // must not be able to turn an unbounded string into a metered provider call.
+  if (textQuery.length === 0 || query.length > PLACE_QUERY_MAX) throw new PlacesError('not_found');
   const body = await call('/places:searchText', {
     method: 'POST',
     signal: options.signal ?? null,
