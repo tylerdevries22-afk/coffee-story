@@ -25,18 +25,17 @@
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 
-import { PlacesError, findLodging, type PlaceDetails } from '@platform/engine';
+import { findLodging } from '@platform/engine';
 
-import { tenantBrandPath } from './resolve-tenant-places-lib';
+import {
+  applyResolvedPlaces,
+  resolveLocations,
+  tenantBrandPath,
+  type PlaceLocation,
+  type PlaceOutcome,
+} from './resolve-tenant-places-lib';
 
-type Location = { name?: string; placeQuery?: string; googlePlaceId?: string };
-type Brand = { identity?: { name?: string }; locations?: Location[] };
-
-type Outcome =
-  | { kind: 'resolved'; name: string; place: PlaceDetails }
-  | { kind: 'kept'; name: string; placeId: string }
-  | { kind: 'skipped'; name: string; why: string }
-  | { kind: 'failed'; name: string; why: string };
+type Brand = { identity?: { name?: string }; locations?: PlaceLocation[] };
 
 function flag(name: string): boolean {
   return process.argv.includes(`--${name}`);
@@ -48,26 +47,7 @@ function option(name: string): string | null {
   return value && !value.startsWith('--') ? value : null;
 }
 
-/** Resolves one branch, never throwing: one bad branch must not abort a chain. */
-async function resolveBranch(
-  location: Location, apiKey: string | undefined, force: boolean,
-): Promise<Outcome> {
-  const name = location.name ?? 'unnamed branch';
-  if (location.googlePlaceId && !force) {
-    return { kind: 'kept', name, placeId: location.googlePlaceId };
-  }
-  if (!location.placeQuery) {
-    return { kind: 'skipped', name, why: 'no placeQuery to resolve from' };
-  }
-  try {
-    return { kind: 'resolved', name, place: await findLodging(location.placeQuery, { apiKey }) };
-  } catch (error) {
-    const why = error instanceof PlacesError ? error.code : 'unexpected error';
-    return { kind: 'failed', name, why };
-  }
-}
-
-function describe(outcome: Outcome): string {
+function describe(outcome: PlaceOutcome): string {
   switch (outcome.kind) {
     case 'resolved':
       return `  resolved  ${outcome.name} -> ${outcome.place.placeId} (${outcome.place.name})`;
@@ -117,27 +97,20 @@ async function main(): Promise<number> {
     return 0;
   }
 
-  const outcomes: Outcome[] = [];
-  for (const location of locations) {
-    // Serial on purpose: a metered provider, a handful of branches, and an
-    // error that names which one. Parallelism here buys nothing worth the
-    // interleaved failure output.
-    const outcome = await resolveBranch(location, apiKey, force);
-    outcomes.push(outcome);
-    console.log(describe(outcome));
-  }
+  const outcomes = await resolveLocations(
+    locations,
+    (query) => findLodging(query, { apiKey }),
+    force,
+  );
+  for (const outcome of outcomes) console.log(describe(outcome));
 
-  const resolved = outcomes.filter((outcome): outcome is Extract<Outcome, { kind: 'resolved' }> =>
-    outcome.kind === 'resolved');
+  const resolved = outcomes.filter((outcome) => outcome.kind === 'resolved');
   const failed = outcomes.filter((outcome) => outcome.kind === 'failed');
 
   if (resolved.length > 0) {
-    for (const outcome of resolved) {
-      const location = locations.find((entry) => entry.name === outcome.name);
-      if (location) location.googlePlaceId = outcome.place.placeId;
-    }
+    const applied = applyResolvedPlaces(locations, outcomes);
     writeFileSync(path, `${JSON.stringify(brand, null, 2)}\n`);
-    console.log(`\nWrote ${resolved.length} Place id(s) into tenants/${slug}/brand.json`);
+    console.log(`\nWrote ${applied} Place id(s) into tenants/${slug}/brand.json`);
   }
 
   if (failed.length > 0) {
