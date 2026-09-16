@@ -1,0 +1,18 @@
+{
+  "businessName": "ACTZ",
+  "industry": "Adventure activity and lodging network",
+  "locale": "en-US",
+  "website": "https://actz.example",
+  "products": [],
+  "services": [
+    "Network brand standards",
+    "Member property onboarding",
+    "Design token and brand licensing"
+  ],
+  "complianceTopics": [
+    "brand standards compliance",
+    "guest data privacy across member properties",
+    "franchise agreement compliance"
+  ],
+  "brandVoice": "Confident, outdoorsy, precise, and welcoming"
+}

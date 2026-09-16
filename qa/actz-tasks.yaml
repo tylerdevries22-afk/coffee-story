@@ -48,6 +48,13 @@ tasks:
       A tenant declaring commerce-catalog validates with either the CSV trio or a
       CatalogManifest; coffee-story and stillpoint-builders are unchanged.
     owner: worker
+    finding: >-
+      tenants/coffee-story/modules/commerce-catalog/config.json ALREADY declares a
+      `sources` mapping (offerings: menu.csv, folders: menu-categories.json, ...).
+      That indirection is probably the correct seam -- point `sources` at a
+      CatalogManifest rather than teaching the validator a second filename set.
+      Check whether module-manifest validation actually reads it before widening
+      anything else.
 
   - id: A4
     title: Generalize integration auth to per-integration secrets and keys
@@ -61,7 +68,12 @@ tasks:
 
   - id: B1
     title: ACTZ as a franchise network with a franchisor brand
-    status: pending
+    status: done
+    evidence: >-
+      tenants/actz/ validates (onboard dry run), tenant-config 22/22 including
+      "actz/brand.json satisfies the v1 contract", both rule-4 audits clean,
+      industry-copy-packs 17/17 including "actz names an industry pack"
+    was_status: pending
     depends_on: [A2]
     acceptance: parser accepts the franchisor manifest; network relationship is owner
     owner: worker
@@ -124,6 +136,12 @@ tasks:
       show check-in time, check-out time, amenities or roomCount.
     owner: worker
     repo: actz-may
+    finding: >-
+      Wider than first scoped. findPublishedPage() in page-lookup.ts selects an
+      EXPLICIT column list from businessPages that omits typeAttrs entirely, so
+      PublishedPage carries no such field for pageConfigResponse to read. The
+      change therefore spans page-lookup.ts as well; scoping this task to
+      pages-config.ts alone was wrong.
 
   - id: D2
     title: Push a materialized tenant pack from Actz to coffee-story

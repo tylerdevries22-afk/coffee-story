@@ -93,9 +93,13 @@ async function upsertLocations(
 ): Promise<{ id: string; timezone: string }[]> {
   const rows: { id: string; timezone: string }[] = [];
   for (const location of tenant.brand.locations) {
+    // Omitted rather than written as null when the tenant named no Place, so
+    // re-seeding a tenant that has since been resolved against Places cannot
+    // erase the id an earlier push established.
     const { data, error } = await db.from('locations').upsert({
       brand_id: brandId, name: location.name, address: location.address,
       hours: location.hours, timezone: location.timezone,
+      ...(location.googlePlaceId ? { google_place_id: location.googlePlaceId } : {}),
     }, { onConflict: 'brand_id,name' }).select('id').single();
     if (error) throw error;
     rows.push({ id: data.id, timezone: location.timezone });

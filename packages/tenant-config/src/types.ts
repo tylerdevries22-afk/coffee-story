@@ -25,6 +25,30 @@ export type TenantSurface = (typeof TENANT_SURFACES)[number];
 export type TenantNetwork = {
   readonly slug: string;
   readonly relationship: 'owner' | 'member';
+  /**
+   * Surfaces the network serves itself, rather than this repo building them.
+   *
+   * A venue on a partner network already has a staff console and a guest app
+   * on that network; rebuilding either here would ship a worse copy that has
+   * to track the original forever. Declared per network in tenant config -- not
+   * as a table of slugs in app code, which would both hard-code a brand string
+   * (rule 4) and mean editing this repo for every venue that joins.
+   *
+   * `kiosk` may never appear here. A lobby screen is per-property, drawn from
+   * that venue's own published page, so it is a surface this repo serves for
+   * every tenant; the parser rejects a network that claims it.
+   */
+  readonly hostedSurfaces?: Readonly<Record<string, string>>;
+  /**
+   * Origins the network's own `frame-ancestors` admits.
+   *
+   * Framing is the network's decision and the browser enforces THEIR policy, so
+   * a surface wall on an origin they do not list renders blank no matter what
+   * it puts in the frame. Declared so a console can say "this network does not
+   * admit this origin" instead of showing an empty rectangle that reads as a
+   * broken app. One `*` may stand for a single leading label.
+   */
+  readonly framedBy?: readonly string[];
 };
 
 export type TenantInheritance = {
@@ -45,6 +69,17 @@ export type TenantLocation = {
   readonly name: string;
   readonly address: Readonly<Record<string, string>>;
   readonly note?: string;
+  /**
+   * The Google Place this location IS, when a partner resolved one.
+   *
+   * An address is descriptive and a name is ambiguous -- two hotels a block
+   * apart can share both. A Place id is the identity: it makes a location
+   * de-duplicable and re-syncable against the source that produced it, which
+   * is what lets a pack describe any venue rather than a hand-listed few.
+   * Optional, because a tenant that never went through a Places lookup has
+   * nothing truthful to put here.
+   */
+  readonly googlePlaceId?: string;
   readonly timezone: string;
   readonly hours: Readonly<Record<string, readonly {
     readonly open: string;

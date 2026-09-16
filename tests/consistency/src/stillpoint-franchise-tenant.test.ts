@@ -49,7 +49,14 @@ describe('Stillpoint Builders franchise tenant', () => {
     const loader = readFileSync(join(ROOT, 'scripts', 'lib', 'onboard-validation.ts'), 'utf8');
     assert.match(loader, /function readModifiers[\s\S]*?if \(!existsSync\(path\)\) return \{\};/);
     assert.match(loader, /existsSync\(categoriesPath\)\s*\?[\s\S]*?: \[\]/);
-    assert.match(loader, /readOptionalObjectFile\(join\(input\.tenantDir, 'packs\.json'\)/);
+    // The three commerce files are no longer read by hard-coded name: the
+    // tenant's own commerce-catalog config declares where they live, and
+    // resolveCatalogSources reads that declaration with these filenames as its
+    // defaults. Pinning the resolved read rather than the literal keeps what
+    // this guard is for -- each file is read from the tenant folder, and a
+    // missing one yields an empty value instead of a broken tenant.
+    assert.match(loader, /resolveCatalogSources\(input\.tenantDir, problems\)/);
+    assert.match(loader, /readOptionalObjectFile\(\s*join\(input\.tenantDir, sources\.packs\)/);
     const readme = readFileSync(join(ROOT, 'tenants', '_template', 'README.md'), 'utf8');
     assert.match(readme, /declares `commerce-catalog` must carry the complete commerce group/,
       'the template must bind the commerce group to the module declaration');

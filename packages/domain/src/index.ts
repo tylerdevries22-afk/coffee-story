@@ -54,3 +54,4 @@ export * from './website-url';
 export * from './font-gate';
 export * from './preview-directory';
 export * from './tenant-slot';
+export * from './lobby-sections';
