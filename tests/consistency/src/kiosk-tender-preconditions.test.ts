@@ -48,18 +48,34 @@ function tenderLists(value: unknown, path = '$'): { path: string; tenders: strin
   return found;
 }
 
+/** Whether the tenant ships the surface these tenders are read by. */
+function declaresKiosk(slug: string): boolean {
+  const config = JSON.parse(
+    readFileSync(join(TENANTS, slug, 'brand.json'), 'utf8'),
+  ) as { surfaces?: unknown };
+  return Array.isArray(config.surfaces) && config.surfaces.includes('kiosk');
+}
+
 function balanceLookupIsStubbed(): boolean {
   return /export const GUEST_LOOKUP_IS_STUBBED\s*=\s*true/.test(readFileSync(IDENTIFY, 'utf8'));
 }
 
 describe('kiosk tender preconditions', () => {
-  it('measures every tenant, so the guard cannot pass by finding nothing', () => {
+  it('measures every kiosk tenant, so the guard cannot pass by finding nothing', () => {
     const slugs = tenantSlugs();
     assert.ok(slugs.length >= 4, `only ${slugs.length} tenants found`);
     assert.ok(slugs.includes('_template'));
-    assert.ok(slugs.every((slug) => tenderLists(
+    // Scoped to tenants that ship a kiosk. A tenant with no kiosk surface has
+    // no tender to declare -- ACTZ is a network operator whose member venues
+    // sell, and it would have to invent a payment method it never offers to
+    // satisfy a blanket check. What this guard is really for is that the
+    // balance-tender test below measures something, so it asserts a non-empty
+    // measured set rather than a property of every folder on disk.
+    const kioskSlugs = slugs.filter((slug) => declaresKiosk(slug));
+    assert.ok(kioskSlugs.length > 0, 'no tenant declares a kiosk surface');
+    assert.ok(kioskSlugs.every((slug) => tenderLists(
       JSON.parse(readFileSync(join(TENANTS, slug, 'brand.json'), 'utf8')),
-    ).length > 0), 'a tenant config declares no tenders at all');
+    ).length > 0), 'a kiosk tenant declares no tenders at all');
   });
 
   it('refuses a balance tender until a guest balance can be looked up', () => {

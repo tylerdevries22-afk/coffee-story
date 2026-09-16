@@ -58,8 +58,8 @@
     "accent": "#C1622D",
     "textPrimary": "#1B231D",
     "textMuted": "#5B6B5E",
-    "success": "#3F7D4E",
-    "warning": "#B8842E",
+    "success": "#3C784B",
+    "warning": "#8C6423",
     "danger": "#A23B2E",
     "radius": {
       "sm": 8,
