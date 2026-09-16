@@ -57,14 +57,14 @@ function Stats({ screen }: { screen: LobbyScreen }) {
     { label: 'Local time zone', value: screen.branch.timezone },
   ];
   return (
-    <section className="lobby-stats" id="lobby-stats" aria-label="At a glance">
+    <dl className="lobby-stats" id="lobby-stats" aria-label="At a glance">
       {stats.map((stat) => (
         <div className="lobby-stat" key={stat.label}>
           <dt>{stat.label}</dt>
           <dd>{stat.value}</dd>
         </div>
       ))}
-    </section>
+    </dl>
   );
 }
 
