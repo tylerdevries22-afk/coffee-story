@@ -98,7 +98,9 @@ tasks:
     title: First hotel tenant, fictional, Georgetown CO
     status: done
     depends_on: [B2]
-    acceptance: pnpm onboard --tenant <slug> passes dry run, then --apply
+    acceptance: >-
+      pnpm onboard --tenant <slug> passes its dry run; a tenant declaring only
+      hq+lobby stops before guest-app generation and does not run --apply
     owner: worker
     evidence: >-
       Summit Ridge Georgetown is the flagship branch, in Actz's own demo world.
