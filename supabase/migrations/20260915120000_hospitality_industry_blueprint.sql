@@ -9,9 +9,22 @@
 --
 -- The pair check is an inline allowlist inside a 240-line security-definer
 -- function, and Postgres has no way to amend a function body in place, so the
--- whole function is replaced. It was copied verbatim from
--- 20260904100345_franchise_provisioning_contract.sql and the ONLY change is
--- the one added pair -- no other line of the body differs.
+-- whole function is replaced. It was copied from
+-- 20260904100345_franchise_provisioning_contract.sql.
+--
+-- READ THIS BEFORE COPYING THIS FUNCTION AGAIN. That migration is NOT the
+-- function's current definition, and no migration file is: 20260908227000
+-- (repair_bounded_claims) rewrites the deployed body at runtime with
+-- pg_get_functiondef + replace + execute, tightening the Square fee ceiling
+-- from 10000 to 9000 bps for both p_fee_bps and p_fee_bps_tier2. A plain copy
+-- of 20260904100345 therefore silently REVERTS that tightening -- which is
+-- exactly what the first draft of this migration did, caught by
+-- supabase/tests/platform_fee_rpc_security.test.sql ("organization writer
+-- rejects rates above the provider ceiling"), the test that exists for it.
+--
+-- So this body carries the 9000 ceiling literally rather than inheriting it
+-- from a runtime patch, and the only differences from 20260904100345 are that
+-- ceiling on both fee parameters plus the one added industry pair.
 --
 -- `applicationSurfaces` lists the five built surfaces, matching every other
 -- blueprint. `lobby` is declarable but not yet built, so it is deliberately
@@ -129,7 +142,7 @@ begin
      or jsonb_array_length(p_modules) > 64
      or jsonb_typeof(coalesce(p_territory, '{}'::jsonb)) is distinct from 'object'
      or jsonb_typeof(coalesce(p_inheritance_policy, '{}'::jsonb)) is distinct from 'object'
-     or p_fee_bps not between 0 and 10000 or p_fee_bps_tier2 not between 0 and 10000
+     or p_fee_bps not between 0 and 9000 or p_fee_bps_tier2 not between 0 and 9000
      or p_tier_threshold_cents < 0
      or (requires_location and jsonb_typeof(p_location) is distinct from 'object')
      or (p_organization_kind = 'franchisee' and (
@@ -315,6 +328,13 @@ begin
   end if;
   if body !~ 'coffee-shop' or body !~ 'construction' then
     raise exception 'provisioning lost an industry pair it previously permitted';
+  end if;
+  -- The Square fee ceiling reached this function through a runtime patch in
+  -- 20260908227000, so any future `create or replace` copied from an older
+  -- migration silently loosens it back to 10000. That is not hypothetical --
+  -- the first draft of this migration did it. Fail the release instead.
+  if body ~ 'not between 0 and 10000' then
+    raise exception 'provisioning reverted the Square fee ceiling to 10000 bps';
   end if;
 end
 $$;
