@@ -20,8 +20,12 @@ const ORGANIZATION_MODELS: readonly [OrganizationKind, string, string, WizardIco
   ['operator', 'Management operator', 'A team operating locations for other owners.', 'operations'],
 ];
 
+// `hospitality` reuses the location marker rather than adding a name: every
+// WizardIconName is a cell in one sprite sheet, so a new icon needs new art
+// before it needs a key, and a venue reads correctly as a place on a map.
 const INDUSTRY_ICONS: Readonly<Record<IndustryKey, WizardIconName>> = {
   construction: 'construction', 'coffee-shop': 'coffee', general: 'general',
+  hospitality: 'location',
 };
 
 type DetailsProps = {

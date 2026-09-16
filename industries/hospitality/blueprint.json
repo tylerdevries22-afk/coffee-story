@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "key": "hospitality",
+  "name": "Hospitality",
+  "templateVersion": 1,
+  "locale": "en-US",
+  "supabaseRegion": "us-west-1",
+  "vocabulary": {
+    "catalog": "Experience catalog",
+    "folder": "Collection",
+    "offering": "Experience",
+    "resource": "Guide"
+  },
+  "recommendedModules": [
+    "commerce-catalog"
+  ]
+}

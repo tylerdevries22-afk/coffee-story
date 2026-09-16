@@ -1,0 +1,139 @@
+# Durable task definitions for the ACTZ-on-coffee-story goal.
+# Task definitions govern scope; qa/task-ledger.json records actual outcomes.
+# Kept apart from qa/tasks.yaml, which holds the unrelated and still-active
+# coffee-story-hardening-20260906 goal.
+# Status values: done | in_progress | blocked | pending
+
+goal:
+  id: actz-provider-platform-20260915
+  objective: >-
+    Run ACTZ providers on this platform: ACTZ as a franchise network, a reusable
+    provider tenant folder, and a hotel demo tenant whose unattended lobby screen
+    renders that hotel's published Actz page, with the pack pushed from Actz.
+  plan: ~/.claude/plans/want-you-to-run-mellow-boole.md
+  scope:
+    - coffee-story: surfaces, industry, catalog contract, integration auth, apps/lobby
+    - actz-may: expose typeAttrs publicly; push a tenant pack
+  exclusions:
+    - A guest app for ACTZ in this repo; booking completes in Actz's traveler app
+    - Amadeus hotel inventory, which carries redisplay restrictions
+    - Release-gate approvals and EAS project ids, which are owner actions
+  constraints:
+    - Every merge gated on verify + audit + security passing (enforce_admins is off)
+    - Money stays integer cents; no component hard-codes a colour (rules 4 and 6)
+    - Actz stays the source of truth; coffee-story materializes, never authors
+
+tasks:
+  - id: A1
+    title: Make lobby a declarable surface
+    status: done
+    depends_on: []
+    acceptance: lobby is in TENANT_SURFACES and APP_SURFACES, absent from BUILT_SURFACES
+    evidence: commit 2ed606e9; module-kit 100/100; tenant-config 21/21
+    owner: coordinator
+
+  - id: A2
+    title: Add hospitality as a provisionable vertical
+    status: done
+    depends_on: []
+    acceptance: blueprint, total 21-key copy pack, industry_blueprints row, pair allowlist
+    evidence: commit a1dd44bb; PR 212; 964 HQ tests; lint 0; both rule-4 audits clean
+    owner: coordinator
+
+  - id: A3
+    title: Accept catalog.json as an alternative to the menu.csv trio
+    status: pending
+    depends_on: []
+    acceptance: >-
+      A tenant declaring commerce-catalog validates with either the CSV trio or a
+      CatalogManifest; coffee-story and stillpoint-builders are unchanged.
+    owner: worker
+
+  - id: A4
+    title: Generalize integration auth to per-integration secrets and keys
+    status: pending
+    depends_on: []
+    acceptance: >-
+      A stolen Elevate secret cannot authorize an ACTZ call; integration_key is a
+      parameter, not a literal; both secrets documented in .env.example.
+    owner: coordinator
+    note: secrets work stays with the coordinator per host routing policy
+
+  - id: B1
+    title: ACTZ as a franchise network with a franchisor brand
+    status: pending
+    depends_on: [A2]
+    acceptance: parser accepts the franchisor manifest; network relationship is owner
+    owner: worker
+
+  - id: B2
+    title: Reusable provider tenant template
+    status: pending
+    depends_on: [A2, A3, B1]
+    acceptance: a franchisee manifest declaring hq+lobby that parses and onboards
+    owner: worker
+
+  - id: B3
+    title: First hotel tenant, fictional, Georgetown CO
+    status: pending
+    depends_on: [B2, B4]
+    acceptance: pnpm onboard --tenant <slug> passes dry run, then --apply
+    owner: worker
+
+  - id: B4
+    title: Generate the required tenant assets with Higgsfield
+    status: pending
+    depends_on: []
+    acceptance: the 11 fixed assets plus a logo exist and pass onboarding validation
+    owner: worker
+
+  - id: C1
+    title: apps/lobby scaffold and promotion into the built surfaces
+    status: pending
+    depends_on: [A1, B3]
+    acceptance: lobby joins BUILT_SURFACES/FACTORY_SURFACES and the SQL surface set
+    owner: worker
+
+  - id: C2
+    title: Render the hotel template, VENUE_SECTIONS order, minus claim and social
+    status: pending
+    depends_on: [C1]
+    acceptance: section order matches Actz's registry; amenities render as content
+    owner: worker
+
+  - id: C3
+    title: Serve the lobby as a Model B web static
+    status: pending
+    depends_on: [C1]
+    acceptance: exported to apps/hq/public/lobby and reachable at /lobby
+    owner: worker
+
+  - id: C4
+    title: HQ apps wall and console tile for the lobby
+    status: pending
+    depends_on: [C1]
+    acceptance: the lobby tile renders in the apps wall and the preview wall
+    owner: worker
+
+  - id: D1
+    title: Expose typeAttrs on the public page config
+    status: pending
+    depends_on: []
+    acceptance: >-
+      GET /api/pages/:slug/config returns typeAttrs; without it the lobby cannot
+      show check-in time, check-out time, amenities or roomCount.
+    owner: worker
+    repo: actz-may
+
+  - id: D2
+    title: Push a materialized tenant pack from Actz to coffee-story
+    status: pending
+    depends_on: [A4, B2, D1]
+    acceptance: a monotonic revision lands via POST /api/integrations/tenant-pack
+    owner: coordinator
+    repo: actz-may
+
+readiness_gates:
+  - verify, audit and security green before any merge
+  - hosted-integration read on main after every promotion; it is main-only and not required
+  - plpgsql_check runs only in CI, so every migration is unproven until pushed
