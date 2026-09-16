@@ -14,7 +14,8 @@
     "overrides": []
   },
   "surfaces": [
-    "hq"
+    "hq",
+    "operator"
   ],
   "providers": [
     {
