@@ -35,13 +35,25 @@ export const INDUSTRY_OPTIONS: readonly IndustryOption[] = [
     ],
   },
   {
-    key: 'coffee-shop', blueprint: 'coffee-shop', label: 'Coffee shop & hospitality',
+    // Labelled "& hospitality" until a distinct hospitality industry existed.
+    // Two options both claiming the word sent a hotel owner to the coffee
+    // blueprint, so this one narrows to what it actually seeds: a counter.
+    key: 'coffee-shop', blueprint: 'coffee-shop', label: 'Coffee shop & café',
     summary: 'Menus, ordering, payments, teams, training, kiosks, and guest displays.',
     image: '/onboarding/coffee-hospitality-v4.webp',
     suggestedModules: [
       'commerce-catalog', 'commerce-ordering', 'commerce-payments',
       'workforce-operations', 'workforce-training', 'device-wall',
     ],
+  },
+  {
+    // A venue takes bookings for experiences; the booking itself completes in
+    // the partner app its lobby screen hands off to. So no ordering, payments
+    // or printing here -- a catalog and the people who run it is the whole set.
+    key: 'hospitality', blueprint: 'hospitality', label: 'Hotels & venues',
+    summary: 'A published venue page, an experience catalog, and an unattended lobby screen.',
+    image: '/onboarding/general-business-v4.webp',
+    suggestedModules: ['commerce-catalog', 'workforce-operations', 'device-wall'],
   },
   {
     key: 'general', blueprint: 'blank', label: 'Retail, service, or something else',
@@ -52,7 +64,9 @@ export const INDUSTRY_OPTIONS: readonly IndustryOption[] = [
 ];
 
 type ModuleCopy = readonly [string, string, string, ModuleTier, readonly IndustryKey[]];
-const ALL_INDUSTRIES: readonly IndustryKey[] = ['general', 'coffee-shop', 'construction'];
+const ALL_INDUSTRIES: readonly IndustryKey[] = [
+  'general', 'coffee-shop', 'construction', 'hospitality',
+];
 const COFFEE_ONLY: readonly IndustryKey[] = ['coffee-shop'];
 const CONSTRUCTION_ONLY: readonly IndustryKey[] = ['construction'];
 
