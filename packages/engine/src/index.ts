@@ -8,6 +8,7 @@ export * from './notifications';
 export * from './operations';
 export * from './platform-access';
 export * from './http';
+export * from './places';
 export * from './jobs';
 export * from './orders';
 export * from './square/client';

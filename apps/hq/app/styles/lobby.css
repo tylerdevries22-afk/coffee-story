@@ -1,0 +1,198 @@
+/*
+ * The unattended screen in a property's entrance.
+ *
+ * Landscape, read from two metres away, never touched by anyone with an
+ * account. That sets the type scale (large, few sizes) and the colour rules:
+ * every value here is a token variable set by `hqTheme(brandConfig)`, so the
+ * same stylesheet is a different hotel's screen per tenant. No literal colour
+ * appears below -- rule 4 in CLAUDE.md, enforced by `pnpm audit:tokens`.
+ */
+
+.lobby {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: clamp(1rem, 3vw, 3rem);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1rem, 2.4vw, 2rem);
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body, system-ui, sans-serif);
+}
+
+.lobby-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.lobby-nav-link {
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: clamp(0.9rem, 1.1vw, 1.05rem);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  /* A lobby screen is sometimes a touch panel: keep the target reachable. */
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.lobby-nav-link:hover,
+.lobby-nav-link:focus-visible {
+  color: var(--accent);
+}
+
+.lobby-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.lobby-eyebrow {
+  margin: 0;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: clamp(0.8rem, 1vw, 1rem);
+}
+
+.lobby-title {
+  margin: 0;
+  font-family: var(--font-display, var(--font-body, serif));
+  font-size: clamp(2.25rem, 6vw, 4.5rem);
+  line-height: 1.05;
+  text-wrap: balance;
+}
+
+.lobby-tagline {
+  margin: 0;
+  color: var(--accent);
+  font-size: clamp(1.1rem, 2vw, 1.6rem);
+}
+
+.lobby-address {
+  display: flex;
+  flex-direction: column;
+  font-style: normal;
+  color: var(--text-muted);
+  font-size: clamp(1rem, 1.4vw, 1.25rem);
+}
+
+.lobby-note {
+  margin: 0;
+  max-width: 60ch;
+  color: var(--text);
+  font-size: clamp(1rem, 1.3vw, 1.2rem);
+}
+
+.lobby-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 1rem;
+  margin: 0;
+}
+
+.lobby-stat {
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 1rem 1.25rem;
+}
+
+.lobby-stat dt {
+  margin: 0 0 0.35rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.8rem;
+}
+
+.lobby-stat dd {
+  margin: 0;
+  font-size: clamp(1.1rem, 1.8vw, 1.5rem);
+  font-variant-numeric: tabular-nums;
+}
+
+.lobby-panel {
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: clamp(1rem, 2vw, 1.75rem);
+}
+
+.lobby-panel-title {
+  margin: 0 0 0.9rem;
+  font-family: var(--font-display, var(--font-body, serif));
+  font-size: clamp(1.3rem, 2.2vw, 1.9rem);
+}
+
+.lobby-hours {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 0.35rem 1.5rem;
+}
+
+.lobby-hours-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid var(--line);
+  font-size: clamp(0.95rem, 1.2vw, 1.15rem);
+}
+
+.lobby-hours-row dt {
+  color: var(--text-muted);
+}
+
+.lobby-hours-row dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.lobby-contact {
+  margin: 1rem 0 0;
+  color: var(--text-muted);
+}
+
+/*
+ * A section the partner feeds. It says what it is waiting for rather than
+ * rendering an empty rail, because a blank band on a screen in a hotel's
+ * entrance reads as a broken app to everyone who walks past it.
+ */
+.lobby-pending {
+  border-style: dashed;
+}
+
+.lobby-pending-detail {
+  margin: 0;
+  max-width: 64ch;
+  color: var(--text-muted);
+  font-size: clamp(0.95rem, 1.2vw, 1.15rem);
+}
+
+.lobby-foot {
+  margin-top: auto;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+@media (max-width: 640px) {
+  .lobby-hours-row {
+    font-size: 1rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lobby-nav-link {
+    transition: none;
+  }
+}

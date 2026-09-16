@@ -77,6 +77,9 @@ __pycache__/
 # branch. `.claude/` itself stays tracked: launch.json, settings.json, hooks
 # and skills are real project config.
 **/.claude/session-notes.md
+# The harness rotates that file, and a rotated `.1` was left untracked --
+# 11,741 lines of it reached a branch before anyone noticed.
+**/.claude/session-notes.md.*
 # Globbed, not root-anchored: running a command from inside packages/<pkg> or a
 # worktree makes the harness write these there too, and the anchored form left
 # them as untracked noise (hit in packages/domain).

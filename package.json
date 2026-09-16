@@ -21,6 +21,7 @@
     "db:local": "tsx scripts/local-database-chain.ts",
     "supabase:verify": "supabase db lint --linked --level warning --fail-on warning && supabase db advisors --linked --type security --level warn --fail-on warn && supabase db advisors --linked --type performance --level warn --fail-on warn",
     "normalize-menu-images": "tsx scripts/normalize-menu-images.ts",
+    "resolve-places": "tsx scripts/resolve-tenant-places.ts",
     "normalize-product-cutouts": "tsx scripts/normalize-product-cutouts.ts",
     "training:bootstrap": "tsx scripts/training-bootstrap.ts",
     "training:seed-coffee-story": "tsx scripts/seed-coffee-story-training.ts",

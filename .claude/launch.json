@@ -85,6 +85,30 @@
       ],
       "port": 4191,
       "autoPort": false
+    },
+    {
+      "name": "hq-alt",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@platform/hq",
+        "exec",
+        "next",
+        "dev",
+        "--hostname",
+        "127.0.0.1",
+        "--port",
+        "3310"
+      ],
+      "env": {
+        "COFFEE_STORY_DEMO_SYNC": "1",
+        "COFFEE_STORY_LOCAL_PREVIEWS": "1",
+        "COFFEE_STORY_PREVIEW_WALL": "1",
+        "NEXT_DIST_DIR": ".next-preview",
+        "COFFEE_STORY_WALL_HOSTED": "1"
+      },
+      "port": 3310,
+      "autoPort": false
     }
   ]
 }

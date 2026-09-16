@@ -80,6 +80,12 @@ export type TenantLocation = {
    * nothing truthful to put here.
    */
   readonly googlePlaceId?: string;
+  /**
+   * The property as a person would name it, for resolving the Place id above.
+   * Present when the id is not yet known; a resolver fills the id in and this
+   * stays as the record of what was asked for.
+   */
+  readonly placeQuery?: string;
   readonly timezone: string;
   readonly hours: Readonly<Record<string, readonly {
     readonly open: string;

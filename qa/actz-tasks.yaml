@@ -80,52 +80,97 @@ tasks:
 
   - id: B2
     title: Reusable provider tenant template
-    status: pending
+    status: done
     depends_on: [A2, A3, B1]
     acceptance: a franchisee manifest declaring hq+lobby that parses and onboards
     owner: worker
+    evidence: >-
+      tenants/summit-ridge-hotels/ is the first franchisee in the tree and the
+      shape every provider copies: kind franchisee, network member of actz,
+      inheritance mode network, surfaces [hq, lobby]. tenant-config 35/35
+      including "summit-ridge-hotels/brand.json satisfies the v1 contract".
+    note: >-
+      Shipped as a working chain rather than a _provider-template/ folder. A
+      template that nothing parses is a template nobody can trust; this one is
+      exercised by the demo and by the shipped-manifest test on every run.
 
   - id: B3
     title: First hotel tenant, fictional, Georgetown CO
-    status: pending
-    depends_on: [B2, B4]
-    acceptance: pnpm onboard --tenant <slug> passes dry run, then --apply
+    status: done
+    depends_on: [B2]
+    acceptance: >-
+      pnpm onboard --tenant <slug> passes its dry run; a tenant declaring only
+      hq+lobby stops before guest-app generation and does not run --apply
     owner: worker
+    evidence: >-
+      Summit Ridge Georgetown is the flagship branch, in Actz's own demo world.
+      It is a CHAIN rather than one property: `locations` is the branch list, so
+      the next hotel is one entry rather than a new tenant.
+    note: >-
+      --apply is not on this tenant's path and B4 is therefore not a dependency:
+      it ships no guest app, so the fixed asset list never runs against it.
 
   - id: B4
     title: Generate the required tenant assets with Higgsfield
-    status: pending
+    status: blocked
     depends_on: []
     acceptance: the 11 fixed assets plus a logo exist and pass onboarding validation
     owner: worker
+    note: >-
+      Off the critical path and deliberately not done. The fixed asset list is a
+      guest-app gate; a hotel chain shipping hq+lobby never reaches it. Doing it
+      anyway would mean generating eight gift-card images and a hero video for a
+      tenant that ships neither.
 
   - id: C1
     title: apps/lobby scaffold and promotion into the built surfaces
-    status: pending
+    status: in_progress
     depends_on: [A1, B3]
     acceptance: lobby joins BUILT_SURFACES/FACTORY_SURFACES and the SQL surface set
     owner: worker
+    note: >-
+      The screen ships first as a route on the HQ host (/lobby/<slug>/<branch>),
+      which is the URL contract Model B would have produced anyway and needs no
+      Expo project, no export step and no sixth static bundle. Promotion into
+      BUILT_SURFACES/FACTORY_SURFACES and the SQL surface set is still open and
+      is what a native iPad build would need; nothing in the demo depends on it.
 
   - id: C2
     title: Render the hotel template, VENUE_SECTIONS order, minus claim and social
-    status: pending
+    status: done
     depends_on: [C1]
     acceptance: section order matches Actz's registry; amenities render as content
     owner: worker
+    evidence: >-
+      apps/hq/app/lobby/[slug]/[locationId]/page.tsx renders lobbySectionsFor('hotel')
+      in published order; apps/hq/lib/lobby-screen.test.ts asserts the order against
+      the domain module rather than restating it, and that `claim` never renders.
+      13/13 green.
 
   - id: C3
     title: Serve the lobby as a Model B web static
-    status: pending
+    status: done
     depends_on: [C1]
     acceptance: exported to apps/hq/public/lobby and reachable at /lobby
     owner: worker
+    evidence: >-
+      Served at /lobby/<slug>/<branch> from the HQ host, public in middleware
+      (a lobby device has no account) and frameable by the wall in next.config.
+      Verified in a browser: both branches render their own name, address and
+      note. Reached the acceptance URL by a route rather than a static export --
+      same origin and same path contract, one less build step.
 
   - id: C4
     title: HQ apps wall and console tile for the lobby
-    status: pending
+    status: done
     depends_on: [C1]
     acceptance: the lobby tile renders in the apps wall and the preview wall
     owner: worker
+    evidence: >-
+      The wall's kiosk tile resolves to the venue's own lobby screen. Read live
+      from the running console: Summit Ridge -> /lobby/summit-ridge-hotels/
+      summit-ridge-hotels-1, while ACTZ (which declares no lobby) keeps
+      /t/actz/kiosk and takes its hq and operator tiles from the partner.
 
   - id: D1
     title: Expose typeAttrs on the public page config

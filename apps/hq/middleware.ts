@@ -17,6 +17,10 @@ const PUBLIC_PREFIXES = [
   '/login', '/auth/callback', '/api/', '/status/',
   // Model B co-located Expo statics (guest / device surfaces).
   '/customer', '/kiosk', '/operator',
+  // The unattended screen in a venue's entrance. Nobody signs in to a lobby
+  // device, so gating it on a session would make it permanently blank. It
+  // renders published venue identity only: no account, no cart, no writes.
+  '/lobby',
 ];
 
 export async function middleware(request: NextRequest) {
