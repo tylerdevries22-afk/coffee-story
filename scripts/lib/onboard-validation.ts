@@ -17,6 +17,7 @@ import {
 } from '../../packages/tenant-config/src/index.js';
 import type { TenantModulesManifest } from '../../packages/module-kit/src/modules-manifest.js';
 import { modulesManifestProblems, readTenantModulesManifest } from '../onboard-modules-manifest.js';
+import { resolveCatalogSources } from './onboard-catalog-sources.js';
 import {
   validateGuestAppTenant, validateGuestArtworkInputs, validateMenuAssets,
 } from './onboard-assets.js';
@@ -130,7 +131,8 @@ export function validateTenant(input: {
   }
   const brand = parsed.manifest;
   validateIdentity(brand, input.slug, input.scaffold, problems);
-  const menuPath = join(input.tenantDir, 'menu.csv');
+  const sources = resolveCatalogSources(input.tenantDir, problems);
+  const menuPath = join(input.tenantDir, sources.offerings);
   const operationsPath = join(input.tenantDir, 'operations.json');
   for (const jurisdiction of brand.tax?.jurisdictions ?? []) {
     if (!jurisdiction.id || !jurisdiction.label || jurisdiction.rate < 0 || jurisdiction.rate >= 1) {
@@ -146,7 +148,7 @@ export function validateTenant(input: {
   problems.push(...modulesManifestProblems(input.tenantDir));
   const parsedMenu = existsSync(menuPath)
     ? parseMenuCsv(readFileSync(menuPath, 'utf8')) : { rows: [], errors: [] };
-  problems.push(...parsedMenu.errors.map((error) => `menu.csv: ${error}`));
+  problems.push(...parsedMenu.errors.map((error) => `${sources.offerings}: ${error}`));
   // A location is required by CONTENT, not by a file being present. Elevate
   // writes operations.json for every tenant it creates with every collection
   // empty, and such a file schedules nothing at any address; a menu with no
@@ -160,11 +162,15 @@ export function validateTenant(input: {
   if (brand.locations.length === 0 && (parsedMenu.rows.length > 0 || operationsBind)) {
     problems.push('at least one location is required with menu rows or operations content.');
   }
-  const modifiers = readModifiers(join(input.tenantDir, 'modifiers.json'), parsedMenu.rows, problems);
-  const categoriesPath = join(input.tenantDir, 'menu-categories.json');
+  const modifiers = readModifiers(
+    join(input.tenantDir, sources.modifierGroups), parsedMenu.rows, problems,
+  );
+  const categoriesPath = join(input.tenantDir, sources.folders);
   const categories = existsSync(categoriesPath)
     ? JSON.parse(readFileSync(categoriesPath, 'utf8')) as TenantMenuCategory[] : [];
-  const packs = readOptionalObjectFile(join(input.tenantDir, 'packs.json'), 'packs.json', problems);
+  const packs = readOptionalObjectFile(
+    join(input.tenantDir, sources.packs), sources.packs, problems,
+  );
   const compiled = buildTenantMenu(parsedMenu.rows, categories, modifiers, packs);
   problems.push(...compiled.errors);
   validatePackFlow(brand.kiosk, compiled.menu, problems);

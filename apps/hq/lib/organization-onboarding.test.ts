@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 
 import { MODULE_REGISTRY } from '@platform/module-kit';
 
+import type { IndustryKey } from './org-input';
 import {
   eligibleModuleKeys,
   INDUSTRY_OPTIONS,
@@ -13,9 +14,9 @@ import {
   resolvedModuleSelection,
 } from './organization-onboarding';
 
-const keysFor = (industry: 'general' | 'coffee-shop' | 'construction') => (
-  eligibleModuleKeys(industry)
-);
+// Takes IndustryKey rather than repeating its members: a local copy of the
+// union silently stops covering the next industry the platform adds.
+const keysFor = (industry: IndustryKey) => eligibleModuleKeys(industry);
 
 describe('organization module onboarding', () => {
   it('represents every registry module exactly once', () => {
@@ -32,13 +33,13 @@ describe('organization module onboarding', () => {
     assert.ok(MODULE_OPTIONS.every((module) => tiers.has(module.tier)));
   });
 
-  it('keeps hospitality and construction modules industry-specific', () => {
-    const hospitality = keysFor('coffee-shop');
+  it('keeps coffee-shop and construction modules industry-specific', () => {
+    const coffeeShop = keysFor('coffee-shop');
     const construction = keysFor('construction');
 
-    assert.equal(hospitality.includes('construction-projects'), false);
-    assert.ok(hospitality.includes('growth-loyalty'));
-    assert.ok(hospitality.includes('commerce-catering'));
+    assert.equal(coffeeShop.includes('construction-projects'), false);
+    assert.ok(coffeeShop.includes('growth-loyalty'));
+    assert.ok(coffeeShop.includes('commerce-catering'));
     assert.ok(construction.includes('construction-projects'));
     assert.equal(construction.includes('growth-loyalty'), false);
     assert.equal(construction.includes('commerce-catering'), false);

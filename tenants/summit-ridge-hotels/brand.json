@@ -1,0 +1,239 @@
+{
+  "schemaVersion": 1,
+  "organization": {
+    "kind": "franchisee"
+  },
+  "network": {
+    "slug": "actz",
+    "relationship": "member"
+  },
+  "inheritance": {
+    "mode": "network",
+    "sourceTenantSlug": "actz",
+    "revision": 1,
+    "overrides": [
+      "tokens.primary",
+      "tokens.secondary",
+      "tokens.accent",
+      "tokens.surface",
+      "tokens.textPrimary",
+      "tokens.textMuted",
+      "tokens.success",
+      "tokens.warning",
+      "tokens.danger",
+      "tokens.fontDisplay"
+    ]
+  },
+  "surfaces": [
+    "hq",
+    "lobby"
+  ],
+  "providers": [
+    {
+      "capability": "database",
+      "provider": "supabase",
+      "ownership": "platform",
+      "required": true
+    },
+    {
+      "capability": "identity",
+      "provider": "supabase-auth",
+      "ownership": "platform",
+      "required": true
+    },
+    {
+      "capability": "hosting",
+      "provider": "vercel",
+      "ownership": "platform",
+      "required": true
+    }
+  ],
+  "$docs": {
+    "status": "A hotel chain on the ACTZ network, and the first franchisee in this repo. It is a chain rather than a single property on purpose: `locations` is the branch list, so the same tenant folder describes one hotel or forty, and adding the next branch is one entry here rather than a new tenant. It ships `hq` (the chain's own console) and `lobby` (the unattended screen in each property's entrance). No guest app: a guest books in the network's traveller app, which the network already ships.",
+    "tokens": "Every token here is an override of the network's, declared in `inheritance.overrides` so the inherited value and the chosen one stay distinguishable. A property that wants the network's look deletes an entry and inherits it back. All ten semantic pairs clear WCAG AA against both surfaces -- `packages/ui/src/contrast.test.ts` enforces that for every tenant in this tree.",
+    "places": "Each branch names the property the way a person would, in `placeQuery`. `googlePlaceId` is absent until a lookup resolves it against the live Places API and confirms the listing is lodging -- an id typed in by hand that points at the cafe next door is a silent error, and the lobby screen would show the cafe's hours under the hotel's name."
+  },
+  "identity": {
+    "slug": "summit-ridge-hotels",
+    "name": "Summit Ridge Hotels",
+    "bundleId": "com.summitridgehotels.app",
+    "scheme": "summitridge",
+    "kioskBundleId": "",
+    "kioskScheme": "",
+    "easProjectId": "",
+    "kioskEasProjectId": ""
+  },
+  "tokens": {
+    "primary": "#24455E",
+    "secondary": "#3E6B8A",
+    "surface": "#F7F4EF",
+    "surfaceElevated": "#FFFFFF",
+    "accent": "#C97B3C",
+    "textPrimary": "#1A2430",
+    "textMuted": "#56606B",
+    "success": "#2F6B46",
+    "warning": "#7A5210",
+    "danger": "#A32F2B",
+    "radius": {
+      "sm": 8,
+      "md": 14,
+      "lg": 22,
+      "pill": 999
+    },
+    "spacing": {
+      "xs": 4,
+      "sm": 8,
+      "md": 12,
+      "lg": 16,
+      "xl": 24,
+      "xxl": 32
+    },
+    "fontDisplay": "Fraunces",
+    "fontBody": "Inter",
+    "motion": {
+      "fast": 120,
+      "base": 220,
+      "slow": 360
+    }
+  },
+  "copy": {
+    "appName": "Summit Ridge Hotels"
+  },
+  "features": {
+    "drops": false,
+    "catering": false,
+    "delivery": false,
+    "multi_location": true,
+    "sms": false,
+    "stored_value": false,
+    "referrals": false,
+    "operations": true
+  },
+  "business": {
+    "monogram": "SRH",
+    "giftCodePrefix": "SRH",
+    "legalName": "Summit Ridge Hotels, LLC",
+    "tagline": "Above the treeline, at home.",
+    "email": "stay@summitridgehotels.example",
+    "website": "https://summitridgehotels.example",
+    "supportEmail": "stay@summitridgehotels.example",
+    "industry": "Mountain lodging",
+    "industryKey": "hospitality"
+  },
+  "locations": [
+    {
+      "name": "Summit Ridge Georgetown",
+      "address": {
+        "line1": "600 Rose Street",
+        "city": "Georgetown",
+        "region": "CO",
+        "postalCode": "80444",
+        "country": "US"
+      },
+      "note": "Flagship property. Front desk staffed 24 hours; lobby screen beside the fireplace.",
+      "placeQuery": "Summit Ridge Georgetown, 600 Rose Street, Georgetown, CO 80444",
+      "timezone": "America/Denver",
+      "hours": {
+        "monday": [
+          {
+            "open": "00:00",
+            "close": "23:59"
+          }
+        ],
+        "tuesday": [
+          {
+            "open": "00:00",
+            "close": "23:59"
+          }
+        ],
+        "wednesday": [
+          {
+            "open": "00:00",
+            "close": "23:59"
+          }
+        ],
+        "thursday": [
+          {
+            "open": "00:00",
+            "close": "23:59"
+          }
+        ],
+        "friday": [
+          {
+            "open": "00:00",
+            "close": "23:59"
+          }
+        ],
+        "saturday": [
+          {
+            "open": "00:00",
+            "close": "23:59"
+          }
+        ],
+        "sunday": [
+          {
+            "open": "00:00",
+            "close": "23:59"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Summit Ridge Idaho Springs",
+      "address": {
+        "line1": "1710 Miner Street",
+        "city": "Idaho Springs",
+        "region": "CO",
+        "postalCode": "80452",
+        "country": "US"
+      },
+      "note": "Second branch, same chain. Its lobby screen is its own, not the flagship's.",
+      "placeQuery": "Summit Ridge Idaho Springs, 1710 Miner Street, Idaho Springs, CO 80452",
+      "timezone": "America/Denver",
+      "hours": {
+        "monday": [
+          {
+            "open": "00:00",
+            "close": "23:59"
+          }
+        ],
+        "tuesday": [
+          {
+            "open": "00:00",
+            "close": "23:59"
+          }
+        ],
+        "wednesday": [
+          {
+            "open": "00:00",
+            "close": "23:59"
+          }
+        ],
+        "thursday": [
+          {
+            "open": "00:00",
+            "close": "23:59"
+          }
+        ],
+        "friday": [
+          {
+            "open": "00:00",
+            "close": "23:59"
+          }
+        ],
+        "saturday": [
+          {
+            "open": "00:00",
+            "close": "23:59"
+          }
+        ],
+        "sunday": [
+          {
+            "open": "00:00",
+            "close": "23:59"
+          }
+        ]
+      }
+    }
+  ]
+}

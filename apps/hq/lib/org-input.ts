@@ -8,8 +8,8 @@ import { eligibleModuleKeys } from './organization-onboarding';
 export const ORGANIZATION_KINDS = [
   'independent', 'franchisor', 'franchisee', 'operator',
 ] as const;
-export const INDUSTRIES = ['general', 'coffee-shop', 'construction'] as const;
-export const BLUEPRINTS = ['blank', 'coffee-shop', 'construction'] as const;
+export const INDUSTRIES = ['general', 'coffee-shop', 'construction', 'hospitality'] as const;
+export const BLUEPRINTS = ['blank', 'coffee-shop', 'construction', 'hospitality'] as const;
 
 export type OrganizationKind = (typeof ORGANIZATION_KINDS)[number];
 export type IndustryKey = (typeof INDUSTRIES)[number];
@@ -64,11 +64,17 @@ const MODULES: Record<BlueprintKey, readonly string[]> = {
     'commerce-catalog', 'commerce-ordering', 'commerce-payments',
     'local-printing', 'device-wall',
   ],
+  // A venue's catalog is experiences it takes bookings for, and the booking
+  // itself happens in the partner app the lobby screen hands off to -- so the
+  // ordering, payment and printing modules a shop needs are deliberately
+  // absent rather than merely unlisted.
+  hospitality: ['commerce-catalog'],
 };
 const INDUSTRY_BLUEPRINT: Record<IndustryKey, BlueprintKey> = {
   general: 'blank',
   'coffee-shop': 'coffee-shop',
   construction: 'construction',
+  hospitality: 'hospitality',
 };
 
 function member<T extends string>(value: string | undefined, values: readonly T[]): T | null {

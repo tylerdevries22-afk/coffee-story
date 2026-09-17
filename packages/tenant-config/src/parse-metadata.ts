@@ -25,19 +25,77 @@ export function parseOrganization(value: unknown, issues: string[]): { kind: typ
   return { kind: value.kind as typeof ORGANIZATION_KINDS[number] };
 }
 
+const NETWORK_KEYS = ['slug', 'relationship', 'hostedSurfaces', 'framedBy'];
+
+/** An https origin, optionally with one `*` standing for a leading label. */
+const FRAME_ORIGIN = /^https:\/\/(\*\.)?[a-z0-9-]+(\.[a-z0-9-]+)+$/;
+
+/**
+ * Surfaces a network may serve for its venues.
+ *
+ * `kiosk` is absent on purpose and rejected below: a lobby screen is built from
+ * one property's own published page, so it is per-venue by nature. A network
+ * claiming it would hand every venue the same screen.
+ */
+const HOSTABLE_SURFACES = new Set(['hq', 'customer', 'operator', 'display']);
+
+function parseHostedSurfaces(value: unknown, issues: string[]): Record<string, string> | null {
+  if (!isRecord(value)) {
+    issues.push('network.hostedSurfaces must be an object of surface URLs');
+    return null;
+  }
+  const hosted: Record<string, string> = {};
+  for (const [surface, url] of Object.entries(value)) {
+    if (surface === 'kiosk') {
+      issues.push('network.hostedSurfaces must not claim kiosk, which is per-venue');
+      continue;
+    }
+    if (!HOSTABLE_SURFACES.has(surface)) {
+      issues.push(`network.hostedSurfaces.${surface} is not a hostable surface`);
+      continue;
+    }
+    if (typeof url !== 'string' || !url.startsWith('https://') || url.length > 2048) {
+      issues.push(`network.hostedSurfaces.${surface} must be an https URL`);
+      continue;
+    }
+    hosted[surface] = url;
+  }
+  return hosted;
+}
+
+function parseFramedBy(value: unknown, issues: string[]): string[] | null {
+  if (!Array.isArray(value)) {
+    issues.push('network.framedBy must be a list of origins');
+    return null;
+  }
+  const origins = value.filter((entry): entry is string =>
+    typeof entry === 'string' && FRAME_ORIGIN.test(entry));
+  if (origins.length !== value.length) {
+    issues.push('network.framedBy entries must be https origins, with at most one * label');
+  }
+  return origins;
+}
+
 export function parseNetwork(value: unknown, issues: string[]): TenantNetwork | null {
   if (value === null) return null;
-  if (!isRecord(value) || Object.keys(value).some((key) => !['slug', 'relationship'].includes(key))) {
-    issues.push('network must be null or contain only slug and relationship');
+  if (!isRecord(value) || Object.keys(value).some((key) => !NETWORK_KEYS.includes(key))) {
+    issues.push(`network must be null or contain only ${NETWORK_KEYS.join(', ')}`);
     return null;
   }
   if (typeof value.slug !== 'string' || !SLUG.test(value.slug)) issues.push('network.slug must be kebab-case');
   if (value.relationship !== 'owner' && value.relationship !== 'member') {
     issues.push('network.relationship must be owner or member');
   }
+  const hostedSurfaces = value.hostedSurfaces === undefined
+    ? null : parseHostedSurfaces(value.hostedSurfaces, issues);
+  const framedBy = value.framedBy === undefined ? null : parseFramedBy(value.framedBy, issues);
   return typeof value.slug === 'string' && SLUG.test(value.slug)
     && (value.relationship === 'owner' || value.relationship === 'member')
-    ? { slug: value.slug, relationship: value.relationship }
+    ? {
+      slug: value.slug, relationship: value.relationship,
+      ...(hostedSurfaces ? { hostedSurfaces } : {}),
+      ...(framedBy ? { framedBy } : {}),
+    }
     : null;
 }
 

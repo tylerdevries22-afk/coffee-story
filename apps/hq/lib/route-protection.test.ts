@@ -33,6 +33,18 @@ const ALLOWED_PUBLIC_PREFIXES = [
   "'/customer'",
   "'/kiosk'",
   "'/operator'",
+  // The unattended screen in a venue's entrance. Reviewed and allowed because
+  // there is no account to gate it on: a lobby device has no keyboard, no
+  // session and nobody to attribute an action to, so requiring one would leave
+  // it permanently redirected to /login.
+  //
+  // What it exposes is a property's own published identity -- name, street
+  // address, front-desk hours, website -- read from the committed tenant
+  // folder, which is the same information the hotel puts on its own site and
+  // its public listing. It runs no query, holds no per-guest state, and has no
+  // control that writes anything. Slug enumeration is the one real cost, and
+  // it is the cost the three shells above already carry.
+  "'/lobby'",
 ];
 
 test('the public allowlist is exactly the reviewed set', () => {

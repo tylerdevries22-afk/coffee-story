@@ -3,13 +3,20 @@ import { appPreviewsFor, withSurfaceUrls, type AppPreview, type OrgPreviewCatalo
 import { activeModuleKeys } from '@/lib/capabilities';
 import { loadDeviceWall } from '@/lib/device-wall-data';
 import { surfaceUrlsForTenant, tenantPathSurfaceUrls } from '@/lib/org-surface-urls';
+import { partnerNetworkOf } from '@/lib/partner-surface-urls';
+import { lobbySurfaceUrl } from '@/lib/lobby-screen';
 import { currentSession } from '@/lib/auth';
 import { readWorkspaceScope } from '@/lib/workspace-scope';
-import { tenantOrgById } from '@/lib/tenants';
+import { tenantOrgById, type TenantOrg } from '@/lib/tenants';
 
 export const dynamic = 'force-dynamic';
 
-function previewsForSlug(slug: string | null, locationId: string | null): AppPreview[] {
+function previewsForSlug(
+  slug: string | null,
+  locationId: string | null,
+  brandConfig?: unknown,
+  org?: TenantOrg | null,
+): AppPreview[] {
   // Same origin, per tenant -- not the hosted Vercel stack.
   //
   // This used to force COFFEE_STORY_WALL_HOSTED so an org switch would
@@ -20,10 +27,28 @@ function previewsForSlug(slug: string | null, locationId: string | null): AppPre
   //
   // /t/<slug>/<surface> is this origin's copy of that tenant's build, so a
   // switch shows that tenant's own apps rather than relabelling the last one.
-  const urls = slug
+  //
+  // A venue on a partner network is the exception. Its staff console and its
+  // guest app are the partner's own products, already built and already live,
+  // so the wall frames those rather than showing this repo's empty copies. The
+  // kiosk stays ours: a lobby screen is per-property, drawn from that hotel's
+  // published page, and no partner hosts one.
+  //
+  // Partner framing only paints where the partner's own frame-ancestors admits
+  // this origin -- theirs to decide, not ours -- which today means a deployed
+  // *.vercel.app HQ and not a localhost one.
+  const base = slug
     ? tenantPathSurfaceUrls('', slug, locationId)
     : surfaceUrlsForTenant(slug);
-  return withSurfaceUrls(appPreviewsFor(), urls);
+  const partner = partnerNetworkOf(brandConfig);
+  const urls = partner ? { ...base, ...partner.surfaces } : base;
+  // A venue's kiosk IS its lobby screen, and it is ours to serve rather than
+  // the partner's: it is drawn from one property's own published page, so it
+  // is per-building by nature. Applied after the partner merge because the
+  // parser already refuses a network that claims `kiosk` -- this is the
+  // positive half of that rule, not a second chance to override it.
+  const lobby = org ? lobbySurfaceUrl(org, '', locationId) : null;
+  return withSurfaceUrls(appPreviewsFor(), lobby ? { ...urls, kiosk: lobby } : urls);
 }
 
 export default async function AppsWallPage() {
@@ -33,12 +58,15 @@ export default async function AppsWallPage() {
   const deviceWall = await loadDeviceWall();
   const modules = await activeModuleKeys(deviceWall.brandId);
   const catalog: OrgPreviewCatalogEntry[] = workspace.organizations.map((org) => {
-    const slug = org.slug ?? tenantOrgById(org.id)?.slug ?? null;
+    const registered = tenantOrgById(org.id);
+    const slug = org.slug ?? registered?.slug ?? null;
     return {
       id: org.id,
       slug,
       name: org.name,
-      previews: previewsForSlug(slug, deviceWall.locations[0]?.id ?? null),
+      previews: previewsForSlug(
+        slug, deviceWall.locations[0]?.id ?? null, registered?.brandConfig, registered,
+      ),
     };
   });
   const selected = catalog.find((entry) => entry.id === workspace.organizationId) ?? catalog[0];

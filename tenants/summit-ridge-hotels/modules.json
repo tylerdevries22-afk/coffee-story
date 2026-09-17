@@ -1,0 +1,22 @@
+{
+  "$docs": "A hotel chain coordinates properties; it does not sell through this platform. Rooms are booked in the network's traveller app and paid there, so no commerce module is installed and no catalog ships. What the chain does run is its own operating routines and the training it publishes to property staff -- both scoped to `hq`, because this tenant declares no `operator` surface. Nothing is declared for `lobby`: no module serves that surface yet, and declaring one before it is built would be a claim the registry cannot honour.",
+  "schemaVersion": 1,
+  "modules": [
+    {
+      "key": "workforce-operations",
+      "version": "1.0.0",
+      "surfaces": [
+        "hq"
+      ],
+      "enabled": true
+    },
+    {
+      "key": "workforce-training",
+      "version": "1.0.0",
+      "surfaces": [
+        "hq"
+      ],
+      "enabled": true
+    }
+  ]
+}

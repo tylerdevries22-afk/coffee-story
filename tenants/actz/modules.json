@@ -1,0 +1,24 @@
+{
+  "$docs": "ACTZ sells nothing itself, so it installs no commerce module and ships no catalog. What a network operator does do is coordinate the venues under it: routines its properties run, and training it publishes to their staff. Both serve `operator` and `hq`, which is why ACTZ declares those two surfaces and no guest surface at all. Neither install names a config artifact, the same shape stillpoint-builders uses.",
+  "schemaVersion": 1,
+  "modules": [
+    {
+      "key": "workforce-operations",
+      "version": "1.0.0",
+      "surfaces": [
+        "operator",
+        "hq"
+      ],
+      "enabled": true
+    },
+    {
+      "key": "workforce-training",
+      "version": "1.0.0",
+      "surfaces": [
+        "operator",
+        "hq"
+      ],
+      "enabled": true
+    }
+  ]
+}

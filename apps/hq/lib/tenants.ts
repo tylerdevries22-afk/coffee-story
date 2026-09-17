@@ -21,6 +21,10 @@ import juniperBrand from '../../../tenants/juniper-base-demo/brand.json';
 import juniperModules from '../../../tenants/juniper-base-demo/modules.json';
 import stillpointBrand from '../../../tenants/stillpoint-builders/brand.json';
 import stillpointModules from '../../../tenants/stillpoint-builders/modules.json';
+import actzBrand from '../../../tenants/actz/brand.json';
+import actzModules from '../../../tenants/actz/modules.json';
+import summitRidgeBrand from '../../../tenants/summit-ridge-hotels/brand.json';
+import summitRidgeModules from '../../../tenants/summit-ridge-hotels/modules.json';
 
 import { DEMO_LOCATIONS, DEMO_SESSION } from './demo-data';
 
@@ -141,6 +145,41 @@ export const TENANT_ORGS: readonly TenantOrg[] = [
     brandConfig: juniperBrand,
     moduleKeys: enabledModuleKeys(juniperModules),
     locations: manifestLocations(juniperBrand, 'juniper-base-demo'),
+  },
+  {
+    // The network operator, and the first entry that is neither a shop nor a
+    // site: ACTZ owns venue brands rather than trading itself, so it declares
+    // no location and installs no module. Every other entry has at least one
+    // of each, which is exactly why it belongs here -- a switcher that only
+    // holds sellers cannot show a franchisor's console at all.
+    //
+    // `kind: 'brand'` for the same reason Stillpoint carries it: 'operator' is
+    // the badge reserved for the platform's own account, and ACTZ is a tenant
+    // of the platform, not the platform.
+    id: 'actz',
+    slug: 'actz',
+    name: 'ACTZ',
+    kind: 'brand',
+    brandConfig: actzBrand,
+    moduleKeys: enabledModuleKeys(actzModules),
+    locations: manifestLocations(actzBrand, 'actz'),
+  },
+  {
+    // A member of the network above, and the first franchisee in the registry.
+    // Every other entry owns itself; this one inherits its defaults from ACTZ
+    // and overrides what it chooses to, which is the relationship a real chain
+    // has with the network it joins.
+    //
+    // It is a chain rather than a single hotel deliberately: `locations` is the
+    // branch list, so the console shows a switchable set of properties under
+    // one brand, and each branch's lobby screen is its own.
+    id: 'summit-ridge-hotels',
+    slug: 'summit-ridge-hotels',
+    name: 'Summit Ridge Hotels',
+    kind: 'brand',
+    brandConfig: summitRidgeBrand,
+    moduleKeys: enabledModuleKeys(summitRidgeModules),
+    locations: manifestLocations(summitRidgeBrand, 'summit-ridge-hotels'),
   },
 ];
 

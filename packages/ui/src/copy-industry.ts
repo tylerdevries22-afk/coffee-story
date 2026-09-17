@@ -132,6 +132,38 @@ const CONSTRUCTION_COPY: IndustryCopy = {
 };
 
 /**
+ * A host's vocabulary: a guest rather than a member, a trip rather than a bag,
+ * and a board read in a lobby by someone who is already here. The nouns are
+ * deliberately venue-neutral -- a hotel, an outfitter and a visitor centre all
+ * take bookings for an experience that happens at a time, so none of these
+ * words assume a room. Drop wording is supplied because the pack must be
+ * total, not because the vertical usually enables drops.
+ */
+const HOSPITALITY_COPY: IndustryCopy = {
+  appName: 'Our Property',
+  orderCta: 'Book an experience',
+  addToBag: 'Add to trip',
+  viewBag: 'View trip',
+  bagTitle: 'Your trip',
+  orderPlaced: 'Booking confirmed',
+  earnBanner: 'Earn {points} {pointsName} for this booking',
+  memberFallback: 'Guest',
+  dropLive: 'Available now',
+  dropStartsIn: 'Opens in {time}',
+  handoffPromise: "We'll have this ready at the front desk.",
+  boardTitle: "Today's Schedule",
+  boardQueued: 'Booked',
+  boardMaking: 'Underway',
+  boardPosition: 'Number {position} in the queue',
+  boardEmpty: 'Nothing scheduled',
+  boardArrived: 'Checked in',
+  boardOverflow: '+{count} more scheduled',
+  cashName: 'Guest Credit',
+  cashHint: 'Present at the front desk',
+  orderReadyMessage: 'Booking {shortCode} is ready.',
+};
+
+/**
  * Packs by industry key. The keys match `industries/<key>/` folder names, and
  * the consistency gate fails when a blueprint on disk has no pack here.
  *
@@ -141,6 +173,7 @@ const CONSTRUCTION_COPY: IndustryCopy = {
 export const INDUSTRY_COPY: Readonly<Record<string, IndustryCopy>> = {
   'coffee-shop': COFFEE_SHOP_COPY,
   construction: CONSTRUCTION_COPY,
+  hospitality: HOSPITALITY_COPY,
   [GENERIC_INDUSTRY_KEY]: GENERIC_COPY,
 };
 

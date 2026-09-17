@@ -1,0 +1,202 @@
+# Durable task definitions for the ACTZ-on-coffee-story goal.
+# Task definitions govern scope; qa/task-ledger.json records actual outcomes.
+# Kept apart from qa/tasks.yaml, which holds the unrelated and still-active
+# coffee-story-hardening-20260906 goal.
+# Status values: done | in_progress | blocked | pending
+
+goal:
+  id: actz-provider-platform-20260915
+  objective: >-
+    Run ACTZ providers on this platform: ACTZ as a franchise network, a reusable
+    provider tenant folder, and a hotel demo tenant whose unattended lobby screen
+    renders that hotel's published Actz page, with the pack pushed from Actz.
+  plan: ~/.claude/plans/want-you-to-run-mellow-boole.md
+  scope:
+    - coffee-story: surfaces, industry, catalog contract, integration auth, apps/lobby
+    - actz-may: expose typeAttrs publicly; push a tenant pack
+  exclusions:
+    - A guest app for ACTZ in this repo; booking completes in Actz's traveler app
+    - Amadeus hotel inventory, which carries redisplay restrictions
+    - Release-gate approvals and EAS project ids, which are owner actions
+  constraints:
+    - Every merge gated on verify + audit + security passing (enforce_admins is off)
+    - Money stays integer cents; no component hard-codes a colour (rules 4 and 6)
+    - Actz stays the source of truth; coffee-story materializes, never authors
+
+tasks:
+  - id: A1
+    title: Make lobby a declarable surface
+    status: done
+    depends_on: []
+    acceptance: lobby is in TENANT_SURFACES and APP_SURFACES, absent from BUILT_SURFACES
+    evidence: commit 2ed606e9; module-kit 100/100; tenant-config 21/21
+    owner: coordinator
+
+  - id: A2
+    title: Add hospitality as a provisionable vertical
+    status: done
+    depends_on: []
+    acceptance: blueprint, total 21-key copy pack, industry_blueprints row, pair allowlist
+    evidence: commit a1dd44bb; PR 212; 964 HQ tests; lint 0; both rule-4 audits clean
+    owner: coordinator
+
+  - id: A3
+    title: Accept catalog.json as an alternative to the menu.csv trio
+    status: pending
+    depends_on: []
+    acceptance: >-
+      A tenant declaring commerce-catalog validates with either the CSV trio or a
+      CatalogManifest; coffee-story and stillpoint-builders are unchanged.
+    owner: worker
+    finding: >-
+      tenants/coffee-story/modules/commerce-catalog/config.json ALREADY declares a
+      `sources` mapping (offerings: menu.csv, folders: menu-categories.json, ...).
+      That indirection is probably the correct seam -- point `sources` at a
+      CatalogManifest rather than teaching the validator a second filename set.
+      Check whether module-manifest validation actually reads it before widening
+      anything else.
+
+  - id: A4
+    title: Generalize integration auth to per-integration secrets and keys
+    status: pending
+    depends_on: []
+    acceptance: >-
+      A stolen Elevate secret cannot authorize an ACTZ call; integration_key is a
+      parameter, not a literal; both secrets documented in .env.example.
+    owner: coordinator
+    note: secrets work stays with the coordinator per host routing policy
+
+  - id: B1
+    title: ACTZ as a franchise network with a franchisor brand
+    status: done
+    evidence: >-
+      tenants/actz/ validates (onboard dry run), tenant-config 22/22 including
+      "actz/brand.json satisfies the v1 contract", both rule-4 audits clean,
+      industry-copy-packs 17/17 including "actz names an industry pack"
+    was_status: pending
+    depends_on: [A2]
+    acceptance: parser accepts the franchisor manifest; network relationship is owner
+    owner: worker
+
+  - id: B2
+    title: Reusable provider tenant template
+    status: done
+    depends_on: [A2, A3, B1]
+    acceptance: a franchisee manifest declaring hq+lobby that parses and onboards
+    owner: worker
+    evidence: >-
+      tenants/summit-ridge-hotels/ is the first franchisee in the tree and the
+      shape every provider copies: kind franchisee, network member of actz,
+      inheritance mode network, surfaces [hq, lobby]. tenant-config 35/35
+      including "summit-ridge-hotels/brand.json satisfies the v1 contract".
+    note: >-
+      Shipped as a working chain rather than a _provider-template/ folder. A
+      template that nothing parses is a template nobody can trust; this one is
+      exercised by the demo and by the shipped-manifest test on every run.
+
+  - id: B3
+    title: First hotel tenant, fictional, Georgetown CO
+    status: done
+    depends_on: [B2]
+    acceptance: >-
+      pnpm onboard --tenant <slug> passes its dry run; a tenant declaring only
+      hq+lobby stops before guest-app generation and does not run --apply
+    owner: worker
+    evidence: >-
+      Summit Ridge Georgetown is the flagship branch, in Actz's own demo world.
+      It is a CHAIN rather than one property: `locations` is the branch list, so
+      the next hotel is one entry rather than a new tenant.
+    note: >-
+      --apply is not on this tenant's path and B4 is therefore not a dependency:
+      it ships no guest app, so the fixed asset list never runs against it.
+
+  - id: B4
+    title: Generate the required tenant assets with Higgsfield
+    status: blocked
+    depends_on: []
+    acceptance: the 11 fixed assets plus a logo exist and pass onboarding validation
+    owner: worker
+    note: >-
+      Off the critical path and deliberately not done. The fixed asset list is a
+      guest-app gate; a hotel chain shipping hq+lobby never reaches it. Doing it
+      anyway would mean generating eight gift-card images and a hero video for a
+      tenant that ships neither.
+
+  - id: C1
+    title: apps/lobby scaffold and promotion into the built surfaces
+    status: in_progress
+    depends_on: [A1, B3]
+    acceptance: lobby joins BUILT_SURFACES/FACTORY_SURFACES and the SQL surface set
+    owner: worker
+    note: >-
+      The screen ships first as a route on the HQ host (/lobby/<slug>/<branch>),
+      which is the URL contract Model B would have produced anyway and needs no
+      Expo project, no export step and no sixth static bundle. Promotion into
+      BUILT_SURFACES/FACTORY_SURFACES and the SQL surface set is still open and
+      is what a native iPad build would need; nothing in the demo depends on it.
+
+  - id: C2
+    title: Render the hotel template, VENUE_SECTIONS order, minus claim and social
+    status: done
+    depends_on: [C1]
+    acceptance: section order matches Actz's registry; amenities render as content
+    owner: worker
+    evidence: >-
+      apps/hq/app/lobby/[slug]/[locationId]/page.tsx renders lobbySectionsFor('hotel')
+      in published order; apps/hq/lib/lobby-screen.test.ts asserts the order against
+      the domain module rather than restating it, and that `claim` never renders.
+      13/13 green.
+
+  - id: C3
+    title: Serve the lobby as a Model B web static
+    status: done
+    depends_on: [C1]
+    acceptance: exported to apps/hq/public/lobby and reachable at /lobby
+    owner: worker
+    evidence: >-
+      Served at /lobby/<slug>/<branch> from the HQ host, public in middleware
+      (a lobby device has no account) and frameable by the wall in next.config.
+      Verified in a browser: both branches render their own name, address and
+      note. Reached the acceptance URL by a route rather than a static export --
+      same origin and same path contract, one less build step.
+
+  - id: C4
+    title: HQ apps wall and console tile for the lobby
+    status: done
+    depends_on: [C1]
+    acceptance: the lobby tile renders in the apps wall and the preview wall
+    owner: worker
+    evidence: >-
+      The wall's kiosk tile resolves to the venue's own lobby screen. Read live
+      from the running console: Summit Ridge -> /lobby/summit-ridge-hotels/
+      summit-ridge-hotels-1, while ACTZ (which declares no lobby) keeps
+      /t/actz/kiosk and takes its hq and operator tiles from the partner.
+
+  - id: D1
+    title: Expose typeAttrs on the public page config
+    status: pending
+    depends_on: []
+    acceptance: >-
+      GET /api/pages/:slug/config returns typeAttrs; without it the lobby cannot
+      show check-in time, check-out time, amenities or roomCount.
+    owner: worker
+    repo: actz-may
+    finding: >-
+      Wider than first scoped. findPublishedPage() in page-lookup.ts selects an
+      EXPLICIT column list from businessPages that omits typeAttrs entirely, so
+      PublishedPage carries no such field for pageConfigResponse to read. The
+      change therefore spans page-lookup.ts as well; scoping this task to
+      pages-config.ts alone was wrong.
+
+  - id: D2
+    title: Push a materialized tenant pack from Actz to coffee-story
+    status: pending
+    depends_on: [A4, B2, D1]
+    acceptance: a monotonic revision lands via POST /api/integrations/tenant-pack
+    owner: coordinator
+    repo: actz-may
+
+readiness_gates:
+  - verify, audit and security green before any merge
+  - hosted-integration read on main after every promotion; it is main-only and not required
+  - plpgsql_check runs only in CI, so every migration is unproven until pushed

@@ -211,4 +211,14 @@ describe('servesABuiltSurface', () => {
     assert.equal((BUILT_SURFACES as readonly string[]).includes('admin'), false);
     assert.equal((APP_SURFACES as readonly string[]).includes('admin'), true);
   });
+
+  // `lobby` is declarable before it is buildable. It joins BUILT_SURFACES in
+  // the same change that lands `apps/lobby`; until then a lobby-only module is
+  // hosted nowhere this repo renders, exactly like an Elevate portal module.
+  // Flipping this test is the deliberate signal that the surface now ships.
+  it('keeps lobby declarable but not yet built', () => {
+    assert.equal((APP_SURFACES as readonly string[]).includes('lobby'), true);
+    assert.equal((BUILT_SURFACES as readonly string[]).includes('lobby'), false);
+    assert.equal(servesABuiltSurface(install(['lobby'])), false);
+  });
 });
