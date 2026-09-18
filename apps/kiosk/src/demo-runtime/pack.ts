@@ -64,3 +64,14 @@ export function runtimeSlug(brand: unknown, isValidSlug: (value: string) => bool
   const slug = record(record(brand).identity).slug;
   return typeof slug === 'string' && isValidSlug(slug) ? slug : 'demo';
 }
+
+/**
+ * What the mandatory banner says (see index.js's boot module). Naming the
+ * business twice reads a little repetitive on purpose: the second sentence
+ * has to stand alone as the disclaimer, since a screen reader or a skim
+ * cannot rely on the first sentence's antecedent.
+ */
+export function bannerText(businessName: string, builderName: string): string {
+  return `Unofficial demo. ${builderName} built this to show what an ordering app for ${businessName} `
+    + `could look like. ${businessName} has not endorsed or reviewed it.`;
+}

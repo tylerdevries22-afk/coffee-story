@@ -9,6 +9,7 @@ import { describe, it } from 'node:test';
 import { assertTenantBundle } from '../../../scripts/assert-tenant-bundle.ts';
 
 type Resolver = {
+  demoRuntimeEnabled(): boolean;
   selectedTenant(appRoot: string, requested?: string): string;
   tenantBundlePath(appRoot: string, moduleName: string, requested?: string): string | null;
   withTenantBundleResolver(
@@ -16,6 +17,18 @@ type Resolver = {
     appRoot: string,
   ): { resolver: { resolveRequest: MetroResolve } };
 };
+
+/** Runs `run` with EXPO_PUBLIC_DEMO_RUNTIME set, restoring whatever was there before. */
+function withDemoRuntime<T>(run: () => T): T {
+  const previous = process.env.EXPO_PUBLIC_DEMO_RUNTIME;
+  process.env.EXPO_PUBLIC_DEMO_RUNTIME = '1';
+  try {
+    return run();
+  } finally {
+    if (previous === undefined) delete process.env.EXPO_PUBLIC_DEMO_RUNTIME;
+    else process.env.EXPO_PUBLIC_DEMO_RUNTIME = previous;
+  }
+}
 
 type MetroContext = {
   resolveRequest(context: MetroContext, moduleName: string, platform: string): unknown;
@@ -86,6 +99,92 @@ describe('tenant bundle resolver', () => {
       assert.doesNotMatch(production, /coffee-story|stillpoint-builders/);
       assert.match(production, /@tenant-bundle\//);
     }
+  });
+});
+
+describe('demo runtime resolver', () => {
+  it('reflects EXPO_PUBLIC_DEMO_RUNTIME', () => {
+    assert.equal(resolver.demoRuntimeEnabled(), false);
+    withDemoRuntime(() => assert.equal(resolver.demoRuntimeEnabled(), true));
+  });
+
+  for (const app of ['customer', 'kiosk'] as const) {
+    it(`resolves ${app}'s config and generated requests to src/demo-runtime/, with no tenant needed at all`, () => {
+      const appRoot = join(ROOT, 'apps', app);
+      withDemoRuntime(() => {
+        for (const request of ['config/brand', 'config/menu', 'config/modules', 'generated/menu-media']) {
+          const target = resolver.tenantBundlePath(appRoot, `@tenant-bundle/${request}`);
+          assert.match(
+            target ?? '',
+            new RegExp(`src/demo-runtime/${request}\\.ts$`),
+            `${app} ${request} -> ${String(target)}`,
+          );
+        }
+      });
+    });
+
+    it(`resolves ${app}'s logo to its own runtime module, not the neutral tenant's file`, () => {
+      const appRoot = join(ROOT, 'apps', app);
+      withDemoRuntime(() => {
+        const logo = resolver.tenantBundlePath(appRoot, '@tenant-bundle/artwork/brand/logo.png');
+        assert.match(logo ?? '', /src\/demo-runtime\/artwork\/brand\/logo\.ts$/);
+      });
+    });
+  }
+
+  it("resolves customer's product-media request too, which kiosk never imports", () => {
+    const appRoot = join(ROOT, 'apps', 'customer');
+    withDemoRuntime(() => {
+      const target = resolver.tenantBundlePath(appRoot, '@tenant-bundle/generated/product-media');
+      assert.match(target ?? '', /src\/demo-runtime\/generated\/product-media\.ts$/);
+    });
+  });
+
+  it("resolves every other artwork key to the neutral reference tenant's real asset", () => {
+    const appRoot = join(ROOT, 'apps', 'customer');
+    withDemoRuntime(() => {
+      const hero = resolver.tenantBundlePath(appRoot, '@tenant-bundle/artwork/hero/home-hero.mp4');
+      assert.match(hero ?? '', /assets\/tenants\/juniper-base-demo\/hero\/home-hero\.mp4$/);
+    });
+  });
+
+  it('never calls selectedTenant, so an unset or unapplied EXPO_PUBLIC_TENANT cannot fail it', () => {
+    const appRoot = join(ROOT, 'apps', 'customer');
+    const previous = process.env.EXPO_PUBLIC_TENANT;
+    delete process.env.EXPO_PUBLIC_TENANT;
+    try {
+      withDemoRuntime(() => {
+        assert.doesNotThrow(() => resolver.tenantBundlePath(appRoot, '@tenant-bundle/config/brand'));
+      });
+    } finally {
+      if (previous === undefined) delete process.env.EXPO_PUBLIC_TENANT;
+      else process.env.EXPO_PUBLIC_TENANT = previous;
+    }
+  });
+
+  it('still fails closed for an artwork request that escapes the neutral asset root', () => {
+    const appRoot = join(ROOT, 'apps', 'customer');
+    withDemoRuntime(() => {
+      assert.throws(
+        () => resolver.tenantBundlePath(appRoot, '@tenant-bundle/artwork/../../secret'),
+        /escapes its selected asset root/,
+      );
+    });
+  });
+
+  it('chains through Metro resolution exactly like a normal tenant build', () => {
+    const calls: string[] = [];
+    const config = { resolver: {} };
+    const configured = resolver.withTenantBundleResolver(config, join(ROOT, 'apps', 'customer'));
+    const context: MetroContext = {
+      resolveRequest: (_context, name) => { calls.push(name); return name; },
+    };
+    withDemoRuntime(() => {
+      configured.resolver.resolveRequest(context, '@tenant-bundle/config/brand', 'web');
+      configured.resolver.resolveRequest(context, 'react', 'web');
+    });
+    assert.match(calls[0] ?? '', /src\/demo-runtime\/config\/brand\.ts$/);
+    assert.equal(calls[1], 'react');
   });
 });
 

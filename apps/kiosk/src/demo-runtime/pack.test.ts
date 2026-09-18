@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { afterEach, describe, it } from 'node:test';
 
-import { demoPack, logoSourceOf, menuMediaOf, runtimeSlug } from './pack';
+import { bannerText, demoPack, logoSourceOf, menuMediaOf, runtimeSlug } from './pack';
 
 const isValidSlug = (value: string) => /^[a-z0-9]+(-[a-z0-9]+)*$/.test(value);
 
@@ -59,5 +59,15 @@ describe('runtimeSlug', () => {
     ]) {
       assert.equal(runtimeSlug(brand, isValidSlug), 'demo');
     }
+  });
+});
+
+describe('bannerText', () => {
+  it('names the builder and the business, and disclaims endorsement', () => {
+    const text = bannerText('Harbor Roast', 'Acme Digital');
+    assert.match(text, /^Unofficial demo\./);
+    assert.match(text, /Acme Digital built this/);
+    assert.match(text, /Harbor Roast/);
+    assert.match(text, /has not endorsed or reviewed it\.$/);
   });
 });

@@ -3,4 +3,15 @@
 // expo-router/entry sits two directories up, and metro >= 0.83.8 parses
 // request URLs with WHATWG `new URL()`, which normalizes the resulting
 // /../../ prefix away before Metro can resolve it.
-import 'expo-router/entry';
+//
+// Demo runtime mode (web only) cannot start expo-router/entry directly:
+// apps/kiosk/src/tenants/selected.ts and the tenant consumers behind it read
+// their tenant at module load, so the pack a visitor's demo needs has to
+// already be on globalThis before any of that code is ever required.
+// src/demo-runtime/boot.ts fetches it, then requires expo-router/entry
+// itself once it has one -- or never, showing a plain refusal instead.
+if (process.env.EXPO_PUBLIC_DEMO_RUNTIME === '1') {
+  require('./src/demo-runtime/boot');
+} else {
+  require('expo-router/entry');
+}
