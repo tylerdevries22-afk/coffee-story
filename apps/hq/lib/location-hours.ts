@@ -31,7 +31,7 @@ export const MAX_SPANS_PER_DAY = 4;
 export const DAY_LABEL: Readonly<Record<Weekday, string>> = {
   mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun',
 };
-const DAY_NAME: Readonly<Record<Weekday, string>> = {
+export const DAY_NAME: Readonly<Record<Weekday, string>> = {
   mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday', fri: 'Friday',
   sat: 'Saturday', sun: 'Sunday',
 };

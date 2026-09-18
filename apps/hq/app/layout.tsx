@@ -23,6 +23,7 @@ import './styles/analytics-responsive.css';
 import './styles/status.css';
 import './styles/knowledge.css';
 import './styles/organization-onboarding.css';
+import './styles/organization-places.css';
 
 export const metadata: Metadata = {
   title: 'HQ',

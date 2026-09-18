@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { OrganizationOnboardingWizard } from '@/components/organization-onboarding-wizard';
 import { currentSession, mayProvisionOrganizations } from '@/lib/auth';
 import { connectorCardsOf, defaultConnectorCards } from '@/lib/integration-cards';
+import { placesKey } from '@/lib/places-proxy-context';
 import { serverClient } from '@/lib/supabase-server';
 
 export const dynamic = 'force-dynamic';
@@ -20,6 +21,8 @@ export default async function NewOrganizationPage() {
     ? connectorCardsOf(registry?.data ?? [], [])
     : defaultConnectorCards();
 
+  // Only whether a key is set crosses to the browser, never the key: without
+  // one the wizard opens for typing instead of offering a search that can't answer.
   return <OrganizationOnboardingWizard idempotencyKey={crypto.randomUUID()}
-    ownerEmail={session.email} connectorCards={connectorCards} />;
+    ownerEmail={session.email} connectorCards={connectorCards} placesReady={placesKey() !== undefined} />;
 }
