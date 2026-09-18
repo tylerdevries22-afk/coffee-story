@@ -10,6 +10,8 @@ function day(value: string | null): string {
  * The demos most recently built, and whether each prospect has looked. The
  * open count is the outreach loop's only signal, so a preview from here goes
  * through the console rather than the prospect's link, and does not count.
+ * Screens viewed and last viewed are the same: they come from the demo-
+ * runtime's own in-app capture (20260918150000), never from a console preview.
  */
 export function DemoRecentSites({ sites }: { sites: readonly DemoSiteSummary[] }) {
   return (
@@ -20,7 +22,10 @@ export function DemoRecentSites({ sites }: { sites: readonly DemoSiteSummary[] }
       ) : (
         <table>
           <thead>
-            <tr><th>Business</th><th>State</th><th className="num">Opens</th><th>Last opened</th><th>Expires</th></tr>
+            <tr>
+              <th>Business</th><th>State</th><th className="num">Opens</th><th>Last opened</th>
+              <th className="num">Screens viewed</th><th>Last viewed</th><th>Expires</th>
+            </tr>
           </thead>
           <tbody>
             {sites.map((site) => (
@@ -29,6 +34,8 @@ export function DemoRecentSites({ sites }: { sites: readonly DemoSiteSummary[] }
                 <td>{site.state}</td>
                 <td className="num">{site.openCount}</td>
                 <td>{day(site.lastOpenedAt)}</td>
+                <td className="num">{site.screenViews}</td>
+                <td>{day(site.lastViewedAt)}</td>
                 <td>{day(site.expiresAt)}</td>
               </tr>
             ))}

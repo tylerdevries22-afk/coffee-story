@@ -11,7 +11,9 @@ import { useDevice } from '@/state/device';
 import { useKioskSession } from '@/state/session';
 import { TENANT } from '@/tenant';
 
-const SCREENS: Readonly<Record<string, string>> = {
+/** Exported for src/demo-runtime/screen-capture.tsx, so the anonymous demo
+ *  capture names screens from the same vocabulary as tenant telemetry. */
+export const SCREENS: Readonly<Record<string, string>> = {
   '/': 'entry', '/pair': 'device_pairing', '/bag': 'bag',
   '/checkout/balance': 'balance', '/checkout/identify': 'identify',
   '/checkout/keypad': 'keypad', '/checkout/name': 'guest_name',

@@ -10,7 +10,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { demoLinkSecret } from './link';
+import { count } from './numeric';
 import { originalityGateReady } from './originality';
+import { NO_DEMO_EVENTS, siteEventCounts, type DemoSiteEvents } from './site-events';
 
 export type DemoFactoryDb = Pick<SupabaseClient, 'rpc' | 'from'>;
 
@@ -55,6 +57,9 @@ export type DemoSiteSummary = {
   readonly openCount: number;
   readonly lastOpenedAt: string | null;
   readonly expiresAt: string;
+  /** Screens viewed inside the app itself, once opened -- see 20260918150000. */
+  readonly screenViews: number;
+  readonly lastViewedAt: string | null;
 };
 
 export type DemoConsole = {
@@ -73,11 +78,6 @@ export type DemoFactoryReadiness = {
 };
 
 type Row = Readonly<Record<string, unknown>>;
-
-function count(value: unknown): number {
-  const number = typeof value === 'string' ? Number(value) : value;
-  return typeof number === 'number' && Number.isFinite(number) && number >= 0 ? Math.trunc(number) : 0;
-}
 
 function label(value: unknown): string {
   return typeof value === 'string' ? value : '';
@@ -129,7 +129,7 @@ export function dailyFrom(row: Row): DemoDailyCost {
   };
 }
 
-export function siteSummaryFrom(row: Row): DemoSiteSummary {
+export function siteSummaryFrom(row: Row, events: DemoSiteEvents = NO_DEMO_EVENTS): DemoSiteSummary {
   return {
     id: label(row.id),
     businessName: label(row.business_name),
@@ -137,6 +137,8 @@ export function siteSummaryFrom(row: Row): DemoSiteSummary {
     openCount: count(row.open_count),
     lastOpenedAt: typeof row.last_opened_at === 'string' ? row.last_opened_at : null,
     expiresAt: label(row.expires_at),
+    screenViews: events.screenViews,
+    lastViewedAt: events.lastViewedAt,
   };
 }
 
@@ -167,10 +169,12 @@ export async function loadDemoConsole(db: DemoFactoryDb): Promise<DemoConsole> {
   if (batches.error) throw batches.error;
   if (daily.error) throw daily.error;
   if (sites.error) throw sites.error;
+  const siteRows = rows(sites.data).filter((row) => label(row.id) !== '');
+  const events = await siteEventCounts(db, siteRows.map((row) => label(row.id)));
   return {
     settings: settingsFrom(settings.data),
     batches: rows(batches.data).map(batchFrom).filter((batch) => batch.id !== ''),
     daily: rows(daily.data).map(dailyFrom),
-    sites: rows(sites.data).map(siteSummaryFrom).filter((site) => site.id !== ''),
+    sites: siteRows.map((row) => siteSummaryFrom(row, events.get(label(row.id)))),
   };
 }
