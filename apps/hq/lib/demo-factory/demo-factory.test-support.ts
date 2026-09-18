@@ -5,6 +5,9 @@ export type FactoryCall = { readonly kind: string; readonly args: readonly unkno
 export type FactoryScript = {
   readonly rpc?: Readonly<Record<string, { readonly data?: unknown; readonly error?: unknown }>>;
   readonly settingsRow?: unknown;
+  /** What a `select(...).order(...).limit(...)` list read answers. */
+  readonly listed?: readonly unknown[];
+  readonly listError?: unknown;
   readonly selectError?: unknown;
   readonly insertError?: unknown;
   readonly updateError?: unknown;
@@ -38,6 +41,12 @@ export function fakeFactoryDb(script: FactoryScript = {}) {
           maybeSingle: async () => {
             calls.push({ kind: 'select', args: [table, columns, column, value] });
             return { data: script.settingsRow ?? null, error: script.selectError ?? null };
+          },
+        }),
+        order: (column: string, options: unknown) => ({
+          limit: async (count: number) => {
+            calls.push({ kind: 'list', args: [table, columns, column, options, count] });
+            return { data: script.listed ?? [], error: script.listError ?? null };
           },
         }),
       }),
