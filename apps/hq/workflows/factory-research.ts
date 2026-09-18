@@ -7,8 +7,19 @@ import {
   parseBrandResearchArtifact,
   type BrandResearchArtifact,
 } from '../lib/factory-automation';
+import type { CrawlOptions } from '../lib/site-crawl/crawl-site';
+import type { SiteBrandKit } from '../lib/site-crawl/site-kit';
 import { providerFetch, type FactoryRunRow } from './factory-runtime';
 import { reasoningFor, SEARCH_LIMITS } from './research-limits';
+import { extractionConfig } from './site-extraction';
+import { researchFromWebsite } from './site-research';
+
+/**
+ * The brand kit artifact. `site` is present when it was read from the
+ * business's own website, and carries what search cannot: contact emails,
+ * social profiles, grounded items and candidate photographs.
+ */
+export type BrandResearch = BrandResearchArtifact & { readonly site?: SiteBrandKit };
 
 type ResponsesPayload = {
   status?: string;
@@ -42,12 +53,21 @@ function responseText(payload: ResponsesPayload): string | null {
     .find((entry) => entry.type === 'output_text')?.text ?? null;
 }
 
-export async function researchBrand(run: FactoryRunRow): Promise<BrandResearchArtifact> {
+/**
+ * Brand research for one factory run: from the business's own website when
+ * the run has one (site-research.ts, no hosted search), otherwise -- or when
+ * the site gives nothing to build from -- through capped hosted search.
+ * `crawlOptions` exists for tests; the workflow passes only the run.
+ */
+export async function researchBrand(run: FactoryRunRow, crawlOptions: CrawlOptions = {}): Promise<BrandResearch> {
   'use step';
-  const apiKey = process.env.OPENAI_API_KEY;
-  const model = process.env.OPENAI_RESEARCH_MODEL;
   // Fatal, not retried: a missing key is still missing on the next attempt.
-  if (!apiKey || !model) throw new FatalError('Research provider is not configured.');
+  const config = extractionConfig();
+  const fromSite = await researchFromWebsite(run, config, crawlOptions);
+  return fromSite ?? researchWithSearch(run, config.apiKey, config.researchModel);
+}
+
+async function researchWithSearch(run: FactoryRunRow, apiKey: string, model: string): Promise<BrandResearchArtifact> {
   const location = `${run.businessName}, location ${run.locationName}`;
   const response = await providerFetch('https://api.openai.com/v1/responses', {
     method: 'POST',
