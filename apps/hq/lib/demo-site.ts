@@ -24,7 +24,7 @@ export type DemoSiteView =
   | { readonly state: 'expired'; readonly businessName: string }
   | { readonly state: 'gone' };
 
-type DemoDb = Pick<SupabaseClient, 'rpc' | 'from' | 'storage'>;
+export type DemoDb = Pick<SupabaseClient, 'rpc' | 'from' | 'storage'>;
 
 const BUCKET = 'demo-media';
 

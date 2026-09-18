@@ -72,6 +72,37 @@
   border: 1px solid var(--line);
 }
 
+.demo-open-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding-top: 0.25rem;
+}
+
+.demo-open-button {
+  min-height: 44px;
+  padding: 0.75rem 1.5rem;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md, 14px);
+  background: var(--action);
+  color: var(--action-foreground);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.demo-open-button-secondary {
+  background: transparent;
+  border-color: var(--line);
+  color: var(--action);
+}
+
+.demo-open-button:focus-visible {
+  outline: 2px solid var(--action);
+  outline-offset: 3px;
+}
+
 .demo-eyebrow {
   margin: 0;
   color: var(--text-muted);
