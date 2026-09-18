@@ -49,6 +49,10 @@ export type ExtractionContext = {
   readonly runId: string;
   /** Called once per answer the provider billed, awaited, and never caught. */
   readonly onUsage?: ExtractionUsageHook | undefined;
+  /** The caller's own deadline; an aborted call is not retried. */
+  readonly signal?: AbortSignal | undefined;
+  /** Asked before a doubtful first answer is re-read; false keeps the first answer. */
+  readonly mayEscalate?: (() => boolean) | undefined;
 };
 
 export type ExtractionConfig = {
@@ -109,6 +113,7 @@ async function extractOnce(
       'Idempotency-Key': `platform-site-${context.runId}-${model}`,
     },
     body: JSON.stringify(extractionRequestBody(model, crawl, context.businessName)),
+    signal: context.signal ?? null,
   });
   if (!response.ok) {
     const message = `Extraction provider rejected the request (${response.status}).`;
@@ -141,7 +146,7 @@ export async function extractSiteBrand(
   config: ExtractionConfig,
 ): Promise<ExtractionOutcome> {
   const first = await extractOnce(config, config.model, crawl, context);
-  if (!isLowConfidence(first) || config.escalationModel === null) {
+  if (!isLowConfidence(first) || config.escalationModel === null || context.mayEscalate?.() === false) {
     return { extraction: first, model: config.model, escalated: false };
   }
   const second = await extractOnce(config, config.escalationModel, crawl, context);

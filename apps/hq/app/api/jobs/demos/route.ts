@@ -6,6 +6,7 @@ import { jsonError, matchesSecret, notConfigured, serverEnv, serviceDb } from '.
 import { demoBuilder } from '../../../../lib/demo-builder';
 import { demoLinkSecret } from '../../../../lib/demo-factory/link';
 import { runDemoJobs, sweepExpiredDemos } from '../../../../lib/demo-factory/runner';
+import { optionalExtractionConfig, siteKitReader } from '../../../../lib/demo-factory/site-kit-reader';
 import { log } from '../../../../lib/log';
 import { placesKey } from '../../../../lib/places-proxy-context';
 
@@ -14,9 +15,10 @@ export const maxDuration = 300;
 /** Two businesses a run, every ten minutes: the daily count binds long before this does. */
 const JOBS_PER_RUN = 2;
 const LEASE_SECONDS = 300;
-const JOB_MS = 90_000;
+/** A listing, its website read by a model, and its logo: SITE_KIT_LIMITS is what keeps this enough. */
+const JOB_MS = 120_000;
 /** No job starts after this much of the run, so a slow one still finishes inside maxDuration. */
-const START_WINDOW_MS = 180_000;
+const START_WINDOW_MS = 150_000;
 
 /**
  * The demo factory's scheduled run, reached as GET from Vercel Cron and as
@@ -59,9 +61,9 @@ export async function POST(request: Request): Promise<Response> {
     const summary = await runDemoJobs({
       db,
       details: (placeId, signal) => placeDetails(placeId, { apiKey, signal }),
-      // The website reader joins here once the crawl lands; until then a demo
-      // is built from its listing alone.
-      readKit: null,
+      // Without a model the crawl still gives a demo its colors, logo and
+      // contact address; the menu is then the labelled sample.
+      readKit: siteKitReader({ storage: db, extraction: optionalExtractionConfig(), now: Date.now }),
       linkSecret,
       newSiteId: randomUUID,
     }, {
