@@ -15,6 +15,8 @@ export async function switchWorkspaceToProvisionedOrg(input: {
   brandId: string;
   locationId: string | null;
   factoryIssue: boolean;
+  /** The org exists but its tenant folder was refused or failed to write. */
+  packIssue?: boolean;
 }): Promise<{ kind: 'error'; message: string } | never> {
   const crossing = input.session.role === 'platform_admin' && Boolean(input.session.userId);
   if (crossing) {
@@ -40,7 +42,9 @@ export async function switchWorkspaceToProvisionedOrg(input: {
     input.locationId ? workspaceCookieOptions() : expiredWorkspaceCookieOptions(),
   );
   revalidatePath('/', 'layout');
-  redirect(isConfigured()
-    ? `/organizations/${input.brandId}${input.factoryIssue ? '?factory=failed' : ''}`
-    : '/locations');
+  const notices = new URLSearchParams();
+  if (input.factoryIssue) notices.set('factory', 'failed');
+  if (input.packIssue) notices.set('pack', 'failed');
+  const query = notices.toString();
+  redirect(isConfigured() ? `/organizations/${input.brandId}${query ? `?${query}` : ''}` : '/locations');
 }

@@ -2,7 +2,7 @@ import type { CSSProperties, ReactNode } from 'react';
 import { headers } from 'next/headers';
 import { after } from 'next/server';
 
-import { currentAuthUser, currentSession, hasRole, isSetupConsolePath } from '@/lib/auth';
+import { currentSession, hasRole } from '@/lib/auth';
 import { activeModuleKeys, consoleCapabilitiesOf } from '@/lib/capabilities';
 import { brandConfigFor } from '@/lib/brand-scope';
 import { isConfigured, serverClient } from '@/lib/supabase-server';
@@ -34,11 +34,11 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
   // now resolves no session at all, and gating that on being configured is
   // what let it render the console to anyone instead. A development fallback
   // still has DEMO_SESSION, so nothing changes there.
+  //
+  // A signed-in user with no tenant used to be let through to the new-shop
+  // wizard here. Creating an organization is now a platform admin's act, and
+  // an admin always has a session, so no path is exempt any more.
   if (!session && !isPublicConsolePath) {
-    if (isSetupConsolePath(pathname)) {
-      const setupUser = await currentAuthUser();
-      if (setupUser) return children;
-    }
     const user = client ? await client.auth.getUser() : null;
     return (
       <div className="shell">

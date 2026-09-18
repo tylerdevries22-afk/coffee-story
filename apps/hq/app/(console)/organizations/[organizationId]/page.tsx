@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 
 import { ProvisioningLoader } from '@/components/provisioning-loader';
-import { currentSession, hasRole } from '@/lib/auth';
+import { currentSession, hasRole, mayProvisionOrganizations } from '@/lib/auth';
 import { franchiseConsentReadiness } from '@/lib/franchise-enrollment';
 import { canTapGoLive } from '@/lib/go-live-access';
 import { serverClient } from '@/lib/supabase-server';
@@ -20,6 +20,7 @@ type Props = {
   searchParams: Promise<{
     activation?: string;
     factory?: string;
+    pack?: string;
     lifecycle?: string;
     golive?: string;
   }>;
@@ -126,7 +127,9 @@ export default async function OrganizationReadinessPage({ params, searchParams }
       <LifecyclePanel brandId={brand.id} brandStatus={brand.status} />
 
       <div className="location-form-actions">
-        <Link href="/organizations/new" className="button secondary">Create another</Link>
+        {mayProvisionOrganizations(session) ? (
+          <Link href="/organizations/new" className="button secondary">Create another</Link>
+        ) : null}
         <Link href="/network" className="button secondary">Manage network</Link>
       </div>
     </>

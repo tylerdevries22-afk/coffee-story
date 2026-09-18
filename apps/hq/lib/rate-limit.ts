@@ -70,11 +70,15 @@ export function rateLimited(
  * caveat above. `unknown` is a real bucket rather than a bypass -- callers
  * arriving with no forwarded headers share one budget instead of skipping the
  * limiter entirely.
+ *
+ * Takes anything with a header getter rather than a Request, because a server
+ * action has no Request -- only `headers()` from next/headers. A Request still
+ * fits, so route handlers pass theirs unchanged.
  */
-export function clientIdentity(request: Request): string {
-  const real = request.headers.get('x-real-ip')?.trim();
+export function clientIdentity(source: { readonly headers: { get(name: string): string | null } }): string {
+  const real = source.headers.get('x-real-ip')?.trim();
   if (real) return real;
-  const forwarded = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
+  const forwarded = source.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
   return forwarded || 'unknown';
 }
 
