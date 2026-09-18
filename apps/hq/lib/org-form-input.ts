@@ -19,10 +19,7 @@ export function locationInputFromForm(data: FormData): LocationInput {
     name: text(data, 'locationName'), street: text(data, 'street'),
     city: text(data, 'city'), region: text(data, 'region'),
     postal: text(data, 'postal'), timezone: text(data, 'timezone'),
-    openTime: text(data, 'openTime'), closeTime: text(data, 'closeTime'),
-    days: data.getAll('days').map(String),
-    // Per-day spans from the wizard's hours editor, as JSON. Absent, the
-    // quick form above is the location's hours.
+    // The hours editor's week, as JSON: every day, a closed one as an empty list.
     hours: text(data, 'hours'),
     googlePlaceId: text(data, 'googlePlaceId'),
     lat: text(data, 'lat'), lng: text(data, 'lng'),

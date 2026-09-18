@@ -9,19 +9,17 @@
  * contact, only what the operator typed or confirmed -- which is what
  * "franchise ready from a blank slate" means.
  *
- * Hours arrive one of two ways: the quick form (one span applied to every
- * checked day) or per-day spans, which is what a Google listing needs, since
- * few businesses keep the same hours on a Saturday. What a span may say --
- * overnight, around the clock -- is defined once, in location-hours.ts.
+ * Hours arrive per day, as the hours editor posts them from both the
+ * new-organization wizard and the new-location page: few businesses keep the
+ * same hours on a Saturday, and a Google listing says so. What a span may say
+ * -- overnight, around the clock -- is defined once, in location-hours.ts.
  */
 import {
   coordinatesOf, phoneOf, placeIdOf, websiteFromInput,
 } from './location-contact';
-import {
-  hoursSummary, isClock, NO_OPEN_DAY, parseHoursByDay, SPAN_ISSUES, WEEKDAYS, type HoursByDay,
-} from './location-hours';
+import { hoursSummary, parseHoursByDay, type HoursByDay } from './location-hours';
 
-export { WEEKDAYS, type HoursByDay, type Weekday } from './location-hours';
+export type { HoursByDay, Weekday } from './location-hours';
 
 export type LocationAddress = {
   street?: string;
@@ -53,11 +51,7 @@ export type LocationInput = {
   region?: string;
   postal?: string;
   timezone?: string;
-  /** The quick form: one span, applied to every day in `days`. */
-  openTime?: string;
-  closeTime?: string;
-  days?: readonly string[];
-  /** Per-day spans (JSON, or the object itself). When present they replace the quick form. */
+  /** Per-day spans: the hours editor's week as JSON, or the object itself. */
   hours?: unknown;
   googlePlaceId?: string;
   lat?: string | number;
@@ -66,10 +60,8 @@ export type LocationInput = {
   website?: string;
 };
 export type LocationValidationField =
-  | 'name' | 'timezone' | 'openTime' | 'closeTime' | 'days' | 'hours'
-  | 'googlePlaceId' | 'coordinates' | 'phone' | 'website';
+  | 'name' | 'timezone' | 'hours' | 'googlePlaceId' | 'coordinates' | 'phone' | 'website';
 type LocationFailure = { ok: false; error: string; field: LocationValidationField };
-type HoursResult = { ok: true; hours: HoursByDay } | LocationFailure;
 
 // IANA-ish shape first; Intl below remains the authority for actual tz data.
 const TIMEZONE = /^[A-Za-z]+(?:\/[A-Za-z0-9_+-]+){1,2}$/;
@@ -88,33 +80,6 @@ function isIanaTimezone(value: string): boolean {
   }
 }
 
-/** The quick form: one span, the same on every checked day. */
-function quickHours(input: LocationInput): HoursResult {
-  const open = clean(input.openTime);
-  const close = clean(input.closeTime);
-  if (!isClock(open) || !isClock(close)) {
-    return { ok: false, field: !isClock(open) ? 'openTime' : 'closeTime',
-      error: 'Enter opening and closing times as HH:MM.' };
-  }
-  // A close before the open is an overnight span, not a mistake; only a
-  // span that opens and closes at the same minute says nothing usable.
-  if (open === close) return { ok: false, field: 'closeTime', error: SPAN_ISSUES.same_minute };
-  const requested = new Set((input.days ?? []).map((day) => day.toLowerCase()));
-  const openDays = WEEKDAYS.filter((day) => requested.has(day));
-  if (openDays.length === 0) return { ok: false, field: 'days', error: NO_OPEN_DAY };
-  const hours: HoursByDay = {};
-  for (const day of openDays) hours[day] = [{ open, close }];
-  return { ok: true, hours };
-}
-
-function hoursOf(input: LocationInput): HoursResult {
-  const raw = input.hours;
-  const given = typeof raw === 'string' ? raw.trim() !== '' : raw !== undefined && raw !== null;
-  if (!given) return quickHours(input);
-  const parsed = parseHoursByDay(raw);
-  return parsed.ok ? parsed : { ok: false, field: 'hours', error: parsed.error };
-}
-
 /**
  * Validate the form, or return the first thing an operator has to fix. On
  * success it returns the row-ready draft.
@@ -129,8 +94,10 @@ export function parseLocationDraft(input: LocationInput): { ok: true; draft: Loc
     return { ok: false, field: 'timezone', error: 'Choose the location’s timezone.' };
   }
 
-  const hours = hoursOf(input);
-  if (!hours.ok) return hours;
+  // No week at all is refused like a malformed one, never defaulted: a
+  // default would quietly set hours the operator never saw.
+  const hours = parseHoursByDay(input.hours);
+  if (!hours.ok) return { ok: false, field: 'hours', error: hours.error };
 
   const placeId = placeIdOf(input.googlePlaceId);
   if (!placeId.ok) return { ok: false, field: 'googlePlaceId', error: placeId.error };
@@ -156,5 +123,24 @@ export function parseLocationDraft(input: LocationInput): { ok: true; draft: Loc
       city: address.city ?? '', googlePlaceId: placeId.value, phone: phone.value,
       website: website.value,
     },
+  };
+}
+
+function text(data: FormData, key: string): string {
+  const value = data.get(key);
+  return typeof value === 'string' ? value : '';
+}
+
+/**
+ * The new-location page's form, read into the parser's input: its own fields
+ * and nothing else. The page asks for no Place id, map pin, phone or website,
+ * so none of them is read from a post either.
+ */
+export function newLocationInputFromForm(data: FormData): LocationInput {
+  return {
+    name: text(data, 'name'), street: text(data, 'street'), city: text(data, 'city'),
+    region: text(data, 'region'), postal: text(data, 'postal'), timezone: text(data, 'timezone'),
+    // The hours editor's week, as JSON: every day, a closed one as an empty list.
+    hours: text(data, 'hours'),
   };
 }

@@ -37,7 +37,7 @@ function weekdayHours(): HoursByDay {
   return hours;
 }
 
-/** Weekdays 08:00–17:00, the quick form's old defaults, for a location typed by hand. */
+/** Weekdays 08:00–17:00: where a location typed by hand starts, in the wizard and on the new-location page. */
 export const DEFAULT_HOURS: Readonly<HoursByDay> = weekdayHours();
 
 /** The listed zones, with the place's own first when the list does not have it. */

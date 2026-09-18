@@ -22,9 +22,7 @@ const parsed = parseOrgDraft({
     region: 'WA',
     postal: '98402',
     timezone: 'America/Los_Angeles',
-    openTime: '07:00',
-    closeTime: '15:00',
-    days: ['mon', 'tue', 'wed', 'thu', 'fri'],
+    hours: Object.fromEntries(['mon', 'tue', 'wed', 'thu', 'fri'].map((day) => [day, [{ open: '07:00', close: '15:00' }]])),
   },
 });
 
