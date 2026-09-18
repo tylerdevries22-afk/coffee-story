@@ -111,6 +111,19 @@ export function appliedBrandPath(appDirectory: string, app: string): string {
 const DEMO_RUNTIME = process.env.EXPO_PUBLIC_DEMO_RUNTIME === '1';
 const NEUTRAL_TENANT = 'juniper-base-demo';
 
+// A production tenant build must never become a demo-runtime build, or the
+// reverse, by a stray env var: one export serves every business, so a named
+// tenant alongside it would just be silently ignored below rather than built.
+if (DEMO_RUNTIME) {
+  const named = process.env.EXPO_PUBLIC_TENANT?.trim() || process.env.TENANT?.trim();
+  if (named) {
+    throw new Error(
+      `EXPO_PUBLIC_DEMO_RUNTIME=1 and a named tenant ("${named}") cannot both be set for apps/kiosk. `
+      + 'Unset EXPO_PUBLIC_TENANT/TENANT for a demo runtime build, or unset EXPO_PUBLIC_DEMO_RUNTIME for a tenant build.',
+    );
+  }
+}
+
 const brand = JSON.parse(readFileSync(
   DEMO_RUNTIME
     ? join(__dirname, 'src', 'tenants', NEUTRAL_TENANT, 'brand.json')

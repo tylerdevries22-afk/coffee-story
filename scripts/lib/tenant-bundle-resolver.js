@@ -88,8 +88,27 @@ function tenantSlotBundlePath(appRoot, request, requested) {
     : null;
 }
 
+/**
+ * A demo export serves every business from one build; a named tenant would
+ * simply be ignored by demoRuntimeBundlePath rather than built, which is
+ * exactly the "one shop's identity over another shop's menu, and nothing in
+ * the log to say so" failure this whole slot layout exists to prevent. Fails
+ * closed on the env var, not on whatever the caller happened to pass in.
+ */
+function demoRuntimeConflict() {
+  const named = process.env.EXPO_PUBLIC_TENANT?.trim();
+  return demoRuntimeEnabled() && !!named;
+}
+
 function tenantBundlePath(appRoot, moduleName, requested) {
   if (!moduleName.startsWith(PREFIX)) return null;
+  if (demoRuntimeConflict()) {
+    throw new Error(
+      `EXPO_PUBLIC_DEMO_RUNTIME=1 and EXPO_PUBLIC_TENANT="${process.env.EXPO_PUBLIC_TENANT?.trim()}" `
+      + 'cannot both be set: a demo runtime export serves every business from one build, '
+      + 'and a named tenant would silently be ignored rather than built.',
+    );
+  }
   const request = moduleName.slice(PREFIX.length);
   const target = demoRuntimeEnabled()
     ? demoRuntimeBundlePath(appRoot, request)

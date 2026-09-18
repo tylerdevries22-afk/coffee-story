@@ -18,15 +18,28 @@ type Resolver = {
   ): { resolver: { resolveRequest: MetroResolve } };
 };
 
-/** Runs `run` with EXPO_PUBLIC_DEMO_RUNTIME set, restoring whatever was there before. */
-function withDemoRuntime<T>(run: () => T): T {
-  const previous = process.env.EXPO_PUBLIC_DEMO_RUNTIME;
+/**
+ * Runs `run` with EXPO_PUBLIC_DEMO_RUNTIME set, restoring both env vars
+ * afterward. Also pins EXPO_PUBLIC_TENANT to `tenant` (cleared by default):
+ * demo runtime and a named tenant are now mutually exclusive (see
+ * scripts/lib/tenant-bundle-resolver.js), and verify-clock-and-tenants sets
+ * EXPO_PUBLIC_TENANT=coffee-story ambiently for every workspace's test run,
+ * so every test below except the one that deliberately names a tenant needs
+ * it cleared here, not just absent from whatever shell happens to run this.
+ */
+function withDemoRuntime<T>(run: () => T, tenant?: string): T {
+  const previousRuntime = process.env.EXPO_PUBLIC_DEMO_RUNTIME;
+  const previousTenant = process.env.EXPO_PUBLIC_TENANT;
   process.env.EXPO_PUBLIC_DEMO_RUNTIME = '1';
+  if (tenant === undefined) delete process.env.EXPO_PUBLIC_TENANT;
+  else process.env.EXPO_PUBLIC_TENANT = tenant;
   try {
     return run();
   } finally {
-    if (previous === undefined) delete process.env.EXPO_PUBLIC_DEMO_RUNTIME;
-    else process.env.EXPO_PUBLIC_DEMO_RUNTIME = previous;
+    if (previousRuntime === undefined) delete process.env.EXPO_PUBLIC_DEMO_RUNTIME;
+    else process.env.EXPO_PUBLIC_DEMO_RUNTIME = previousRuntime;
+    if (previousTenant === undefined) delete process.env.EXPO_PUBLIC_TENANT;
+    else process.env.EXPO_PUBLIC_TENANT = previousTenant;
   }
 }
 
@@ -148,18 +161,14 @@ describe('demo runtime resolver', () => {
     });
   });
 
-  it('never calls selectedTenant, so an unset or unapplied EXPO_PUBLIC_TENANT cannot fail it', () => {
+  it('refuses a named tenant: EXPO_PUBLIC_DEMO_RUNTIME and EXPO_PUBLIC_TENANT can never both be set', () => {
     const appRoot = join(ROOT, 'apps', 'customer');
-    const previous = process.env.EXPO_PUBLIC_TENANT;
-    delete process.env.EXPO_PUBLIC_TENANT;
-    try {
-      withDemoRuntime(() => {
-        assert.doesNotThrow(() => resolver.tenantBundlePath(appRoot, '@tenant-bundle/config/brand'));
-      });
-    } finally {
-      if (previous === undefined) delete process.env.EXPO_PUBLIC_TENANT;
-      else process.env.EXPO_PUBLIC_TENANT = previous;
-    }
+    withDemoRuntime(() => {
+      assert.throws(
+        () => resolver.tenantBundlePath(appRoot, '@tenant-bundle/config/brand'),
+        /cannot both be set/,
+      );
+    }, 'coffee-story');
   });
 
   it('still fails closed for an artwork request that escapes the neutral asset root', () => {

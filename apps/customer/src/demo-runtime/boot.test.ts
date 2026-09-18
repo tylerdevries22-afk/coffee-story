@@ -25,4 +25,11 @@ describe('isPackResponse', () => {
       assert.equal(isPackResponse(bad), false, JSON.stringify(bad));
     }
   });
+
+  it('rejects a removeHref that is not a same-origin path, since it becomes an anchor href', () => {
+    for (const removeHref of ['//evil.example/x', 'https://evil.example/x', 'evil.example/x', '']) {
+      assert.equal(isPackResponse({ ...VALID, removeHref }), false, removeHref);
+    }
+    assert.ok(isPackResponse({ ...VALID, removeHref: '/d/token/remove' }));
+  });
 });

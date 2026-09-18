@@ -15,11 +15,16 @@ type PackResponse = DemoPack & {
   readonly builder: { readonly name: string; readonly contactHref: string | null };
 };
 
+/** A single leading "/", never "//": removeHref becomes an anchor href, and "//host/x" is off-origin. */
+function isSameOriginPath(value: unknown): value is string {
+  return typeof value === 'string' && value.startsWith('/') && !value.startsWith('//');
+}
+
 export function isPackResponse(value: unknown): value is PackResponse {
   const source = value as Partial<PackResponse> | null;
   return typeof source === 'object' && source !== null
     && typeof source.businessName === 'string'
-    && typeof source.removeHref === 'string'
+    && isSameOriginPath(source.removeHref)
     && typeof source.builder === 'object' && source.builder !== null
     && typeof source.builder.name === 'string';
 }
@@ -49,13 +54,16 @@ function showBanner(pack: PackResponse): void {
   const banner = document.createElement('div');
   banner.setAttribute('role', 'note');
   banner.setAttribute('aria-label', 'About this demo');
+  // Pure black/white, not a token: this renders before any tenant theme
+  // loads (it is not this business's brand, and never will be), so it is
+  // lighting rather than brand -- see scripts/audit-tokens.ts's neutralHex.
   banner.style.cssText = 'display: flex; flex-wrap: wrap; align-items: center; gap: 6px 20px; '
-    + 'padding: 10px 20px; font: 13px/1.5 system-ui, sans-serif; background: #1c1917; color: #fafaf9;';
+    + 'padding: 10px 20px; font: 13px/1.5 system-ui, sans-serif; background: #000000; color: #ffffff;';
   const message = textNode('span', bannerText(pack.businessName, pack.builder.name));
   message.style.cssText = 'flex: 1 1 auto; min-width: 200px;';
   const removeLink = linkNode(pack.removeHref, 'Remove my business');
   const overviewLink = linkNode('/d/view', 'Back to overview');
-  for (const anchor of [removeLink, overviewLink]) anchor.style.cssText = 'color: #fafaf9; font-weight: 600;';
+  for (const anchor of [removeLink, overviewLink]) anchor.style.cssText = 'color: #ffffff; font-weight: 600;';
   banner.append(message, removeLink, overviewLink);
   document.body.insertBefore(banner, document.body.firstChild);
 }
@@ -67,6 +75,24 @@ function showUnavailable(): void {
     + 'padding: 0 24px; text-align: center;';
   root.append(textNode('p', "This demo isn't available."), linkNode('/d/view', 'Back to overview'));
   document.body.appendChild(root);
+}
+
+/**
+ * The exported HTML's baked <title> is the neutral tenant's own name (see
+ * app.config.ts): correct for Expo's config validation, wrong the instant a
+ * real pack loads -- a prospect's own tab must never read another business's
+ * name. Setting it once is not enough: expo-router mounts React Navigation's
+ * NavigationContainer, which manages document.title itself on web from the
+ * focused route's title/name and would win the very first render, since this
+ * app sets no per-route title anywhere. The observer re-asserts the pack's
+ * business name every time anything else changes the title, so it always wins.
+ */
+function pinDocumentTitle(title: string): void {
+  document.title = title;
+  const node = document.querySelector('title') ?? document.head.appendChild(document.createElement('title'));
+  new MutationObserver(() => {
+    if (document.title !== title) document.title = title;
+  }).observe(node, { childList: true, characterData: true, subtree: true });
 }
 
 async function fetchPack(): Promise<PackResponse | null> {
@@ -96,6 +122,7 @@ async function boot(): Promise<void> {
   }
   globalThis.__PLATFORM_DEMO_PACK__ = pack;
   showBanner(pack);
+  pinDocumentTitle(pack.businessName);
   require('expo-router/entry');
 }
 

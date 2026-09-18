@@ -42,8 +42,18 @@ function productionSlot(): TenantSlot {
   return selectTenantSlot({ app: 'customer', slots: { [requested]: selected }, requested });
 }
 
+function demoRuntimeSlot(): TenantSlot {
+  const named = process.env.EXPO_PUBLIC_TENANT?.trim();
+  if (named) {
+    throw new Error(
+      `apps/customer: EXPO_PUBLIC_DEMO_RUNTIME=1 and EXPO_PUBLIC_TENANT="${named}" cannot both be set.`,
+    );
+  }
+  return { slug: runtimeSlug(brand, isTenantSlug), brand, modules, menu };
+}
+
 export const TENANT_SLOT: TenantSlot = process.env.EXPO_PUBLIC_DEMO_RUNTIME === '1'
-  ? { slug: runtimeSlug(brand, isTenantSlug), brand, modules, menu }
+  ? demoRuntimeSlot()
   : productionSlot();
 
 export const TENANT_SLUG: string = TENANT_SLOT.slug;

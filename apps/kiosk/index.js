@@ -11,6 +11,12 @@
 // src/demo-runtime/boot.ts fetches it, then requires expo-router/entry
 // itself once it has one -- or never, showing a plain refusal instead.
 if (process.env.EXPO_PUBLIC_DEMO_RUNTIME === '1') {
+  // Demo runtime is web only. A stray env var on a native build would
+  // otherwise crash inside boot.ts on its first `document` access -- a
+  // ReferenceError with nothing in it to say why a kiosk build ever got here.
+  if (typeof document === 'undefined') {
+    throw new Error('EXPO_PUBLIC_DEMO_RUNTIME=1 is web-only: this build has no `document`.');
+  }
   require('./src/demo-runtime/boot');
 } else {
   require('expo-router/entry');
