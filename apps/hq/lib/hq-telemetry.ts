@@ -27,6 +27,7 @@ const HQ_SCREENS: Readonly<Record<string, string>> = {
   '/content': 'content',
   '/catalog': 'content',
   '/customers': 'customers',
+  '/demos': 'demo_factory',
   '/drops': 'drops',
   '/fees': 'platform_fees',
   '/integrations': 'integrations_catalog',

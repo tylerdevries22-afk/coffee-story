@@ -1,13 +1,16 @@
 import { dueCampaigns } from '@platform/engine';
+import { start } from 'workflow/api';
 
 import { jsonError, matchesSecret, notConfigured, serverEnv, serviceDb } from '../../../../lib/api-auth';
 import { analyticsMaintenanceCutoffs } from '../../../../lib/analytics-maintenance';
 import { runIndependentCronStages } from '../../../../lib/cron-stage-runner';
 import { delegatedGrantRetentionCutoff } from '../../../../lib/delegated-grant-maintenance';
+import { startHeldFactoryRuns } from '../../../../lib/factory-capacity';
 import { reconcileConnectorCredentials } from '../../../../lib/connector-credential-maintenance';
 import { runSquareMaintenance } from '../../../../lib/square-job-maintenance';
 import { runTrainingMaintenance } from '../../../../lib/training-maintenance';
 import { deliverOperationNotifications } from '../../../../lib/operation-notifications';
+import { runPlatformFactory } from '../../../../workflows/platform-factory';
 
 export const maxDuration = 300;
 const DROP_BATCH_SIZE = 200;
@@ -98,6 +101,8 @@ export async function POST(request: Request): Promise<Response> {
     },
     connectors: () => reconcileConnectorCredentials(db, now),
     square: () => runSquareMaintenance(db, now),
+    // Runs held as factory_busy start here, oldest first, as slots free.
+    factory: () => startHeldFactoryRuns(db, (runId) => start(runPlatformFactory, [{ runId }]), now),
   });
 
   const { training, ...results } = stages;

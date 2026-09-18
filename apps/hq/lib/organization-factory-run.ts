@@ -7,10 +7,11 @@
  * machine it delegates to, which is the same split `organization-provisioning-helpers`
  * already makes.
  */
-import { factoryTasks } from '@platform/factory';
 import { start } from 'workflow/api';
 
 import type { serviceDb } from '@/lib/api-auth';
+import { holdIfFactoryFull } from '@/lib/factory-capacity';
+import { onboardingRunArgs } from '@/lib/factory-run-input';
 import { factoryStartupDecision } from '@/lib/factory-startup';
 import type { OrgDraft } from '@/lib/org-input';
 import { runPlatformFactory } from '@/workflows/platform-factory';
@@ -41,21 +42,16 @@ export async function startFactoryRun(input: {
       .eq('industry_key', draft.industryKey).eq('status', 'active')
       .order('version', { ascending: false }).limit(1).single<{ id: string }>();
     if (blueprint.error) throw new Error('Factory blueprint is unavailable.');
-    const run = await database.rpc('create_platform_onboarding_run', {
-      input_blueprint_id: blueprint.data.id,
-      input_business_name: draft.name,
-      input_tenant_slug: draft.slug,
-      input_location_name: draft.location?.name ?? `${draft.name} HQ`,
-      input_timezone: draft.location?.timezone ?? 'UTC',
-      input_website_url: '',
-      input_idempotency_key: idempotencyKey,
-      input_created_by: actorId,
-      input_tasks: factoryTasks(),
-    });
+    const run = await database.rpc('create_platform_onboarding_run', onboardingRunArgs(draft, {
+      blueprintId: blueprint.data.id, idempotencyKey, actorId,
+    }));
     if (run.error || typeof run.data !== 'string') throw new Error('Factory run creation failed.');
     runId = run.data;
   }
   try {
+    // At the concurrency limit the run waits as factory_busy and the scheduled
+    // job starts it when a slot frees; the organization is created either way.
+    if (await holdIfFactoryFull(database, runId)) return true;
     await start(runPlatformFactory, [{ runId }]);
   } catch {
     await database.from('platform_onboarding_runs').update({
