@@ -1,0 +1,15 @@
+/* The outreach page's draft preview: the email as the file holds it, wrapped rather than scrolled sideways. */
+.outreach-draft { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 12px 0 0; }
+.outreach-draft dt { color: var(--text-muted); }
+.outreach-draft dd { margin: 0; overflow-wrap: anywhere; }
+.outreach-body {
+  margin: 12px 0 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  font: inherit;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.outreach-days form { margin: 0; }
