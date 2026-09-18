@@ -1,3 +1,5 @@
+import { FatalError } from '@workflow/errors';
+
 import { encryptGitHubActionsSecret } from '../lib/github-actions-secrets';
 import { githubHeaders, githubInstallationToken } from './factory-github';
 import { readDopplerSecrets } from './factory-secrets';
@@ -15,7 +17,7 @@ const ARTIFACT_DIGEST = /^sha256:[0-9a-f]{64}$/;
 export function githubArtifactDigest(value: string): string {
   const digest = value.trim();
   if (!ARTIFACT_DIGEST.test(digest)) {
-    throw new Error('Factory deployment artifact digest is invalid.');
+    throw new FatalError('Factory deployment artifact digest is invalid.');
   }
   return digest;
 }

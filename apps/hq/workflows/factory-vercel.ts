@@ -1,5 +1,7 @@
 import { randomBytes } from 'node:crypto';
 
+import { FatalError } from '@workflow/errors';
+
 import {
   mayMintProductionHosts,
   squareEnvForPhase,
@@ -85,7 +87,7 @@ export async function provisionVercel(
   'use step';
   const goLiveApproved = options.goLiveApproved === true;
   if (!mayMintProductionHosts(goLiveApproved)) {
-    throw new Error('Refusing to mint production Vercel hosts without explicit Go live.');
+    throw new FatalError('Refusing to mint production Vercel hosts without explicit Go live.');
   }
   // Derived from the same flag the guard above tested, not asserted with a
   // literal. Reaching this line already means Go live was approved, so the
