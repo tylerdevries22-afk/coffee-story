@@ -32,6 +32,11 @@ export function organizationInvitationUrl(environment: {
 
 export function organizationFailure(message: string): string {
   if (message.includes('franchise_network_not_found')) return 'That franchise network was not found.';
+  // The console checks every location field first, so this is a caller the
+  // database caught -- still worth naming, since nothing else was created.
+  if (message.includes('invalid_first_location')) {
+    return 'The first location’s details were refused. Check them and try again.';
+  }
   if (message.includes('brands_slug_key') || message.includes('duplicate key')) {
     return 'That organization handle is already in use.';
   }

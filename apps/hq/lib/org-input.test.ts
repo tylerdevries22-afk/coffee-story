@@ -73,8 +73,8 @@ test('a franchisee requires a network and complete first location', () => {
     ...BASE, organizationKind: 'franchisee', networkSlug: 'harbor-network',
     territory: 'North district',
     location: {
-      name: 'Downtown', timezone: 'America/Denver', openTime: '08:00',
-      closeTime: '18:00', days: ['mon', 'tue'], city: 'Denver',
+      name: 'Downtown', timezone: 'America/Denver', city: 'Denver',
+      hours: { mon: [{ open: '08:00', close: '18:00' }], tue: [{ open: '08:00', close: '18:00' }] },
     },
   });
   assert.ok(result.ok);

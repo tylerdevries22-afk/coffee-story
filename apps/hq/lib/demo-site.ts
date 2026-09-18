@@ -26,7 +26,7 @@ export type DemoSiteView =
 
 export type DemoDb = Pick<SupabaseClient, 'rpc' | 'from' | 'storage'>;
 
-const BUCKET = 'demo-media';
+export const DEMO_MEDIA_BUCKET = 'demo-media';
 
 function record(value: unknown): Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -119,7 +119,7 @@ export async function removeDemoSite(db: DemoDb, token: string): Promise<boolean
  * by removal and by the expiry sweep, so both forget a business the same way.
  */
 export async function removeDemoMedia(db: Pick<DemoDb, 'storage'>, siteId: string): Promise<number> {
-  const bucket = db.storage.from(BUCKET);
+  const bucket = db.storage.from(DEMO_MEDIA_BUCKET);
   const listed = await bucket.list(siteId, { limit: 1000 });
   if (listed.error) throw listed.error;
   const paths = (listed.data ?? []).map((object) => `${siteId}/${object.name}`);
@@ -143,7 +143,7 @@ export async function demoMedia(
   if (!DEMO_MEDIA_NAME.test(name)) return null;
   const siteId = await readySiteId(db, token, now);
   if (!siteId) return null;
-  const { data, error } = await db.storage.from(BUCKET).download(`${siteId}/${name}`);
+  const { data, error } = await db.storage.from(DEMO_MEDIA_BUCKET).download(`${siteId}/${name}`);
   if (error || !data) return null;
   const extension = name.slice(name.lastIndexOf('.') + 1);
   return { body: await data.arrayBuffer(), contentType: CONTENT_TYPES[extension] ?? 'application/octet-stream' };
