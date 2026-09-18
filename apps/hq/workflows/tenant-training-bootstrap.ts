@@ -16,6 +16,7 @@ import {
   type GeneratedCurriculum,
   type ResponsesPayload,
 } from './tenant-training-schema';
+import { SEARCH_LIMITS } from './research-limits';
 import { database, fetchWithRetry, loadTemplate } from './tenant-training-store';
 
 type BootstrapInput = {
@@ -47,6 +48,7 @@ async function startResearch(profile: TenantTrainingProfile, runId: string): Pro
       model,
       background: true,
       tools: [{ type: 'web_search' }],
+      max_tool_calls: SEARCH_LIMITS.trainingCurriculum.maxToolCalls,
       input: [
         { role: 'system', content: 'You are a franchise training architect. Research authoritative and current sources. Produce safe, practical, role-neutral operator training. Use only HTTPS media links and include a plain-language rights note. Never claim legal certification.' },
         { role: 'user', content: `Build a complete tenant curriculum for this profile: ${JSON.stringify(profile)}. ${RESEARCH_INSTRUCTION}` },
@@ -93,6 +95,7 @@ async function independentlyEvaluate(manifest: TrainingManifest, runId: string):
     body: JSON.stringify({
       model,
       tools: [{ type: 'web_search' }],
+      max_tool_calls: SEARCH_LIMITS.trainingEvaluation.maxToolCalls,
       input: [
         { role: 'system', content: 'Act as an independent training release reviewer. Reject unsupported factual claims, unsafe instructions, invented credentials, inaccessible citations, mismatched media, vague rights notes, or quizzes whose answer is not taught. Return concise issues.' },
         { role: 'user', content: JSON.stringify(manifest) },
