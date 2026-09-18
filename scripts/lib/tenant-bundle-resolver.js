@@ -2,6 +2,7 @@ const { existsSync, readFileSync } = require('node:fs');
 const { basename, join, resolve, sep } = require('node:path');
 
 const PREFIX = '@tenant-bundle/';
+const NEUTRAL_PREFIX = 'neutral/';
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const CONFIG_TARGETS = new Map([
   ['config/brand', 'brand.json'],
@@ -110,6 +111,19 @@ function tenantBundlePath(appRoot, moduleName, requested) {
     );
   }
   const request = moduleName.slice(PREFIX.length);
+  // Always the neutral tenant's own real asset, regardless of mode: the one
+  // file that imports this (src/demo-runtime/artwork/brand/logo.ts) only
+  // ever ships inside a demo runtime bundle, so gating this on
+  // demoRuntimeEnabled() would add a condition with nothing left to guard.
+  // A dedicated prefix rather than reusing artwork/brand/logo.png here is
+  // what keeps that file from resolving back to itself.
+  if (request.startsWith(NEUTRAL_PREFIX)) {
+    const target = inside(join(appRoot, 'assets', 'tenants', DEMO_NEUTRAL_TENANT), request.slice(NEUTRAL_PREFIX.length));
+    if (!existsSync(target)) {
+      throw new Error(`apps/${basename(appRoot)} cannot resolve selected tenant import "${moduleName}".`);
+    }
+    return target;
+  }
   const target = demoRuntimeEnabled()
     ? demoRuntimeBundlePath(appRoot, request)
     : tenantSlotBundlePath(appRoot, request, requested);
@@ -131,4 +145,6 @@ function withTenantBundleResolver(config, appRoot) {
   return config;
 }
 
-module.exports = { demoRuntimeEnabled, selectedTenant, tenantBundlePath, withTenantBundleResolver };
+module.exports = {
+  DEMO_NEUTRAL_TENANT, demoRuntimeEnabled, selectedTenant, tenantBundlePath, withTenantBundleResolver,
+};

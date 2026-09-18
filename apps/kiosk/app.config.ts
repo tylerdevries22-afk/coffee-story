@@ -11,6 +11,14 @@ import { join } from 'node:path';
 
 import type { ConfigContext, ExpoConfig } from 'expo/config';
 
+// A plain CommonJS script, required rather than imported: Expo's config
+// loader transpiles this file but not workspace TypeScript it imports (see
+// resolveAppliedTenant below), and this file needs no transpilation at all --
+// metro.config.js already requires it the same way, from the same directory.
+const { demoRuntimeBrandPath } = require('../../scripts/lib/demo-runtime-identity') as {
+  demoRuntimeBrandPath: (appDirectory: string, app: string) => string | null;
+};
+
 type KioskBrand = {
   identity: {
     slug: string;
@@ -106,28 +114,15 @@ export function appliedBrandPath(appDirectory: string, app: string): string {
  * business. This still reads a real, always-applied tenant's brand.json
  * rather than a hand-built object, so Expo's own config validation sees the
  * exact shape it always does; nothing here reaches the running app, which
- * reads its brand from the fetched pack instead of this file.
+ * reads its brand from the fetched pack instead of this file. The neutral
+ * tenant's slug and the conflict check both live in one place -- see
+ * demoRuntimeBrandPath -- rather than repeated here and in logo.ts.
  */
-const DEMO_RUNTIME = process.env.EXPO_PUBLIC_DEMO_RUNTIME === '1';
-const NEUTRAL_TENANT = 'juniper-base-demo';
-
-// A production tenant build must never become a demo-runtime build, or the
-// reverse, by a stray env var: one export serves every business, so a named
-// tenant alongside it would just be silently ignored below rather than built.
-if (DEMO_RUNTIME) {
-  const named = process.env.EXPO_PUBLIC_TENANT?.trim() || process.env.TENANT?.trim();
-  if (named) {
-    throw new Error(
-      `EXPO_PUBLIC_DEMO_RUNTIME=1 and a named tenant ("${named}") cannot both be set for apps/kiosk. `
-      + 'Unset EXPO_PUBLIC_TENANT/TENANT for a demo runtime build, or unset EXPO_PUBLIC_DEMO_RUNTIME for a tenant build.',
-    );
-  }
-}
+const demoBrandPath = demoRuntimeBrandPath(__dirname, 'kiosk');
+const DEMO_RUNTIME = demoBrandPath !== null;
 
 const brand = JSON.parse(readFileSync(
-  DEMO_RUNTIME
-    ? join(__dirname, 'src', 'tenants', NEUTRAL_TENANT, 'brand.json')
-    : appliedBrandPath(__dirname, 'kiosk'),
+  demoBrandPath ?? appliedBrandPath(__dirname, 'kiosk'),
   'utf8',
 )) as KioskBrand;
 const artworkRoot = `./assets/tenants/${brand.identity.slug}`;

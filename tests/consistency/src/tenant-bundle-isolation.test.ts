@@ -161,6 +161,16 @@ describe('demo runtime resolver', () => {
     });
   });
 
+  it("resolves neutral/... to the neutral tenant's own asset regardless of mode, for logo.ts's own escape from the self-resolution loop", () => {
+    const appRoot = join(ROOT, 'apps', 'customer');
+    const outsideDemoMode = resolver.tenantBundlePath(appRoot, '@tenant-bundle/neutral/brand/logo.png');
+    assert.match(outsideDemoMode ?? '', /assets\/tenants\/juniper-base-demo\/brand\/logo\.png$/);
+    withDemoRuntime(() => {
+      const insideDemoMode = resolver.tenantBundlePath(appRoot, '@tenant-bundle/neutral/brand/logo.png');
+      assert.equal(insideDemoMode, outsideDemoMode);
+    });
+  });
+
   it('refuses a named tenant: EXPO_PUBLIC_DEMO_RUNTIME and EXPO_PUBLIC_TENANT can never both be set', () => {
     const appRoot = join(ROOT, 'apps', 'customer');
     withDemoRuntime(() => {
