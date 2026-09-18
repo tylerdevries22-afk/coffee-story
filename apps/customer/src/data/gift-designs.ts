@@ -1,5 +1,5 @@
 import { TENANT } from '@/tenant';
-import { TENANT_MEDIA } from '@/tenants/media';
+import { TENANT_MEDIA, type TenantImageSource } from '@/tenants/media';
 
 const art = TENANT_MEDIA.artwork;
 const birthdayCake = art['gift/birthday-cake.webp'];
@@ -15,7 +15,7 @@ export type GiftDesign = {
   /** Persisted on the gift card, so these keys must stay stable. */
   key: string;
   name: string;
-  art: number;
+  art: TenantImageSource;
 };
 
 export type GiftDesignCategory = {
