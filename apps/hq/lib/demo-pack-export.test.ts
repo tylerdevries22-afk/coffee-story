@@ -118,10 +118,28 @@ describe('demoPackExport', () => {
 
   it('defaults a missing description or category to an empty string, never null or undefined', () => {
     const result = demoPackExport(baseInput({
-      pack: { menu: { categories: VALID_MENU.categories, items: [{ id: 'plain', name: 'Plain' }] } },
+      pack: {
+        menu: {
+          categories: VALID_MENU.categories,
+          items: [{ id: 'plain', name: 'Plain', sizes: [{ slug: 'each', priceCents: 100 }] }],
+        },
+      },
     }));
     assert.equal(result?.menu.items[0]?.description, '');
     assert.equal(result?.menu.items[0]?.category, '');
+  });
+
+  // A crawl can find a dish name with no price on the business's own site.
+  // packages/domain's projectItem() would default that to priceCents: 0,
+  // which reads as "free" in a cart or a receipt -- so the item is left out
+  // of the export entirely rather than reaching the order flow at all.
+  it('drops an item with no priced size, so a demo never shows one as free', () => {
+    const priceless = { id: 'priceless', name: 'Ask about our seasonal roast', category: 'coffee', sizes: [] };
+    const unnamed = { id: 'unnamed-size', name: 'Mystery blend', category: 'coffee', sizes: [{ priceCents: 500 }] };
+    const result = demoPackExport(baseInput({
+      pack: { menu: { categories: VALID_MENU.categories, items: [VALID_MENU.items[0], priceless, unnamed] } },
+    }));
+    assert.deepEqual(result?.menu.items.map((item) => item.id), ['latte']);
   });
 
   it('admits a media reference only through the demo media proxy path', () => {

@@ -19,6 +19,13 @@
  * item outright when the field cannot be parsed as an array, and
  * apps/customer/src/data/catalog-data.ts flat-maps it at module load with no
  * null guard at all. A missing field must never reach either.
+ *
+ * An item with no priced size is dropped, not passed through at zero: the
+ * crawl can find a dish name with no price on the business's own site, and
+ * `sizes: []` is the correct, honest way to say so -- but nothing downstream
+ * tells "free" apart from "unpriced" (packages/domain's projectItem()
+ * defaults a missing size to `priceCents: 0`, which a cart or a receipt
+ * renders as $0.00). See itemOf() for the reasoning in full.
  */
 import { parseTenantModulesManifest } from '@platform/module-kit';
 import { parseTenantManifest } from '@platform/tenant-config';
@@ -95,17 +102,32 @@ function sizesOf(raw: unknown): DemoPackSize[] {
     .slice(0, LIMIT.sizes);
 }
 
+/**
+ * An item with no priced size is dropped, not passed through at $0.
+ *
+ * The crawl can find a dish name with no price on the business's own site,
+ * and the pack builder correctly leaves `sizes: []` rather than guessing --
+ * see PR #230. But nothing downstream tells "free" apart from "unpriced":
+ * packages/domain's projectItem() defaults a missing size to
+ * `priceCents: 0`, which a cart or a receipt renders as $0.00. Teaching the
+ * whole order flow a third price state, for a marketing demo whose menu is
+ * mostly there to be looked at, is a bigger and riskier change than leaving
+ * the item out; the photo-and-description "wow" is in the items that do
+ * have one.
+ */
 function itemOf(raw: unknown): DemoPackItem | null {
   const source = record(raw);
   const id = str(source.id, LIMIT.slug);
   const name = str(source.name, LIMIT.name);
   if (id === null || name === null) return null;
+  const sizes = sizesOf(source.sizes);
+  if (sizes.length === 0) return null;
   return {
     id,
     name,
     description: str(source.description, LIMIT.description) ?? '',
     category: str(source.category, LIMIT.categoryId) ?? '',
-    sizes: sizesOf(source.sizes),
+    sizes,
     optionGroups: [],
   };
 }

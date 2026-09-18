@@ -89,12 +89,6 @@ export function DemoLandingPage({ landing, builder, removeHref }: {
         <p className="demo-eyebrow">A demo made for</p>
         <h1 className="demo-title">{landing.name}</h1>
         {landing.tagline ? <p className="demo-tagline">{landing.tagline}</p> : null}
-        <div className="demo-open-actions">
-          <a className="demo-open-button" href="/demo/customer/">Open the app</a>
-          <a className="demo-open-button demo-open-button-secondary" href="/demo/kiosk/">
-            See the in-store kiosk
-          </a>
-        </div>
       </header>
       <Menu sections={landing.menu} />
       <Listing landing={landing} />
