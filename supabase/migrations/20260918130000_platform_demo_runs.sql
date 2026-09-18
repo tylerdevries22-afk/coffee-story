@@ -387,6 +387,41 @@ language sql stable security invoker set search_path = '' as $$
    order by job.created_at, job.id;
 $$;
 
+-- The console's batch list in one call: each recent batch with its jobs
+-- counted by state and its ledger summed, rather than a query per batch.
+create function public.platform_demo_batch_summaries(p_limit integer default 20)
+returns table (
+  id uuid, query text, state text, requested integer, found integer,
+  queued integer, working integer, built integer, skipped integer, failed integer,
+  unit_estimate_microusd bigint, cost_microusd bigint,
+  created_at timestamptz, finished_at timestamptz
+)
+language sql stable security invoker set search_path = '' as $$
+  select batch.id, batch.query, batch.state, batch.requested, batch.found,
+         (count(job.id) filter (where job.state = 'queued'))::integer,
+         (count(job.id) filter (where job.state = 'working'))::integer,
+         (count(job.id) filter (where job.state = 'built'))::integer,
+         (count(job.id) filter (where job.state = 'skipped'))::integer,
+         (count(job.id) filter (where job.state = 'failed'))::integer,
+         batch.unit_estimate_microusd,
+         coalesce((
+           select sum(cost.cost_microusd) from public.platform_demo_costs as cost
+            where cost.batch_id = batch.id
+         ), 0)::bigint,
+         batch.created_at, batch.finished_at
+    from (
+      select recent.id, recent.query, recent.state, recent.requested, recent.found,
+             recent.unit_estimate_microusd, recent.created_at, recent.finished_at
+        from public.platform_demo_batches as recent
+       order by recent.created_at desc, recent.id
+       limit least(greatest(coalesce(p_limit, 20), 1), 100)
+    ) as batch
+    left join public.platform_demo_jobs as job on job.batch_id = batch.id
+   group by batch.id, batch.query, batch.state, batch.requested, batch.found,
+            batch.unit_estimate_microusd, batch.created_at, batch.finished_at
+   order by batch.created_at desc, batch.id;
+$$;
+
 revoke all on function public.create_platform_demo_batch(text, integer, text[], bigint, uuid)
   from public, anon, authenticated;
 revoke all on function public.claim_platform_demo_jobs(integer, integer) from public, anon, authenticated;
@@ -395,12 +430,14 @@ revoke all on function public.finish_platform_demo_job(uuid, integer, text, text
 revoke all on function public.stop_platform_demo_batch(uuid) from public, anon, authenticated;
 revoke all on function public.platform_demo_daily_costs(integer) from public, anon, authenticated;
 revoke all on function public.platform_demo_job_costs(uuid) from public, anon, authenticated;
+revoke all on function public.platform_demo_batch_summaries(integer) from public, anon, authenticated;
 grant execute on function public.create_platform_demo_batch(text, integer, text[], bigint, uuid) to service_role;
 grant execute on function public.claim_platform_demo_jobs(integer, integer) to service_role;
 grant execute on function public.finish_platform_demo_job(uuid, integer, text, text, uuid) to service_role;
 grant execute on function public.stop_platform_demo_batch(uuid) to service_role;
 grant execute on function public.platform_demo_daily_costs(integer) to service_role;
 grant execute on function public.platform_demo_job_costs(uuid) to service_role;
+grant execute on function public.platform_demo_batch_summaries(integer) to service_role;
 
 create function app.assert_platform_demo_runs()
 returns void language plpgsql stable security invoker set search_path = '' as $$

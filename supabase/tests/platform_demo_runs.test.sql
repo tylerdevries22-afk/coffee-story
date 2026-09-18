@@ -4,7 +4,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = extensions, public, pg_catalog;
-select plan(28);
+select plan(29);
 
 insert into auth.users (id, email) values
   ('d0000000-2000-4000-8000-000000000001', 'operator@demo-runs.test');
@@ -141,6 +141,12 @@ select is(
     where cost.google_place_id = 'ChIJFirstShop'),
   20000::bigint,
   'what one business cost is the sum of its ledger rows');
+select is(
+  (select row(summary.built, summary.skipped, summary.failed, summary.cost_microusd)::text
+     from public.platform_demo_batch_summaries() as summary
+    where summary.query = 'coffee shops in Boulder, CO'),
+  row(2, 2, 0, 20000::bigint)::text,
+  'the console reads a batch, what became of its businesses and what it cost, in one call');
 
 select results_eq(
   $q$select found, queued from public.create_platform_demo_batch(
