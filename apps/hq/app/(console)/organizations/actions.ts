@@ -10,6 +10,7 @@ import type { OrganizationActionState } from '@/lib/organization-action-state';
 import { startFactoryRun } from '@/lib/organization-factory-run';
 import { orgInputFromForm } from '@/lib/org-form-input';
 import { parseOrgDraft } from '@/lib/org-input';
+import { provisioningLocation } from '@/lib/provisioning-location';
 import {
   organizationFailure, organizationInvitationUrl, reconcileUnknownProvisioningInvitation,
   rollbackInvitationSafely,
@@ -108,7 +109,7 @@ export async function createOrganizationAction(
         p_owner_user_id: owner.userId, p_owner_email: draft.ownerEmail,
         p_organization_kind: draft.organizationKind, p_industry_key: draft.industryKey,
         p_blueprint_key: draft.blueprintKey, p_brand_config: draft.brandConfig,
-        p_location: draft.location, p_modules: draft.modules,
+        p_location: provisioningLocation(draft.location), p_modules: draft.modules,
         p_network_slug: draft.networkSlug, p_territory: draft.territory,
         p_inheritance_policy: draft.inheritancePolicy,
         p_connectors: draft.connectors,

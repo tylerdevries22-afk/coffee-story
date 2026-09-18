@@ -9,6 +9,13 @@
  *
  * Pure and asset-free: the wizard runs these in the browser before it submits,
  * and the server runs them again on what actually arrived.
+ *
+ * The database holds the same rules for what provisioning stores
+ * (app.is_dialable_phone, app.is_https_website and
+ * app.location_place_fields_valid, in 20260918140000), so a change here needs
+ * its twin there -- or the console accepts what the database then refuses.
+ * The one rule with no twin is that a website is public: that needs the host
+ * judged, which a check constraint cannot do.
  */
 import { isSafePublicHttpsUrl } from './content-guards';
 
