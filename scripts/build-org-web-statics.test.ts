@@ -2,12 +2,27 @@ import assert from 'node:assert/strict';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
 
-import { plannedExports, requiredTenant } from './build-org-web-statics';
+import { exportEnvironment, plannedExports, requiredTenant } from './build-org-web-statics';
 
 const own = () => 'coffee-story';
 const applied = () => ['coffee-story', 'stillpoint-builders'];
 const shape = (plan: ReturnType<typeof plannedExports>) =>
   plan.map(({ surface, tenant, target }) => `${tenant} ${surface.baseUrl} ${target.split(join('apps', 'hq', 'public'))[1]}`);
+
+describe('exportEnvironment', () => {
+  it('names the export tenant in every tenant variable, over the deployment one', () => {
+    // HQ's project sets TENANT=coffee-story. Inherited as-is, the guest apps'
+    // config refused every wall copy for another tenant.
+    const env = exportEnvironment(
+      { TENANT: 'coffee-story', EXPO_PUBLIC_TENANT: 'coffee-story', KEEP: 'yes' },
+      'juniper-base-demo', '/t/juniper-base-demo/customer',
+    );
+    assert.equal(env.TENANT, 'juniper-base-demo');
+    assert.equal(env.EXPO_PUBLIC_TENANT, 'juniper-base-demo');
+    assert.equal(env.EXPO_BASE_URL, '/t/juniper-base-demo/customer');
+    assert.equal(env.KEEP, 'yes');
+  });
+});
 
 describe('plannedExports', () => {
   it('writes the three Model B paths for the deployment tenant by default', () => {

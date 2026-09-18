@@ -56,6 +56,21 @@ function withOperatorBaseUrl(baseUrl: string): () => void {
   return () => writeFileSync(path, original);
 }
 
+/**
+ * The environment one export runs in: every tenant signal names that export's
+ * tenant.
+ *
+ * The deployment's own TENANT (coffee-story, on HQ) is inherited otherwise, and
+ * the guest apps' Expo config refuses a TENANT that disagrees with
+ * EXPO_PUBLIC_TENANT. That broke the first production-shaped --wall build on
+ * the first copy for any other tenant.
+ */
+export function exportEnvironment(
+  base: NodeJS.ProcessEnv, tenant: string, baseUrl: string,
+): NodeJS.ProcessEnv {
+  return { ...base, EXPO_PUBLIC_TENANT: tenant, TENANT: tenant, EXPO_BASE_URL: baseUrl };
+}
+
 async function exportSurface(surface: Surface, tenant: string, target: string): Promise<void> {
   const appRoot = join(ROOT, 'apps', surface.app);
   const outDir = join(appRoot, 'dist-web-org');
@@ -66,11 +81,7 @@ async function exportSurface(surface: Surface, tenant: string, target: string): 
       'pnpm',
       ['exec', 'expo', 'export', '--platform', 'web', '--output-dir', 'dist-web-org'],
       appRoot,
-      {
-        ...process.env,
-        EXPO_PUBLIC_TENANT: tenant,
-        EXPO_BASE_URL: surface.baseUrl,
-      },
+      exportEnvironment(process.env, tenant, surface.baseUrl),
     );
   } finally {
     restore();
