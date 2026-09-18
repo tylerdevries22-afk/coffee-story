@@ -17,6 +17,7 @@ import { placeToDraft } from '../place-to-draft';
 import type { DemoBrandKit } from './kit';
 import { recordDemoCost, type DemoCostOwner } from './ledger';
 import { demoLinkHash } from './link';
+import { checkPackOriginality } from './originality';
 import { buildDemoPack } from './pack-builder';
 import type { DemoCostLine } from './prices';
 
@@ -44,6 +45,8 @@ export type DemoJobDeps = {
   readonly readKit: DemoKitReader | null;
   readonly linkSecret: string;
   readonly newSiteId: () => string;
+  /** Names no generated pack may show; empty only when the caller already refused to run without it. */
+  readonly originalityDenylist: readonly string[];
 };
 
 export type DemoJobOutcome =
@@ -126,6 +129,19 @@ export async function buildDemoJob(job: ClaimedDemoJob, deps: DemoJobDeps, signa
   if (!built.ok) {
     if (kit) await discardMedia(deps.db, siteId);
     return { state: 'skipped', outcome: built.reason };
+  }
+
+  // Last check before anything is stored: the pack is fully assembled, kit
+  // included, so this is the one place that sees exactly what a guest would.
+  const originality = checkPackOriginality(draft.name, built.pack, deps.originalityDenylist);
+  if (originality.hit) {
+    log.warn('demo_factory.originality_hit', {
+      jobId: owner.jobId,
+      fields: originality.fields.map((field) => field.field),
+      hits: originality.fields.reduce((total, field) => total + field.count, 0),
+    });
+    if (kit) await discardMedia(deps.db, siteId);
+    return { state: 'skipped', outcome: 'originality' };
   }
 
   const inserted = await deps.db.from('platform_demo_sites').insert({

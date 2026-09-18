@@ -5,6 +5,7 @@ import { placeDetails } from '@platform/engine';
 import { jsonError, matchesSecret, notConfigured, serverEnv, serviceDb } from '../../../../lib/api-auth';
 import { demoBuilder } from '../../../../lib/demo-builder';
 import { demoLinkSecret } from '../../../../lib/demo-factory/link';
+import { originalityDenylistFromEnv } from '../../../../lib/demo-factory/originality';
 import { runDemoJobs, sweepExpiredDemos } from '../../../../lib/demo-factory/runner';
 import { optionalExtractionConfig, siteKitReader } from '../../../../lib/demo-factory/site-kit-reader';
 import { log } from '../../../../lib/log';
@@ -25,9 +26,10 @@ const START_WINDOW_MS = 150_000;
  * POST by hand, with the same bearer secret the maintenance tick uses.
  *
  * Expired demos are swept on every run, whatever else is configured. Work is
- * only claimed when a job could finish: without a Places key, a link secret
- * and a builder name, every claimed job would spend an attempt failing, so
- * the run reports what is missing instead.
+ * only claimed when a job could finish: without a Places key, a link secret,
+ * a builder name or the originality denylist, every claimed job would spend
+ * an attempt failing or run with nothing to check a generated pack against,
+ * so the run reports what is missing instead.
  */
 export async function POST(request: Request): Promise<Response> {
   const secret = process.env.CRON_SECRET;
@@ -49,10 +51,12 @@ export async function POST(request: Request): Promise<Response> {
 
   const apiKey = placesKey();
   const linkSecret = demoLinkSecret();
+  const originalityDenylist = originalityDenylistFromEnv();
   const missing = [
     ...(apiKey ? [] : ['GOOGLE_PLACES_API_KEY']),
     ...(linkSecret ? [] : ['DEMO_LINK_SECRET']),
     ...(demoBuilder() ? [] : ['DEMO_BUILDER_NAME']),
+    ...(originalityDenylist.length > 0 ? [] : ['DEMO_ORIGINALITY_DENYLIST']),
   ];
   if (!apiKey || !linkSecret || missing.length > 0) {
     return Response.json({ ok: true, expired, building: 'not_ready', missing });
@@ -66,6 +70,7 @@ export async function POST(request: Request): Promise<Response> {
       readKit: siteKitReader({ storage: db, extraction: optionalExtractionConfig(), now: Date.now }),
       linkSecret,
       newSiteId: randomUUID,
+      originalityDenylist,
     }, {
       limit: JOBS_PER_RUN,
       leaseSeconds: LEASE_SECONDS,

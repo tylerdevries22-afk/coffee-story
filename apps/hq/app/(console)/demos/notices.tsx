@@ -13,7 +13,8 @@ const ERRORS: Readonly<Record<string, string>> = {
   forbidden: 'Only platform administrators can run the demo factory.',
   rate_limited: 'Too many changes in a minute. Wait a moment and try again.',
   unconfigured: 'This deployment has no database connection, so nothing was saved.',
-  not_ready: 'The factory stays off until a Google Places key, DEMO_LINK_SECRET and DEMO_BUILDER_NAME are configured.',
+  not_ready: 'The factory stays off until a Google Places key, DEMO_LINK_SECRET, DEMO_BUILDER_NAME and '
+    + 'DEMO_ORIGINALITY_DENYLIST are configured.',
   places_unconfigured: 'No Google Places key is configured, so the search could not run. Nothing was billed.',
   places_quota: 'Google says the Places quota is used up for now. Nothing was queued.',
   places_error: 'The Google search failed. Nothing was queued; try again shortly.',
