@@ -33,7 +33,6 @@ import { join } from 'node:path';
 
 import { writeContactSheet } from './menu-contact-sheet.js';
 import {
-  MENU_CROP_CENTER,
   MENU_SHEET,
   hashBytes,
   measureMenuImage,
@@ -44,6 +43,8 @@ import {
   MENU_IMAGE_SPEC,
   isNoop,
   menuImageCorrection,
+  menuImageCropWindow,
+  menuImageWarmthMatrix,
   type MenuImageAxis,
   type MenuImageCorrection,
   type MenuImageMeasurement,
@@ -77,7 +78,7 @@ type ManifestEntry = {
 
 async function run() {
   const sharp = (await import('sharp')).default;
-  const { aspect, edge, quality } = MENU_IMAGE_SPEC;
+  const { edge, quality } = MENU_IMAGE_SPEC;
 
   const manifest: Record<string, ManifestEntry> = existsSync(MANIFEST)
     ? (JSON.parse(readFileSync(MANIFEST, 'utf8')) as Record<string, ManifestEntry>)
@@ -121,9 +122,7 @@ async function run() {
     // 1. Square. Crop the tallest centred-ish window the source allows.
     const meta = await sharp(current).metadata();
     const { width = 0, height = 0 } = meta;
-    const side = Math.min(width, Math.round(height * aspect));
-    const top = Math.round(Math.min(Math.max(height * MENU_CROP_CENTER - side / 2, 0), height - side));
-    const left = Math.round((width - side) / 2);
+    const { left, top, side } = menuImageCropWindow(width, height);
 
     const squared = sharp(current)
       .extract({ left, top, width: side, height: side })
@@ -136,11 +135,7 @@ async function run() {
     let out = squared.clone();
     if (!isNoop(correction)) {
       out = out.modulate({ brightness: correction.brightness, saturation: correction.saturation });
-      if (correction.warmth !== 0) {
-        const red = 1 + correction.warmth;
-        const blue = 1 - correction.warmth;
-        out = out.recomb([[red, 0, 0], [0, 1, 0], [0, 0, blue]]);
-      }
+      if (correction.warmth !== 0) out = out.recomb(menuImageWarmthMatrix(correction));
       graded.push(name);
     }
     if (beyondGrade.length > 0) reshoot.push([name, beyondGrade]);
