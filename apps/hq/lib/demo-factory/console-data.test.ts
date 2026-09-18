@@ -37,19 +37,23 @@ describe('batchFrom and dailyFrom', () => {
 
 describe('demoFactoryReadiness', () => {
   it('says whether each piece is configured, and never what it is', () => {
-    assert.deepEqual(demoFactoryReadiness({}), { placesKey: false, openAiKey: false, builderName: false });
+    assert.deepEqual(demoFactoryReadiness({}), { placesKey: false, openAiKey: false, builderName: false, linkSecret: false });
     const ready = demoFactoryReadiness({
       GOOGLE_PLACES_API_KEY: 'test-places', OPENAI_API_KEY: '  ', DEMO_BUILDER_NAME: 'Example Studio',
+      DEMO_LINK_SECRET: 'x'.repeat(48),
     });
-    assert.deepEqual(ready, { placesKey: true, openAiKey: false, builderName: true });
+    assert.deepEqual(ready, { placesKey: true, openAiKey: false, builderName: true, linkSecret: true });
     assert.equal(JSON.stringify(ready).includes('test-places'), false);
+    assert.equal(demoFactoryReadiness({ DEMO_LINK_SECRET: 'too short' }).linkSecret, false);
   });
 });
 
 describe('loadDemoConsole', () => {
-  it('reads the brakes, the batch list and fourteen days of spend', async () => {
+  it('reads the brakes, the batch list, fourteen days of spend and the recent demos', async () => {
     const { db, calls } = fakeFactoryDb({
       settingsRow: { enabled: false, daily_limit: 100, daily_budget_microusd: 10_000_000 },
+      listed: [{ id: 's1', business_name: 'Harbor Roast', state: 'ready', open_count: 2,
+        last_opened_at: '2026-09-18T10:00:00+00:00', expires_at: '2026-10-02T09:00:00+00:00' }, { business_name: 'no id' }],
       rpc: {
         platform_demo_batch_summaries: { data: [{ id: 'b1', query: 'bakeries', state: 'running' }, { query: 'no id' }] },
         platform_demo_daily_costs: { data: [{ day: '2026-09-18', provider: 'google_places', sku: 'place_details_enterprise',
@@ -60,8 +64,9 @@ describe('loadDemoConsole', () => {
     assert.equal(loaded.settings.dailyLimit, 100);
     assert.deepEqual(loaded.batches.map((batch) => batch.id), ['b1'], 'a row without an id is dropped');
     assert.equal(loaded.daily[0]?.costMicrousd, 40_000);
+    assert.deepEqual(loaded.sites.map((site) => [site.businessName, site.openCount]), [['Harbor Roast', 2]]);
     assert.deepEqual(calls.map((call) => call.args[0]),
-      ['platform_demo_settings', 'platform_demo_batch_summaries', 'platform_demo_daily_costs']);
+      ['platform_demo_settings', 'platform_demo_batch_summaries', 'platform_demo_daily_costs', 'platform_demo_sites']);
   });
 
   it('throws on a failed read instead of showing an empty factory', async () => {

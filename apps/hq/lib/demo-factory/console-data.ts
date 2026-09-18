@@ -9,6 +9,8 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { demoLinkSecret } from './link';
+
 export type DemoFactoryDb = Pick<SupabaseClient, 'rpc' | 'from'>;
 
 export type DemoFactorySettings = {
@@ -44,16 +46,28 @@ export type DemoDailyCost = {
   readonly costMicrousd: number;
 };
 
+/** A built demo as the console lists it: whether its prospect has looked is the point. */
+export type DemoSiteSummary = {
+  readonly id: string;
+  readonly businessName: string;
+  readonly state: string;
+  readonly openCount: number;
+  readonly lastOpenedAt: string | null;
+  readonly expiresAt: string;
+};
+
 export type DemoConsole = {
   readonly settings: DemoFactorySettings;
   readonly batches: readonly DemoBatchSummary[];
   readonly daily: readonly DemoDailyCost[];
+  readonly sites: readonly DemoSiteSummary[];
 };
 
 export type DemoFactoryReadiness = {
   readonly placesKey: boolean;
   readonly openAiKey: boolean;
   readonly builderName: boolean;
+  readonly linkSecret: boolean;
 };
 
 type Row = Readonly<Record<string, unknown>>;
@@ -113,6 +127,17 @@ export function dailyFrom(row: Row): DemoDailyCost {
   };
 }
 
+export function siteSummaryFrom(row: Row): DemoSiteSummary {
+  return {
+    id: label(row.id),
+    businessName: label(row.business_name),
+    state: label(row.state),
+    openCount: count(row.open_count),
+    lastOpenedAt: typeof row.last_opened_at === 'string' ? row.last_opened_at : null,
+    expiresAt: label(row.expires_at),
+  };
+}
+
 /** Whether each piece of configuration is present. Never the values themselves. */
 export function demoFactoryReadiness(
   env: Readonly<Record<string, string | undefined>> = process.env,
@@ -121,22 +146,28 @@ export function demoFactoryReadiness(
     placesKey: Boolean(env.GOOGLE_PLACES_API_KEY?.trim()),
     openAiKey: Boolean(env.OPENAI_API_KEY?.trim()),
     builderName: Boolean(env.DEMO_BUILDER_NAME?.trim()),
+    linkSecret: demoLinkSecret(env) !== null,
   };
 }
 
 export async function loadDemoConsole(db: DemoFactoryDb): Promise<DemoConsole> {
-  const [settings, batches, daily] = await Promise.all([
+  const [settings, batches, daily, sites] = await Promise.all([
     db.from('platform_demo_settings')
       .select('enabled,daily_limit,daily_budget_microusd').eq('singleton', true).maybeSingle(),
     db.rpc('platform_demo_batch_summaries', { p_limit: 20 }),
     db.rpc('platform_demo_daily_costs', { p_days: 14 }),
+    db.from('platform_demo_sites')
+      .select('id,business_name,state,open_count,last_opened_at,expires_at')
+      .order('created_at', { ascending: false }).limit(25),
   ]);
   if (settings.error) throw settings.error;
   if (batches.error) throw batches.error;
   if (daily.error) throw daily.error;
+  if (sites.error) throw sites.error;
   return {
     settings: settingsFrom(settings.data),
     batches: rows(batches.data).map(batchFrom).filter((batch) => batch.id !== ''),
     daily: rows(daily.data).map(dailyFrom),
+    sites: rows(sites.data).map(siteSummaryFrom).filter((site) => site.id !== ''),
   };
 }
