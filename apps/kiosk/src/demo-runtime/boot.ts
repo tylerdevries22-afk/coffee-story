@@ -134,6 +134,11 @@ async function boot(): Promise<void> {
   globalThis.__PLATFORM_DEMO_PACK__ = pack;
   showBanner(pack);
   pinDocumentTitle(pack.businessName);
+  // A static `import` runs at module load, before the pack above ever
+  // reaches the global; selected.ts and everything behind it must never see
+  // that happen. This has to stay a deferred, conditional require, exactly
+  // like index.js's own choice between this file and it.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   require('expo-router/entry');
 }
 

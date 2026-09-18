@@ -15,6 +15,7 @@ import type { ConfigContext, ExpoConfig } from 'expo/config';
 // loader transpiles this file but not workspace TypeScript it imports (see
 // resolveAppliedTenant below), and this file needs no transpilation at all --
 // metro.config.js already requires it the same way, from the same directory.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const { demoRuntimeBrandPath } = require('../../scripts/lib/demo-runtime-identity') as {
   demoRuntimeBrandPath: (appDirectory: string, app: string) => string | null;
 };

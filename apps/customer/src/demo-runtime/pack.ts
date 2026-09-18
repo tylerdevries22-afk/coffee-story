@@ -16,7 +16,9 @@ export type DemoPack = {
 };
 
 declare global {
-  // eslint-disable-next-line no-var -- the boot module's own handoff, not app state.
+  // `var` is required here, not a style choice: TypeScript's ambient global
+  // augmentation only accepts it, and ESLint's no-var already knows that --
+  // an eslint-disable comment on this line is flagged as unused, not needed.
   var __PLATFORM_DEMO_PACK__: DemoPack | undefined;
 }
 
