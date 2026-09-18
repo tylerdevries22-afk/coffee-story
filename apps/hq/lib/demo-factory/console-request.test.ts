@@ -39,7 +39,8 @@ describe('demoConsoleContext', () => {
   });
 
   it('refuses another origin before it looks at the session', async () => {
-    for (const headers of [{ origin: 'https://attacker.example' }, { 'sec-fetch-site': 'same-site' }]) {
+    const foreign: Record<string, string>[] = [{ origin: 'https://attacker.example' }, { 'sec-fetch-site': 'same-site' }];
+    for (const headers of foreign) {
       const fixture = deps();
       assert.equal(await status(demoConsoleContext(request(headers), 'outreach', fixture)), 403, JSON.stringify(headers));
       assert.equal(fixture.lookups(), 0);
