@@ -2,7 +2,7 @@ import type { MenuTree } from '@platform/data';
 import { parseOptionGroups, parseSizes, slugify } from '@platform/domain';
 
 import type { Drop } from '@/features/drops';
-import type { TenantImageSource } from '@/tenant/menu-media';
+import type { TenantImageSource } from '@/tenants/media';
 
 import type { MenuAddOn } from './catalog-data';
 import type { MenuCategory, MenuImageSource, MenuItem } from './catalog';

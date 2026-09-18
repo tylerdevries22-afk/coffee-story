@@ -14,7 +14,10 @@ import { GlassCupParticles } from './glass-cup-particles';
 import { Ripples } from './glass-cup-ripples';
 import { useGlassCupAnimation } from './use-glass-cup-animation';
 
-const NEBULA = TENANT_MEDIA.artwork['rewards/liquid-nebula.webp'];
+const NEBULA_ART = TENANT_MEDIA.artwork['rewards/liquid-nebula.webp'];
+// Skia loads a Metro asset id or a URL string, not React Native's { uri }
+// object, which is the shape demo runtime mode can hand artwork over in.
+const NEBULA = typeof NEBULA_ART === 'number' ? NEBULA_ART : NEBULA_ART.uri;
 
 type GlassCupSceneProps = {
   geo: CupGeometry;

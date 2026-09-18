@@ -7,27 +7,8 @@
  * of them -- is ever required. Nothing here runs unless
  * EXPO_PUBLIC_DEMO_RUNTIME=1, which only a demo web export sets.
  */
-import { bannerText, type DemoPack } from './pack';
-
-type PackResponse = DemoPack & {
-  readonly businessName: string;
-  readonly removeHref: string;
-  readonly builder: { readonly name: string; readonly contactHref: string | null };
-};
-
-/** A single leading "/", never "//": removeHref becomes an anchor href, and "//host/x" is off-origin. */
-function isSameOriginPath(value: unknown): value is string {
-  return typeof value === 'string' && value.startsWith('/') && !value.startsWith('//');
-}
-
-export function isPackResponse(value: unknown): value is PackResponse {
-  const source = value as Partial<PackResponse> | null;
-  return typeof source === 'object' && source !== null
-    && typeof source.businessName === 'string'
-    && isSameOriginPath(source.removeHref)
-    && typeof source.builder === 'object' && source.builder !== null
-    && typeof source.builder.name === 'string';
-}
+import { bannerText } from './pack';
+import { isPackResponse, type PackResponse } from './pack-response';
 
 function textNode(tag: string, body: string): HTMLElement {
   const element = document.createElement(tag);
