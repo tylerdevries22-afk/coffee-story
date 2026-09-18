@@ -5,7 +5,7 @@
   "scripts": {
     "lint": "pnpm -r --workspace-concurrency=1 lint && eslint scripts --max-warnings=0",
     "typecheck": "pnpm -r --workspace-concurrency=1 typecheck && tsc -p scripts",
-    "test": "export EXPO_PUBLIC_TENANT=${EXPO_PUBLIC_TENANT:-coffee-story}; pnpm test:scripts && pnpm -r --workspace-concurrency=1 test",
+    "test": "node tests/consistency/fly-diag-run.mjs",
     "coverage:unit": "c8 --temp-directory coverage/unit/tmp --reports-dir coverage/unit --reporter=json --reporter=json-summary pnpm test",
     "coverage:check": "pnpm --filter @platform/e2e-tests check-coverage coverage/unit/coverage-summary.json 38",
     "test:scripts": "tsx --test scripts/*.test.ts scripts/*.test.mjs",
