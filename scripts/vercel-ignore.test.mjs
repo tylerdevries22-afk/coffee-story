@@ -104,9 +104,15 @@ describe('vercel.json ignoreCommand', () => {
     });
   }
 
-  it('hq cron stays every five minutes', () => {
+  // The whole list, so a new schedule is a reviewed diff: the job runner every
+  // five minutes, and the demo factory every ten, which its daily count and
+  // budget brake rather than its schedule.
+  it('hq crons stay the job runner every five minutes and the demo factory every ten', () => {
     const config = JSON.parse(readFileSync(join(ROOT, 'apps/hq/vercel.json'), 'utf8'));
-    assert.deepEqual(config.crons, [{ path: '/api/jobs/run', schedule: '*/5 * * * *' }]);
+    assert.deepEqual(config.crons, [
+      { path: '/api/jobs/run', schedule: '*/5 * * * *' },
+      { path: '/api/jobs/demos', schedule: '*/10 * * * *' },
+    ]);
   });
 });
 
