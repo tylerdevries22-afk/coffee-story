@@ -2,6 +2,7 @@ import type { MenuTree } from '@platform/data';
 import { parseOptionGroups, parseSizes, slugify } from '@platform/domain';
 
 import type { Drop } from '@/features/drops';
+import type { TenantImageSource } from '@/tenants/media';
 
 import type { MenuAddOn } from './catalog-data';
 import type { MenuCategory, MenuImageSource, MenuItem } from './catalog';
@@ -27,15 +28,21 @@ function stableCategoryId(title: string, bundled: readonly MenuCategory[], used:
   return candidate;
 }
 
-function liveImage(url: string | null, fallback: number | undefined): MenuImageSource | null {
-  if (url?.startsWith('https://')) return { uri: url, ...(fallback === undefined ? {} : { fallback }) };
+function liveImage(url: string | null, fallback: TenantImageSource | undefined): MenuImageSource | null {
+  if (url?.startsWith('https://')) {
+    // A remote row image never carries a demo-runtime `{ uri }` fallback: that
+    // shape has no numeric Metro id for `MenuImageSource.fallback` to hold,
+    // and a live tenant (the only caller with a real image_url) never runs in
+    // demo runtime mode anyway.
+    return { uri: url, ...(typeof fallback === 'number' ? { fallback } : {}) };
+  }
   return fallback ?? null;
 }
 
 export function customerCatalogFromTree(
   tree: MenuTree,
   bundledCategories: readonly MenuCategory[],
-  bundledImages: Readonly<Record<string, number>>,
+  bundledImages: Readonly<Record<string, TenantImageSource>>,
 ): CustomerCatalog {
   const usedCategoryIds = new Set<string>();
   const categoryIdByRow = new Map<string, string>();

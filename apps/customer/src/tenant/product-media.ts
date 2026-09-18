@@ -11,10 +11,10 @@
  */
 import { EMPTY_PRODUCT_MEDIA, type ProductMediaCatalog } from '@platform/domain';
 
-import { TENANT_MEDIA } from '../tenants/media';
+import { TENANT_MEDIA, type TenantImageSource } from '../tenants/media';
 
-/** menu slug -> Metro module id. The one place a cut-out asset is named. */
-export const BUNDLED_CUTOUTS: Readonly<Record<string, number>> = TENANT_MEDIA.productMedia;
+/** menu slug -> image source. The one place a cut-out asset is named. */
+export const BUNDLED_CUTOUTS: Readonly<Record<string, TenantImageSource>> = TENANT_MEDIA.productMedia;
 
 /**
  * The catalog the resolver reads.

@@ -16,9 +16,12 @@ import brandLogoJuniperBaseDemo from '../../assets/tenants/juniper-base-demo/bra
 import { TENANT_MENU_MEDIA as menuMediaStillpointBuilders } from './stillpoint-builders/menu-media.generated';
 import brandLogoStillpointBuilders from '../../assets/tenants/stillpoint-builders/brand/logo.png';
 
+/** A Metro asset id, or a runtime `{ uri }` source in demo runtime mode. */
+export type TenantImageSource = number | { readonly uri: string };
+
 export type TenantMediaSlot = {
-  readonly brandLogo: number;
-  readonly menuMedia: Readonly<Record<string, number>>;
+  readonly brandLogo: TenantImageSource;
+  readonly menuMedia: Readonly<Record<string, TenantImageSource>>;
 };
 
 const MEDIA: Readonly<Record<string, TenantMediaSlot>> = {

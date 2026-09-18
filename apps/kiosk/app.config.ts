@@ -11,6 +11,15 @@ import { join } from 'node:path';
 
 import type { ConfigContext, ExpoConfig } from 'expo/config';
 
+// A plain CommonJS script, required rather than imported: Expo's config
+// loader transpiles this file but not workspace TypeScript it imports (see
+// resolveAppliedTenant below), and this file needs no transpilation at all --
+// metro.config.js already requires it the same way, from the same directory.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { demoRuntimeBrandPath } = require('../../scripts/lib/demo-runtime-identity') as {
+  demoRuntimeBrandPath: (appDirectory: string, app: string) => string | null;
+};
+
 type KioskBrand = {
   identity: {
     slug: string;
@@ -98,7 +107,25 @@ export function appliedBrandPath(appDirectory: string, app: string): string {
   return join(appDirectory, 'src', 'tenants', resolveAppliedTenant(appDirectory, app), 'brand.json');
 }
 
-const brand = JSON.parse(readFileSync(appliedBrandPath(__dirname, 'kiosk'), 'utf8')) as KioskBrand;
+/**
+ * Demo runtime mode (see src/demo-runtime/) ships no tenant at all: the
+ * pack a visitor sees comes from /d/pack.json at request time, so there is
+ * nothing in `applied.json` for `resolveAppliedTenant` to pick between and
+ * asking it to would defeat the whole point -- one export must serve every
+ * business. This still reads a real, always-applied tenant's brand.json
+ * rather than a hand-built object, so Expo's own config validation sees the
+ * exact shape it always does; nothing here reaches the running app, which
+ * reads its brand from the fetched pack instead of this file. The neutral
+ * tenant's slug and the conflict check both live in one place -- see
+ * demoRuntimeBrandPath -- rather than repeated here and in logo.ts.
+ */
+const demoBrandPath = demoRuntimeBrandPath(__dirname, 'kiosk');
+const DEMO_RUNTIME = demoBrandPath !== null;
+
+const brand = JSON.parse(readFileSync(
+  demoBrandPath ?? appliedBrandPath(__dirname, 'kiosk'),
+  'utf8',
+)) as KioskBrand;
 const artworkRoot = `./assets/tenants/${brand.identity.slug}`;
 
 /** One applied tenant per build, chosen by `EXPO_PUBLIC_TENANT`. */
@@ -145,7 +172,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       'android.permission.READ_MEDIA_VIDEO',
     ],
   },
-  web: { output: 'static', favicon: `${artworkRoot}/images/favicon.png` },
+  // 'single' is an SPA fallback (one index.html for every deep link); the
+  // demo runtime export needs that because next.config.ts rewrites every
+  // /demo/kiosk/:path* to it. Normal tenant builds keep 'static' unchanged.
+  web: { output: DEMO_RUNTIME ? 'single' : 'static', favicon: `${artworkRoot}/images/favicon.png` },
   plugins: [
     'expo-router',
     '../../packages/device-twin/with-media-projection.cjs',

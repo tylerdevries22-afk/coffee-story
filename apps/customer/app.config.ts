@@ -12,6 +12,15 @@ import { join } from 'node:path';
 
 import type { ConfigContext, ExpoConfig } from 'expo/config';
 
+// A plain CommonJS script, required rather than imported: Expo's config
+// loader transpiles this file but not workspace TypeScript it imports (see
+// resolveAppliedTenant below), and this file needs no transpilation at all --
+// metro.config.js already requires it the same way, from the same directory.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { demoRuntimeBrandPath } = require('../../scripts/lib/demo-runtime-identity') as {
+  demoRuntimeBrandPath: (appDirectory: string, app: string) => string | null;
+};
+
 /**
  * Which applied tenant this build is for, by the same rule the app uses at runtime.
  *
@@ -76,7 +85,25 @@ type BrandFile = {
   tokens?: { primary?: string; surface?: string };
 };
 
-const brand: BrandFile = JSON.parse(readFileSync(appliedBrandPath(__dirname, 'customer'), 'utf8'));
+/**
+ * Demo runtime mode (see src/demo-runtime/) ships no tenant at all: the
+ * pack a visitor sees comes from /d/pack.json at request time, so there is
+ * nothing in `applied.json` for `resolveAppliedTenant` to pick between and
+ * asking it to would defeat the whole point -- one export must serve every
+ * business. This still reads a real, always-applied tenant's brand.json
+ * rather than a hand-built object, so Expo's own config validation sees the
+ * exact shape it always does; nothing here reaches the running app, which
+ * reads its brand from the fetched pack instead of this file. The neutral
+ * tenant's slug and the conflict check both live in one place -- see
+ * demoRuntimeBrandPath -- rather than repeated here and in logo.ts.
+ */
+const demoBrandPath = demoRuntimeBrandPath(__dirname, 'customer');
+const DEMO_RUNTIME = demoBrandPath !== null;
+
+const brand: BrandFile = JSON.parse(readFileSync(
+  demoBrandPath ?? appliedBrandPath(__dirname, 'customer'),
+  'utf8',
+));
 const artworkRoot = `./assets/tenants/${brand.identity.slug}`;
 // Expo SDK 54 copies EXPO_PUBLIC_FOLDER verbatim during web export. Point it
 // at one validated tenant slot so a Coffee export cannot carry Stillpoint's
@@ -117,7 +144,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     package: brand.identity.bundleId,
   },
   web: {
-    output: 'static',
+    // 'single' is an SPA fallback (one index.html for every deep link); the
+    // demo runtime export needs that because next.config.ts rewrites every
+    // /demo/customer/:path* to it. Normal tenant builds keep 'static'
+    // (one prerendered file per route) unchanged.
+    output: DEMO_RUNTIME ? 'single' : 'static',
     favicon: `${artworkRoot}/images/favicon.png`,
   },
   plugins: [
