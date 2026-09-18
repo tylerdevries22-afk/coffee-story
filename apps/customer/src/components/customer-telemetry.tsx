@@ -10,7 +10,9 @@ import { AppState } from 'react-native';
 import { analyticsQueueStore } from '@platform/expo-storage';
 import { useAuth } from '@/state/auth-context';
 
-const SCREENS: Readonly<Record<string, string>> = {
+/** Exported for src/demo-runtime/screen-capture.tsx, so the anonymous demo
+ *  capture names screens from the same vocabulary as tenant telemetry. */
+export const SCREENS: Readonly<Record<string, string>> = {
   '/': 'entry', '/client': 'customer_shell', '/client/home': 'home',
   '/client/book': 'order', '/client/gift': 'gift', '/client/rewards': 'rewards',
   '/client/more': 'more', '/client/more/catering': 'catering',
@@ -25,7 +27,8 @@ const SCREENS: Readonly<Record<string, string>> = {
   '/notifications': 'notifications', '/refer/:code': 'referral_landing',
 };
 
-function route(pathname: string): string {
+/** Exported alongside SCREENS for the same reason: one route vocabulary. */
+export function route(pathname: string): string {
   if (pathname.startsWith('/drops/')) return '/drops/:id';
   if (pathname.startsWith('/refer/')) return '/refer/:code';
   return pathname;

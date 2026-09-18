@@ -70,6 +70,17 @@ export function viewDemoSite(db: DemoDb, token: string, now = new Date()): Promi
 }
 
 /**
+ * The live site behind a link, without its pack -- what a request needs to
+ * attribute something to a demo (an image, a screen-view event) without
+ * paying for the pack's 500 KB or exposing it to a request that has no
+ * business reading it.
+ */
+export async function readySiteId(db: DemoDb, token: string, now = new Date()): Promise<string | null> {
+  const site = await lookup(db, token, 'id,state,business_name,expires_at', now);
+  return site.state === 'ready' ? site.id : null;
+}
+
+/**
  * Counts an open. Only a ready, unexpired demo is counted, in one statement
  * on the database side; the answer is when that demo expires, or null when
  * the link opened nothing.
@@ -130,10 +141,9 @@ export async function demoMedia(
   now = new Date(),
 ): Promise<{ readonly body: ArrayBuffer; readonly contentType: string } | null> {
   if (!DEMO_MEDIA_NAME.test(name)) return null;
-  // No pack here: an image request needs the id and the state, not 500 KB.
-  const site = await lookup(db, token, 'id,state,business_name,expires_at', now);
-  if (site.state !== 'ready') return null;
-  const { data, error } = await db.storage.from(BUCKET).download(`${site.id}/${name}`);
+  const siteId = await readySiteId(db, token, now);
+  if (!siteId) return null;
+  const { data, error } = await db.storage.from(BUCKET).download(`${siteId}/${name}`);
   if (error || !data) return null;
   const extension = name.slice(name.lastIndexOf('.') + 1);
   return { body: await data.arrayBuffer(), contentType: CONTENT_TYPES[extension] ?? 'application/octet-stream' };

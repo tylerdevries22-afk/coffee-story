@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { demoMedia, openDemoSite, removeDemoSite, siteView, viewDemoSite } from './demo-site';
+import { demoMedia, openDemoSite, readySiteId, removeDemoSite, siteView, viewDemoSite } from './demo-site';
 import { fakeDemoDb } from './demo-site.test-support';
 import { demoTokenHash, newDemoToken } from './demo-token';
 
@@ -85,6 +85,19 @@ describe('removeDemoSite', () => {
     const { db, calls } = fakeDemoDb({ rpcData: [] });
     assert.equal(await removeDemoSite(db, newDemoToken()), false);
     assert.deepEqual(calls.map((call) => call.kind), ['rpc']);
+  });
+});
+
+describe('readySiteId', () => {
+  it('is the id behind a live link, and only a live one', async () => {
+    const { db } = fakeDemoDb({ row: { id: 's1', state: 'ready', business_name: 'Harbor', expires_at: LATER } });
+    assert.equal(await readySiteId(db, newDemoToken(), NOW), 's1');
+  });
+
+  it('is null for an expired, removed or unknown demo', async () => {
+    const { db } = fakeDemoDb({ row: { id: 's1', state: 'ready', business_name: 'Harbor', expires_at: EARLIER } });
+    assert.equal(await readySiteId(db, newDemoToken(), NOW), null);
+    assert.equal(await readySiteId(db, 'short', NOW), null);
   });
 });
 

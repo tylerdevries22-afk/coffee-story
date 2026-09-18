@@ -52,25 +52,55 @@ describe('loadDemoConsole', () => {
   it('reads the brakes, the batch list, fourteen days of spend and the recent demos', async () => {
     const { db, calls } = fakeFactoryDb({
       settingsRow: { enabled: false, daily_limit: 100, daily_budget_microusd: 10_000_000 },
-      listed: [{ id: 's1', business_name: 'Harbor Roast', state: 'ready', open_count: 2,
-        last_opened_at: '2026-09-18T10:00:00+00:00', expires_at: '2026-10-02T09:00:00+00:00' }, { business_name: 'no id' }],
+      listed: [
+        { id: 's1', business_name: 'Harbor Roast', state: 'ready', open_count: 2,
+          last_opened_at: '2026-09-18T10:00:00+00:00', expires_at: '2026-10-02T09:00:00+00:00' },
+        { id: 's2', business_name: 'Old Mill Bakery', state: 'ready', open_count: 1,
+          last_opened_at: null, expires_at: '2026-10-05T09:00:00+00:00' },
+        { business_name: 'no id' },
+      ],
       rpc: {
         platform_demo_batch_summaries: { data: [{ id: 'b1', query: 'bakeries', state: 'running' }, { query: 'no id' }] },
         platform_demo_daily_costs: { data: [{ day: '2026-09-18', provider: 'google_places', sku: 'place_details_enterprise',
           model: null, quantity: 2, cost_microusd: 40000 }] },
+        // Only the first site has ever been navigated inside; the second was
+        // opened but never went further, which loadDemoConsole must still
+        // show as zero rather than leaving it out of the rollup entirely.
+        platform_demo_event_counts: { data: [{ site_id: 's1', screen_views: 5, last_viewed_at: '2026-09-19T08:00:00+00:00' }] },
       },
     });
     const loaded = await loadDemoConsole(db);
     assert.equal(loaded.settings.dailyLimit, 100);
     assert.deepEqual(loaded.batches.map((batch) => batch.id), ['b1'], 'a row without an id is dropped');
     assert.equal(loaded.daily[0]?.costMicrousd, 40_000);
-    assert.deepEqual(loaded.sites.map((site) => [site.businessName, site.openCount]), [['Harbor Roast', 2]]);
-    assert.deepEqual(calls.map((call) => call.args[0]),
-      ['platform_demo_settings', 'platform_demo_batch_summaries', 'platform_demo_daily_costs', 'platform_demo_sites']);
+    assert.deepEqual(
+      loaded.sites.map((site) => [site.businessName, site.openCount, site.screenViews, site.lastViewedAt]),
+      [
+        ['Harbor Roast', 2, 5, '2026-09-19T08:00:00+00:00'],
+        ['Old Mill Bakery', 1, 0, null],
+      ],
+    );
+    assert.deepEqual(calls.map((call) => call.args[0]), [
+      'platform_demo_settings', 'platform_demo_batch_summaries', 'platform_demo_daily_costs',
+      'platform_demo_sites', 'platform_demo_event_counts',
+    ]);
+    assert.deepEqual(
+      calls.find((call) => call.args[0] === 'platform_demo_event_counts')?.args[1],
+      { p_site_ids: ['s1', 's2'] },
+      'the rollup is fetched once for the whole page of sites, not once per row',
+    );
   });
 
   it('throws on a failed read instead of showing an empty factory', async () => {
     const { db } = fakeFactoryDb({ selectError: { message: 'down' } });
+    await assert.rejects(loadDemoConsole(db));
+  });
+
+  it('throws when the event rollup itself fails', async () => {
+    const { db } = fakeFactoryDb({
+      listed: [{ id: 's1', business_name: 'Harbor Roast', state: 'ready', open_count: 0, expires_at: '2026-10-02T09:00:00+00:00' }],
+      rpc: { platform_demo_event_counts: { error: { message: 'down' } } },
+    });
     await assert.rejects(loadDemoConsole(db));
   });
 });

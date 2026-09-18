@@ -11,6 +11,7 @@ export type DemoDbScript = {
   readonly listError?: unknown;
   readonly removeError?: unknown;
   readonly download?: Blob | null;
+  readonly insertError?: unknown;
 };
 
 /**
@@ -34,6 +35,10 @@ export function fakeDemoDb(script: DemoDbScript = {}) {
           },
         }),
       }),
+      insert: async (row: unknown) => {
+        calls.push({ kind: 'insert', args: [table, row] });
+        return { data: null, error: script.insertError ?? null };
+      },
     }),
     storage: {
       from: (bucket: string) => ({
