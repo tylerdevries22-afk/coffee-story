@@ -26,6 +26,15 @@ const PUBLIC_PREFIXES = [
   // lib/demo-site.ts; nothing under /d/ reads a session or the demo session.
   // The trailing slash matters: a bare '/d' prefix would also open '/dashboard'.
   '/d/',
+  // The demo runtime export itself (see apps/customer/index.js, apps/kiosk/
+  // index.js): the same prospect's demo, as the working app rather than the
+  // landing page. The static shell under it is public and holds no
+  // business's data: one neutral bundle serves every demo. The business comes
+  // only from /d/pack.json, which boot.ts fetches and which checks the
+  // httpOnly cookie /d/ set. The trailing slash matters here too: a bare
+  // '/demo' prefix would also open '/demos', the staff console's
+  // demo-factory dashboard.
+  '/demo/',
 ];
 
 export async function middleware(request: NextRequest) {

@@ -59,6 +59,17 @@ const ALLOWED_PUBLIC_PREFIXES = [
   // exactly what the recipient must be able to do without signing in. It is
   // rate limited, noindex, no-referrer and no-store.
   "'/d/'",
+  // The same prospect's demo, as the working customer/kiosk app rather than
+  // the landing page. Reviewed and allowed for the same reason /d/ is: the
+  // recipient has no account. The static shell under /demo/ is public but
+  // holds no business's data -- one neutral runtime bundle serves every demo
+  // -- and the only business data it ever shows comes from /d/pack.json,
+  // which checks the httpOnly cookie /d/ set. It serves no session or
+  // credential of its own, never staff or tenant data, and it is noindex,
+  // no-referrer and no-store.
+  // The trailing slash keeps it from matching /demos, the staff console's
+  // demo-factory dashboard.
+  "'/demo/'",
 ];
 
 test('the public allowlist is exactly the reviewed set', () => {
