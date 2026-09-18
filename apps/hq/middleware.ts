@@ -21,6 +21,11 @@ const PUBLIC_PREFIXES = [
   // device, so gating it on a session would make it permanently blank. It
   // renders published venue identity only: no account, no cart, no writes.
   '/lobby',
+  // A prospect's demo link. The 256-bit token in the path (then an httpOnly
+  // cookie) is the credential, checked per request in lib/demo-entry.ts and
+  // lib/demo-site.ts; nothing under /d/ reads a session or the demo session.
+  // The trailing slash matters: a bare '/d' prefix would also open '/dashboard'.
+  '/d/',
 ];
 
 export async function middleware(request: NextRequest) {

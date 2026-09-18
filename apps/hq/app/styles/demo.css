@@ -1,0 +1,227 @@
+/*
+ * Demo pages: what a prospect sees at /d/view and the removal steps.
+ *
+ * Every colour is a token variable set by `hqTheme(brandConfig)` from the
+ * prospect's own brand -- no literal colour appears below (rule 4, enforced by
+ * `pnpm audit:tokens`) -- so the same sheet is a different business's page per
+ * demo. The banner is sticky and has no close control on purpose.
+ */
+
+.demo {
+  min-height: 100vh;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1.25rem, 3vw, 2.25rem);
+  padding: 0 clamp(1rem, 4vw, 3rem) clamp(2rem, 5vw, 4rem);
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body, system-ui, sans-serif);
+}
+
+.demo-banner {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1.5rem;
+  margin: 0 calc(-1 * clamp(1rem, 4vw, 3rem));
+  padding: 0.75rem clamp(1rem, 4vw, 3rem);
+  background: var(--bg-raised);
+  border-bottom: 1px solid var(--line);
+  font-size: 0.9rem;
+}
+
+.demo-banner-text {
+  margin: 0;
+  max-width: 60rem;
+  color: var(--text-muted);
+}
+
+.demo-banner-text strong {
+  color: var(--text);
+}
+
+.demo-banner-link,
+.demo-link,
+.demo-cta-link {
+  color: var(--action);
+  font-weight: 600;
+  text-underline-offset: 0.2em;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.demo-hero {
+  display: grid;
+  gap: 0.5rem;
+  justify-items: start;
+  padding-top: clamp(1.5rem, 5vw, 3.5rem);
+}
+
+.demo-logo {
+  width: clamp(4rem, 12vw, 6.5rem);
+  height: clamp(4rem, 12vw, 6.5rem);
+  object-fit: contain;
+  border-radius: var(--radius-md, 14px);
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+}
+
+.demo-eyebrow {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.demo-title {
+  margin: 0;
+  font-family: var(--font-display, var(--font-body, system-ui, sans-serif));
+  font-size: clamp(2rem, 6vw, 3.5rem);
+  line-height: 1.05;
+}
+
+.demo-tagline,
+.demo-cta-text,
+.demo-notice-text {
+  margin: 0;
+  max-width: 42rem;
+  color: var(--text-muted);
+  font-size: 1.05rem;
+  line-height: 1.5;
+}
+
+.demo-section {
+  display: grid;
+  gap: 1rem;
+  padding: clamp(1rem, 3vw, 1.75rem);
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg, 22px);
+}
+
+.demo-section-title {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.demo-menu-group {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.demo-menu-heading {
+  margin: 0;
+  color: var(--accent);
+  font-size: 0.95rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.demo-menu-list,
+.demo-hours {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.demo-menu-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.demo-menu-image {
+  width: 3.5rem;
+  height: 3.5rem;
+  object-fit: cover;
+  border-radius: var(--radius-sm, 8px);
+}
+
+.demo-menu-text {
+  grid-column: 2;
+  min-width: 0;
+}
+
+.demo-menu-name,
+.demo-menu-description,
+.demo-menu-price,
+.demo-listing-line {
+  margin: 0;
+}
+
+.demo-menu-name {
+  font-weight: 600;
+}
+
+.demo-menu-description {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.demo-menu-price {
+  grid-column: 3;
+  font-variant-numeric: tabular-nums;
+}
+
+.demo-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+  margin: 0;
+}
+
+.demo-notice {
+  justify-content: flex-start;
+}
+
+.demo-notice-body {
+  display: grid;
+  gap: 1rem;
+  max-width: 42rem;
+  padding-top: clamp(2rem, 8vw, 5rem);
+}
+
+.demo-notice-title {
+  margin: 0;
+  font-size: clamp(1.5rem, 4vw, 2.25rem);
+}
+
+.demo-remove-button {
+  min-height: 44px;
+  padding: 0.75rem 1.25rem;
+  border: 0;
+  border-radius: var(--radius-md, 14px);
+  background: var(--danger);
+  color: var(--action-foreground);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.demo-remove-button:focus-visible,
+.demo-banner-link:focus-visible,
+.demo-link:focus-visible,
+.demo-cta-link:focus-visible {
+  outline: 2px solid var(--action);
+  outline-offset: 3px;
+}
+
+@media (max-width: 480px) {
+  .demo-menu-item {
+    grid-template-columns: auto 1fr;
+  }
+
+  .demo-menu-price {
+    grid-column: 2;
+  }
+}

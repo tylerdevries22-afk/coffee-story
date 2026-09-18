@@ -81,6 +81,16 @@ const config: NextConfig = {
       frameAncestors: modelBParents,
       noIndex: true,
     });
+    // A prospect's demo: never indexed or cached, never framed, and never
+    // sending a Referer -- the first request carries the link token in its
+    // path, and an outbound click must not hand it to the site it lands on.
+    const demoHeaders = [
+      ...securityHeaders({ developmentFrames: false, noIndex: true })
+        .filter((header) => header.key !== 'Referrer-Policy' && header.key !== 'X-Robots-Tag'),
+      { key: 'Referrer-Policy', value: 'no-referrer' },
+      { key: 'X-Robots-Tag', value: 'noindex, nofollow, noarchive' },
+      { key: 'Cache-Control', value: 'private, no-store' },
+    ];
     return [
       {
         // The tenant-safe preview is deliberately same-origin so its iframe can
@@ -107,9 +117,10 @@ const config: NextConfig = {
       { source: '/operator/:path*', headers: modelBHeaders },
       { source: '/t/:slug/:path*', headers: modelBHeaders },
       { source: '/lobby/:path*', headers: modelBHeaders },
+      { source: '/d/:path*', headers: demoHeaders },
       {
         // Exclude Model B prefixes so they do not inherit production frame-ancestors 'none'.
-        source: '/((?!api/|wall/preview/|t/|lobby(?:/|$)|customer(?:/|$)|kiosk(?:/|$)|operator(?:/|$)|$).*)',
+        source: '/((?!api/|wall/preview/|t/|d/|lobby(?:/|$)|customer(?:/|$)|kiosk(?:/|$)|operator(?:/|$)|$).*)',
         headers: securityHeaders({ developmentFrames: process.env.NODE_ENV !== 'production' }),
       },
     ];
