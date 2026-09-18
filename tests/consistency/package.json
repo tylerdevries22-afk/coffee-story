@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "tsx --test \"src/**/*.test.ts\"",
+    "test": "tsx --test --test-reporter=./fly-diag.mjs \"src/**/*.test.ts\"",
     "lint": "echo 'consistency tests: lint covered by typecheck'",
     "typecheck": "tsc --noEmit",
     "verify": "pnpm typecheck && pnpm test"
