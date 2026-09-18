@@ -98,7 +98,25 @@ export function appliedBrandPath(appDirectory: string, app: string): string {
   return join(appDirectory, 'src', 'tenants', resolveAppliedTenant(appDirectory, app), 'brand.json');
 }
 
-const brand = JSON.parse(readFileSync(appliedBrandPath(__dirname, 'kiosk'), 'utf8')) as KioskBrand;
+/**
+ * Demo runtime mode (see src/demo-runtime/) ships no tenant at all: the
+ * pack a visitor sees comes from /d/pack.json at request time, so there is
+ * nothing in `applied.json` for `resolveAppliedTenant` to pick between and
+ * asking it to would defeat the whole point -- one export must serve every
+ * business. This still reads a real, always-applied tenant's brand.json
+ * rather than a hand-built object, so Expo's own config validation sees the
+ * exact shape it always does; nothing here reaches the running app, which
+ * reads its brand from the fetched pack instead of this file.
+ */
+const DEMO_RUNTIME = process.env.EXPO_PUBLIC_DEMO_RUNTIME === '1';
+const NEUTRAL_TENANT = 'juniper-base-demo';
+
+const brand = JSON.parse(readFileSync(
+  DEMO_RUNTIME
+    ? join(__dirname, 'src', 'tenants', NEUTRAL_TENANT, 'brand.json')
+    : appliedBrandPath(__dirname, 'kiosk'),
+  'utf8',
+)) as KioskBrand;
 const artworkRoot = `./assets/tenants/${brand.identity.slug}`;
 
 /** One applied tenant per build, chosen by `EXPO_PUBLIC_TENANT`. */
@@ -145,7 +163,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       'android.permission.READ_MEDIA_VIDEO',
     ],
   },
-  web: { output: 'static', favicon: `${artworkRoot}/images/favicon.png` },
+  // 'single' is an SPA fallback (one index.html for every deep link); the
+  // demo runtime export needs that because next.config.ts rewrites every
+  // /demo/kiosk/:path* to it. Normal tenant builds keep 'static' unchanged.
+  web: { output: DEMO_RUNTIME ? 'single' : 'static', favicon: `${artworkRoot}/images/favicon.png` },
   plugins: [
     'expo-router',
     '../../packages/device-twin/with-media-projection.cjs',
