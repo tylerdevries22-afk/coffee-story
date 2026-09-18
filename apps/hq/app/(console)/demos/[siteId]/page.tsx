@@ -8,21 +8,28 @@ import { serverEnv, serviceDb } from '@/lib/api-auth';
 import { currentSession, hasRole } from '@/lib/auth';
 import { demoBuilder } from '@/lib/demo-builder';
 import { demoLinkPath, demoLinkSecret } from '@/lib/demo-factory/link';
+import { outreachOrigin, outreachSiteFromPack } from '@/lib/demo-factory/outreach-data';
 import { demoLanding } from '@/lib/demo-pack';
 import { log } from '@/lib/log';
 
+import { OutreachPreview } from './outreach-preview';
+
 import '../../../styles/demo.css';
+import '../../../styles/demo-outreach.css';
 
 export const dynamic = 'force-dynamic';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type Row = {
-  id: string; state: string; business_name: string; expires_at: string;
-  open_count: number; last_opened_at: string | null; pack: unknown;
+  id: string; state: string; business_name: string; expires_at: string; created_at: string;
+  country_code: string | null; open_count: number; last_opened_at: string | null; pack: unknown;
 };
 
+/** The console's configured address, the one outreach drafts use, or else this request's. */
 async function publicOrigin(): Promise<string> {
+  const configured = outreachOrigin();
+  if (configured) return configured;
   const list = await headers();
   const host = list.get('x-forwarded-host') ?? list.get('host') ?? '';
   return host ? `https://${host}` : '';
@@ -46,7 +53,7 @@ export default async function DemoPreviewPage({ params }: { params: Promise<{ si
   const env = serverEnv();
   if (!env) return <main className="factory-page"><div className="notice">This deployment has no database connection.</div></main>;
   const read = await serviceDb(env).from('platform_demo_sites')
-    .select('id,state,business_name,expires_at,open_count,last_opened_at,pack').eq('id', siteId).maybeSingle<Row>();
+    .select('id,state,business_name,expires_at,created_at,country_code,open_count,last_opened_at,pack').eq('id', siteId).maybeSingle<Row>();
   if (read.error) {
     log.error('demo_factory.preview_failed', { siteId }, read.error);
     return <main className="factory-page"><div className="notice">The demo could not be read. Try again shortly.</div></main>;
@@ -75,6 +82,7 @@ export default async function DemoPreviewPage({ params }: { params: Promise<{ si
           <input readOnly value={link} />
         </label>
       ) : <div className="notice">Set DEMO_LINK_SECRET to see this demo&apos;s link.</div>}
+      <OutreachPreview site={outreachSiteFromPack(site)} />
       {site.state === 'ready' && builder ? (
         <DemoLandingPage landing={demoLanding(site.pack, site.business_name)} builder={builder} removeHref={path ? `${path}/remove` : '#'} />
       ) : (
