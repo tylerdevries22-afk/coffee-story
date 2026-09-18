@@ -16,6 +16,8 @@ describe('organization provisioning helpers', () => {
   it('keeps database details out of user-facing failures', () => {
     assert.equal(organizationFailure('duplicate key brands_slug_key'),
       'That organization handle is already in use.');
+    assert.equal(organizationFailure('invalid_first_location'),
+      'The first location’s details were refused. Check them and try again.');
     assert.equal(organizationFailure('internal relation secret'),
       'The organization could not be provisioned. No partial tenant was activated.');
   });
