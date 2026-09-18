@@ -87,12 +87,23 @@ function showUnavailable(): void {
  * app sets no per-route title anywhere. The observer re-asserts the pack's
  * business name every time anything else changes the title, so it always wins.
  */
+function titleElement(): HTMLTitleElement {
+  const existing = document.querySelector('title');
+  if (existing) return existing;
+  const created = document.createElement('title');
+  // document.head is only null before the parser reaches <head>; a <script>
+  // cannot be running at all before then, but documentElement (the <html>
+  // root, never null once any script runs) is still a safe home for it.
+  const parent: Node = document.head ?? document.documentElement;
+  parent.appendChild(created);
+  return created;
+}
+
 function pinDocumentTitle(title: string): void {
   document.title = title;
-  const node = document.querySelector('title') ?? document.head.appendChild(document.createElement('title'));
   new MutationObserver(() => {
     if (document.title !== title) document.title = title;
-  }).observe(node, { childList: true, characterData: true, subtree: true });
+  }).observe(titleElement(), { childList: true, characterData: true, subtree: true });
 }
 
 async function fetchPack(): Promise<PackResponse | null> {
