@@ -12,6 +12,7 @@ function dollarsField(microusd: number): string {
 const REQUIREMENTS: readonly { key: keyof DemoFactoryReadiness; label: string; why: string }[] = [
   { key: 'placesKey', label: 'Google Places key', why: 'finds businesses and reads their listings' },
   { key: 'builderName', label: 'DEMO_BUILDER_NAME', why: 'names who built every demo, on every page' },
+  { key: 'linkSecret', label: 'DEMO_LINK_SECRET', why: 'derives each demo link, so only its hash is stored' },
   { key: 'openAiKey', label: 'OpenAI key', why: 'reads each website for its menu and colors' },
 ];
 

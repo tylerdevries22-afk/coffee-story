@@ -8,6 +8,7 @@ import { DemoBatchForm, DemoBatchList } from './batch-panels';
 import { DemoDailyCosts } from './daily-costs';
 import { DemoFactoryControls } from './controls';
 import { DemoNotices } from './notices';
+import { DemoRecentSites } from './recent-demos';
 
 export const dynamic = 'force-dynamic';
 
@@ -68,6 +69,7 @@ export default async function DemosPage({ searchParams }: { searchParams: Search
       <DemoFactoryControls settings={data?.settings ?? null} readiness={demoFactoryReadiness()} />
       <DemoBatchForm disabled={data === null} />
       <DemoBatchList batches={data?.batches ?? []} />
+      <DemoRecentSites sites={data?.sites ?? []} />
       <DemoDailyCosts days={data?.daily ?? []} />
     </main>
   );

@@ -24,7 +24,7 @@ export type DemoSiteView =
   | { readonly state: 'expired'; readonly businessName: string }
   | { readonly state: 'gone' };
 
-type DemoDb = Pick<SupabaseClient, 'rpc' | 'from' | 'storage'>;
+export type DemoDb = Pick<SupabaseClient, 'rpc' | 'from' | 'storage'>;
 
 const BUCKET = 'demo-media';
 
@@ -96,18 +96,26 @@ export async function removeDemoSite(db: DemoDb, token: string): Promise<boolean
   const id = Array.isArray(data) ? record(data[0]).id : undefined;
   if (typeof id !== 'string') return false;
   try {
-    const bucket = db.storage.from(BUCKET);
-    const listed = await bucket.list(id, { limit: 1000 });
-    if (listed.error) throw listed.error;
-    const paths = (listed.data ?? []).map((object) => `${id}/${object.name}`);
-    if (paths.length > 0) {
-      const removed = await bucket.remove(paths);
-      if (removed.error) throw removed.error;
-    }
+    await removeDemoMedia(db, id);
   } catch (cleanupError) {
     log.error('demo.media_removal_failed', { siteId: id }, cleanupError);
   }
   return true;
+}
+
+/**
+ * Deletes every image in one demo's folder and returns how many went. Shared
+ * by removal and by the expiry sweep, so both forget a business the same way.
+ */
+export async function removeDemoMedia(db: Pick<DemoDb, 'storage'>, siteId: string): Promise<number> {
+  const bucket = db.storage.from(BUCKET);
+  const listed = await bucket.list(siteId, { limit: 1000 });
+  if (listed.error) throw listed.error;
+  const paths = (listed.data ?? []).map((object) => `${siteId}/${object.name}`);
+  if (paths.length === 0) return 0;
+  const removed = await bucket.remove(paths);
+  if (removed.error) throw removed.error;
+  return paths.length;
 }
 
 const CONTENT_TYPES: Readonly<Record<string, string>> = {
