@@ -130,6 +130,14 @@ const config: NextConfig = {
       // demo pages: it is the same prospect's demo, just the working-app half
       // of it rather than the landing-page half.
       { source: '/demo/:path*', headers: demoHeaders },
+      // Except its bundles: content-hashed, so a changed file gets a new name,
+      // and one neutral runtime serves every demo, so they hold no business's
+      // data. Without this every open downloads the whole app again. It comes
+      // after the no-store rule because Next keeps the later of two values.
+      {
+        source: '/demo/:surface(customer|kiosk)/_expo/static/:path*',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
+      },
       {
         // Exclude Model B prefixes so they do not inherit production frame-ancestors 'none'.
         source: '/((?!api/|wall/preview/|t/|d/|demo(?:/|$)|lobby(?:/|$)|customer(?:/|$)|kiosk(?:/|$)|operator(?:/|$)|$).*)',
