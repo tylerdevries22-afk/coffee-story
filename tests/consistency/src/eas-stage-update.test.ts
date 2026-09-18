@@ -4,7 +4,9 @@ import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync 
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { describe, it, type TestContext } from 'node:test';
+import { before, describe, it, type TestContext } from 'node:test';
+
+import { requireCommands } from './required-commands.ts';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const SCRIPT = join(ROOT, 'scripts', 'eas-stage-update.sh');
@@ -68,6 +70,8 @@ function assertRejectedBeforeNpx(result: ReturnType<typeof spawnSync>, marker: s
 }
 
 describe('EAS exact-commit staging boundary', () => {
+  before(() => requireCommands('bash', 'git', 'jq', 'sha256sum'));
+
   it('rejects dirty tracked files before invoking EAS', (t) => {
     const values = fixture(t);
     writeFileSync(join(values.directory, 'tracked.txt'), 'dirty\n');
