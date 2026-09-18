@@ -1,0 +1,7 @@
+# Maple Row Bakehouse
+User-agent: *
+Disallow: /catering
+Disallow: /wp-admin/
+Allow: /wp-admin/admin-ajax.php
+
+Sitemap: https://www.maplerowbakehouse.com/sitemap.xml

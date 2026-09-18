@@ -20,6 +20,21 @@ export const SEARCH_LIMITS = {
 } as const;
 
 /**
+ * Bounds for reading a business's own website with a model instead of
+ * searching for it (site-extraction-request.ts).
+ *
+ * That request carries no tools, so there is no search to cap; what is left
+ * to bound is what goes in and what comes out. The input is our own crawl,
+ * cut to 60,000 characters -- roughly 15,000 tokens. The output is a short
+ * summary, up to eight colours and at most sixty items, and 8,000 tokens
+ * covers that with room for a reasoning model's thinking, which counts
+ * against the same budget.
+ */
+export const EXTRACTION_LIMITS = {
+  siteBrandKit: { maxInputChars: 60_000, maxOutputTokens: 8_000, maxItems: 60 },
+} as const;
+
+/**
  * Reasoning effort for a research call, or nothing for a model that does not
  * reason.
  *
