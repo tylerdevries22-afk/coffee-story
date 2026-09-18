@@ -15,9 +15,12 @@ import { FromGoogle } from './field-label';
 
 type HoursEditorProps = {
   readonly initial: Readonly<HoursByDay>;
-  readonly fromGoogle: boolean;
-  readonly invalid: boolean;
-  readonly onEdited: () => void;
+  /** The week still holds a Google listing's hours: the wizard's review cue. */
+  readonly fromGoogle?: boolean;
+  /** The wizard's step check blames the hours. */
+  readonly invalid?: boolean;
+  /** Told of every edit. A server-rendered page cannot pass one, and has nothing to track. */
+  readonly onEdited?: () => void;
 };
 
 type DayProps = {
@@ -89,13 +92,14 @@ function Day({ week, day, onChange }: DayProps) {
 /**
  * Per-day opening hours: a day may be closed, open around the clock, or open
  * for up to four spans, and a span may run past midnight. The week is posted
- * whole as JSON, so the server reads exactly what the operator sees.
+ * whole as JSON, so the server reads exactly what the operator sees. The one
+ * editor serves the new-organization wizard and the new-location page alike.
  */
-export function HoursEditor({ initial, fromGoogle, invalid, onEdited }: HoursEditorProps) {
+export function HoursEditor({ initial, fromGoogle = false, invalid = false, onEdited }: HoursEditorProps) {
   const [week, setWeek] = useState<WeekDraft>(() => weekFrom(initial));
   const change = (next: WeekDraft) => {
     setWeek(next);
-    onEdited();
+    onEdited?.();
   };
   return (
     <fieldset className={`hours-editor${fromGoogle ? ' from-google' : ''}`} data-field="hours" tabIndex={-1}
