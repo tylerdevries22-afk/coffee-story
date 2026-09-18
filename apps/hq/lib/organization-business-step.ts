@@ -1,6 +1,8 @@
 import { slugify } from '@platform/domain';
 
+import { websiteFromInput } from './location-contact';
 import { parseLocationDraft, type LocationValidationField } from './location-input';
+import { locationInputFromForm } from './org-form-input';
 import type { OrganizationKind } from './org-input';
 
 export type OrganizationReviewDetails = {
@@ -23,18 +25,15 @@ export function businessStepOf(data: FormData):
     return { ok: false, field: 'name',
       error: 'Enter at least two letters or numbers for the organization name.' };
   }
+  // Asked of every organization, located or not: the factory researches it.
+  const website = websiteFromInput(valueOf(data, 'website'));
+  if (!website.ok) return { ok: false, field: 'website', error: website.error };
   const kind = valueOf(data, 'organizationKind') as OrganizationKind;
   const needsLocation = kind === 'independent' || kind === 'franchisee';
   let location = '';
   let hours = '';
   if (needsLocation) {
-    const parsed = parseLocationDraft({
-      name: valueOf(data, 'locationName'), street: valueOf(data, 'street'),
-      city: valueOf(data, 'city'), region: valueOf(data, 'region'),
-      postal: valueOf(data, 'postal'), timezone: valueOf(data, 'timezone'),
-      openTime: valueOf(data, 'openTime'), closeTime: valueOf(data, 'closeTime'),
-      days: data.getAll('days').map(String),
-    });
+    const parsed = parseLocationDraft(locationInputFromForm(data));
     if (!parsed.ok) {
       const field = parsed.field === 'name' ? 'locationName' : parsed.field;
       return { ...parsed, field };

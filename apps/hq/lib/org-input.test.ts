@@ -98,3 +98,17 @@ test('a long name produces a database-safe 63-character handle', () => {
   assert.ok(result.ok);
   assert.equal(result.draft.slug.length, 63);
 });
+
+test('the website is https or nothing, for every organization model', () => {
+  const kept = parseOrgDraft({ ...BASE, website: ' https://harbor-bakery.example.com/ ' });
+  assert.ok(kept.ok);
+  assert.equal(kept.draft.website, 'https://harbor-bakery.example.com/');
+  const none = parseOrgDraft(BASE);
+  assert.ok(none.ok);
+  assert.equal(none.draft.website, null);
+  for (const website of ['http://harbor-bakery.example.com', 'harbor-bakery.example.com', 'https://localhost/']) {
+    assert.deepEqual(parseOrgDraft({ ...BASE, website }), {
+      ok: false, error: 'Enter the website as a public https:// address.',
+    }, website);
+  }
+});

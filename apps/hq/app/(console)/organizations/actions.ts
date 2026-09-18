@@ -8,6 +8,7 @@ import { addDemoLocation } from '@/lib/demo-locations';
 import { addDemoOrg } from '@/lib/demo-orgs';
 import type { OrganizationActionState } from '@/lib/organization-action-state';
 import { startFactoryRun } from '@/lib/organization-factory-run';
+import { orgInputFromForm } from '@/lib/org-form-input';
 import { parseOrgDraft } from '@/lib/org-input';
 import {
   organizationFailure, organizationInvitationUrl, reconcileUnknownProvisioningInvitation,
@@ -45,21 +46,7 @@ export async function createOrganizationAction(
         : 'Sign in to create an organization.',
     };
   }
-  const parsed = parseOrgDraft({
-    name: text(formData, 'name'), ownerEmail: text(formData, 'ownerEmail'),
-    organizationKind: text(formData, 'organizationKind'),
-    industryKey: text(formData, 'industryKey'), blueprintKey: text(formData, 'blueprintKey'),
-    networkSlug: text(formData, 'networkSlug'), territory: text(formData, 'territory'),
-    moduleKeys: formData.getAll('moduleKeys').map(String),
-    connectorIds: formData.getAll('connectorIds').map(String),
-    location: {
-      name: text(formData, 'locationName'), street: text(formData, 'street'),
-      city: text(formData, 'city'), region: text(formData, 'region'),
-      postal: text(formData, 'postal'), timezone: text(formData, 'timezone'),
-      openTime: text(formData, 'openTime'), closeTime: text(formData, 'closeTime'),
-      days: formData.getAll('days').map(String),
-    },
-  });
+  const parsed = parseOrgDraft(orgInputFromForm(formData));
   if (!parsed.ok) return { kind: 'error', message: parsed.error };
   const draft = parsed.draft;
   const idempotencyKey = text(formData, 'idempotencyKey');

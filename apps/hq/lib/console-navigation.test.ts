@@ -80,6 +80,7 @@ describe('consoleSectionsFor', () => {
       '/staff',
       '/fees',
       '/onboarding',
+      '/demos',
     ]);
     assert.equal(new Set(destinations).size, destinations.length);
   });
@@ -174,5 +175,6 @@ describe('consoleSectionsFor', () => {
     assert.ok(ownerDestinations.includes('/staff'));
     assert.equal(ownerDestinations.includes('/fees'), false);
     assert.equal(ownerDestinations.includes('/onboarding'), false);
+    assert.equal(ownerDestinations.includes('/demos'), false);
   });
 });
