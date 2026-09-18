@@ -163,6 +163,9 @@ export function settingsSection(access: ConsoleNavigationAccess): ConsoleSection
     ...(access.canManagePlatform
       ? [{ href: '/onboarding', label: 'Onboarding', icon: 'onboarding' as const }]
       : []),
+    ...(access.canManagePlatform
+      ? [{ href: '/demos', label: 'Demo factory', icon: 'activity' as const }]
+      : []),
   ];
   return {
     key: 'settings',
