@@ -1,4 +1,7 @@
-import { FatalError } from 'workflow';
+// The same class `workflow` re-exports, imported from its defining package:
+// under a CommonJS loader (tsx, in tests) `workflow` resolves to its
+// TypeScript plugin, which exports no FatalError at all.
+import { FatalError } from '@workflow/errors';
 
 import {
   parseBrandResearchArtifact,
