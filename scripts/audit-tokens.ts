@@ -86,6 +86,7 @@ const ALLOWED = new Map<string, string>([
   ['packages/integrations/src/catalog-platform.ts', "platform providers' official mark colours, which must retain their own identities"],
   ['packages/integrations/src/catalog-publishing.ts', "publishing providers' official mark colours, which must retain their own identities"],
   ['apps/display/lib/demo-board.ts', 'a fixture brand, playing the part of tenant data'],
+  ['apps/hq/lib/demo-factory/site-kit.test-support.ts', "test fixtures: a crawled café website's own CSS colours and a model's reading of them, playing the part of scraped data"],
   ['apps/customer/app.config.ts', 'Expo build-time splash: reads brand.tokens first, literal only as the last resort'],
   ['apps/kiosk/app.config.ts', 'as apps/customer/app.config.ts'],
   ['apps/customer/src/components/rewards/glass-cup.tsx', 'the vessel drawing itself: glass is refraction, not brand, and its palettes file is allowed for the same reason'],
