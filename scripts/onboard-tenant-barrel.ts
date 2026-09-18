@@ -61,7 +61,7 @@ export function appliedSlugs(root: string, app: GuestApp): readonly string[] {
 }
 
 /** `coffee-story` -> `CoffeeStory`, for a generated identifier. */
-function pascal(slug: string): string {
+export function pascal(slug: string): string {
   return slug.split(/[^a-z0-9]+/i)
     .filter((part) => part.length > 0)
     .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
