@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import sharp from 'sharp';
+import sharp, { type ChannelStats } from 'sharp';
 
 import { IMAGE_INPUT_LIMITS, LOGO_EDGE, normalizeLogo, normalizeMenuPhoto } from './image-normalize';
 
@@ -24,7 +24,7 @@ function solid(width: number, height: number, colour: Rgb, alpha = 1): Promise<B
   return sharp({ create }).png().toBuffer();
 }
 
-function luminance(channels: sharp.ChannelStats[]): number {
+function luminance(channels: ChannelStats[]): number {
   const [red, green, blue] = channels.map((channel) => channel.mean);
   return 0.2126 * (red ?? 0) + 0.7152 * (green ?? 0) + 0.0722 * (blue ?? 0);
 }

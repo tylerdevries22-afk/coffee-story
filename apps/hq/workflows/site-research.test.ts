@@ -6,8 +6,8 @@ import { FatalError } from '@workflow/errors';
 import { CrawlBudget } from '../lib/public-fetch';
 import { APEX, WWW, bakeryRoutes, htmlReply, siteTransport } from '../lib/site-crawl/site-fixtures.test-support';
 import type { FactoryRunRow } from './factory-runtime';
-import { isExtraction, outputText, stubResponses } from './responses-stub.test-support';
-import type { ExtractionConfig } from './site-extraction';
+import { isExtraction, outputText, stubResponses, usageBlock } from './responses-stub.test-support';
+import type { ExtractionConfig, ExtractionUsage } from './site-extraction';
 import { researchFromWebsite } from './site-research';
 
 const STYLESHEET = ':root { --color-primary: #2F5D3A; }';
@@ -34,10 +34,14 @@ describe('research from a business website', () => {
   });
 
   it('reads the site and asks the model once, with no hosted search', async () => {
-    stub = stubResponses(() => ({ payload: outputText(KIT) }));
-    const research = await researchFromWebsite(RUN, CONFIG, { transport: siteTransport(bakeryRoutes(STYLESHEET)) });
+    stub = stubResponses(() => ({ payload: outputText(KIT, usageBlock(6_000, 0, 700)) }));
+    const passes: ExtractionUsage[] = [];
+    const research = await researchFromWebsite(RUN, CONFIG, { transport: siteTransport(bakeryRoutes(STYLESHEET)) }, (pass) => {
+      passes.push(pass);
+    });
     assert.ok(research !== null);
     assert.equal(stub.sent.length, 1);
+    assert.deepEqual(passes, [{ model: 'gpt-5-nano', inputTokens: 6_000, cachedInputTokens: 0, outputTokens: 700 }]);
     assert.equal(isExtraction(stub.sent[0]?.body ?? {}), true);
     assert.equal('tools' in (stub.sent[0]?.body ?? {}), false);
     assert.equal(research.summary, KIT.summary);

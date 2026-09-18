@@ -49,6 +49,11 @@ const LINK_PAGES = /(?:^|\.)(?:linktr\.ee|beacons\.ai|linkin\.bio|taplink\.cc|ln
 
 type Page = { readonly url: URL; readonly topic: PageTopic; readonly facts: PageFacts };
 
+/** A social profile or link-in-bio page: somebody else's platform, with no site of the business's own. */
+function notASite(url: URL): boolean {
+  return socialNetwork(url) !== null || LINK_PAGES.test(url.hostname);
+}
+
 function reason(error: unknown): string {
   if (error instanceof PublicFetchError || error instanceof SiteCrawlError) return error.code;
   return 'network';
@@ -59,7 +64,7 @@ async function homePage(start: URL, options: PublicFetchOptions, rules: RobotsRu
   const fetched = await fetchPage(start, options).catch((error: unknown) => {
     throw new SiteCrawlError('unreachable', { cause: error });
   });
-  if (socialNetwork(fetched.url) !== null || LINK_PAGES.test(fetched.url.hostname)) throw new SiteCrawlError('not_a_site');
+  if (notASite(fetched.url)) throw new SiteCrawlError('not_a_site');
   return { url: fetched.url, topic: 'home', facts: readPageFacts(fetched.html) };
 }
 
@@ -110,9 +115,14 @@ function pageUrlForAsset(href: string, home: URL): URL | null {
   }
 }
 
-function assemble(pages: readonly Page[], css: readonly string[], skipped: SiteCrawl['skipped']): SiteCrawl {
+function assemble(pages: readonly Page[], css: readonly string[], rules: RobotsRules, skipped: SiteCrawl['skipped']): SiteCrawl {
   const [home] = pages;
   if (home === undefined) throw new SiteCrawlError('unreachable');
+  // A picture the site closes to crawlers is not offered for download either.
+  const permitted = ({ url }: { readonly url: string }): boolean => {
+    const parsed = new URL(url);
+    return !sameSite(parsed, home.url) || robotsAllows(rules, parsed.pathname + parsed.search);
+  };
   const structured = readJsonLd(pages.flatMap((page) => page.facts.jsonLd));
   const links = pages.flatMap((page) => page.facts.links);
   const themeColors = pages.map((page) => page.facts.meta['theme-color']).filter((value): value is string => Boolean(value));
@@ -130,8 +140,8 @@ function assemble(pages: readonly Page[], css: readonly string[], skipped: SiteC
     description: clip(meta.description || meta['og:description'], 500),
     pages: pages.map((page) => ({ url: page.url.href, topic: page.topic, title: clip(page.facts.title, 200), text: page.facts.text })),
     colors: paletteCandidates(themeColors, [...pages.flatMap((page) => page.facts.inlineStyles), ...css]),
-    logos: logoCandidates(home.facts, home.url, structured.logos),
-    images: imageCandidates(pages.filter((page) => page.topic !== 'about' && page.topic !== 'contact')),
+    logos: logoCandidates(home.facts, home.url, structured.logos).filter(permitted),
+    images: imageCandidates(pages.filter((page) => page.topic !== 'about' && page.topic !== 'contact')).filter(permitted),
     socialLinks: socialLinks([...structured.sameAs, ...links.map((link) => absolute(link.href, home.url))]),
     contactEmails: contactEmails(emails, siteHost(home.url)),
     skipped,
@@ -160,13 +170,18 @@ function absolute(href: string, base: URL): string {
 export async function crawlSite(website: string, options: CrawlOptions = {}): Promise<SiteCrawl> {
   const fetchOptions: PublicFetchOptions = { ...options, budget: options.budget ?? new CrawlBudget() };
   const start = websiteStart(website);
+  // Refused before any request: a listing that names a social profile would
+  // otherwise cost that platform a robots.txt and a page read for nothing.
+  if (notASite(start)) throw new SiteCrawlError('not_a_site');
   const rules = await robotsRulesFor(start, fetchOptions);
   const home = await homePage(start, fetchOptions, rules);
-  // A homepage that moved to another site is governed by that site's robots.txt.
+  // A homepage that moved to another site is governed by that site's robots.txt,
+  // and the page it landed on must be one that file allows.
   const homeRules = sameSite(home.url, start) ? rules : await robotsRulesFor(home.url, fetchOptions);
+  if (!robotsAllows(homeRules, home.url.pathname + home.url.search)) throw new SiteCrawlError('disallowed');
   const skipped: { url: string; reason: string }[] = [];
   const pages = [home, ...await subpages(home, fetchOptions, homeRules, skipped)];
   const css = await stylesheets(home, fetchOptions, homeRules);
-  return assemble(pages, css, skipped);
+  return assemble(pages, css, homeRules, skipped);
 }
 

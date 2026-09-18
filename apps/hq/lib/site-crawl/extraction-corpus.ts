@@ -7,8 +7,8 @@ import type { PageTopic } from './page-selection';
  * The model sees only what the site published, in a fixed order -- menu and
  * services pages first, because items are the hardest thing to recover and
  * the likeliest to be cut by the budget, then the homepage, about and
- * contact. Colours and logos are offered as numbered candidates so the model
- * chooses among what was found instead of describing what it imagines.
+ * contact. Colours and logos are listed as candidates so the model chooses
+ * among what was found instead of describing what it imagines.
  */
 const TOPIC_ORDER: readonly PageTopic[] = ['menu', 'services', 'home', 'about', 'contact', 'other'];
 const TOPIC_LABEL: Readonly<Record<PageTopic, string>> = {

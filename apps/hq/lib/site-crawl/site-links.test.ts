@@ -90,4 +90,5 @@ test('media addresses resolve against the page, upgrade to https and refuse SVG 
   assert.equal(mediaUrl('/favicon.ico', WWW), null);
   assert.equal(mediaUrl('ftp://example.net/a.png', WWW), null);
   assert.equal(mediaUrl('http://[', WWW), null);
+  assert.equal(mediaUrl(`/images/${'x'.repeat(600)}.png`, WWW), null, 'an address too long to offer as a choice');
 });

@@ -21,6 +21,34 @@ type ResponsesPayload = {
   status?: string;
   incomplete_details?: { reason?: string } | null;
   output?: { content?: { type?: string; text?: string }[] }[];
+  usage?: unknown;
+};
+
+type UsageBlock = {
+  input_tokens?: unknown;
+  input_tokens_details?: { cached_tokens?: unknown } | null;
+  output_tokens?: unknown;
+};
+
+/**
+ * What one billed pass consumed, for the demo runner's cost ledger. Input is
+ * split into its uncached and cached parts because they are priced apart;
+ * output already includes any reasoning tokens.
+ */
+export type ExtractionUsage = {
+  readonly model: string;
+  readonly inputTokens: number;
+  readonly cachedInputTokens: number;
+  readonly outputTokens: number;
+};
+
+export type ExtractionUsageHook = (pass: ExtractionUsage) => void | Promise<void>;
+
+export type ExtractionContext = {
+  readonly businessName: string;
+  readonly runId: string;
+  /** Called once per answer the provider billed, awaited, and never caught. */
+  readonly onUsage?: ExtractionUsageHook | undefined;
 };
 
 export type ExtractionConfig = {
@@ -50,6 +78,18 @@ export function extractionConfig(environment: Environment = process.env): Extrac
   return { apiKey, researchModel: research, model, escalationModel: model === research ? null : research };
 }
 
+function tokenCount(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
+}
+
+/** The provider's usage block as ledger numbers; its `input_tokens` includes the cached ones. */
+export function billedUsage(model: string, usage: unknown): ExtractionUsage {
+  const block = (usage !== null && typeof usage === 'object' ? usage : {}) as UsageBlock;
+  const input = tokenCount(block.input_tokens);
+  const cached = tokenCount(block.input_tokens_details?.cached_tokens);
+  return { model, inputTokens: Math.max(0, input - cached), cachedInputTokens: cached, outputTokens: tokenCount(block.output_tokens) };
+}
+
 /** A 4xx other than timeout, conflict or rate limit is the request's fault and will not change. */
 function rejectedForGood(status: number): boolean {
   return status >= 400 && status < 500 && status !== 408 && status !== 409 && status !== 429;
@@ -59,7 +99,7 @@ async function extractOnce(
   config: ExtractionConfig,
   model: string,
   crawl: SiteCrawl,
-  context: { readonly businessName: string; readonly runId: string },
+  context: ExtractionContext,
 ): Promise<SiteExtraction> {
   const response = await providerFetch('https://api.openai.com/v1/responses', {
     method: 'POST',
@@ -75,6 +115,8 @@ async function extractOnce(
     throw rejectedForGood(response.status) ? new FatalError(message) : new Error(message);
   }
   const payload = await response.json() as ResponsesPayload;
+  // Billed whatever it says: a cut-off or unusable answer still cost tokens.
+  if (context.onUsage) await context.onUsage(billedUsage(model, payload.usage));
   if (payload.status === 'incomplete') {
     throw new FatalError(`Extraction stopped early (${payload.incomplete_details?.reason ?? 'incomplete'}).`);
   }
@@ -95,7 +137,7 @@ async function extractOnce(
 /** One cheap pass, and a stronger second pass only when the first is doubtful. */
 export async function extractSiteBrand(
   crawl: SiteCrawl,
-  context: { readonly businessName: string; readonly runId: string },
+  context: ExtractionContext,
   config: ExtractionConfig,
 ): Promise<ExtractionOutcome> {
   const first = await extractOnce(config, config.model, crawl, context);

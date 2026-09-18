@@ -6,8 +6,10 @@ import { FatalError } from '@workflow/errors';
 import type { SiteCrawl } from '../lib/site-crawl/crawl-site';
 import { WWW, bakeryCrawl } from '../lib/site-crawl/site-fixtures.test-support';
 import { EXTRACTION_LIMITS } from './research-limits';
-import { outputText, stubResponses } from './responses-stub.test-support';
-import { extractSiteBrand, extractionConfig, type ExtractionConfig } from './site-extraction';
+import { outputText, stubResponses, usageBlock } from './responses-stub.test-support';
+import {
+  billedUsage, extractSiteBrand, extractionConfig, type ExtractionConfig, type ExtractionUsage,
+} from './site-extraction';
 import { EXTRACTION_INSTRUCTIONS, extractionRequestBody, extractionSchema } from './site-extraction-request';
 
 const COLORS: SiteCrawl['colors'] = [{ hex: '#7A3E1D', names: ['theme-color'], uses: 1, neutral: false }];
@@ -45,6 +47,18 @@ describe('extraction configuration', () => {
     ]) {
       assert.throws(() => extractionConfig(environment), FatalError);
     }
+  });
+});
+
+describe('billed usage', () => {
+  it('counts only what the provider reported, as non-negative whole tokens', () => {
+    assert.deepEqual(billedUsage('gpt-5-nano', usageBlock(3_000, 500, 200)),
+      { model: 'gpt-5-nano', inputTokens: 2_500, cachedInputTokens: 500, outputTokens: 200 });
+    assert.deepEqual(billedUsage('gpt-5-nano', undefined), { model: 'gpt-5-nano', inputTokens: 0, cachedInputTokens: 0, outputTokens: 0 });
+    assert.deepEqual(billedUsage('gpt-5-nano', { input_tokens: -4, input_tokens_details: null, output_tokens: 'many' }),
+      { model: 'gpt-5-nano', inputTokens: 0, cachedInputTokens: 0, outputTokens: 0 });
+    assert.deepEqual(billedUsage('gpt-5-nano', { input_tokens: 10.7, output_tokens: 3 }),
+      { model: 'gpt-5-nano', inputTokens: 10, cachedInputTokens: 0, outputTokens: 3 });
   });
 });
 
@@ -123,8 +137,40 @@ describe('extracting a brand kit', () => {
 
   it('stops for good when the provider refuses the request itself', async () => {
     stub = stubResponses(() => ({ status: 400, payload: { error: { message: 'Invalid schema.' } } }));
-    await assert.rejects(extractSiteBrand(CRAWL, CONTEXT, CONFIG), (error) => error instanceof FatalError && /400/.test(error.message));
+    const passes: ExtractionUsage[] = [];
+    const context = { ...CONTEXT, onUsage: (pass: ExtractionUsage) => { passes.push(pass); } };
+    await assert.rejects(extractSiteBrand(CRAWL, context, CONFIG), (error) => error instanceof FatalError && /400/.test(error.message));
     assert.equal(stub.sent.length, 1, 'a malformed request is not paid for twice');
+    assert.deepEqual(passes, [], 'a refused request is not billed');
+  });
+
+  it('reports what each billed pass used, uncached and cached input apart', async () => {
+    stub = stubResponses((body) => ({
+      payload: body.model === 'gpt-5-nano'
+        ? outputText(DOUBTFUL, usageBlock(12_000, 2_000, 900))
+        : outputText(CONFIDENT, usageBlock(12_500, 0, 1_400)),
+    }));
+    const passes: ExtractionUsage[] = [];
+    await extractSiteBrand(CRAWL, { ...CONTEXT, onUsage: (pass) => { passes.push(pass); } }, CONFIG);
+    assert.deepEqual(passes, [
+      { model: 'gpt-5-nano', inputTokens: 10_000, cachedInputTokens: 2_000, outputTokens: 900 },
+      { model: 'gpt-5-mini', inputTokens: 12_500, cachedInputTokens: 0, outputTokens: 1_400 },
+    ]);
+  });
+
+  it('bills a cut-off answer before refusing it', async () => {
+    stub = stubResponses(() => ({
+      payload: { status: 'incomplete', incomplete_details: { reason: 'max_output_tokens' }, output: [], usage: usageBlock(9_000, 1_000, 8_000) },
+    }));
+    const passes: ExtractionUsage[] = [];
+    await assert.rejects(extractSiteBrand(CRAWL, { ...CONTEXT, onUsage: async (pass) => { passes.push(pass); } }, CONFIG), FatalError);
+    assert.deepEqual(passes, [{ model: 'gpt-5-nano', inputTokens: 8_000, cachedInputTokens: 1_000, outputTokens: 8_000 }]);
+  });
+
+  it('lets a failing ledger write fail the pass, so the step is retried', async () => {
+    stub = stubResponses(() => ({ payload: outputText(CONFIDENT, usageBlock(100, 0, 10)) }));
+    const failing = { ...CONTEXT, onUsage: () => Promise.reject(new Error('ledger unavailable')) };
+    await assert.rejects(extractSiteBrand(CRAWL, failing, CONFIG), /ledger unavailable/);
   });
 
   it('leaves a rate limit to the workflow to retry', async () => {

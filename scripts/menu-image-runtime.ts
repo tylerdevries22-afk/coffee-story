@@ -2,15 +2,15 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+// The measuring arithmetic lives in @platform/ui, beside the crop window, so
+// the console's demo factory grades a prospect's photographs exactly as this
+// normaliser grades a tenant's.
 import {
   MENU_MEASURE_SAMPLE,
   measureMenuPixels,
   type MenuImageMeasurement,
 } from '@platform/ui/src/menu-image';
 
-// The crop window and the measuring arithmetic live in @platform/ui, so the
-// console's demo factory grades a prospect's photographs exactly as this
-// normaliser grades a tenant's.
 export const MENU_SHEET = { cell: 150, columns: 7, label: 16, pad: 12, header: 34 };
 
 export function menuImagePaths(cwd: string, tenantSlug: string) {

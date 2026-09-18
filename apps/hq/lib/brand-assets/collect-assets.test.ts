@@ -60,19 +60,17 @@ test('the logo and each photograph are normalised, stored and described', async 
 });
 
 test('one bad image is recorded with its reason and never sinks the rest', async () => {
-  const bread = await png(960, 960, 110, 50, 40);
   // A PNG signature over nothing a decoder can read.
   const broken = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(64, 7)]);
   const sink = memoryAssetSink();
   const manifest = await collectBrandAssets(
-    { logoUrl: `${SITE}/logo.svg`, imageUrls: [`${SITE}/missing.png`, `${SITE}/broken.png`, `${SITE}/bread.png`, `${SITE}/bread-copy.png`] },
+    { logoUrl: `${SITE}/logo.svg`, imageUrls: [`${SITE}/missing.png`, `${SITE}/broken.png`, `${SITE}/bread.png`] },
     {
       sink,
       transport: served({
         [`${SITE}/logo.svg`]: { status: 200, headers: { 'content-type': 'image/svg+xml' }, body: '<svg xmlns="http://www.w3.org/2000/svg"/>' },
         [`${SITE}/broken.png`]: broken,
-        [`${SITE}/bread.png`]: bread,
-        [`${SITE}/bread-copy.png`]: bread,
+        [`${SITE}/bread.png`]: await png(960, 960, 110, 50, 40),
       }),
     },
   );
@@ -80,22 +78,34 @@ test('one bad image is recorded with its reason and never sinks the rest', async
   assert.deepEqual(manifest.photos.map((photo) => ('error' in photo ? photo.error : photo.sourceUrl)), [
     'http_status', 'undecodable', `${SITE}/bread.png`,
   ]);
-  assert.equal(sink.assets.length, 1, 'the same picture at a second address is stored once');
+  assert.equal(sink.assets.length, 1);
+});
+
+test('the same picture at a second address is stored once', async () => {
+  const bread = await png(960, 960, 110, 50, 40);
+  const sink = memoryAssetSink();
+  const transport = served({ [`${SITE}/bread.png`]: bread, [`${SITE}/bread-copy.png`]: Buffer.from(bread) });
+  const manifest = await collectBrandAssets({ logoUrl: null, imageUrls: [`${SITE}/bread.png`, `${SITE}/bread-copy.png`] }, { sink, transport });
+  assert.equal(transport.requests.length, 2, 'both addresses were read');
+  assert.equal(sink.assets.length, 1);
+  assert.deepEqual(manifest.photos.map((photo) => photo.sourceUrl), [`${SITE}/bread.png`]);
 });
 
 test('a spent budget stops the downloads, and no more than twelve photographs are tried', async () => {
   const urls = Array.from({ length: 5 }, (_, index) => `${SITE}/photo-${index}.png`);
-  const files = Object.fromEntries(await Promise.all(urls.map(async (url, index) => [url, await png(960, 960, 100 + index, 50, 40)] as const)));
+  // Each a different size and a clearly different colour, so no two can
+  // normalise to the same file and be merged; the budget counts requests only.
+  const files = Object.fromEntries(await Promise.all(urls.map(async (url, index) => (
+    [url, await png(920 + index * 40, 960, 60 + index * 35, 40 + index * 20, 30)] as const
+  ))));
   const transport = served(files);
-  const manifest = await collectBrandAssets(
-    { logoUrl: null, imageUrls: urls },
-    { sink: memoryAssetSink(), transport, budget: new CrawlBudget({ maxRequests: 3, maxBytes: 48 * 1_048_576, deadlineMs: 60_000 }) },
-  );
+  const budget = new CrawlBudget({ maxRequests: 3, maxBytes: 1_024 * 1_048_576, deadlineMs: 600_000 });
+  const manifest = await collectBrandAssets({ logoUrl: null, imageUrls: urls }, { sink: memoryAssetSink(), transport, budget });
   assert.equal(manifest.logo, null);
-  assert.deepEqual(manifest.photos.map((photo) => ('error' in photo ? photo.error : 'stored')), [
-    'stored', 'stored', 'stored', 'budget_exhausted',
-  ]);
-  assert.equal(transport.requests.length, 3);
+  assert.equal(transport.requests.length, 3, 'three requests were allowed, and nothing after the one refused');
+  assert.equal(manifest.photos.filter((photo) => 'key' in photo).length, 3);
+  assert.deepEqual(manifest.photos.map((photo) => photo.sourceUrl), urls.slice(0, 4));
+  assert.deepEqual(manifest.photos.at(-1), { sourceUrl: urls[3], error: 'budget_exhausted' });
 
   const many = served({});
   const fourteen = Array.from({ length: 14 }, (_, index) => `${SITE}/gallery-${index}.png`);

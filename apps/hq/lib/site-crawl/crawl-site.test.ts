@@ -66,6 +66,20 @@ test('the crawl assembles colours, logos, photographs, profiles and contact emai
   assert.match(menu?.text ?? '', /Country Sourdough \$9\.00/);
 });
 
+test('pictures the site closes to crawlers are not offered for download', async () => {
+  const transport = siteTransport(bakeryRoutes(STYLESHEET, {
+    'https://maplerowbakehouse.com/robots.txt': {
+      status: 200, headers: { 'content-type': 'text/plain' }, body: 'User-agent: *\nDisallow: /images/menu/\nDisallow: /apple-touch-icon.png',
+    },
+  }));
+  const crawl = await crawlSite('maplerowbakehouse.com', { transport });
+  assert.ok(crawl.pages.some((page) => page.topic === 'menu'), 'the menu page itself is still open');
+  assert.ok(!crawl.images.some((image) => image.url.includes('/images/menu/')));
+  assert.ok(crawl.images.some((image) => image.url.endsWith('/images/croissants-1600.jpg')));
+  assert.ok(!crawl.logos.some((logo) => logo.url.endsWith('/apple-touch-icon.png')));
+  assert.equal(crawl.logos[0]?.source, 'json-ld');
+});
+
 test('a missing robots.txt allows the crawl; an unreadable one forbids it', async () => {
   const missing = siteTransport(bakeryRoutes(STYLESHEET, {
     'https://maplerowbakehouse.com/robots.txt': { status: 404, headers: { 'content-type': 'text/html' }, body: 'nope' },
@@ -101,6 +115,32 @@ test('a listing that points at a social profile or a dead site gives nothing to 
   assert.equal((await crawlError(crawlSite('maplerowbakehouse.com', { transport: dead }))).code, 'unreachable');
   assert.equal((await crawlError(crawlSite('http://10.0.0.8/', { transport: dead }))).code, 'invalid_site');
   assert.equal((await crawlError(crawlSite('not a website at all', { transport: dead }))).code, 'invalid_site');
+});
+
+test('a social profile or link-in-bio address is refused before a single request', async () => {
+  for (const website of ['https://www.facebook.com/maplerowbakehouse', 'instagram.com/maplerowbakehouse', 'https://linktr.ee/maplerow']) {
+    const transport = siteTransport(bakeryRoutes(STYLESHEET));
+    assert.equal((await crawlError(crawlSite(website, { transport }))).code, 'not_a_site', website);
+    assert.equal(transport.requests.length, 0, website);
+  }
+});
+
+test('a homepage that moved to another site is read only if that site allows it', async () => {
+  const moved = (robots: string) => siteTransport({
+    'https://maplerowbakehouse.com/robots.txt': { status: 404, headers: { 'content-type': 'text/plain' }, body: '' },
+    [APEX]: { status: 301, headers: { location: 'https://maplerow.shop/' } },
+    'https://maplerow.shop/robots.txt': { status: 200, headers: { 'content-type': 'text/plain' }, body: robots },
+    'https://maplerow.shop/': htmlReply(fixture('home.html')),
+  });
+  const closed = moved('User-agent: *\nDisallow: /');
+  assert.equal((await crawlError(crawlSite('maplerowbakehouse.com', { transport: closed }))).code, 'disallowed');
+  assert.deepEqual(closed.requests.map((request) => request.url.href), [
+    'https://maplerowbakehouse.com/robots.txt', APEX, 'https://maplerow.shop/', 'https://maplerow.shop/robots.txt',
+  ]);
+  const open = moved('User-agent: *\nDisallow: /visit');
+  const crawl = await crawlSite('maplerowbakehouse.com', { transport: open });
+  assert.equal(crawl.host, 'maplerow.shop');
+  assert.ok(!open.requests.some((request) => request.url.href === 'https://maplerow.shop/visit'), "the new site's rules apply");
 });
 
 test('pages that fail are skipped and recorded, and a spent budget stops the crawl', async () => {

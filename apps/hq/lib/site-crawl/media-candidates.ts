@@ -19,6 +19,8 @@ const MAX_LOGOS = 8;
 const MAX_IMAGES = 24;
 const MIN_EDGE = 150;
 const UNFETCHABLE = /\.(?:svg|svgz|ico|avif|bmp|tiff?|heic)$/i;
+/** Logo addresses become a schema enum (site-extraction-request.ts), which the provider bounds in total length. */
+const MAX_URL_LENGTH = 600;
 /** Matched from a word start, so a custard tart is not a "star" and a favicon still is an icon. */
 const NOT_A_PHOTO = /(?:^|[^a-z])(?:logo|favicon|icon|avatar|badge|sprite|placeholder|spinner|loader|pixel|flag|payment|star|rating)/;
 
@@ -33,7 +35,7 @@ export function mediaUrl(href: string, base: URL): string | null {
   if (url.protocol === 'http:') url.protocol = 'https:';
   if (url.protocol !== 'https:' || UNFETCHABLE.test(url.pathname)) return null;
   url.hash = '';
-  return url.href;
+  return url.href.length > MAX_URL_LENGTH ? null : url.href;
 }
 
 function iconEdge(sizes: string | null): number {

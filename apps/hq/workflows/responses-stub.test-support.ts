@@ -10,9 +10,15 @@ export type SentRequest = {
 
 export type StubReply = { readonly status?: number; readonly payload: unknown };
 
-/** A completed response whose one output is `value` as JSON text. */
-export function outputText(value: unknown): unknown {
-  return { status: 'completed', output: [{ content: [{ type: 'output_text', text: JSON.stringify(value) }] }] };
+/** A completed response whose one output is `value` as JSON text, with `usage` when given. */
+export function outputText(value: unknown, usage?: unknown): unknown {
+  const output = [{ content: [{ type: 'output_text', text: JSON.stringify(value) }] }];
+  return usage === undefined ? { status: 'completed', output } : { status: 'completed', output, usage };
+}
+
+/** A Responses API usage block: `input` includes `cached`, and `output` includes reasoning. */
+export function usageBlock(input: number, cached: number, output: number): unknown {
+  return { input_tokens: input, input_tokens_details: { cached_tokens: cached }, output_tokens: output };
 }
 
 export function stubResponses(

@@ -1,4 +1,4 @@
-import sharp from 'sharp';
+import sharp, { type Sharp } from 'sharp';
 
 import {
   MENU_IMAGE_SPEC, MENU_MEASURE_SAMPLE, isNoop, measureMenuPixels, menuImageCorrection, menuImageCropWindow,
@@ -50,7 +50,7 @@ export type NormalizedLogo = {
 
 type DecodeOptions = { readonly limitInputPixels?: number };
 
-function decode(input: Buffer, options: DecodeOptions): sharp.Sharp {
+function decode(input: Buffer, options: DecodeOptions): Sharp {
   // `failOn: 'error'` refuses truncated and corrupt data; `pages: 1` reads
   // only the first frame of an animation.
   return sharp(input, {
@@ -82,7 +82,7 @@ export async function normalizeMenuPhoto(input: Buffer, options: DecodeOptions =
     .removeAlpha()
     .raw()
     .toBuffer({ resolveWithObject: true });
-  const frame = (): sharp.Sharp => sharp(square.data, { raw: { width: edge, height: edge, channels: square.info.channels } });
+  const frame = (): Sharp => sharp(square.data, { raw: { width: edge, height: edge, channels: square.info.channels } });
 
   const stats = await frame().stats();
   const [red, green, blue] = stats.channels;

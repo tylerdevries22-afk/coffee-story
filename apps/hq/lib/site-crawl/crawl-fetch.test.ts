@@ -94,7 +94,7 @@ test('text is decoded in the declared charset, or as UTF-8 when that is unknown'
 });
 
 test('a page comes back with the address it finally came from', async () => {
-  const options = answering((url) => (url.hostname === 'maplerowbakehouse.com'
+  const options = answering((url): FakeReply => (url.hostname === 'maplerowbakehouse.com'
     ? { status: 301, headers: { location: 'https://www.maplerowbakehouse.com/' } }
     : { status: 200, headers: { 'content-type': 'text/html; charset=iso-8859-1' }, body: Buffer.from([0x3c, 0x70, 0x3e, 0x63, 0x61, 0x66, 0xe9]) }));
   const page = await fetchPage(SITE, options);
