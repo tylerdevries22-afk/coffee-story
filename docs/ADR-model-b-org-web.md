@@ -25,6 +25,8 @@ Display is a Next.js server app (device JWT proxy routes). Co-locating two Next 
 ## Build
 `scripts/build-org-web-statics.ts` exports the three Expo web apps with `EXPO_BASE_URL` and copies them into `apps/hq/public/{customer,kiosk,operator}`. HQ `next.config.ts` SPA-rewrites those prefixes. `apps/hq/vercel.json` runs the static export before `next build`.
 
+It passes `--wall`, which additionally writes `apps/hq/public/t/<slug>/{customer,kiosk,operator}` for every tenant in `apps/customer/src/tenants/applied.json`. Those are the same-origin copies the staff wall frames, since every hosted surface answers `frame-ancestors 'self'`. The flag is additive — the unprefixed paths above are still written — and costs roughly 30 seconds of build time per tenant per surface. The wall reads the same `applied.json` (`apps/hq/lib/wall-tenants.ts`), so an organization with no copy gets no frame rather than a 404.
+
 ## Auth
 Unchanged franchise contract: HQ/wall staff session; customer guest JWT; kiosk/display device JWT; operator staff; Vercel Deployment Protection on non-production.
 

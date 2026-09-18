@@ -47,6 +47,15 @@ describe('vercel-ignore', () => {
     assert.equal(capture('display', files).code, 1);
   });
 
+  it('a guest app change rebuilds hq, which serves its static export', () => {
+    for (const app of ['customer', 'kiosk', 'operator']) {
+      assert.equal(capture('hq', [`apps/${app}/src/app.tsx`]).code, 1, app);
+    }
+    // The applied list decides which /t/<slug>/ copies the wall build writes.
+    assert.equal(capture('hq', ['apps/customer/src/tenants/applied.json']).code, 1);
+    assert.equal(capture('display', ['apps/customer/src/app.tsx']).code, 0);
+  });
+
   it('hq scripts path proceeds only for hq', () => {
     const files = ['scripts/run-jobs.ts'];
     assert.equal(capture('hq', files).code, 1);

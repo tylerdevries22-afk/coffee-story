@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 
-import type { AppPreview, AppPreviewDevice, AppPreviewKey } from '@/lib/app-previews';
+import { UNBUILT_PREVIEW_CAPTION, type AppPreview, type AppPreviewDevice, type AppPreviewKey } from '@/lib/app-previews';
 import type { WallLayout } from '@/lib/app-wall-fit';
 import { INITIAL_LAYOUT } from '@/lib/app-wall-geometry';
 
@@ -41,7 +41,7 @@ export function AppsPreviewStack({ devices, previews, master, onDeviceChange, ro
               <div className="apps-preview-stack-stage" data-frame={preview.frame}>
                 <DevicePreviewFrame frame={preview.frame} height={preview.viewport.height} orientation={tile.orientation} reducedMotion={reducedMotion} src={preview.url ?? 'about:blank'} title={`${preview.label} production preview`} width={preview.viewport.width} />
               </div>
-              <p className="apps-wall-caption apps-wall-caption--stack"><strong>{preview.label}</strong><small>{preview.device}</small><AppDeviceToggle app={preview.label} onChange={(device) => onDeviceChange(preview.key, device)} value={devices[preview.key]} /></p>
+              <p className="apps-wall-caption apps-wall-caption--stack"><strong>{preview.label}</strong><small>{preview.url ? preview.device : UNBUILT_PREVIEW_CAPTION}</small><AppDeviceToggle app={preview.label} onChange={(device) => onDeviceChange(preview.key, device)} value={devices[preview.key]} /></p>
               <div className="apps-preview-stack-actions">
                 {rotatable.has(preview.key) ? <button aria-label={`Rotate ${preview.label} to ${portrait ? 'landscape' : 'portrait'}`} className="apps-wall-chip apps-wall-chip--static" onClick={() => rotate(preview.key)} type="button"><Icon name="rotate" /></button> : null}
                 <Link aria-label={`Edit ${preview.label}`} className="apps-wall-chip apps-wall-chip--static" href={preview.href}><Icon name="edit" /></Link>

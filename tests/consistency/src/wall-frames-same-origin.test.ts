@@ -60,4 +60,22 @@ describe('the apps wall frames surfaces it can actually render', () => {
     assert.match(script, /`\/t\/\$\{slug\}\$\{surface\.baseUrl\}`/,
       'each tenant needs its own base url or its assets resolve to another tenant');
   });
+
+  it('writes those copies in the deployment that serves the wall', () => {
+    // Every assertion above was true while production still 404'd every
+    // frame: the script could write /t/<slug>/, but HQ was built without the
+    // flag that asks it to.
+    const vercel = JSON.parse(read('apps', 'hq', 'vercel.json')) as { buildCommand?: string };
+    assert.match(vercel.buildCommand ?? '', /scripts\/build-org-web-statics\.ts --wall/,
+      "HQ's deploy must pass --wall, or /t/<slug>/ exists only on a laptop");
+  });
+
+  it('offers only the tenants the build wrote, from the same list', () => {
+    const page = read('apps', 'hq', 'app', '(console)', 'apps', 'page.tsx');
+    assert.match(page, /onlyBuiltSurfaces\(slug, tenantPathSurfaceUrls\(/,
+      'an organization with no /t/ copy must get no frame, not a 404');
+    const wall = read('apps', 'hq', 'lib', 'wall-tenants.ts');
+    assert.match(wall, /from '\.\.\/\.\.\/customer\/src\/tenants\/applied\.json'/,
+      'the wall must read the applied list the build reads, or the two drift');
+  });
 });
