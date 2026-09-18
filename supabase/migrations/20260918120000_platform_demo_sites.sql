@@ -79,6 +79,10 @@ create index platform_demo_sites_expiry_idx
   on public.platform_demo_sites (expires_at)
   where state in ('building', 'ready');
 
+-- Covers the foreign key, so deleting a staff user does not scan every demo.
+create index platform_demo_sites_created_by_idx
+  on public.platform_demo_sites (created_by);
+
 create table public.platform_demo_suppressions (
   kind text not null check (kind in ('google_place', 'website_host')),
   value text not null,
