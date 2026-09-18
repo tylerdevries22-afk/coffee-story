@@ -9,6 +9,7 @@ import { start } from 'workflow/api';
 
 import { currentSession, hasRole } from '@/lib/auth';
 import { serverEnv, serviceDb } from '@/lib/api-auth';
+import { holdIfFactoryFull } from '@/lib/factory-capacity';
 import { serverClient } from '@/lib/supabase-server';
 import { runPlatformFactory } from '@/workflows/platform-factory';
 
@@ -54,8 +55,11 @@ export async function createOnboardingRun(formData: FormData): Promise<void> {
   });
   if (result.error || typeof result.data !== 'string') redirect('/onboarding?error=create');
 
+  let held = false;
   try {
-    await start(runPlatformFactory, [{ runId: result.data }]);
+    // A full factory holds the run as factory_busy; the scheduled job starts it.
+    held = await holdIfFactoryFull(database, result.data);
+    if (!held) await start(runPlatformFactory, [{ runId: result.data }]);
   } catch {
     await Promise.all([
       database.from('platform_onboarding_runs')
@@ -68,7 +72,7 @@ export async function createOnboardingRun(formData: FormData): Promise<void> {
   }
 
   revalidatePath('/onboarding');
-  redirect('/onboarding?created=1');
+  redirect(held ? '/onboarding?created=1&held=1' : '/onboarding?created=1');
 }
 
 export async function resumeOnboardingRun(formData: FormData): Promise<void> {
@@ -86,13 +90,20 @@ export async function resumeOnboardingRun(formData: FormData): Promise<void> {
   if (run.data.last_error_code === 'go_live_required') {
     redirect('/onboarding?error=resume&detail=Use+Go+live+on+the+organization+page');
   }
+  // Claimed before it starts, as a new run is: the scheduled job starts only
+  // runs still blocked as factory_busy, so it can never start this one twice.
+  const claim = await database.from('platform_onboarding_runs').update({ state: 'running', last_error_code: null })
+    .eq('id', runId).eq('state', run.data.state).select('id').maybeSingle();
+  if (claim.error || !claim.data) redirect('/onboarding?error=resume');
+  let held = false;
   try {
-    await start(runPlatformFactory, [{ runId }]);
+    held = await holdIfFactoryFull(database, runId);
+    if (!held) await start(runPlatformFactory, [{ runId }]);
   } catch {
     await database.from('platform_onboarding_runs')
       .update({ state: 'failed', last_error_code: 'workflow_resume_failed' }).eq('id', runId);
     redirect('/onboarding?error=automation');
   }
   revalidatePath('/onboarding');
-  redirect('/onboarding?resumed=1');
+  redirect(held ? '/onboarding?resumed=1&held=1' : '/onboarding?resumed=1');
 }
