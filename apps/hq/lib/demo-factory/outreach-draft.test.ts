@@ -36,7 +36,7 @@ describe('outreachDraft', () => {
     assert.equal(draft.expiresOn, 'October 2, 2026');
     const lines = draft.text.split('\n');
     assert.equal(lines[0], 'Hello Harbor Roast team,');
-    assert.ok(lines.includes(LINK), 'the link sits on a line of its own');
+    assert.equal(lines.filter((line) => line === LINK).length, 1, 'the link sits on a line of its own');
     assert.match(draft.text, /from your public Google listing and your own website:/);
     assert.match(draft.text, /your hours and your menu/);
     assert.match(draft.text, /deletes itself on October 2, 2026\./);
