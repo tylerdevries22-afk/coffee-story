@@ -37,14 +37,17 @@ describe('batchFrom and dailyFrom', () => {
 
 describe('demoFactoryReadiness', () => {
   it('says whether each piece is configured, and never what it is', () => {
-    assert.deepEqual(demoFactoryReadiness({}), { placesKey: false, openAiKey: false, builderName: false, linkSecret: false });
+    assert.deepEqual(demoFactoryReadiness({}),
+      { placesKey: false, openAiKey: false, builderName: false, linkSecret: false, originalityDenylist: false });
     const ready = demoFactoryReadiness({
       GOOGLE_PLACES_API_KEY: 'test-places', OPENAI_API_KEY: '  ', DEMO_BUILDER_NAME: 'Example Studio',
-      DEMO_LINK_SECRET: 'x'.repeat(48),
+      DEMO_LINK_SECRET: 'x'.repeat(48), DEMO_ORIGINALITY_DENYLIST: 'Rivalbrew',
     });
-    assert.deepEqual(ready, { placesKey: true, openAiKey: false, builderName: true, linkSecret: true });
+    assert.deepEqual(ready, { placesKey: true, openAiKey: false, builderName: true, linkSecret: true, originalityDenylist: true });
     assert.equal(JSON.stringify(ready).includes('test-places'), false);
+    assert.equal(JSON.stringify(ready).includes('Rivalbrew'), false);
     assert.equal(demoFactoryReadiness({ DEMO_LINK_SECRET: 'too short' }).linkSecret, false);
+    assert.equal(demoFactoryReadiness({ DEMO_ORIGINALITY_DENYLIST: '  ,  ' }).originalityDenylist, false);
   });
 });
 

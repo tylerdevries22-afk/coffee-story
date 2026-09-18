@@ -89,14 +89,15 @@ async function saveSettings(patch: DemoSettingsPatch, userId: string | null, not
  * The kill switch. Off takes effect at the next claim: jobs already being
  * built finish, because their calls are already paid for. On is refused
  * until a run could succeed -- without a Places key every job would fail,
- * without a link secret no demo could be linked to, and without a builder
- * name none could be shown.
+ * without a link secret no demo could be linked to, without a builder name
+ * none could be shown, and without the originality denylist a generated
+ * pack could name a competitor with nothing to catch it.
  */
 export async function switchDemoFactory(formData: FormData): Promise<void> {
   const userId = await platformAdmin('switch');
   const enabled = formData.get('enabled') === 'on';
   const readiness = demoFactoryReadiness();
-  if (enabled && !(readiness.placesKey && readiness.builderName && readiness.linkSecret)) {
+  if (enabled && !(readiness.placesKey && readiness.builderName && readiness.linkSecret && readiness.originalityDenylist)) {
     redirect('/demos?error=not_ready');
   }
   await saveSettings({ enabled }, userId, enabled ? 'switched=on' : 'switched=off');

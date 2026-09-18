@@ -17,6 +17,8 @@ function setup(script: RunnerScript) {
     readKit: null,
     linkSecret: 'k'.repeat(48),
     newSiteId: () => SITE,
+    // Invented placeholder name, never a real brand -- see originality.test.ts.
+    originalityDenylist: ['Rivalbrew'],
   };
   return { deps, calls, lookups: () => lookups };
 }

@@ -13,6 +13,10 @@ const REQUIREMENTS: readonly { key: keyof DemoFactoryReadiness; label: string; w
   { key: 'placesKey', label: 'Google Places key', why: 'finds businesses and reads their listings' },
   { key: 'builderName', label: 'DEMO_BUILDER_NAME', why: 'names who built every demo, on every page' },
   { key: 'linkSecret', label: 'DEMO_LINK_SECRET', why: 'derives each demo link, so only its hash is stored' },
+  {
+    key: 'originalityDenylist', label: 'DEMO_ORIGINALITY_DENYLIST',
+    why: 'refuses a generated pack that names a competitor, before it is ever built',
+  },
   { key: 'openAiKey', label: 'OpenAI key', why: 'reads each website’s menu; without it a demo shows the labelled sample menu' },
 ];
 

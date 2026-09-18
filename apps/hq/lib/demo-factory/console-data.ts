@@ -10,6 +10,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { demoLinkSecret } from './link';
+import { originalityGateReady } from './originality';
 
 export type DemoFactoryDb = Pick<SupabaseClient, 'rpc' | 'from'>;
 
@@ -68,6 +69,7 @@ export type DemoFactoryReadiness = {
   readonly openAiKey: boolean;
   readonly builderName: boolean;
   readonly linkSecret: boolean;
+  readonly originalityDenylist: boolean;
 };
 
 type Row = Readonly<Record<string, unknown>>;
@@ -147,6 +149,7 @@ export function demoFactoryReadiness(
     openAiKey: Boolean(env.OPENAI_API_KEY?.trim()),
     builderName: Boolean(env.DEMO_BUILDER_NAME?.trim()),
     linkSecret: demoLinkSecret(env) !== null,
+    originalityDenylist: originalityGateReady(env),
   };
 }
 
