@@ -49,6 +49,14 @@ const config: NextConfig = {
       { source: '/kiosk/:path*', destination: '/kiosk/index.html' },
       { source: '/operator', destination: '/operator/index.html' },
       { source: '/operator/:path*', destination: '/operator/index.html' },
+      // A prospect's own working app, built once and served from this same
+      // origin at request time via /d/pack.json (see apps/customer/index.js,
+      // apps/kiosk/index.js). No /demo/operator: a prospect never gets staff
+      // tooling.
+      { source: '/demo/customer', destination: '/demo/customer/index.html' },
+      { source: '/demo/customer/:path*', destination: '/demo/customer/index.html' },
+      { source: '/demo/kiosk', destination: '/demo/kiosk/index.html' },
+      { source: '/demo/kiosk/:path*', destination: '/demo/kiosk/index.html' },
       // Per-tenant copies the staff wall frames. Same origin on purpose: every
       // hosted surface answers frame-ancestors 'self', so a wall pointed at
       // another org's deployment is refused by the browser and paints blank.
@@ -118,9 +126,13 @@ const config: NextConfig = {
       { source: '/t/:slug/:path*', headers: modelBHeaders },
       { source: '/lobby/:path*', headers: modelBHeaders },
       { source: '/d/:path*', headers: demoHeaders },
+      // The exported app itself gets the same treatment as the HQ-rendered
+      // demo pages: it is the same prospect's demo, just the working-app half
+      // of it rather than the landing-page half.
+      { source: '/demo/:path*', headers: demoHeaders },
       {
         // Exclude Model B prefixes so they do not inherit production frame-ancestors 'none'.
-        source: '/((?!api/|wall/preview/|t/|d/|lobby(?:/|$)|customer(?:/|$)|kiosk(?:/|$)|operator(?:/|$)|$).*)',
+        source: '/((?!api/|wall/preview/|t/|d/|demo(?:/|$)|lobby(?:/|$)|customer(?:/|$)|kiosk(?:/|$)|operator(?:/|$)|$).*)',
         headers: securityHeaders({ developmentFrames: process.env.NODE_ENV !== 'production' }),
       },
     ];

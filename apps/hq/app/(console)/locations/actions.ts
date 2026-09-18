@@ -7,7 +7,7 @@ import { currentSession, hasRole } from '@/lib/auth';
 import { disconnectSquare } from '@/lib/square-admin';
 import { serverEnv, serviceDb } from '@/lib/api-auth';
 import { isConfigured, serverClient } from '@/lib/supabase-server';
-import { parseLocationDraft } from '@/lib/location-input';
+import { newLocationInputFromForm, parseLocationDraft } from '@/lib/location-input';
 import { locationCreationContinuation } from '@/lib/location-onboarding';
 import { addDemoLocation } from '@/lib/demo-locations';
 import {
@@ -36,17 +36,7 @@ export async function createLocationAction(formData: FormData): Promise<void> {
   const session = await currentSession();
   if (!session || !hasRole(session, 'brand_owner')) redirect('/locations?created=denied');
 
-  const parsed = parseLocationDraft({
-    name: text(formData, 'name'),
-    street: text(formData, 'street'),
-    city: text(formData, 'city'),
-    region: text(formData, 'region'),
-    postal: text(formData, 'postal'),
-    timezone: text(formData, 'timezone'),
-    openTime: text(formData, 'openTime'),
-    closeTime: text(formData, 'closeTime'),
-    days: formData.getAll('days').map(String),
-  });
+  const parsed = parseLocationDraft(newLocationInputFromForm(formData));
   if (!parsed.ok) redirect(`/locations/new?error=${encodeURIComponent(parsed.error)}`);
   const draft = parsed.draft;
 

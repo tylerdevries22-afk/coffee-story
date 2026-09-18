@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
 
-import { exportEnvironment, plannedExports, requiredTenant } from './build-org-web-statics';
+import { demoExportEnvironment, exportEnvironment, plannedExports, requiredTenant } from './build-org-web-statics';
 
 const own = () => 'coffee-story';
 const applied = () => ['coffee-story', 'stillpoint-builders'];
@@ -20,6 +20,23 @@ describe('exportEnvironment', () => {
     assert.equal(env.TENANT, 'juniper-base-demo');
     assert.equal(env.EXPO_PUBLIC_TENANT, 'juniper-base-demo');
     assert.equal(env.EXPO_BASE_URL, '/t/juniper-base-demo/customer');
+    assert.equal(env.KEEP, 'yes');
+  });
+});
+
+describe('demoExportEnvironment', () => {
+  it('scrubs both tenant variables, and sets the demo flag, over the deployment ones', () => {
+    // Mirrors exportEnvironment's own test: HQ's project sets TENANT and
+    // EXPO_PUBLIC_TENANT=coffee-story, and #216 already found a spawned
+    // export inherits an env var it does not explicitly override.
+    const env = demoExportEnvironment(
+      { TENANT: 'coffee-story', EXPO_PUBLIC_TENANT: 'coffee-story', KEEP: 'yes' },
+      '/demo/customer',
+    );
+    assert.equal(env.EXPO_PUBLIC_TENANT, undefined);
+    assert.equal(env.TENANT, undefined);
+    assert.equal(env.EXPO_PUBLIC_DEMO_RUNTIME, '1');
+    assert.equal(env.EXPO_BASE_URL, '/demo/customer');
     assert.equal(env.KEEP, 'yes');
   });
 });

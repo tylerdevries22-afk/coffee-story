@@ -1,8 +1,8 @@
 /**
  * Opening hours as the location form and the `locations.hours` column hold
  * them: per weekday from Monday, a list of spans, each an `open`/`close` pair
- * of 24-hour `HH:MM` clocks. A day with no spans is closed and is left out,
- * which is what the quick one-span form has always written.
+ * of 24-hour `HH:MM` clocks. A day with no spans is closed: the hours editor
+ * posts it as an empty list, and the parsed week leaves it out.
  *
  * Two shapes a single pair has to be able to say:
  *
@@ -41,7 +41,7 @@ const DAY_MINUTES = 24 * 60;
 /** Seven days of four spans is well under this; anything longer is not hours. */
 const RAW_MAX = 4_096;
 const UNREADABLE = 'The hours could not be read. Reload the form and try again.';
-export const NO_OPEN_DAY = 'Pick at least one day the location is open.';
+const NO_OPEN_DAY = 'Pick at least one day the location is open.';
 
 export type SpanIssue = 'format' | 'same_minute' | 'overlap' | 'too_many';
 export const SPAN_ISSUES: Readonly<Record<SpanIssue, string>> = {
