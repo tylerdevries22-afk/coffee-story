@@ -32,6 +32,8 @@ export type ClaimedDemoJob = {
 export type DemoKitReader = (input: {
   readonly website: string;
   readonly siteId: string;
+  /** The listing's name, which the website's own text is read against. */
+  readonly businessName: string;
   readonly book: (line: DemoCostLine) => Promise<void>;
   readonly signal: AbortSignal;
 }) => Promise<DemoBrandKit | null>;
@@ -85,12 +87,13 @@ async function discardMedia(db: DemoDb, siteId: string): Promise<void> {
   });
 }
 
-async function readKit(deps: DemoJobDeps, owner: DemoCostOwner, website: string | null, siteId: string,
-  signal: AbortSignal): Promise<DemoBrandKit | null> {
+async function readKit(deps: DemoJobDeps, owner: DemoCostOwner, listing: { website: string | null; name: string },
+  siteId: string, signal: AbortSignal): Promise<DemoBrandKit | null> {
+  const { website } = listing;
   if (!deps.readKit || !website) return null;
   try {
     return await deps.readKit({
-      website, siteId, signal,
+      website, businessName: listing.name, siteId, signal,
       book: async (line) => { await recordDemoCost(deps.db, owner, line); },
     });
   } catch (error) {
@@ -118,7 +121,7 @@ export async function buildDemoJob(job: ClaimedDemoJob, deps: DemoJobDeps, signa
 
   const draft = placeToDraft(place);
   const siteId = deps.newSiteId();
-  const kit = await readKit(deps, owner, draft.website, siteId, signal);
+  const kit = await readKit(deps, owner, draft, siteId, signal);
   const built = buildDemoPack({ place, draft, kit });
   if (!built.ok) {
     if (kit) await discardMedia(deps.db, siteId);

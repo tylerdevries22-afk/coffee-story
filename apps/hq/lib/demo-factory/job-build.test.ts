@@ -101,17 +101,21 @@ describe('buildDemoJob', () => {
   it('reads the website into the demo under the new site, booking what the reading spends', async () => {
     const kit: DemoBrandKit = {
       colors: [], tagline: null, email: null, logo: null,
-      menu: [{ name: 'Latte', description: null, priceCents: 525, category: 'Coffee', image: null }],
+      menu: [
+        { name: 'Latte', description: null, priceCents: 525, category: 'Coffee', image: null },
+        { name: 'Mocha', description: null, priceCents: 575, category: 'Coffee', image: null },
+        { name: 'Scone', description: null, priceCents: 350, category: 'Bakery', image: null },
+      ],
     };
     const seen: unknown[] = [];
     const readKit: DemoKitReader = async (input) => {
-      seen.push([input.website, input.siteId]);
+      seen.push([input.website, input.siteId, input.businessName]);
       await input.book({ provider: 'openai', sku: 'output_tokens', model: 'gpt-5-nano', quantity: 3_000 });
       return kit;
     };
     const { deps, calls } = setup({}, { readKit });
     assert.equal((await buildDemoJob(JOB, deps, signal)).state, 'built');
-    assert.deepEqual(seen, [['https://www.harborroast.example/', SITE]]);
+    assert.deepEqual(seen, [['https://www.harborroast.example/', SITE, 'Harbor Roast']]);
     assert.deepEqual(inserted(calls, 'platform_demo_costs').map((row) => [row.sku, row.cost_microusd]),
       [['place_details_enterprise', 20_000], ['output_tokens', 1_200]]);
     assert.equal((inserted(calls, 'platform_demo_sites')[0]?.pack as { menuSource?: string }).menuSource, 'website');

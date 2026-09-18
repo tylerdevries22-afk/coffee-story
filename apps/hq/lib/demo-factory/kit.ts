@@ -5,7 +5,7 @@
  * The website crawl produces it; the pack builder takes it as this shape and
  * checks it again here, because a website is the least trusted thing the
  * factory reads. Text is bounded and stripped of markup and control
- * characters, prices must be whole non-negative cents, media names must be
+ * characters, prices must be whole positive cents, media names must be
  * ones the demo media route would serve, and a color is only used where it
  * can be read.
  */
@@ -36,6 +36,14 @@ export type DemoBrandKit = {
 export type KitMenu = { readonly menu: BundledTenantMenu; readonly images: Readonly<Record<string, string>> };
 
 const ITEMS_MAX = 60;
+/**
+ * Fewer priced items than this reads as a broken menu, so the demo shows its
+ * labelled sample instead. The guest apps cannot sell an item without a
+ * price and leave it out, so a menu of unpriced items would show on the
+ * landing page and vanish in the app; dropping them here keeps the two the
+ * same menu.
+ */
+export const KIT_MENU_MIN_PRICED = 3;
 const CATEGORIES_MAX = 12;
 const NAME_MAX = 80;
 const TEXT_MAX = 280;
@@ -63,7 +71,9 @@ export function kitMenu(kit: DemoBrandKit): KitMenu | null {
     if (items.length >= ITEMS_MAX) break;
     const name = kitText(raw.name, NAME_MAX);
     const base = slugify(name, 60);
-    if (base.length < 2) continue;
+    const price = raw.priceCents;
+    // An ordering app cannot sell what has no price, and showing it free would be a lie.
+    if (base.length < 2 || typeof price !== 'number' || !Number.isSafeInteger(price) || price <= 0) continue;
     const title = kitText(raw.category, NAME_MAX) || 'Menu';
     let category = categories.get(title);
     if (!category) {
@@ -72,19 +82,19 @@ export function kitMenu(kit: DemoBrandKit): KitMenu | null {
       categories.set(title, category);
     }
     const id = unique(base, itemIds);
-    const price = raw.priceCents;
     items.push({
       id,
       name,
       description: kitText(raw.description, TEXT_MAX),
       category: category.id,
-      // No price is shown as no price, never as free.
-      sizes: typeof price === 'number' && Number.isSafeInteger(price) && price >= 0 ? [{ slug: id, priceCents: price }] : [],
+      sizes: [{ slug: id, priceCents: price }],
       optionGroups: [],
     });
     if (raw.image && DEMO_MEDIA_NAME.test(raw.image)) images[id] = raw.image;
   }
-  return items.length > 0 ? { menu: { version: 1, categories: [...categories.values()], items }, images } : null;
+  return items.length >= KIT_MENU_MIN_PRICED
+    ? { menu: { version: 1, categories: [...categories.values()], items }, images }
+    : null;
 }
 
 function channel(value: number): number {

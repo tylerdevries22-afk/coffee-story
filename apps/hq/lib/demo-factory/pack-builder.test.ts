@@ -14,7 +14,11 @@ const KIT: DemoBrandKit = {
   tagline: 'Waterfront coffee.',
   email: 'hello@harborroast.example',
   logo: 'logo.webp',
-  menu: [{ name: 'Latte', description: 'Steamed milk.', priceCents: 525, category: 'Coffee', image: 'latte.webp' }],
+  menu: [
+    { name: 'Latte', description: 'Steamed milk.', priceCents: 525, category: 'Coffee', image: 'latte.webp' },
+    { name: 'Mocha', description: null, priceCents: 575, category: 'Coffee', image: null },
+    { name: 'Scone', description: null, priceCents: 350, category: 'Bakery', image: null },
+  ],
 };
 
 function build(kit: DemoBrandKit | null, place = CAFE) {
@@ -54,7 +58,7 @@ describe('buildDemoPack', () => {
     assert.ok(built.ok);
     const { pack } = built;
     assert.equal(pack.menuSource, 'website');
-    assert.deepEqual(pack.menu.items.map((item) => item.id), ['latte']);
+    assert.deepEqual(pack.menu.items.map((item) => item.id), ['latte', 'mocha', 'scone']);
     assert.deepEqual(pack.media, { logo: 'logo.webp', items: { latte: 'latte.webp' } });
     const tokens = pack.brand.tokens as Record<string, unknown>;
     assert.equal(tokens.primary, '#0b2545');

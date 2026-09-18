@@ -129,6 +129,23 @@ describe('extracting a brand kit', () => {
     assert.equal(outcome.extraction.confidence, 0.3);
   });
 
+  it('keeps a doubtful answer when the caller has no time left to wait for a second read', async () => {
+    stub = stubResponses(() => ({ payload: outputText(DOUBTFUL) }));
+    const outcome = await extractSiteBrand(CRAWL, { ...CONTEXT, mayEscalate: () => false }, CONFIG);
+    assert.equal(stub.sent.length, 1);
+    assert.equal(outcome.escalated, false);
+  });
+
+  it('does not retry for a caller that has stopped waiting', async () => {
+    const controller = new AbortController();
+    stub = stubResponses(() => {
+      controller.abort();
+      return { status: 503, payload: {} };
+    });
+    await assert.rejects(extractSiteBrand(CRAWL, { ...CONTEXT, signal: controller.signal }, CONFIG));
+    assert.equal(stub.sent.length, 1, 'a 503 is retried once, but not after the caller gave up');
+  });
+
   it('stops for good on a truncated answer', async () => {
     stub = stubResponses(() => ({ payload: { status: 'incomplete', incomplete_details: { reason: 'max_output_tokens' }, output: [] } }));
     await assert.rejects(extractSiteBrand(CRAWL, CONTEXT, CONFIG),
