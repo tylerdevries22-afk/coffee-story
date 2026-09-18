@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { isPackResponse } from './boot';
+import { isPackResponse } from './pack-response';
 
 const VALID = { businessName: 'Harbor Roast', removeHref: '/d/token/remove', builder: { name: 'Acme', contactHref: null } };
 
@@ -27,7 +27,7 @@ describe('isPackResponse', () => {
   });
 
   it('rejects a removeHref that is not a same-origin path, since it becomes an anchor href', () => {
-    for (const removeHref of ['//evil.example/x', 'https://evil.example/x', 'evil.example/x', '']) {
+    for (const removeHref of ['//evil.example/x', '/\\evil.example/x', 'https://evil.example/x', 'evil.example/x', '']) {
       assert.equal(isPackResponse({ ...VALID, removeHref }), false, removeHref);
     }
     assert.ok(isPackResponse({ ...VALID, removeHref: '/d/token/remove' }));
