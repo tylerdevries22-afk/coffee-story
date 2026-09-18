@@ -64,7 +64,7 @@ const apiRoutes = routeFiles(HQ_API).map((file) => ({
 const AUTHENTICATES = new RegExp('\\b(' + [
   'authenticateAny', 'authenticate', 'matchesSecret', 'verifyDeviceToken',
   'redeemPairingCode', 'exchangeDeviceRefreshSecret', 'operationsRequestContext', 'authorizeConnectorOAuth',
-  'integrationContext', 'placesRequestContext',
+  'integrationContext', 'placesRequestContext', 'demoConsoleContext',
 ].join('|') + ')\\b');
 
 /**
@@ -93,6 +93,20 @@ const INTEGRATION_CONTEXT_GUARDS: readonly (readonly [string, RegExp])[] = [
  * here too.
  */
 const PLACES_CONTEXT_GUARDS: readonly (readonly [string, RegExp])[] = [
+  ['refuses a request from another origin', /if \(!sameOriginRequest\(request\)\)/],
+  ['throttles before the session lookup', /rateLimited\(clientIdentity\(request\)/],
+  ['admits platform admins only', /if \(!mayProvisionOrganizations\(session\)\)/],
+  ['throttles per admin', /rateLimited\(actor,/],
+];
+
+/**
+ * The same bargain for the demo factory's console routes, which also answer
+ * the cookie session. What they return is platform data about real
+ * businesses -- the outreach export carries the addresses each one
+ * publishes -- so the helper has to keep proving the request came from the
+ * console and that a platform admin sent it.
+ */
+const DEMO_CONSOLE_CONTEXT_GUARDS: readonly (readonly [string, RegExp])[] = [
   ['refuses a request from another origin', /if \(!sameOriginRequest\(request\)\)/],
   ['throttles before the session lookup', /rateLimited\(clientIdentity\(request\)/],
   ['admits platform admins only', /if \(!mayProvisionOrganizations\(session\)\)/],
@@ -213,6 +227,15 @@ describe('HQ API routes identify their caller', () => {
     for (const [what, pattern] of PLACES_CONTEXT_GUARDS) {
       assert.match(source, pattern,
         `placesRequestContext no longer ${what}, and every Places proxy route `
+        + 'authenticates through it');
+    }
+  });
+
+  it('holds the shared demo console context to what its callers rely on', () => {
+    const source = readFileSync(join(ROOT, 'apps/hq/lib/demo-factory/console-request.ts'), 'utf8');
+    for (const [what, pattern] of DEMO_CONSOLE_CONTEXT_GUARDS) {
+      assert.match(source, pattern,
+        `demoConsoleContext no longer ${what}, and every demo console route `
         + 'authenticates through it');
     }
   });

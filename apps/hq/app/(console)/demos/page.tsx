@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 import { Icon } from '@/components/icon';
 import { serverEnv, serviceDb } from '@/lib/api-auth';
 import { currentSession, hasRole } from '@/lib/auth';
@@ -16,8 +18,8 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 /**
  * The demo factory: search for businesses, watch each one become a private
- * demo, and see what every one of them cost. Drafts of outreach live
- * elsewhere, and nothing on this page sends anything to anyone.
+ * demo, and see what every one of them cost. Outreach drafts live at
+ * /demos/outreach, and nothing on either page sends anything to anyone.
  */
 export default async function DemosPage({ searchParams }: { searchParams: SearchParams }) {
   const [session, params] = await Promise.all([currentSession(), searchParams]);
@@ -56,6 +58,9 @@ export default async function DemosPage({ searchParams }: { searchParams: Search
             its own website. Every call it pays for is on the ledger below. Nothing here sends email.
           </p>
         </div>
+        <Link className="button factory-button" href="/demos/outreach">
+          <Icon name="campaign" size={17} /> Outreach drafts
+        </Link>
       </header>
 
       <DemoNotices params={params} />

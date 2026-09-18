@@ -23,9 +23,9 @@ export async function providerFetch(
   const retrySafe = idempotent
     || ['GET', 'HEAD', 'OPTIONS', 'PUT', 'DELETE'].includes(method)
     || headers.has('Idempotency-Key');
-  for (let attempt = 1; attempt <= (retrySafe ? 2 : 1); attempt += 1) {
+  for (let attempt = 1; attempt <= (retrySafe ? 2 : 1) && !init.signal?.aborted; attempt += 1) {
     try {
-      const response = await fetch(url, { ...init, signal: AbortSignal.timeout(45_000) });
+      const response = await fetch(url, { ...init, signal: init.signal ? AbortSignal.any([init.signal, AbortSignal.timeout(45_000)]) : AbortSignal.timeout(45_000) });
       if (response.ok || (response.status < 500 && response.status !== 429)) return response;
       failure = new Error(`Provider returned ${response.status}.`);
     } catch (error) {
