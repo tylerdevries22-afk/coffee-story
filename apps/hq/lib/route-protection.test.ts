@@ -45,6 +45,20 @@ const ALLOWED_PUBLIC_PREFIXES = [
   // control that writes anything. Slug enumeration is the one real cost, and
   // it is the cost the three shells above already carry.
   "'/lobby'",
+  // A prospect's demo link. Reviewed and allowed because the person it is for
+  // has no account by design: the link in their inbox is the credential. Every
+  // path under it checks a 256-bit bearer token -- in the URL once, then in
+  // an httpOnly cookie that holds the same token -- against a stored SHA-256
+  // hash, before it reads anything. The trailing slash keeps it from matching
+  // any console path that merely starts with "d".
+  //
+  // What it exposes is one business's demo, built from that business's own
+  // public listing and website, until it expires. It runs no query outside the
+  // demo tables, holds no staff or tenant data, never creates a session and
+  // cannot reach the console. The only write is "remove my business", which is
+  // exactly what the recipient must be able to do without signing in. It is
+  // rate limited, noindex, no-referrer and no-store.
+  "'/d/'",
 ];
 
 test('the public allowlist is exactly the reviewed set', () => {

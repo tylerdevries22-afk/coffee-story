@@ -30,7 +30,7 @@ function contactHref(raw: string | undefined): string | null {
 }
 
 export function demoBuilder(
-  env: { readonly DEMO_BUILDER_NAME?: string; readonly DEMO_BUILDER_CONTACT?: string } = process.env,
+  env: Readonly<Record<string, string | undefined>> = process.env,
 ): DemoBuilder | null {
   const name = env.DEMO_BUILDER_NAME?.trim().replace(/\s+/g, ' ');
   // Angle brackets and control characters have no place in a company name and
