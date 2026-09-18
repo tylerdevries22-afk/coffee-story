@@ -152,7 +152,7 @@ select batch.id, 'openai', 'output_tokens', 5000000, 9980000
   from public.platform_demo_batches as batch where batch.query = 'florists downtown';
 select is((select count(*) from public.claim_platform_demo_jobs(10))::integer, 0,
   'nothing more is built once today''s spend reaches the budget');
-select is((select sum(daily.cost_microusd) from public.platform_demo_daily_costs())::bigint, 10000000::bigint,
+select is((select sum(daily.cost_microusd) from public.platform_demo_daily_costs() as daily)::bigint, 10000000::bigint,
   'the daily report shows the whole day''s spend');
 
 select throws_ok($q$update public.platform_demo_costs set cost_microusd = 0$q$,
