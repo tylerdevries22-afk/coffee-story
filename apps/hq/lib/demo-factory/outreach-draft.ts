@@ -55,7 +55,7 @@ const DAY_MS = 86_400_000;
 // parts of the grammar is more likely scraped wrong than written that way.
 const EMAIL = /^[a-z0-9][a-z0-9._%+-]{0,63}@(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,24}$/;
 // Control characters, plus the two Unicode separators some clients render as a line break.
-const LINE_BREAKING = /[\p{Cc}  ]+/gu;
+const LINE_BREAKING = /[\p{Cc}\u2028\u2029]+/gu;
 
 /** One line of text, safe in a subject or a CSV cell: no control characters, no line breaks. */
 export function oneLine(value: string | null | undefined, max: number): string {
