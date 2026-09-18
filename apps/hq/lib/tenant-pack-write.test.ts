@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
 
 import { parseOrgDraft } from './org-input';
-import { tenantPackFromDraft, tryWriteTenantPack, writeTenantPack } from './tenant-pack-write';
+import {
+  TenantPackRefusedError, tenantFolderTaken, tenantPackFromDraft, tryWriteTenantPack, writeTenantPack,
+} from './tenant-pack-write';
 
 const parsed = parseOrgDraft({
   name: 'Harbor Roast',
@@ -49,12 +51,84 @@ describe('tenant pack from wizard draft', () => {
       try {
         mkdirSync(join(parent, 'tenants'));
         const written = tryWriteTenantPack(tenantPackFromDraft(parsed.draft), parent);
-        assert.equal(written, join(parent, 'tenants', 'harbor-roast'));
+        assert.deepEqual(written, { kind: 'written', path: join(parent, 'tenants', 'harbor-roast') });
       } finally {
         rmSync(parent, { recursive: true, force: true });
       }
     } finally {
       rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('an existing tenant folder', () => {
+  function withTenants(run: (parent: string, root: string) => void): void {
+    const parent = mkdtempSync(join(tmpdir(), 'repo-'));
+    const root = join(parent, 'tenants');
+    mkdirSync(join(root, 'harbor-roast'), { recursive: true });
+    writeFileSync(join(root, 'harbor-roast', 'brand.json'), '{"live":true}\n');
+    try {
+      run(parent, root);
+    } finally {
+      rmSync(parent, { recursive: true, force: true });
+    }
+  }
+
+  it('is refused, and left exactly as it was', () => {
+    assert.equal(parsed.ok, true);
+    if (!parsed.ok) return;
+    const pack = tenantPackFromDraft(parsed.draft);
+    withTenants((_parent, root) => {
+      assert.throws(() => writeTenantPack(root, pack),
+        (error) => error instanceof TenantPackRefusedError && error.reason === 'exists');
+      assert.equal(readFileSync(join(root, 'harbor-roast', 'brand.json'), 'utf8'), '{"live":true}\n');
+    });
+  });
+
+  it('is reported to the caller rather than swallowed', () => {
+    assert.equal(parsed.ok, true);
+    if (!parsed.ok) return;
+    const pack = tenantPackFromDraft(parsed.draft);
+    withTenants((parent, root) => {
+      assert.deepEqual(tryWriteTenantPack(pack, parent), { kind: 'refused', reason: 'exists' });
+      assert.equal(readFileSync(join(root, 'harbor-roast', 'brand.json'), 'utf8'), '{"live":true}\n');
+    });
+  });
+
+  it('is only replaced on an explicit overwrite', () => {
+    assert.equal(parsed.ok, true);
+    if (!parsed.ok) return;
+    const pack = tenantPackFromDraft(parsed.draft);
+    withTenants((_parent, root) => {
+      writeTenantPack(root, pack, { overwrite: true });
+      const brand = JSON.parse(readFileSync(join(root, 'harbor-roast', 'brand.json'), 'utf8')) as { identity: { name: string } };
+      assert.equal(brand.identity.name, 'Harbor Roast');
+    });
+  });
+
+  it('is visible before provisioning, so the organization is never created', () => {
+    withTenants((parent) => {
+      assert.equal(tenantFolderTaken('harbor-roast', parent), true);
+      assert.equal(tenantFolderTaken('harbor-roast-two', parent), false);
+      assert.equal(tenantFolderTaken('_template', parent), true);
+    });
+  });
+});
+
+describe('a host with no tenants directory', () => {
+  it('skips the write and never reports a folder as taken', () => {
+    assert.equal(parsed.ok, true);
+    if (!parsed.ok) return;
+    const empty = mkdtempSync(join(tmpdir(), 'no-tenants-'));
+    // Nested two deep: the root lookup also probes ../tenants and ../../tenants,
+    // which must land inside this temp directory rather than in a shared one.
+    const cwd = join(empty, 'apps', 'hq');
+    mkdirSync(cwd, { recursive: true });
+    try {
+      assert.deepEqual(tryWriteTenantPack(tenantPackFromDraft(parsed.draft), cwd), { kind: 'skipped' });
+      assert.equal(tenantFolderTaken('coffee-story', cwd), false);
+    } finally {
+      rmSync(empty, { recursive: true, force: true });
     }
   });
 });
