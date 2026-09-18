@@ -17,10 +17,11 @@ export type CrawlBudgetLimits = {
 };
 
 /**
- * A full crawl is about 25 requests: robots.txt, up to 8 pages, up to 3
- * stylesheets, a logo and up to 12 images. The rest is headroom for redirects
- * and one retry each. 40 MB admits a normal site in full and stops a site of
- * maximum-size images well before every cap is reached at once.
+ * A full crawl is about 30 requests: robots.txt, up to 8 pages, up to 3
+ * stylesheets, the robots.txt of up to 4 hosts its pictures come from, a logo
+ * and up to 12 images. The rest is headroom for redirects and one retry each.
+ * 40 MB admits a normal site in full and stops a site of maximum-size images
+ * well before every cap is reached at once.
  */
 export const DEFAULT_CRAWL_LIMITS: CrawlBudgetLimits = {
   maxRequests: 40,

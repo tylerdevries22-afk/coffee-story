@@ -8,6 +8,8 @@ import { crawlSite } from './crawl-site';
 import { APEX, WWW, bakeryRoutes, fixture, htmlReply, siteTransport } from './site-fixtures.test-support';
 
 const STYLESHEET = ':root { --color-primary: var(--palette-forest); --palette-forest: #2F5D3A; } body { color: #333333; }';
+/** The homepage's share image, on a host of its own. */
+const SHARE_IMAGE = 'https://cdn.maplerowbakehouse.com/share/storefront.jpg';
 
 async function crawlError(promise: Promise<unknown>): Promise<SiteCrawlError> {
   let outcome: unknown = 'resolved';
@@ -32,6 +34,8 @@ test('a site is read robots-first, homepage next, then its best pages and one st
     `${WWW}/visit`,
     `${WWW}/our-story`,
     `${WWW}/assets/site.css`,
+    // The share image is on another host, which has a robots.txt of its own.
+    'https://cdn.maplerowbakehouse.com/robots.txt',
   ]);
   assert.equal(crawl.home, `${WWW}/`);
   assert.equal(crawl.host, 'maplerowbakehouse.com');
@@ -78,6 +82,18 @@ test('pictures the site closes to crawlers are not offered for download', async 
   assert.ok(crawl.images.some((image) => image.url.endsWith('/images/croissants-1600.jpg')));
   assert.ok(!crawl.logos.some((logo) => logo.url.endsWith('/apple-touch-icon.png')));
   assert.equal(crawl.logos[0]?.source, 'json-ld');
+});
+
+test("a picture on another host follows that host's robots.txt, not the site's", async () => {
+  const open = await crawlSite('maplerowbakehouse.com', { transport: siteTransport(bakeryRoutes(STYLESHEET)) });
+  assert.ok(open.images.some((image) => image.url === SHARE_IMAGE), 'a host with no robots.txt closes nothing');
+  const transport = siteTransport(bakeryRoutes(STYLESHEET, {
+    'https://cdn.maplerowbakehouse.com/robots.txt': { status: 200, headers: { 'content-type': 'text/plain' }, body: 'User-agent: *\nDisallow: /share/' },
+  }));
+  const crawl = await crawlSite('maplerowbakehouse.com', { transport });
+  assert.ok(![...crawl.images, ...crawl.logos].some((picture) => picture.url === SHARE_IMAGE));
+  assert.ok(crawl.images.some((image) => image.url.endsWith('/images/croissants-1600.jpg')), "the site's own pictures are unaffected");
+  assert.equal(transport.requests.filter((request) => request.url.hostname === 'cdn.maplerowbakehouse.com').length, 1);
 });
 
 test('a missing robots.txt allows the crawl; an unreadable one forbids it', async () => {
