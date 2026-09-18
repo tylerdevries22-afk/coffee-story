@@ -4,14 +4,15 @@
  * demo-pack.ts reduces a stored pack into what the HQ landing page draws.
  * This module does the opposite: it hands the pack almost whole to the real
  * customer/kiosk bundle, which already reads a tenant's brand.json/menu.json/
- * modules.json shape unconditionally at module load (apps/*/src/tenants/
- * selected.ts). Whole is not blind: every pack came from a scraped website or
- * a third-party listing, so brand is re-validated with the same parser a
- * committed tenant folder must pass, menu is reshaped and bounded into
- * exactly the fields both apps read, modules goes through the same parser
- * onboarding uses, and a media reference is admitted only in the shape
- * DEMO_MEDIA_NAME allows. Any failure returns null -- the route turns that
- * into a 404, never a partial pack a guest app would half-render.
+ * modules.json shape unconditionally at module load
+ * (apps/{customer,kiosk}/src/tenants/selected.ts). Whole is not blind: every
+ * pack came from a scraped website or a third-party listing, so brand is
+ * re-validated with the same parser a committed tenant folder must pass,
+ * menu is reshaped and bounded into exactly the fields both apps read,
+ * modules goes through the same parser onboarding uses, and a media
+ * reference is admitted only in the shape DEMO_MEDIA_NAME allows. Any
+ * failure returns null -- the route turns that into a 404, never a partial
+ * pack a guest app would half-render.
  *
  * Every item always carries `optionGroups: []`. Packs never carry real
  * option customization, and both apps' bundled-catalog readers index into
