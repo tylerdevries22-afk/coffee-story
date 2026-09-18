@@ -71,25 +71,61 @@ export function exportEnvironment(
   return { ...base, EXPO_PUBLIC_TENANT: tenant, TENANT: tenant, EXPO_BASE_URL: baseUrl };
 }
 
-async function exportSurface(surface: Surface, tenant: string, target: string): Promise<void> {
+async function runExport(surface: Surface, env: NodeJS.ProcessEnv, target: string): Promise<void> {
   const appRoot = join(ROOT, 'apps', surface.app);
   const outDir = join(appRoot, 'dist-web-org');
   if (existsSync(outDir)) rmSync(outDir, { recursive: true, force: true });
-  const restore = surface.app === 'operator' ? withOperatorBaseUrl(surface.baseUrl) : () => undefined;
-  try {
-    await run(
-      'pnpm',
-      ['exec', 'expo', 'export', '--platform', 'web', '--output-dir', 'dist-web-org'],
-      appRoot,
-      exportEnvironment(process.env, tenant, surface.baseUrl),
-    );
-  } finally {
-    restore();
-  }
+  await run(
+    'pnpm',
+    ['exec', 'expo', 'export', '--platform', 'web', '--output-dir', 'dist-web-org'],
+    appRoot,
+    env,
+  );
   if (existsSync(target)) rmSync(target, { recursive: true, force: true });
   mkdirSync(dirname(target), { recursive: true });
   cpSync(outDir, target, { recursive: true });
   console.log(`Published ${surface.app} → ${target.replace(ROOT, '')}`);
+}
+
+async function exportSurface(surface: Surface, tenant: string, target: string): Promise<void> {
+  const restore = surface.app === 'operator' ? withOperatorBaseUrl(surface.baseUrl) : () => undefined;
+  try {
+    await runExport(surface, exportEnvironment(process.env, tenant, surface.baseUrl), target);
+  } finally {
+    restore();
+  }
+}
+
+/**
+ * The demo runtime export needs no tenant at all -- one export serves every
+ * business, chosen at request time by /d/pack.json rather than at build
+ * time. HQ's own deployment carries TENANT=coffee-story in its own process
+ * env (see requiredTenant below), and #216 already found that a spawned
+ * export inherits whatever the parent carries unless the child's own env
+ * explicitly overrides it -- exportEnvironment does that by naming a tenant,
+ * so this scrubs both tenant vars instead, rather than just adding the demo
+ * flag on top of a copy that still carries coffee-story along for the ride.
+ */
+export function demoExportEnvironment(base: NodeJS.ProcessEnv, baseUrl: string): NodeJS.ProcessEnv {
+  return {
+    ...base,
+    EXPO_PUBLIC_TENANT: undefined,
+    TENANT: undefined,
+    EXPO_PUBLIC_DEMO_RUNTIME: '1',
+    EXPO_BASE_URL: baseUrl,
+  };
+}
+
+const DEMO_SURFACES: readonly Surface[] = [
+  { app: 'customer', baseUrl: '/demo/customer' },
+  { app: 'kiosk', baseUrl: '/demo/kiosk' },
+];
+
+/** One export of each guest app, serving every prospect's demo from this one deployment. */
+async function exportDemoSurfaces(): Promise<void> {
+  for (const surface of DEMO_SURFACES) {
+    await runExport(surface, demoExportEnvironment(process.env, surface.baseUrl), join(HQ_PUBLIC, 'demo', surface.app));
+  }
 }
 
 export function requiredTenant(): string {
@@ -141,6 +177,7 @@ async function main(): Promise<void> {
     return;
   }
   for (const { surface, tenant, target } of plan) await exportSurface(surface, tenant, target);
+  await exportDemoSurfaces();
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {

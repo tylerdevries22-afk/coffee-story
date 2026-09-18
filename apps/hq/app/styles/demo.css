@@ -87,6 +87,34 @@
   line-height: 1.05;
 }
 
+.demo-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 0.5rem 0 0;
+}
+
+.demo-hero-button {
+  min-height: 44px;
+  padding: 0.75rem 1.25rem;
+  border: 1px solid var(--action);
+  border-radius: var(--radius-md, 14px);
+  font-weight: 600;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+.demo-hero-button-primary {
+  background: var(--action);
+  color: var(--action-foreground);
+}
+
+.demo-hero-button-secondary {
+  background: transparent;
+  color: var(--action);
+}
+
 .demo-tagline,
 .demo-cta-text,
 .demo-notice-text {
@@ -211,7 +239,8 @@
 .demo-remove-button:focus-visible,
 .demo-banner-link:focus-visible,
 .demo-link:focus-visible,
-.demo-cta-link:focus-visible {
+.demo-cta-link:focus-visible,
+.demo-hero-button:focus-visible {
   outline: 2px solid var(--action);
   outline-offset: 3px;
 }
