@@ -70,19 +70,19 @@ describe('checkPackOriginality', () => {
   it('hits in menu categories and items, by name and description, counting every occurrence', () => {
     const pack = packWith({
       menu: {
-        categories: [{ id: 'drinks', title: `${NAME} favorites`, tagline: '' }],
+        categories: [{ title: `${NAME} favorites`, tagline: '' }],
         items: [
-          { id: 'latte', name: `The ${NAME} Latte`, description: `Just like ${NAME} makes it.` },
-          { id: 'scone', name: 'Scone', description: 'Plain and simple.' },
+          { name: `The ${NAME} Latte`, description: `Just like ${NAME} makes it.` },
+          { name: 'Scone', description: 'Plain and simple.' },
         ],
       },
     });
     const result = checkPackOriginality('Harbor Roast', pack, [NAME]);
     assert.equal(result.hit, true);
     assert.deepEqual(result.fields, [
-      { field: 'menu.category.drinks.title', count: 1 },
-      { field: 'menu.item.latte.name', count: 1 },
-      { field: 'menu.item.latte.description', count: 1 },
+      { field: 'menu.categories[0].title', count: 1 },
+      { field: 'menu.items[0].name', count: 1 },
+      { field: 'menu.items[0].description', count: 1 },
     ]);
   });
 

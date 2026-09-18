@@ -45,27 +45,27 @@ describe('packTextFields', () => {
     assert.equal('brand.business.tagline' in fieldMap(pack), false);
   });
 
-  it('reads every menu category and item by its own id', () => {
+  it('reads every menu category and item by its position, never by an id', () => {
     const pack: OriginalityPack = {
       ...BASE,
       menu: {
-        categories: [{ id: 'coffee', title: 'Coffee', tagline: 'Hot and cold' }],
-        items: [{ id: 'latte', name: 'Latte', description: 'Espresso and steamed milk' }],
+        categories: [{ title: 'Coffee', tagline: 'Hot and cold' }],
+        items: [{ name: 'Latte', description: 'Espresso and steamed milk' }],
       },
     };
     const byField = fieldMap(pack);
-    assert.equal(byField['menu.category.coffee.title'], 'Coffee');
-    assert.equal(byField['menu.category.coffee.tagline'], 'Hot and cold');
-    assert.equal(byField['menu.item.latte.name'], 'Latte');
-    assert.equal(byField['menu.item.latte.description'], 'Espresso and steamed milk');
+    assert.equal(byField['menu.categories[0].title'], 'Coffee');
+    assert.equal(byField['menu.categories[0].tagline'], 'Hot and cold');
+    assert.equal(byField['menu.items[0].name'], 'Latte');
+    assert.equal(byField['menu.items[0].description'], 'Espresso and steamed milk');
   });
 
   it('drops a category or item field left blank, same as anywhere else', () => {
     const pack: OriginalityPack = {
       ...BASE,
-      menu: { categories: [{ id: 'coffee', title: 'Coffee', tagline: '' }], items: [] },
+      menu: { categories: [{ title: 'Coffee', tagline: '' }], items: [] },
     };
-    assert.equal('menu.category.coffee.tagline' in fieldMap(pack), false);
+    assert.equal('menu.categories[0].tagline' in fieldMap(pack), false);
   });
 
   it('reads every weekday line Google published, by index', () => {

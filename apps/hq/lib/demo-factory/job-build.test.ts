@@ -165,9 +165,14 @@ describe('buildDemoJob', () => {
     assert.equal(logged.length, 1);
     const line = JSON.parse(logged[0] ?? '{}') as { event: string; fields: string[]; hits: number };
     assert.equal(line.event, 'demo_factory.originality_hit');
-    assert.deepEqual(line.fields, ['businessName']);
-    assert.equal(line.hits, 1);
-    assert.equal(logged[0]?.includes(DENIED_NAME), false, 'the matched name never reaches the log, only the field and count');
+    // The listing's name becomes the manifest's name, app name and location name, so those hit too.
+    assert.equal(line.fields[0], 'businessName');
+    for (const field of ['brand.identity.name', 'brand.copy.appName', 'brand.locations[0].name']) {
+      assert.ok(line.fields.includes(field), `${field} carries the business name`);
+    }
+    assert.ok(line.hits >= line.fields.length, 'a field is listed only when it hit');
+    const lowered = (logged[0] ?? '').toLowerCase();
+    assert.equal(lowered.includes(DENIED_NAME.toLowerCase()), false, 'the log never spells the name, in any case or as a slug');
   });
 
   it('clears a kit\'s uploaded media when its pack is refused for originality, same as any other refusal', async () => {

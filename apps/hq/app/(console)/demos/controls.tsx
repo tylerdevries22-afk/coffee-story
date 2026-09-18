@@ -15,7 +15,7 @@ const REQUIREMENTS: readonly { key: keyof DemoFactoryReadiness; label: string; w
   { key: 'linkSecret', label: 'DEMO_LINK_SECRET', why: 'derives each demo link, so only its hash is stored' },
   {
     key: 'originalityDenylist', label: 'DEMO_ORIGINALITY_DENYLIST',
-    why: 'refuses a generated pack that names a competitor, before it is ever built',
+    why: 'refuses a generated pack that names a competitor, before it is ever published',
   },
   { key: 'openAiKey', label: 'OpenAI key', why: 'reads each website’s menu; without it a demo shows the labelled sample menu' },
 ];

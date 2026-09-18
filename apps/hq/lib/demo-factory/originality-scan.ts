@@ -19,8 +19,8 @@ export type PackTextField = { readonly field: string; readonly text: string };
 export type OriginalityPack = {
   readonly brand: unknown;
   readonly menu: {
-    readonly categories: readonly { readonly id: string; readonly title: string; readonly tagline: string }[];
-    readonly items: readonly { readonly id: string; readonly name: string; readonly description: string }[];
+    readonly categories: readonly { readonly title: string; readonly tagline: string }[];
+    readonly items: readonly { readonly name: string; readonly description: string }[];
   };
   readonly listing: { readonly weekdayDescriptions: readonly string[] };
 };
@@ -48,19 +48,24 @@ function walk(value: unknown, field: string, out: PackTextField[]): void {
  * assembled by the runner from the listing, not carried on `DemoPack`
  * itself -- so a caller that skipped it would silently leave the page's own
  * headline unchecked.
+ *
+ * Every label here is a fixed schema path or an array position, never a
+ * value read off the pack: a menu item's `id` is `slugify(name)` (kit.ts),
+ * so a label built from it would spell a flagged name into a log in slug
+ * form -- the same leak this whole module exists to avoid one layer up.
  */
 export function packTextFields(businessName: string, pack: OriginalityPack): readonly PackTextField[] {
   const fields: PackTextField[] = [];
   walk(businessName, 'businessName', fields);
   walk(pack.brand, 'brand', fields);
-  for (const category of pack.menu.categories) {
-    walk(category.title, `menu.category.${category.id}.title`, fields);
-    walk(category.tagline, `menu.category.${category.id}.tagline`, fields);
-  }
-  for (const item of pack.menu.items) {
-    walk(item.name, `menu.item.${item.id}.name`, fields);
-    walk(item.description, `menu.item.${item.id}.description`, fields);
-  }
+  pack.menu.categories.forEach((category, index) => {
+    walk(category.title, `menu.categories[${index}].title`, fields);
+    walk(category.tagline, `menu.categories[${index}].tagline`, fields);
+  });
+  pack.menu.items.forEach((item, index) => {
+    walk(item.name, `menu.items[${index}].name`, fields);
+    walk(item.description, `menu.items[${index}].description`, fields);
+  });
   pack.listing.weekdayDescriptions.forEach((line, index) => {
     walk(line, `listing.weekdayDescriptions[${index}]`, fields);
   });
