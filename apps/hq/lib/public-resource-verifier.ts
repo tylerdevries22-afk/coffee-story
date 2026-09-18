@@ -1,28 +1,13 @@
 import { lookup } from 'node:dns/promises';
-import { isIP } from 'node:net';
 
-export function isPublicIpAddress(address: string): boolean {
-  if (isIP(address) === 4) {
-    const parts = address.split('.').map(Number);
-    const [first, second] = parts;
-    if (first === undefined || second === undefined) return false;
-    return !(
-      first === 0 || first === 10 || first === 127 || first >= 224
-      || (first === 100 && second >= 64 && second <= 127)
-      || (first === 169 && second === 254)
-      || (first === 172 && second >= 16 && second <= 31)
-      || (first === 192 && (second === 0 || second === 168))
-      || (first === 198 && (second === 18 || second === 19))
-    );
-  }
-  if (isIP(address) === 6) {
-    const normalized = address.toLowerCase();
-    return normalized !== '::' && normalized !== '::1'
-      && !normalized.startsWith('fc') && !normalized.startsWith('fd')
-      && !/^fe[89ab]/.test(normalized) && !normalized.startsWith('::ffff:');
-  }
-  return false;
-}
+import { isPublicIpAddress } from './public-fetch/address-policy';
+
+/**
+ * The address rule lives in public-fetch/address-policy.ts so this verifier
+ * and the body-reading crawler cannot disagree about what "public" means.
+ * Re-exported because callers and tests already import it from here.
+ */
+export { isPublicIpAddress };
 
 async function assertPublicUrl(value: string): Promise<URL> {
   const url = new URL(value);
