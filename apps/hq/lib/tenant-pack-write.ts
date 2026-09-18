@@ -3,6 +3,7 @@ import { join, resolve } from 'node:path';
 
 import { tenantPackFromSetup, type TenantPack, type TenantSetupInput } from '@platform/tenant-config';
 
+import { packSpan } from './location-hours';
 import { log } from './log';
 import type { OrgDraft } from './org-input';
 
@@ -31,8 +32,11 @@ function reservedSlug(slug: string): boolean {
 function hoursRecord(draft: OrgDraft): TenantSetupInput['location'] {
   if (!draft.location) return null;
   const hours: Record<string, { open: string; close: string }[]> = {};
+  // The draft files an overnight span as 22:00-02:00; brand.json writes it
+  // 22:00-26:00, because the guest apps' pickup schedule drops a span whose
+  // close sorts before its open -- which would take the late hours off sale.
   for (const [day, spans] of Object.entries(draft.location.hours)) {
-    hours[day] = (spans ?? []).map((span) => ({ open: span.open, close: span.close }));
+    hours[day] = (spans ?? []).map(packSpan);
   }
   return {
     name: draft.location.name,

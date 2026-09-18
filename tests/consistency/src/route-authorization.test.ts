@@ -64,7 +64,7 @@ const apiRoutes = routeFiles(HQ_API).map((file) => ({
 const AUTHENTICATES = new RegExp('\\b(' + [
   'authenticateAny', 'authenticate', 'matchesSecret', 'verifyDeviceToken',
   'redeemPairingCode', 'exchangeDeviceRefreshSecret', 'operationsRequestContext', 'authorizeConnectorOAuth',
-  'integrationContext',
+  'integrationContext', 'placesRequestContext',
 ].join('|') + ')\\b');
 
 /**
@@ -83,6 +83,20 @@ const INTEGRATION_CONTEXT_GUARDS: readonly (readonly [string, RegExp])[] = [
   ['throttles before the token round trip', /rateLimited\(clientIdentity\(/],
   ['throttles per account and brand', /rateLimited\(auth\.userId/],
   ['reads through the caller-scoped client', /authenticatedDb\(/],
+];
+
+/**
+ * The same bargain for the console's Google Places proxy. Its caller is the
+ * console's cookie session rather than a bearer token, so the helper has to
+ * keep proving the request came from the console's own pages, and every call
+ * it admits is billed to the platform -- which is why both budgets are held
+ * here too.
+ */
+const PLACES_CONTEXT_GUARDS: readonly (readonly [string, RegExp])[] = [
+  ['refuses a request from another origin', /if \(!sameOriginRequest\(request\)\)/],
+  ['throttles before the session lookup', /rateLimited\(clientIdentity\(request\)/],
+  ['admits platform admins only', /if \(!mayProvisionOrganizations\(session\)\)/],
+  ['throttles per admin', /rateLimited\(actor,/],
 ];
 
 /**
@@ -191,6 +205,15 @@ describe('HQ API routes identify their caller', () => {
       assert.match(source, pattern,
         `integrationContext no longer ${what}, and every platform-integration `
         + 'route authenticates through it');
+    }
+  });
+
+  it('holds the shared Places context to what its callers rely on', () => {
+    const source = readFileSync(join(ROOT, 'apps/hq/lib/places-proxy-context.ts'), 'utf8');
+    for (const [what, pattern] of PLACES_CONTEXT_GUARDS) {
+      assert.match(source, pattern,
+        `placesRequestContext no longer ${what}, and every Places proxy route `
+        + 'authenticates through it');
     }
   });
 

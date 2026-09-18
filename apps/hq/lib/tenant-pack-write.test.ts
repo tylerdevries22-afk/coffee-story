@@ -61,6 +61,37 @@ describe('tenant pack from wizard draft', () => {
   });
 });
 
+describe('hours in the pack', () => {
+  it('writes an overnight span past 24:00, the way brand.json orders it', () => {
+    const late = parseOrgDraft({
+      name: 'Harbor Late', ownerEmail: 'owner@harbor.example', organizationKind: 'independent',
+      industryKey: 'coffee-shop', blueprintKey: 'coffee-shop',
+      location: {
+        name: 'Waterfront', timezone: 'America/Los_Angeles',
+        hours: JSON.stringify({
+          thu: [{ open: '07:00', close: '15:00' }],
+          fri: [{ open: '18:00', close: '02:00' }],
+          sat: [{ open: '18:00', close: '00:00' }],
+          sun: [{ open: '00:00', close: '23:59' }],
+        }),
+      },
+    });
+    assert.ok(late.ok);
+    // The draft keeps what the database's scheduler reads: the close as typed.
+    assert.deepEqual(late.draft.location?.hours.fri, [{ open: '18:00', close: '02:00' }]);
+    const brand = tenantPackFromDraft(late.draft).files['brand.json'] as {
+      locations: { hours: Record<string, { open: string; close: string }[]> }[];
+    };
+    assert.deepEqual(brand.locations[0]?.hours, {
+      mon: [], tue: [], wed: [],
+      thu: [{ open: '07:00', close: '15:00' }],
+      fri: [{ open: '18:00', close: '26:00' }],
+      sat: [{ open: '18:00', close: '24:00' }],
+      sun: [{ open: '00:00', close: '23:59' }],
+    });
+  });
+});
+
 describe('an existing tenant folder', () => {
   function withTenants(run: (parent: string, root: string) => void): void {
     const parent = mkdtempSync(join(tmpdir(), 'repo-'));
