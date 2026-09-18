@@ -2,6 +2,7 @@ import { slugify } from '@platform/domain';
 import { listConnectorCatalog } from '@platform/integrations';
 import { MODULE_REGISTRY, resolveModules } from '@platform/module-kit';
 
+import { websiteFromInput } from './location-contact';
 import { parseLocationDraft, type LocationDraft, type LocationInput } from './location-input';
 import { eligibleModuleKeys } from './organization-onboarding';
 
@@ -30,6 +31,8 @@ export type OrgDraft = {
   readonly industryKey: IndustryKey;
   readonly blueprintKey: BlueprintKey;
   readonly networkSlug: string | null;
+  /** The business's own site, https only: the factory's research step reads it first. */
+  readonly website: string | null;
   readonly location: LocationDraft | null;
   readonly modules: readonly ModuleSpec[];
   readonly connectors: readonly string[];
@@ -46,6 +49,7 @@ export type OrgInput = {
   blueprintKey?: string;
   networkSlug?: string;
   territory?: string;
+  website?: string;
   moduleKeys?: readonly string[];
   connectorIds?: readonly string[];
   location?: LocationInput;
@@ -146,6 +150,8 @@ export function parseOrgDraft(input: OrgInput):
   if (organizationKind === 'franchisee' && (!networkSlug || !SLUG.test(networkSlug))) {
     return { ok: false, error: 'Enter the franchise network handle.' };
   }
+  const website = websiteFromInput(input.website);
+  if (!website.ok) return website;
   let location: LocationDraft | null = null;
   if (organizationKind === 'independent' || organizationKind === 'franchisee') {
     const parsed = parseLocationDraft(input.location ?? {});
@@ -157,7 +163,7 @@ export function parseOrgDraft(input: OrgInput):
     ok: true,
     draft: {
       slug, name, ownerEmail, organizationKind, industryKey, blueprintKey,
-      networkSlug, location,
+      networkSlug, website: website.value, location,
       modules, connectors,
       territory: territory ? { description: territory } : {},
       inheritancePolicy: {
