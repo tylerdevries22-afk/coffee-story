@@ -13,6 +13,9 @@ const SITE = '0f8e3c52-2b1d-4a6e-9c7f-5d4b3a291e10';
 const JOB: ClaimedDemoJob = { id: 'j1', batchId: 'b1', placeId: CAFE.placeId, attempt: 1, createdBy: 'u1' };
 const signal = new AbortController().signal;
 
+// Invented placeholder name, never a real brand -- see originality.test.ts.
+const DENIED_NAME = 'Rivalbrew';
+
 function setup(script: RunnerScript = {}, overrides: Partial<DemoJobDeps> = {}) {
   const { db, calls } = fakeRunnerDb(script);
   let lookups = 0;
@@ -22,6 +25,7 @@ function setup(script: RunnerScript = {}, overrides: Partial<DemoJobDeps> = {}) 
     readKit: null,
     linkSecret: SECRET,
     newSiteId: () => SITE,
+    originalityDenylist: [DENIED_NAME],
     ...overrides,
   };
   return { deps, calls, lookups: () => lookups };
@@ -141,6 +145,47 @@ describe('buildDemoJob', () => {
       assert.deepEqual(await quietly(() => buildDemoJob(JOB, deps, signal)), expected);
       assert.deepEqual(calls.find((call) => call.kind === 'remove')?.args, [[`${SITE}/logo.webp`]]);
     }
+  });
+
+  it('refuses a pack that names someone on the denylist, and never publishes it', async () => {
+    const { deps, calls } = setup({}, { details: async () => ({ ...CAFE, name: `${DENIED_NAME} Coffee` }) });
+    const logged: string[] = [];
+    const original = console.warn;
+    console.warn = (line: string) => { logged.push(line); };
+    let outcome: Awaited<ReturnType<typeof buildDemoJob>>;
+    try {
+      outcome = await buildDemoJob(JOB, deps, signal);
+    } finally {
+      console.warn = original;
+    }
+    assert.deepEqual(outcome, { state: 'skipped', outcome: 'originality' });
+    assert.equal(inserted(calls, 'platform_demo_sites').length, 0, 'a refused pack is never published');
+    assert.equal(inserted(calls, 'platform_demo_costs').length, 1, 'the lookup already made still costs money');
+
+    assert.equal(logged.length, 1);
+    const line = JSON.parse(logged[0] ?? '{}') as { event: string; fields: string[]; hits: number };
+    assert.equal(line.event, 'demo_factory.originality_hit');
+    // The listing's name becomes the manifest's name, app name and location name, so those hit too.
+    assert.equal(line.fields[0], 'businessName');
+    for (const field of ['brand.identity.name', 'brand.copy.appName', 'brand.locations[0].name']) {
+      assert.ok(line.fields.includes(field), `${field} carries the business name`);
+    }
+    assert.ok(line.hits >= line.fields.length, 'a field is listed only when it hit');
+    const lowered = (logged[0] ?? '').toLowerCase();
+    assert.equal(lowered.includes(DENIED_NAME.toLowerCase()), false, 'the log never spells the name, in any case or as a slug');
+  });
+
+  it('clears a kit\'s uploaded media when its pack is refused for originality, same as any other refusal', async () => {
+    const kit = async () => ({ colors: [], tagline: null, email: null, logo: 'logo.webp', menu: [] });
+    const { deps, calls } = setup({ listed: [{ name: 'logo.webp' }] },
+      { readKit: kit, details: async () => ({ ...CAFE, name: `${DENIED_NAME} Coffee` }) });
+    assert.deepEqual(await quietly(() => buildDemoJob(JOB, deps, signal)), { state: 'skipped', outcome: 'originality' });
+    assert.deepEqual(calls.find((call) => call.kind === 'remove')?.args, [[`${SITE}/logo.webp`]]);
+  });
+
+  it('never refuses a pack when the denylist is empty -- the kill switch is what stops that run entirely', async () => {
+    const { deps } = setup({}, { details: async () => ({ ...CAFE, name: `${DENIED_NAME} Coffee` }), originalityDenylist: [] });
+    assert.equal((await buildDemoJob(JOB, deps, signal)).state, 'built');
   });
 });
 
