@@ -8,6 +8,7 @@ import { lobbySurfaceUrl } from '@/lib/lobby-screen';
 import { currentSession } from '@/lib/auth';
 import { readWorkspaceScope } from '@/lib/workspace-scope';
 import { tenantOrgById, type TenantOrg } from '@/lib/tenants';
+import { onlyBuiltSurfaces, withWallSurfaceUrls } from '@/lib/wall-tenants';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,8 +38,11 @@ function previewsForSlug(
   // Partner framing only paints where the partner's own frame-ancestors admits
   // this origin -- theirs to decide, not ours -- which today means a deployed
   // *.vercel.app HQ and not a localhost one.
+  //
+  // Only applied tenants have a /t/ copy. Any other organization gets no frame
+  // for those surfaces rather than a 404, or another tenant's app in its place.
   const base = slug
-    ? tenantPathSurfaceUrls('', slug, locationId)
+    ? onlyBuiltSurfaces(slug, tenantPathSurfaceUrls('', slug, locationId))
     : surfaceUrlsForTenant(slug);
   const partner = partnerNetworkOf(brandConfig);
   const urls = partner ? { ...base, ...partner.surfaces } : base;
@@ -48,7 +52,10 @@ function previewsForSlug(
   // parser already refuses a network that claims `kiosk` -- this is the
   // positive half of that rule, not a second chance to override it.
   const lobby = org ? lobbySurfaceUrl(org, '', locationId) : null;
-  return withSurfaceUrls(appPreviewsFor(), lobby ? { ...urls, kiosk: lobby } : urls);
+  const surfaces = lobby ? { ...urls, kiosk: lobby } : urls;
+  return slug
+    ? withWallSurfaceUrls(appPreviewsFor(), surfaces)
+    : withSurfaceUrls(appPreviewsFor(), surfaces);
 }
 
 export default async function AppsWallPage() {
