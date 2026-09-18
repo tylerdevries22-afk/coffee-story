@@ -1,4 +1,5 @@
 import type { FactorySurface } from '@platform/factory';
+import { FatalError } from '@workflow/errors';
 import { modelBHqSurfaceUrls } from './factory-model-b-urls';
 import { createOrAdopt } from '../lib/provider-create';
 import { providerFetch, providerJson } from './factory-runtime';
@@ -107,9 +108,9 @@ function selectedRow(
 ): EnvironmentRow | null {
   const candidates = rows.filter((row) => row.key === key && row.targets.includes(target));
   if (candidates.some((row) => row.targets.some((entry) => entry !== 'production' && entry !== 'preview'))) {
-    throw new Error(`Vercel environment has unsafe ${key} target coverage.`);
+    throw new FatalError(`Vercel environment has unsafe ${key} target coverage.`);
   }
-  if (candidates.length > 1) throw new Error(`Vercel environment has ambiguous ${key} ${target} records.`);
+  if (candidates.length > 1) throw new FatalError(`Vercel environment has ambiguous ${key} ${target} records.`);
   return candidates[0] ?? null;
 }
 async function createVariable(

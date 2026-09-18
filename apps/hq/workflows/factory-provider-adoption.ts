@@ -1,3 +1,5 @@
+import { FatalError } from '@workflow/errors';
+
 import type { SafeResource } from './factory-runtime';
 
 export type AdoptionResult = { resource: SafeResource; persist: boolean };
@@ -64,7 +66,7 @@ function assertStored(
     && stored.environment === 'production' && stored.externalId === expected.externalId
     && stored.displayName === expected.displayName && metadata && expectedMetadata
     && Object.entries(expectedMetadata).every(([key, value]) => metadata[key] === value);
-  if (!matches) throw new Error(`Stored ${expected.provider} resource provenance does not match.`);
+  if (!matches) throw new FatalError(`Stored ${expected.provider} resource provenance does not match.`);
 }
 
 export async function verifyAdoption<T>(input: {

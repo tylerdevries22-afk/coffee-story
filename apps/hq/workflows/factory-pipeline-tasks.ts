@@ -1,3 +1,4 @@
+import { FatalError } from '@workflow/errors';
 import { sleep } from 'workflow';
 
 import { mayMintProductionHosts } from '@platform/factory';
@@ -85,7 +86,7 @@ export async function mintProductionHosts(
 ): Promise<void> {
   'use step';
   if (!mayMintProductionHosts(goLiveApproved)) {
-    throw new Error('Production host mint refused without Go live approval.');
+    throw new FatalError('Production host mint refused without Go live approval.');
   }
   await updateTask(run.id, 'create-vercel-projects', 'running');
   try {
