@@ -18,6 +18,7 @@ export type DemoPackOutcome =
 export async function demoPackResponse(token: string, deps: {
   readonly db: DemoDb | null;
   readonly builder: DemoBuilder | null;
+  readonly now: Date;
 }): Promise<DemoPackOutcome> {
   // Shape first, exactly like demo-entry.ts: a malformed cookie never costs a
   // database round trip.
@@ -25,7 +26,7 @@ export async function demoPackResponse(token: string, deps: {
   // No database or no builder name means this deployment cannot serve any
   // demo at all right now -- not that this one is missing.
   if (!deps.db || !deps.builder) return { kind: 'unavailable' };
-  const site = await viewDemoSite(deps.db, token);
+  const site = await viewDemoSite(deps.db, token, deps.now);
   if (site.state !== 'ready') return { kind: 'not_found' };
   const pack = demoPackExport({
     pack: site.pack,

@@ -30,7 +30,9 @@ export async function GET(request: NextRequest): Promise<Response> {
   const token = request.cookies.get(DEMO_COOKIE)?.value ?? '';
   let outcome: DemoPackOutcome;
   try {
-    outcome = await demoPackResponse(token, { db: env ? serviceDb(env) : null, builder: demoBuilder() });
+    outcome = await demoPackResponse(token, {
+      db: env ? serviceDb(env) : null, builder: demoBuilder(), now: new Date(),
+    });
   } catch (error) {
     log.error('demo.pack_failed', {}, error);
     return unavailable(503);
