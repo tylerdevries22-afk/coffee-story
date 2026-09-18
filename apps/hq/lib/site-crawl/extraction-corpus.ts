@@ -15,6 +15,7 @@ const TOPIC_LABEL: Readonly<Record<PageTopic, string>> = {
   menu: 'Menu page', services: 'Services page', home: 'Homepage', about: 'About page', contact: 'Contact page', other: 'Page',
 };
 const PAGE_CHARS = 20_000;
+const CUT = '\n[cut for length]';
 
 function header(crawl: SiteCrawl, businessName: string): string {
   const colors = crawl.colors.length === 0
@@ -50,9 +51,9 @@ export function extractionCorpus(crawl: SiteCrawl, businessName: string, maxChar
   let remaining = maxChars - (parts[0]?.length ?? 0);
   for (const page of orderedPages(crawl)) {
     const heading = `\n\n## ${TOPIC_LABEL[page.topic]}: ${page.url}${page.title ? `\nTitle: ${page.title}` : ''}\n`;
-    const room = Math.min(PAGE_CHARS, remaining - heading.length);
+    const room = Math.min(PAGE_CHARS, remaining - heading.length - CUT.length);
     if (room < 200) break;
-    const text = page.text.length > room ? `${page.text.slice(0, room)}\n[cut for length]` : page.text;
+    const text = page.text.length > room ? `${page.text.slice(0, room)}${CUT}` : page.text;
     parts.push(heading, text);
     remaining -= heading.length + text.length;
   }

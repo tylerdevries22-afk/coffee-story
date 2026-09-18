@@ -126,9 +126,9 @@ function assemble(pages: readonly Page[], css: readonly string[], skipped: SiteC
   return {
     home: home.url.href,
     host: siteHost(home.url),
-    name: meta['og:site_name'] || meta['application-name'] || home.facts.title,
-    description: meta.description || meta['og:description'] || null,
-    pages: pages.map((page) => ({ url: page.url.href, topic: page.topic, title: page.facts.title, text: page.facts.text })),
+    name: clip(meta['og:site_name'] || meta['application-name'] || home.facts.title, 120),
+    description: clip(meta.description || meta['og:description'], 500),
+    pages: pages.map((page) => ({ url: page.url.href, topic: page.topic, title: clip(page.facts.title, 200), text: page.facts.text })),
     colors: paletteCandidates(themeColors, [...pages.flatMap((page) => page.facts.inlineStyles), ...css]),
     logos: logoCandidates(home.facts, home.url, structured.logos),
     images: imageCandidates(pages.filter((page) => page.topic !== 'about' && page.topic !== 'contact')),
@@ -136,6 +136,12 @@ function assemble(pages: readonly Page[], css: readonly string[], skipped: SiteC
     contactEmails: contactEmails(emails, siteHost(home.url)),
     skipped,
   };
+}
+
+/** Metadata is the site's to size; a demo needs a name and a sentence or two. */
+function clip(value: string | null | undefined, max: number): string | null {
+  const text = value?.replace(/\s+/g, ' ').trim();
+  return text ? text.slice(0, max) : null;
 }
 
 function absolute(href: string, base: URL): string {

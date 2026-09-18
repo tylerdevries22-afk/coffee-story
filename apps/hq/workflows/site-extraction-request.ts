@@ -9,9 +9,9 @@ import { EXTRACTION_LIMITS, reasoningFor } from './research-limits';
  * fetched, so there is no search to pay for and nothing for it to wander
  * off and read. Strict JSON schema, a hard output cap, and the logo field
  * restricted by enum to the candidates the crawl found, so the model can
- * choose a logo but never invent a URL. Contact emails are not sent at all:
- * they are decided deterministically, and a model cannot misquote what it
- * never saw.
+ * choose a logo but never invent a URL. Contact emails are not part of the
+ * answer at all: they are decided deterministically from the pages
+ * (lib/site-crawl/contact-emails.ts), so a model has no field to invent one in.
  */
 export const EXTRACTION_INSTRUCTIONS = [
   'You build a brand kit for one local business from text captured from its own website.',

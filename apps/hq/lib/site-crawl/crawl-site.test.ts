@@ -28,14 +28,16 @@ test('a site is read robots-first, homepage next, then its best pages and one st
     APEX,
     `${WWW}/`,
     `${WWW}/menu/`,
-    `${WWW}/our-story`,
+    // Both in the nav; a contact page outranks an about page.
     `${WWW}/visit`,
+    `${WWW}/our-story`,
     `${WWW}/assets/site.css`,
   ]);
   assert.equal(crawl.home, `${WWW}/`);
   assert.equal(crawl.host, 'maplerowbakehouse.com');
   assert.equal(crawl.name, 'Maple Row Bakehouse');
-  assert.deepEqual(crawl.pages.map((page) => page.topic), ['home', 'menu', 'about', 'contact']);
+  assert.deepEqual(crawl.pages.map((page) => page.topic), ['home', 'menu', 'contact', 'about']);
+  assert.equal(crawl.description, 'A neighbourhood bakehouse baking sourdough, laminated pastry and espresso drinks every morning.');
   assert.deepEqual(crawl.skipped, []);
 });
 
@@ -69,7 +71,8 @@ test('a missing robots.txt allows the crawl; an unreadable one forbids it', asyn
     'https://maplerowbakehouse.com/robots.txt': { status: 404, headers: { 'content-type': 'text/html' }, body: 'nope' },
   }));
   const crawl = await crawlSite('maplerowbakehouse.com', { transport: missing });
-  assert.ok(crawl.pages.some((page) => page.url.endsWith('/catering')) || crawl.pages.length >= 4);
+  assert.ok(missing.requests.some((request) => request.url.pathname === '/catering'), 'with no robots.txt nothing is closed');
+  assert.deepEqual(crawl.skipped, [{ url: `${WWW}/catering`, reason: 'http_status' }]);
 
   const broken = siteTransport(bakeryRoutes(STYLESHEET, {
     'https://maplerowbakehouse.com/robots.txt': { status: 503, headers: { 'content-type': 'text/plain' }, body: 'down' },

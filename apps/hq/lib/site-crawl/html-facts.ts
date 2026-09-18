@@ -50,6 +50,8 @@ const BLOCKS = new Set([
   'footer', 'form', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'header', 'hr', 'li', 'main', 'nav', 'ol', 'p', 'pre',
   'section', 'table', 'tr', 'ul',
 ]);
+/** Table cells sit on one line, but a price column must not run into its name. */
+const CELLS = new Set(['td', 'th']);
 
 function cleanText(raw: string): string {
   return raw.replace(/\r/g, '').split('\n')
@@ -85,6 +87,7 @@ export function readPageFacts(html: string): PageFacts {
 
   const open = (name: string, attributes: Record<string, string>): void => {
     if (BLOCKS.has(name)) pushText('\n');
+    else if (CELLS.has(name)) pushText(' ');
     if (HIDDEN.has(name)) hidden += 1;
     if (FOREIGN.has(name)) foreign += 1;
     if (CHROME.has(name)) chrome += 1;

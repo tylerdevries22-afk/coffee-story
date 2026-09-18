@@ -19,7 +19,8 @@ const MAX_LOGOS = 8;
 const MAX_IMAGES = 24;
 const MIN_EDGE = 150;
 const UNFETCHABLE = /\.(?:svg|svgz|ico|avif|bmp|tiff?|heic)$/i;
-const NOT_A_PHOTO = /logo|icon|avatar|badge|sprite|placeholder|spinner|loader|pixel|flag|payment|star|rating/;
+/** Matched from a word start, so a custard tart is not a "star" and a favicon still is an icon. */
+const NOT_A_PHOTO = /(?:^|[^a-z])(?:logo|favicon|icon|avatar|badge|sprite|placeholder|spinner|loader|pixel|flag|payment|star|rating)/;
 
 /** `href` resolved against the page, as https, or null when it cannot be downloaded. */
 export function mediaUrl(href: string, base: URL): string | null {

@@ -24,6 +24,12 @@ test('visible text keeps the page and drops script, style and head', () => {
   assert.doesNotMatch(home.text, /Maple Row Bakehouse \| Bread/);
 });
 
+test('a price column stays apart from the item it prices', () => {
+  const menu = readPageFacts(fixture('menu.html'));
+  assert.match(menu.text, /^Butter Croissant 4\.25$/m);
+  assert.match(menu.text, /^Country Sourdough \$9\.00$/m);
+});
+
 test('links carry their text and whether they sit in the site chrome', () => {
   const menu = home.links.find((link) => link.href === '/menu/');
   assert.deepEqual(menu, { href: '/menu/', text: 'Menu', inChrome: true });

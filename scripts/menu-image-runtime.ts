@@ -8,11 +8,9 @@ import {
   type MenuImageMeasurement,
 } from '@platform/ui/src/menu-image';
 
-// The crop centre and the measuring arithmetic moved to @platform/ui so the
-// console's demo factory grades exactly as this normaliser does; re-exported
-// so existing script imports keep working.
-export { MENU_CROP_CENTER } from '@platform/ui/src/menu-image';
-
+// The crop window and the measuring arithmetic live in @platform/ui, so the
+// console's demo factory grades a prospect's photographs exactly as this
+// normaliser grades a tenant's.
 export const MENU_SHEET = { cell: 150, columns: 7, label: 16, pad: 12, header: 34 };
 
 export function menuImagePaths(cwd: string, tenantSlug: string) {

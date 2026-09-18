@@ -72,6 +72,17 @@ test('photographs come from content, not chrome, logos, icons or declared-tiny i
   assert.equal(images[2]?.alt, 'Country sourdough loaf');
 });
 
+test('a photograph is judged by whole words, so a custard tart is not a rating star', () => {
+  const facts = readPageFacts([
+    '<img src="/images/custard-tart.jpg" alt="Vanilla custard tart">',
+    '<img src="/images/five-stars.png" alt="Five stars">',
+    '<img src="/images/brand/favicon-large.png" alt="">',
+  ].join(''));
+  assert.deepEqual(imageCandidates([{ url: WWW, facts }]).map((image) => image.url), [
+    'https://www.maplerowbakehouse.com/images/custard-tart.jpg',
+  ]);
+});
+
 test('media addresses resolve against the page, upgrade to https and refuse SVG and ICO', () => {
   assert.equal(mediaUrl('/a.jpg#x', WWW), 'https://www.maplerowbakehouse.com/a.jpg');
   assert.equal(mediaUrl('http://cdn.example.net/a.png', WWW), 'https://cdn.example.net/a.png');
