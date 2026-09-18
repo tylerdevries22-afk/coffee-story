@@ -1,150 +1,103 @@
 /**
- * Google Places lookups for a property's own listing.
+ * Google Places lookups for a business's own listing.
  *
- * Why this exists: a hotel tenant is a real building with a real listing, and
- * the platform should not ask an operator to retype what Google already knows.
- * One Place id resolves the name, address, coordinates, phone and opening
- * hours that a lobby screen and a location record both need.
+ * Why this exists: a tenant is a real business with a real listing, and the
+ * platform should not ask anyone to retype what Google already knows. One
+ * Place id resolves the name, address, coordinates, phone, hours, time zone
+ * and review links that a location record, a lobby screen and a demo all need.
  *
- * Two entry points, and the second is the one that makes "any hotel" true:
- * `placeDetails` reads a property whose Place id is already known, and
- * `findLodging` resolves a property from its name and address, so onboarding a
- * chain's next branch needs no id pasted in by hand and no edit to this repo.
+ * Every entry point ends in exactly one Place Details call, because that is
+ * the call that bills. `placeDetails` reads a known id, and closes an
+ * autocomplete session when handed its token; `findPlace` resolves free text
+ * through the unbilled IDs-only search first, so a chain's next branch needs
+ * no id pasted in by hand. `lodgingDetails` and `findLodging` are the same two
+ * lookups for a caller that has declared the place a hotel, and they fail
+ * rather than onboard the café next door.
  *
  * The key is read from the environment at the call site and never stored in a
  * tenant folder: every `EXPO_PUBLIC_*` value ships readable inside a guest
  * bundle, so a Places key belongs to server-side code only.
  */
-import { ExternalRequestError, fetchExternalWithRetry } from './http';
-import { PLACE_FIELDS, normalizePlace, isLodging, type PlaceDetails } from './places-types';
+import { isPlacesSessionToken, searchPlaceIds, type PlaceSearchFilters } from './places-search';
+import { PlacesError, placesCall, requireKey, type PlacesOptions } from './places-transport';
+import { PLACE_FIELDS, isLodging, normalizePlace, type PlaceDetails } from './places-types';
 
-const ENDPOINT = 'https://places.googleapis.com/v1';
-const PLACE_QUERY_MAX = 200;
-
-/** Bounds chosen for a screen a guest is standing in front of, not a batch job. */
-const TRANSPORT = { timeoutMs: 6_000, attempts: 2, retryDelayMs: 300, maxResponseBytes: 262_144 } as const;
-
-export class PlacesError extends Error {
-  constructor(
-    readonly code: 'unconfigured' | 'not_found' | 'not_lodging' | 'provider' | 'malformed',
-    cause?: unknown,
-  ) {
-    super(
-      code === 'unconfigured' ? 'No Google Places API key is configured.'
-        : code === 'not_found' ? 'No such place.'
-          : code === 'not_lodging' ? 'That place is not somewhere a guest stays.'
-            : code === 'malformed' ? 'The Places response did not parse.'
-              : 'The Places provider failed.',
-      { cause },
-    );
-    this.name = 'PlacesError';
-  }
-}
-
-export type PlacesOptions = {
-  /** Server-side key. Omit and the caller gets `unconfigured`, never a guess. */
-  readonly apiKey?: string | undefined;
-  readonly signal?: AbortSignal | null;
-};
-
-function headers(apiKey: string, fields: readonly string[]): Record<string, string> {
-  return {
-    'content-type': 'application/json',
-    // Places (New) bills by field mask, so an unset mask is both a cost and a
-    // privacy question. Built from PLACE_FIELDS so it cannot drift from the type.
-    'x-goog-fieldmask': fields.join(','),
-    'x-goog-api-key': apiKey,
-  };
-}
-
-async function readJson(response: Response): Promise<unknown> {
-  try {
-    return await response.json();
-  } catch (error) {
-    throw new PlacesError('malformed', error);
-  }
-}
-
-async function call(
-  path: string, init: RequestInit, apiKey: string, fields: readonly string[],
-): Promise<unknown> {
-  let response: Response;
-  try {
-    response = await fetchExternalWithRetry(`${ENDPOINT}${path}`, {
-      ...init, headers: headers(apiKey, fields),
-    }, TRANSPORT);
-  } catch (error) {
-    // Transport-level: timeout, network, or an exhausted retry. The key must
-    // never reach a log line, so the cause is carried, not stringified here.
-    throw new PlacesError('provider', error instanceof ExternalRequestError ? error : error);
-  }
-  if (response.status === 404) throw new PlacesError('not_found');
-  if (!response.ok) throw new PlacesError('provider', response.status);
-  return readJson(response);
-}
-
-function requireKey(options: PlacesOptions): string {
-  const key = options.apiKey?.trim();
-  if (!key) throw new PlacesError('unconfigured');
-  return key;
-}
+export { PlacesError, type PlacesErrorCode, type PlacesOptions } from './places-transport';
 
 /** The Place id shape the tenant parser and the `locations` column both accept. */
 const PLACE_ID = /^[A-Za-z0-9_-]{6,255}$/;
 
-/**
- * One property by Place id.
- *
- * `expectLodging` defaults on: a location declared as a hotel that resolves to
- * a restaurant is a data error worth failing, not rendering.
- */
+export type PlaceDetailsRequest = {
+  /**
+   * The autocomplete session this lookup ends. Passing it is what leaves the
+   * keystrokes before it unbilled; without it they bill as separate requests.
+   */
+  readonly sessionToken?: string;
+};
+
+/** One place by Place id, whatever kind of business it is. */
 export async function placeDetails(
   placeId: string,
   options: PlacesOptions,
-  expectLodging = true,
+  request: PlaceDetailsRequest = {},
 ): Promise<PlaceDetails> {
   const key = requireKey(options);
   if (!PLACE_ID.test(placeId)) throw new PlacesError('not_found');
-  const body = await call(
-    `/places/${encodeURIComponent(placeId)}`,
+  const { sessionToken } = request;
+  if (sessionToken !== undefined && !isPlacesSessionToken(sessionToken)) {
+    throw new PlacesError('not_found');
+  }
+  const session = sessionToken === undefined ? '' : `?sessionToken=${encodeURIComponent(sessionToken)}`;
+  const body = await placesCall(
+    `/places/${encodeURIComponent(placeId)}${session}`,
     { method: 'GET', signal: options.signal ?? null },
     key, PLACE_FIELDS,
   );
   const place = normalizePlace(body);
   if (!place) throw new PlacesError('malformed');
-  if (expectLodging && !isLodging(place)) throw new PlacesError('not_lodging');
   return place;
 }
 
 /**
- * The lodging that best matches free text -- typically "<hotel name>, <city>".
+ * The best match for free text -- typically "<business name>, <city>".
  *
- * This is what lets a chain onboard its next branch without anyone pasting an
- * opaque id: the tenant folder names the property the way a person would, and
- * the id is resolved once and then stored.
- *
- * `includedType: 'lodging'` is sent so the provider filters rather than this
- * code sifting a page of cafés; the lodging check still runs on the result,
- * because a filter that silently stops being honoured should fail loudly.
+ * Two calls, on purpose: the search asks for ids only, which is not billed,
+ * and the one billed call is the Details lookup on the winner. A search that
+ * asked for the full field set would bill at a Text Search tier that costs
+ * more than the Details call it replaces.
  */
-export async function findLodging(query: string, options: PlacesOptions): Promise<PlaceDetails> {
-  const key = requireKey(options);
-  const textQuery = query.trim();
-  // Keep this boundary aligned with tenant-config. Callers outside that parser
-  // must not be able to turn an unbounded string into a metered provider call.
-  if (textQuery.length === 0 || query.length > PLACE_QUERY_MAX) throw new PlacesError('not_found');
-  const body = await call('/places:searchText', {
-    method: 'POST',
-    signal: options.signal ?? null,
-    body: JSON.stringify({ textQuery, includedType: 'lodging', maxResultCount: 1 }),
-  }, key, PLACE_FIELDS.map((field) => `places.${field}`));
-  const places = (body as { places?: unknown })?.places;
-  const first = Array.isArray(places) ? places[0] : undefined;
-  if (first === undefined) throw new PlacesError('not_found');
-  const place = normalizePlace(first);
-  if (!place) throw new PlacesError('malformed');
+export async function findPlace(
+  query: string,
+  options: PlacesOptions,
+  filters: PlaceSearchFilters = {},
+): Promise<PlaceDetails> {
+  const [placeId] = await searchPlaceIds(query, options, filters, 1);
+  if (placeId === undefined) throw new PlacesError('not_found');
+  return placeDetails(placeId, options);
+}
+
+function lodgingOnly(place: PlaceDetails): PlaceDetails {
   if (!isLodging(place)) throw new PlacesError('not_lodging');
   return place;
 }
 
-export { isLodging, type PlaceDetails, type PlaceCoordinates } from './places-types';
+/**
+ * One property by Place id, refused unless it is somewhere a guest stays: a
+ * location declared as a hotel that resolves to a restaurant is a data error
+ * worth failing, not rendering.
+ */
+export async function lodgingDetails(placeId: string, options: PlacesOptions): Promise<PlaceDetails> {
+  return lodgingOnly(await placeDetails(placeId, options));
+}
+
+/**
+ * The lodging that best matches free text.
+ *
+ * `includedType: 'lodging'` is sent so the provider ranks hotels first rather
+ * than this code sifting a page of cafés; the lodging check still runs on the
+ * result, because a filter that silently stops being honoured should fail
+ * loudly.
+ */
+export async function findLodging(query: string, options: PlacesOptions): Promise<PlaceDetails> {
+  return lodgingOnly(await findPlace(query, options, { includedType: 'lodging' }));
+}

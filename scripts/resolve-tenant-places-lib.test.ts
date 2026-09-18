@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { normalizePlace, type PlaceDetails } from '@platform/engine';
+
 import {
   applyResolvedPlaces,
   resolveLocations,
@@ -8,19 +10,13 @@ import {
   type PlaceLocation,
 } from './resolve-tenant-places-lib';
 
-const place = (placeId: string) => ({
-  placeId,
-  name: placeId,
-  formattedAddress: null,
-  location: null,
-  rating: null,
-  userRatingCount: null,
-  websiteUri: null,
-  phone: null,
-  weekdayDescriptions: [],
-  photoNames: [],
-  types: ['lodging'],
-});
+// Built through the normalizer rather than as a literal, so a field added to
+// PlaceDetails does not have to be copied into every fixture that fakes one.
+const place = (placeId: string): PlaceDetails => {
+  const normalized = normalizePlace({ id: placeId, types: ['lodging'] });
+  assert.ok(normalized);
+  return normalized;
+};
 
 test('tenantBrandPath keeps a valid tenant under the tenant root', () => {
   assert.equal(

@@ -9,6 +9,8 @@ export * from './operations';
 export * from './platform-access';
 export * from './http';
 export * from './places';
+export * from './places-search';
+export * from './places-types';
 export * from './jobs';
 export * from './orders';
 export * from './square/client';
