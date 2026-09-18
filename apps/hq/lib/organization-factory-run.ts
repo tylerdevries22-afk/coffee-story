@@ -10,6 +10,7 @@
 import { start } from 'workflow/api';
 
 import type { serviceDb } from '@/lib/api-auth';
+import { holdIfFactoryFull } from '@/lib/factory-capacity';
 import { onboardingRunArgs } from '@/lib/factory-run-input';
 import { factoryStartupDecision } from '@/lib/factory-startup';
 import type { OrgDraft } from '@/lib/org-input';
@@ -48,6 +49,9 @@ export async function startFactoryRun(input: {
     runId = run.data;
   }
   try {
+    // At the concurrency limit the run waits as factory_busy and the scheduled
+    // job starts it when a slot frees; the organization is created either way.
+    if (await holdIfFactoryFull(database, runId)) return true;
     await start(runPlatformFactory, [{ runId }]);
   } catch {
     await database.from('platform_onboarding_runs').update({
