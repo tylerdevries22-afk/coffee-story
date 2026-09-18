@@ -1,8 +1,11 @@
 /**
  * The tenant registry the console's organization switcher reads when no
  * Supabase environment is present, so the demo shows a real franchise tree
- * with zero infrastructure. Each entry is a tenant folder under /tenants,
- * plus the operator org that owns them.
+ * with zero infrastructure. Each entry is a tenant folder under /tenants, read
+ * from ./tenants.generated.ts, which is generated from the tree: a folder is in
+ * the switcher on the commit that adds it, with nothing here to remember. What
+ * stays hand-written is what is a decision rather than a scan -- the order,
+ * and the launch tenant's fixture id and locations.
  *
  * An "organization" in HQ is a tenant (a brand, or the operator that runs the
  * platform). Switching it re-themes and re-scopes the whole console -- the
@@ -15,18 +18,8 @@
  * construction franchise, not a shop), which is what makes the same five apps
  * reusable across verticals.
  */
-import coffeeStoryBrand from '../../../tenants/coffee-story/brand.json';
-import coffeeStoryModules from '../../../tenants/coffee-story/modules.json';
-import juniperBrand from '../../../tenants/juniper-base-demo/brand.json';
-import juniperModules from '../../../tenants/juniper-base-demo/modules.json';
-import stillpointBrand from '../../../tenants/stillpoint-builders/brand.json';
-import stillpointModules from '../../../tenants/stillpoint-builders/modules.json';
-import actzBrand from '../../../tenants/actz/brand.json';
-import actzModules from '../../../tenants/actz/modules.json';
-import summitRidgeBrand from '../../../tenants/summit-ridge-hotels/brand.json';
-import summitRidgeModules from '../../../tenants/summit-ridge-hotels/modules.json';
-
 import { DEMO_LOCATIONS, DEMO_SESSION } from './demo-data';
+import { GENERATED_TENANTS, type GeneratedTenant } from './tenants.generated';
 
 export type WorkspaceOrgKind = 'operator' | 'brand';
 
@@ -96,92 +89,89 @@ function summarizeHours(hours: ManifestLocation['hours']): string {
 }
 
 /**
- * Every organization the demo console can switch between, operator first.
- * Coffee Story reuses the demo session's brand id so the default selection and
- * the demo fixtures (locations, KPIs) line up out of the box.
+ * The order the switcher lists tenants in. Callers fall back to the first
+ * entry as the demo default, so this is chosen, not scanned. A tenant folder
+ * not named here still appears -- after these, alphabetically -- so a new
+ * tenant needs an edit here only to move up the list, never to be on it.
  */
-export const TENANT_ORGS: readonly TenantOrg[] = [
-  {
-    id: 'stillpoint-builders',
-    slug: 'stillpoint-builders',
-    name: 'Stillpoint Builders',
-    // A franchisee, not the platform. 'operator' is the badge the workspace
-    // switcher reserves for the platform's own account, and the demo was
-    // tagging its construction tenant with it -- exactly the identity mix-up
-    // a live pitch to a second franchisee would surface. No demo org is the
-    // platform operator, so nothing in the registry carries that kind.
-    kind: 'brand',
-    brandConfig: stillpointBrand,
-    moduleKeys: enabledModuleKeys(stillpointModules),
-    locations: manifestLocations(stillpointBrand, 'stillpoint-builders'),
-  },
-  {
-    id: DEMO_SESSION.brandId,
-    slug: 'coffee-story',
-    name: 'Coffee Story',
-    kind: 'brand',
-    brandConfig: coffeeStoryBrand,
-    moduleKeys: enabledModuleKeys(coffeeStoryModules),
-    locations: DEMO_LOCATIONS.map((location) => ({
-      id: location.id,
-      name: location.name,
-      city: location.city,
-      timezone: location.timezone,
-      hours: location.hours,
-    })),
-  },
-  {
-    // The third slot is the neutral tenant: a brand with no vertical of its
-    // own, which is what proves the console is not coffee-shaped. It was
-    // Demo Roastery, which had no guest-app bundle and not one image file --
-    // a switcher entry whose apps could not be opened and whose menu was
-    // empty. Juniper Base Demo is already applied into both guest bundles
-    // (apps/*/src/tenants/applied.json), so this entry and those builds now
-    // describe the same tenant.
-    id: 'juniper-base-demo',
-    slug: 'juniper-base-demo',
-    name: 'Juniper Base Demo',
-    kind: 'brand',
-    brandConfig: juniperBrand,
-    moduleKeys: enabledModuleKeys(juniperModules),
-    locations: manifestLocations(juniperBrand, 'juniper-base-demo'),
-  },
-  {
-    // The network operator, and the first entry that is neither a shop nor a
-    // site: ACTZ owns venue brands rather than trading itself, so it declares
-    // no location and installs no module. Every other entry has at least one
-    // of each, which is exactly why it belongs here -- a switcher that only
-    // holds sellers cannot show a franchisor's console at all.
-    //
-    // `kind: 'brand'` for the same reason Stillpoint carries it: 'operator' is
-    // the badge reserved for the platform's own account, and ACTZ is a tenant
-    // of the platform, not the platform.
-    id: 'actz',
-    slug: 'actz',
-    name: 'ACTZ',
-    kind: 'brand',
-    brandConfig: actzBrand,
-    moduleKeys: enabledModuleKeys(actzModules),
-    locations: manifestLocations(actzBrand, 'actz'),
-  },
-  {
-    // A member of the network above, and the first franchisee in the registry.
-    // Every other entry owns itself; this one inherits its defaults from ACTZ
-    // and overrides what it chooses to, which is the relationship a real chain
-    // has with the network it joins.
-    //
-    // It is a chain rather than a single hotel deliberately: `locations` is the
-    // branch list, so the console shows a switchable set of properties under
-    // one brand, and each branch's lobby screen is its own.
-    id: 'summit-ridge-hotels',
-    slug: 'summit-ridge-hotels',
-    name: 'Summit Ridge Hotels',
-    kind: 'brand',
-    brandConfig: summitRidgeBrand,
-    moduleKeys: enabledModuleKeys(summitRidgeModules),
-    locations: manifestLocations(summitRidgeBrand, 'summit-ridge-hotels'),
-  },
+const SWITCHER_ORDER: readonly string[] = [
+  'stillpoint-builders',
+  'coffee-story',
+  // The third slot is the neutral tenant: a brand with no vertical of its
+  // own, which is what proves the console is not coffee-shaped. It was
+  // Demo Roastery, which had no guest-app bundle and not one image file --
+  // a switcher entry whose apps could not be opened and whose menu was
+  // empty. Juniper Base Demo is already applied into both guest bundles
+  // (apps/*/src/tenants/applied.json), so this entry and those builds now
+  // describe the same tenant.
+  'juniper-base-demo',
+  // The network operator, and the first entry that is neither a shop nor a
+  // site: ACTZ owns venue brands rather than trading itself, so it declares
+  // no location and installs no commerce module. Every other entry has at
+  // least one location, which is exactly why it belongs here -- a switcher
+  // that only holds sellers cannot show a franchisor's console at all.
+  'actz',
+  // A member of the network above, and the first franchisee in the registry.
+  // Every other entry owns itself; this one inherits its defaults from ACTZ
+  // and overrides what it chooses to, which is the relationship a real chain
+  // has with the network it joins.
+  //
+  // It is a chain rather than a single hotel deliberately: `locations` is the
+  // branch list, so the console shows a switchable set of properties under
+  // one brand, and each branch's lobby screen is its own.
+  'summit-ridge-hotels',
 ];
+
+/**
+ * The launch tenant reuses the demo session's brand id, so the default
+ * selection and the demo fixtures (locations, KPIs) line up out of the box;
+ * for the same reason its locations are those fixtures, not its brand.json's.
+ */
+const LAUNCH_TENANT = 'coffee-story';
+
+function compareSlugs(a: string, b: string): number {
+  if (a === b) return 0;
+  return a < b ? -1 : 1;
+}
+
+/** The tenants in SWITCHER_ORDER first, in that order, then the rest by slug. */
+export function switcherOrder<T extends { readonly slug: string }>(tenants: readonly T[]): T[] {
+  const rank = (slug: string): number => {
+    const index = SWITCHER_ORDER.indexOf(slug);
+    return index === -1 ? SWITCHER_ORDER.length : index;
+  };
+  return [...tenants].sort((a, b) => rank(a.slug) - rank(b.slug) || compareSlugs(a.slug, b.slug));
+}
+
+function tenantOrg(tenant: GeneratedTenant): TenantOrg {
+  const launch = tenant.slug === LAUNCH_TENANT;
+  return {
+    id: launch ? DEMO_SESSION.brandId : tenant.slug,
+    slug: tenant.slug,
+    name: tenant.brand.identity.name,
+    // A tenant, never the platform. 'operator' is the badge the workspace
+    // switcher reserves for the platform's own account, and the demo was
+    // tagging its construction tenant, Stillpoint Builders, with it -- exactly
+    // the identity mix-up a live pitch to a second franchisee would surface.
+    // ACTZ runs a network and is still a tenant of the platform, not the
+    // platform. No demo org is the platform operator, so none carries that kind.
+    kind: 'brand',
+    brandConfig: tenant.brand,
+    moduleKeys: enabledModuleKeys(tenant.modules),
+    locations: launch
+      ? DEMO_LOCATIONS.map((location) => ({
+        id: location.id,
+        name: location.name,
+        city: location.city,
+        timezone: location.timezone,
+        hours: location.hours,
+      }))
+      : manifestLocations(tenant.brand, tenant.slug),
+  };
+}
+
+/** Every organization the demo console can switch between, in switcher order. */
+export const TENANT_ORGS: readonly TenantOrg[] = switcherOrder(GENERATED_TENANTS).map(tenantOrg);
 
 /**
  * The enabled module keys of a tenant manifest.
@@ -190,7 +180,7 @@ export const TENANT_ORGS: readonly TenantOrg[] = [
  * the demo cannot drift from what it declares on disk. `enabled: false` is a
  * declared-but-off module and must not be offered.
  */
-function enabledModuleKeys(manifest: { modules: { key: string; enabled?: boolean }[] }): readonly string[] {
+function enabledModuleKeys(manifest: GeneratedTenant['modules']): readonly string[] {
   return manifest.modules.filter((entry) => entry.enabled !== false).map((entry) => entry.key);
 }
 

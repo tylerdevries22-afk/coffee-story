@@ -5,6 +5,7 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { HQ_TENANT_REGISTRY, writeHqTenantRegistry } from './hq-tenant-registry.js';
 import { applyAppArtwork } from './onboard-app-artwork.js';
 import { applyTenantSlot, describeApplied } from './onboard-tenant-slots.js';
 import { generateAppArtwork } from './lib/onboard-assets.js';
@@ -90,6 +91,17 @@ function applyGuestSurfaces(args: Arguments, tenant: ValidatedTenant): void {
   )}`);
 }
 
+/**
+ * The console lists every tenant folder, applied to a guest app or not, so
+ * this runs on every onboarding rather than only under --apply: a tenant is
+ * in HQ once its folder is, with no separate step to remember.
+ */
+function regenerateHqRegistry(): void {
+  const { slugs, changed } = writeHqTenantRegistry(process.cwd());
+  console.log(`7. hq registry: ${changed ? 'regenerated' : 'already current'}, `
+    + `${slugs.length} tenants -> ${HQ_TENANT_REGISTRY}`);
+}
+
 function validate(args: Arguments): ValidatedTenant {
   try {
     return validateTenant(args);
@@ -126,6 +138,7 @@ async function run(): Promise<void> {
     console.log('4. listing: skipped (tenant ships no guest ordering menu)');
   }
   applyGuestSurfaces(args, tenant);
+  regenerateHqRegistry();
 }
 
 run().catch((error: unknown) => {

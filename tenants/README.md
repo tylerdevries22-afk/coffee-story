@@ -26,6 +26,11 @@ honors `brand.json.surfaces` and refreshes only the declared guest binaries:
   Expo config, including the tenant's separate kiosk EAS update project when
   `identity.kioskEasProjectId` is set.
 
+Both forms also regenerate `apps/hq/lib/tenants.generated.ts`, the HQ console's
+registry of tenant folders, so a new tenant reaches the organization switcher
+without editing console code; `pnpm hq:tenants` runs that step on its own.
+Commit it with the folder: a drift test fails `verify` while the two disagree.
+
 ## Ownership map
 
 | Input | Owns |

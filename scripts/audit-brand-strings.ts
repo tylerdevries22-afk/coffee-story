@@ -122,6 +122,7 @@ const ALLOWED = new Map<string, string>([
   ['apps/display/lib/demo-tenant.ts', 'the display demo tenant registry, selected only when no database is configured'],
   ['apps/hq/lib/demo-data.ts', 'the console fixtures HQ renders with no database configured'],
   ['apps/hq/lib/tenants.ts', 'the demo tenant registry the organization switcher lists with no database configured'],
+  ['apps/hq/lib/tenants.generated.ts', 'as apps/hq/lib/tenants.ts: generated from tenants/, one literal import per folder because Next needs one, and pinned to the tree by a drift test'],
   ['apps/hq/lib/content-demo-workspace.ts', 'as apps/hq/lib/demo-data.ts'],
   ['apps/hq/lib/factory-data.ts', 'as apps/hq/lib/demo-data.ts'],
   ['apps/hq/lib/demo-menu-media.ts', 'as apps/hq/lib/demo-data.ts'],

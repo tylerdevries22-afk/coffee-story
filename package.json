@@ -14,6 +14,7 @@
     "preview": "tsx scripts/preview.ts",
     "wall:start": "tsx scripts/wall-launch.ts",
     "onboard": "tsx scripts/onboard.ts",
+    "hq:tenants": "tsx scripts/hq-tenant-registry.ts",
     "release:gate": "tsx scripts/release-gate.ts",
     "tenant-package:publish": "tsx scripts/publish-tenant-package.ts",
     "tenant-package:retention": "tsx scripts/tenant-package-retention.ts",
