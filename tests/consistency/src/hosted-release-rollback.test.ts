@@ -4,7 +4,9 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { describe, it, type TestContext } from 'node:test';
+import { before, describe, it, type TestContext } from 'node:test';
+
+import { requireCommands } from './required-commands.ts';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const HELPER = join(ROOT, 'scripts', 'hosted-release-rollback.sh');
@@ -95,6 +97,8 @@ function run(t: TestContext, mode: string, trigger = 'HUP') {
 }
 
 describe('hosted release rollback transaction', () => {
+  before(() => requireCommands('bash', 'jq'));
+
   it('restores package, providers in reverse, verifies the whole set, then confirms', (t) => {
     const { result, calls, records } = run(t, 'success');
     assert.equal(result.status, 0, result.stderr);

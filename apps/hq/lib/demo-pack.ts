@@ -37,6 +37,8 @@ export type DemoLanding = {
   readonly reviewsUri: string | null;
   readonly hours: readonly string[];
   readonly menu: readonly DemoMenuSection[];
+  /** The factory's starter menu stood in for one it could not read, and the page must say so. */
+  readonly menuSample: boolean;
 };
 
 /** An object name inside one demo's media folder: no slashes, no dot-dot. */
@@ -144,5 +146,6 @@ export function demoLanding(pack: unknown, fallbackName: string): DemoLanding {
     hours: list(listing.weekdayDescriptions).map((line) => str(line, 80))
       .filter((line) => line !== null).slice(0, LIMIT.hours),
     menu: menuSections(record(source.menu), record(media.items)),
+    menuSample: source.menuSource === 'sample',
   };
 }

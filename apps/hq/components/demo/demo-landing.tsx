@@ -20,11 +20,16 @@ function media(name: string): string {
   return `/d/media/${encodeURIComponent(name)}`;
 }
 
-function Menu({ sections }: { sections: readonly DemoMenuSection[] }) {
+function Menu({ sections, sample }: { sections: readonly DemoMenuSection[]; sample: boolean }) {
   if (sections.length === 0) return null;
   return (
     <section className="demo-section" aria-labelledby="demo-menu-title">
-      <h2 className="demo-section-title" id="demo-menu-title">Your menu, already in the app</h2>
+      <h2 className="demo-section-title" id="demo-menu-title">
+        {sample ? 'A sample menu, standing in for yours' : 'Your menu, already in the app'}
+      </h2>
+      {sample ? (
+        <p className="demo-section-note">We could not read your menu from your website, so these items are placeholders.</p>
+      ) : null}
       {sections.map((section, sectionIndex) => (
         <div className="demo-menu-group" key={`${sectionIndex}-${section.title}`}>
           <h3 className="demo-menu-heading">{section.title}</h3>
@@ -98,7 +103,7 @@ export function DemoLandingPage({ landing, builder, removeHref }: {
           </a>
         </p>
       </header>
-      <Menu sections={landing.menu} />
+      <Menu sections={landing.menu} sample={landing.menuSample} />
       <Listing landing={landing} />
       <section className="demo-section demo-cta" aria-labelledby="demo-cta-title">
         <h2 className="demo-section-title" id="demo-cta-title">Want this for real?</h2>
