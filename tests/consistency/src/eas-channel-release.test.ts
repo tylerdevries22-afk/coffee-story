@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
-import { describe, it } from 'node:test';
+import { before, describe, it } from 'node:test';
+
+import { requireCommands } from './required-commands.ts';
 
 const ROOT = join(process.cwd(), '..', '..');
 const RELEASE_STATE = join(ROOT, 'scripts', 'eas-release-state.sh');
@@ -41,6 +43,8 @@ wc -l < "$mutations"
 `;
 
 describe('EAS channel release reconciliation', () => {
+  before(() => requireCommands('bash', 'jq', 'sha256sum'));
+
   it('reconciles a lost edit response without another semantic mutation', () => {
     const result = bash(`DRIFT=false\n${moveHarness}`);
     assert.equal(result.status, 0, result.stderr);

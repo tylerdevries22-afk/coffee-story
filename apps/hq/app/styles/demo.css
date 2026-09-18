@@ -111,6 +111,12 @@
   font-size: 1.25rem;
 }
 
+.demo-section-note {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
 .demo-menu-group {
   display: grid;
   gap: 0.5rem;
