@@ -34,7 +34,7 @@ for (const pkg of packages) {
   if (run('pnpm', ['run', 'test'], { cwd: pkg.path }).status !== 0) failed.push(short);
 }
 
-console.log(`error: node=${process.version} missing=${missing.join(',') || 'none'} pkgs=${packages.length}`);
+console.log(`error: jq=${process.env.JQ_SETUP ?? '-'} node=${process.version} missing=${missing.join(',') || 'none'} pkgs=${packages.length}`);
 console.log(`error: failed=${failed.join(',') || 'none'}`);
 console.log(`error: cons ${consistency}`);
 process.exit(1);
