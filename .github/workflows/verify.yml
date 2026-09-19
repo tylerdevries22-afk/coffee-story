@@ -307,7 +307,7 @@ jobs:
       # they get a separate step: a failure names which class drifted rather
       # than making someone read the output to find out.
       - name: Check product cut-outs against the spec
-        run: pnpm normalize-product-cutouts --check
+        run: pnpm normalize-product-cutouts --check --tenant coffee-story
 
       # The one release gate in CLAUDE.md. Word boundaries, not substrings; the
       # denylist and this workflow are excluded from their own scan; only
