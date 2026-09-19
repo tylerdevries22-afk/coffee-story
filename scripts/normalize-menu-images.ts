@@ -55,7 +55,13 @@ function argValue(flag: string): string | null {
   return index >= 0 ? process.argv[index + 1] ?? null : null;
 }
 
-const tenantSlug = argValue('--tenant') ?? 'coffee-story';
+const tenantSlugArg = argValue('--tenant');
+if (!tenantSlugArg) {
+  console.error('--tenant <slug> is required; refusing to default to coffee-story');
+  process.exit(1);
+  throw new Error('unreachable');
+}
+const tenantSlug: string = tenantSlugArg;
 // Joined into a filesystem path below for reads and writes. onboard.ts
 // validates the identical flag; this script must not be the soft way in.
 if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(tenantSlug)) {

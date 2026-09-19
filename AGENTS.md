@@ -1,5 +1,7 @@
 # The Expo apps target Expo SDK 54
 
+> Product name: **App Factory** (`app-factory`). Coffee Story is a tenant, not the product.
+
 This applies to `apps/customer` and `apps/operator`. Read the exact versioned
 docs at https://docs.expo.dev/versions/v54.0.0/ before writing any code.
 

@@ -1,5 +1,7 @@
 # Platform architecture rules
 
+> Product name: **App Factory** (`app-factory`). Coffee Story is a tenant, not the product.
+
 This repository is a multi-tenant, white-label ordering platform: a shared
 engine and schema, a token-driven UI kit, and three front ends built per
 tenant. These rules are binding for every change.

@@ -23,7 +23,12 @@ export const PRODUCT_MASTER_EXT = '.png';
 
 export function productCutoutTenant(argv: string[], envTenant?: string): string {
   const tenantArg = argv.indexOf('--tenant');
-  return tenantArg >= 0 ? (argv[tenantArg + 1] ?? 'coffee-story') : (envTenant ?? 'coffee-story');
+  const fromArg = tenantArg >= 0 ? argv[tenantArg + 1] : undefined;
+  const slug = fromArg ?? envTenant;
+  if (!slug) {
+    throw new Error('--tenant <slug> or TENANT/env tenant is required; refusing to default to coffee-story');
+  }
+  return slug;
 }
 
 export function productCutoutPaths(cwd: string, tenant: string) {
