@@ -1,8 +1,8 @@
 /** GET /api/integrations/actz/organizations/[id]/status — read-only; never go-live. */
-import { corsPreflight, jsonError, jsonWithCors } from '../../../../../../lib/api-auth';
-import { authenticateActzPartner } from '../../../../../../lib/actz-partner-auth';
-import { actzPartnerStatusFrom } from '../../../../../../lib/actz-partner-status';
-import { rateLimited, clientIdentity } from '../../../../../../lib/rate-limit';
+import { corsPreflight, jsonError, jsonWithCors } from '../../../../../../../lib/api-auth';
+import { authenticateActzPartner } from '../../../../../../../lib/actz-partner-auth';
+import { actzPartnerStatusFrom } from '../../../../../../../lib/actz-partner-status';
+import { rateLimited, clientIdentity } from '../../../../../../../lib/rate-limit';
 
 export const runtime = 'nodejs';
 

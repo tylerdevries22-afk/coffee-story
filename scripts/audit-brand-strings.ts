@@ -118,6 +118,9 @@ function needlesFor(tenantFile: string): Needle[] {
  * being true the entry should go, not grow.
  */
 const ALLOWED = new Map<string, string>([
+  ['apps/hq/lib/actz-handoff.ts', 'ACTZ partner handoff JWT issuer constants for the App Factory integration (not a hard-coded shop identity)'],
+  ['apps/hq/lib/actz-partner-auth.ts', 'ACTZ partner integration auth for App Factory (x-integration-key); names the partner, not a shop fixture'],
+  ['apps/hq/lib/actz-partner-status.ts', 'ACTZ partner status mapping for App Factory org lifecycle reads'],
   ['apps/display/lib/demo-board.ts', 'a fixture brand, playing the part of tenant data on a screen with no database'],
   ['apps/display/lib/demo-tenant.ts', 'the display demo tenant registry, selected only when no database is configured'],
   ['apps/hq/lib/demo-data.ts', 'the console fixtures HQ renders with no database configured'],
@@ -149,6 +152,7 @@ const ALLOWED = new Map<string, string>([
 const ALLOWED_TREES = new Map<string, string>([
   ['apps/customer/src/tenants/', 'generated tenant slot: one literal path per applied tenant is what Metro requires'],
   ['apps/kiosk/src/tenants/', 'as apps/customer/src/tenants/'],
+  ['apps/hq/app/api/integrations/actz/', 'ACTZ partner HTTP surface for App Factory; path and strings name the integration, not a hard-coded shop'],
 ]);
 
 function exempt(file: string): boolean {
