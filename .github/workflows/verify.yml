@@ -301,7 +301,7 @@ jobs:
       # them. They need regenerating square at source, so the loop lands with
       # that fix.
       - name: Check menu imagery against the spec
-        run: pnpm normalize-menu-images --check
+        run: pnpm normalize-menu-images --check --tenant coffee-story
 
       # Product cut-outs are a separate asset class with a separate spec, so
       # they get a separate step: a failure names which class drifted rather
