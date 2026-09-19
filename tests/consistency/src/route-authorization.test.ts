@@ -168,6 +168,14 @@ const UNAUTHENTICATED: Readonly<Record<string, { reason: string; guard: RegExp }
     reason: 'verified against the Square subscription signature key, not a session',
     guard: /verifySquareSignature/,
   },
+  'integrations/actz/organizations': {
+    reason: 'ACTZ partner create; x-integration-key via authenticateActzPartner, not a console session',
+    guard: /authenticateActzPartner/,
+  },
+  'integrations/actz/organizations/[id]/status': {
+    reason: 'ACTZ partner status; x-integration-key via authenticateActzPartner, not a console session',
+    guard: /authenticateActzPartner/,
+  },
 };
 
 describe('HQ API routes identify their caller', () => {
@@ -241,9 +249,9 @@ describe('HQ API routes identify their caller', () => {
   });
 
   it('keeps the exemption list from growing silently', () => {
-    // Eight, each argued above. A ninth is a decision someone should have to
+    // Ten, each argued above. An eleventh is a decision someone should have to
     // make on purpose, not a number that drifts.
-    assert.equal(Object.keys(UNAUTHENTICATED).length, 8);
+    assert.equal(Object.keys(UNAUTHENTICATED).length, 10);
   });
 });
 
