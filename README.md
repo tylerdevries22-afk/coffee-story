@@ -1,7 +1,7 @@
-# Multi-tenant ordering platform
+# Zapper Factory
 
-A white-label ordering platform in a pnpm monorepo: a shared engine and
-schema, a token-driven UI kit, and three front ends. The first tenant is
+Zapper Factory is a white-label ordering platform in a pnpm monorepo: a shared engine and
+schema, a token-driven UI kit, and three front ends. The product is Zapper Factory. The first tenant is
 Coffee Story, a specialty coffee shop at 2222 S Havana St Unit A1, Aurora CO
 80014. Architecture rules live in `CLAUDE.md`; the platform audit that shaped
 this layout is `docs/AUDIT.md`.

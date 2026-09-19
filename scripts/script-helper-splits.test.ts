@@ -44,6 +44,7 @@ describe('script helper splits', () => {
       assert.equal(productCutoutPaths(root, 'coffee-story').products, join(tenantDir, 'assets/products'));
       assert.equal(productCutoutTenant(['--tenant', 'flag-tenant'], 'env-tenant'), 'flag-tenant');
       assert.equal(productCutoutTenant([], 'env-tenant'), 'env-tenant');
+      assert.throws(() => productCutoutTenant([], undefined), /refusing to default to coffee-story/);
       assert.equal(productStem('drink.png'), 'drink');
       assert.equal(hashBytes(Buffer.from('same')), hashProductCutout(Buffer.from('same')));
     } finally {

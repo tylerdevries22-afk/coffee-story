@@ -24,7 +24,10 @@ import { join } from 'node:path';
 
 import { createClient } from '@supabase/supabase-js';
 
-const slug = process.argv[2] ?? 'coffee-story';
+const slug = process.argv[2];
+if (!slug) {
+  throw new Error('Usage: migrate-legacy <tenant-slug>  (no default — refuse coffee-story leak)');
+}
 const url = process.env.SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
