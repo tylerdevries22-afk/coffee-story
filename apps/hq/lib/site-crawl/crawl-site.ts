@@ -1,4 +1,5 @@
 import { CrawlBudget, PublicFetchError, type PublicFetchOptions } from '../public-fetch';
+import { assetPermission } from './asset-robots';
 import { contactEmails, emailsInMailto, emailsInText } from './contact-emails';
 import {
   SiteCrawlError, fetchPage, fetchStylesheet, robotsRulesFor, websiteStart,
@@ -15,7 +16,8 @@ import { socialLinks, socialNetwork, type SocialLink } from './social-links';
  * Reads a business's own website into plain facts: at most eight same-site
  * pages (homepage first, then the ones that look like menu, services,
  * contact and about), up to three first-party stylesheets, and robots.txt
- * before any of them. Every fetch draws from one crawl budget. The result
+ * before any of them -- plus the robots.txt of up to four other hosts its
+ * pictures come from. Every fetch draws from one crawl budget. The result
  * is plain JSON, so it can cross a workflow step boundary unchanged.
  */
 export type CrawledPage = {
@@ -115,14 +117,9 @@ function pageUrlForAsset(href: string, home: URL): URL | null {
   }
 }
 
-function assemble(pages: readonly Page[], css: readonly string[], rules: RobotsRules, skipped: SiteCrawl['skipped']): SiteCrawl {
+function assemble(pages: readonly Page[], css: readonly string[], skipped: SiteCrawl['skipped']): SiteCrawl {
   const [home] = pages;
   if (home === undefined) throw new SiteCrawlError('unreachable');
-  // A picture the site closes to crawlers is not offered for download either.
-  const permitted = ({ url }: { readonly url: string }): boolean => {
-    const parsed = new URL(url);
-    return !sameSite(parsed, home.url) || robotsAllows(rules, parsed.pathname + parsed.search);
-  };
   const structured = readJsonLd(pages.flatMap((page) => page.facts.jsonLd));
   const links = pages.flatMap((page) => page.facts.links);
   const themeColors = pages.map((page) => page.facts.meta['theme-color']).filter((value): value is string => Boolean(value));
@@ -140,8 +137,8 @@ function assemble(pages: readonly Page[], css: readonly string[], rules: RobotsR
     description: clip(meta.description || meta['og:description'], 500),
     pages: pages.map((page) => ({ url: page.url.href, topic: page.topic, title: clip(page.facts.title, 200), text: page.facts.text })),
     colors: paletteCandidates(themeColors, [...pages.flatMap((page) => page.facts.inlineStyles), ...css]),
-    logos: logoCandidates(home.facts, home.url, structured.logos).filter(permitted),
-    images: imageCandidates(pages.filter((page) => page.topic !== 'about' && page.topic !== 'contact')).filter(permitted),
+    logos: logoCandidates(home.facts, home.url, structured.logos),
+    images: imageCandidates(pages.filter((page) => page.topic !== 'about' && page.topic !== 'contact')),
     socialLinks: socialLinks([...structured.sameAs, ...links.map((link) => absolute(link.href, home.url))]),
     contactEmails: contactEmails(emails, siteHost(home.url)),
     skipped,
@@ -182,6 +179,14 @@ export async function crawlSite(website: string, options: CrawlOptions = {}): Pr
   const skipped: { url: string; reason: string }[] = [];
   const pages = [home, ...await subpages(home, fetchOptions, homeRules, skipped)];
   const css = await stylesheets(home, fetchOptions, homeRules);
-  return assemble(pages, css, homeRules, skipped);
+  const crawl = assemble(pages, css, skipped);
+  // A picture its host closes to crawlers is not offered for download either.
+  const pictures = [...crawl.logos, ...crawl.images].map(({ url }) => url);
+  const allowed = await assetPermission(pictures, home.url, homeRules, fetchOptions);
+  return {
+    ...crawl,
+    logos: crawl.logos.filter(({ url }) => allowed(url)),
+    images: crawl.images.filter(({ url }) => allowed(url)),
+  };
 }
 
