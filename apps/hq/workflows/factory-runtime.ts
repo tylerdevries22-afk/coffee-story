@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
+import { FatalError } from '@workflow/errors';
 import { availableFactoryCredentialKeys, type FactoryRunInput } from '../lib/factory-automation';
 import { factorySurfacePlan } from '../lib/factory-surfaces';
 export type FactoryRunRow = FactoryRunInput & { id: string; supabaseRegion: string };
@@ -22,9 +23,9 @@ export async function providerFetch(
   const retrySafe = idempotent
     || ['GET', 'HEAD', 'OPTIONS', 'PUT', 'DELETE'].includes(method)
     || headers.has('Idempotency-Key');
-  for (let attempt = 1; attempt <= (retrySafe ? 2 : 1); attempt += 1) {
+  for (let attempt = 1; attempt <= (retrySafe ? 2 : 1) && !init.signal?.aborted; attempt += 1) {
     try {
-      const response = await fetch(url, { ...init, signal: AbortSignal.timeout(45_000) });
+      const response = await fetch(url, { ...init, signal: init.signal ? AbortSignal.any([init.signal, AbortSignal.timeout(45_000)]) : AbortSignal.timeout(45_000) });
       if (response.ok || (response.status < 500 && response.status !== 429)) return response;
       failure = new Error(`Provider returned ${response.status}.`);
     } catch (error) {
@@ -36,7 +37,7 @@ export async function providerFetch(
 export function database() {
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) throw new Error('Platform factory database is not configured.');
+  if (!url || !key) throw new FatalError('Platform factory database is not configured.');
   return createClient(url, key, {
     auth: { persistSession: false },
     global: { fetch: (input, init) => providerFetch(input, init ?? {}) },
@@ -156,7 +157,7 @@ export async function existingResource(
   if (result.error) throw new Error(`Factory resource lookup failed: ${result.error.code}`);
   if (!result.data) return null;
   if (result.data.environment !== 'production') {
-    throw new Error('Factory resource environment does not match production.');
+    throw new FatalError('Factory resource environment does not match production.');
   }
   return {
     provider: result.data.provider,
@@ -185,7 +186,7 @@ export async function saveResource(runId: string, resource: SafeResource): Promi
 
 export function requiredEnvironment(name: string): string {
   const value = process.env[name]?.trim();
-  if (!value) throw new Error(`Factory provider configuration is incomplete (${name}).`);
+  if (!value) throw new FatalError(`Factory provider configuration is incomplete (${name}).`);
   return value;
 }
 

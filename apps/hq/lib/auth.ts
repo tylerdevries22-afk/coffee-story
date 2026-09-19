@@ -14,27 +14,6 @@ import { brandNameFromMetadata, tokenAppMetadata } from './token-claims';
 
 export { isConfigured };
 
-/** Signed-in users with no brand_users still need the new-shop wizard. */
-export function isSetupConsolePath(pathname: string): boolean {
-  return pathname === '/organizations/new';
-}
-
-export type AuthUser = { readonly userId: string; readonly email: string };
-
-/** GoTrue user without tenant claims. Null when nobody is signed in. */
-export const currentAuthUser = cache(async function currentAuthUser(): Promise<AuthUser | null> {
-  if (!isConfigured()) {
-    if (!demoFallbackAllowed()) return null;
-    return { userId: DEMO_SESSION.userId ?? 'demo', email: DEMO_SESSION.email };
-  }
-  const { serverClient } = await import('./supabase-server');
-  const client = await serverClient();
-  if (!client) return null;
-  const { data } = await client.auth.getUser();
-  if (!data.user) return null;
-  return { userId: data.user.id, email: data.user.email ?? '' };
-});
-
 /**
  * Server-side: the current session, or the demo one when unconfigured.
  *
@@ -115,4 +94,19 @@ const ROLE_RANK: Record<BrandRole, number> = {
 export function hasRole(session: SessionInfo | null, atLeast: BrandRole): boolean {
   if (!session) return false;
   return ROLE_RANK[session.role] >= ROLE_RANK[atLeast];
+}
+
+/**
+ * Whether this session may provision a new organization: platform admins only.
+ *
+ * It used to be anyone signed in -- a user with no tenant yet was let through
+ * to the new-shop wizard -- until the owner decided organizations are created
+ * by platform staff. The database agrees on its own: both provisioning RPCs
+ * raise platform_actor_required without a live platform_admin membership. But
+ * the action sends the owner's invitation before it calls them, so a refusal
+ * there still let any signed-in user mail an invite to any address. The check
+ * has to come first, here.
+ */
+export function mayProvisionOrganizations(session: SessionInfo | null): session is SessionInfo {
+  return hasRole(session, 'platform_admin');
 }

@@ -17,6 +17,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppErrorBoundary } from '@/components/app-error-boundary';
 import { CustomerTelemetry } from '@/components/customer-telemetry';
 import { Button } from '@/components/ui';
+import { DemoScreenCapture } from '@/demo-runtime/screen-capture';
 import { InstallPrompt } from '@/components/install-prompt';
 import { brandCache } from '@/lib/brand-cache';
 import { revalidateTenantCapabilities } from '@/lib/capability-check';
@@ -113,6 +114,7 @@ function ConfiguredApp({ config }: { config: MobileLiveConfig }) {
               a bag that is still there. */}
           <OrderProvider>
             <CustomerTelemetry />
+            <DemoScreenCapture />
             <StatusBar style="dark" />
             <CustomerStack />
             <PreviewSwitcher

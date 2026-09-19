@@ -3,6 +3,7 @@ import Link from 'next/link';
 
 import { Icon, type IconName } from '@/components/icon';
 import { currentSession, hasRole } from '@/lib/auth';
+import { FACTORY_MAX_RUNNING } from '@/lib/factory-capacity';
 import { loadFactoryOverview } from '@/lib/factory-data';
 import { formatMoney } from '@/lib/kpi';
 import { ONBOARDING_INDUSTRIES } from '@/lib/onboarding-industries';
@@ -55,8 +56,9 @@ export default async function OnboardingPage({ searchParams }: { searchParams: S
         </Link>
       </header>
 
-      {params.created ? <div className="notice">The onboarding run was created and its first research task is ready.</div> : null}
-      {params.resumed ? <div className="notice">The factory run resumed from its last completed task.</div> : null}
+      {params.created && !params.held ? <div className="notice">The onboarding run was created and its first research task is ready.</div> : null}
+      {params.resumed && !params.held ? <div className="notice">The factory run resumed from its last completed task.</div> : null}
+      {params.held ? <div className="notice">{FACTORY_MAX_RUNNING} factory runs are already building, so this one is waiting its turn. It starts on its own when a slot frees.</div> : null}
       {params.preview_created ? <div className="notice">Preview accepted. Configure the hosted factory environment to persist and execute this run.</div> : null}
       {error ? (
         <div className="notice factory-notice-danger" role="alert">

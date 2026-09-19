@@ -1,5 +1,6 @@
 import { Icon } from '@/components/icon';
 import { ProvisioningLoader } from '@/components/provisioning-loader';
+import { FACTORY_BUSY } from '@/lib/factory-capacity';
 import type { FactoryRunView } from '@/lib/factory-data';
 
 import { resumeOnboardingRun } from './actions';
@@ -34,6 +35,9 @@ function FactoryRun({ run, admin }: { run: FactoryRunView; admin: boolean }) {
         <span>{run.verifiedCredentials} of {run.requiredCredentials} credentials verified</span>
         <span>Stage: {runStateLabel(run.stage)}</span>
       </div>
+      {run.lastErrorCode === FACTORY_BUSY ? (
+        <p className="muted">Waiting for a free build slot. It starts on its own when a running build finishes.</p>
+      ) : null}
       {admin && run.lastErrorCode === 'go_live_required' ? (
         <p className="muted">Awaiting owner/admin Go live on the organization page. Resume will not mint production hosts.</p>
       ) : null}

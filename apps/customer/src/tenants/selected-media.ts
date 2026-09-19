@@ -14,11 +14,20 @@ import homeHero from '@tenant-bundle/artwork/hero/home-hero.mp4';
 import stones from '@tenant-bundle/artwork/hero/stones.webp';
 import liquidNebula from '@tenant-bundle/artwork/rewards/liquid-nebula.webp';
 
+/**
+ * A Metro asset id on native and on a normal tenant's web export; a runtime
+ * source on the demo runtime web export, whose media lives behind the
+ * cookie-gated /d/media/ proxy rather than in the bundle (see
+ * ../demo-runtime/pack.ts). RN's own Image and expo-image/expo-video already
+ * accept both shapes, so this widening reaches almost no call site.
+ */
+export type TenantImageSource = number | { readonly uri: string };
+
 export type TenantMediaSlot = {
-  readonly brandLogo: number;
-  readonly artwork: Readonly<Record<string, number>>;
-  readonly menuMedia: Readonly<Record<string, number>>;
-  readonly productMedia: Readonly<Record<string, number>>;
+  readonly brandLogo: TenantImageSource;
+  readonly artwork: Readonly<Record<string, TenantImageSource>>;
+  readonly menuMedia: Readonly<Record<string, TenantImageSource>>;
+  readonly productMedia: Readonly<Record<string, TenantImageSource>>;
 };
 
 export const TENANT_MEDIA: TenantMediaSlot = {

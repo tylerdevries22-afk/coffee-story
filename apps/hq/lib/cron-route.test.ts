@@ -69,6 +69,8 @@ it('runs healthy maintenance stages when the drops stage fails', async (t) => {
     '/rest/v1/rpc/count_square_connection_mutation_alerts',
     '/rest/v1/rpc/count_square_payment_remediation_alerts',
     '/rest/v1/rpc/count_square_payment_validation_alerts',
+    // The factory queue: how many runs are building, then which are waiting.
+    '/rest/v1/platform_onboarding_runs',
   ]));
 });
 

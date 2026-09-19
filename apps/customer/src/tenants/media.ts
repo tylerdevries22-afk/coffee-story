@@ -52,11 +52,14 @@ import artworkStillpointBuildersHeroHomeHeroMp4 from '../../assets/tenants/still
 import artworkStillpointBuildersHeroStonesWebp from '../../assets/tenants/stillpoint-builders/hero/stones.webp';
 import artworkStillpointBuildersRewardsLiquidNebulaWebp from '../../assets/tenants/stillpoint-builders/rewards/liquid-nebula.webp';
 
+/** A Metro asset id, or a runtime `{ uri }` source in demo runtime mode. */
+export type TenantImageSource = number | { readonly uri: string };
+
 export type TenantMediaSlot = {
-  readonly brandLogo: number;
-  readonly artwork: Readonly<Record<'gift/birthday-cake.webp' | 'gift/birthday-confetti.webp' | 'gift/congrats-bloom.webp' | 'gift/congrats-gold.webp' | 'gift/grateful.webp' | 'gift/healing-oil.webp' | 'gift/quiet-hour.webp' | 'gift/thank-you.webp' | 'hero/home-hero.mp4' | 'hero/stones.webp' | 'rewards/liquid-nebula.webp', number>>;
-  readonly menuMedia: Readonly<Record<string, number>>;
-  readonly productMedia: Readonly<Record<string, number>>;
+  readonly brandLogo: TenantImageSource;
+  readonly artwork: Readonly<Record<'gift/birthday-cake.webp' | 'gift/birthday-confetti.webp' | 'gift/congrats-bloom.webp' | 'gift/congrats-gold.webp' | 'gift/grateful.webp' | 'gift/healing-oil.webp' | 'gift/quiet-hour.webp' | 'gift/thank-you.webp' | 'hero/home-hero.mp4' | 'hero/stones.webp' | 'rewards/liquid-nebula.webp', TenantImageSource>>;
+  readonly menuMedia: Readonly<Record<string, TenantImageSource>>;
+  readonly productMedia: Readonly<Record<string, TenantImageSource>>;
 };
 
 const MEDIA: Readonly<Record<string, TenantMediaSlot>> = {

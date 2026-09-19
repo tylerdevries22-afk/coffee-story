@@ -4,7 +4,7 @@ import { motion, useTransform, type MotionStyle } from 'framer-motion';
 import { useRef } from 'react';
 
 import type { AppPreviewTile } from '@/lib/app-wall-geometry';
-import type { AppPreviewDevice } from '@/lib/app-previews';
+import { UNBUILT_PREVIEW_CAPTION, type AppPreviewDevice } from '@/lib/app-previews';
 import type { Phase } from '@/lib/app-wall-sim';
 
 import { WallChipRail, type WallChipRailProps } from './apps-preview-chips';
@@ -50,7 +50,7 @@ export function AppsPreviewTile({ device, motion: values, onDeviceChange, phase,
           <DevicePreviewFrame anchorRef={anchorRef} frame={preview.frame} height={preview.viewport.height} loading="eager" reducedMotion={reducedMotion} src={preview.url ?? 'about:blank'} title={`${preview.label} production preview`} turn={values.turn} width={preview.viewport.width} />
           <WallChipRail {...chips} portrait={tile.orientation === 'portrait'} preview={preview} rotateDisabled={busy} />
         </div>
-        <p className="apps-wall-caption" id={captionId}><strong>{preview.label}</strong><small>{preview.device}</small><AppDeviceToggle app={preview.label} onChange={onDeviceChange} value={device} /></p>
+        <p className="apps-wall-caption" id={captionId}><strong>{preview.label}</strong><small>{preview.url ? preview.device : UNBUILT_PREVIEW_CAPTION}</small><AppDeviceToggle app={preview.label} onChange={onDeviceChange} value={device} /></p>
       </article>
     </motion.li>
   );

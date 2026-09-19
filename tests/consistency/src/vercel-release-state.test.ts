@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
-import { describe, it } from 'node:test';
+import { before, describe, it } from 'node:test';
+
+import { requireCommands } from './required-commands.ts';
 
 const ROOT = join(process.cwd(), '..', '..');
 const stageState = join(ROOT, 'scripts', 'vercel-stage-state.sh');
@@ -67,6 +69,8 @@ jq -cn --argjson candidate "$candidate_aliases" --argjson previous "$previous_al
 `;
 
 describe('Vercel provider state reconciliation', () => {
+  before(() => requireCommands('bash', 'jq'));
+
   it('recovers one exact staged deployment after an ambiguous mutation response', () => {
     const result = bash(stageHarness, { DUPLICATE: 'false' });
     assert.equal(result.status, 0, result.stderr);

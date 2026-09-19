@@ -1,0 +1,58 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+
+import { KIND_POLICIES, parseContentType, sniffImageFormat } from './kinds';
+import { DEMO_BUILDER_PRODUCT_TOKEN, PUBLIC_FETCH_USER_AGENT } from './user-agent';
+
+/** Byte fixtures as numbers, so this file stays plain text for diffs and scanners. */
+const ascii = (text: string): number[] => [...text].map((character) => character.charCodeAt(0));
+
+test('a content type parses to its lowercase media type and charset', () => {
+  assert.deepEqual(parseContentType('text/html; charset=UTF-8'), { mediaType: 'text/html', charset: 'utf-8' });
+  assert.deepEqual(parseContentType('Text/CSS'), { mediaType: 'text/css', charset: null });
+  assert.deepEqual(parseContentType('text/plain;charset="iso-8859-1";format=flowed'), { mediaType: 'text/plain', charset: 'iso-8859-1' });
+  assert.deepEqual(parseContentType('image/svg+xml'), { mediaType: 'image/svg+xml', charset: null });
+});
+
+test('a missing or malformed content type is no type at all', () => {
+  for (const value of [undefined, '', 'html', 'text/', '/html', 'text/html extra', 'not a type']) {
+    assert.equal(parseContentType(value), null, String(value));
+  }
+});
+
+test('the four raster formats are recognised by their bytes', () => {
+  assert.equal(sniffImageFormat(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0])), 'png');
+  assert.equal(sniffImageFormat(Buffer.from([0xff, 0xd8, 0xff, 0xdb])), 'jpeg');
+  assert.equal(sniffImageFormat(Buffer.from('GIF89a....', 'latin1')), 'gif');
+  assert.equal(sniffImageFormat(Buffer.from('GIF87a....', 'latin1')), 'gif');
+  assert.equal(sniffImageFormat(Uint8Array.of(...ascii('RIFF'), 0, 0, 0, 0, ...ascii('WEBPVP8 '))), 'webp');
+});
+
+test('anything else is not an image here, whatever it is called', () => {
+  const others = [
+    Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>'),
+    Buffer.from('<?xml version="1.0"?><svg/>'),
+    Uint8Array.of(...ascii('II*'), 0), // TIFF
+    Buffer.from('%PDF-1.7'),
+    Uint8Array.of(...ascii('RIFF'), 0, 0, 0, 0, ...ascii('WAVEfmt ')),
+    Buffer.from([0x89, 0x50, 0x4e]), // a truncated PNG signature
+    Buffer.alloc(0),
+  ];
+  for (const bytes of others) assert.equal(sniffImageFormat(bytes), null, Buffer.from(bytes).toString('latin1'));
+});
+
+test('SVG is not an accepted image type, and each kind has its own ceiling', () => {
+  assert.ok(!KIND_POLICIES.image.mediaTypes.includes('image/svg+xml'));
+  assert.ok(!KIND_POLICIES.image.accept.includes('svg'));
+  assert.equal(KIND_POLICIES.html.maxBytes, 1_572_864);
+  assert.equal(KIND_POLICIES.css.maxBytes, 524_288);
+  assert.equal(KIND_POLICIES.image.maxBytes, 8_388_608);
+  assert.equal(KIND_POLICIES.robots.maxBytes, 524_288);
+  assert.deepEqual(KIND_POLICIES.robots.mediaTypes, ['text/plain']);
+});
+
+test('the user agent names its product token, so robots.txt can address it', () => {
+  assert.match(DEMO_BUILDER_PRODUCT_TOKEN, /^[A-Za-z]+$/);
+  assert.ok(PUBLIC_FETCH_USER_AGENT.includes(`${DEMO_BUILDER_PRODUCT_TOKEN}/1.0`));
+  assert.ok(PUBLIC_FETCH_USER_AGENT.startsWith('Mozilla/5.0 (compatible; '));
+});

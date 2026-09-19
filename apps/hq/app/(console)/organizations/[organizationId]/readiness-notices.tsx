@@ -27,6 +27,7 @@ const LIFECYCLE_NOTICES: Record<string, { message: string; failed: boolean }> = 
 type Query = {
   activation?: string;
   factory?: string;
+  pack?: string;
   golive?: string;
   lifecycle?: string;
 };
@@ -44,6 +45,12 @@ export function ReadinessNotices({ query, slug }: { query: Query; slug: string }
       {query.factory === 'failed' ? (
         <div className="notice danger" role="status">
           The organization was provisioned, but factory automation did not start. Resume it from Onboarding.
+        </div>
+      ) : null}
+      {query.pack === 'failed' ? (
+        <div className="notice danger" role="status">
+          The organization was provisioned, but its tenant folder was not written to this checkout.
+          Nothing existing was overwritten; the server log says why.
         </div>
       ) : null}
       {goliveNotice ? (

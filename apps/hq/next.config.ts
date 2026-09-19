@@ -49,6 +49,14 @@ const config: NextConfig = {
       { source: '/kiosk/:path*', destination: '/kiosk/index.html' },
       { source: '/operator', destination: '/operator/index.html' },
       { source: '/operator/:path*', destination: '/operator/index.html' },
+      // A prospect's own working app, built once and served from this same
+      // origin at request time via /d/pack.json (see apps/customer/index.js,
+      // apps/kiosk/index.js). No /demo/operator: a prospect never gets staff
+      // tooling.
+      { source: '/demo/customer', destination: '/demo/customer/index.html' },
+      { source: '/demo/customer/:path*', destination: '/demo/customer/index.html' },
+      { source: '/demo/kiosk', destination: '/demo/kiosk/index.html' },
+      { source: '/demo/kiosk/:path*', destination: '/demo/kiosk/index.html' },
       // Per-tenant copies the staff wall frames. Same origin on purpose: every
       // hosted surface answers frame-ancestors 'self', so a wall pointed at
       // another org's deployment is refused by the browser and paints blank.
@@ -81,6 +89,16 @@ const config: NextConfig = {
       frameAncestors: modelBParents,
       noIndex: true,
     });
+    // A prospect's demo: never indexed or cached, never framed, and never
+    // sending a Referer -- the first request carries the link token in its
+    // path, and an outbound click must not hand it to the site it lands on.
+    const demoHeaders = [
+      ...securityHeaders({ developmentFrames: false, noIndex: true })
+        .filter((header) => header.key !== 'Referrer-Policy' && header.key !== 'X-Robots-Tag'),
+      { key: 'Referrer-Policy', value: 'no-referrer' },
+      { key: 'X-Robots-Tag', value: 'noindex, nofollow, noarchive' },
+      { key: 'Cache-Control', value: 'private, no-store' },
+    ];
     return [
       {
         // The tenant-safe preview is deliberately same-origin so its iframe can
@@ -107,9 +125,22 @@ const config: NextConfig = {
       { source: '/operator/:path*', headers: modelBHeaders },
       { source: '/t/:slug/:path*', headers: modelBHeaders },
       { source: '/lobby/:path*', headers: modelBHeaders },
+      { source: '/d/:path*', headers: demoHeaders },
+      // The exported app itself gets the same treatment as the HQ-rendered
+      // demo pages: it is the same prospect's demo, just the working-app half
+      // of it rather than the landing-page half.
+      { source: '/demo/:path*', headers: demoHeaders },
+      // Except its bundles: content-hashed, so a changed file gets a new name,
+      // and one neutral runtime serves every demo, so they hold no business's
+      // data. Without this every open downloads the whole app again. It comes
+      // after the no-store rule because Next keeps the later of two values.
+      {
+        source: '/demo/:surface(customer|kiosk)/_expo/static/:path*',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
+      },
       {
         // Exclude Model B prefixes so they do not inherit production frame-ancestors 'none'.
-        source: '/((?!api/|wall/preview/|t/|lobby(?:/|$)|customer(?:/|$)|kiosk(?:/|$)|operator(?:/|$)|$).*)',
+        source: '/((?!api/|wall/preview/|t/|d/|demo(?:/|$)|lobby(?:/|$)|customer(?:/|$)|kiosk(?:/|$)|operator(?:/|$)|$).*)',
         headers: securityHeaders({ developmentFrames: process.env.NODE_ENV !== 'production' }),
       },
     ];

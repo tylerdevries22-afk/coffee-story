@@ -132,6 +132,9 @@ export function appPreviewsFor(environment: AppPreviewEnvironment = process.env)
   return APP_PREVIEW_KEYS.map((key) => appPreviewFor(key, environment));
 }
 
+/** Caption for a wall surface that has nothing to frame for the selected organization. */
+export const UNBUILT_PREVIEW_CAPTION = 'No build for this organization yet';
+
 /** Overlays absolute surface URLs onto the standard preview descriptors. */
 export function withSurfaceUrls(
   previews: readonly AppPreview[],

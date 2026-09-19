@@ -43,4 +43,10 @@ describe('shared rate limiter', () => {
     assert.equal(rateLimited(anonymous, '/pair', 1_000, 1), false);
     assert.equal(rateLimited(anonymous, '/pair', 1_001, 1), true);
   });
+
+  it('reads server action headers the same way it reads request headers', () => {
+    // Server actions get `headers()` from next/headers, not a Request.
+    const actionHeaders = new Headers({ 'x-real-ip': '203.0.113.9' });
+    assert.equal(clientIdentity({ headers: actionHeaders }), '203.0.113.9');
+  });
 });

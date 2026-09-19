@@ -61,7 +61,7 @@ export function appliedSlugs(root: string, app: GuestApp): readonly string[] {
 }
 
 /** `coffee-story` -> `CoffeeStory`, for a generated identifier. */
-function pascal(slug: string): string {
+export function pascal(slug: string): string {
   return slug.split(/[^a-z0-9]+/i)
     .filter((part) => part.length > 0)
     .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
@@ -140,9 +140,9 @@ function renderMediaBarrel(app: GuestApp, slugs: readonly string[]): string {
     brandLogo: brandLogo${pascal(slug)},
     ${artwork ? `artwork: {${TENANT_ARTWORK.map((path) => `\n      '${path}': artwork${pascal(slug)}${pascal(path)},`).join('')}\n    },\n    ` : ''}menuMedia: menuMedia${pascal(slug)},${cutouts ? `\n    productMedia: cutouts${pascal(slug)},` : ''}
   },`);
-  const productField = cutouts ? '\n  readonly productMedia: Readonly<Record<string, number>>;' : '';
+  const productField = cutouts ? '\n  readonly productMedia: Readonly<Record<string, TenantImageSource>>;' : '';
   const artworkField = artwork
-    ? `  readonly artwork: Readonly<Record<${TENANT_ARTWORK.map((path) => `'${path}'`).join(' | ')}, number>>;\n`
+    ? `  readonly artwork: Readonly<Record<${TENANT_ARTWORK.map((path) => `'${path}'`).join(' | ')}, TenantImageSource>>;\n`
     : '';
   return `/**
  * The static image maps for every applied tenant, and the one this build uses.
@@ -156,9 +156,12 @@ function renderMediaBarrel(app: GuestApp, slugs: readonly string[]): string {
 import { TENANT_SLUG } from './index';
 
 ${imports.join('\n')}${imports.length > 0 ? '\n' : ''}
+/** A Metro asset id, or a runtime \`{ uri }\` source in demo runtime mode. */
+export type TenantImageSource = number | { readonly uri: string };
+
 export type TenantMediaSlot = {
-  readonly brandLogo: number;
-${artworkField}  readonly menuMedia: Readonly<Record<string, number>>;${productField}
+  readonly brandLogo: TenantImageSource;
+${artworkField}  readonly menuMedia: Readonly<Record<string, TenantImageSource>>;${productField}
 };
 
 const MEDIA: Readonly<Record<string, TenantMediaSlot>> = {

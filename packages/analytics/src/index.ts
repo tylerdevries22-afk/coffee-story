@@ -1,4 +1,5 @@
 export * from './analytics';
+export * from './demo-capture';
 export * from './identity';
 export * from './queue-store';
 export * from './surface-observer';

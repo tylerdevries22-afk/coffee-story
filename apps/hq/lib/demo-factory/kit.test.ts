@@ -1,0 +1,78 @@
+import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
+
+import { kitMenu, kitText, kitTokens, luminance, type DemoBrandKit } from './kit';
+
+const KIT: DemoBrandKit = {
+  colors: [],
+  tagline: null,
+  email: null,
+  logo: null,
+  menu: [
+    { name: 'Latte', description: 'Steamed milk.', priceCents: 525, category: 'Coffee', image: 'latte.webp' },
+    { name: 'Latte', description: null, priceCents: 600, category: 'Coffee', image: null },
+    { name: 'Scone', description: '<b>Buttery</b>', priceCents: 350, category: 'Bakery', image: '../escape.png' },
+    { name: 'Muffin', description: null, priceCents: null, category: 'Bakery', image: null },
+    { name: 'Tea', description: null, priceCents: 1.5, category: null, image: null },
+    { name: 'Water', description: null, priceCents: 0, category: 'Drinks', image: null },
+    { name: '!', description: null, priceCents: 100, category: 'Coffee', image: null },
+  ],
+};
+
+describe('kitMenu', () => {
+  it('turns a website menu into the guest apps menu shape', () => {
+    const built = kitMenu(KIT);
+    assert.ok(built);
+    assert.deepEqual(built.menu.categories.map((category) => [category.id, category.title]),
+      [['coffee', 'Coffee'], ['bakery', 'Bakery']]);
+    assert.deepEqual(built.menu.items.map((item) => [item.id, item.category]),
+      [['latte', 'coffee'], ['latte-2', 'coffee'], ['scone', 'bakery']]);
+    assert.deepEqual(built.images, { latte: 'latte.webp' });
+  });
+
+  it('leaves out an item with no usable price, rather than show it free, and makes no empty category for it', () => {
+    const built = kitMenu(KIT);
+    const ids = built?.menu.items.map((item) => item.id) ?? [];
+    for (const unpriced of ['muffin', 'tea', 'water']) assert.ok(!ids.includes(unpriced), unpriced);
+    assert.deepEqual(built?.menu.items.find((item) => item.id === 'latte')?.sizes, [{ slug: 'latte', priceCents: 525 }]);
+    assert.ok(!built?.menu.categories.some((category) => category.id === 'drinks' || category.id === 'menu'));
+  });
+
+  it('keeps no markup and no escaping media name', () => {
+    const scone = kitMenu(KIT)?.menu.items.find((item) => item.id === 'scone');
+    assert.equal(scone?.description, 'b Buttery /b');
+    assert.equal(kitMenu(KIT)?.images.scone, undefined);
+  });
+
+  it('is bounded, and absent when too few priced items survive', () => {
+    const many = Array.from({ length: 90 }, (_, index) => ({
+      name: `Item ${index}`, description: null, priceCents: 100, category: `Group ${index % 20}`, image: null,
+    }));
+    const built = kitMenu({ ...KIT, menu: many });
+    assert.ok((built?.menu.items.length ?? 0) <= 60);
+    assert.ok((built?.menu.categories.length ?? 0) <= 12);
+    assert.equal(kitMenu({ ...KIT, menu: [{ name: '', description: null, priceCents: 1, category: null, image: null }] }), null);
+    assert.equal(kitMenu({ ...KIT, menu: KIT.menu.slice(0, 2) }), null, 'two priced items read as a broken menu');
+    assert.equal(kitMenu({ ...KIT, menu: KIT.menu.slice(0, 3) })?.menu.items.length, 3);
+    assert.equal(kitText('a\u0000b  <c>', 10), 'a b c');
+  });
+});
+
+describe('kitTokens', () => {
+  const surface = '#fafaf9';
+
+  it('uses a brand color only where it can be read', () => {
+    // Deep navy carries white text; a mid teal reads on the surface; pale yellow reads nowhere.
+    assert.deepEqual(kitTokens({ ...KIT, colors: ['#FFF3B0', '#0B2545', '#1B998B'] }, surface),
+      { primary: '#0b2545', accent: '#1b998b' });
+  });
+
+  it('keeps the neutral tokens for a brand whose colors are all pale, or malformed', () => {
+    assert.deepEqual(kitTokens({ ...KIT, colors: ['#fff3b0', '#f7f7f7', 'blue', '#12345'] }, surface), {});
+  });
+
+  it('measures luminance the WCAG way', () => {
+    assert.equal(luminance('#000000'), 0);
+    assert.ok(Math.abs(luminance('#ffffff') - 1) < 1e-9);
+  });
+});

@@ -2,13 +2,14 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
 import { currentSession, hasRole } from '@/lib/auth';
+import { HoursEditor } from '@/components/hours-editor';
 import { InlineDevicePairing } from '@/components/inline-device-pairing';
 import { currentClaims } from '@/lib/auth';
 import { loadLocations } from '@/lib/data';
 import { isConfigured } from '@/lib/supabase-server';
 import { selectedOrganizationId } from '@/lib/workspace-scope';
-import { WEEKDAYS } from '@/lib/location-input';
 import { locationCreationContinuation } from '@/lib/location-onboarding';
+import { DEFAULT_HOURS } from '@/lib/place-prefill';
 
 import { createLocationAction } from '../actions';
 
@@ -22,10 +23,6 @@ const TIMEZONES = [
   'America/Los_Angeles', 'America/Anchorage', 'Pacific/Honolulu',
   'America/Toronto', 'Europe/London', 'Europe/Paris', 'Australia/Sydney',
 ];
-
-const DAY_LABEL: Record<string, string> = {
-  mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun',
-};
 
 type NewLocationPageProps = {
   searchParams: Promise<{ created?: string; error?: string; square?: string }>;
@@ -98,25 +95,8 @@ export default async function NewLocationPage({ searchParams }: NewLocationPageP
               {TIMEZONES.map((zone) => <option key={zone} value={zone}>{zone}</option>)}
             </select>
           </label>
-          <fieldset className="location-form-days">
-            <legend>Open days</legend>
-            {WEEKDAYS.map((day) => (
-              <label key={day} className="location-form-day">
-                <input type="checkbox" name="days" value={day} defaultChecked={day !== 'sun'} />
-                {DAY_LABEL[day]}
-              </label>
-            ))}
-          </fieldset>
-          <div className="location-form-row">
-            <label className="field">
-              Opens
-              <input name="openTime" type="time" defaultValue="08:00" required />
-            </label>
-            <label className="field">
-              Closes
-              <input name="closeTime" type="time" defaultValue="20:00" required />
-            </label>
-          </div>
+          {/* The same editor and starting week as a location typed by hand in the wizard. */}
+          <HoursEditor initial={DEFAULT_HOURS} />
           {canContinueToSquare ? (
             <label className="location-form-check">
               <input type="checkbox" name="connectSquare" defaultChecked />

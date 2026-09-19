@@ -1,7 +1,86 @@
 import assert from 'node:assert/strict';
+import { join } from 'node:path';
 import { describe, it } from 'node:test';
 
-import { requiredTenant } from './build-org-web-statics';
+import { demoExportEnvironment, exportEnvironment, plannedExports, requiredTenant } from './build-org-web-statics';
+
+const own = () => 'coffee-story';
+const applied = () => ['coffee-story', 'stillpoint-builders'];
+const shape = (plan: ReturnType<typeof plannedExports>) =>
+  plan.map(({ surface, tenant, target }) => `${tenant} ${surface.baseUrl} ${target.split(join('apps', 'hq', 'public'))[1]}`);
+
+describe('exportEnvironment', () => {
+  it('names the export tenant in every tenant variable, over the deployment one', () => {
+    // HQ's project sets TENANT=coffee-story. Inherited as-is, the guest apps'
+    // config refused every wall copy for another tenant.
+    const env = exportEnvironment(
+      { TENANT: 'coffee-story', EXPO_PUBLIC_TENANT: 'coffee-story', KEEP: 'yes' },
+      'juniper-base-demo', '/t/juniper-base-demo/customer',
+    );
+    assert.equal(env.TENANT, 'juniper-base-demo');
+    assert.equal(env.EXPO_PUBLIC_TENANT, 'juniper-base-demo');
+    assert.equal(env.EXPO_BASE_URL, '/t/juniper-base-demo/customer');
+    assert.equal(env.KEEP, 'yes');
+  });
+});
+
+describe('demoExportEnvironment', () => {
+  it('scrubs both tenant variables, and sets the demo flag, over the deployment ones', () => {
+    // Mirrors exportEnvironment's own test: HQ's project sets TENANT and
+    // EXPO_PUBLIC_TENANT=coffee-story, and #216 already found a spawned
+    // export inherits an env var it does not explicitly override.
+    const env = demoExportEnvironment(
+      { TENANT: 'coffee-story', EXPO_PUBLIC_TENANT: 'coffee-story', KEEP: 'yes' },
+      '/demo/customer',
+    );
+    assert.equal(env.EXPO_PUBLIC_TENANT, undefined);
+    assert.equal(env.TENANT, undefined);
+    assert.equal(env.EXPO_PUBLIC_DEMO_RUNTIME, '1');
+    assert.equal(env.EXPO_BASE_URL, '/demo/customer');
+    assert.equal(env.KEEP, 'yes');
+  });
+});
+
+describe('plannedExports', () => {
+  it('writes the three Model B paths for the deployment tenant by default', () => {
+    assert.deepEqual(shape(plannedExports([], own, applied)), [
+      `coffee-story /customer ${join('/', 'customer')}`,
+      `coffee-story /kiosk ${join('/', 'kiosk')}`,
+      `coffee-story /operator ${join('/', 'operator')}`,
+    ]);
+  });
+
+  it('keeps the Model B paths when --wall adds the per-tenant copies', () => {
+    // The regression this guards: --wall used to return after the wall loop,
+    // so production would have lost /customer, /kiosk and /operator.
+    const plan = shape(plannedExports(['--wall'], own, applied));
+    assert.equal(plan.length, 9);
+    assert.deepEqual(plan.slice(-3), shape(plannedExports([], own, applied)));
+    assert.ok(plan.includes(
+      `stillpoint-builders /t/stillpoint-builders/kiosk ${join('/', 't', 'stillpoint-builders', 'kiosk')}`,
+    ));
+  });
+
+  it('builds each wall copy with that tenant, never the deployment tenant', () => {
+    const wall = plannedExports(['--wall'], own, applied).slice(0, 6);
+    for (const entry of wall) {
+      assert.ok(entry.surface.baseUrl.startsWith(`/t/${entry.tenant}/`), entry.surface.baseUrl);
+    }
+  });
+
+  it('fails on a missing tenant before exporting any wall copy', () => {
+    let listed = false;
+    assert.throws(
+      () => plannedExports(['--wall'], () => { throw new Error('no tenant'); }, () => { listed = true; return []; }),
+      /no tenant/,
+    );
+    assert.equal(listed, false);
+  });
+
+  it('writes nothing with --skip', () => {
+    assert.deepEqual(plannedExports(['--skip', '--wall'], own, applied), []);
+  });
+});
 
 describe('requiredTenant', () => {
   it('fails closed when the tenant slug is unset', () => {

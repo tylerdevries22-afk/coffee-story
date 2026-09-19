@@ -73,8 +73,8 @@ test('a franchisee requires a network and complete first location', () => {
     ...BASE, organizationKind: 'franchisee', networkSlug: 'harbor-network',
     territory: 'North district',
     location: {
-      name: 'Downtown', timezone: 'America/Denver', openTime: '08:00',
-      closeTime: '18:00', days: ['mon', 'tue'], city: 'Denver',
+      name: 'Downtown', timezone: 'America/Denver', city: 'Denver',
+      hours: { mon: [{ open: '08:00', close: '18:00' }], tue: [{ open: '08:00', close: '18:00' }] },
     },
   });
   assert.ok(result.ok);
@@ -97,4 +97,18 @@ test('a long name produces a database-safe 63-character handle', () => {
   const result = parseOrgDraft({ ...BASE, name: 'A'.repeat(80) });
   assert.ok(result.ok);
   assert.equal(result.draft.slug.length, 63);
+});
+
+test('the website is https or nothing, for every organization model', () => {
+  const kept = parseOrgDraft({ ...BASE, website: ' https://harbor-bakery.example.com/ ' });
+  assert.ok(kept.ok);
+  assert.equal(kept.draft.website, 'https://harbor-bakery.example.com/');
+  const none = parseOrgDraft(BASE);
+  assert.ok(none.ok);
+  assert.equal(none.draft.website, null);
+  for (const website of ['http://harbor-bakery.example.com', 'harbor-bakery.example.com', 'https://localhost/']) {
+    assert.deepEqual(parseOrgDraft({ ...BASE, website }), {
+      ok: false, error: 'Enter the website as a public https:// address.',
+    }, website);
+  }
 });

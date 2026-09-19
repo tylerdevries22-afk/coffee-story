@@ -16,6 +16,14 @@ const SHARED_FILES = new Set([
   'tsconfig.base.json',
 ]);
 
+/**
+ * HQ is the Model B org host: it serves static exports of these three apps at
+ * /customer, /kiosk and /operator, plus a copy per applied tenant under /t/
+ * for the staff wall. A change to any of them leaves those exports stale until
+ * HQ is rebuilt, so for HQ they count as its own source.
+ */
+const HQ_EXPORTS = ['apps/customer/', 'apps/kiosk/', 'apps/operator/'];
+
 function underDir(path, dir) {
   const prefix = dir.endsWith('/') ? dir : `${dir}/`;
   return path === prefix.slice(0, -1) || path.startsWith(prefix);
@@ -28,7 +36,8 @@ export function pathAffectsApp(app, rawPath) {
   if (underDir(path, 'packages/') || underDir(path, 'tenants/') || underDir(path, 'patches/')) {
     return true;
   }
-  return app === 'hq' && underDir(path, 'scripts/');
+  if (app !== 'hq') return false;
+  return underDir(path, 'scripts/') || HQ_EXPORTS.some((dir) => underDir(path, dir));
 }
 
 export function decideBuild(app, files) {

@@ -47,6 +47,15 @@ describe('vercel-ignore', () => {
     assert.equal(capture('display', files).code, 1);
   });
 
+  it('a guest app change rebuilds hq, which serves its static export', () => {
+    for (const app of ['customer', 'kiosk', 'operator']) {
+      assert.equal(capture('hq', [`apps/${app}/src/app.tsx`]).code, 1, app);
+    }
+    // The applied list decides which /t/<slug>/ copies the wall build writes.
+    assert.equal(capture('hq', ['apps/customer/src/tenants/applied.json']).code, 1);
+    assert.equal(capture('display', ['apps/customer/src/app.tsx']).code, 0);
+  });
+
   it('hq scripts path proceeds only for hq', () => {
     const files = ['scripts/run-jobs.ts'];
     assert.equal(capture('hq', files).code, 1);
@@ -95,9 +104,15 @@ describe('vercel.json ignoreCommand', () => {
     });
   }
 
-  it('hq cron stays every five minutes', () => {
+  // The whole list, so a new schedule is a reviewed diff: the job runner every
+  // five minutes, and the demo factory every ten, which its daily count and
+  // budget brake rather than its schedule.
+  it('hq crons stay the job runner every five minutes and the demo factory every ten', () => {
     const config = JSON.parse(readFileSync(join(ROOT, 'apps/hq/vercel.json'), 'utf8'));
-    assert.deepEqual(config.crons, [{ path: '/api/jobs/run', schedule: '*/5 * * * *' }]);
+    assert.deepEqual(config.crons, [
+      { path: '/api/jobs/run', schedule: '*/5 * * * *' },
+      { path: '/api/jobs/demos', schedule: '*/10 * * * *' },
+    ]);
   });
 });
 

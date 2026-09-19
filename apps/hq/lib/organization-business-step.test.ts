@@ -3,12 +3,19 @@ import { describe, it } from 'node:test';
 
 import { businessStepOf } from './organization-business-step';
 
+/** A week as the wizard's hours editor posts it. */
+function week(hours: Record<string, readonly { open: string; close: string }[]>): string {
+  return JSON.stringify(hours);
+}
+
+const STANDARD = [{ open: '08:00', close: '17:00' }];
+
 function business(overrides: Record<string, string | readonly string[]> = {}) {
   const data = new FormData();
   const values = {
     name: 'Juniper Base Demo', organizationKind: 'independent', ownerEmail: 'owner@example.com',
     locationName: 'Main location', city: 'Riverside', timezone: 'America/Denver',
-    openTime: '08:00', closeTime: '17:00', days: ['mon', 'tue'], ...overrides,
+    hours: week({ mon: STANDARD, tue: STANDARD, wed: [], thu: [], fri: [], sat: [], sun: [] }), ...overrides,
   };
   for (const [key, value] of Object.entries(values)) {
     for (const item of Array.isArray(value) ? value : [value]) data.append(key, item);
@@ -31,18 +38,55 @@ describe('businessStepOf', () => {
     });
   });
 
-  it('requires an open day and targets the checkbox group', () => {
-    assert.deepEqual(businessStepOf(business({ days: [] })), {
-      ok: false, field: 'days', error: 'Pick at least one day the location is open.',
+  it('requires an open day and targets the hours editor', () => {
+    assert.deepEqual(businessStepOf(business({ hours: week({ mon: [], tue: [] }) })), {
+      ok: false, field: 'hours', error: 'Pick at least one day the location is open.',
     });
   });
 
-  it('requires closing after opening and targets the closing time', () => {
-    const invalidRanges = [['17:00', '08:00'], ['08:00', '08:00']] as const;
-    for (const [openTime, closeTime] of invalidRanges) {
-      assert.deepEqual(businessStepOf(business({ openTime, closeTime })), {
-        ok: false, field: 'closeTime', error: 'Closing time has to be after opening time.',
+  it('refuses a span that opens and closes at the same minute, and targets the hours editor', () => {
+    assert.deepEqual(businessStepOf(business({ hours: week({ mon: [{ open: '08:00', close: '08:00' }] }) })), {
+      ok: false, field: 'hours',
+      error: 'Monday: Opening and closing times can’t be the same. For a location that never closes, use 00:00 to 23:59.',
+    });
+  });
+
+  it('accepts a close before the open as an overnight span', () => {
+    const late = [{ open: '17:00', close: '01:00' }];
+    const result = businessStepOf(business({ hours: week({ mon: late, tue: late }) }));
+    assert.ok(result.ok);
+    assert.equal(result.details.hours, 'Mon Tue 17:00–01:00');
+  });
+
+  it('refuses a location posted without the week, rather than guessing its hours', () => {
+    assert.deepEqual(businessStepOf(business({ hours: '' })), {
+      ok: false, field: 'hours', error: 'The hours could not be read. Reload the form and try again.',
+    });
+  });
+
+  it('summarizes per-day hours from the wizard', () => {
+    const hours = JSON.stringify({ mon: [{ open: '07:00', close: '15:00' }], sat: [{ open: '00:00', close: '23:59' }] });
+    const result = businessStepOf(business({ hours }));
+    assert.ok(result.ok);
+    assert.equal(result.details.hours, 'Mon 07:00–15:00 · Sat 24 hours');
+  });
+
+  it('checks the website before submitting, for every organization model', () => {
+    for (const organizationKind of ['independent', 'franchisor'] as const) {
+      assert.deepEqual(businessStepOf(business({ organizationKind, website: 'http://juniper.example.com' })), {
+        ok: false, field: 'website', error: 'Enter the website as a public https:// address.',
       });
     }
+    assert.ok(businessStepOf(business({ website: 'https://juniper.example.com/' })).ok);
+  });
+
+  it('targets the field a Google-filled value failed on', () => {
+    assert.deepEqual(businessStepOf(business({ phone: 'n/a' })), {
+      ok: false, field: 'phone', error: 'Enter a phone number with 7 to 15 digits.',
+    });
+    const hours = JSON.stringify({ fri: [{ open: '08:00', close: '14:00' }, { open: '12:00', close: '18:00' }] });
+    const overlapping = businessStepOf(business({ hours }));
+    assert.equal(overlapping.ok, false);
+    if (!overlapping.ok) assert.equal(overlapping.field, 'hours');
   });
 });

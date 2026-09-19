@@ -1,21 +1,28 @@
 'use server';
 
+import { headers } from 'next/headers';
 
 import { serverEnv, serviceDb } from '@/lib/api-auth';
-import { currentAuthUser, currentSession } from '@/lib/auth';
+import { currentSession, mayProvisionOrganizations } from '@/lib/auth';
 import { addDemoLocation } from '@/lib/demo-locations';
 import { addDemoOrg } from '@/lib/demo-orgs';
 import type { OrganizationActionState } from '@/lib/organization-action-state';
 import { startFactoryRun } from '@/lib/organization-factory-run';
+import { orgInputFromForm } from '@/lib/org-form-input';
 import { parseOrgDraft } from '@/lib/org-input';
+import { provisioningLocation } from '@/lib/provisioning-location';
 import {
   organizationFailure, organizationInvitationUrl, reconcileUnknownProvisioningInvitation,
   rollbackInvitationSafely,
 } from '@/lib/organization-provisioning-helpers';
 import { resolveOrInviteStaffUser } from '@/lib/staff-admin';
 import { switchWorkspaceToProvisionedOrg } from '@/lib/organization-workspace-switch';
+import { clientIdentity, rateLimited } from '@/lib/rate-limit';
 import { isConfigured, serverClient } from '@/lib/supabase-server';
-import { tenantPackFromDraft, tryWriteTenantPack } from '@/lib/tenant-pack-write';
+import { tenantFolderTaken, tenantPackFromDraft, tryWriteTenantPack } from '@/lib/tenant-pack-write';
+
+/** Per caller per minute. Creating an organization is an occasional act, not a stream. */
+const PROVISION_LIMIT = 10;
 
 function text(formData: FormData, key: string): string {
   const value = formData.get(key); return typeof value === 'string' ? value : '';
@@ -25,35 +32,39 @@ export async function createOrganizationAction(
   _previous: OrganizationActionState,
   formData: FormData,
 ): Promise<OrganizationActionState> {
-  const [session, authUser] = await Promise.all([currentSession(), currentAuthUser()]);
-  if (!session && !authUser) {
-    return { kind: 'error', message: 'Sign in to create an organization.' };
+  // Before the session lookup, which is a GoTrue round trip, and long before the
+  // owner invitation: a flood should cost this instance a map entry, not mail.
+  if (rateLimited(clientIdentity({ headers: await headers() }), 'organizations:create',
+    Date.now(), PROVISION_LIMIT)) {
+    return { kind: 'error', message: 'Too many attempts. Wait a minute and try again.' };
   }
-  const parsed = parseOrgDraft({
-    name: text(formData, 'name'), ownerEmail: text(formData, 'ownerEmail'),
-    organizationKind: text(formData, 'organizationKind'),
-    industryKey: text(formData, 'industryKey'), blueprintKey: text(formData, 'blueprintKey'),
-    networkSlug: text(formData, 'networkSlug'), territory: text(formData, 'territory'),
-    moduleKeys: formData.getAll('moduleKeys').map(String),
-    connectorIds: formData.getAll('connectorIds').map(String),
-    location: {
-      name: text(formData, 'locationName'), street: text(formData, 'street'),
-      city: text(formData, 'city'), region: text(formData, 'region'),
-      postal: text(formData, 'postal'), timezone: text(formData, 'timezone'),
-      openTime: text(formData, 'openTime'), closeTime: text(formData, 'closeTime'),
-      days: formData.getAll('days').map(String),
-    },
-  });
+  const session = await currentSession();
+  if (!mayProvisionOrganizations(session)) {
+    return {
+      kind: 'error',
+      message: session
+        ? 'Only a platform administrator can create an organization.'
+        : 'Sign in to create an organization.',
+    };
+  }
+  const parsed = parseOrgDraft(orgInputFromForm(formData));
   if (!parsed.ok) return { kind: 'error', message: parsed.error };
   const draft = parsed.draft;
   const idempotencyKey = text(formData, 'idempotencyKey');
   if (!/^[0-9a-f-]{36}$/i.test(idempotencyKey)) {
     return { kind: 'error', message: 'This form expired. Reload it and try again.' };
   }
+  if (tenantFolderTaken(draft.slug)) {
+    return {
+      kind: 'error',
+      message: `A tenant named ${draft.slug} already exists in this workspace. Choose a different name.`,
+    };
+  }
 
   let brandId: string;
   let locationId: string | null = null;
   let factoryIssue = false;
+  let packIssue = false;
   if (!isConfigured()) {
     brandId = draft.slug;
     addDemoOrg({
@@ -76,7 +87,7 @@ export async function createOrganizationAction(
       hqUrl: process.env.NEXT_PUBLIC_HQ_URL, vercelEnvironment: process.env.VERCEL_ENV,
       vercelUrl: process.env.VERCEL_URL,
     });
-    const actorId = session?.userId ?? authUser?.userId ?? null;
+    const actorId = session.userId;
     if (!client || !environment || !callback || !actorId) {
       return { kind: 'error', message: 'Owner invitations are not configured for this deployment.' };
     }
@@ -98,7 +109,7 @@ export async function createOrganizationAction(
         p_owner_user_id: owner.userId, p_owner_email: draft.ownerEmail,
         p_organization_kind: draft.organizationKind, p_industry_key: draft.industryKey,
         p_blueprint_key: draft.blueprintKey, p_brand_config: draft.brandConfig,
-        p_location: draft.location, p_modules: draft.modules,
+        p_location: provisioningLocation(draft.location), p_modules: draft.modules,
         p_network_slug: draft.networkSlug, p_territory: draft.territory,
         p_inheritance_policy: draft.inheritancePolicy,
         p_connectors: draft.connectors,
@@ -132,8 +143,10 @@ export async function createOrganizationAction(
   }
 
   try {
-    tryWriteTenantPack(tenantPackFromDraft(draft));
+    const written = tryWriteTenantPack(tenantPackFromDraft(draft));
+    packIssue = written.kind === 'refused' || written.kind === 'failed';
   } catch (error) {
+    packIssue = true;
     console.error(JSON.stringify({
       severity: 'error',
       component: 'organization-provisioning',
@@ -144,14 +157,14 @@ export async function createOrganizationAction(
   }
 
   const workspaceSession = {
-    userId: session?.userId ?? authUser?.userId ?? null,
-    email: session?.email ?? authUser?.email ?? draft.ownerEmail,
-    role: session?.role ?? 'brand_owner',
+    userId: session.userId,
+    email: session.email,
+    role: session.role,
     brandId,
     brandName: draft.name,
   } as const;
   const switched = await switchWorkspaceToProvisionedOrg({
-    session: workspaceSession, brandId, locationId, factoryIssue,
+    session: workspaceSession, brandId, locationId, factoryIssue, packIssue,
   });
   return switched;
 }
