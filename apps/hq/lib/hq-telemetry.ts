@@ -88,7 +88,7 @@ export async function recordHqScreen(
   const context = {
     brandId: input.brandId,
     surface: 'hq' as const,
-    appVersion: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 12) ?? 'hq-web',
+    appVersion: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 12) || 'hq-web',
     sessionHash: serverSessionHash(input.accessToken, now),
     consent: {
       essential: true as const,

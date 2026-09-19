@@ -301,6 +301,21 @@ connector installation, and release carries the tenant/brand boundary.
 - Enable native publishing only after the client store accounts and legal agreements are
   ready. Missing access stays `Setup required`; it never reports a false production pass.
 
+## ACTZ partner bridge (Wave 8 secrets)
+
+Server-only env for `POST/GET /api/integrations/actz/organizations*`. Set these in
+Vercel HQ (Preview + Production) and never in client bundles or git:
+
+| Variable | Purpose |
+| --- | --- |
+| `ACTZ_INTEGRATION_SECRET` | Shared `x-integration-key` HMAC/secret with ACTZ. Fail closed if unset. Never reuse `ELEVATE_INTEGRATION_SECRET`. |
+| `APP_FACTORY_HANDOFF_SECRET` | Optional short-TTL handoff JWT (`aud=app-factory`). Missing → 501 when a bearer is presented. |
+| `ACTZ_PROVIDER_PORTAL_URL` | ACTZ portal origin (no trailing slash) for deep-links. |
+| `APP_FACTORY_HQ_URL` | Public HQ origin ACTZ may deep-link (no trailing slash). |
+
+After rotate: redeploy HQ, smoke `x-integration-key` against create/status, confirm
+`REQUIRED_DATABASE_RELEASE` matches the provision migration on the linked Supabase.
+
 ## Billing contract encoded by the factory
 
 - First 30 days: $0 setup and $0 platform fee; 2% app-order commission.
