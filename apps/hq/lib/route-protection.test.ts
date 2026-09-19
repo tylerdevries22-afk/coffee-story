@@ -66,7 +66,8 @@ const ALLOWED_PUBLIC_PREFIXES = [
   // -- and the only business data it ever shows comes from /d/pack.json,
   // which checks the httpOnly cookie /d/ set. It serves no session or
   // credential of its own, never staff or tenant data, and it is noindex,
-  // no-referrer and no-store.
+  // no-referrer and no-store -- apart from its content-hashed bundles, which
+  // are the same for every demo and are cached (next.config.ts).
   // The trailing slash keeps it from matching /demos, the staff console's
   // demo-factory dashboard.
   "'/demo/'",
